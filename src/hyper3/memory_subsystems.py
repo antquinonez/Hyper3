@@ -318,19 +318,24 @@ class SubsystemMixin(_MemoryBase):
     def introspect(self) -> dict[str, Any]:
         return self._meta.introspect(self._rules)
 
-    def check_metamorphosis(self):
+    def check_metamorphosis(self) -> list[Any]:
+        """Check whether any metamorphosis triggers fire (fitness, efficiency, staleness)."""
         return self._meta.check_metamorphosis_triggers()
 
-    def propose_metamorphosis(self, triggers=None):
+    def propose_metamorphosis(self, triggers: list[Any] | None = None) -> Any:
+        """Propose a metamorphosis plan from the given or auto-detected triggers."""
         return self._meta.propose_metamorphosis(triggers)
 
-    def analyze_in_frame(self, concept: str, frame_name: str):
+    def analyze_in_frame(self, concept: str, frame_name: str) -> Any:
+        """Analyze a concept from a specific computational frame perspective."""
         return self._relativity.analyze_in_frame(concept, frame_name)
 
-    def multi_frame_analysis(self, concept: str):
+    def multi_frame_analysis(self, concept: str) -> Any:
+        """Analyze a concept across all computational frames."""
         return self._relativity.multi_frame_analysis(concept)
 
-    def select_optimal_frame(self, concept: str):
+    def select_optimal_frame(self, concept: str) -> Any:
+        """Select the best computational frame for reasoning about a concept."""
         return self._relativity.select_optimal_frame(concept)
 
     @property

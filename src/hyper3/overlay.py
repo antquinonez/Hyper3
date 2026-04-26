@@ -92,7 +92,36 @@ class HypergraphOverlay:
         return base + overlay
 
     def merge_node(self, primary_id: str, secondary_id: str) -> Hypernode | None:
-        return self._base.merge_node(primary_id, secondary_id)
+        """Merge secondary into primary across both overlay and base graph.
+
+        If the secondary node exists in the overlay, removes it and remaps
+        all overlay edges so that ``secondary_id`` is replaced by
+        ``primary_id`` in source/target frozensets. Then delegates to
+        ``base.merge_node()`` for the base graph merge.
+        """
+        if secondary_id in self._overlay_nodes:
+            secondary = self._overlay_nodes.pop(secondary_id)
+            if secondary.label:
+                self._overlay_label_index.pop(secondary.label, None)
+            for eid in list(self._overlay_node_to_edges.get(secondary_id, set())):
+                edge = self._overlay_edges.get(eid)
+                if edge:
+                    new_source = (edge.source_ids - {secondary_id}) | {primary_id}
+                    new_target = (edge.target_ids - {secondary_id}) | {primary_id}
+                    edge.source_ids = frozenset(new_source)
+                    edge.target_ids = frozenset(new_target)
+                    for nid in new_source | new_target:
+                        self._overlay_node_to_edges.setdefault(nid, set()).add(eid)
+                    self._overlay_node_to_edges.pop(secondary_id, None)
+            primary_in_overlay = primary_id in self._overlay_nodes
+            if not primary_in_overlay:
+                primary_base = self._base.get_node(primary_id)
+                if primary_base:
+                    self._overlay_nodes[primary_id] = primary_base
+        result = self._base.merge_node(primary_id, secondary_id)
+        if result and result.label:
+            self._overlay_label_index[result.label] = result.id
+        return result
 
     @property
     def nodes(self) -> list[Hypernode]:

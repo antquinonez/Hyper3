@@ -157,7 +157,7 @@ class TestSubgraph:
         mem.store("c")
         mem.relate("a", "b", label="x")
         result = mem.subgraph({"a", "b"})
-        assert result["nodes"] == 2
+        assert result["node_count"] == 2
 
 
 class TestDegreeBetweennessCentrality:

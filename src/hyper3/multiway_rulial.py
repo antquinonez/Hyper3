@@ -174,14 +174,40 @@ class RulialSpace:
         return float(min(diversity, 1.0))
 
     def _compute_branchial_coords(self) -> list[float]:
+        """Compute a 6-dimensional branchial coordinate vector.
+
+        Returns ``[n_states, n_leaves, max_depth, avg_branching_factor,
+        min(depth_std, 1.0), min(max_branching / n_states, 1.0)]``.
+        Falls back to ``[n_graph_nodes, n_graph_edges, 0, 0, 0, 0]``
+        when no multiway states exist.
+        """
         if not self._multiway:
             return []
         mw = self._multiway.multiway
-        leaves = mw.get_leaves()
-        n_leaves = len(leaves)
-        n_states = mw.state_count
-        max_depth = max((s.depth for s in mw.states), default=0)
-        return [float(n_states), float(n_leaves), float(max_depth)]
+        states = list(mw.states)
+        n_states = len(states)
+        n_leaves = len(mw.get_leaves())
+        max_depth = max((s.depth for s in states), default=0)
+        if n_states == 0:
+            n_nodes = self._graph.node_count
+            n_edges = self._graph.edge_count
+            return [float(n_nodes), float(n_edges), 0.0, 0.0, 0.0, 0.0]
+        depths = [s.depth for s in states]
+        branch_counts: dict[str, int] = {}
+        for s in states:
+            if s.parent_id:
+                branch_counts[s.parent_id] = branch_counts.get(s.parent_id, 0) + 1
+        max_branching = max(branch_counts.values(), default=1)
+        avg_branching = sum(branch_counts.values()) / max(len(branch_counts), 1)
+        depth_variance = sum((d - sum(depths) / len(depths)) ** 2 for d in depths) / max(len(depths), 1)
+        return [
+            float(n_states),
+            float(n_leaves),
+            float(max_depth),
+            float(avg_branching),
+            float(min(depth_variance ** 0.5, 1.0)),
+            float(min(max_branching / max(n_states, 1), 1.0)),
+        ]
 
     def record_rule_application(self, rule_name: str) -> None:
         self._explored_rules[rule_name] = self._explored_rules.get(rule_name, 0) + 1

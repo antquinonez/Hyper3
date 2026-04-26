@@ -378,7 +378,19 @@ class AbductiveRule(Rule):
         return [hypothesis_node.id], [edge.id]
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
-        return 0.5
+        """Score an abductive hypothesis match using the supporting evidence edge.
+
+        Looks up the ``via_edge`` from match context and returns
+        ``edge.weight * 0.6 * confidence``, clamped to ``[0.1, 1.0]``.
+        Falls back to ``0.3`` if no edge is found.
+        """
+        via_edge_id = match.context.get("via_edge")
+        if via_edge_id:
+            edge = graph.get_edge(via_edge_id)
+            if edge:
+                conf = edge.metadata.custom.get("confidence", 1.0)
+                return min(max(edge.weight * 0.6 * conf, 0.1), 1.0)
+        return 0.3
 
     def to_dict(self) -> dict[str, Any]:
         return {"rule_type": "AbductiveRule", "effect_label": self._effect_label, "cause_label": self._cause_label}
@@ -434,7 +446,25 @@ class PropertyPropagationRule(Rule):
         return [], []
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
-        return 0.7
+        """Score a property propagation match using edge weight and value specificity.
+
+        Looks up ``via_edge`` from match context and computes a specificity
+        factor from ``property_value``: numeric values scale by magnitude,
+        strings scale by length. Returns ``edge.weight * 0.7 * specificity``,
+        clamped to ``[0.1, 1.0]``. Falls back to ``0.4`` if no edge is found.
+        """
+        via_edge_id = match.context.get("via_edge")
+        prop_val = match.context.get("property_value")
+        if via_edge_id:
+            edge = graph.get_edge(via_edge_id)
+            if edge:
+                specificity = 0.5
+                if isinstance(prop_val, (int, float)):
+                    specificity = min(abs(prop_val) * 0.1, 0.5) + 0.5
+                elif isinstance(prop_val, str):
+                    specificity = min(len(prop_val) * 0.05, 0.5) + 0.5
+                return min(max(edge.weight * 0.7 * specificity, 0.1), 1.0)
+        return 0.4
 
     def to_dict(self) -> dict[str, Any]:
         return {"rule_type": "PropertyPropagationRule", "property_key": self._property_key, "edge_label": self._edge_label}

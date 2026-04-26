@@ -34,6 +34,7 @@ class SpreadingActivation:
         self._graph = graph
         self._config = config or ActivationConfig()
         self._activations: dict[str, float] = {}
+        self._depth_map: dict[str, int] = {}
 
     @property
     def config(self) -> ActivationConfig:
@@ -45,9 +46,12 @@ class SpreadingActivation:
 
     def clear(self) -> None:
         self._activations.clear()
+        self._depth_map.clear()
 
     def stimulate(self, node_id: str, energy: float = 1.0) -> None:
         self._activations[node_id] = self._activations.get(node_id, 0.0) + energy
+        if node_id not in self._depth_map:
+            self._depth_map[node_id] = 0
 
     def stimulate_label(self, label: str, energy: float = 1.0) -> None:
         node = self._graph.get_node_by_label(label)
@@ -55,11 +59,19 @@ class SpreadingActivation:
             self.stimulate(node.id, energy)
 
     def spread(self, iterations: int | None = None) -> dict[str, float]:
+        """Spread activation energy across graph edges for the given number of iterations.
+
+        Energy decays by ``decay_factor`` per hop and is split equally among
+        neighbors. In directional mode, energy flows source→target at full
+        rate and target→source at 0.3x rate. Tracks minimum depth per node.
+        Normalizes to preserve max activation when ``normalize_per_step`` is True.
+        """
         iters = iterations if iterations is not None else self._config.max_iterations
         for _ in range(iters):
             if not self._activations:
                 break
             delta: dict[str, float] = {}
+            delta_depth: dict[str, int] = {}
             current_max = max(self._activations.values()) if self._activations else 0.0
             for node_id, activation in list(self._activations.items()):
                 edges = self._graph.edges_for(node_id)
@@ -77,8 +89,16 @@ class SpreadingActivation:
                     per_neighbor = spread_energy / len(neighbors) if neighbors else 0.0
                     for neighbor_id in neighbors:
                         delta[neighbor_id] = delta.get(neighbor_id, 0.0) + per_neighbor
+                        current_depth = self._depth_map.get(node_id, 0)
+                        existing_depth = self._depth_map.get(neighbor_id)
+                        new_depth = current_depth + 1
+                        if existing_depth is None or new_depth < existing_depth:
+                            delta_depth[neighbor_id] = new_depth
             for nid, energy in delta.items():
                 self._activations[nid] = self._activations.get(nid, 0.0) + energy
+            for nid, depth in delta_depth.items():
+                if nid not in self._depth_map or depth < self._depth_map[nid]:
+                    self._depth_map[nid] = depth
             if self._config.normalize_per_step and current_max > 0:
                 new_max = max(self._activations.values()) if self._activations else 0.0
                 if new_max > 0:
@@ -95,6 +115,11 @@ class SpreadingActivation:
         threshold: float | None = None,
         top_k: int | None = None,
     ) -> list[ActivationResult]:
+        """Return activated nodes above threshold, sorted by activation descending.
+
+        Each result includes the propagation depth (minimum hops from the
+        seed node). Use ``top_k`` to limit the result count.
+        """
         t = threshold if threshold is not None else self._config.activation_threshold
         results: list[ActivationResult] = []
         for nid, activation in self._activations.items():
@@ -102,7 +127,7 @@ class SpreadingActivation:
                 continue
             node = self._graph.get_node(nid)
             label = node.label if node else ""
-            depth = 0
+            depth = self._depth_map.get(nid, 0)
             results.append(ActivationResult(node_id=nid, label=label, activation=activation, depth=depth))
         results.sort(key=lambda r: r.activation, reverse=True)
         if top_k is not None:

@@ -208,8 +208,8 @@ class TestMemoryAnalyticsFacade:
         mem.store("c")
         mem.relate("a", "b", label="e")
         result = mem.subgraph({"a", "b"})
-        assert result["nodes"] == 2
-        assert result["edges"] == 1
+        assert result["node_count"] == 2
+        assert result["edge_count"] == 1
 
     def test_has_cycle_facade(self):
         mem = CognitiveMemory(evolve_interval=0)

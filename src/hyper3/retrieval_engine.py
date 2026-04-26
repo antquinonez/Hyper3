@@ -219,11 +219,16 @@ class RetrievalEngine:
             sim_norm = sim_score_map.get(nid, 0.0) / max(max_sim, 1e-9)
             degree = len(self._graph.neighbors(nid))
             degree_norm = degree / max(self._graph.node_count, 1)
+            seed_node = self._graph.get_node_by_label(concept)
+            if not seed_node:
+                seed_node = self._graph.get_node(concept)
+            depth = self._graph.shortest_path(seed_node.id, nid) if seed_node else None
+            inverse_depth = 1.0 / max(len(depth) - 1, 1) if depth else 0.0
             features = {
                 "activation": act_norm,
                 "similarity": sim_norm,
                 "degree": degree_norm,
-                "inverse_depth": 1.0,
+                "inverse_depth": inverse_depth,
             }
             ltr_score = self._ltr.score(features)
             r = RetrievalResult(
@@ -249,11 +254,14 @@ class RetrievalEngine:
         count = 0
         for r in results:
             relevant = r.label in relevant_labels
+            seed_node = self._graph.get_node_by_label(query) or self._graph.get_node(query)
+            depth_path = self._graph.shortest_path(seed_node.id, r.node_id) if seed_node else None
+            inverse_depth = 1.0 / max(len(depth_path) - 1, 1) if depth_path else 0.0
             features = {
                 "activation": r.activation / max(max_act, 1e-9),
                 "similarity": r.similarity / max(max_sim, 1e-9),
                 "degree": len(self._graph.neighbors(r.node_id)) / max(self._graph.node_count, 1),
-                "inverse_depth": 1.0,
+                "inverse_depth": inverse_depth,
             }
             self._feedback.record(query, r.node_id, r.label, relevant, features)
             count += 1

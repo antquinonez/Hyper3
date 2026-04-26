@@ -333,6 +333,12 @@ class RegexExtractor:
                     ))
 
     def _resolve_coreference(self, text: str, entities: dict[str, ExtractedEntity]) -> None:
+        """Resolve pronoun coreferences by linking pronouns to the last seen capitalized entity.
+
+        For each pronoun found with a known antecedent, creates an
+        ``ExtractedEntity`` for the pronoun (confidence 0.6) and refreshes
+        the antecedent entry. Also discovers new capitalized entities.
+        """
         sentences = SENTENCE_SPLIT_RE.split(text)
         if len(sentences) < 2:
             return
@@ -342,7 +348,14 @@ class RegexExtractor:
             for word in words:
                 clean = word.strip(".,;:!?()[]{}\"'").lower()
                 if clean in PRONOUNS and last_entity and last_entity in entities:
-                    pass
+                    entities[clean] = ExtractedEntity(
+                        label=clean,
+                        confidence=0.6,
+                    )
+                    entities[last_entity] = ExtractedEntity(
+                        label=last_entity,
+                        confidence=entities[last_entity].confidence,
+                    )
                 elif word and word[0].isupper() and clean not in STOP_WORDS:
                     stripped = word.strip(".,;:!?()[]{}\"'")
                     if stripped and stripped not in entities:

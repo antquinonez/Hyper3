@@ -243,7 +243,7 @@ _TRANSFORM_FNS: dict[tuple[str, str], Any] = {
     ("probabilistic", "hypergraph"): _probabilistic_to_hypergraph,
 }
 
-_FRAMES = {"classical", "quantum", "hypergraph", "probabiliable"}
+_FRAMES = {"classical", "quantum", "hypergraph", "probabilistic"}
 
 
 class FrameTransformer:

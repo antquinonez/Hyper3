@@ -50,13 +50,35 @@ class AnalyticsMixin(_MemoryBase):
         return results
 
     def subgraph(self, concept_labels: set[str]) -> dict[str, Any]:
+        """Extract an induced subgraph for the given concept labels.
+
+        Returns a dict with:
+          - ``nodes``: list of ``{id, label}`` dicts for each node in the subgraph
+          - ``edges``: list of ``{id, label, source_ids, target_ids, weight}`` dicts
+          - ``node_count``: number of nodes
+          - ``edge_count``: number of edges
+        """
         node_ids: set[str] = set()
         for label in concept_labels:
             node = self._find_node(label)
             if node:
                 node_ids.add(node.id)
         sg = self._graph.subgraph(node_ids)
-        return {"nodes": sg.node_count, "edges": sg.edge_count}
+        return {
+            "nodes": [{"id": n.id, "label": n.label} for n in sg.nodes],
+            "edges": [
+                {
+                    "id": e.id,
+                    "label": e.label,
+                    "source_ids": list(e.source_ids),
+                    "target_ids": list(e.target_ids),
+                    "weight": e.weight,
+                }
+                for e in sg.edges
+            ],
+            "node_count": sg.node_count,
+            "edge_count": sg.edge_count,
+        }
 
     def degree_centrality(self) -> dict[str, float]:
         return self._graph.degree_centrality()

@@ -65,8 +65,11 @@ class QuantumMixin(_MemoryBase):
     def detect_collapse_triggers(self, qs: QuantumState) -> list[CollapseTrigger]:
         return self._quantum.detect_collapse_triggers(qs.id)
 
-    def compute_interference(self, qs: QuantumState):
-        return self._quantum.compute_interference(qs.id)
+    def compute_interference(self, qs: QuantumState) -> Any:
+        """Compute the interference pattern for a quantum superposition state."""
+        result = self._quantum.compute_interference(qs.id)
+        self._log.record("compute_interference", state_id=qs.id)
+        return result
 
     def entangle(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> QuantumEntanglement:
         label_to_id: dict[str, str] = {}
@@ -117,8 +120,11 @@ class QuantumMixin(_MemoryBase):
     def reason_transfinite(self, concept: str, context: dict[str, Any] | None = None, *, max_level: int = 4) -> TransfiniteResult:
         return self._transfinite.reason_at_level(concept, context, max_level=max_level)
 
-    def map_boundaries(self, concepts: list[str]):
-        return self._transfinite.map_boundaries(concepts)
+    def map_boundaries(self, concepts: list[str]) -> Any:
+        """Map transfinite boundaries (self-referential, undecidable regions) for concepts."""
+        result = self._transfinite.map_boundaries(concepts)
+        self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)
+        return result
 
     def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []

@@ -238,6 +238,13 @@ class BranchialSpace:
         return mean_emb
 
     def _computational_distance(self, a_id: str, b_id: str) -> float:
+        """Compute computational distance between two multiway states.
+
+        Returns 0.0 if both have the same applied rule, 1.0 if only one has
+        a rule. For different rules, uses Jaccard dissimilarity of produced
+        edge IDs first, then Jaccard dissimilarity of active node IDs, with
+        a final fallback of 0.5.
+        """
         state_a = self._multiway.get_state(a_id)
         state_b = self._multiway.get_state(b_id)
         if not state_a or not state_b:
@@ -250,6 +257,16 @@ class BranchialSpace:
             return 1.0
         if rules_a == rules_b:
             return 0.0
+        a_edges = set(state_a.produced_edge_ids)
+        b_edges = set(state_b.produced_edge_ids)
+        if a_edges and b_edges:
+            overlap = len(a_edges & b_edges) / max(len(a_edges | b_edges), 1)
+            return 1.0 - overlap
+        a_nodes = state_a.active_node_ids
+        b_nodes = state_b.active_node_ids
+        if a_nodes and b_nodes:
+            overlap = len(a_nodes & b_nodes) / max(len(a_nodes | b_nodes), 1)
+            return 1.0 - overlap
         return 0.5
 
     def _evolutionary_distance(self, a_id: str, b_id: str, structural: float | None = None) -> float:
@@ -452,12 +469,18 @@ class BranchialSpace:
         return scores
 
     def _find_transferable(self, state_a: MultiwayState, state_b: MultiwayState) -> list[str]:
-        patterns: list[str] = []
+        """Return edge labels present in state_b's produced edges but absent from state_a's."""
+        a_labels: set[str] = set()
+        for eid in state_a.produced_edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge and edge.label:
+                a_labels.add(edge.label)
+        b_labels: set[str] = set()
         for eid in state_b.produced_edge_ids:
             edge = self._graph.get_edge(eid)
             if edge and edge.label:
-                patterns.append(edge.label)
-        return list(set(patterns))
+                b_labels.add(edge.label)
+        return list(b_labels - a_labels)
 
     def find_analogous_states(
         self,

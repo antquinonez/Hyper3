@@ -424,6 +424,13 @@ class MetaCognitiveLayer:
         return {"poorly_connected": len(poorly_connected), "new_edges": new_edges}
 
     def _promote_pattern_to_rule(self) -> dict[str, Any]:
+        """Promote the highest-significance rulial meta-pattern to a concrete Rule.
+
+        Maps pattern types to rule factories, extracting edge labels from
+        the pattern's ``abstract_structure`` when available. For example,
+        ``recurring_relation`` with ``edge_label="rel"`` creates
+        ``TransitiveRule(edge_label="rel")`` rather than a generic wildcard.
+        """
         if not self._rulial:
             return {"promoted": False, "reason": "no rulial"}
         patterns = self._rulial._meta_patterns
@@ -433,15 +440,18 @@ class MetaCognitiveLayer:
         if best.significance < 0.3:
             return {"promoted": False, "reason": "insufficient significance", "significance": best.significance}
         from hyper3.rules import TransitiveRule, InverseRule, CausalInferenceRule, ContextualSubstitutionRule
+        structure = best.abstract_structure
+        edge_label = structure.get("edge_label", "")
         rule_map = {
-            "recurring_relation": TransitiveRule,
-            "chain_motif": TransitiveRule,
-            "hub_motif": CausalInferenceRule,
-            "mutual_information": CausalInferenceRule,
-            "cross_domain": ContextualSubstitutionRule,
+            "recurring_relation": lambda: TransitiveRule(edge_label=edge_label) if edge_label else TransitiveRule(),
+            "chain_motif": lambda: TransitiveRule(edge_label=edge_label) if edge_label else TransitiveRule(),
+            "hub_motif": lambda: CausalInferenceRule(),
+            "mutual_information": lambda: CausalInferenceRule(),
+            "inverse_pair": lambda: InverseRule(edge_label=edge_label, inverse_label=structure.get("inverse_label", f"inv_{edge_label}")) if edge_label else InverseRule(edge_label="related", inverse_label="related_inv"),
+            "cross_domain": lambda: ContextualSubstitutionRule(),
         }
-        rule_cls = rule_map.get(best.pattern_type, TransitiveRule)
-        new_rule = rule_cls()
+        factory = rule_map.get(best.pattern_type, lambda: TransitiveRule())
+        new_rule = factory()
         if self._rules is not None:
             self._rules.append(new_rule)
         return {"promoted": True, "pattern_type": best.pattern_type, "rule_name": new_rule.name}
