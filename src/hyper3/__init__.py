@@ -134,3 +134,7 @@ from hyper3.enrichment import (
     LLMProvider,
     RegexExtractor,
 )
+from hyper3.feedback import (
+    FeedbackSignal,
+    OperationFeedback,
+)

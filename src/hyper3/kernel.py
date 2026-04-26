@@ -514,7 +514,7 @@ class EquivalenceEngine:
                 continue
             for i in range(len(block_nodes)):
                 for j in range(i + 1, len(block_nodes)):
-                    score = block_nodes[i].matches(block_nodes[j])
+                    score = self._similarity(block_nodes[i], block_nodes[j])
                     if score >= self._threshold:
                         pairs.append((block_nodes[i].id, block_nodes[j].id, score))
         pairs.sort(key=lambda p: p[2], reverse=True)
@@ -526,6 +526,31 @@ class EquivalenceEngine:
         if isinstance(node.data, dict):
             return f"dict:{','.join(sorted(node.data.keys())[:5])}"
         return type(node.data).__name__
+
+    def _similarity(self, node_a: Hypernode, node_b: Hypernode) -> float:
+        data_sim = node_a.matches(node_b)
+        if data_sim >= self._threshold:
+            return data_sim
+        struct_sim = self._structural_similarity(node_a, node_b)
+        combined = 0.4 * data_sim + 0.6 * struct_sim
+        return max(data_sim, combined)
+
+    def _structural_similarity(self, node_a: Hypernode, node_b: Hypernode) -> float:
+        neighbors_a: set[str] = set()
+        for edge in self._graph.edges_for(node_a.id):
+            neighbors_a.update(edge.target_ids | edge.source_ids)
+        neighbors_a.discard(node_a.id)
+        neighbors_b: set[str] = set()
+        for edge in self._graph.edges_for(node_b.id):
+            neighbors_b.update(edge.target_ids | edge.source_ids)
+        neighbors_b.discard(node_b.id)
+        if not neighbors_a and not neighbors_b:
+            return 1.0
+        if not neighbors_a or not neighbors_b:
+            return 0.0
+        overlap = len(neighbors_a & neighbors_b)
+        union = len(neighbors_a | neighbors_b)
+        return overlap / union
 
     def merge_equivalences(self) -> list[str]:
         merged: list[str] = []

@@ -212,7 +212,7 @@ class CollapseTrigger:
 @dataclass
 class Interpretation:
     node_id: str
-    amplitude: float
+    amplitude: float | complex
     metadata: dict[str, Any] = field(default_factory=dict)
     label: str = ""
 
@@ -231,13 +231,13 @@ class QuantumState:
     coherence_time: float = 30.0
     entanglement_ids: list[str] = field(default_factory=list)
 
-    def add_interpretation(self, node_id: str, amplitude: float, **meta: Any) -> None:
+    def add_interpretation(self, node_id: str, amplitude: float | complex, **meta: Any) -> None:
         label = meta.pop("label", "")
         interp = Interpretation(node_id=node_id, amplitude=amplitude, metadata=meta, label=label)
         self.interpretations.append(interp)
 
     def normalize(self) -> None:
-        total = sum(i.amplitude ** 2 for i in self.interpretations)
+        total = sum(abs(i.amplitude) ** 2 for i in self.interpretations)
         if total > 0:
             scale = total ** -0.5
             for i in self.interpretations:
@@ -365,6 +365,62 @@ class QuantumCognitiveLayer:
                 interp.amplitude *= updates[interp.node_id]
         qs.normalize()
 
+    def evolve_unitary(self, qs_id: str, unitary: np.ndarray) -> None:
+        qs = self._states.get(qs_id)
+        if not qs or not qs.interpretations:
+            return
+        n = len(qs.interpretations)
+        if unitary.shape != (n, n):
+            return
+        amp_vec = np.array([i.amplitude for i in qs.interpretations], dtype=complex)
+        amp_vec = unitary @ amp_vec
+        for i, interp in enumerate(qs.interpretations):
+            interp.amplitude = complex(amp_vec[i])
+        qs.normalize()
+
+    @staticmethod
+    def hadamard_2x2() -> np.ndarray:
+        return np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
+
+    @staticmethod
+    def phase_shift(theta: float, n: int, target: int) -> np.ndarray:
+        u = np.eye(n, dtype=complex)
+        if 0 <= target < n:
+            u[target, target] = np.exp(1j * theta)
+        return u
+
+    def compute_density_matrix(self, qs_id: str) -> np.ndarray | None:
+        qs = self._states.get(qs_id)
+        if not qs or not qs.interpretations:
+            return None
+        n = len(qs.interpretations)
+        amp_vec = np.array([i.amplitude for i in qs.interpretations], dtype=complex)
+        rho = np.outer(amp_vec, amp_vec.conj())
+        return rho
+
+    @staticmethod
+    def von_neumann_entropy(rho: np.ndarray) -> float:
+        eigenvalues = np.linalg.eigvalsh(rho)
+        pos = eigenvalues[eigenvalues > 1e-15]
+        if len(pos) == 0:
+            return 0.0
+        return float(-np.sum(pos * np.log2(pos)))
+
+    @staticmethod
+    def partial_trace(rho: np.ndarray, keep: list[int], dims: list[int]) -> np.ndarray:
+        total = sum(dims)
+        if rho.shape != (total, total):
+            return rho
+        kept_idx: list[int] = []
+        offset = 0
+        for i, d in enumerate(dims):
+            if i in keep:
+                kept_idx.extend(range(offset, offset + d))
+            offset += d
+        if not kept_idx:
+            return np.array([[]])
+        return rho[np.ix_(kept_idx, kept_idx)]
+
     def detect_collapse_triggers(self, qs_id: str) -> list[CollapseTrigger]:
         qs = self._states.get(qs_id)
         if not qs or qs.collapsed:
@@ -392,26 +448,26 @@ class QuantumCognitiveLayer:
         if not qs or len(qs.interpretations) < 2:
             return []
         patterns: list[InterferencePattern] = []
-        by_node: dict[str, list[float]] = {}
+        by_node: dict[str, list[float | complex]] = {}
         for interp in qs.interpretations:
             by_node.setdefault(interp.node_id, []).append(interp.amplitude)
         for node_id, amps in by_node.items():
             if len(amps) < 2:
                 continue
             net_amp = sum(amps)
-            sum_sq_individual = sum(a ** 2 for a in amps)
-            net_sq = net_amp ** 2
+            sum_sq_individual = sum(abs(a) ** 2 for a in amps)
+            net_sq = abs(net_amp) ** 2
             if net_sq > sum_sq_individual:
-                constructive = net_amp
+                constructive = abs(net_amp)
                 destructive = 0.0
             else:
                 constructive = 0.0
-                destructive = net_amp
+                destructive = abs(net_amp)
             patterns.append(InterferencePattern(
                 node_id=node_id,
                 constructive=constructive,
                 destructive=destructive,
-                net_amplitude=net_amp,
+                net_amplitude=abs(net_amp),
             ))
         return patterns
 

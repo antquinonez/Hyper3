@@ -226,7 +226,7 @@ def plot_quantum_state(
     if show_amplitudes:
         ax = axes[idx]
         amplitudes = [i.amplitude for i in qs.interpretations]
-        colors = ["#4477AA" if a >= 0 else "#cc4444" for a in amplitudes]
+        colors = ["#4477AA" if (a.real if isinstance(a, complex) else a) >= 0 else "#cc4444" for a in amplitudes]
         bars = ax.bar(range(n), amplitudes, color=colors, edgecolor="#333333", linewidth=0.5)
         ax.set_xticks(range(n))
         ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)

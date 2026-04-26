@@ -84,16 +84,22 @@ class MetaCognitiveLayer:
 
         total_ops = evolution_metrics.total_refinements
         recent_prunes = evolution_metrics.total_prunes
-        prune_health = 1.0 - min(recent_prunes / max(total_ops + 1, 1), 1.0)
+        prune_ratio = min(recent_prunes / max(total_ops, 1), 1.0)
+        prune_health = 1.0 - prune_ratio
 
         recall_events = [e for e in log.query("recall") if e["timestamp"] > (time.time() - 3600)]
         if recall_events:
             hits = sum(1 for e in recall_events if e.get("details", {}).get("result_count", 0) > 0)
             query_hit_rate = hits / len(recall_events)
         else:
-            query_hit_rate = 1.0
+            query_hit_rate = 0.5
 
-        return 0.3 * edge_utility + 0.3 * connectivity + 0.2 * prune_health + 0.2 * query_hit_rate
+        factors = [edge_utility + 0.001, connectivity + 0.001, prune_health + 0.001, query_hit_rate + 0.001]
+        product = 1.0
+        for f in factors:
+            product *= max(f, 0.001)
+        geometric_mean = product ** (1.0 / len(factors))
+        return geometric_mean
 
     def assess_state(self, rules: list[Rule] | None = None) -> CognitiveStateModel:
         state = CognitiveStateModel(timestamp=time.time())
