@@ -206,7 +206,7 @@ examples/            Example scripts organized by difficulty
   README.md          Index of all examples
 demo*.py             Runnable demo scripts (legacy, kept for backward compat)
 demo*.py             Runnable demo scripts (legacy, kept for backward compat)
-benchmarks/          Performance benchmarks
+benchmarks/          Performance microbenchmarks and evaluation suite
 pyproject.toml       Project config (hatchling build backend)
 resources/           Reference patent documents (architecture spec)
 ```
