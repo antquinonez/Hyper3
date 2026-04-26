@@ -64,6 +64,7 @@ class RulialSpace:
         self._insights: list[TranscendentalInsight] = []
         self._explored_rules: dict[str, int] = {}
         self._total_applications: int = 0
+        self._rule_outcomes: dict[str, dict[str, int]] = {}
 
     def update_position(self, rules: list[Rule] | None = None) -> RulialPosition:
         pos = RulialPosition(timestamp=time.time())
@@ -185,6 +186,43 @@ class RulialSpace:
     def record_rule_application(self, rule_name: str) -> None:
         self._explored_rules[rule_name] = self._explored_rules.get(rule_name, 0) + 1
         self._total_applications += 1
+        self.record_rule_outcome(rule_name, "applied")
+
+    def record_rule_outcome(self, rule_name: str, outcome: str) -> None:
+        if rule_name not in self._rule_outcomes:
+            self._rule_outcomes[rule_name] = {"applications": 0, "useful": 0, "pruned": 0, "reinforced": 0}
+        entry = self._rule_outcomes[rule_name]
+        if outcome == "applied":
+            entry["applications"] += 1
+        elif outcome == "useful":
+            entry["applications"] += 1
+            entry["useful"] += 1
+        elif outcome == "pruned":
+            entry["pruned"] += 1
+        elif outcome == "reinforced":
+            entry["reinforced"] += 1
+
+    def get_rule_effectiveness(self) -> dict[str, dict[str, float]]:
+        result = {}
+        for rule_name, stats in self._rule_outcomes.items():
+            apps = max(stats["applications"], 1)
+            result[rule_name] = {
+                "effectiveness": stats["useful"] / apps,
+                "retention_rate": (stats["applications"] - stats["pruned"]) / apps,
+                "reinforcement_rate": stats["reinforced"] / apps,
+                "applications": float(stats["applications"]),
+            }
+        return result
+
+    def get_best_rules(self, top_k: int = 5) -> list[tuple[str, float]]:
+        effectiveness = self.get_rule_effectiveness()
+        scored = [(name, stats["effectiveness"]) for name, stats in effectiveness.items()]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return scored[:top_k]
+
+    @property
+    def rule_outcomes(self) -> dict[str, dict[str, int]]:
+        return {k: dict(v) for k, v in self._rule_outcomes.items()}
 
     def explore_rule_neighborhood(self, rules: list[Rule]) -> dict[str, Any]:
         if not self._multiway:
@@ -438,6 +476,7 @@ class RulialSpace:
             "spectral_entropy": self._compute_spectral_entropy(),
             "rule_diversity": len(self._explored_rules),
             "total_applications": self._total_applications,
+            "rule_effectiveness": self.get_rule_effectiveness(),
             "meta_patterns": len(self._meta_patterns),
             "transcendental_insights": len(self._insights),
             "position_history_length": len(self._position_history),

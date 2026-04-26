@@ -31,6 +31,9 @@ from hyper3.overlay import HypergraphOverlay
 from hyper3.memory import CognitiveMemory
 from hyper3.rules import (
     AbductiveRule,
+    AnalogicalReasoningRule,
+    CausalInferenceRule,
+    ContextualSubstitutionRule,
     GeneralizationRule,
     InverseRule,
     PropertyPropagationRule,
@@ -64,6 +67,8 @@ from hyper3.branchial import (
     BranchialDistanceMetrics,
     BranchialEntanglement,
     BranchialSpace,
+    MultiScaleAnalysis,
+    ScaleLevel,
     SimultaneityGroup,
 )
 from hyper3.rulial import (
@@ -75,6 +80,7 @@ from hyper3.rulial import (
 from hyper3.transfinite import (
     BoundaryIndicator,
     BoundaryRegion,
+    PartialProof,
     TransfiniteReasoner,
     TransfiniteResult,
 )

@@ -615,6 +615,40 @@ class CognitiveMemory:
     def discovery(self) -> RuleDiscoveryEngine:
         return self._discovery
 
+    @property
+    def cache(self) -> LazyCache:
+        return self._cache
+
+    def enable_prefetch(self, enabled: bool = True) -> None:
+        self._cache.enable_prefetch(enabled)
+
+    def record_access(self, concept: str) -> None:
+        self._cache.record_access(f"store:{concept}")
+
+    def predict_next_access(self, concept: str, top_k: int = 3) -> list[str]:
+        predicted_keys = self._cache.predict_next(f"store:{concept}", top_k=top_k)
+        result: list[str] = []
+        for key in predicted_keys:
+            if key.startswith("store:"):
+                label = key[6:]
+                if self._graph.get_node_by_label(label):
+                    result.append(label)
+                    continue
+            node = self._graph.get_node(key)
+            result.append(node.label if node else key)
+        return result
+
+    def prefetch_neighbors(self, concept: str) -> int:
+        node = self._find_node(concept)
+        if not node:
+            return 0
+        neighbor_data: dict[str, dict] = {}
+        for nid in self._graph.neighbors(node.id):
+            n = self._graph.get_node(nid)
+            if n:
+                neighbor_data[nid] = {"label": n.label, "data": n.data}
+        return self._cache.prefetch_neighbors(node.id, neighbor_data)
+
     def add_rules(self, *rules: Rule) -> None:
         self._rules.extend(rules)
 

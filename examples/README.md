@@ -31,6 +31,7 @@ Intermediate Examples (`intermediate/`)
 | 05 | `05_provenance_and_retraction.py` | Research knowledge graph | provenance tracking, explain(), retract_inference(), cascading retraction |
 | 06 | `06_graph_analytics.py` | Social network analysis | centrality, cycles, components, paths, degree distribution, graph embeddings |
 | 07 | `07_text_enrichment.py` | News article extraction | ingest, ingest_batch, regex extraction, passive voice, noun phrases, custom LLM provider |
+| 12 | `12_advanced_rules.py` | Network ops center | AnalogicalReasoningRule, CausalInferenceRule, ContextualSubstitutionRule, graph isomorphism |
 
 Advanced Examples (`advanced/`)
 -------------------------------
@@ -41,6 +42,7 @@ Advanced Examples (`advanced/`)
 | 09 | `09_iterative_frame_reasoning.py` | Fraud detection | reason_iterative, reason_with_frame, multi_frame_analysis, derive, enhanced frame metrics |
 | 10 | `10_multiway_lateral_insights.py` | Scientific hypotheses | multiway DAG, branchial space, lateral insights, causal invariance |
 | 11 | `11_quantum_diagnostics.py` | Medical diagnosis | superposition, entanglement, collapse, interference, unitary evolution, density matrix, Von Neumann entropy |
+| 12 | `12_adaptive_learning.py` | Recommendation engine | per-rule effectiveness, basis learning, multi-scale branchial, adaptive coherence, frame learning |
 
 Domain Examples (`domain/`)
 ----------------------------
@@ -49,6 +51,7 @@ Domain Examples (`domain/`)
 |------|--------|-------------|
 | `supply_chain_resilience.py` | Supply Chain | Network analysis, disruption cascades, temporal lead times, quantum risk |
 | `code_dependency_analysis.py` | Software Architecture | Dependency cycles, centrality, blast radius, layer analysis |
+| `fraud_detection_intelligence.py` | Financial Fraud | Lazy multiway expansion, traversal prefetching, partial proof generation |
 
 Additional Demos
 ----------------

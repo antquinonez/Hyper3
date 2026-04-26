@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from scipy.cluster.hierarchy import fcluster, linkage
 from scipy.cluster.vq import kmeans2
 
 from hyper3.kernel import Hypergraph
@@ -77,6 +78,22 @@ class SimultaneityGroup:
     state_ids: set[str] = field(default_factory=set)
     common_ancestor_id: str = ""
     depth: int = 0
+
+
+@dataclass
+class ScaleLevel:
+    name: str
+    n_clusters: int
+    clusters: list[BranchialCluster] = field(default_factory=list)
+    insights: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MultiScaleAnalysis:
+    macro: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="macro", n_clusters=0))
+    meso: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="meso", n_clusters=0))
+    micro: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="micro", n_clusters=0))
+    cross_scale_insights: list[str] = field(default_factory=list)
 
 
 class BranchialSpace:
@@ -448,6 +465,87 @@ class BranchialSpace:
     def simultaneity_groups(self) -> list[SimultaneityGroup]:
         return list(self._simultaneity_groups)
 
+    def multi_scale_analysis(self, macro_clusters: int = 3, meso_clusters: int = 8) -> MultiScaleAnalysis:
+        if not self._coordinates:
+            self.assign_coordinates()
+        states = list(self._coordinates.keys())
+        if len(states) < 3:
+            return MultiScaleAnalysis()
+
+        max_len = max(len(self._coordinates[s].position) for s in states)
+        if max_len == 0:
+            max_len = 1
+        data = np.zeros((len(states), max_len))
+        for i, sid in enumerate(states):
+            coord = self._coordinates[sid]
+            if coord.position:
+                arr = np.array(coord.position)
+                data[i, :len(arr)] = arr
+
+        if data.shape[1] == 0:
+            return MultiScaleAnalysis()
+
+        Z = linkage(data, method="ward")
+
+        analysis = MultiScaleAnalysis()
+
+        n = len(states)
+        macro_k = min(macro_clusters, max(2, n // 4))
+        meso_k = min(meso_clusters, max(3, n // 2))
+
+        macro_labels = fcluster(Z, t=macro_k, criterion="maxclust")
+        analysis.macro = self._build_scale_level("macro", states, macro_labels)
+
+        meso_labels = fcluster(Z, t=meso_k, criterion="maxclust")
+        analysis.meso = self._build_scale_level("meso", states, meso_labels)
+
+        groups = self.build_simultaneity_groups()
+        micro_clusters_list: list[BranchialCluster] = []
+        for group in groups:
+            cluster = BranchialCluster(
+                state_ids=group.state_ids,
+                label=f"simultaneous_{group.depth}",
+            )
+            micro_clusters_list.append(cluster)
+        analysis.micro = ScaleLevel(
+            name="micro",
+            n_clusters=len(micro_clusters_list),
+            clusters=micro_clusters_list,
+        )
+
+        if analysis.macro.n_clusters > 1:
+            analysis.cross_scale_insights.append(
+                f"Macro structure: {analysis.macro.n_clusters} major regions"
+            )
+        if analysis.meso.n_clusters > analysis.macro.n_clusters:
+            analysis.cross_scale_insights.append(
+                f"Meso structure: {analysis.meso.n_clusters} sub-regions within {analysis.macro.n_clusters} macro regions"
+            )
+        if analysis.micro.n_clusters > 0:
+            analysis.cross_scale_insights.append(
+                f"Micro structure: {analysis.micro.n_clusters} simultaneous state groups"
+            )
+
+        return analysis
+
+    def _build_scale_level(self, name: str, states: list[str], labels: np.ndarray) -> ScaleLevel:
+        cluster_map: dict[int, set[str]] = {}
+        for i, label in enumerate(labels):
+            cluster_map.setdefault(int(label), set()).add(states[i])
+        clusters: list[BranchialCluster] = []
+        for ci, sids in cluster_map.items():
+            cluster = BranchialCluster(state_ids=sids, label=f"{name}_cluster_{ci}")
+            clusters.append(cluster)
+        insights: list[str] = []
+        sizes = [c.size for c in clusters]
+        if sizes:
+            max_s = max(sizes)
+            min_s = min(sizes)
+            if max_s > min_s * 2:
+                insights.append(f"Imbalanced clusters: sizes range from {min_s} to {max_s}")
+            insights.append(f"{len(clusters)} clusters with avg size {sum(sizes)/len(sizes):.1f}")
+        return ScaleLevel(name=name, n_clusters=len(clusters), clusters=clusters, insights=insights)
+
     def analyze(self) -> dict[str, Any]:
         return {
             "states_mapped": len(self._coordinates),
@@ -458,4 +556,5 @@ class BranchialSpace:
             "avg_entanglement_correlation": (
                 sum(e.correlation for e in self._entanglements) / max(len(self._entanglements), 1)
             ),
+            "multi_scale_available": True,
         }

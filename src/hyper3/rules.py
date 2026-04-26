@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 
 
@@ -47,6 +49,9 @@ class Rule(ABC):
             "GeneralizationRule": GeneralizationRule,
             "AbductiveRule": AbductiveRule,
             "PropertyPropagationRule": PropertyPropagationRule,
+            "AnalogicalReasoningRule": AnalogicalReasoningRule,
+            "CausalInferenceRule": CausalInferenceRule,
+            "ContextualSubstitutionRule": ContextualSubstitutionRule,
         }
         target_cls = rule_classes.get(rule_type)
         if target_cls is not None:
@@ -437,3 +442,247 @@ class PropertyPropagationRule(Rule):
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> PropertyPropagationRule:
         return cls(property_key=data["property_key"], edge_label=data.get("edge_label", ""))
+
+
+class AnalogicalReasoningRule(Rule):
+    def __init__(self, *, edge_label: str = "", similarity_threshold: float = 0.7) -> None:
+        self._edge_label = edge_label
+        self._threshold = similarity_threshold
+        self._embedding_engine = None
+
+    def set_embedding_engine(self, engine: Any) -> None:
+        self._embedding_engine = engine
+
+    @property
+    def name(self) -> str:
+        return f"analogical({self._edge_label or '*'})"
+
+    def _cosine_sim(self, a: Any, b: Any) -> float:
+        na = np.linalg.norm(a)
+        nb = np.linalg.norm(b)
+        if na == 0 or nb == 0:
+            return 0.0
+        return float(np.dot(a, b) / (na * nb))
+
+    def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        if self._embedding_engine is None:
+            return []
+        matches: list[RuleMatch] = []
+        emb_map: dict[str, Any] = {}
+        for nid in active_nodes:
+            e = self._embedding_engine.get_embedding(nid)
+            if e is not None:
+                emb_map[nid] = e
+        active_with_emb = frozenset(emb_map.keys())
+        if len(active_with_emb) < 4:
+            return matches
+        active_list = list(active_with_emb)
+        emb_matrix = np.array([emb_map[nid] for nid in active_list])
+        norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
+        norms = np.where(norms == 0, 1.0, norms)
+        normed = emb_matrix / norms
+        node_to_idx = {nid: i for i, nid in enumerate(active_list)}
+        seen_analogies: set[tuple[str, str, str, str]] = set()
+        for nid_a in active_with_emb:
+            for e1 in graph.edges_for(nid_a):
+                if self._edge_label and e1.label and e1.label != self._edge_label:
+                    continue
+                if nid_a not in e1.source_ids:
+                    continue
+                targets_b = e1.target_ids & active_with_emb
+                for nid_b in targets_b:
+                    idx_a = node_to_idx[nid_a]
+                    idx_b = node_to_idx[nid_b]
+                    analogy_vec = normed[idx_b] - normed[idx_a]
+                    for nid_c in active_with_emb:
+                        if nid_c == nid_a or nid_c == nid_b:
+                            continue
+                        idx_c = node_to_idx[nid_c]
+                        target_vec = analogy_vec + normed[idx_c]
+                        target_norm = np.linalg.norm(target_vec)
+                        if target_norm == 0:
+                            continue
+                        target_normed = target_vec / target_norm
+                        sims = normed @ target_normed
+                        for i_cand in np.argsort(-sims):
+                            nid_d = active_list[i_cand]
+                            if nid_d in (nid_a, nid_b, nid_c):
+                                continue
+                            sim = float(sims[i_cand])
+                            if sim < self._threshold:
+                                break
+                            key = (nid_a, nid_b, nid_c, nid_d)
+                            if key not in seen_analogies:
+                                seen_analogies.add(key)
+                                matches.append(RuleMatch(
+                                    rule_name=self.name,
+                                    bindings={"A": nid_a, "B": nid_b, "C": nid_c, "D": nid_d},
+                                    context={"analogy_score": sim, "edge_ab": e1.id},
+                                ))
+                            break
+        return matches
+
+    def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        c_id, d_id = match.bindings["C"], match.bindings["D"]
+        a_node = graph.get_node(match.bindings["A"])
+        b_node = graph.get_node(match.bindings["B"])
+        c_node = graph.get_node(c_id)
+        d_node = graph.get_node(d_id)
+        edge_ab = graph.get_edge(match.context.get("edge_ab", ""))
+        label = edge_ab.label if edge_ab else "analogous"
+        confidence = match.context.get("analogy_score", 0.7)
+        edge = Hyperedge(
+            source_ids=frozenset({c_id}),
+            target_ids=frozenset({d_id}),
+            label=label,
+            metadata=Metadata(custom={
+                "rule": self.name, "inferred": True, "confidence": confidence,
+                "analogy": f"{a_node.label if a_node else 'A'}:{b_node.label if b_node else 'B'}::{c_node.label if c_node else 'C'}:{d_node.label if d_node else 'D'}",
+            }),
+        )
+        graph.add_edge(edge)
+        return [], [edge.id]
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return match.context.get("analogy_score", 0.5)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "AnalogicalReasoningRule", "edge_label": self._edge_label, "similarity_threshold": self._threshold}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> AnalogicalReasoningRule:
+        return cls(edge_label=data.get("edge_label", ""), similarity_threshold=data.get("similarity_threshold", 0.7))
+
+
+class CausalInferenceRule(Rule):
+    def __init__(self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes") -> None:
+        self._min_support = min_support
+        self._confidence_threshold = confidence_threshold
+        self._causes_label = causes_label
+
+    @property
+    def name(self) -> str:
+        return f"causal_inference({self._causes_label})"
+
+    def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        matches: list[RuleMatch] = []
+        edge_pairs: dict[tuple[str, str], int] = {}
+        for edge in graph.edges:
+            if not edge.label:
+                continue
+            for src in edge.source_ids:
+                if src not in active_nodes:
+                    continue
+                for tgt in edge.target_ids:
+                    if tgt not in active_nodes or tgt == src:
+                        continue
+                    pair = (src, tgt)
+                    edge_pairs[pair] = edge_pairs.get(pair, 0) + 1
+        source_totals: dict[str, int] = {}
+        for edge in graph.edges:
+            for src in edge.source_ids:
+                if src in active_nodes:
+                    source_totals[src] = source_totals.get(src, 0) + 1
+        for (src, tgt), pair_count in edge_pairs.items():
+            total_from_src = source_totals.get(src, 0)
+            if total_from_src == 0:
+                continue
+            support = pair_count
+            confidence = pair_count / total_from_src
+            if support >= self._min_support and confidence >= self._confidence_threshold:
+                existing = False
+                for e in graph.edges_for(src):
+                    if e.label == self._causes_label and tgt in e.target_ids:
+                        existing = True
+                        break
+                if not existing:
+                    matches.append(RuleMatch(
+                        rule_name=self.name,
+                        bindings={"cause": src, "effect": tgt},
+                        context={"support": support, "confidence": confidence},
+                    ))
+        return matches
+
+    def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        cause_id, effect_id = match.bindings["cause"], match.bindings["effect"]
+        confidence = match.context["confidence"]
+        edge = Hyperedge(
+            source_ids=frozenset({cause_id}),
+            target_ids=frozenset({effect_id}),
+            label=self._causes_label,
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": confidence, "support": match.context["support"]}),
+        )
+        graph.add_edge(edge)
+        return [], [edge.id]
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return match.context.get("confidence", 0.5)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "CausalInferenceRule", "min_support": self._min_support, "confidence_threshold": self._confidence_threshold, "causes_label": self._causes_label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> CausalInferenceRule:
+        return cls(min_support=data.get("min_support", 2), confidence_threshold=data.get("confidence_threshold", 0.6), causes_label=data.get("causes_label", "causes"))
+
+
+class ContextualSubstitutionRule(Rule):
+    def __init__(self, *, similarity_threshold: float = 0.8, substitution_label: str = "substitutes_for") -> None:
+        self._threshold = similarity_threshold
+        self._label = substitution_label
+
+    @property
+    def name(self) -> str:
+        return f"substitution({self._label})"
+
+    def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        matches: list[RuleMatch] = []
+        nodes = [graph.get_node(nid) for nid in active_nodes]
+        nodes = [n for n in nodes if n is not None]
+        for i in range(len(nodes)):
+            for j in range(i + 1, len(nodes)):
+                sim = nodes[i].matches(nodes[j])
+                if sim >= self._threshold:
+                    if self._substitution_exists(graph, nodes[i].id, nodes[j].id):
+                        continue
+                    matches.append(RuleMatch(
+                        rule_name=self.name,
+                        bindings={"A": nodes[i].id, "B": nodes[j].id},
+                        context={"similarity": sim},
+                    ))
+        return matches
+
+    def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        a_id, b_id = match.bindings["A"], match.bindings["B"]
+        confidence = match.context["similarity"]
+        edge_ab = Hyperedge(
+            source_ids=frozenset({a_id}),
+            target_ids=frozenset({b_id}),
+            label=self._label,
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": confidence}),
+        )
+        edge_ba = Hyperedge(
+            source_ids=frozenset({b_id}),
+            target_ids=frozenset({a_id}),
+            label=self._label,
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": confidence}),
+        )
+        graph.add_edge(edge_ab)
+        graph.add_edge(edge_ba)
+        return [], [edge_ab.id, edge_ba.id]
+
+    def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
+        for edge in graph.edges_for(a_id):
+            if edge.label == self._label and b_id in edge.target_ids:
+                return True
+        return False
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return match.context.get("similarity", 0.5)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "ContextualSubstitutionRule", "similarity_threshold": self._threshold, "substitution_label": self._label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> ContextualSubstitutionRule:
+        return cls(similarity_threshold=data.get("similarity_threshold", 0.8), substitution_label=data.get("substitution_label", "substitutes_for"))

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import random
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -75,6 +76,7 @@ class ComputationalRelativity:
         self._graph = graph
         self._frames: dict[str, ComputationalFrame] = dict(FRAME_TEMPLATES)
         self._transformations: list[FrameTransformation] = []
+        self._frame_outcomes: dict[str, dict[str, int]] = {}
 
     def add_frame(self, frame: ComputationalFrame) -> None:
         self._frames[frame.name] = frame
@@ -412,8 +414,45 @@ class ComputationalRelativity:
     def transformations(self) -> list[FrameTransformation]:
         return list(self._transformations)
 
+    def record_frame_outcome(self, frame_name: str, success: bool) -> None:
+        if frame_name not in self._frame_outcomes:
+            self._frame_outcomes[frame_name] = {"selections": 0, "successes": 0}
+        self._frame_outcomes[frame_name]["selections"] += 1
+        if success:
+            self._frame_outcomes[frame_name]["successes"] += 1
+
+    def get_frame_effectiveness(self) -> dict[str, float]:
+        result = {}
+        for name, stats in self._frame_outcomes.items():
+            if stats["selections"] > 0:
+                result[name] = stats["successes"] / stats["selections"]
+            else:
+                result[name] = 0.0
+        return result
+
+    def select_optimal_frame_learned(self, concept: str) -> tuple[str, FrameAnalysis]:
+        analyses = self.multi_frame_analysis(concept)
+
+        best_name = ""
+        best_score = float("inf")
+        for name, analysis in analyses.items():
+            score = analysis.complexity + 1.0
+            stats = self._frame_outcomes.get(name)
+            if stats and stats["selections"] > 0:
+                alpha = stats["successes"] + 1
+                beta_param = stats["selections"] - stats["successes"] + 1
+                bonus = random.betavariate(alpha, beta_param)
+                score = score * (1.0 - bonus * 0.6)
+            if score < best_score:
+                best_score = score
+                best_name = name
+        if not best_name:
+            best_name = min(analyses, key=lambda n: analyses[n].complexity)
+        return best_name, analyses[best_name]
+
     def analyze(self) -> dict[str, Any]:
         return {
             "available_frames": list(self._frames.keys()),
             "transformations_computed": len(self._transformations),
+            "frame_effectiveness": self.get_frame_effectiveness(),
         }

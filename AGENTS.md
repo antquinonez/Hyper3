@@ -45,15 +45,15 @@ The test suite and type checker are both correctness gates.
 
 The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
-- **kernel.py** — Core data structures (`Hypernode`, `Hyperedge`, `Hypergraph`) and engines (`EventLog`, `EquivalenceEngine`, `TraversalEngine`, `SelfEvolutionEngine`, `ObserverSlice`, `LazyCache`). This is the foundation everything else builds on.
+- **kernel.py** — Core data structures (`Hypernode`, `Hyperedge`, `Hypergraph`) and engines (`EventLog`, `EquivalenceEngine`, `TraversalEngine`, `SelfEvolutionEngine`, `ObserverSlice`, `LazyCache`). `LazyCache` includes Markov-model prefetching for traversal prediction. This is the foundation everything else builds on.
 - **exceptions.py** — Domain-specific exception hierarchy (`Hyper3Error`, `NodeNotFoundError`, `EdgeNotFoundError`, etc.). `NodeNotFoundError` extends both `Hyper3Error` and `ValueError` for backward compatibility.
-- **rules.py** — `Rule` ABC with 5 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
-- **multiway.py** — `MultiwayEngine` drives expansion; `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
-- **causal.py** — `CausalInvarianceEngine` merges convergent states. `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference.
-- **branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, and lateral inference.
-- **rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights).
-- **transfinite.py** — `TransfiniteReasoner` handles self-referential and boundary cases (Gödel-like limits).
-- **relativity.py** — `ComputationalRelativity` provides multi-frame analysis (classical/quantum/hypergraph/probabilistic perspectives).
+- **rules.py** — `Rule` ABC with 8 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
+- **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
+- **causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling.
+- **branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis (hierarchical Ward clustering at macro/meso/micro scales).
+- **rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking).
+- **transfinite.py** — `TransfiniteReasoner` handles self-referential and boundary cases (Gödel-like limits). `PartialProof` dataclass tracks coverage bounds for incomplete reasoning.
+- **relativity.py** — `ComputationalRelativity` provides multi-frame analysis (classical/quantum/hypergraph/probabilistic perspectives) with frame effectiveness learning via Thompson sampling.
 - **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection.
 - **memory.py** — `CognitiveMemory` is the unified API that integrates all subsystems. This is the main entry point users interact with.
 - **persistence.py** — `Serializer` handles JSON save/load.
@@ -101,6 +101,15 @@ After unitary evolution, amplitudes can be complex numbers. Code that consumes a
 ### `EquivalenceEngine` uses combined similarity
 `find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting.
 
+### `collapse_with_basis` records effectiveness outcomes
+`collapse_with_basis()` calls `record_basis_outcome(basis, success)` automatically: `True` when a valid basis produces a collapse result, `False` when the basis is not found or collapse returns None. Do not double-record outcomes in calling code.
+
+### Prefetch API uses concept labels
+`CognitiveMemory.enable_prefetch()`, `record_access(concept)`, `predict_next_access(concept)`, and `prefetch_neighbors(concept)` all take concept labels (not node IDs). Internally they map to the `"store:<label>"` key format used by the cache. The `cache` property exposes the raw `LazyCache` for direct access if needed.
+
+### `select_optimal_frame_learned` uses shifted Thompson sampling
+Frame selection shifts complexity by +1.0 to avoid zero-base issues, then applies Thompson sampling: `score = (complexity + 1.0) * (1.0 - bonus * 0.6)`. Frames with no recorded outcomes are not eligible for the bonus. The bonus is sampled from `Beta(successes+1, failures+1)`.
+
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
@@ -133,7 +142,7 @@ The following are already optimized — maintain them when making changes:
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 971 tests must pass.
+2. Run the full test suite after changes. All 1019 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -196,7 +205,8 @@ examples/            Example scripts organized by difficulty
   domain/            Full end-to-end domain applications
   README.md          Index of all examples
 demo*.py             Runnable demo scripts (legacy, kept for backward compat)
-benchmark.py         Performance benchmarks
+demo*.py             Runnable demo scripts (legacy, kept for backward compat)
+benchmarks/          Performance benchmarks
 pyproject.toml       Project config (hatchling build backend)
 resources/           Reference patent documents (architecture spec)
 ```
@@ -214,7 +224,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 7. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 971
+- **Tests**: 1019
 - **Coverage**: 96%
 - **Pyright**: 0 errors
-- **Examples**: 13 (3 basic, 4 intermediate, 4 advanced, 2 domain)
+- **Examples**: 16 (3 basic, 5 intermediate, 5 advanced, 3 domain)

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import math
 import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+import networkx as nx
 import numpy as np
 
 from hyper3.kernel import Hypergraph
@@ -51,6 +53,37 @@ class CausalInvarianceEngine:
             edge_overlap = len(produced_a & produced_b) / max(len(produced_a | produced_b), 1)
 
         return 0.7 * jaccard + 0.3 * edge_overlap
+
+    def check_graph_isomorphism(self, state_a: MultiwayState, state_b: MultiwayState) -> float:
+        g_a = nx.DiGraph()
+        g_b = nx.DiGraph()
+        for eid in state_a.produced_edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge:
+                for src in edge.source_ids:
+                    g_a.add_node(src, nid=src)
+                    for tgt in edge.target_ids:
+                        g_a.add_node(tgt, nid=tgt)
+                        g_a.add_edge(src, tgt)
+        for eid in state_b.produced_edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge:
+                for src in edge.source_ids:
+                    g_b.add_node(src, nid=src)
+                    for tgt in edge.target_ids:
+                        g_b.add_node(tgt, nid=tgt)
+                        g_b.add_edge(src, tgt)
+        if g_a.number_of_nodes() + g_b.number_of_nodes() > 50:
+            return 0.0
+
+        def _node_match(a: dict, b: dict) -> bool:
+            na = self._graph.get_node(a.get("nid", ""))
+            nb = self._graph.get_node(b.get("nid", ""))
+            if na and nb:
+                return na.matches(nb) > 0.5
+            return False
+
+        return 1.0 if nx.is_isomorphic(g_a, g_b, node_match=_node_match) else 0.0
 
     def find_invariants(self) -> list[tuple[str, str, float]]:
         leaves = self._multiway.get_leaves()
@@ -229,6 +262,7 @@ class QuantumState:
     collapsed: bool = False
     collapsed_to: str | None = None
     coherence_time: float = 30.0
+    base_coherence_time: float = 30.0
     entanglement_ids: list[str] = field(default_factory=list)
 
     def add_interpretation(self, node_id: str, amplitude: float | complex, **meta: Any) -> None:
@@ -242,6 +276,9 @@ class QuantumState:
             scale = total ** -0.5
             for i in self.interpretations:
                 i.amplitude *= scale
+
+    def adapt_coherence(self, n_interpretations: int, urgency: float = 1.0) -> None:
+        self.coherence_time = self.base_coherence_time * (1.0 + math.log(max(n_interpretations, 1))) / urgency
 
     def collapse(self, context_weights: dict[str, float] | None = None) -> Interpretation | None:
         if not self.interpretations:
@@ -308,6 +345,7 @@ class QuantumCognitiveLayer:
         self._states: dict[str, QuantumState] = {}
         self._entanglements: dict[str, QuantumEntanglement] = {}
         self._bases: dict[str, MeasurementBasis] = dict(BUILTIN_BASES)
+        self._basis_stats: dict[str, dict[str, int]] = {}
 
     def create_superposition(self, node_ids: list[str], amplitudes: list[float] | None = None) -> QuantumState:
         qs = QuantumState(created_at=time.time())
@@ -319,6 +357,7 @@ class QuantumCognitiveLayer:
             lbl = node.label if node else ""
             qs.add_interpretation(nid, amp, label=lbl)
         qs.normalize()
+        qs.adapt_coherence(len(node_ids))
         self._states[qs.id] = qs
         return qs
 
@@ -342,7 +381,9 @@ class QuantumCognitiveLayer:
             return None
         basis = self._bases.get(basis_name)
         if not basis:
-            return qs.collapse()
+            result = qs.collapse()
+            self.record_basis_outcome(basis_name, False)
+            return result
         weights: dict[str, float] = {}
         for interp in qs.interpretations:
             node = self._graph.get_node(interp.node_id)
@@ -354,7 +395,12 @@ class QuantumCognitiveLayer:
                 weights[interp.node_id] = max(0.0, w)
             else:
                 weights[interp.node_id] = 1.0
-        return qs.collapse(weights)
+        result = qs.collapse(weights)
+        if result:
+            self.record_basis_outcome(basis_name, True)
+        else:
+            self.record_basis_outcome(basis_name, False)
+        return result
 
     def evolve_amplitudes(self, qs_id: str, updates: dict[str, float]) -> None:
         qs = self._states.get(qs_id)
@@ -524,6 +570,34 @@ class QuantumCognitiveLayer:
 
     def get_basis(self, name: str) -> MeasurementBasis | None:
         return self._bases.get(name)
+
+    def record_basis_outcome(self, basis_name: str, success: bool) -> None:
+        if basis_name not in self._basis_stats:
+            self._basis_stats[basis_name] = {"successes": 0, "selections": 0}
+        self._basis_stats[basis_name]["selections"] += 1
+        if success:
+            self._basis_stats[basis_name]["successes"] += 1
+
+    def get_effective_basis(self) -> str:
+        best_basis = "linguistic"
+        best_sample = -1.0
+        for name, stats in self._basis_stats.items():
+            if stats["selections"] > 0:
+                s = stats["successes"]
+                f = stats["selections"] - s
+                sample = float(np.random.beta(s + 1, f + 1))
+                if sample > best_sample:
+                    best_sample = sample
+                    best_basis = name
+        return best_basis
+
+    @property
+    def basis_effectiveness(self) -> dict[str, float]:
+        return {
+            name: stats["successes"] / stats["selections"]
+            for name, stats in self._basis_stats.items()
+            if stats["selections"] > 0
+        }
 
     @property
     def active_superpositions(self) -> list[QuantumState]:

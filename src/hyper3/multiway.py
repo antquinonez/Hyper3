@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Generator
 
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule, RuleMatch
@@ -223,6 +223,63 @@ class MultiwayEngine:
             1 for s in self._multiway.states if s.is_leaf
         )
         return report
+
+    def expand_lazy(
+        self,
+        seed_node_ids: set[str],
+        rules: list[Rule],
+        *,
+        max_depth: int = 3,
+        max_branches_per_state: int = 10,
+        max_total_states: int = 100,
+        overlay: Any | None = None,
+        confidence_decay: float = 0.9,
+    ) -> Generator[tuple[str, int, int], None, None]:
+        root = MultiwayState(
+            active_node_ids=frozenset(seed_node_ids),
+            depth=0,
+            timestamp=time.time(),
+        )
+        self._multiway.add_state(root)
+        yield (root.id, 0, 0)
+
+        frontier: list[tuple[float, str]] = [(1.0, root.id)]
+        total_created = 1
+
+        for depth in range(max_depth):
+            if total_created >= max_total_states:
+                break
+            next_frontier: list[tuple[float, str]] = []
+            for _, state_id in frontier:
+                if total_created >= max_total_states:
+                    break
+                state = self._multiway.get_state(state_id)
+                if not state:
+                    continue
+                remaining = max_total_states - total_created
+                capped_branches = min(max_branches_per_state, remaining)
+                new_states = self._expand_state(
+                    state, rules, capped_branches,
+                    ExpansionReport(), overlay=overlay, confidence_decay=confidence_decay,
+                )
+                for new_id in new_states:
+                    total_created += 1
+                    new_state = self._multiway.get_state(new_id)
+                    priority = 1.0
+                    if new_state:
+                        produced_edges = [
+                            self._graph.get_edge(eid) for eid in new_state.produced_edge_ids
+                        ]
+                        produced_edges = [e for e in produced_edges if e is not None]
+                        if produced_edges:
+                            conf = produced_edges[0].metadata.custom.get("confidence", 1.0)
+                            priority = conf
+                    next_frontier.append((priority, new_id))
+                    yield (new_id, depth + 1, len(new_states))
+            next_frontier.sort(key=lambda x: x[0], reverse=True)
+            frontier = next_frontier
+            if not frontier:
+                break
 
     def expand_from_labels(
         self,

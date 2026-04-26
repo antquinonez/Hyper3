@@ -570,8 +570,46 @@ class LazyCache:
         self._max_size = max_size
         self._ttl = ttl
         self._cache: OrderedDict[str, tuple[float, Any]] = OrderedDict()
+        self._access_history: list[str] = []
+        self._transition_counts: dict[str, dict[str, int]] = {}
+        self._prefetch_enabled: bool = False
+        self._max_history: int = 1000
+
+    def enable_prefetch(self, enabled: bool = True) -> None:
+        self._prefetch_enabled = enabled
+
+    def record_access(self, key: str) -> None:
+        if self._access_history:
+            prev = self._access_history[-1]
+            if prev not in self._transition_counts:
+                self._transition_counts[prev] = {}
+            self._transition_counts[prev][key] = self._transition_counts[prev].get(key, 0) + 1
+        self._access_history.append(key)
+        if len(self._access_history) > self._max_history:
+            self._access_history = self._access_history[-self._max_history:]
+
+    def predict_next(self, current_key: str, top_k: int = 3) -> list[str]:
+        transitions = self._transition_counts.get(current_key, {})
+        if not transitions:
+            return []
+        sorted_transitions = sorted(transitions.items(), key=lambda x: x[1], reverse=True)
+        return [k for k, _ in sorted_transitions[:top_k]]
+
+    def prefetch_neighbors(self, key: str, values: dict[str, Any]) -> int:
+        added = 0
+        for k, v in values.items():
+            if k not in self._cache:
+                self.put(k, v)
+                added += 1
+        return added
+
+    @property
+    def prefetch_enabled(self) -> bool:
+        return self._prefetch_enabled
 
     def get(self, key: str) -> Any | None:
+        if self._prefetch_enabled:
+            self.record_access(key)
         if key not in self._cache:
             return None
         cached_at, value = self._cache[key]

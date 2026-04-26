@@ -60,6 +60,22 @@ UNDECIDABLE_PATTERNS: list[dict[str, Any]] = [
 ]
 
 
+@dataclass
+class PartialProof:
+    concept: str
+    expanded_nodes: list[str] = field(default_factory=list)
+    total_branches_estimated: int = 0
+    branches_explored: int = 0
+    coverage: float = 0.0
+    bounds: dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def coverage_pct(self) -> float:
+        if self.total_branches_estimated == 0:
+            return 0.0
+        return self.branches_explored / self.total_branches_estimated * 100.0
+
+
 class TransfiniteReasoner:
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
@@ -310,10 +326,30 @@ class TransfiniteReasoner:
         indicator: BoundaryIndicator,
     ) -> list[dict[str, Any]]:
         results = self._standard_reasoning(concept, context)
+        node = self._find_concept_node(concept)
+        structural_conclusions: list[str] = []
+        assumption_dependent: list[str] = []
+        if node:
+            degree = len(self._graph.edges_for(node.id))
+            structural_conclusions.append(f"Node has degree {degree}")
+            scc = self._scc_self_reference(node.id)
+            if scc > 0:
+                structural_conclusions.append("Part of strongly connected component")
+            neighbors = self._get_neighbor_labels(node.id)
+            if len(neighbors) > 5:
+                structural_conclusions.append(f"High connectivity: {len(neighbors)} neighbors")
+            if indicator.self_reference > 0.5:
+                assumption_dependent.append("Self-referential conclusions require extended axioms")
+            if indicator.universal_quantification > 0.5:
+                assumption_dependent.append("Universal claims depend on completeness assumptions")
+            if indicator.diagonalization_risk > 0.5:
+                assumption_dependent.append("Contradictory patterns require consistency assumptions")
         results.append({
             "status": "boundary_proximity",
             "boundary_score": indicator.boundary_score,
             "conservative_extension": True,
+            "structural_conclusions": structural_conclusions,
+            "assumption_dependent": assumption_dependent,
         })
         return results
 
@@ -326,21 +362,43 @@ class TransfiniteReasoner:
         results = self._standard_reasoning(concept, context)
         node = self._find_concept_node(concept)
         extended: list[str] = []
+        total_branches = 0
+        branches_explored = 0
         if node:
             for edge in self._graph.edges_for(node.id):
                 for nid in edge.target_ids:
                     n = self._graph.get_node(nid)
                     if n:
+                        total_branches += 1
                         for e2 in self._graph.edges_for(n.id):
                             for nid2 in e2.target_ids:
                                 n2 = self._graph.get_node(nid2)
                                 if n2 and n2.label not in extended:
                                     extended.append(n2.label)
+                                    branches_explored += 1
+        coverage = (branches_explored / total_branches * 100.0) if total_branches > 0 else 0.0
+        pp = PartialProof(
+            concept=concept,
+            expanded_nodes=extended[:10],
+            total_branches_estimated=total_branches,
+            branches_explored=branches_explored,
+            coverage=coverage,
+            bounds={"lower": coverage * 0.9, "upper": min(coverage * 1.1, 100.0)},
+        )
         results.append({
             "status": "transfinite",
             "boundary_score": indicator.boundary_score,
             "approach": "partial_result_generation",
             "extended_neighborhood": extended[:10],
+            "partial_proof": {
+                "concept": pp.concept,
+                "expanded_nodes": pp.expanded_nodes,
+                "total_branches_estimated": pp.total_branches_estimated,
+                "branches_explored": pp.branches_explored,
+                "coverage": pp.coverage,
+                "coverage_pct": pp.coverage_pct,
+                "bounds": pp.bounds,
+            },
         })
         return results
 

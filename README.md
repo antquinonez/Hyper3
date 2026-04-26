@@ -9,13 +9,13 @@ Hyper3 is a Python library for knowledge representation and reasoning. It stores
 ```
 src/hyper3/
 ├── kernel.py            Hypergraph, Hypernode, Hyperedge, EventLog, TraversalEngine, SelfEvolutionEngine
-├── rules.py             Rule ABC + TransitiveRule, InverseRule, GeneralizationRule, AbductiveRule, PropertyPropagationRule
+├── rules.py             Rule ABC + TransitiveRule, InverseRule, GeneralizationRule, AbductiveRule, PropertyPropagationRule, AnalogicalReasoningRule, CausalInferenceRule, ContextualSubstitutionRule
 ├── multiway.py          MultiwayEngine, MultiwayGraph, MultiwayState
-├── causal.py            CausalInvarianceEngine, QuantumCognitiveLayer
-├── branchial.py         BranchialSpace (distance metrics, clustering, simultaneity groups)
-├── rulial.py            RulialSpace (computational density, meta-patterns, transcendental insights)
-├── transfinite.py       TransfiniteReasoner (boundary detection, decidability assessment)
-├── relativity.py        ComputationalRelativity (multi-frame analysis)
+├── causal.py            CausalInvarianceEngine, QuantumCognitiveLayer (basis learning, adaptive coherence)
+├── branchial.py         BranchialSpace (distance metrics, clustering, simultaneity groups, multi-scale analysis)
+├── rulial.py            RulialSpace (computational density, meta-patterns, transcendental insights, per-rule effectiveness)
+├── transfinite.py       TransfiniteReasoner (boundary detection, decidability assessment, partial proof generation)
+├── relativity.py        ComputationalRelativity (multi-frame analysis, frame effectiveness learning)
 ├── meta_cognitive.py    MetaCognitiveLayer (introspection, metamorphosis triggers)
 ├── persistence.py       Serializer (JSON save/load)
 ├── discovery.py         RuleDiscoveryEngine (automatic pattern detection)
@@ -195,7 +195,8 @@ The `CognitiveMemory` class is the primary entry point, providing a unified API 
 | `add_rules(*rules)` | Register inference rules |
 | `reason(seeds, ...)` | Run multiway expansion with all registered rules |
 | `superpose(labels)` | Create a quantum superposition |
-| `collapse(qs_id)` | Collapse superposition via Born rule |
+| `collapse(qs)` | Collapse superposition via Born rule |
+| `collapse_with_basis(qs, basis)` | Collapse with measurement basis, records effectiveness |
 | `entangle(group_a, group_b, correlations)` | Entangle two concept groups |
 | `discover_rules()` | Discover patterns and return candidate rules |
 | `auto_discover_and_apply()` | Discover and register rules automatically |
@@ -206,6 +207,10 @@ The `CognitiveMemory` class is the primary entry point, providing a unified API 
 | `record_feedback(query, results, relevant)` | Mark results relevant/irrelevant |
 | `train_retriever()` | Train learning-to-rank from feedback |
 | `introspect()` | Get meta-cognitive introspection report |
+| `enable_prefetch(enabled)` | Enable Markov-model traversal prediction |
+| `record_access(concept)` | Record concept access for prefetch learning |
+| `predict_next_access(concept)` | Predict next likely concept from traversal history |
+| `prefetch_neighbors(concept)` | Preload neighbor data into cache |
 | `save(path)` / `load(path)` | Persist/restore full state as JSON |
 | `evolve()` | Run one self-evolution cycle (decay, prune, merge) |
 
@@ -224,7 +229,7 @@ The `CognitiveMemory` class is the primary entry point, providing a unified API 
 .venv/bin/python -m pytest tests/ --cov=hyper3       # With coverage
 ```
 
-426 tests, 90%+ coverage across 18 modules.
+1019 tests, 96% coverage across 18 modules.
 
 ## Performance
 
