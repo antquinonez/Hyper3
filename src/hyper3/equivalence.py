@@ -6,11 +6,25 @@ from hyper3.kernel import Hypergraph, Hypernode
 
 
 class EquivalenceEngine:
+    """Find and merge structurally similar nodes in a hypergraph."""
+
     def __init__(self, graph: Hypergraph, *, threshold: float = 0.8) -> None:
+        """Initialize the engine.
+
+        Args:
+            graph: The hypergraph to analyze.
+            threshold: Minimum similarity score for two nodes to be considered equivalent.
+        """
         self._graph = graph
         self._threshold = threshold
 
     def find_equivalences(self) -> list[tuple[str, str, float]]:
+        """Detect all pairs of equivalent nodes above the similarity threshold.
+
+        Returns:
+            List of ``(primary_id, secondary_id, similarity_score)`` tuples,
+            sorted by descending similarity.
+        """
         nodes = self._graph.nodes
         blocks: dict[str, list[Hypernode]] = {}
         for node in nodes:
@@ -29,6 +43,7 @@ class EquivalenceEngine:
         return pairs
 
     def _blocking_key(self, node: Hypernode) -> str:
+        """Compute a coarse blocking key for candidate pruning."""
         if node.data is None:
             return "none"
         if isinstance(node.data, dict):
@@ -36,6 +51,7 @@ class EquivalenceEngine:
         return type(node.data).__name__
 
     def _similarity(self, node_a: Hypernode, node_b: Hypernode) -> float:
+        """Compute combined data and structural similarity between two nodes."""
         data_sim = node_a.matches(node_b)
         if data_sim >= self._threshold:
             return data_sim
@@ -44,6 +60,7 @@ class EquivalenceEngine:
         return max(data_sim, combined)
 
     def _structural_similarity(self, node_a: Hypernode, node_b: Hypernode) -> float:
+        """Compute Jaccard similarity of the neighborhood sets of two nodes."""
         neighbors_a: set[str] = set()
         for edge in self._graph.edges_for(node_a.id):
             neighbors_a.update(edge.target_ids | edge.source_ids)
@@ -61,6 +78,11 @@ class EquivalenceEngine:
         return overlap / union
 
     def merge_equivalences(self) -> list[str]:
+        """Merge all detected equivalent node pairs into their primaries.
+
+        Returns:
+            List of secondary node IDs that were merged.
+        """
         merged: list[str] = []
         used: set[str] = set()
         for primary_id, secondary_id, score in self.find_equivalences():

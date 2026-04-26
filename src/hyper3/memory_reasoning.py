@@ -17,6 +17,7 @@ from hyper3.memory_base import _MemoryBase
 class ReasoningMixin(_MemoryBase):
 
     def _ensure_multiway(self) -> None:
+        """Lazily initialize the multiway engine and related subsystems."""
         if self._multiway_engine is not None:
             return
         from hyper3.multiway_branchial import BranchialSpace
@@ -29,6 +30,7 @@ class ReasoningMixin(_MemoryBase):
         self._rulial_rule_productions: dict[str, list[str]] = {}
 
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
+        """Convert a set of concept labels to their corresponding node IDs."""
         seed_ids: set[str] = set()
         for concept in seed_concepts:
             node = self._find_node(concept)
@@ -37,6 +39,7 @@ class ReasoningMixin(_MemoryBase):
         return seed_ids
 
     def _record_rulial_applications(self, active_rules: list[Rule]) -> None:
+        """Record which rules were applied in the multiway DAG to the rulial space."""
         if not self._rulial or not self._multiway_engine:
             return
         applied_names: dict[str, list[str]] = {}
@@ -51,6 +54,7 @@ class ReasoningMixin(_MemoryBase):
             self._rulial.record_rule_outcome(name, "applied")
 
     def _record_provenance(self, target_graph: Hypergraph | Any) -> None:
+        """Record provenance entries for all multiway states that produced edges."""
         if not self._multiway_engine:
             return
         for state in self._multiway_engine.multiway.states:
@@ -77,6 +81,11 @@ class ReasoningMixin(_MemoryBase):
         active_rules: list[Rule],
         enforce_causal_invariance: bool,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+        """Run causal invariance enforcement, branchial analysis, and rulial analysis after expansion.
+
+        Returns:
+            Tuple of (causal_report, branchial_report, rulial_report).
+        """
         causal_report: dict[str, Any] = {}
         if enforce_causal_invariance and self._causal_engine:
             causal_report = self._causal_engine.enforce()
@@ -105,6 +114,7 @@ class ReasoningMixin(_MemoryBase):
         rulial_report: dict[str, Any],
         auto_superpositions: list[QuantumState],
     ) -> dict[str, Any]:
+        """Assemble the final result dict from expansion and post-expansion reports."""
         self._log.record(
             "reason",
             seeds=list(seed_concepts),
@@ -149,6 +159,15 @@ class ReasoningMixin(_MemoryBase):
         seed_concepts: set[str],
         rules: list[Rule] | None = None,
     ) -> dict[str, Any]:
+        """Find multi-frame invariants then reason, returning consensus results.
+
+        Args:
+            seed_concepts: Labels of seed nodes for reasoning.
+            rules: Rules to apply; defaults to ``self._rules``.
+
+        Returns:
+            Dict with invariant counts, confidence, and the reasoning result.
+        """
         seed_ids = list(self._resolve_seeds(seed_concepts))
         if not seed_ids:
             return {"error": "no seed nodes found", "invariant_nodes": 0}
@@ -183,6 +202,26 @@ class ReasoningMixin(_MemoryBase):
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
     ) -> dict[str, Any]:
+        """Expand the multiway DAG from seed concepts using inference rules.
+
+        If an overlay already exists it is auto-committed before a new one is
+        created.  After expansion the method runs causal invariance enforcement,
+        branchial analysis, rulial tracking, and optional auto-superposition.
+
+        Args:
+            seed_concepts: Labels of seed nodes.
+            rules: Rules to apply; defaults to ``self._rules``.
+            max_depth: Maximum expansion depth.
+            max_total_states: Cap on total multiway states created.
+            enforce_causal_invariance: Whether to merge convergent states.
+            use_overlay: Route new edges through an inference overlay.
+            confidence_decay: Per-depth decay factor for overlay confidence.
+            auto_commit: If True, commit the overlay after expansion.
+
+        Returns:
+            Dict with expansion, causal, branchial, rulial reports and
+            optional overlay/superposition metadata.
+        """
         active_rules = rules or self._rules
         if not active_rules:
             return {"error": "no rules defined", "states_created": 0}
@@ -225,6 +264,11 @@ class ReasoningMixin(_MemoryBase):
         )
 
     def commit_inferences(self) -> dict[str, Any]:
+        """Merge the current inference overlay into the base graph.
+
+        Returns:
+            Dict with counts of committed node and edge IDs.
+        """
         if not self._overlay:
             return {"committed_nodes": 0, "committed_edges": 0}
         node_ids, edge_ids = self._overlay.commit()
@@ -234,6 +278,11 @@ class ReasoningMixin(_MemoryBase):
         return {"committed_nodes": len(node_ids), "committed_edges": len(edge_ids)}
 
     def rollback_inferences(self) -> dict[str, Any]:
+        """Discard the current inference overlay and retract provenance entries.
+
+        Returns:
+            Dict with counts of rolled-back nodes and edges.
+        """
         if not self._overlay:
             return {"rolled_back": 0}
         overlay = self._overlay
@@ -313,6 +362,21 @@ class ReasoningMixin(_MemoryBase):
         max_depth: int = 3,
         max_total_states: int = 30,
     ) -> dict[str, Any]:
+        """Run multiple reasoning iterations until confidence or convergence is reached.
+
+        Each iteration commits inferences before the next round.
+
+        Args:
+            seed_concepts: Labels of seed nodes.
+            rules: Rules to apply; defaults to ``self._rules``.
+            max_iterations: Maximum number of reasoning rounds.
+            min_confidence: Stop early if average overlay confidence exceeds this.
+            max_depth: Per-iteration expansion depth.
+            max_total_states: Per-iteration state cap.
+
+        Returns:
+            Dict with iteration count, total edges produced, and per-iteration details.
+        """
         active_rules = rules or self._rules
         if not active_rules:
             return {"error": "no rules defined", "states_created": 0}
@@ -428,6 +492,15 @@ class ReasoningMixin(_MemoryBase):
         return result
 
     def derive(self, target_concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
+        """Find derivation paths to a target concept using inference rules.
+
+        Args:
+            target_concept: Label of the node to derive.
+            rules: Rules to check; defaults to ``self._rules``.
+
+        Returns:
+            List of dicts with rule name, bindings, and context for each derivation.
+        """
         target = self._find_node(target_concept)
         if not target:
             return []
@@ -444,12 +517,19 @@ class ReasoningMixin(_MemoryBase):
         return results
 
     def add_rules(self, *rules: Rule) -> None:
+        """Append inference rules to the active rule set."""
         self._rules.extend(rules)
 
     def discover_rules(self) -> list[DiscoveredRule]:
+        """Discover transitive, inverse, and hub patterns in the graph."""
         return self._discovery.discover_all()
 
     def auto_discover_and_apply(self) -> dict[str, Any]:
+        """Discover graph patterns and add the resulting rules to the active set.
+
+        Returns:
+            Dict with total patterns, new rules added, and discovery analysis.
+        """
         discovered = self._discovery.discover_all()
         new_rules = [dr for dr in discovered if dr.rule is not None]
         for dr in new_rules:
@@ -466,6 +546,7 @@ class ReasoningMixin(_MemoryBase):
         }
 
     def _auto_superpose_inferences(self) -> list[QuantumState]:
+        """Create quantum superpositions for overlay edges sharing a common target."""
         if not self._overlay:
             return []
         target_groups: dict[str, list[tuple[str, float]]] = {}
@@ -488,6 +569,7 @@ class ReasoningMixin(_MemoryBase):
         return states
 
     def _track_rule_effectiveness(self) -> None:
+        """Check which rule-produced edges survived evolution and record outcomes."""
         productions = getattr(self, "_rulial_rule_productions", None)
         if not productions or not self._rulial:
             return

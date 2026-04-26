@@ -41,6 +41,7 @@ class ValidationReport:
 
 class ValidationEngine:
     def __init__(self, memory: Any) -> None:
+        """Initialize the validation engine bound to a CognitiveMemory instance."""
         self._memory = memory
         self._history: list[ValidationReport] = []
 
@@ -49,6 +50,17 @@ class ValidationEngine:
         seed_concepts: set[str],
         rules: list[Rule] | None = None,
     ) -> ValidationReport:
+        """Run simple vs. enhanced reasoning on the same seed concepts and compare.
+
+        Args:
+            seed_concepts: Node labels to use as reasoning seeds.
+            rules: Rules to apply.  Falls back to the memory's default rules
+                when ``None``.
+
+        Returns:
+            A :class:`ValidationReport` with summaries, agreement metrics,
+            novel findings, contradictions, and a recommendation.
+        """
         active_rules = rules or self._memory._rules
         if not active_rules:
             return ValidationReport()
@@ -152,6 +164,16 @@ class ValidationEngine:
         seed_concepts: set[str],
         rules: list[Rule],
     ) -> ReasoningSummary:
+        """Run full enhanced reasoning via ``memory.reason()`` and measure results.
+
+        Args:
+            seed_concepts: Seed node labels.
+            rules: Rules to apply.
+
+        Returns:
+            :class:`ReasoningSummary` with produced node/edge ID sets,
+            confidence, coverage, and elapsed time.
+        """
         start = time.perf_counter()
 
         pre_edges = {e.id for e in self._memory._graph.edges}
@@ -196,6 +218,7 @@ class ValidationEngine:
         )
 
     def _compute_confidence(self, edge_ids: set[str]) -> float:
+        """Compute a composite confidence score from edge weights and provenance depth."""
         if not edge_ids:
             return 0.0
         weights: list[float] = []
@@ -224,6 +247,7 @@ class ValidationEngine:
         simple: ReasoningSummary,
         enhanced: ReasoningSummary,
     ) -> AgreementMetrics:
+        """Compute Jaccard-based agreement metrics between simple and enhanced results."""
         sn = simple.nodes_produced
         en = enhanced.nodes_produced
         node_union = sn | en
@@ -256,6 +280,7 @@ class ValidationEngine:
         simple: ReasoningSummary,
         enhanced: ReasoningSummary,
     ) -> list[dict[str, Any]]:
+        """Find nodes and edges produced by enhanced reasoning but not by simple reasoning."""
         novel_nodes = enhanced.nodes_produced - simple.nodes_produced
         novel_edges = enhanced.edges_produced - simple.edges_produced
         findings: list[dict[str, Any]] = []
@@ -359,6 +384,7 @@ class ValidationEngine:
         simple: ReasoningSummary,
         enhanced: ReasoningSummary,
     ) -> str:
+        """Choose ``"enhanced"``, ``"equivalent"``, or ``"simple"`` based on agreement."""
         if enhanced.coverage > simple.coverage * 1.1 and agreement.precision >= 0.5:
             return "enhanced"
         if agreement.f1 >= 0.9:
@@ -371,6 +397,15 @@ class ValidationEngine:
         self,
         test_cases: list[set[str]] | None = None,
     ) -> list[ValidationReport]:
+        """Run comparisons across multiple test cases.
+
+        Args:
+            test_cases: List of seed-concept sets.  When ``None``, a single
+                test case is generated from the first node label in the graph.
+
+        Returns:
+            One :class:`ValidationReport` per test case.
+        """
         if test_cases is None:
             nodes = list(self._memory._graph.nodes)
             if not nodes:
@@ -384,6 +419,7 @@ class ValidationEngine:
         return reports
 
     def is_enhanced_reliable(self) -> bool:
+        """Return ``True`` when recent comparisons show acceptable F1 and precision."""
         if not self._history:
             return False
         recent = self._history[-10:]

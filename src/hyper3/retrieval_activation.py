@@ -14,6 +14,7 @@ class ActivationResult:
     depth: int
 
     def __lt__(self, other: ActivationResult) -> bool:
+        """Compare by activation level for sorting."""
         return self.activation < other.activation
 
 
@@ -31,6 +32,12 @@ class ActivationConfig:
 
 class SpreadingActivation:
     def __init__(self, graph: Hypergraph, *, config: ActivationConfig | None = None) -> None:
+        """Initialize the spreading activation engine.
+
+        Args:
+            graph: The hypergraph to propagate energy through.
+            config: Optional configuration; defaults are used if not provided.
+        """
         self._graph = graph
         self._config = config or ActivationConfig()
         self._activations: dict[str, float] = {}
@@ -38,22 +45,27 @@ class SpreadingActivation:
 
     @property
     def config(self) -> ActivationConfig:
+        """Return the activation configuration."""
         return self._config
 
     @property
     def activations(self) -> dict[str, float]:
+        """Return a copy of the current activation levels keyed by node ID."""
         return dict(self._activations)
 
     def clear(self) -> None:
+        """Reset all activations and depth tracking."""
         self._activations.clear()
         self._depth_map.clear()
 
     def stimulate(self, node_id: str, energy: float = 1.0) -> None:
+        """Inject energy into a node, accumulating with any existing activation."""
         self._activations[node_id] = self._activations.get(node_id, 0.0) + energy
         if node_id not in self._depth_map:
             self._depth_map[node_id] = 0
 
     def stimulate_label(self, label: str, energy: float = 1.0) -> None:
+        """Stimulate a node by its label."""
         node = self._graph.get_node_by_label(label)
         if node:
             self.stimulate(node.id, energy)
@@ -140,6 +152,15 @@ class SpreadingActivation:
         *,
         iterations: int | None = None,
     ) -> list[ActivationResult]:
+        """Stimulate multiple seed nodes and spread, returning activated results.
+
+        Args:
+            seeds: Dict mapping node IDs or labels to initial energy values.
+            iterations: Override for number of spread iterations.
+
+        Returns:
+            Sorted list of ActivationResult above threshold.
+        """
         for key, energy in seeds.items():
             node = self._graph.get_node(key)
             if node:
@@ -159,6 +180,17 @@ class SpreadingActivation:
         top_k: int = 10,
         iterations: int | None = None,
     ) -> list[ActivationResult]:
+        """Recall concepts associated with the given seed via spreading activation.
+
+        Args:
+            concept: Label or ID of the seed concept.
+            energy: Initial energy to inject.
+            top_k: Maximum number of results to return.
+            iterations: Override for spread iterations.
+
+        Returns:
+            Activated nodes (excluding the seed), sorted by activation.
+        """
         seed_node = self._graph.get_node_by_label(concept)
         if not seed_node:
             seed_node = self._graph.get_node(concept)

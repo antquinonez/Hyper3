@@ -21,27 +21,70 @@ class RuleMatch:
 class Rule(ABC):
     @property
     @abstractmethod
-    def name(self) -> str: ...
+    def name(self) -> str:
+        """Return the human-readable name of this rule."""
+        ...
 
     @abstractmethod
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find all rule matches in the graph among active nodes.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs that may participate in matches.
+
+        Returns:
+            A list of ``RuleMatch`` objects describing each match.
+        """
         ...
 
     @abstractmethod
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Apply a matched rule to the graph, mutating it in place.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: The previously found match to materialize.
+
+        Returns:
+            A tuple of (new_node_ids, new_edge_ids) created by this application.
+        """
         ...
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Return a confidence score in [0, 1] for the given match."""
         return 1.0
 
     def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        """Find matches that could derive the target node via this rule.
+
+        Args:
+            target_node_id: The node to explain or derive.
+            graph: The hypergraph to search.
+
+        Returns:
+            A list of ``RuleMatch`` objects whose application would produce
+            edges incident to *target_node_id*.
+        """
         return []
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize this rule to a JSON-compatible dictionary."""
         return {"rule_type": self.__class__.__name__}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Rule:
+        """Deserialize a rule from a dictionary produced by ``to_dict``.
+
+        Args:
+            data: Dictionary with at least a ``rule_type`` key.
+
+        Returns:
+            The reconstructed ``Rule`` instance.
+
+        Raises:
+            ValueError: If *rule_type* is unknown.
+        """
         rule_type = data.get("rule_type", "")
         rule_classes: dict[str, type[Rule]] = {
             "TransitiveRule": TransitiveRule,
@@ -62,14 +105,31 @@ class Rule(ABC):
 
 class TransitiveRule(Rule):
     def __init__(self, *, edge_label: str | None = None, new_label: str = "") -> None:
+        """Initialize the transitive rule.
+
+        Args:
+            edge_label: Only match edges with this label. ``None`` matches all.
+            new_label: Label for inferred edges. Defaults to ``"inferred"``.
+        """
         self._edge_label = edge_label
         self._new_label = new_label
 
     @property
     def name(self) -> str:
+        """Return ``"transitive(<label>)"``."""
         return f"transitive({self._edge_label or '*'})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find two-hop chains A→B→C among active nodes where A→C does not yet exist.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate in matches.
+
+        Returns:
+            Matches with bindings ``{A, B, C}`` and context keys
+            ``edge_ab`` and ``edge_bc``.
+        """
         matches: list[RuleMatch] = []
         edge_set: set[tuple[str, str]] = set()
         for edge in graph.edges:
@@ -103,6 +163,15 @@ class TransitiveRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create an inferred edge from A to C.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``A`` and ``C`` bindings.
+
+        Returns:
+            ``( [], [new_edge_id] )``.
+        """
         a, c = match.bindings["A"], match.bindings["C"]
         label = self._new_label or "inferred"
         edge = Hyperedge(
@@ -115,12 +184,14 @@ class TransitiveRule(Rule):
         return [], [edge.id]
 
     def _edge_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
+        """Check whether a direct edge from *source* to *target* exists."""
         for edge in graph.edges_for(source):
             if source in edge.source_ids and target in edge.target_ids:
                 return True
         return False
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score a transitive match as the product of constituent edge weights and confidences."""
         edge_ab = graph.get_edge(match.context.get("edge_ab", ""))
         edge_bc = graph.get_edge(match.context.get("edge_bc", ""))
         w_ab = edge_ab.weight if edge_ab else 1.0
@@ -130,6 +201,15 @@ class TransitiveRule(Rule):
         return w_ab * w_bc * conf_ab * conf_bc
 
     def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        """Find two-hop chains A→B→target that could derive the target via transitivity.
+
+        Args:
+            target_node_id: The node whose derivation is sought.
+            graph: The hypergraph to search.
+
+        Returns:
+            Matches with bindings ``{A, B, C}`` where ``C`` is *target_node_id*.
+        """
         derivations: list[RuleMatch] = []
         edge_set: set[tuple[str, str]] = set()
         for edge in graph.edges:
@@ -158,23 +238,42 @@ class TransitiveRule(Rule):
         return derivations
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the transitive rule configuration."""
         return {"rule_type": "TransitiveRule", "edge_label": self._edge_label, "new_label": self._new_label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> TransitiveRule:
+        """Reconstruct a ``TransitiveRule`` from serialized data."""
         return cls(edge_label=data.get("edge_label"), new_label=data.get("new_label", ""))
 
 
 class InverseRule(Rule):
     def __init__(self, *, edge_label: str, inverse_label: str) -> None:
+        """Initialize the inverse rule.
+
+        Args:
+            edge_label: Label of forward edges to match.
+            inverse_label: Label to assign to inferred inverse edges.
+        """
         self._edge_label = edge_label
         self._inverse_label = inverse_label
 
     @property
     def name(self) -> str:
+        """Return ``"inverse(<edge_label>-><inverse_label>)"``."""
         return f"inverse({self._edge_label}->{self._inverse_label})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find forward edges whose inverse does not yet exist.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{source, target}`` and context key
+            ``original_edge``.
+        """
         matches: list[RuleMatch] = []
         for nid in active_nodes:
             for edge in graph.edges_for(nid):
@@ -193,6 +292,15 @@ class InverseRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create an inverse edge from target back to source.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``source`` and ``target`` bindings.
+
+        Returns:
+            ``( [], [new_edge_id] )``.
+        """
         source, target = match.bindings["source"], match.bindings["target"]
         edge = Hyperedge(
             source_ids=frozenset({target}),
@@ -204,18 +312,29 @@ class InverseRule(Rule):
         return [], [edge.id]
 
     def _inverse_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
+        """Check whether an inverse edge from *source* to *target* already exists."""
         for edge in graph.edges_for(source):
             if edge.label == self._inverse_label and source in edge.source_ids and target in edge.target_ids:
                 return True
         return False
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score an inverse match using the original edge weight and confidence."""
         edge = graph.get_edge(match.context.get("original_edge", ""))
         w = edge.weight if edge else 1.0
         conf = edge.metadata.custom.get("confidence", 1.0) if edge else 1.0
         return w * conf
 
     def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        """Find forward edges from *target_node_id* whose inverse could be inferred.
+
+        Args:
+            target_node_id: The node whose derivation is sought.
+            graph: The hypergraph to search.
+
+        Returns:
+            Matches with bindings ``{source, target}``.
+        """
         derivations: list[RuleMatch] = []
         outgoing = [e for e in graph.edges_for(target_node_id) if target_node_id in e.source_ids]
         for edge in outgoing:
@@ -231,23 +350,43 @@ class InverseRule(Rule):
         return derivations
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the inverse rule configuration."""
         return {"rule_type": "InverseRule", "edge_label": self._edge_label, "inverse_label": self._inverse_label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> InverseRule:
+        """Reconstruct an ``InverseRule`` from serialized data."""
         return cls(edge_label=data["edge_label"], inverse_label=data["inverse_label"])
 
 
 class GeneralizationRule(Rule):
     def __init__(self, *, similarity_threshold: float = 0.8, label_prefix: str = "abstract_") -> None:
+        """Initialize the generalization rule.
+
+        Args:
+            similarity_threshold: Minimum data similarity for two nodes to be
+                candidates for abstraction.
+            label_prefix: Prefix for generated abstract node labels.
+        """
         self._threshold = similarity_threshold
         self._label_prefix = label_prefix
 
     @property
     def name(self) -> str:
+        """Return ``"generalization"``."""
         return "generalization"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find pairs of similar nodes that share no existing abstraction.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{A, B}`` and context keys
+            ``similarity``, ``label_a``, ``label_b``.
+        """
         matches: list[RuleMatch] = []
         nodes = [graph.get_node(nid) for nid in active_nodes]
         nodes = [n for n in nodes if n is not None and n.data is not None]
@@ -269,6 +408,15 @@ class GeneralizationRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create an abstract node linked to both original nodes via a ``"generalizes"`` edge.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``A`` and ``B`` bindings.
+
+        Returns:
+            ``( [abstract_node_id], [edge_id] )``.
+        """
         node_a = graph.get_node(match.bindings["A"])
         node_b = graph.get_node(match.bindings["B"])
         if not node_a or not node_b:
@@ -295,32 +443,54 @@ class GeneralizationRule(Rule):
         return [abstract_node.id], [edge_a.id]
 
     def _abstract_exists(self, graph: Hypergraph, a: Hypernode, b: Hypernode) -> bool:
+        """Check whether a ``"generalizes"`` edge already links *a* to *b*."""
         for edge in graph.edges_for(a.id):
             if edge.label == "generalizes" and b.id in edge.target_ids:
                 return True
         return False
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score a generalization match by the similarity stored in context."""
         return match.context.get("similarity", 0.5)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the generalization rule configuration."""
         return {"rule_type": "GeneralizationRule", "similarity_threshold": self._threshold, "label_prefix": self._label_prefix}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> GeneralizationRule:
+        """Reconstruct a ``GeneralizationRule`` from serialized data."""
         return cls(similarity_threshold=data.get("similarity_threshold", 0.8), label_prefix=data.get("label_prefix", "abstract_"))
 
 
 class AbductiveRule(Rule):
     def __init__(self, *, effect_label: str = "", cause_label: str = "possible_cause") -> None:
+        """Initialize the abductive rule.
+
+        Args:
+            effect_label: Only match incoming edges with this label. Empty
+                string matches all.
+            cause_label: Label for the inferred cause edge.
+        """
         self._effect_label = effect_label
         self._cause_label = cause_label
 
     @property
     def name(self) -> str:
+        """Return ``"abductive(<effect_label>)"``."""
         return f"abductive({self._effect_label or '*'})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find observed-effect nodes with incoming edges from potential causes.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{observed, potential_cause}`` and context
+            keys ``via_edge`` and ``edge_label``.
+        """
         matches: list[RuleMatch] = []
         existing_pairs: set[tuple[str, str]] = set()
         for edge in graph.edges:
@@ -356,6 +526,15 @@ class AbductiveRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create a hypothesis node and link it to the observed node.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``observed`` and ``potential_cause`` bindings.
+
+        Returns:
+            ``( [hypothesis_node_id], [edge_id] )``.
+        """
         observed_id = match.bindings["observed"]
         cause_id = match.bindings["potential_cause"]
         cause_node = graph.get_node(cause_id)
@@ -393,23 +572,43 @@ class AbductiveRule(Rule):
         return 0.3
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the abductive rule configuration."""
         return {"rule_type": "AbductiveRule", "effect_label": self._effect_label, "cause_label": self._cause_label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> AbductiveRule:
+        """Reconstruct an ``AbductiveRule`` from serialized data."""
         return cls(effect_label=data.get("effect_label", ""), cause_label=data.get("cause_label", "possible_cause"))
 
 
 class PropertyPropagationRule(Rule):
     def __init__(self, *, property_key: str, edge_label: str = "") -> None:
+        """Initialize the property propagation rule.
+
+        Args:
+            property_key: Metadata key to propagate from source to target nodes.
+            edge_label: Only propagate along edges with this label. Empty
+                string matches all.
+        """
         self._property_key = property_key
         self._edge_label = edge_label
 
     @property
     def name(self) -> str:
+        """Return ``"propagate(<property_key>)"``."""
         return f"propagate({self._property_key})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find nodes that carry the property and neighbors that lack it.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{source, target}`` and context keys
+            ``property_value`` and ``via_edge``.
+        """
         matches: list[RuleMatch] = []
         for nid in active_nodes:
             node = graph.get_node(nid)
@@ -438,6 +637,15 @@ class PropertyPropagationRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Copy the property value from source to target node metadata.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``source`` and ``target`` bindings.
+
+        Returns:
+            ``( [], [] )`` — no new nodes or edges are created.
+        """
         target = graph.get_node(match.bindings["target"])
         if not target:
             return [], []
@@ -467,27 +675,43 @@ class PropertyPropagationRule(Rule):
         return 0.4
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the property propagation rule configuration."""
         return {"rule_type": "PropertyPropagationRule", "property_key": self._property_key, "edge_label": self._edge_label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> PropertyPropagationRule:
+        """Reconstruct a ``PropertyPropagationRule`` from serialized data."""
         return cls(property_key=data["property_key"], edge_label=data.get("edge_label", ""))
 
 
 class AnalogicalReasoningRule(Rule):
     def __init__(self, *, edge_label: str = "", similarity_threshold: float = 0.7) -> None:
+        """Initialize the analogical reasoning rule.
+
+        Args:
+            edge_label: Only consider edges with this label. Empty matches all.
+            similarity_threshold: Minimum embedding cosine similarity for
+                candidate D in the analogy A:B :: C:D.
+        """
         self._edge_label = edge_label
         self._threshold = similarity_threshold
         self._embedding_engine = None
 
     def set_embedding_engine(self, engine: Any) -> None:
+        """Attach an embedding engine for computing node-vector representations.
+
+        Args:
+            engine: An object with a ``get_embedding(node_id)`` method.
+        """
         self._embedding_engine = engine
 
     @property
     def name(self) -> str:
+        """Return ``"analogical(<edge_label>)"``."""
         return f"analogical({self._edge_label or '*'})"
 
     def _cosine_sim(self, a: Any, b: Any) -> float:
+        """Compute the cosine similarity between two vectors."""
         na = np.linalg.norm(a)
         nb = np.linalg.norm(b)
         if na == 0 or nb == 0:
@@ -495,6 +719,19 @@ class AnalogicalReasoningRule(Rule):
         return float(np.dot(a, b) / (na * nb))
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find analogical patterns A:B :: C:D using embedding arithmetic.
+
+        Requires a configured embedding engine. Returns empty list if none
+        is set or fewer than four nodes have embeddings.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{A, B, C, D}`` and context keys
+            ``analogy_score`` and ``edge_ab``.
+        """
         if self._embedding_engine is None:
             return []
         matches: list[RuleMatch] = []
@@ -553,6 +790,15 @@ class AnalogicalReasoningRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create an analogical edge from C to D mirroring the A-to-B relationship.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``A``, ``B``, ``C``, ``D`` bindings.
+
+        Returns:
+            ``( [], [new_edge_id] )``.
+        """
         c_id, d_id = match.bindings["C"], match.bindings["D"]
         a_node = graph.get_node(match.bindings["A"])
         b_node = graph.get_node(match.bindings["B"])
@@ -574,27 +820,49 @@ class AnalogicalReasoningRule(Rule):
         return [], [edge.id]
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score an analogy match by the embedding similarity stored in context."""
         return match.context.get("analogy_score", 0.5)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the analogical reasoning rule configuration."""
         return {"rule_type": "AnalogicalReasoningRule", "edge_label": self._edge_label, "similarity_threshold": self._threshold}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> AnalogicalReasoningRule:
+        """Reconstruct an ``AnalogicalReasoningRule`` from serialized data."""
         return cls(edge_label=data.get("edge_label", ""), similarity_threshold=data.get("similarity_threshold", 0.7))
 
 
 class CausalInferenceRule(Rule):
     def __init__(self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes") -> None:
+        """Initialize the causal inference rule.
+
+        Args:
+            min_support: Minimum co-occurrence count for a source-target pair.
+            confidence_threshold: Minimum conditional probability
+                P(target|source) to infer causation.
+            causes_label: Label for inferred causal edges.
+        """
         self._min_support = min_support
         self._confidence_threshold = confidence_threshold
         self._causes_label = causes_label
 
     @property
     def name(self) -> str:
+        """Return ``"causal_inference(<causes_label>)"``."""
         return f"causal_inference({self._causes_label})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find source-target pairs exceeding minimum support and confidence.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{cause, effect}`` and context keys
+            ``support`` and ``confidence``.
+        """
         matches: list[RuleMatch] = []
         edge_pairs: dict[tuple[str, str], int] = {}
         for edge in graph.edges:
@@ -634,6 +902,15 @@ class CausalInferenceRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create a ``"causes"`` edge from cause to effect.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``cause`` and ``effect`` bindings.
+
+        Returns:
+            ``( [], [new_edge_id] )``.
+        """
         cause_id, effect_id = match.bindings["cause"], match.bindings["effect"]
         confidence = match.context["confidence"]
         edge = Hyperedge(
@@ -646,26 +923,46 @@ class CausalInferenceRule(Rule):
         return [], [edge.id]
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score a causal match by its confidence value."""
         return match.context.get("confidence", 0.5)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the causal inference rule configuration."""
         return {"rule_type": "CausalInferenceRule", "min_support": self._min_support, "confidence_threshold": self._confidence_threshold, "causes_label": self._causes_label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> CausalInferenceRule:
+        """Reconstruct a ``CausalInferenceRule`` from serialized data."""
         return cls(min_support=data.get("min_support", 2), confidence_threshold=data.get("confidence_threshold", 0.6), causes_label=data.get("causes_label", "causes"))
 
 
 class ContextualSubstitutionRule(Rule):
     def __init__(self, *, similarity_threshold: float = 0.8, substitution_label: str = "substitutes_for") -> None:
+        """Initialize the contextual substitution rule.
+
+        Args:
+            similarity_threshold: Minimum data similarity for two nodes to be
+                substitution candidates.
+            substitution_label: Label for bidirectional substitution edges.
+        """
         self._threshold = similarity_threshold
         self._label = substitution_label
 
     @property
     def name(self) -> str:
+        """Return ``"substitution(<label>)"``."""
         return f"substitution({self._label})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find pairs of similar nodes without an existing substitution edge.
+
+        Args:
+            graph: The hypergraph to search.
+            active_nodes: Node IDs eligible to participate.
+
+        Returns:
+            Matches with bindings ``{A, B}`` and context key ``similarity``.
+        """
         matches: list[RuleMatch] = []
         nodes = [graph.get_node(nid) for nid in active_nodes]
         nodes = [n for n in nodes if n is not None]
@@ -683,6 +980,15 @@ class ContextualSubstitutionRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create bidirectional substitution edges between A and B.
+
+        Args:
+            graph: The hypergraph to modify.
+            match: A match with ``A`` and ``B`` bindings.
+
+        Returns:
+            ``( [], [edge_ab_id, edge_ba_id] )``.
+        """
         a_id, b_id = match.bindings["A"], match.bindings["B"]
         confidence = match.context["similarity"]
         edge_ab = Hyperedge(
@@ -702,17 +1008,21 @@ class ContextualSubstitutionRule(Rule):
         return [], [edge_ab.id, edge_ba.id]
 
     def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
+        """Check whether a substitution edge between *a_id* and *b_id* exists."""
         for edge in graph.edges_for(a_id):
             if edge.label == self._label and b_id in edge.target_ids:
                 return True
         return False
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        """Score a substitution match by the similarity stored in context."""
         return match.context.get("similarity", 0.5)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the contextual substitution rule configuration."""
         return {"rule_type": "ContextualSubstitutionRule", "similarity_threshold": self._threshold, "substitution_label": self._label}
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> ContextualSubstitutionRule:
+        """Reconstruct a ``ContextualSubstitutionRule`` from serialized data."""
         return cls(similarity_threshold=data.get("similarity_threshold", 0.8), substitution_label=data.get("substitution_label", "substitutes_for"))

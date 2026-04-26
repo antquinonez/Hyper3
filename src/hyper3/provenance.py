@@ -7,6 +7,7 @@ from typing import Any
 
 @dataclass
 class ProvenanceRecord:
+    """Records how an inferred edge was derived."""
     edge_id: str
     rule_name: str
     input_edge_ids: list[str] = field(default_factory=list)
@@ -18,6 +19,7 @@ class ProvenanceRecord:
 
 @dataclass
 class Explanation:
+    """Human-readable derivation tree for an inferred edge."""
     edge_id: str
     source_label: str
     target_label: str
@@ -28,6 +30,14 @@ class Explanation:
     input_explanations: list[Explanation] = field(default_factory=list)
 
     def render(self, indent: int = 0) -> str:
+        """Render the explanation as an indented string.
+
+        Args:
+            indent: Current indentation level.
+
+        Returns:
+            Multi-line string showing the derivation chain.
+        """
         prefix = "  " * indent
         if self.rule_name == "given":
             return f"{prefix}{self.source_label} -> {self.target_label} (given)"
@@ -39,7 +49,10 @@ class Explanation:
 
 
 class ProvenanceTracker:
+    """Track inference derivations and support explanation and retraction."""
+
     def __init__(self) -> None:
+        """Initialize with empty record and dependency stores."""
         self._records: dict[str, ProvenanceRecord] = {}
         self._edge_to_dependents: dict[str, set[str]] = {}
 
@@ -52,6 +65,19 @@ class ProvenanceTracker:
         depth: int = 0,
         **metadata: Any,
     ) -> ProvenanceRecord:
+        """Record how an edge was inferred.
+
+        Args:
+            edge_id: ID of the inferred edge.
+            rule_name: Name of the rule that produced the inference.
+            input_edge_ids: Edge IDs used as premises.
+            input_node_ids: Node IDs used as premises.
+            depth: Derivation depth.
+            **metadata: Additional metadata stored on the record.
+
+        Returns:
+            The created provenance record.
+        """
         record = ProvenanceRecord(
             edge_id=edge_id,
             rule_name=rule_name,
@@ -67,17 +93,42 @@ class ProvenanceTracker:
         return record
 
     def get_provenance(self, edge_id: str) -> ProvenanceRecord | None:
+        """Look up the provenance record for an edge.
+
+        Args:
+            edge_id: ID of the edge.
+
+        Returns:
+            The provenance record, or ``None`` if not tracked.
+        """
         return self._records.get(edge_id)
 
     def is_inferred(self, edge_id: str) -> bool:
+        """Check whether an edge has a provenance record.
+
+        Args:
+            edge_id: ID of the edge to check.
+
+        Returns:
+            ``True`` if the edge was inferred and tracked.
+        """
         return edge_id in self._records
 
     def retract(self, edge_id: str) -> list[str]:
+        """Remove an edge and all of its transitive dependents from tracking.
+
+        Args:
+            edge_id: ID of the edge to retract.
+
+        Returns:
+            List of all retracted edge IDs (including cascaded dependents).
+        """
         retracted: list[str] = []
         self._retract_recursive(edge_id, retracted)
         return retracted
 
     def _retract_recursive(self, edge_id: str, retracted: list[str]) -> None:
+        """Recursively retract an edge and its dependents."""
         dependents = list(self._edge_to_dependents.pop(edge_id, set()))
         for dep_id in dependents:
             if dep_id in self._records:
@@ -89,11 +140,20 @@ class ProvenanceTracker:
             dep_set.discard(edge_id)
 
     def get_dependents(self, edge_id: str) -> set[str]:
+        """Collect all edge IDs that transitively depend on the given edge.
+
+        Args:
+            edge_id: ID of the premise edge.
+
+        Returns:
+            Set of all dependent edge IDs.
+        """
         result: set[str] = set()
         self._collect_dependents(edge_id, result)
         return result
 
     def _collect_dependents(self, edge_id: str, result: set[str]) -> None:
+        """Recursively accumulate dependent edge IDs into *result*."""
         direct = self._edge_to_dependents.get(edge_id, set())
         for dep_id in direct:
             if dep_id not in result:
@@ -101,6 +161,17 @@ class ProvenanceTracker:
                 self._collect_dependents(dep_id, result)
 
     def explain(self, edge_id: str, graph: Any = None, max_depth: int = 10) -> Explanation | None:
+        """Build a recursive explanation for how an edge was derived.
+
+        Args:
+            edge_id: ID of the edge to explain.
+            graph: Optional hypergraph used to resolve node labels.
+            max_depth: Maximum recursion depth to prevent infinite loops.
+
+        Returns:
+            An :class:`Explanation` tree, or ``None`` if depth is exhausted
+            or the edge is not found in the graph.
+        """
         if max_depth <= 0:
             return None
         record = self._records.get(edge_id)
@@ -154,17 +225,21 @@ class ProvenanceTracker:
 
     @property
     def records(self) -> list[ProvenanceRecord]:
+        """All provenance records."""
         return list(self._records.values())
 
     @property
     def record_count(self) -> int:
+        """Number of tracked provenance records."""
         return len(self._records)
 
     def clear(self) -> None:
+        """Remove all provenance records and dependency mappings."""
         self._records.clear()
         self._edge_to_dependents.clear()
 
     def _node_labels(self, node_ids: frozenset[str], graph: Any) -> list[str]:
+        """Resolve a set of node IDs to their labels, falling back to truncated IDs."""
         labels: list[str] = []
         for nid in node_ids:
             node = graph.get_node(nid)

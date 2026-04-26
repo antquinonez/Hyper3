@@ -23,6 +23,7 @@ class RulialPosition:
     timestamp: float = 0.0
 
     def distance_to(self, other: RulialPosition) -> float:
+        """Compute Euclidean distance across density, complexity, and rule-frequency dimensions."""
         density_diff = (self.computational_density - other.computational_density) ** 2
         complexity_diff = (self.causal_graph_complexity - other.causal_graph_complexity) ** 2
         freq_diff = 0.0
@@ -56,6 +57,12 @@ class TranscendentalInsight:
 
 class RulialSpace:
     def __init__(self, graph: Hypergraph, multiway: MultiwayEngine | None = None) -> None:
+        """Initialize the rulial space.
+
+        Args:
+            graph: The base hypergraph.
+            multiway: Optional multiway engine for branchial coordinate computation.
+        """
         self._graph = graph
         self._multiway = multiway
         self._position = RulialPosition(timestamp=time.time())
@@ -67,6 +74,14 @@ class RulialSpace:
         self._rule_outcomes: dict[str, dict[str, int]] = {}
 
     def update_position(self, rules: list[Rule] | None = None) -> RulialPosition:
+        """Recompute the current rulial position from graph statistics.
+
+        Args:
+            rules: Unused, kept for API compatibility.
+
+        Returns:
+            The updated RulialPosition.
+        """
         pos = RulialPosition(timestamp=time.time())
         pos.computational_density = self._compute_density()
         pos.rule_application_frequency = self._compute_rule_frequencies()
@@ -78,6 +93,7 @@ class RulialSpace:
         return pos
 
     def _compute_density(self) -> float:
+        """Compute computational density from average degree and rule diversity."""
         n_nodes = self._graph.node_count
         n_edges = self._graph.edge_count
         if n_nodes == 0:
@@ -87,6 +103,7 @@ class RulialSpace:
         return min(1.0, avg_degree * 0.25 + rule_diversity * 0.75)
 
     def _compute_rule_frequencies(self) -> dict[str, float]:
+        """Return normalized rule application frequencies."""
         if self._total_applications == 0:
             return {}
         return {
@@ -95,6 +112,7 @@ class RulialSpace:
         }
 
     def _compute_complexity(self) -> float:
+        """Compute causal graph complexity as the mean of spectral entropy and motif diversity."""
         n_nodes = self._graph.node_count
         if n_nodes < 2:
             return 0.0
@@ -103,6 +121,7 @@ class RulialSpace:
         return min(1.0, 0.5 * spectral + 0.5 * motif)
 
     def _compute_spectral_entropy(self) -> float:
+        """Compute normalized spectral entropy from the SVD of the adjacency matrix."""
         n = self._graph.node_count
         if n < 2:
             return 0.0
@@ -129,6 +148,7 @@ class RulialSpace:
         return float(min(entropy / max_entropy, 1.0))
 
     def _compute_motif_diversity(self) -> float:
+        """Compute normalized motif-type entropy from dyad and convergence patterns."""
         n = self._graph.node_count
         if n < 3:
             return 0.0
@@ -210,11 +230,18 @@ class RulialSpace:
         ]
 
     def record_rule_application(self, rule_name: str) -> None:
+        """Record that a rule was applied, incrementing counters and an outcome entry."""
         self._explored_rules[rule_name] = self._explored_rules.get(rule_name, 0) + 1
         self._total_applications += 1
         self.record_rule_outcome(rule_name, "applied")
 
     def record_rule_outcome(self, rule_name: str, outcome: str) -> None:
+        """Record a per-rule outcome such as applied, useful, pruned, or reinforced.
+
+        Args:
+            rule_name: Name of the rule.
+            outcome: One of "applied", "useful", "pruned", or "reinforced".
+        """
         if rule_name not in self._rule_outcomes:
             self._rule_outcomes[rule_name] = {"applications": 0, "useful": 0, "pruned": 0, "reinforced": 0}
         entry = self._rule_outcomes[rule_name]
@@ -229,6 +256,7 @@ class RulialSpace:
             entry["reinforced"] += 1
 
     def get_rule_effectiveness(self) -> dict[str, dict[str, float]]:
+        """Return per-rule effectiveness, retention, reinforcement, and application rates."""
         result = {}
         for rule_name, stats in self._rule_outcomes.items():
             apps = max(stats["applications"], 1)
@@ -241,12 +269,14 @@ class RulialSpace:
         return result
 
     def get_best_rules(self, top_k: int = 5) -> list[tuple[str, float]]:
+        """Return the top-k rules sorted by effectiveness score."""
         effectiveness = self.get_rule_effectiveness()
         scored = [(name, stats["effectiveness"]) for name, stats in effectiveness.items()]
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
     def get_recommended_rules(self) -> list[str]:
+        """Return rule names sorted by descending retention rate."""
         effectiveness = self.get_rule_effectiveness()
         if not effectiveness:
             return []
@@ -255,6 +285,7 @@ class RulialSpace:
         return [name for name, _ in scored]
 
     def get_rule_priority(self, rule_name: str) -> float:
+        """Return the retention rate for a rule, defaulting to 0.5 if unrecorded."""
         eff = self.get_rule_effectiveness()
         if rule_name not in eff:
             return 0.5
@@ -262,9 +293,19 @@ class RulialSpace:
 
     @property
     def rule_outcomes(self) -> dict[str, dict[str, int]]:
+        """Return a deep copy of per-rule outcome counters."""
         return {k: dict(v) for k, v in self._rule_outcomes.items()}
 
     def explore_rule_neighborhood(self, rules: list[Rule]) -> dict[str, Any]:
+        """Summarize which rules have been explored and their coverage.
+
+        Args:
+            rules: The full set of available rules.
+
+        Returns:
+            Dict with explored_rules, rule_diversity, computational_density,
+            coverage, and unexplored rule names.
+        """
         if not self._multiway:
             return {"error": "no multiway engine"}
         rule_names = [r.name for r in rules]
@@ -283,6 +324,14 @@ class RulialSpace:
         }
 
     def find_meta_patterns(self) -> list[MetaComputationalPattern]:
+        """Detect meta-computational patterns across five analysis dimensions.
+
+        Runs recurring, cross-domain, optimization, mutual-information,
+        and structural-motif detectors.
+
+        Returns:
+            List of discovered MetaComputationalPattern objects.
+        """
         self._meta_patterns.clear()
         self._find_recurring_patterns()
         self._find_cross_domain_patterns()
@@ -292,6 +341,7 @@ class RulialSpace:
         return self._meta_patterns
 
     def _find_recurring_patterns(self) -> None:
+        """Detect edge labels that appear three or more times."""
         edge_labels: dict[str, int] = {}
         for edge in self._graph.edges:
             edge_labels[edge.label] = edge_labels.get(edge.label, 0) + 1
@@ -308,6 +358,7 @@ class RulialSpace:
                 ))
 
     def _find_cross_domain_patterns(self) -> None:
+        """Detect when knowledge spans two or more modality tags."""
         node_modalities: dict[str, set] = {}
         for node in self._graph.nodes:
             for tag in node.metadata.modality_tags:
@@ -323,6 +374,7 @@ class RulialSpace:
             ))
 
     def _find_optimization_patterns(self) -> None:
+        """Detect nodes with weight above 1.0 that have been reinforced."""
         high_weight = [n for n in self._graph.nodes if n.weight > 1.0]
         if len(high_weight) >= 2:
             self._meta_patterns.append(MetaComputationalPattern(
@@ -334,6 +386,7 @@ class RulialSpace:
             ))
 
     def _find_mutual_information_patterns(self) -> None:
+        """Find pairs of edge labels with mutual information above 0.3 bits."""
         node_labels: dict[str, set[str]] = {}
         for node in self._graph.nodes:
             labels: set[str] = set()
@@ -377,6 +430,7 @@ class RulialSpace:
                     return
 
     def _find_structural_motifs(self) -> None:
+        """Detect hub nodes (degree >= 3) and transitive chain patterns."""
         n = self._graph.node_count
         if n < 3:
             return
@@ -421,6 +475,14 @@ class RulialSpace:
             ))
 
     def generate_transcendental_insights(self) -> list[TranscendentalInsight]:
+        """Derive high-level insights from meta-patterns and graph statistics.
+
+        Generates insights across information-theory, structural, computational,
+        spectral, rulial, and meta domains.
+
+        Returns:
+            List of TranscendentalInsight objects.
+        """
         self._insights.clear()
         if not self._meta_patterns:
             self.find_meta_patterns()
@@ -491,25 +553,38 @@ class RulialSpace:
 
     @property
     def position(self) -> RulialPosition:
+        """Return the current rulial position."""
         return self._position
 
     @property
     def position_history(self) -> list[RulialPosition]:
+        """Return a copy of the position history."""
         return list(self._position_history)
 
     @property
     def explored_rules(self) -> dict[str, int]:
+        """Return a copy of the explored-rules counter dict."""
         return dict(self._explored_rules)
 
     @property
     def insights(self) -> list[TranscendentalInsight]:
+        """Return a copy of the generated insights."""
         return list(self._insights)
 
     @property
     def meta_patterns(self) -> list[MetaComputationalPattern]:
+        """Return a copy of the discovered meta-patterns."""
         return list(self._meta_patterns)
 
     def compute_density_map(self, resolution: int = 10) -> list[list[float]]:
+        """Produce a 2D density grid from branchial coordinate history.
+
+        Args:
+            resolution: Side length of the square grid.
+
+        Returns:
+            A resolution x resolution grid of normalized density values.
+        """
         positions = self._position_history
         if not positions:
             return [[0.0] * resolution for _ in range(resolution)]
@@ -542,6 +617,15 @@ class RulialSpace:
         return grid
 
     def identify_frontiers(self, min_density: float = 0.1, max_density: float = 0.4) -> list[tuple[float, float]]:
+        """Find grid cells in the density map with intermediate density values.
+
+        Args:
+            min_density: Lower bound for frontier density.
+            max_density: Upper bound for frontier density.
+
+        Returns:
+            List of (row, col) coordinates of frontier cells.
+        """
         grid = self.compute_density_map()
         frontiers: list[tuple[float, float]] = []
         for r, row in enumerate(grid):
@@ -551,6 +635,7 @@ class RulialSpace:
         return frontiers
 
     def analyze(self) -> dict[str, Any]:
+        """Return a summary of the rulial space state."""
         return {
             "computational_density": self._position.computational_density,
             "causal_complexity": self._position.causal_graph_complexity,

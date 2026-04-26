@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
 
 def _import_pyplot():
+    """Import and return matplotlib.pyplot, raising an informative error if missing."""
     from matplotlib import pyplot as plt
 
     return plt
@@ -29,6 +30,21 @@ def plot_hypergraph(
     show_weights: bool = False,
     title: str = "Hypergraph",
 ) -> Figure:
+    """Render a hypergraph as a directed network diagram.
+
+    Args:
+        graph: The hypergraph to plot.
+        layout: NetworkX layout algorithm ("spring", "circular", "shell", "kamada_kawai").
+        figsize: Matplotlib figure size in inches.
+        node_size: Size of drawn nodes.
+        font_size: Font size for labels.
+        show_labels: Whether to draw node labels.
+        show_weights: Whether to annotate edges with weights.
+        title: Plot title.
+
+    Returns:
+        The matplotlib Figure object.
+    """
     plt = _import_pyplot()
     import networkx as nx
 
@@ -119,6 +135,18 @@ def plot_branchial_space(
     show_entanglements: bool = True,
     title: str = "Branchial Space",
 ) -> Figure:
+    """Plot multiway states in branchial coordinate space.
+
+    Args:
+        branchial: The BranchialSpace to visualize.
+        figsize: Matplotlib figure size in inches.
+        show_clusters: Color-code states by cluster membership.
+        show_entanglements: Draw dashed lines between entangled states.
+        title: Plot title.
+
+    Returns:
+        The matplotlib Figure object.
+    """
     plt = _import_pyplot()
 
     coords = branchial.coordinates
@@ -199,6 +227,20 @@ def plot_quantum_state(
     graph: Hypergraph | None = None,
     title: str | None = None,
 ) -> Figure:
+    """Plot amplitudes and/or Born-rule probabilities for a quantum state.
+
+    Args:
+        quantum: The quantum cognitive layer holding the state.
+        qs_id: ID of the quantum state to visualize.
+        figsize: Matplotlib figure size in inches.
+        show_probabilities: Draw the probability bar chart.
+        show_amplitudes: Draw the amplitude bar chart.
+        graph: Optional hypergraph for resolving node labels.
+        title: Custom plot title.
+
+    Returns:
+        The matplotlib Figure object.
+    """
     plt = _import_pyplot()
 
     qs = quantum.get_state(qs_id)
@@ -259,6 +301,18 @@ def plot_quantum_interference(
     graph: Hypergraph | None = None,
     title: str = "Interference Pattern",
 ) -> Figure:
+    """Plot constructive and destructive interference values for a quantum state.
+
+    Args:
+        quantum: The quantum cognitive layer holding the state.
+        qs_id: ID of the quantum state.
+        figsize: Matplotlib figure size in inches.
+        graph: Optional hypergraph for resolving node labels.
+        title: Plot title.
+
+    Returns:
+        The matplotlib Figure object.
+    """
     plt = _import_pyplot()
 
     interference = quantum.compute_interference(qs_id)
@@ -304,6 +358,16 @@ def plot_evolution_history(
     figsize: tuple[float, float] = (12, 6),
     title: str = "Evolution History",
 ) -> Figure:
+    """Scatter-plot evolution events by timestamp, colored by event type.
+
+    Args:
+        events: List of event dicts with "event_type" and "timestamp" keys.
+        figsize: Matplotlib figure size in inches.
+        title: Plot title.
+
+    Returns:
+        The matplotlib Figure object.
+    """
     plt = _import_pyplot()
 
     if not events:

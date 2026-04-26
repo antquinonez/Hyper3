@@ -54,6 +54,17 @@ class CognitiveMemory(
         decay_threshold: float = 0.1,
         evolve_interval: int = 10,
     ) -> None:
+        """Initialize the cognitive memory with all subsystems.
+
+        Args:
+            cache_max_size: Maximum number of entries in the LRU cache.
+            cache_ttl: Time-to-live in seconds for cache entries.
+            merge_threshold: Similarity threshold for node merging and equivalence detection.
+            decay_factor: Multiplier applied to node weights during evolution decay.
+            decay_threshold: Nodes below this weight are pruned during evolution.
+            evolve_interval: Number of operations between automatic evolution cycles.
+                Set to 0 to disable auto-evolution.
+        """
         self._graph = Hypergraph()
         self._log = EventLog()
         self._cache = LazyCache(max_size=cache_max_size, ttl=cache_ttl)

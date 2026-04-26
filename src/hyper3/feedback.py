@@ -9,6 +9,7 @@ from hyper3.kernel import Hypergraph
 
 @dataclass
 class FeedbackSignal:
+    """A single recorded outcome from a cognitive operation."""
     signal_type: str
     node_id: str
     outcome: bool
@@ -18,7 +19,14 @@ class FeedbackSignal:
 
 
 class OperationFeedback:
+    """Track outcomes of collapse, retrieval, inference, and evolution operations."""
+
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with an empty signal history.
+
+        Args:
+            graph: The hypergraph this feedback is associated with.
+        """
         self._graph = graph
         self._signals: list[FeedbackSignal] = []
         self._collapse_stats: dict[str, dict[str, int]] = {}
@@ -29,6 +37,14 @@ class OperationFeedback:
     def record_collapse_outcome(
         self, qs_id: str, selected_node_id: str, correct: bool | None = None,
     ) -> None:
+        """Record the outcome of a quantum collapse.
+
+        Args:
+            qs_id: ID of the quantum state that was collapsed.
+            selected_node_id: ID of the node selected by the collapse.
+            correct: ``True`` if the collapse was correct, ``False`` if incorrect,
+                or ``None`` if unknown.
+        """
         stats = self._collapse_stats.setdefault(qs_id, {"correct": 0, "incorrect": 0, "unknown": 0})
         if correct is True:
             stats["correct"] += 1
@@ -48,6 +64,13 @@ class OperationFeedback:
     def record_retrieval_outcome(
         self, query: str, relevant_ids: set[str], irrelevant_ids: set[str],
     ) -> None:
+        """Record which retrieved nodes were relevant or irrelevant for a query.
+
+        Args:
+            query: The query string or identifier.
+            relevant_ids: Set of node IDs judged relevant.
+            irrelevant_ids: Set of node IDs judged irrelevant.
+        """
         stats = self._retrieval_stats.setdefault(query, {"relevant": 0, "irrelevant": 0})
         stats["relevant"] += len(relevant_ids)
         stats["irrelevant"] += len(irrelevant_ids)
@@ -69,6 +92,12 @@ class OperationFeedback:
             ))
 
     def record_inference_outcome(self, edge_id: str, accepted: bool) -> None:
+        """Record whether an inferred edge was accepted or rejected.
+
+        Args:
+            edge_id: ID of the inferred edge.
+            accepted: ``True`` if accepted, ``False`` if rejected.
+        """
         key = edge_id
         stats = self._inference_stats.setdefault(key, {"accepted": 0, "rejected": 0})
         if accepted:
@@ -83,6 +112,11 @@ class OperationFeedback:
         ))
 
     def record_evolution_outcome(self, fitness: float) -> None:
+        """Record an evolution cycle fitness measurement.
+
+        Args:
+            fitness: The fitness score produced by the evolution cycle.
+        """
         self._evolution_fitness_history.append(fitness)
         self._signals.append(FeedbackSignal(
             signal_type="evolution",
@@ -93,6 +127,14 @@ class OperationFeedback:
         ))
 
     def get_reinforced_nodes(self, min_signals: int = 2) -> set[str]:
+        """Return node IDs with a majority of positive outcome signals.
+
+        Args:
+            min_signals: Minimum number of signals required to consider a node.
+
+        Returns:
+            Set of node IDs with a positive rate above 50%.
+        """
         node_outcomes: dict[str, list[bool]] = {}
         for signal in self._signals:
             if signal.signal_type in ("retrieval_relevant", "collapse"):
@@ -106,6 +148,14 @@ class OperationFeedback:
         return reinforced
 
     def get_suppressed_nodes(self, min_signals: int = 2) -> set[str]:
+        """Return node IDs that have been marked irrelevant enough times.
+
+        Args:
+            min_signals: Minimum number of irrelevant signals required.
+
+        Returns:
+            Set of node IDs meeting the suppression threshold.
+        """
         node_outcomes: dict[str, list[bool]] = {}
         for signal in self._signals:
             if signal.signal_type == "retrieval_irrelevant":
@@ -117,6 +167,12 @@ class OperationFeedback:
         return suppressed
 
     def get_fitness_trend(self) -> str:
+        """Analyze recent evolution fitness values for a trend.
+
+        Returns:
+            One of ``"improving"``, ``"declining"``, ``"stable"``, or
+            ``"insufficient_data"``.
+        """
         if len(self._evolution_fitness_history) < 2:
             return "insufficient_data"
         recent = self._evolution_fitness_history[-5:]
@@ -129,13 +185,20 @@ class OperationFeedback:
 
     @property
     def signals(self) -> list[FeedbackSignal]:
+        """Copy of all recorded feedback signals."""
         return list(self._signals)
 
     @property
     def signal_count(self) -> int:
+        """Total number of recorded feedback signals."""
         return len(self._signals)
 
     def collapse_accuracy(self) -> float:
+        """Compute the fraction of collapse outcomes that were correct.
+
+        Returns:
+            Accuracy in [0, 1], or 0.5 if no outcomes recorded.
+        """
         total_correct = sum(s.get("correct", 0) for s in self._collapse_stats.values())
         total_incorrect = sum(s.get("incorrect", 0) for s in self._collapse_stats.values())
         total = total_correct + total_incorrect
@@ -144,6 +207,11 @@ class OperationFeedback:
         return total_correct / total
 
     def retrieval_precision(self) -> float:
+        """Compute the fraction of retrieval results that were relevant.
+
+        Returns:
+            Precision in [0, 1], or 0.5 if no outcomes recorded.
+        """
         total_relevant = sum(s.get("relevant", 0) for s in self._retrieval_stats.values())
         total_irrelevant = sum(s.get("irrelevant", 0) for s in self._retrieval_stats.values())
         total = total_relevant + total_irrelevant
@@ -152,6 +220,11 @@ class OperationFeedback:
         return total_relevant / total
 
     def inference_acceptance_rate(self) -> float:
+        """Compute the fraction of inferred edges that were accepted.
+
+        Returns:
+            Acceptance rate in [0, 1], or 0.5 if no outcomes recorded.
+        """
         total_accepted = sum(s.get("accepted", 0) for s in self._inference_stats.values())
         total_rejected = sum(s.get("rejected", 0) for s in self._inference_stats.values())
         total = total_accepted + total_rejected

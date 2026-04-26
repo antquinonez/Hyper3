@@ -22,6 +22,7 @@ class ProblemFeatures:
     connectivity: float = 0.0
 
     def to_vector(self) -> np.ndarray:
+        """Convert problem features to a numpy feature vector."""
         return np.array([
             self.graph_density,
             self.seed_degree,
@@ -40,6 +41,7 @@ class ComputationalFrame:
     constraints: dict[str, Any] = field(default_factory=dict)
 
     def complexity(self) -> float:
+        """Compute the mean metric value as a composite complexity score."""
         if not self.metrics:
             return 0.0
         return sum(self.metrics.values()) / len(self.metrics)
@@ -100,6 +102,12 @@ class FrameMetrics:
 
 class InvariantDetector:
     def __init__(self, relativity: ComputationalRelativity) -> None:
+        """Bind the detector to a parent relativity engine.
+
+        Args:
+            relativity: The :class:`ComputationalRelativity` instance whose
+                frames are used for invariant detection.
+        """
         self._relativity = relativity
 
     def find_invariants(
@@ -107,6 +115,21 @@ class InvariantDetector:
         seed_ids: list[str],
         graph: Hypergraph,
     ) -> InvariantSet:
+        """Traverse from seed nodes under every frame and collect shared invariants.
+
+        Each frame may impose different depth limits and minimum weight
+        thresholds.  Nodes and edges reachable under *all* frames are
+        considered invariant.
+
+        Args:
+            seed_ids: Starting node IDs for the traversal.
+            graph: The hypergraph to traverse.
+
+        Returns:
+            An :class:`InvariantSet` containing nodes/edges present in every
+            frame's reachable set, per-frame unique extras, and a confidence
+            score (fraction of all reachable nodes that are invariant).
+        """
         frame_reachability: dict[str, set[str]] = {}
         frame_edges: dict[str, set[str]] = {}
         all_frames = list(self._relativity._frames.keys())
@@ -168,6 +191,12 @@ class InvariantDetector:
         )
 
     def mark_invariants(self, invariant_set: InvariantSet, graph: Hypergraph) -> None:
+        """Annotate graph nodes and edges with invariant metadata.
+
+        Args:
+            invariant_set: The invariants to stamp onto the graph.
+            graph: The hypergraph whose elements will be annotated.
+        """
         for node_id in invariant_set.invariant_nodes:
             node = graph.get_node(node_id)
             if node:
@@ -211,6 +240,11 @@ FRAME_TEMPLATES: dict[str, ComputationalFrame] = {
 
 class ComputationalRelativity:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the relativity engine with a hypergraph.
+
+        Args:
+            graph: The hypergraph to analyse across computational frames.
+        """
         self._graph = graph
         self._frames: dict[str, ComputationalFrame] = dict(FRAME_TEMPLATES)
         self._transformations: list[FrameTransformation] = []
@@ -219,12 +253,40 @@ class ComputationalRelativity:
         self._transformer = FrameTransformer()
 
     def add_frame(self, frame: ComputationalFrame) -> None:
+        """Register a custom computational frame.
+
+        Args:
+            frame: The frame to add or replace.
+        """
         self._frames[frame.name] = frame
 
     def get_frame(self, name: str) -> ComputationalFrame | None:
+        """Look up a frame by name.
+
+        Args:
+            name: The frame identifier.
+
+        Returns:
+            The matching :class:`ComputationalFrame`, or ``None`` if not found.
+        """
         return self._frames.get(name)
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
+        """Analyse a concept from the perspective of a single computational frame.
+
+        Dispatches to the frame-specific analysis method for built-in frames
+        (classical, quantum, hypergraph, probabilistic) and falls back to a
+        generic complexity/approach derivation for custom frames.
+
+        Args:
+            concept: Label of the node to analyse.
+            frame_name: Name of the computational frame to use.
+
+        Returns:
+            A :class:`FrameAnalysis` with complexity, approach, strengths,
+            and weaknesses.  Complexity is ``inf`` when the node or frame is
+            unknown.
+        """
         node = self._graph.get_node_by_label(concept)
         if not node:
             return FrameAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="node_not_found")
@@ -263,6 +325,17 @@ class ComputationalRelativity:
         concept: str,
         strategy: str = "best",
     ) -> dict[str, FrameAnalysis]:
+        """Run analysis across all registered frames for a concept.
+
+        Args:
+            concept: Label of the node to analyse.
+            strategy: Aggregation strategy.  ``"best"`` returns raw
+                per-frame results; ``"top2_rrf"`` re-ranks and merges the
+                two lowest-complexity frames via Reciprocal Rank Fusion.
+
+        Returns:
+            Dict mapping frame names to their :class:`FrameAnalysis`.
+        """
         results: dict[str, FrameAnalysis] = {}
         for frame_name in self._frames:
             results[frame_name] = self.analyze_in_frame(concept, frame_name)
@@ -341,6 +414,14 @@ class ComputationalRelativity:
         return merged
 
     def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
+        """Choose the frame with the lowest complexity for a concept.
+
+        Args:
+            concept: Label of the node to evaluate.
+
+        Returns:
+            Tuple of (frame name, analysis) for the best frame.
+        """
         analyses = self.multi_frame_analysis(concept)
         best_name = min(analyses, key=lambda n: analyses[n].complexity)
         return best_name, analyses[best_name]
@@ -353,6 +434,22 @@ class ComputationalRelativity:
         max_depth: int = 3,
         max_total_states: int = 30,
     ) -> Any:
+        """Derive a configuration suitable for one frame from another frame's analysis.
+
+        Uses :class:`~hyper3.frame_transform.FrameTransformer` to produce
+        parameter mappings between frames.
+
+        Args:
+            concept: Label of the node to analyse in the source frame.
+            from_frame: Source computational frame name.
+            to_frame: Target computational frame name.
+            max_depth: Maximum traversal depth for the transformation.
+            max_total_states: Maximum total states allowed.
+
+        Returns:
+            A :class:`~hyper3.frame_transform.TransformedConfig` with the
+            transformed parameters.
+        """
         from hyper3.frame_transform import TransformedConfig
         analysis = self.analyze_in_frame(concept, from_frame)
         params = analysis.parameters or {}
@@ -364,6 +461,18 @@ class ComputationalRelativity:
         )
 
     def transform_between_frames(self, concept: str, frame_a: str, frame_b: str) -> FrameTransformation:
+        """Quantify the cost and information loss of switching between two frames.
+
+        Args:
+            concept: Label of the node used to ground the analysis.
+            frame_a: Source frame name.
+            frame_b: Target frame name.
+
+        Returns:
+            A :class:`FrameTransformation` recording cost, information
+            preservation, and parameter deltas.  The transformation is also
+            appended to the internal history.
+        """
         analysis_a = self.analyze_in_frame(concept, frame_a)
         analysis_b = self.analyze_in_frame(concept, frame_b)
         cost = abs(analysis_a.complexity - analysis_b.complexity)
@@ -422,6 +531,7 @@ class ComputationalRelativity:
         return agreement / len(all_keys)
 
     def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+        """Analyse a node under the classical (deterministic) frame."""
         complexity = self._kolmogorov_complexity(node)
         approach = "direct_lookup"
         recommended_depth = 2
@@ -445,6 +555,7 @@ class ComputationalRelativity:
         )
 
     def _kolmogorov_complexity(self, node: Hypernode) -> float:
+        """Estimate Kolmogorov complexity via zlib compression ratio of the node's local structure."""
         import zlib
         parts: list[str] = [node.label]
         for edge in self._graph.edges_for(node.id):
@@ -461,6 +572,7 @@ class ComputationalRelativity:
         return min(ratio, 1.0)
 
     def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+        """Analyse a node under the quantum (superposition) frame."""
         complexity = self._von_neumann_entropy(node)
         approach = "superposition_sampling"
         recommended_depth = 3
@@ -488,6 +600,7 @@ class ComputationalRelativity:
         )
 
     def _von_neumann_entropy(self, node: Hypernode) -> float:
+        """Compute normalised Shannon entropy over the node's edge target distribution."""
         edges = self._graph.edges_for(node.id)
         if not edges:
             return 0.0
@@ -508,6 +621,7 @@ class ComputationalRelativity:
         return float(min(entropy / max_entropy, 1.0))
 
     def _hypergraph_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+        """Analyse a node under the hypergraph (multi-arity) frame."""
         complexity = self._spectral_gap_complexity(node)
         approach = "multi_dimensional_traversal"
         modalities = set()
@@ -535,6 +649,7 @@ class ComputationalRelativity:
         )
 
     def _spectral_gap_complexity(self, node: Hypernode) -> float:
+        """Estimate structural complexity from the spectral gap of the local adjacency matrix."""
         edges = self._graph.edges_for(node.id)
         if not edges:
             return 0.0
@@ -563,6 +678,7 @@ class ComputationalRelativity:
         return float(min(spectral_gap / max_eval, 1.0))
 
     def _probabilistic_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+        """Analyse a node under the probabilistic (sampling) frame."""
         complexity = self._transition_entropy(node)
         approach = "importance_sampling"
         assessment = self._assess_frame("probabilistic")
@@ -581,6 +697,7 @@ class ComputationalRelativity:
         )
 
     def _transition_entropy(self, node: Hypernode) -> float:
+        """Compute normalised entropy of the node's edge weight distribution."""
         edges = self._graph.edges_for(node.id)
         if not edges:
             return 0.0
@@ -597,6 +714,14 @@ class ComputationalRelativity:
         return float(min(entropy / max_entropy, 1.0))
 
     def _compute_complexity(self, node: Hypernode | None, frame: ComputationalFrame) -> float:
+        """Compute a normalised complexity estimate for a node in a given frame type.
+
+        The base cost depends on the frame type and neighbor count, then is
+        normalised by total graph size.
+
+        Returns:
+            Float complexity, or ``inf`` if the node is ``None``.
+        """
         base = 0.0
         if not node:
             return float("inf")
@@ -614,6 +739,7 @@ class ComputationalRelativity:
         return base / max(self._graph.node_count, 1)
 
     def _derive_approach(self, frame: ComputationalFrame, complexity: float) -> str:
+        """Map a complexity score to a solution approach label."""
         if complexity < 0.1:
             return "direct_lookup"
         if complexity < 0.3:
@@ -623,6 +749,7 @@ class ComputationalRelativity:
         return "exhaustive_analysis"
 
     def _assess_frame(self, frame_name: str) -> dict[str, list[str]]:
+        """Return static strengths and weaknesses for built-in frames."""
         assessments = {
             "classical": {
                 "strengths": ["deterministic", "complete_traversal", "reproducible"],
@@ -644,6 +771,7 @@ class ComputationalRelativity:
         return assessments.get(frame_name, {"strengths": [], "weaknesses": []})
 
     def _assess_frame_legacy(self, frame: ComputationalFrame, complexity: float) -> tuple[list[str], list[str]]:
+        """Assess a frame with complexity-adjusted strengths and weaknesses."""
         assessment = self._assess_frame(frame.name)
         strengths = list(assessment.get("strengths", []))
         weaknesses = list(assessment.get("weaknesses", []))
@@ -654,6 +782,7 @@ class ComputationalRelativity:
         return strengths, weaknesses
 
     def _find_node(self, concept: str) -> Hypernode | None:
+        """Look up a node by its label."""
         return self._graph.get_node_by_label(concept)
 
     def _count_neighbors(self, node_id: str) -> int:
@@ -670,13 +799,28 @@ class ComputationalRelativity:
 
     @property
     def frames(self) -> dict[str, ComputationalFrame]:
+        """Return a shallow copy of the registered frames dict."""
         return dict(self._frames)
 
     @property
     def transformations(self) -> list[FrameTransformation]:
+        """Return a copy of the computed frame transformations."""
         return list(self._transformations)
 
     def extract_problem_features(self, seed_ids: list[str]) -> ProblemFeatures:
+        """Derive structural features of the subgraph around seed nodes.
+
+        Computes graph density, average seed degree, modality diversity
+        (entropy over modality tags), average edge weight, and pairwise
+        connectivity among seeds.
+
+        Args:
+            seed_ids: Node IDs to extract features around.
+
+        Returns:
+            A :class:`ProblemFeatures` instance summarising the local graph
+            structure.
+        """
         total_nodes = self._graph.node_count
         total_edges = self._graph.edge_count
         graph_density = total_edges / max(total_nodes * (total_nodes - 1), 1)
@@ -732,9 +876,30 @@ class ComputationalRelativity:
         )
 
     def record_problem_outcome(self, features: ProblemFeatures, frame: str, success: bool) -> None:
+        """Store a problem outcome for future frame recommendation.
+
+        Args:
+            features: The problem features at the time of the query.
+            frame: The frame that was used.
+            success: Whether the frame produced a satisfactory result.
+        """
         self._problem_history.append((features.to_vector(), frame, success))
 
     def recommend_frame(self, seed_ids: list[str]) -> str | None:
+        """Suggest the best frame based on similarity to past successful outcomes.
+
+        Compares the current problem's feature vector to recorded history
+        using cosine similarity, selects the top-5 most similar past
+        problems, and sums similarity weights for successful outcomes per
+        frame.
+
+        Args:
+            seed_ids: Node IDs defining the current problem.
+
+        Returns:
+            The recommended frame name, or ``None`` if no history is
+            available.
+        """
         if not self._problem_history:
             return None
         current = self.extract_problem_features(seed_ids).to_vector()
@@ -766,6 +931,12 @@ class ComputationalRelativity:
         return max(frame_scores, key=lambda f: frame_scores[f])
 
     def record_frame_outcome(self, frame_name: str, success: bool) -> None:
+        """Record a per-frame success/failure outcome for effectiveness tracking.
+
+        Args:
+            frame_name: The frame that was selected.
+            success: Whether the result was satisfactory.
+        """
         if frame_name not in self._frame_outcomes:
             self._frame_outcomes[frame_name] = {"selections": 0, "successes": 0}
         self._frame_outcomes[frame_name]["selections"] += 1
@@ -773,6 +944,7 @@ class ComputationalRelativity:
             self._frame_outcomes[frame_name]["successes"] += 1
 
     def get_frame_effectiveness(self) -> dict[str, float]:
+        """Return the success rate for each frame with recorded outcomes."""
         result = {}
         for name, stats in self._frame_outcomes.items():
             if stats["selections"] > 0:
@@ -782,6 +954,18 @@ class ComputationalRelativity:
         return result
 
     def select_optimal_frame_learned(self, concept: str) -> tuple[str, FrameAnalysis]:
+        """Select the best frame using shifted Thompson sampling over past outcomes.
+
+        Frames with no recorded outcomes receive no bonus.  For frames with
+        outcomes, a bonus is sampled from ``Beta(successes+1, failures+1)``
+        and the score is ``(complexity + 1.0) * (1.0 - bonus * 0.6)``.
+
+        Args:
+            concept: Label of the node to evaluate.
+
+        Returns:
+            Tuple of (frame name, analysis) for the selected frame.
+        """
         analyses = self.multi_frame_analysis(concept)
 
         best_name = ""
@@ -802,6 +986,7 @@ class ComputationalRelativity:
         return best_name, analyses[best_name]
 
     def analyze(self) -> dict[str, Any]:
+        """Return a summary dict of available frames, transformation count, and effectiveness."""
         return {
             "available_frames": list(self._frames.keys()),
             "transformations_computed": len(self._transformations),
@@ -813,6 +998,21 @@ class ComputationalRelativity:
         seed_ids: list[str],
         strategy: str = "intersection",
     ) -> ConsensusResult:
+        """Run frame-parameterised traversals and find consensus reachable nodes.
+
+        Each frame contributes its own depth and weight thresholds.  The
+        resulting per-frame reachable sets are merged according to
+        *strategy*.
+
+        Args:
+            seed_ids: Starting node IDs.
+            strategy: Merge strategy — ``"intersection"``, ``"union"``,
+                ``"majority"``, or ``"weighted"``.
+
+        Returns:
+            A :class:`ConsensusResult` with agreed nodes, disagreement
+            regions, and overall confidence.
+        """
         frame_reachability: dict[str, set[str]] = {}
         frame_analyses: dict[str, FrameAnalysis] = {}
         for frame_name in self._frames:
@@ -886,6 +1086,18 @@ class ComputationalRelativity:
         frame_reachability: dict[str, set[str]],
         strategy: str,
     ) -> set[str]:
+        """Merge per-frame reachable sets using the given strategy.
+
+        Args:
+            frame_reachability: Dict mapping frame names to their reachable
+                node sets.
+            strategy: One of ``"intersection"``, ``"union"``,
+                ``"majority"``, or ``"weighted"`` (uses recorded frame
+                effectiveness as weights).
+
+        Returns:
+            The merged set of node IDs.
+        """
         if not frame_reachability:
             return set()
         all_sets = list(frame_reachability.values())
@@ -1025,6 +1237,18 @@ class ComputationalRelativity:
         return overlap / max(len(from_reachable), 1)
 
     def compute_redshift(self, seed_ids: list[str], frame: str) -> float:
+        """Estimate information loss (redshift) when viewing a seed from a given frame.
+
+        Combines the frame's complexity score with the information loss
+        computed by transforming from classical to the target frame.
+
+        Args:
+            seed_ids: Starting node IDs.
+            frame: Target computational frame name.
+
+        Returns:
+            Float in [0, 1] representing information dissipation.
+        """
         if not seed_ids:
             return 0.0
         concept_node = self._graph.get_node(seed_ids[0])
@@ -1034,6 +1258,15 @@ class ComputationalRelativity:
         return max(0.0, min(1.0, analysis.complexity * transformed.information_loss + analysis.complexity * 0.5))
 
     def compute_frame_metrics(self, seed_ids: list[str]) -> FrameMetrics:
+        """Compute curvature, frame dragging, and redshift for the seed nodes.
+
+        Args:
+            seed_ids: Node IDs to compute metrics around.
+
+        Returns:
+            A :class:`FrameMetrics` with curvature, classical-to-quantum
+            frame dragging, and classical redshift.
+        """
         return FrameMetrics(
             curvature=self.compute_curvature(seed_ids),
             frame_dragging=self.compute_frame_dragging(seed_ids, "classical", "quantum"),

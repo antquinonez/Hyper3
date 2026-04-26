@@ -18,12 +18,18 @@ class DiscoveredRule:
     rule: Rule | None = None
 
     def __post_init__(self) -> None:
+        """Set ``discovered_at`` to the current time if not already provided."""
         if not self.discovered_at:
             self.discovered_at = time.time()
 
 
 class RuleDiscoveryEngine:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the discovery engine with a hypergraph.
+
+        Args:
+            graph: The hypergraph to analyze for rule patterns.
+        """
         self._graph = graph
         self._discovered: list[DiscoveredRule] = []
         self._edge_label_counts: Counter[str] = Counter()
@@ -31,12 +37,21 @@ class RuleDiscoveryEngine:
         self._refresh_counts()
 
     def _refresh_counts(self) -> None:
+        """Rebuild the edge-label frequency counter from the current graph."""
         self._edge_label_counts.clear()
         for edge in self._graph.edges:
             if edge.label:
                 self._edge_label_counts[edge.label] += 1
 
     def discover_transitive_patterns(self, min_occurrences: int = 2) -> list[DiscoveredRule]:
+        """Discover edge labels that form enough two-hop chains to warrant a transitive rule.
+
+        Args:
+            min_occurrences: Minimum number of chains for a label to qualify.
+
+        Returns:
+            Newly discovered transitive rules.
+        """
         discovered: list[DiscoveredRule] = []
         for label, count in self._edge_label_counts.items():
             if count < min_occurrences:
@@ -59,6 +74,14 @@ class RuleDiscoveryEngine:
         return discovered
 
     def discover_inverse_patterns(self, min_pair_count: int = 2) -> list[DiscoveredRule]:
+        """Discover label pairs that appear as mutual inverses across nodes.
+
+        Args:
+            min_pair_count: Minimum co-occurrence count for a label pair.
+
+        Returns:
+            Newly discovered inverse rules.
+        """
         discovered: list[DiscoveredRule] = []
         label_pairs: Counter[str] = Counter()
         pair_edges: dict[str, list[tuple[str, str]]] = {}
@@ -96,6 +119,14 @@ class RuleDiscoveryEngine:
         return discovered
 
     def discover_hub_patterns(self, min_fan_out: int = 3) -> list[DiscoveredRule]:
+        """Discover nodes that fan out to many targets under the same label.
+
+        Args:
+            min_fan_out: Minimum outgoing edge count per label for a hub.
+
+        Returns:
+            Newly discovered hub patterns.
+        """
         discovered: list[DiscoveredRule] = []
         for node in self._graph.nodes:
             outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
@@ -123,6 +154,7 @@ class RuleDiscoveryEngine:
         return discovered
 
     def discover_all(self) -> list[DiscoveredRule]:
+        """Run all pattern detectors and return their combined results."""
         self._refresh_counts()
         results: list[DiscoveredRule] = []
         results.extend(self.discover_transitive_patterns())
@@ -131,12 +163,20 @@ class RuleDiscoveryEngine:
         return results
 
     def get_discovered_rules(self) -> list[DiscoveredRule]:
+        """Return all discovered rules accumulated so far."""
         return list(self._discovered)
 
     def get_active_rules(self) -> list[Rule]:
+        """Return only discovered rules that have a concrete ``Rule`` attached."""
         return [dr.rule for dr in self._discovered if dr.rule is not None]
 
     def analyze(self) -> dict[str, Any]:
+        """Run discovery and return a summary of all patterns found.
+
+        Returns:
+            Dictionary with keys ``total_patterns``, ``new_patterns``,
+            ``active_rules``, ``edge_labels``, and ``pattern_types``.
+        """
         discovered = self.discover_all()
         return {
             "total_patterns": len(self._discovered),
@@ -147,6 +187,7 @@ class RuleDiscoveryEngine:
         }
 
     def _count_chains(self, label: str) -> int:
+        """Count two-hop edge chains with the given label."""
         count = 0
         for edge_a in self._graph.edges:
             if edge_a.label != label:

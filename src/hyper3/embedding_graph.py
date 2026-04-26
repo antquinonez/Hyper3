@@ -23,6 +23,19 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         epochs: int = 5,
         seed: int = 42,
     ) -> None:
+        """Initialize the random-walk embedding provider.
+
+        Args:
+            graph: The hypergraph to learn embeddings from.
+            dim: Dimensionality of the embedding vectors.
+            walk_length: Number of steps per random walk.
+            num_walks: Number of walks to generate per node.
+            window_size: Skip-gram context window size.
+            neg_samples: Number of negative samples per positive pair.
+            learning_rate: Initial learning rate for SGD.
+            epochs: Number of training passes over all walks.
+            seed: Random seed for reproducibility.
+        """
         self._graph = graph
         self._dim = dim
         self._walk_length = walk_length
@@ -39,17 +52,34 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         self._neg_sampling_probs: np.ndarray | None = None
 
     def dimension(self) -> int:
+        """Return the configured embedding dimensionality."""
         return self._dim
 
     def embed(self, text: str) -> np.ndarray:
+        """Return a zero vector; this provider requires graph structure, not text."""
         return np.zeros(self._dim)
 
     def embed_node(self, node_id: str, text: str) -> np.ndarray:
+        """Return the learned embedding for a node, retraining if necessary.
+
+        Args:
+            node_id: ID of the node in the graph.
+            text: Ignored; the embedding is derived from graph structure.
+
+        Returns:
+            Unit-normalized embedding vector for the node.
+        """
         if not self._trained or node_id in self._dirty:
             self._train()
         return self._embeddings.get(node_id, np.zeros(self._dim))
 
     def mark_dirty(self, node_ids: set[str] | None = None) -> None:
+        """Mark nodes as needing re-embedding.
+
+        Args:
+            node_ids: Set of node IDs to retrain. ``None`` marks all nodes
+                and forces a full retrain on next access.
+        """
         if node_ids is None:
             self._dirty = set(self._embeddings.keys())
             self._trained = False
@@ -57,12 +87,18 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
             self._dirty.update(node_ids)
 
     def retrain(self) -> None:
+        """Discard all embeddings and retrain from scratch."""
         self._trained = False
         self._embeddings.clear()
         self._dirty.clear()
         self._train()
 
     def _train(self) -> None:
+        """Run the Node2Vec-style training loop.
+
+        Generates random walks, then optimizes skip-gram with negative
+        sampling (SGNS) over all walks for the configured number of epochs.
+        """
         nodes = list(self._graph.nodes)
         if len(nodes) < 2:
             for n in nodes:
@@ -123,6 +159,11 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         self._dirty.clear()
 
     def _generate_walks(self) -> list[list[str]]:
+        """Generate random walks starting from every node.
+
+        Returns:
+            List of walks, where each walk is a list of node IDs.
+        """
         walks: list[list[str]] = []
         nodes = list(self._graph.nodes)
         for _ in range(self._num_walks):
@@ -136,6 +177,15 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         return walks
 
     def _single_walk(self, start_id: str, length: int) -> list[str]:
+        """Perform a single random walk from the given start node.
+
+        Args:
+            start_id: ID of the node to start from.
+            length: Maximum number of steps in the walk.
+
+        Returns:
+            List of node IDs visited during the walk.
+        """
         walk = [start_id]
         current = start_id
         for _ in range(length - 1):
@@ -165,6 +215,16 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         n_nodes: int,
         lr: float,
     ) -> None:
+        """Perform a single skip-gram with negative sampling (SGNS) update.
+
+        Args:
+            w_in: Input (target) weight vectors keyed by node index.
+            w_out: Output (context) weight vectors keyed by node index.
+            target_idx: Index of the target (center) node.
+            context_idx: Index of the positive context node.
+            n_nodes: Total number of nodes (for negative sampling).
+            lr: Current learning rate.
+        """
         target_vec = w_in[target_idx].copy()
         neu1e = np.zeros_like(target_vec)
 
@@ -201,6 +261,13 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         dim: int = 64,
         seed: int = 42,
     ) -> None:
+        """Initialize the neighborhood fingerprint embedding provider.
+
+        Args:
+            graph: The hypergraph whose structure determines embeddings.
+            dim: Dimensionality of the output embedding vectors.
+            seed: Random seed for the random projection matrix.
+        """
         self._graph = graph
         self._dim = dim
         self._rng = np.random.RandomState(seed)
@@ -211,12 +278,23 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         self._projection = self._rng.randn(1024, self._dim).astype(np.float64) / (1024 ** 0.5)
 
     def dimension(self) -> int:
+        """Return the configured embedding dimensionality."""
         return self._dim
 
     def embed(self, text: str) -> np.ndarray:
+        """Return a zero vector; this provider requires graph structure, not text."""
         return np.zeros(self._dim)
 
     def embed_node(self, node_id: str, text: str) -> np.ndarray:
+        """Compute a TF-IDF-weighted neighborhood fingerprint for a node.
+
+        Args:
+            node_id: ID of the node in the graph.
+            text: Ignored; the embedding is derived from graph structure.
+
+        Returns:
+            Unit-normalized embedding vector for the node.
+        """
         if node_id in self._cache:
             return self._cache[node_id]
         vec = self._compute_fingerprint(node_id)
@@ -224,6 +302,11 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         return vec
 
     def invalidate(self, node_ids: set[str] | None = None) -> None:
+        """Clear cached fingerprints so they are recomputed on next access.
+
+        Args:
+            node_ids: Specific nodes to invalidate. ``None`` clears all caches.
+        """
         if node_ids is None:
             self._cache.clear()
             self._label_weights.clear()
@@ -234,6 +317,18 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
             self._idf_cache.clear()
 
     def _compute_fingerprint(self, node_id: str) -> np.ndarray:
+        """Build a sparse structural fingerprint and project it to the target dimension.
+
+        The fingerprint encodes 1-hop and 2-hop edge labels with TF-IDF
+        weighting, directionality, and node metadata tags, then applies a
+        random projection to the target dimension.
+
+        Args:
+            node_id: ID of the node to fingerprint.
+
+        Returns:
+            Unit-normalized embedding vector.
+        """
         self._ensure_idf()
         sparse = np.zeros(1024, dtype=np.float64)
 
@@ -296,11 +391,26 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         return result
 
     def _hash_feature(self, feature: str, category: str) -> int:
+        """Deterministically map a feature string and category to a sparse bucket index.
+
+        Args:
+            feature: Feature description string.
+            category: Category namespace for the feature.
+
+        Returns:
+            Integer index in ``[0, 1024)``.
+        """
         h = int(hashlib.md5(f"{category}:{feature}".encode()).hexdigest(), 16) % (2**31)
         rng = np.random.RandomState(h)
         return int(rng.randint(0, 1024))
 
     def _ensure_idf(self) -> None:
+        """Compute and cache inverse-document-frequency weights for edge labels.
+
+        IDF is computed as ``log(N / (1 + doc_count)) + 1.0`` where *N* is the
+        total number of nodes and *doc_count* is the number of nodes incident
+        to at least one edge with the given label.
+        """
         if self._idf_cache:
             return
         label_doc_count: dict[str, int] = {}
@@ -326,6 +436,17 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
         target_dim: int | None = None,
         graph: Hypergraph | None = None,
     ) -> None:
+        """Initialize the composite embedding provider.
+
+        Args:
+            providers: Ordered list of embedding providers to combine.
+            weights: Per-provider weights; normalized to sum to 1. Defaults to
+                equal weights.
+            target_dim: Desired output dimensionality. If smaller than the
+                sum of provider dimensions, call :meth:`fit_projection` to
+                learn a PCA projection.
+            graph: Hypergraph reference needed for :meth:`fit_projection`.
+        """
         self._providers = providers
         self._weights = weights or [1.0] * len(providers)
         total_w = sum(self._weights)
@@ -339,11 +460,28 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
             self._total_dim = sum(p.dimension() for p in providers)
 
     def dimension(self) -> int:
+        """Return the effective output dimensionality.
+
+        If ``target_dim`` was set at construction, returns that value.
+        Otherwise returns the sum of all provider dimensions (or 64 as a
+        fallback when no providers are configured).
+        """
         if self._target_dim is not None:
             return self._target_dim
         return self._total_dim if self._total_dim > 0 else 64
 
     def embed(self, text: str) -> np.ndarray:
+        """Combine text embeddings from all providers into a single vector.
+
+        Provider outputs are concatenated (weighted), optionally projected
+        via PCA, then L2-normalized.
+
+        Args:
+            text: Text to embed.
+
+        Returns:
+            Unit-normalized combined embedding vector.
+        """
         parts: list[np.ndarray] = []
         for provider, weight in zip(self._providers, self._weights):
             vec = provider.embed(text)
@@ -359,6 +497,19 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
         return combined
 
     def embed_node(self, node_id: str, text: str) -> np.ndarray:
+        """Combine node embeddings from all providers into a single vector.
+
+        Providers that support ``embed_node`` are called with the node ID;
+        others fall back to ``embed(text)``.  Outputs are concatenated
+        (weighted), optionally projected via PCA, then L2-normalized.
+
+        Args:
+            node_id: ID of the node in the graph.
+            text: Textual representation (typically the node label).
+
+        Returns:
+            Unit-normalized combined embedding vector.
+        """
         parts: list[np.ndarray] = []
         for provider, weight in zip(self._providers, self._weights):
             if hasattr(provider, "embed_node"):
@@ -377,6 +528,15 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
         return combined
 
     def fit_projection(self, node_ids: list[str] | None = None) -> None:
+        """Learn a PCA projection to reduce the combined embedding to ``target_dim``.
+
+        Computes combined embeddings for all (or specified) nodes, then derives
+        a projection matrix from the top principal components.
+
+        Args:
+            node_ids: Subset of node IDs to use for fitting. ``None`` uses all
+                nodes in the graph.
+        """
         if self._target_dim is None or self._target_dim >= self._total_dim:
             return
         graph = self._graph

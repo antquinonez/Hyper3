@@ -46,14 +46,27 @@ class Hypernode:
     weight: float = 1.0
 
     def touch(self, now: float) -> None:
+        """Record an access by incrementing the counter and updating the timestamp."""
         self.access_count += 1
         self.last_accessed = now
 
     @property
     def is_active(self) -> bool:
+        """Whether this node has been accessed at least once."""
         return self.access_count > 0
 
     def matches(self, other: Hypernode) -> float:
+        """Compute a similarity score in [0, 1] against another node's data.
+
+        For dict data, returns the fraction of shared keys with matching values.
+        For scalar types, returns 1.0 on exact equality and 0.0 otherwise.
+
+        Args:
+            other: The node to compare against.
+
+        Returns:
+            Similarity score between 0.0 and 1.0.
+        """
         if self.data is None or other.data is None:
             return 0.0
         if self.data == other.data:
@@ -81,11 +94,13 @@ class Hyperedge:
 
     @property
     def node_ids(self) -> frozenset[str]:
+        """Union of source and target node IDs."""
         return self.source_ids | self.target_ids
 
 
 class Hypergraph:
     def __init__(self) -> None:
+        """Initialize an empty hypergraph with fresh indexes."""
         self._nodes: dict[str, Hypernode] = {}
         self._edges: dict[str, Hyperedge] = {}
         self._node_to_edges: dict[str, set[str]] = {}
@@ -96,6 +111,17 @@ class Hypergraph:
         self._cache_invalidated_in_batch: bool = False
 
     def add_node(self, node: Hypernode) -> Hypernode:
+        """Add a node to the graph if not already present.
+
+        Updates the label and dimension indexes.  Returns the existing
+        node unchanged if its ID already exists.
+
+        Args:
+            node: The hypernode to add.
+
+        Returns:
+            The added or existing node.
+        """
         if node.id in self._nodes:
             return self._nodes[node.id]
         self._nodes[node.id] = node
@@ -111,15 +137,39 @@ class Hypergraph:
         return node
 
     def get_node(self, node_id: str) -> Hypernode | None:
+        """Retrieve a node by its ID.
+
+        Args:
+            node_id: The unique identifier of the node.
+
+        Returns:
+            The hypernode, or None if not found.
+        """
         return self._nodes.get(node_id)
 
     def get_node_by_label(self, label: str) -> Hypernode | None:
+        """Retrieve a node by its human-readable label.
+
+        Args:
+            label: The label to look up.
+
+        Returns:
+            The hypernode, or None if no node has this label.
+        """
         nid = self._label_index.get(label)
         if nid:
             return self._nodes.get(nid)
         return None
 
     def remove_node(self, node_id: str) -> bool:
+        """Remove a node and all edges connected to it.
+
+        Args:
+            node_id: The ID of the node to remove.
+
+        Returns:
+            True if the node was removed, False if it was not found.
+        """
         if node_id not in self._nodes:
             return False
         edge_ids_to_remove = list(self._node_to_edges.get(node_id, set()))
@@ -139,6 +189,19 @@ class Hypergraph:
         return True
 
     def add_edge(self, edge: Hyperedge) -> Hyperedge:
+        """Add an edge to the graph if not already present.
+
+        All source and target nodes must already exist in the graph.
+
+        Args:
+            edge: The hyperedge to add.
+
+        Returns:
+            The added or existing edge.
+
+        Raises:
+            NodeNotFoundError: If any referenced node does not exist.
+        """
         if edge.id in self._edges:
             return self._edges[edge.id]
         for nid in edge.node_ids:
@@ -153,9 +216,25 @@ class Hypergraph:
         return edge
 
     def get_edge(self, edge_id: str) -> Hyperedge | None:
+        """Retrieve an edge by its ID.
+
+        Args:
+            edge_id: The unique identifier of the edge.
+
+        Returns:
+            The hyperedge, or None if not found.
+        """
         return self._edges.get(edge_id)
 
     def remove_edge(self, edge_id: str) -> bool:
+        """Remove an edge from the graph.
+
+        Args:
+            edge_id: The ID of the edge to remove.
+
+        Returns:
+            True if the edge was removed, False if it was not found.
+        """
         if edge_id not in self._edges:
             return False
         edge = self._edges[edge_id]
@@ -170,10 +249,29 @@ class Hypergraph:
         return True
 
     def edges_for(self, node_id: str) -> list[Hyperedge]:
+        """Return all edges connected to the given node.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges referencing the node.
+        """
         edge_ids = self._node_to_edges.get(node_id, set())
         return [self._edges[eid] for eid in edge_ids if eid in self._edges]
 
     def neighbors(self, node_id: str) -> list[str]:
+        """Return IDs of all nodes sharing an edge with the given node.
+
+        Results are cached and lazily built; the cache is invalidated on
+        any structural mutation outside batch mode.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of neighboring node IDs (excluding the node itself).
+        """
         if self._neighbor_cache is None:
             self._neighbor_cache = {}
             for nid in self._nodes:
@@ -185,10 +283,12 @@ class Hypergraph:
         return self._neighbor_cache.get(node_id, [])
 
     def begin_batch(self) -> None:
+        """Defer neighbor-cache invalidation until end_batch is called."""
         self._batch_mode = True
         self._cache_invalidated_in_batch = False
 
     def end_batch(self) -> None:
+        """End batch mode and invalidate the neighbor cache if needed."""
         self._batch_mode = False
         if self._cache_invalidated_in_batch:
             self._neighbor_cache = None
@@ -203,6 +303,18 @@ class Hypergraph:
         max_depth: int = 5,
         max_paths: int = 10,
     ) -> list[list[str]]:
+        """Find paths between two nodes using depth-first search.
+
+        Args:
+            source_id: ID of the starting node.
+            target_id: ID of the destination node.
+            edge_label: If set, only traverse edges with this label.
+            max_depth: Maximum path length to explore.
+            max_paths: Maximum number of paths to return.
+
+        Returns:
+            List of paths, where each path is a list of node IDs.
+        """
         if source_id not in self._nodes or target_id not in self._nodes:
             return []
         paths: list[list[str]] = []
@@ -220,6 +332,7 @@ class Hypergraph:
         visited: set[str],
         results: list[list[str]],
     ) -> None:
+        """Recursive DFS helper for find_paths."""
         if len(results) >= max_paths:
             return
         if current == target:
@@ -246,6 +359,18 @@ class Hypergraph:
         target_label: str | None = None,
         limit: int = 100,
     ) -> list[tuple[Hyperedge, dict[str, str]]]:
+        """Find edges matching label-based patterns.
+
+        Args:
+            edge_label: Filter edges by this label.
+            source_label: Filter to edges whose source set contains this label.
+            target_label: Filter to edges whose target set contains this label.
+            limit: Maximum number of matches to return.
+
+        Returns:
+            List of (edge, bindings) tuples where bindings maps
+            ``source_label`` and ``target_label`` to concrete labels.
+        """
         results: list[tuple[Hyperedge, dict[str, str]]] = []
         for edge in self._edges.values():
             if edge_label is not None and edge.label != edge_label:
@@ -280,6 +405,16 @@ class Hypergraph:
         return results
 
     def subgraph(self, node_ids: set[str]) -> Hypergraph:
+        """Extract a subgraph containing only the specified nodes and their internal edges.
+
+        Args:
+            node_ids: Set of node IDs to include.
+
+        Returns:
+            A new Hypergraph with deep copies of the matching nodes and
+            edges whose source and target sets are fully contained in
+            ``node_ids``.
+        """
         result = Hypergraph()
         id_set = node_ids & set(self._nodes.keys())
         for nid in id_set:
@@ -318,6 +453,14 @@ class Hypergraph:
         return result
 
     def to_networkx(self) -> nx.DiGraph:
+        """Convert the hypergraph to a networkx DiGraph.
+
+        Hyperedges are expanded into pairwise directed edges between every
+        source and every target node.
+
+        Returns:
+            A networkx DiGraph with node/edge attributes preserved.
+        """
         G = nx.DiGraph()
         for node in self._nodes.values():
             G.add_node(node.id, label=node.label, weight=node.weight, data=node.data)
@@ -328,6 +471,7 @@ class Hypergraph:
         return G
 
     def _to_networkx_inverted_weights(self) -> nx.DiGraph:
+        """Convert to a networkx DiGraph with cost = 1/weight on each edge."""
         G = self.to_networkx()
         for u, v, data in G.edges(data=True):
             w = data.get("weight", 1.0)
@@ -335,6 +479,11 @@ class Hypergraph:
         return G
 
     def degree_centrality(self) -> dict[str, float]:
+        """Compute normalized degree centrality for every node.
+
+        Returns:
+            Dict mapping node ID to its degree centrality in [0, 1].
+        """
         n = len(self._nodes)
         if n <= 1:
             return {nid: 1.0 for nid in self._nodes}
@@ -345,18 +494,33 @@ class Hypergraph:
         return result
 
     def betweenness_centrality(self) -> dict[str, float]:
+        """Compute betweenness centrality using inverted weights as costs.
+
+        Returns:
+            Dict mapping node ID to its betweenness centrality score.
+        """
         G = self._to_networkx_inverted_weights()
         if G.number_of_nodes() == 0:
             return {}
         return dict(nx.betweenness_centrality(G, weight="cost"))
 
     def connected_components(self) -> list[set[str]]:
+        """Find weakly connected components.
+
+        Returns:
+            List of sets, each containing the node IDs of one component.
+        """
         G = self.to_networkx()
         if G.number_of_nodes() == 0:
             return []
         return [set(c) for c in nx.weakly_connected_components(G)]
 
     def has_cycle(self) -> bool:
+        """Check whether the graph contains at least one directed cycle.
+
+        Returns:
+            True if a cycle exists, False otherwise.
+        """
         G = self.to_networkx()
         if G.number_of_nodes() == 0:
             return False
@@ -388,6 +552,18 @@ class Hypergraph:
         return cycles
 
     def shortest_path(self, source_id: str, target_id: str, weighted: bool = True) -> list[str] | None:
+        """Find the shortest path between two nodes.
+
+        Args:
+            source_id: ID of the starting node.
+            target_id: ID of the destination node.
+            weighted: If True, use inverted edge weights as costs
+                (Dijkstra). If False, use unweighted BFS.
+
+        Returns:
+            List of node IDs forming the shortest path, or None if no
+            path exists.
+        """
         if weighted:
             G = self._to_networkx_inverted_weights()
             weight_attr = "cost"
@@ -404,9 +580,22 @@ class Hypergraph:
             return None
 
     def node_degree(self, node_id: str) -> int:
+        """Return the number of edges connected to a node.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            Edge count for the node.
+        """
         return len(self.edges_for(node_id))
 
     def degree_distribution(self) -> dict[int, int]:
+        """Compute the degree distribution across all nodes.
+
+        Returns:
+            Dict mapping degree value to the number of nodes with that degree.
+        """
         dist: dict[int, int] = {}
         for nid in self._nodes:
             d = len(self.edges_for(nid))
@@ -414,10 +603,31 @@ class Hypergraph:
         return dist
 
     def query_dimension(self, modality: Modality) -> list[Hypernode]:
+        """Return all nodes tagged with the given modality.
+
+        Args:
+            modality: The modality to filter by.
+
+        Returns:
+            List of hypernodes matching the modality.
+        """
         node_ids = self._dimension_index.get(modality.value, set())
         return [self._nodes[nid] for nid in node_ids if nid in self._nodes]
 
     def merge_node(self, primary_id: str, secondary_id: str) -> Hypernode | None:
+        """Merge the secondary node into the primary node.
+
+        Rewires all edges referencing the secondary to reference the
+        primary instead, accumulates access counts and modality tags,
+        and records the secondary's label as an alias on the primary.
+
+        Args:
+            primary_id: ID of the surviving node.
+            secondary_id: ID of the node to absorb and remove.
+
+        Returns:
+            The merged primary node, or None if either node is missing.
+        """
         primary = self._nodes.get(primary_id)
         secondary = self._nodes.get(secondary_id)
         if not primary or not secondary:
@@ -449,16 +659,20 @@ class Hypergraph:
 
     @property
     def node_count(self) -> int:
+        """Number of nodes in the graph."""
         return len(self._nodes)
 
     @property
     def edge_count(self) -> int:
+        """Number of edges in the graph."""
         return len(self._edges)
 
     @property
     def nodes(self) -> list[Hypernode]:
+        """All nodes in the graph."""
         return list(self._nodes.values())
 
     @property
     def edges(self) -> list[Hyperedge]:
+        """All edges in the graph."""
         return list(self._edges.values())

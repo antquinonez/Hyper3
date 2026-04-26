@@ -12,6 +12,7 @@ class CapabilityLevel(Enum):
 
 
 def _probe_graph(memory: object) -> bool:
+    """Return ``True`` when the memory has a non-empty graph."""
     graph = getattr(memory, "_graph", None)
     if graph is None:
         return False
@@ -22,6 +23,7 @@ def _probe_graph(memory: object) -> bool:
 
 
 def _probe_rules(memory: object) -> bool:
+    """Return ``True`` when rules exist and at least one produces matches."""
     rules = getattr(memory, "_rules", None)
     if not rules:
         return False
@@ -43,6 +45,7 @@ def _probe_rules(memory: object) -> bool:
 
 
 def _probe_multiway(memory: object) -> bool:
+    """Return ``True`` when the multiway engine has expanded states."""
     engine = getattr(memory, "_multiway_engine", None)
     if engine is None:
         return False
@@ -57,6 +60,7 @@ def _probe_multiway(memory: object) -> bool:
 
 
 def _probe_provenance(memory: object) -> bool:
+    """Return ``True`` when provenance records exist."""
     prov = getattr(memory, "_provenance", None)
     if prov is None:
         return False
@@ -67,6 +71,7 @@ def _probe_provenance(memory: object) -> bool:
 
 
 def _probe_quantum(memory: object) -> bool:
+    """Return ``True`` when quantum states have been created."""
     quantum = getattr(memory, "_quantum", None)
     if quantum is None:
         return False
@@ -78,6 +83,7 @@ def _probe_quantum(memory: object) -> bool:
 
 
 def _probe_branchial(memory: object) -> bool:
+    """Return ``True`` when branchial coordinates have been assigned."""
     branchial = getattr(memory, "_branchial", None)
     if branchial is None:
         return False
@@ -88,6 +94,7 @@ def _probe_branchial(memory: object) -> bool:
 
 
 def _probe_rulial(memory: object) -> bool:
+    """Return ``True`` when the rulial space has position history."""
     rulial = getattr(memory, "_rulial", None)
     if rulial is None:
         return False
@@ -99,6 +106,7 @@ def _probe_rulial(memory: object) -> bool:
 
 
 def _probe_embedding(memory: object) -> bool:
+    """Return ``True`` when the embedding engine has cached vectors."""
     engine = getattr(memory, "_embedding_engine", None)
     if engine is None:
         return False
@@ -109,6 +117,7 @@ def _probe_embedding(memory: object) -> bool:
 
 
 def _probe_retrieval(memory: object) -> bool:
+    """Return ``True`` when the retrieval engine has recorded feedback."""
     retrieval = getattr(memory, "_retrieval", None)
     if retrieval is None:
         return False
@@ -122,6 +131,7 @@ def _probe_retrieval(memory: object) -> bool:
 
 
 def _compute_capability_score(memory: object) -> dict[str, float]:
+    """Run all probes and return a dict mapping feature names to 0/1 scores."""
     probes = {
         "graph": _probe_graph,
         "rules": _probe_rules,
@@ -177,6 +187,15 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
 
 
 def detect_capability_level(memory: object) -> CapabilityLevel:
+    """Classify the memory's capability level based on subsystem probe scores.
+
+    Args:
+        memory: A ``CognitiveMemory`` instance (typed as ``object`` to avoid
+            circular imports).
+
+    Returns:
+        The detected :class:`CapabilityLevel`.
+    """
     scores = _compute_capability_score(memory)
 
     core = scores.get("graph", 0) + scores.get("rules", 0)
@@ -213,8 +232,10 @@ def require_capability(level: CapabilityLevel):
     """
     import functools
     def decorator(func):
+        """Wrap *func* so the capability check runs before each call."""
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
+            """Invoke the decorated method after verifying capability level."""
             current = detect_capability_level(self)
             levels = list(CapabilityLevel)
             current_idx = levels.index(current)

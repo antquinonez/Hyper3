@@ -9,12 +9,29 @@ from hyper3.kernel import Hypergraph, Hypernode, Modality, AbstractionLayer
 
 
 class TraversalEngine:
+    """Provides multiple traversal strategies over a hypergraph."""
+
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the engine.
+
+        Args:
+            graph: The hypergraph to traverse.
+        """
         self._graph = graph
 
     def traverse_breadth_first(
         self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100
     ) -> list[Hypernode]:
+        """Traverse the graph breadth-first from a starting node.
+
+        Args:
+            start_id: ID of the node to start from.
+            max_depth: Maximum number of hops from the start.
+            max_nodes: Maximum number of nodes to collect.
+
+        Returns:
+            List of visited nodes in BFS order.
+        """
         visited: set[str] = set()
         result: list[Hypernode] = []
         frontier: list[str] = [start_id]
@@ -39,10 +56,21 @@ class TraversalEngine:
     def traverse_depth_first(
         self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100
     ) -> list[Hypernode]:
+        """Traverse the graph depth-first from a starting node.
+
+        Args:
+            start_id: ID of the node to start from.
+            max_depth: Maximum recursion depth.
+            max_nodes: Maximum number of nodes to collect.
+
+        Returns:
+            List of visited nodes in DFS order.
+        """
         visited: set[str] = set()
         result: list[Hypernode] = []
 
         def _dfs(nid: str, depth: int) -> None:
+            """Recursively visit nodes in depth-first order up to *max_depth*."""
             if nid in visited or depth > max_depth or len(result) >= max_nodes:
                 return
             visited.add(nid)
@@ -64,6 +92,17 @@ class TraversalEngine:
         max_depth: int = 5,
         max_nodes: int = 100,
     ) -> list[Hypernode]:
+        """BFS traversal that only collects nodes matching a given modality.
+
+        Args:
+            start_id: ID of the node to start from.
+            modality: Only nodes carrying this modality tag are included in results.
+            max_depth: Maximum number of hops.
+            max_nodes: Maximum number of nodes to collect.
+
+        Returns:
+            List of visited nodes that match the modality filter.
+        """
         visited: set[str] = set()
         result: list[Hypernode] = []
         frontier: list[str] = [start_id]
@@ -93,6 +132,17 @@ class TraversalEngine:
         max_depth: int = 5,
         max_nodes: int = 100,
     ) -> list[Hypernode]:
+        """Priority-queue traversal that visits higher-weight nodes first.
+
+        Args:
+            start_id: ID of the node to start from.
+            predicate: Optional filter; only nodes passing the predicate are included.
+            max_depth: Maximum number of hops.
+            max_nodes: Maximum number of nodes to collect.
+
+        Returns:
+            List of visited nodes in weight-priority order.
+        """
         visited: set[str] = set()
         result: list[Hypernode] = []
         frontier: list[tuple[float, str]] = [(-1.0, start_id)]
@@ -123,6 +173,8 @@ class TraversalEngine:
 
 @dataclass
 class SliceConfig:
+    """Configuration parameters that control observer-slice traversal."""
+
     max_nodes: int = 50
     max_depth: int = 3
     modalities: set[Modality] | None = None
@@ -132,11 +184,26 @@ class SliceConfig:
 
 
 class ObserverSlice:
+    """Configurable slice view over a hypergraph with narrow/broaden helpers."""
+
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a default slice configuration.
+
+        Args:
+            graph: The hypergraph to observe.
+        """
         self._graph = graph
         self._config = SliceConfig()
 
     def configure(self, **kwargs: Any) -> SliceConfig:
+        """Update slice configuration fields.
+
+        Args:
+            **kwargs: Field names and values to set on the config.
+
+        Returns:
+            The updated configuration.
+        """
         for k, v in kwargs.items():
             if hasattr(self._config, k):
                 setattr(self._config, k, v)
@@ -144,6 +211,7 @@ class ObserverSlice:
 
     @property
     def config(self) -> SliceConfig:
+        """Current slice configuration."""
         return self._config
 
     def narrow(self, start_id: str, *, max_depth: int = 2, max_nodes: int = 10) -> list[Hypernode]:
@@ -177,9 +245,18 @@ class ObserverSlice:
         return result
 
     def apply(self, start_id: str) -> list[Hypernode]:
+        """Run an adaptive traversal using the current slice configuration.
+
+        Args:
+            start_id: ID of the node to start from.
+
+        Returns:
+            Filtered list of nodes matching all active config constraints.
+        """
         engine = TraversalEngine(self._graph)
 
         def _filter(node: Hypernode) -> bool:
+            """Return True if *node* satisfies the observer slice's filter criteria."""
             if self._config.modalities and not (
                 node.metadata.modality_tags & self._config.modalities
             ):

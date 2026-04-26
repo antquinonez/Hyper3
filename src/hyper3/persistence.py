@@ -17,12 +17,28 @@ from hyper3.event_log import EventLog
 
 class Serializer:
     def serialize_graph(self, graph: Hypergraph) -> dict[str, Any]:
+        """Serialize a hypergraph to a JSON-compatible dict.
+
+        Args:
+            graph: The hypergraph to serialize.
+
+        Returns:
+            Dict with ``nodes`` and ``edges`` lists.
+        """
         return {
             "nodes": [self._serialize_node(n) for n in graph.nodes],
             "edges": [self._serialize_edge(e) for e in graph.edges],
         }
 
     def deserialize_graph(self, data: dict[str, Any]) -> Hypergraph:
+        """Reconstruct a hypergraph from a serialized dict.
+
+        Args:
+            data: Dict produced by serialize_graph.
+
+        Returns:
+            A new Hypergraph instance.
+        """
         g = Hypergraph()
         for nd in data.get("nodes", []):
             g.add_node(self._deserialize_node(nd))
@@ -31,6 +47,14 @@ class Serializer:
         return g
 
     def serialize_event_log(self, log: EventLog) -> list[dict[str, Any]]:
+        """Serialize an event log to a JSON-compatible list.
+
+        Args:
+            log: The event log to serialize.
+
+        Returns:
+            List of event dicts with id, timestamp, event_type, and details.
+        """
         return [
             {
                 "id": e["id"],
@@ -42,12 +66,27 @@ class Serializer:
         ]
 
     def deserialize_event_log(self, data: list[dict[str, Any]]) -> EventLog:
+        """Reconstruct an event log from a serialized list.
+
+        Args:
+            data: List of event dicts produced by serialize_event_log.
+
+        Returns:
+            A new EventLog instance.
+        """
         log = EventLog()
         for entry in data:
             log._log.append(entry)
         return log
 
     def save(self, graph: Hypergraph, log: EventLog, path: str | Path) -> None:
+        """Save a hypergraph and event log to a JSON file.
+
+        Args:
+            graph: The hypergraph to persist.
+            log: The event log to persist.
+            path: File path to write to. Parent directories are created automatically.
+        """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -57,6 +96,14 @@ class Serializer:
         p.write_text(json.dumps(payload, indent=2, default=_json_default))
 
     def load(self, path: str | Path) -> tuple[Hypergraph, EventLog]:
+        """Load a hypergraph and event log from a JSON file.
+
+        Args:
+            path: File path to read from.
+
+        Returns:
+            Tuple of (hypergraph, event_log).
+        """
         p = Path(path)
         data = json.loads(p.read_text())
         graph = self.deserialize_graph(data["graph"])
@@ -64,13 +111,37 @@ class Serializer:
         return graph, log
 
     def serialize_rules(self, rules: list[Any]) -> list[dict[str, Any]]:
+        """Serialize a list of rules to JSON-compatible dicts.
+
+        Args:
+            rules: List of Rule objects.
+
+        Returns:
+            List of rule dicts via each rule's to_dict method.
+        """
         return [r.to_dict() for r in rules]
 
     def deserialize_rules(self, data: list[dict[str, Any]]) -> list[Any]:
+        """Reconstruct rules from serialized dicts.
+
+        Args:
+            data: List of rule dicts produced by serialize_rules.
+
+        Returns:
+            List of Rule instances.
+        """
         from hyper3.rules import Rule
         return [Rule.from_dict(d) for d in data]
 
     def save_with_rules(self, graph: Hypergraph, log: EventLog, rules: list[Any], path: str | Path) -> None:
+        """Save a hypergraph, event log, and rules to a JSON file.
+
+        Args:
+            graph: The hypergraph to persist.
+            log: The event log to persist.
+            rules: The rules to persist.
+            path: File path to write to. Parent directories are created automatically.
+        """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         payload = {
@@ -81,6 +152,14 @@ class Serializer:
         p.write_text(json.dumps(payload, indent=2, default=_json_default))
 
     def load_with_rules(self, path: str | Path) -> tuple[Hypergraph, EventLog, list[Any]]:
+        """Load a hypergraph, event log, and rules from a JSON file.
+
+        Args:
+            path: File path to read from.
+
+        Returns:
+            Tuple of (hypergraph, event_log, rules).
+        """
         p = Path(path)
         data = json.loads(p.read_text())
         graph = self.deserialize_graph(data["graph"])
@@ -89,17 +168,39 @@ class Serializer:
         return graph, log, rules
 
     def export_json(self, graph: Hypergraph, path: str | Path) -> None:
+        """Export only the graph structure to a JSON file.
+
+        Args:
+            graph: The hypergraph to export.
+            path: File path to write to. Parent directories are created automatically.
+        """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         data = self.serialize_graph(graph)
         p.write_text(json.dumps(data, indent=2, default=_json_default))
 
     def import_json(self, path: str | Path) -> Hypergraph:
+        """Import a graph from a JSON file.
+
+        Args:
+            path: File path to read from.
+
+        Returns:
+            A new Hypergraph instance.
+        """
         p = Path(path)
         data = json.loads(p.read_text())
         return self.deserialize_graph(data)
 
     def export_edgelist(self, graph: Hypergraph, path: str | Path) -> None:
+        """Export edges as a tab-separated edgelist file.
+
+        Each line has the format: ``sources\\ttargets\\tlabel\\tweight``.
+
+        Args:
+            graph: The hypergraph to export.
+            path: File path to write to. Parent directories are created automatically.
+        """
         p = Path(path)
         p.parent.mkdir(parents=True, exist_ok=True)
         lines: list[str] = []
@@ -110,6 +211,17 @@ class Serializer:
         p.write_text("\n".join(lines))
 
     def import_edgelist(self, path: str | Path) -> Hypergraph:
+        """Import a graph from a tab-separated edgelist file.
+
+        Creates placeholder nodes (with label equal to ID) for any node
+        IDs referenced in the edgelist.
+
+        Args:
+            path: File path to read from.
+
+        Returns:
+            A new Hypergraph instance.
+        """
         from hyper3.kernel import Hyperedge, Hypernode
         p = Path(path)
         graph = Hypergraph()
@@ -139,6 +251,14 @@ class Serializer:
         return graph
 
     def _serialize_node(self, node: Hypernode) -> dict[str, Any]:
+        """Convert a single hypernode to a JSON-compatible dict.
+
+        Args:
+            node: The node to serialize.
+
+        Returns:
+            Dict representation of the node.
+        """
         return {
             "id": node.id,
             "label": node.label,
@@ -156,6 +276,14 @@ class Serializer:
         }
 
     def _deserialize_node(self, data: dict[str, Any]) -> Hypernode:
+        """Reconstruct a hypernode from a serialized dict.
+
+        Args:
+            data: Dict produced by _serialize_node.
+
+        Returns:
+            A new Hypernode instance.
+        """
         md = data.get("metadata", {})
         return Hypernode(
             id=data["id"],
@@ -174,6 +302,14 @@ class Serializer:
         )
 
     def _serialize_edge(self, edge: Hyperedge) -> dict[str, Any]:
+        """Convert a single hyperedge to a JSON-compatible dict.
+
+        Args:
+            edge: The edge to serialize.
+
+        Returns:
+            Dict representation of the edge.
+        """
         return {
             "id": edge.id,
             "source_ids": list(edge.source_ids),
@@ -190,6 +326,14 @@ class Serializer:
         }
 
     def _deserialize_edge(self, data: dict[str, Any]) -> Hyperedge:
+        """Reconstruct a hyperedge from a serialized dict.
+
+        Args:
+            data: Dict produced by _serialize_edge.
+
+        Returns:
+            A new Hyperedge instance.
+        """
         md = data.get("metadata", {})
         return Hyperedge(
             id=data["id"],
@@ -208,6 +352,17 @@ class Serializer:
 
 
 def _make_serializable(obj: Any) -> Any:
+    """Recursively convert an object to a JSON-safe representation.
+
+    Handles lists, dicts, sets, frozensets, and tuples.  Non-standard
+    types are converted to strings.
+
+    Args:
+        obj: The value to convert.
+
+    Returns:
+        A JSON-serializable value.
+    """
     if obj is None or isinstance(obj, (bool, int, float, str)):
         return obj
     if isinstance(obj, list):
@@ -224,4 +379,5 @@ def _make_serializable(obj: Any) -> Any:
 
 
 def _json_default(obj: Any) -> Any:
+    """JSON serializer fallback that delegates to _make_serializable."""
     return _make_serializable(obj)

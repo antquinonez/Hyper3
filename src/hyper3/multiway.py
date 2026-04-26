@@ -24,10 +24,12 @@ class MultiwayState:
 
     @property
     def is_root(self) -> bool:
+        """Return True if this state has no parent."""
         return self.parent_id is None
 
     @property
     def is_leaf(self) -> bool:
+        """Return True if this state has no children."""
         return len(self.children_ids) == 0
 
 
@@ -41,12 +43,21 @@ class BranchialRelation:
 
 class MultiwayGraph:
     def __init__(self) -> None:
+        """Initialize an empty multiway graph."""
         self._states: dict[str, MultiwayState] = {}
         self._branchial_relations: list[BranchialRelation] = []
         self._root: MultiwayState | None = None
         self._leaves_cache: list[MultiwayState] | None = None
 
     def add_state(self, state: MultiwayState) -> MultiwayState:
+        """Register a state and link it to its parent if one exists.
+
+        Args:
+            state: The multiway state to add.
+
+        Returns:
+            The added state.
+        """
         self._states[state.id] = state
         if state.parent_id is not None and state.parent_id in self._states:
             parent = self._states[state.parent_id]
@@ -60,15 +71,18 @@ class MultiwayGraph:
         return state
 
     def get_state(self, state_id: str) -> MultiwayState | None:
+        """Look up a state by its ID."""
         return self._states.get(state_id)
 
     def get_children(self, state_id: str) -> list[MultiwayState]:
+        """Return the immediate children of a state."""
         state = self._states.get(state_id)
         if not state:
             return []
         return [self._states[cid] for cid in state.children_ids if cid in self._states]
 
     def get_siblings(self, state_id: str) -> list[MultiwayState]:
+        """Return all children of the same parent, excluding the given state."""
         state = self._states.get(state_id)
         if not state or not state.parent_id:
             return []
@@ -82,6 +96,7 @@ class MultiwayGraph:
         ]
 
     def get_ancestors(self, state_id: str) -> list[MultiwayState]:
+        """Walk from the given state to the root, collecting all ancestors."""
         chain: list[MultiwayState] = []
         current = self._states.get(state_id)
         while current and current.parent_id:
@@ -92,18 +107,30 @@ class MultiwayGraph:
         return chain
 
     def get_root(self) -> MultiwayState | None:
+        """Return the root state of the multiway graph."""
         return self._root
 
     def get_leaves(self) -> list[MultiwayState]:
+        """Return all leaf states (states with no children), using a lazy cache."""
         if self._leaves_cache is None:
             self._leaves_cache = [s for s in self._states.values() if s.is_leaf]
         return self._leaves_cache
 
     def get_simultaneous_states(self, state_id: str) -> list[MultiwayState]:
+        """Return sibling states that share the same parent."""
         siblings = self.get_siblings(state_id)
         return siblings
 
     def find_common_ancestor(self, state_a_id: str, state_b_id: str) -> str | None:
+        """Find the nearest common ancestor of two states.
+
+        Args:
+            state_a_id: ID of the first state.
+            state_b_id: ID of the second state.
+
+        Returns:
+            The common ancestor state ID, or None if none exists.
+        """
         ancestors_a = {s.id for s in self.get_ancestors(state_a_id)}
         ancestors_a.add(state_a_id)
         current = self._states.get(state_b_id)
@@ -114,6 +141,7 @@ class MultiwayGraph:
         return None
 
     def branchial_distance(self, state_a_id: str, state_b_id: str) -> float:
+        """Compute the branchial distance between two states via their common ancestor."""
         if state_a_id == state_b_id:
             return 0.0
         ancestor_id = self.find_common_ancestor(state_a_id, state_b_id)
@@ -124,17 +152,21 @@ class MultiwayGraph:
         return dist_a + dist_b
 
     def get_branchial_relations(self) -> list[BranchialRelation]:
+        """Return all recorded branchial relations between sibling states."""
         return list(self._branchial_relations)
 
     @property
     def state_count(self) -> int:
+        """Return the total number of states in the graph."""
         return len(self._states)
 
     @property
     def states(self) -> list[MultiwayState]:
+        """Return all states as a list."""
         return list(self._states.values())
 
     def _depth_from(self, ancestor_id: str, descendant_id: str) -> int:
+        """Count the number of edges from a descendant up to an ancestor."""
         depth = 0
         current = self._states.get(descendant_id)
         while current and current.id != ancestor_id:
@@ -143,6 +175,7 @@ class MultiwayGraph:
         return depth if current else float("inf")  # type: ignore[return-value]
 
     def _update_branchial(self, new_state: MultiwayState) -> None:
+        """Create branchial relations between a new state and its siblings."""
         siblings = self.get_siblings(new_state.id)
         for sibling in siblings:
             distance = self.branchial_distance(new_state.id, sibling.id)
@@ -167,14 +200,21 @@ class ExpansionReport:
 
 class MultiwayEngine:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the engine with a base hypergraph.
+
+        Args:
+            graph: The hypergraph on which multiway expansion operates.
+        """
         self._graph = graph
         self._multiway = MultiwayGraph()
         self._rulial: Any | None = None
 
     def set_rulial(self, rulial: Any) -> None:
+        """Attach a RulialSpace for rule-effectiveness-aware ordering."""
         self._rulial = rulial
 
     def _sort_rules_by_effectiveness(self, rules: list[Rule]) -> list[Rule]:
+        """Sort rules by descending rulial priority when available."""
         if not self._rulial:
             return rules
         rulial = self._rulial
@@ -182,10 +222,12 @@ class MultiwayEngine:
 
     @property
     def multiway(self) -> MultiwayGraph:
+        """Return the underlying multiway state graph."""
         return self._multiway
 
     @property
     def graph(self) -> Hypergraph:
+        """Return the base hypergraph."""
         return self._graph
 
     def expand(
@@ -199,6 +241,20 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
     ) -> ExpansionReport:
+        """Expand the multiway graph breadth-first from seed nodes.
+
+        Args:
+            seed_node_ids: Starting node IDs for expansion.
+            rules: Rules to apply at each state.
+            max_depth: Maximum expansion depth.
+            max_branches_per_state: Maximum child branches per state.
+            max_total_states: Hard cap on total states created.
+            overlay: Optional overlay graph for inference edges.
+            confidence_decay: Multiplicative decay per depth level.
+
+        Returns:
+            An ExpansionReport summarizing the expansion.
+        """
         report = ExpansionReport()
         root = MultiwayState(
             active_node_ids=frozenset(seed_node_ids),
@@ -245,6 +301,23 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
     ) -> Generator[tuple[str, int, int], None, None]:
+        """Expand lazily, yielding (state_id, depth, sibling_count) tuples.
+
+        Yields states ordered by confidence priority rather than strict BFS.
+        Useful for interactive or streaming consumers.
+
+        Args:
+            seed_node_ids: Starting node IDs for expansion.
+            rules: Rules to apply at each state.
+            max_depth: Maximum expansion depth.
+            max_branches_per_state: Maximum child branches per state.
+            max_total_states: Hard cap on total states created.
+            overlay: Optional overlay graph for inference edges.
+            confidence_decay: Multiplicative decay per depth level.
+
+        Yields:
+            Tuples of (new_state_id, depth, sibling_count).
+        """
         root = MultiwayState(
             active_node_ids=frozenset(seed_node_ids),
             depth=0,
@@ -297,6 +370,16 @@ class MultiwayEngine:
         rules: list[Rule],
         **kwargs: Any,
     ) -> ExpansionReport:
+        """Expand using node labels instead of IDs.
+
+        Args:
+            labels: Labels of seed nodes.
+            rules: Rules to apply.
+            **kwargs: Forwarded to expand().
+
+        Returns:
+            An ExpansionReport summarizing the expansion.
+        """
         node_ids: set[str] = set()
         for node in self._graph.nodes:
             if node.label in labels:
@@ -313,6 +396,19 @@ class MultiwayEngine:
         max_branches_per_state: int = 10,
         max_total_states: int = 50,
     ) -> ExpansionReport:
+        """Continue expansion from leaves affected by new nodes or edges.
+
+        Args:
+            new_node_ids: Recently added node IDs.
+            new_edge_ids: Recently added edge IDs.
+            rules: Rules to apply.
+            max_depth: Maximum additional expansion depth.
+            max_branches_per_state: Branching cap per state.
+            max_total_states: Hard cap on total new states.
+
+        Returns:
+            An ExpansionReport for the incremental expansion.
+        """
         report = ExpansionReport()
         affected_leaves: list[str] = []
         for leaf in self._multiway.get_leaves():
@@ -349,6 +445,11 @@ class MultiwayEngine:
         return report
 
     def find_convergent_states(self) -> list[tuple[str, str, float]]:
+        """Find leaf state pairs with overlapping active nodes (Jaccard > 0.5).
+
+        Returns:
+            List of (state_a_id, state_b_id, similarity_score) tuples.
+        """
         leaves = self._multiway.get_leaves()
         convergences: list[tuple[str, str, float]] = []
         for i in range(len(leaves)):
@@ -364,6 +465,14 @@ class MultiwayEngine:
         return convergences
 
     def get_lateral_insights(self, state_id: str) -> list[dict[str, Any]]:
+        """Compare a state to its siblings to find novel produced nodes.
+
+        Args:
+            state_id: The state to compare against its simultaneous siblings.
+
+        Returns:
+            List of insight dicts with novel node and branchial distance info.
+        """
         simultaneous = self._multiway.get_simultaneous_states(state_id)
         insights: list[dict[str, Any]] = []
         current = self._multiway.get_state(state_id)
@@ -392,6 +501,19 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
     ) -> list[str]:
+        """Apply all matching rules to a state and create child states.
+
+        Args:
+            state: The multiway state to expand.
+            rules: Candidate rules.
+            max_branches: Maximum number of matches to apply.
+            report: Report to accumulate statistics into.
+            overlay: Optional overlay for confidence tracking.
+            confidence_decay: Multiplicative confidence decay factor.
+
+        Returns:
+            List of newly created child state IDs.
+        """
         target_graph = overlay if overlay is not None else self._graph
         sorted_rules = self._sort_rules_by_effectiveness(rules)
         all_matches: list[tuple[Rule, RuleMatch]] = []

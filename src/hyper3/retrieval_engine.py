@@ -21,6 +21,7 @@ class RetrievalResult:
     similarity_rank: int
 
     def __lt__(self, other: RetrievalResult) -> bool:
+        """Compare by RRF score for sorting."""
         return self.rrf_score < other.rrf_score
 
 
@@ -35,9 +36,19 @@ class FeedbackRecord:
 
 class FeedbackStore:
     def __init__(self) -> None:
+        """Initialize an empty feedback store."""
         self._records: list[FeedbackRecord] = []
 
     def record(self, query: str, node_id: str, label: str, relevant: bool, features: dict[str, float] | None = None) -> None:
+        """Store a relevance judgment for a query-result pair.
+
+        Args:
+            query: The query string.
+            node_id: Node ID of the result.
+            label: Label of the result node.
+            relevant: Whether the result was judged relevant.
+            features: Optional feature vector for learning-to-rank.
+        """
         self._records.append(FeedbackRecord(
             query=query, node_id=node_id, label=label, relevant=relevant,
             features=features or {},
@@ -45,38 +56,61 @@ class FeedbackStore:
 
     @property
     def records(self) -> list[FeedbackRecord]:
+        """Return a copy of all stored feedback records."""
         return list(self._records)
 
     @property
     def size(self) -> int:
+        """Return the number of stored feedback records."""
         return len(self._records)
 
     def clear(self) -> None:
+        """Remove all stored feedback records."""
         self._records.clear()
 
     def relevant_labels_for(self, query: str) -> set[str]:
+        """Return the set of labels marked relevant for a given query."""
         return {r.label for r in self._records if r.query == query and r.relevant}
 
     def irrelevant_labels_for(self, query: str) -> set[str]:
+        """Return the set of labels marked irrelevant for a given query."""
         return {r.label for r in self._records if r.query == query and not r.relevant}
 
 
 class LearningToRank:
     def __init__(self, feature_names: list[str] | None = None) -> None:
+        """Initialize the ranker with uniform feature weights.
+
+        Args:
+            feature_names: Names of features to weight. Defaults to
+                ["activation", "similarity", "degree", "inverse_depth"].
+        """
         self._feature_names = feature_names or ["activation", "similarity", "degree", "inverse_depth"]
         self._weights: dict[str, float] = {f: 1.0 / len(self._feature_names) for f in self._feature_names}
 
     @property
     def weights(self) -> dict[str, float]:
+        """Return a copy of the current feature weights."""
         return dict(self._weights)
 
     def score(self, features: dict[str, float]) -> float:
+        """Compute a weighted linear score from the given feature dict."""
         total = 0.0
         for name, weight in self._weights.items():
             total += weight * features.get(name, 0.0)
         return total
 
     def train(self, records: list[FeedbackRecord], learning_rate: float = 0.1, epochs: int = 50) -> dict[str, Any]:
+        """Train feature weights via gradient descent on feedback records.
+
+        Args:
+            records: Labeled feedback records with features.
+            learning_rate: Step size for gradient updates.
+            epochs: Number of training passes.
+
+        Returns:
+            Dict with training status and final weights.
+        """
         if not records:
             return {"trained": False, "reason": "no records"}
 
@@ -102,6 +136,15 @@ def reciprocal_rank_fusion(
     ranked_lists: list[list[tuple[str, float]]],
     k: int = 60,
 ) -> list[tuple[str, float]]:
+    """Fuse multiple ranked lists using Reciprocal Rank Fusion.
+
+    Args:
+        ranked_lists: Each list contains (item_id, score) tuples in rank order.
+        k: RRF smoothing constant.
+
+    Returns:
+        Fused list of (item_id, rrf_score) sorted descending.
+    """
     scores: dict[str, float] = {}
     for ranked in ranked_lists:
         for rank, (item_id, _) in enumerate(ranked, start=1):
@@ -119,6 +162,14 @@ class RetrievalEngine:
         embedding: EmbeddingEngine | None = None,
         rrf_k: int = 60,
     ) -> None:
+        """Initialize the retrieval engine.
+
+        Args:
+            graph: The hypergraph to search over.
+            activation: Optional pre-configured spreading activation engine.
+            embedding: Optional embedding engine for semantic similarity.
+            rrf_k: RRF smoothing constant.
+        """
         self._graph = graph
         self._activation = activation or SpreadingActivation(graph)
         self._embedding = embedding
@@ -128,10 +179,12 @@ class RetrievalEngine:
 
     @property
     def feedback(self) -> FeedbackStore:
+        """Return the feedback store for recording relevance judgments."""
         return self._feedback
 
     @property
     def ltr(self) -> LearningToRank:
+        """Return the learning-to-rank model."""
         return self._ltr
 
     def retrieve(
@@ -142,6 +195,17 @@ class RetrievalEngine:
         iterations: int = 3,
         use_ltr: bool = False,
     ) -> list[RetrievalResult]:
+        """Retrieve nodes related to a concept using activation and/or semantic signals.
+
+        Args:
+            concept: Label or ID of the seed concept.
+            top_k: Maximum number of results.
+            iterations: Number of spreading activation iterations.
+            use_ltr: Use the learned-to-rank model if enough feedback exists.
+
+        Returns:
+            Ranked list of RetrievalResult with combined scores.
+        """
         seed_node = self._graph.get_node_by_label(concept) or self._graph.get_node(concept)
         if not seed_node:
             return []
@@ -202,6 +266,18 @@ class RetrievalEngine:
         similarity_ranked: list[tuple[str, float]],
         top_k: int,
     ) -> list[RetrievalResult]:
+        """Re-rank candidates using the learned-to-rank model.
+
+        Args:
+            seed_id: ID of the seed node.
+            concept: Label or ID of the seed (for path lookup).
+            activation_ranked: Activation-scored candidates.
+            similarity_ranked: Similarity-scored candidates.
+            top_k: Maximum results to return.
+
+        Returns:
+            LTR-scored RetrievalResult list.
+        """
         act_score_map = dict(activation_ranked)
         sim_score_map = dict(similarity_ranked)
         all_ids = set(act_score_map.keys()) | set(sim_score_map.keys())
@@ -249,6 +325,16 @@ class RetrievalEngine:
         results: list[RetrievalResult],
         relevant_labels: set[str],
     ) -> int:
+        """Record relevance feedback for a set of retrieval results.
+
+        Args:
+            query: The query that produced the results.
+            results: The results to judge.
+            relevant_labels: Labels that should be considered relevant.
+
+        Returns:
+            Number of feedback records stored.
+        """
         max_act = max((r.activation for r in results), default=1.0)
         max_sim = max((r.similarity for r in results), default=1.0)
         count = 0
@@ -268,4 +354,9 @@ class RetrievalEngine:
         return count
 
     def train_from_feedback(self) -> dict[str, Any]:
+        """Train the learning-to-rank model from accumulated feedback.
+
+        Returns:
+            Training result dict from LearningToRank.train().
+        """
         return self._ltr.train(self._feedback.records)

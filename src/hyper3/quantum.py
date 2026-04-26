@@ -58,10 +58,12 @@ class InterferencePattern:
 
     @property
     def is_constructive(self) -> bool:
+        """Return whether the interference pattern has a constructive component."""
         return self.constructive != 0.0
 
     @property
     def is_destructive(self) -> bool:
+        """Return whether the interference pattern has a destructive component."""
         return self.destructive != 0.0
 
 
@@ -72,6 +74,7 @@ class MeasurementBasis:
     weights: dict[str, float] = field(default_factory=dict)
 
     def weight_for(self, dimension: str) -> float:
+        """Return the configured weight for a dimension, falling back to uniform."""
         return self.weights.get(dimension, 1.0 / max(len(self.dimensions), 1))
 
 
@@ -91,6 +94,7 @@ class Interpretation:
 
     @property
     def probability(self) -> float:
+        """Return the Born-rule probability |amplitude|^2."""
         return abs(self.amplitude) ** 2
 
 
@@ -106,11 +110,19 @@ class QuantumState:
     entanglement_ids: list[str] = field(default_factory=list)
 
     def add_interpretation(self, node_id: str, amplitude: float | complex, **meta: Any) -> None:
+        """Append a new interpretation to the superposition.
+
+        Args:
+            node_id: ID of the node this interpretation represents.
+            amplitude: Complex amplitude for this interpretation.
+            **meta: Additional metadata stored on the interpretation.
+        """
         label = meta.pop("label", "")
         interp = Interpretation(node_id=node_id, amplitude=amplitude, metadata=meta, label=label)
         self.interpretations.append(interp)
 
     def normalize(self) -> None:
+        """Scale amplitudes so that total probability sums to 1."""
         total = sum(abs(i.amplitude) ** 2 for i in self.interpretations)
         if total > 0:
             scale = total ** -0.5
@@ -118,9 +130,27 @@ class QuantumState:
                 i.amplitude *= scale
 
     def adapt_coherence(self, n_interpretations: int, urgency: float = 1.0) -> None:
+        """Adjust coherence time based on superposition size and urgency.
+
+        Args:
+            n_interpretations: Number of interpretations in the superposition.
+            urgency: Scale factor that shortens coherence time when high.
+        """
         self.coherence_time = self.base_coherence_time * (1.0 + math.log(max(n_interpretations, 1))) / urgency
 
     def collapse(self, context_weights: dict[str, float] | None = None) -> Interpretation | None:
+        """Collapse the superposition by Born-rule sampling.
+
+        Selects one interpretation with probability proportional to
+        ``|amplitude|^2``, optionally scaled by per-node context weights.
+
+        Args:
+            context_weights: Optional mapping of node IDs to multiplicative
+                weights that bias the probability distribution.
+
+        Returns:
+            The selected interpretation, or ``None`` if no interpretations exist.
+        """
         if not self.interpretations:
             return None
         weights: dict[str, float] = context_weights or {}
@@ -144,14 +174,17 @@ class QuantumState:
 
     @property
     def superposition_count(self) -> int:
+        """Return the number of interpretations in the superposition."""
         return len(self.interpretations)
 
     @property
     def age(self) -> float:
+        """Return seconds elapsed since this state was created."""
         return time.time() - self.created_at
 
     @property
     def is_decoherent(self) -> bool:
+        """Return whether the state has exceeded its coherence time."""
         return self.age > self.coherence_time
 
 
@@ -191,6 +224,11 @@ BUILTIN_BASES: dict[str, MeasurementBasis] = {
 
 class QuantumCognitiveLayer:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the quantum cognitive layer backed by the given graph.
+
+        Args:
+            graph: The hypergraph whose nodes serve as quantum interpretations.
+        """
         self._graph = graph
         self._states: dict[str, QuantumState] = {}
         self._entanglements: dict[str, QuantumEntanglement] = {}
@@ -198,6 +236,15 @@ class QuantumCognitiveLayer:
         self._basis_stats: dict[str, dict[str, int]] = {}
 
     def create_superposition(self, node_ids: list[str], amplitudes: list[float] | None = None) -> QuantumState:
+        """Create a normalized quantum superposition over the given nodes.
+
+        Args:
+            node_ids: Node IDs to include as interpretations.
+            amplitudes: Optional amplitudes; defaults to uniform ``1/sqrt(N)``.
+
+        Returns:
+            The newly created and normalized ``QuantumState``.
+        """
         qs = QuantumState(created_at=time.time())
         if amplitudes is None:
             amp = 1.0 / (len(node_ids) ** 0.5) if node_ids else 0.0
@@ -212,6 +259,17 @@ class QuantumCognitiveLayer:
         return qs
 
     def create_from_labels(self, labels: list[str], amplitudes: list[float] | None = None) -> QuantumState:
+        """Create a superposition by resolving labels to node IDs.
+
+        Nodes whose labels are not found in the graph are silently skipped.
+
+        Args:
+            labels: Human-readable node labels to include.
+            amplitudes: Optional amplitudes forwarded to ``create_superposition``.
+
+        Returns:
+            The newly created ``QuantumState``.
+        """
         node_ids: list[str] = []
         for label in labels:
             node = self._graph.get_node_by_label(label)
@@ -220,12 +278,34 @@ class QuantumCognitiveLayer:
         return self.create_superposition(node_ids, amplitudes)
 
     def collapse(self, qs_id: str, context_weights: dict[str, float] | None = None) -> Interpretation | None:
+        """Collapse a quantum state by Born-rule sampling.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to collapse.
+            context_weights: Optional per-node weights to bias the distribution.
+
+        Returns:
+            The selected interpretation, or ``None`` if the state is not found.
+        """
         qs = self._states.get(qs_id)
         if not qs:
             return None
         return qs.collapse(context_weights)
 
     def collapse_with_basis(self, qs_id: str, basis_name: str) -> Interpretation | None:
+        """Collapse a quantum state using a named measurement basis.
+
+        Each interpretation is weighted by the product over basis dimensions of
+        ``basis_weight * (1 + node_metadata_value)``.  If the basis is not
+        found, falls back to plain Born-rule collapse.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to collapse.
+            basis_name: Name of the registered ``MeasurementBasis``.
+
+        Returns:
+            The selected interpretation, or ``None`` if the state is empty.
+        """
         qs = self._states.get(qs_id)
         if not qs or not qs.interpretations:
             return None
@@ -253,6 +333,12 @@ class QuantumCognitiveLayer:
         return result
 
     def evolve_amplitudes(self, qs_id: str, updates: dict[str, float]) -> None:
+        """Multiply per-interpretation amplitudes by scalar factors and renormalize.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to evolve.
+            updates: Mapping of node IDs to multiplicative amplitude factors.
+        """
         qs = self._states.get(qs_id)
         if not qs:
             return
@@ -262,6 +348,13 @@ class QuantumCognitiveLayer:
         qs.normalize()
 
     def evolve_unitary(self, qs_id: str, unitary: np.ndarray) -> None:
+        """Apply a unitary matrix to the state vector and renormalize.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to evolve.
+            unitary: Square unitary matrix whose dimension matches the number
+                of interpretations.
+        """
         qs = self._states.get(qs_id)
         if not qs or not qs.interpretations:
             return
@@ -276,16 +369,36 @@ class QuantumCognitiveLayer:
 
     @staticmethod
     def hadamard_2x2() -> np.ndarray:
+        """Return the 2x2 Hadamard matrix divided by sqrt(2)."""
         return np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
 
     @staticmethod
     def phase_shift(theta: float, n: int, target: int) -> np.ndarray:
+        """Return an n x n identity matrix with a phase e^{i*theta} on the target diagonal.
+
+        Args:
+            theta: Phase angle in radians.
+            n: Dimension of the matrix.
+            target: Row/column index to apply the phase shift (0-based).
+
+        Returns:
+            The phase-shifted unitary matrix.
+        """
         u = np.eye(n, dtype=complex)
         if 0 <= target < n:
             u[target, target] = np.exp(1j * theta)
         return u
 
     def compute_density_matrix(self, qs_id: str) -> np.ndarray | None:
+        """Compute the density matrix rho = |psi><psi| for a quantum state.
+
+        Args:
+            qs_id: ID of the ``QuantumState``.
+
+        Returns:
+            The outer-product density matrix, or ``None`` if the state is
+            missing or empty.
+        """
         qs = self._states.get(qs_id)
         if not qs or not qs.interpretations:
             return None
@@ -296,6 +409,14 @@ class QuantumCognitiveLayer:
 
     @staticmethod
     def von_neumann_entropy(rho: np.ndarray) -> float:
+        """Compute the von Neumann entropy S = -Tr(rho log2 rho) of a density matrix.
+
+        Args:
+            rho: Density matrix whose entropy to compute.
+
+        Returns:
+            The entropy in bits; 0.0 if all eigenvalues are near zero.
+        """
         eigenvalues = np.linalg.eigvalsh(rho)
         pos = eigenvalues[eigenvalues > 1e-15]
         if len(pos) == 0:
@@ -367,6 +488,18 @@ class QuantumCognitiveLayer:
         return rho.reshape(keep_dim, keep_dim)
 
     def detect_collapse_triggers(self, qs_id: str) -> list[CollapseTrigger]:
+        """Identify conditions that may trigger a collapse.
+
+        Checks for decoherence timeout, single-interpretation states,
+        dominant interpretation (> 80% total amplitude), and constructive
+        interference maxima.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to inspect.
+
+        Returns:
+            List of detected collapse triggers with confidence scores.
+        """
         qs = self._states.get(qs_id)
         if not qs or qs.collapsed:
             return []
@@ -389,6 +522,15 @@ class QuantumCognitiveLayer:
         return triggers
 
     def compute_interference(self, qs_id: str) -> list[InterferencePattern]:
+        """Compute constructive and destructive interference between same-node interpretations.
+
+        Args:
+            qs_id: ID of the ``QuantumState``.
+
+        Returns:
+            Per-node interference patterns; empty if the state has fewer than
+            two interpretations.
+        """
         qs = self._states.get(qs_id)
         if not qs or len(qs.interpretations) < 2:
             return []
@@ -422,6 +564,20 @@ class QuantumCognitiveLayer:
         group_b: list[str],
         correlations: dict[tuple[str, str], float],
     ) -> QuantumEntanglement:
+        """Register an entanglement between two groups of nodes.
+
+        After creation, any non-collapsed quantum state whose interpretations
+        reference nodes in either group is linked to the new entanglement.
+
+        Args:
+            group_a: Node IDs in the first entangled group.
+            group_b: Node IDs in the second entangled group.
+            correlations: Pairwise correlation entries mapping
+                ``(node_a_id, node_b_id)`` to a correlation value.
+
+        Returns:
+            The newly created ``QuantumEntanglement``.
+        """
         correlation_matrix = dict(correlations)
         total_strength = sum(abs(v) for v in correlation_matrix.values())
         avg_strength = total_strength / max(len(correlation_matrix), 1)
@@ -441,6 +597,15 @@ class QuantumCognitiveLayer:
         return ent
 
     def collapse_entangled(self, qs_id: str, observed_node_id: str) -> dict[str, str]:
+        """Collapse a state with bias toward one node and propagate via entanglement.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to collapse.
+            observed_node_id: Node ID whose observation triggers the collapse.
+
+        Returns:
+            Mapping of entangled partner node IDs to their predicted values.
+        """
         qs = self._states.get(qs_id)
         if not qs:
             return {}
@@ -464,6 +629,19 @@ class QuantumCognitiveLayer:
         activation_values: dict[str, float] | None = None,
         config: PotentialFieldConfig | None = None,
     ) -> dict[str, float]:
+        """Compute a normalised potential-field value for each interpretation.
+
+        The field combines node weight, structural degree, recency, activation,
+        and edge-weight signals according to ``config``.
+
+        Args:
+            qs_id: ID of the ``QuantumState``.
+            activation_values: Optional per-node activation scores.
+            config: Field composition weights; uses defaults when ``None``.
+
+        Returns:
+            Mapping of node IDs to normalised field values summing to 1.
+        """
         qs = self._states.get(qs_id)
         if not qs or not qs.interpretations:
             return {}
@@ -528,6 +706,17 @@ class QuantumCognitiveLayer:
         activation_values: dict[str, float] | None = None,
         config: PotentialFieldConfig | None = None,
     ) -> None:
+        """Evolve amplitudes using a potential field and adjust coherence time.
+
+        After evolving, coherence time is shortened when one interpretation
+        dominates (> 60% probability) or lengthened when amplitudes are
+        near-uniform.
+
+        Args:
+            qs_id: ID of the ``QuantumState`` to evolve.
+            activation_values: Optional per-node activation scores.
+            config: Field composition weights; uses defaults when ``None``.
+        """
         field = self.compute_potential_field(qs_id, activation_values, config)
         if not field:
             return
@@ -544,18 +733,28 @@ class QuantumCognitiveLayer:
             qs.coherence_time = qs.base_coherence_time
 
     def get_state(self, qs_id: str) -> QuantumState | None:
+        """Retrieve a quantum state by ID."""
         return self._states.get(qs_id)
 
     def get_entanglement(self, ent_id: str) -> QuantumEntanglement | None:
+        """Retrieve an entanglement by ID."""
         return self._entanglements.get(ent_id)
 
     def add_basis(self, basis: MeasurementBasis) -> None:
+        """Register or replace a measurement basis."""
         self._bases[basis.name] = basis
 
     def get_basis(self, name: str) -> MeasurementBasis | None:
+        """Look up a measurement basis by name."""
         return self._bases.get(name)
 
     def record_basis_outcome(self, basis_name: str, success: bool) -> None:
+        """Record whether a basis-guided collapse produced a valid result.
+
+        Args:
+            basis_name: Name of the basis used.
+            success: ``True`` if the collapse yielded a result.
+        """
         if basis_name not in self._basis_stats:
             self._basis_stats[basis_name] = {"successes": 0, "selections": 0}
         self._basis_stats[basis_name]["selections"] += 1
@@ -563,6 +762,14 @@ class QuantumCognitiveLayer:
             self._basis_stats[basis_name]["successes"] += 1
 
     def get_effective_basis(self) -> str:
+        """Select the best measurement basis via Thompson sampling.
+
+        Each basis with recorded outcomes is scored by a Beta-distributed
+        sample.  Falls back to ``"linguistic"`` when no outcomes exist.
+
+        Returns:
+            Name of the selected basis.
+        """
         best_basis = "linguistic"
         best_sample = -1.0
         for name, stats in self._basis_stats.items():
@@ -577,6 +784,7 @@ class QuantumCognitiveLayer:
 
     @property
     def basis_effectiveness(self) -> dict[str, float]:
+        """Return success rate for each basis that has been used at least once."""
         return {
             name: stats["successes"] / stats["selections"]
             for name, stats in self._basis_stats.items()
@@ -585,21 +793,37 @@ class QuantumCognitiveLayer:
 
     @property
     def active_superpositions(self) -> list[QuantumState]:
+        """Return all quantum states that have not yet collapsed."""
         return [qs for qs in self._states.values() if not qs.collapsed]
 
     @property
     def collapsed_states(self) -> list[QuantumState]:
+        """Return all quantum states that have already collapsed."""
         return [qs for qs in self._states.values() if qs.collapsed]
 
     @property
     def entanglements(self) -> list[QuantumEntanglement]:
+        """Return all registered entanglements."""
         return list(self._entanglements.values())
 
     @property
     def bases(self) -> dict[str, MeasurementBasis]:
+        """Return a copy of all registered measurement bases."""
         return dict(self._bases)
 
     def decay_stale_states(self, max_age: float | None = None) -> list[str]:
+        """Apply exponential amplitude decay to decoherent states.
+
+        States that decay below a total-probability threshold of 1e-12 are
+        marked as collapsed with ``collapsed_to="__decayed__"``.
+
+        Args:
+            max_age: Minimum age (seconds) a state must have to be considered.
+                When ``None``, only decoherence time is used.
+
+        Returns:
+            List of IDs for states that fully decayed.
+        """
         decayed: list[str] = []
         for qs in list(self._states.values()):
             if qs.collapsed:
@@ -621,6 +845,15 @@ class QuantumCognitiveLayer:
         return decayed
 
     def cleanup_collapsed(self, threshold_age: float = 3600.0) -> int:
+        """Remove collapsed states older than the threshold age.
+
+        Args:
+            threshold_age: Minimum age in seconds for a collapsed state to be
+                eligible for removal.
+
+        Returns:
+            Number of states removed.
+        """
         now = time.time()
         to_remove: list[str] = []
         for qs_id, qs in self._states.items():

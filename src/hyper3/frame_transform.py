@@ -17,6 +17,7 @@ class TransformedConfig:
 
 
 def _classical_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform classical branching parameters into quantum superposition parameters."""
     branches = params.get("branching_factor", 1)
     max_amp = params.get("max_amplitude_sq", 1.0 / max(branches, 1))
     info_loss = 1.0 - max_amp
@@ -32,6 +33,7 @@ def _classical_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _quantum_to_classical(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform quantum amplitudes into classical deterministic parameters."""
     amplitudes = params.get("amplitudes", [])
     if amplitudes:
         probs = [abs(a) ** 2 for a in amplitudes]
@@ -52,6 +54,7 @@ def _quantum_to_classical(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _classical_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform classical weighted parameters into a probabilistic distribution."""
     weights = params.get("weights", [])
     if weights:
         total = sum(abs(w) for w in weights)
@@ -76,6 +79,7 @@ def _classical_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _probabilistic_to_classical(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform probabilistic parameters into classical greedy parameters."""
     best_prob = params.get("best_probability", 0.5)
     probs = params.get("probabilities", [])
     if probs:
@@ -93,6 +97,7 @@ def _probabilistic_to_classical(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _classical_to_hypergraph(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform classical pairwise parameters into hypergraph pattern-match parameters."""
     arity = params.get("max_arity", 2)
     info_loss = 1.0 - (2.0 / max(arity, 2))
     return {
@@ -107,6 +112,7 @@ def _classical_to_hypergraph(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _hypergraph_to_classical(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform hypergraph parameters into classical flattened-edge parameters."""
     arity_sum = params.get("arity_sum", 4)
     num_edges = params.get("num_hyperedges", 1)
     avg_arity = arity_sum / max(num_edges, 1)
@@ -123,6 +129,7 @@ def _hypergraph_to_classical(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _quantum_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform quantum amplitudes into a Born-rule probability distribution."""
     amplitudes = params.get("amplitudes", [])
     if amplitudes:
         probs = [abs(a) ** 2 for a in amplitudes]
@@ -142,6 +149,7 @@ def _quantum_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _probabilistic_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform probabilities into quantum amplitudes via square-root mapping."""
     probs = params.get("probabilities", [])
     if probs:
         amplitudes = [math.sqrt(max(p, 0.0)) for p in probs]
@@ -162,6 +170,7 @@ def _probabilistic_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _quantum_to_hypergraph(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform quantum interpretations into hypergraph multi-source patterns."""
     num_interp = params.get("num_interpretations", 2)
     coherence = params.get("coherence", 1.0)
     info_loss = 1.0 - coherence
@@ -177,6 +186,7 @@ def _quantum_to_hypergraph(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _hypergraph_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform hypergraph target sets into quantum superposition interpretations."""
     num_targets = params.get("max_targets_per_edge", 2)
     arity_sum = params.get("arity_sum", 4)
     info_loss = 1.0 - (2.0 / max(arity_sum, 2))
@@ -192,6 +202,7 @@ def _hypergraph_to_quantum(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _hypergraph_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform hyperedge weights into a normalized probability distribution."""
     weights = params.get("hyperedge_weights", [])
     if weights:
         total = sum(abs(w) for w in weights)
@@ -212,6 +223,7 @@ def _hypergraph_to_probabilistic(params: dict[str, Any]) -> dict[str, Any]:
 
 
 def _probabilistic_to_hypergraph(params: dict[str, Any]) -> dict[str, Any]:
+    """Transform probabilities into hypergraph edge weights."""
     probs = params.get("probabilities", [])
     if probs:
         total = sum(probs)
@@ -257,6 +269,22 @@ class FrameTransformer:
         max_total_states: int = 30,
         parameters: dict[str, Any] | None = None,
     ) -> TransformedConfig:
+        """Apply a pair-wise frame transformation and return the resulting config.
+
+        Args:
+            from_frame: Source frame name (``"classical"``, ``"quantum"``,
+                ``"hypergraph"``, or ``"probabilistic"``).
+            to_frame: Target frame name.
+            max_depth: Maximum reasoning depth for the transformed config.
+            max_branches: Maximum branching factor.
+            max_total_states: Maximum total states allowed.
+            parameters: Optional problem-specific parameters consumed by the
+                underlying transform function.
+
+        Returns:
+            A :class:`TransformedConfig` describing the target-frame algorithm,
+            information loss, and preserved properties.
+        """
         params = parameters or {}
         if from_frame == to_frame:
             return TransformedConfig(
@@ -295,6 +323,17 @@ class FrameTransformer:
         )
 
     def information_loss(self, from_frame: str, to_frame: str, parameters: dict[str, Any] | None = None) -> float:
+        """Compute the information loss incurred by a frame transformation.
+
+        Args:
+            from_frame: Source frame name.
+            to_frame: Target frame name.
+            parameters: Optional parameters passed to the underlying transform.
+
+        Returns:
+            Loss value in ``[0.0, 1.0]``.  Returns ``0.0`` for identity
+            transforms and ``1.0`` for unsupported pairs.
+        """
         if from_frame == to_frame:
             return 0.0
         key = (from_frame, to_frame)

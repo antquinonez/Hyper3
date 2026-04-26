@@ -18,6 +18,18 @@ class AnalyticsMixin(_MemoryBase):
         max_depth: int = 5,
         max_paths: int = 10,
     ) -> list[list[str]]:
+        """Find all paths between two concepts in the graph.
+
+        Args:
+            source_concept: Label of the source node.
+            target_concept: Label of the target node.
+            edge_label: If set, only traverse edges with this label.
+            max_depth: Maximum path length.
+            max_paths: Maximum number of paths to return.
+
+        Returns:
+            List of paths, where each path is a list of node IDs.
+        """
         source = self._find_node(source_concept)
         target = self._find_node(target_concept)
         if not source or not target:
@@ -34,6 +46,17 @@ class AnalyticsMixin(_MemoryBase):
         source_label: str | None = None,
         target_label: str | None = None,
     ) -> list[dict[str, Any]]:
+        """Match edges against a pattern defined by optional label filters.
+
+        Args:
+            edge_label: Filter by edge label.
+            source_label: Filter by source node label.
+            target_label: Filter by target node label.
+
+        Returns:
+            List of dicts describing each matching edge with id, label,
+            source/target IDs, and bindings.
+        """
         matches = self._graph.pattern_match(
             edge_label=edge_label, source_label=source_label,
             target_label=target_label,
@@ -81,21 +104,42 @@ class AnalyticsMixin(_MemoryBase):
         }
 
     def degree_centrality(self) -> dict[str, float]:
+        """Compute degree centrality for all nodes, keyed by node ID."""
         return self._graph.degree_centrality()
 
     def betweenness_centrality(self) -> dict[str, float]:
+        """Compute betweenness centrality for all nodes, keyed by node ID."""
         return self._graph.betweenness_centrality()
 
     def connected_components(self) -> list[set[str]]:
+        """Find all connected components in the graph."""
         return self._graph.connected_components()
 
     def has_cycle(self) -> bool:
+        """Check whether the graph contains any cycle."""
         return self._graph.has_cycle()
 
     def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
+        """Detect cycles in the graph.
+
+        Args:
+            max_cycles: Maximum number of cycles to return.
+
+        Returns:
+            List of cycles, each represented as a list of node IDs.
+        """
         return self._graph.detect_cycles(max_cycles)
 
     def shortest_path(self, source_concept: str, target_concept: str) -> list[str] | None:
+        """Find the shortest path between two concepts.
+
+        Args:
+            source_concept: Label of the source node.
+            target_concept: Label of the target node.
+
+        Returns:
+            List of node IDs forming the shortest path, or None if no path exists.
+        """
         source = self._find_node(source_concept)
         target = self._find_node(target_concept)
         if not source or not target:
@@ -103,26 +147,33 @@ class AnalyticsMixin(_MemoryBase):
         return self._graph.shortest_path(source.id, target.id)
 
     def degree_distribution(self) -> dict[int, int]:
+        """Return a histogram of node degrees across the graph."""
         return self._graph.degree_distribution()
 
     def find_paths_labels(self, source_concept: str, target_concept: str, **kwargs: Any) -> list[list[str]]:
+        """Like :meth:`find_paths` but returns node labels instead of IDs."""
         raw_paths = self.find_paths(source_concept, target_concept, **kwargs)
         return [[self._node_label(nid) for nid in path] for path in raw_paths]
 
     def shortest_path_labels(self, source_concept: str, target_concept: str) -> list[str] | None:
+        """Like :meth:`shortest_path` but returns node labels instead of IDs."""
         raw = self.shortest_path(source_concept, target_concept)
         if raw is None:
             return None
         return [self._node_label(nid) for nid in raw]
 
     def degree_centrality_labels(self) -> dict[str, float]:
+        """Like :meth:`degree_centrality` but keyed by node labels."""
         return {self._node_label(nid): score for nid, score in self._graph.degree_centrality().items()}
 
     def betweenness_centrality_labels(self) -> dict[str, float]:
+        """Like :meth:`betweenness_centrality` but keyed by node labels."""
         return {self._node_label(nid): score for nid, score in self._graph.betweenness_centrality().items()}
 
     def connected_components_labels(self) -> list[set[str]]:
+        """Like :meth:`connected_components` but with node labels instead of IDs."""
         return [{self._node_label(nid) for nid in comp} for comp in self._graph.connected_components()]
 
     def detect_cycles_labels(self, max_cycles: int = 10) -> list[list[str]]:
+        """Like :meth:`detect_cycles` but with node labels instead of IDs."""
         return [[self._node_label(nid) for nid in cycle] for cycle in self._graph.detect_cycles(max_cycles)]

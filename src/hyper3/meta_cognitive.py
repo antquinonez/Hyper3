@@ -49,6 +49,14 @@ class MetaCognitiveLayer:
         log: EventLog,
         discovery: RuleDiscoveryEngine,
     ) -> None:
+        """Initialize the meta-cognitive layer with its core subsystem references.
+
+        Args:
+            graph: The underlying hypergraph.
+            evolution: The self-evolution engine for fitness computation.
+            log: The event log for recall-rate queries.
+            discovery: The rule discovery engine for pattern analysis.
+        """
         self._graph = graph
         self._evolution = evolution
         self._log = log
@@ -60,15 +68,23 @@ class MetaCognitiveLayer:
         self._rules: list[Rule] | None = None
 
     def set_rulial(self, rulial: RulialSpace) -> None:
+        """Attach a rulial space for transcendental-yield tracking."""
         self._rulial = rulial
 
     def set_rules(self, rules: list[Rule]) -> None:
+        """Store a reference to the active rule list for seed-set expansion."""
         self._rules = rules
 
     def attach_rulial(self, rulial: RulialSpace) -> None:
+        """Attach a rulial space (alias for :meth:`set_rulial`)."""
         self._rulial = rulial
 
     def _compute_fitness(self, graph: Hypergraph, evolution_metrics: EvolutionMetrics, log: EventLog) -> float:
+        """Compute architectural fitness as the geometric mean of health factors.
+
+        Factors include edge utility, connectivity, prune health, and query
+        hit rate.
+        """
         total_nodes = graph.node_count
         total_edges = graph.edge_count
         if total_nodes == 0:
@@ -166,6 +182,16 @@ class MetaCognitiveLayer:
         return state
 
     def introspect(self, rules: list[Rule] | None = None) -> dict[str, Any]:
+        """Perform a full introspective analysis of the cognitive system.
+
+        Args:
+            rules: Optional active rules forwarded to :meth:`assess_state`.
+
+        Returns:
+            A dict containing ``cognitive_state``, ``graph_health``,
+            ``evolution_health``, ``discovery_health``, optional
+            ``rulial_health``, ``anti_patterns``, and ``recommendations``.
+        """
         state = self.assess_state(rules)
 
         introspection: dict[str, Any] = {
@@ -210,6 +236,7 @@ class MetaCognitiveLayer:
         return introspection
 
     def _detect_anti_patterns(self) -> list[str]:
+        """Detect structural anti-patterns such as low connectivity or engagement."""
         patterns: list[str] = []
         if self._graph.node_count > 100 and self._graph.edge_count < self._graph.node_count * 0.5:
             patterns.append("low_connectivity: many nodes but few edges")
@@ -250,6 +277,14 @@ class MetaCognitiveLayer:
         return recs
 
     def check_metamorphosis_triggers(self) -> list[MetamorphosisTrigger]:
+        """Scan for conditions that warrant a metamorphosis plan.
+
+        Checks for low fitness, lack of discovered patterns despite graph
+        size, strong rulial meta-patterns, and persistent anti-patterns.
+
+        Returns:
+            A list of :class:`MetamorphosisTrigger` instances.
+        """
         triggers: list[MetamorphosisTrigger] = []
         state = self._state
 
@@ -299,6 +334,16 @@ class MetaCognitiveLayer:
         return triggers
 
     def propose_metamorphosis(self, triggers: list[MetamorphosisTrigger] | None = None) -> MetamorphosisPlan | None:
+        """Build a :class:`MetamorphosisPlan` from the given or auto-detected triggers.
+
+        Args:
+            triggers: Explicit trigger list.  When ``None``,
+                :meth:`check_metamorphosis_triggers` is called automatically.
+
+        Returns:
+            A plan with actions, expected improvement, and risk level, or
+            ``None`` when no triggers are active.
+        """
         if triggers is None:
             triggers = self.check_metamorphosis_triggers()
         if not triggers:
@@ -328,6 +373,14 @@ class MetaCognitiveLayer:
         return plan
 
     def execute_metamorphosis(self, plan: MetamorphosisPlan) -> dict[str, Any]:
+        """Execute each action in a metamorphosis plan and collect results.
+
+        Args:
+            plan: The plan whose ``actions`` list will be dispatched.
+
+        Returns:
+            A dict mapping action names to their individual result dicts.
+        """
         results: dict[str, Any] = {}
         for action in plan.actions:
             action_type = action.get("action", "") if isinstance(action, dict) else str(action)
@@ -356,6 +409,7 @@ class MetaCognitiveLayer:
         return results
 
     def _adjust_evolution(self) -> dict[str, Any]:
+        """Relax decay and merge thresholds when fitness is critically low."""
         decay = self._evolution._decay_threshold
         merge = self._evolution._equivalence._threshold
         if self._state.architectural_fitness < 0.5:
@@ -364,12 +418,14 @@ class MetaCognitiveLayer:
         return {"decay_threshold": self._evolution._decay_threshold, "merge_threshold": self._evolution._equivalence._threshold}
 
     def _run_rule_discovery(self) -> dict[str, Any]:
+        """Run full rule discovery and return the count of new patterns."""
         if self._discovery:
             discovered = self._discovery.discover_all()
             return {"discovered_patterns": len(discovered)}
         return {"discovered_patterns": 0}
 
     def _increase_connectivity(self) -> dict[str, Any]:
+        """Bridge isolated nodes to their most similar neighbors via auto_bridge edges."""
         isolated = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) == 0]
         bridged = 0
         for node in isolated:
@@ -406,6 +462,7 @@ class MetaCognitiveLayer:
         return {"isolated_nodes": len(isolated), "bridged": bridged}
 
     def _optimize_weights(self) -> dict[str, Any]:
+        """Reinforce frequently accessed edges and smooth outlier weights."""
         reinforced = 0
         smoothed = 0
         edge_count: dict[str, int] = {}
@@ -436,12 +493,14 @@ class MetaCognitiveLayer:
         return {"reinforced": reinforced, "smoothed": smoothed}
 
     def _increase_merge_threshold(self) -> dict[str, Any]:
+        """Raise the equivalence merge threshold by 0.05."""
         current = self._evolution._equivalence._threshold
         new_threshold = min(current + 0.05, 0.99)
         self._evolution._equivalence._threshold = new_threshold
         return {"old_threshold": current, "new_threshold": new_threshold}
 
     def _expand_seed_set(self) -> dict[str, Any]:
+        """Apply rules to poorly-connected nodes to increase graph density."""
         poorly_connected = [
             n for n in self._graph.nodes
             if len(self._graph.edges_for(n.id)) < 2
@@ -492,6 +551,7 @@ class MetaCognitiveLayer:
         return {"promoted": True, "pattern_type": best.pattern_type, "rule_name": new_rule.name}
 
     def _update_rulial_position(self) -> dict[str, Any]:
+        """Refresh the rulial position and generate new transcendental insights."""
         if not self._rulial:
             return {"updated": False, "reason": "no rulial"}
         pos = self._rulial.update_position(self._rules or [])
@@ -503,6 +563,7 @@ class MetaCognitiveLayer:
         }
 
     def _restructure_graph_dimensions(self) -> dict[str, Any]:
+        """Assign the dominant modality tag to nodes that have none."""
         modality_counts: dict[Any, int] = {}
         for node in self._graph.nodes:
             for mod in node.metadata.modality_tags:
@@ -517,6 +578,7 @@ class MetaCognitiveLayer:
         return {"dominant_modality": str(dominant) if modality_counts else "none", "reassigned": reassigned}
 
     def _recalibrate_modality_weights(self) -> dict[str, Any]:
+        """Blend outlier modality edge weights toward the global mean."""
         from hyper3.kernel import Modality
         weight_by_modality: dict[Modality, list[float]] = {}
         for edge in self._graph.edges:
@@ -542,6 +604,12 @@ class MetaCognitiveLayer:
         return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
     def auto_metamorphosis(self) -> dict[str, Any]:
+        """Check fitness and automatically trigger a metamorphosis if below threshold.
+
+        Returns:
+            The results of the executed plan, or a dict with the current
+            fitness and ``"actions_taken": 0`` when no metamorphosis was needed.
+        """
         fitness = self._compute_fitness(self._graph, self._evolution.metrics, self._log)
         self._state.architectural_fitness = fitness
         if fitness < 0.6:
@@ -554,17 +622,21 @@ class MetaCognitiveLayer:
 
     @property
     def state(self) -> CognitiveStateModel:
+        """The most recently assessed cognitive state model."""
         return self._state
 
     @property
     def introspection_log(self) -> list[dict[str, Any]]:
+        """A snapshot of all recorded introspection summaries."""
         return list(self._introspection_log)
 
     @property
     def metamorphosis_history(self) -> list[MetamorphosisPlan]:
+        """A snapshot of all metamorphosis plans ever proposed."""
         return list(self._metamorphosis_history)
 
     def analyze(self) -> dict[str, Any]:
+        """Return a summary dict of fitness, mode, meta-level, and activity counts."""
         return {
             "architectural_fitness": self._state.architectural_fitness,
             "reasoning_mode": self._state.reasoning_mode,

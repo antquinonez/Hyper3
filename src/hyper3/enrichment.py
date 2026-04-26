@@ -37,6 +37,7 @@ class ExtractionResult:
 class LLMProvider(ABC):
     @abstractmethod
     def complete(self, prompt: str) -> str:
+        """Send a prompt to the LLM and return its text completion."""
         ...
 
 
@@ -173,11 +174,20 @@ class RegexExtractor:
     RELATION_PATTERNS = [p[0] for p in ACTIVE_PATTERNS]
 
     def __init__(self) -> None:
+        """Initialize the extractor with active, passive, and prepositional patterns."""
         self._active_patterns = ACTIVE_PATTERNS
         self._passive_patterns = PASSIVE_PATTERNS
         self._prep_patterns = PREPOSITIONAL_PATTERNS
 
     def extract(self, text: str) -> ExtractionResult:
+        """Extract entities and relations from plain text using regex patterns.
+
+        Args:
+            text: Input text to parse.
+
+        Returns:
+            An ExtractionResult with discovered entities and relations.
+        """
         entities: dict[str, ExtractedEntity] = {}
         relations: list[ExtractedRelation] = []
 
@@ -207,6 +217,7 @@ class RegexExtractor:
     def _extract_active(
         self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
     ) -> None:
+        """Find active-voice relation patterns (subject verb object)."""
         for pattern, rel_label, base_conf in self._active_patterns:
             regex = re.compile(
                 r'(\b\w+(?:\s+\w+){0,3}?)\s+'
@@ -230,6 +241,7 @@ class RegexExtractor:
     def _extract_passive(
         self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
     ) -> None:
+        """Find passive-voice relation patterns (object verb subject)."""
         for pattern, rel_label, base_conf in self._passive_patterns:
             regex = re.compile(
                 r'(\b\w+(?:\s+\w+){0,3}?)\s+'
@@ -251,6 +263,7 @@ class RegexExtractor:
                     ))
 
     def _extract_noun_phrases(self, text: str, entities: dict[str, ExtractedEntity]) -> None:
+        """Extract capitalized sequences, quoted strings, and parenthesized terms as entities."""
         cap_seq = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
         for match in cap_seq.finditer(text):
             label = match.group(1)
@@ -272,6 +285,7 @@ class RegexExtractor:
     def _extract_appositions(
         self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
     ) -> None:
+        """Extract appositive constructions like \"entity, a category\" as is_a relations."""
         appos = re.compile(
             r'(\b\w+(?:\s+\w+){0,2}?)\s*,\s*(?:a|an|the)\s+(\b\w+(?:\s+\w+){0,2}?)\s*[,.]',
             re.IGNORECASE,
@@ -292,6 +306,7 @@ class RegexExtractor:
     def _extract_lists(
         self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
     ) -> None:
+        """Extract list patterns such as \"X such as A, B, C\" and \"X contains A, B, C\"."""
         list_pat = re.compile(
             r'(\b\w+(?:\s+\w+){0,2}?)\s+such\s+as\s+(.+?)(?:[.;]|\Z)',
             re.IGNORECASE,
@@ -365,6 +380,7 @@ class RegexExtractor:
                     last_entity = stripped
 
     def _count_mentions(self, text: str, entities: dict[str, ExtractedEntity]) -> dict[str, int]:
+        """Count how many times each entity label appears in the text."""
         counts: dict[str, int] = Counter()
         text_lower = text.lower()
         for label in entities:
@@ -372,6 +388,7 @@ class RegexExtractor:
         return counts
 
     def _compute_confidence(self, entity: ExtractedEntity, mention_count: int) -> float:
+        """Boost entity confidence based on mention frequency."""
         base = entity.confidence
         freq_boost = min(math.log1p(mention_count) * 0.1, 0.3)
         return min(base + freq_boost, 1.0)
@@ -379,6 +396,7 @@ class RegexExtractor:
     def _deduplicate(
         self, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
     ) -> tuple[dict[str, ExtractedEntity], list[ExtractedRelation]]:
+        """Remove duplicate relations, keeping the highest confidence per triple."""
         seen_relations: set[tuple[str, str, str]] = set()
         unique_relations: list[ExtractedRelation] = []
         for r in relations:
@@ -396,19 +414,34 @@ class RegexExtractor:
 
 class LLMEnricher:
     def __init__(self, *, llm: LLMProvider | None = None) -> None:
+        """Initialize the enricher with an optional LLM provider.
+
+        Args:
+            llm: Pluggable LLM provider; falls back to RegexExtractor if None.
+        """
         self._llm = llm
         self._regex = RegexExtractor()
 
     @property
     def llm(self) -> LLMProvider | None:
+        """Return the configured LLM provider, or None if using regex fallback."""
         return self._llm
 
     def extract(self, text: str) -> ExtractionResult:
+        """Extract entities and relations, using the LLM if available or regex otherwise.
+
+        Args:
+            text: Input text to process.
+
+        Returns:
+            An ExtractionResult with discovered entities and relations.
+        """
         if self._llm:
             return self._extract_with_llm(text)
         return self._regex.extract(text)
 
     def _extract_with_llm(self, text: str) -> ExtractionResult:
+        """Extract entities and relations by prompting the LLM."""
         prompt = (
             "Extract entities and relations from the following text.\n"
             "Return the result as JSON with this exact structure:\n"
@@ -431,6 +464,15 @@ class LLMEnricher:
         return self._parse_llm_response(response, text)
 
     def _parse_llm_response(self, response: str, raw_text: str) -> ExtractionResult:
+        """Parse the LLM response, trying JSON first then a fallback text format.
+
+        Args:
+            response: Raw text returned by the LLM.
+            raw_text: Original input text for the ExtractionResult.
+
+        Returns:
+            Parsed ExtractionResult.
+        """
         json_result = self._try_json_parse(response)
         if json_result:
             return json_result
@@ -475,6 +517,11 @@ class LLMEnricher:
         )
 
     def _try_json_parse(self, response: str) -> ExtractionResult | None:
+        """Attempt to parse the response as JSON, returning None on failure.
+
+        Handles markdown code fences and extracts the JSON object from
+        surrounding text.
+        """
         json_str = response.strip()
         fence_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', json_str, re.DOTALL)
         if fence_match:

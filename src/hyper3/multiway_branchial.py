@@ -24,6 +24,7 @@ class BranchialCoordinates:
     branch_index: int = 0
 
     def distance_to(self, other: BranchialCoordinates) -> float:
+        """Compute Euclidean distance to another coordinate, padding shorter vectors with zeros."""
         if not self.position or not other.position:
             return float("inf")
         max_len = max(len(self.position), len(other.position))
@@ -43,6 +44,7 @@ class BranchialCluster:
 
     @property
     def size(self) -> int:
+        """Return the number of states in this cluster."""
         return len(self.state_ids)
 
 
@@ -64,6 +66,7 @@ class BranchialDistanceMetrics:
 
     @property
     def combined(self) -> float:
+        """Return the weighted combination of all distance components."""
         return (
             0.3 * self.structural
             + 0.3 * self.conceptual
@@ -108,6 +111,13 @@ class AnalogyProposal:
 
 class BranchialSpace:
     def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None) -> None:
+        """Initialize the branchial space.
+
+        Args:
+            graph: The base hypergraph.
+            multiway: The multiway state graph to map.
+            embedding_engine: Optional engine for semantic similarity.
+        """
         self._graph = graph
         self._multiway = multiway
         self._embedding_engine = embedding_engine
@@ -119,10 +129,12 @@ class BranchialSpace:
         self._state_embeddings: dict[str, np.ndarray] = {}
 
     def set_embedding_engine(self, engine: EmbeddingEngine) -> None:
+        """Replace the embedding engine and clear cached state embeddings."""
         self._embedding_engine = engine
         self._state_embeddings.clear()
 
     def assign_coordinates(self) -> None:
+        """Compute branchial coordinates for every state in the multiway graph."""
         self._coordinates.clear()
         root = self._multiway.get_root()
         if not root:
@@ -130,6 +142,7 @@ class BranchialSpace:
         self._assign_recursive(root.id, [0.0], 0)
 
     def _assign_recursive(self, state_id: str, base_position: list[float], depth: int) -> None:
+        """Recursively assign positions using angular spreading at each depth level."""
         children = self._multiway.get_children(state_id)
         self._coordinates[state_id] = BranchialCoordinates(
             state_id=state_id,
@@ -148,9 +161,22 @@ class BranchialSpace:
             self._assign_recursive(child.id, child_pos, depth + 1)
 
     def get_coordinates(self, state_id: str) -> BranchialCoordinates | None:
+        """Return the coordinates for a state, or None if not assigned."""
         return self._coordinates.get(state_id)
 
     def compute_distances(self, state_a_id: str, state_b_id: str) -> BranchialDistanceMetrics:
+        """Compute multi-faceted distance metrics between two states.
+
+        Results are cached keyed on the sorted pair of state IDs.
+
+        Args:
+            state_a_id: First state ID.
+            state_b_id: Second state ID.
+
+        Returns:
+            BranchialDistanceMetrics with structural, conceptual, computational,
+            and evolutionary components.
+        """
         key = (min(state_a_id, state_b_id), max(state_a_id, state_b_id))
         if key in self._distance_cache:
             return self._distance_cache[key]
@@ -170,9 +196,11 @@ class BranchialSpace:
         return metrics
 
     def _structural_distance(self, a_id: str, b_id: str) -> float:
+        """Return the branchial distance from the multiway graph."""
         return self._multiway.branchial_distance(a_id, b_id)
 
     def _conceptual_distance(self, a_id: str, b_id: str) -> float:
+        """Compute conceptual distance via embedding cosine or label Jaccard."""
         state_a = self._multiway.get_state(a_id)
         state_b = self._multiway.get_state(b_id)
         if not state_a or not state_b:
@@ -216,6 +244,7 @@ class BranchialSpace:
         return float(1.0 - overlap / union)
 
     def _get_state_embedding(self, state_id: str) -> np.ndarray | None:
+        """Return the mean-pooled, L2-normalized embedding for a state's active nodes."""
         if state_id in self._state_embeddings:
             return self._state_embeddings[state_id]
         state = self._multiway.get_state(state_id)
@@ -270,6 +299,7 @@ class BranchialSpace:
         return 0.5
 
     def _evolutionary_distance(self, a_id: str, b_id: str, structural: float | None = None) -> float:
+        """Combine depth difference and structural distance equally."""
         state_a = self._multiway.get_state(a_id)
         state_b = self._multiway.get_state(b_id)
         if not state_a or not state_b:
@@ -283,6 +313,7 @@ class BranchialSpace:
         return depth_diff * 0.5 + structural * 0.5
 
     def build_simultaneity_groups(self) -> list[SimultaneityGroup]:
+        """Group states by shared parent, keeping only groups with 2+ children."""
         groups: list[SimultaneityGroup] = []
         by_parent: dict[str, list[MultiwayState]] = {}
         for state in self._multiway.states:
@@ -303,6 +334,15 @@ class BranchialSpace:
         return groups
 
     def cluster_states(self, n_clusters: int = 0, threshold: float = 2.0) -> list[BranchialCluster]:
+        """Cluster states by their branchial coordinates using k-means.
+
+        Args:
+            n_clusters: Desired number of clusters (0 = auto, len(states)//3).
+            threshold: Unused, kept for API compatibility.
+
+        Returns:
+            List of BranchialCluster with member state IDs and centroids.
+        """
         if not self._coordinates:
             self.assign_coordinates()
         states = list(self._coordinates.keys())
@@ -343,6 +383,14 @@ class BranchialSpace:
         return self._clusters
 
     def detect_entanglements(self, min_correlation: float = 0.3) -> list[BranchialEntanglement]:
+        """Find leaf state pairs with shared active nodes above a correlation threshold.
+
+        Args:
+            min_correlation: Minimum Dice coefficient for entanglement.
+
+        Returns:
+            List of BranchialEntanglement with constraint maps.
+        """
         self._entanglements.clear()
         leaves = self._multiway.get_leaves()
         for i in range(len(leaves)):
@@ -387,6 +435,15 @@ class BranchialSpace:
         return self._entanglements
 
     def find_neighbors(self, state_id: str, max_distance: float = 2.0) -> list[tuple[str, float]]:
+        """Find states within a coordinate distance radius.
+
+        Args:
+            state_id: The reference state.
+            max_distance: Maximum Euclidean distance in coordinate space.
+
+        Returns:
+            List of (state_id, distance) sorted by ascending distance.
+        """
         if not self._coordinates:
             self.assign_coordinates()
         target = self._coordinates.get(state_id)
@@ -403,6 +460,15 @@ class BranchialSpace:
         return neighbors
 
     def lateral_inference(self, state_id: str) -> list[dict[str, Any]]:
+        """Compare a state to its simultaneity-group peers for novel insights.
+
+        Args:
+            state_id: The state to analyze.
+
+        Returns:
+            List of insight dicts with novel nodes, transferable patterns,
+            branchial distance, and optional semantic novelty scores.
+        """
         if not self._simultaneity_groups:
             self.build_simultaneity_groups()
         target_group: SimultaneityGroup | None = None
@@ -448,6 +514,7 @@ class BranchialSpace:
     def _rank_novel_by_similarity(
         self, novel_ids: set[str], reference_ids: frozenset[str],
     ) -> dict[str, float]:
+        """Score novel node IDs by their dot-product similarity to the reference mean embedding."""
         if not self._embedding_engine or not novel_ids or not reference_ids:
             return {}
         ref_embs: list[np.ndarray] = []
@@ -488,6 +555,16 @@ class BranchialSpace:
         min_distance: float = 0.3,
         max_distance: float = 0.7,
     ) -> list[tuple[str, float]]:
+        """Find states at moderate coordinate distance, suggesting analogical similarity.
+
+        Args:
+            state_id: The source state.
+            min_distance: Minimum distance to consider.
+            max_distance: Maximum distance to consider.
+
+        Returns:
+            List of (state_id, distance) sorted by ascending distance.
+        """
         if not self._coordinates:
             self.assign_coordinates()
         source_coord = self._coordinates.get(state_id)
@@ -508,6 +585,18 @@ class BranchialSpace:
         source_state_id: str,
         target_state_id: str,
     ) -> AnalogyProposal:
+        """Propose an analogy-based transfer of edges from source to target state.
+
+        Maps source nodes to target nodes by neighborhood-signature overlap,
+        then proposes edges present in source but absent in target.
+
+        Args:
+            source_state_id: State providing patterns.
+            target_state_id: State receiving proposed edges.
+
+        Returns:
+            An AnalogyProposal with mapping, proposed edges, and confidence.
+        """
         source = self._multiway.get_state(source_state_id)
         target = self._multiway.get_state(target_state_id)
         if not source or not target:
@@ -532,6 +621,7 @@ class BranchialSpace:
         target_nodes = list(target.active_node_ids)
 
         def _neighborhood_signature(nid: str) -> frozenset[str]:
+            """Return a frozenset of edge labels incident to *nid*."""
             labels: set[str] = set()
             for edge in self._graph.edges_for(nid):
                 if edge.label:
@@ -594,6 +684,15 @@ class BranchialSpace:
         state_id: str,
         top_k: int = 5,
     ) -> list[AnalogyProposal]:
+        """Generate analogy proposals against all analogous states.
+
+        Args:
+            state_id: The source state.
+            top_k: Maximum number of proposals to return.
+
+        Returns:
+            Top-k proposals sorted by descending confidence.
+        """
         analogous = self.find_analogous_states(state_id)
         proposals: list[AnalogyProposal] = []
         for sid, _dist in analogous:
@@ -604,6 +703,17 @@ class BranchialSpace:
         return proposals[:top_k]
 
     def plan_path(self, source_state_id: str, target_state_id: str) -> list[str]:
+        """Find a shortest path between two states using A* over branchial coordinates.
+
+        Neighbors include children, parent, and siblings at each step.
+
+        Args:
+            source_state_id: Starting state.
+            target_state_id: Destination state.
+
+        Returns:
+            Ordered list of state IDs from source to target, or empty if unreachable.
+        """
         if not self._coordinates:
             self.assign_coordinates()
         if source_state_id not in self._coordinates or target_state_id not in self._coordinates:
@@ -649,6 +759,7 @@ class BranchialSpace:
         return []
 
     def nearest_high_density_region(self, state_id: str) -> str | None:
+        """Find the nearest state in the largest cluster."""
         if not self._clusters:
             return None
         if not self._coordinates:
@@ -675,6 +786,7 @@ class BranchialSpace:
         return best_state
 
     def update_coordinates_for_state(self, state_id: str, parent_id: str) -> None:
+        """Assign coordinates to a newly added state without recomputing all positions."""
         if not self._coordinates:
             self.assign_coordinates()
             return
@@ -700,6 +812,7 @@ class BranchialSpace:
             del self._distance_cache[key]
 
     def add_state_to_simultaneity(self, state: MultiwayState) -> None:
+        """Insert a state into its parent's simultaneity group, creating one if needed."""
         if not state.parent_id:
             return
         for group in self._simultaneity_groups:
@@ -716,6 +829,7 @@ class BranchialSpace:
         self._simultaneity_groups.append(group)
 
     def remove_state_from_simultaneity(self, state_id: str) -> None:
+        """Remove a state from whichever simultaneity group it belongs to."""
         for group in self._simultaneity_groups:
             if state_id in group.state_ids:
                 group.state_ids.discard(state_id)
@@ -723,21 +837,36 @@ class BranchialSpace:
 
     @property
     def coordinates(self) -> dict[str, BranchialCoordinates]:
+        """Return a copy of the state-to-coordinates mapping."""
         return dict(self._coordinates)
 
     @property
     def clusters(self) -> list[BranchialCluster]:
+        """Return a copy of the current cluster list."""
         return list(self._clusters)
 
     @property
     def entanglements(self) -> list[BranchialEntanglement]:
+        """Return a copy of the detected entanglements."""
         return list(self._entanglements)
 
     @property
     def simultaneity_groups(self) -> list[SimultaneityGroup]:
+        """Return a copy of the simultaneity groups."""
         return list(self._simultaneity_groups)
 
     def multi_scale_analysis(self, macro_clusters: int = 3, meso_clusters: int = 8) -> MultiScaleAnalysis:
+        """Perform hierarchical clustering at macro, meso, and micro scales.
+
+        Uses Ward linkage for macro/meso and simultaneity groups for micro.
+
+        Args:
+            macro_clusters: Target number of macro-level clusters.
+            meso_clusters: Target number of meso-level clusters.
+
+        Returns:
+            MultiScaleAnalysis with ScaleLevel objects and cross-scale insights.
+        """
         if not self._coordinates:
             self.assign_coordinates()
         states = list(self._coordinates.keys())
@@ -801,6 +930,7 @@ class BranchialSpace:
         return analysis
 
     def _build_scale_level(self, name: str, states: list[str], labels: np.ndarray) -> ScaleLevel:
+        """Build a ScaleLevel from cluster label assignments, including balance insights."""
         cluster_map: dict[int, set[str]] = {}
         for i, label in enumerate(labels):
             cluster_map.setdefault(int(label), set()).add(states[i])
@@ -819,6 +949,7 @@ class BranchialSpace:
         return ScaleLevel(name=name, n_clusters=len(clusters), clusters=clusters, insights=insights)
 
     def analyze(self) -> dict[str, Any]:
+        """Return a summary of the branchial space state."""
         return {
             "states_mapped": len(self._coordinates),
             "clusters": len(self._clusters),

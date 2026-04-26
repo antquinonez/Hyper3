@@ -46,6 +46,7 @@ class TimeInterval:
     end: float
 
     def __post_init__(self):
+        """Validate that the interval end is not before the start."""
         if self.end < self.start:
             raise ValueError(
                 f"Interval end ({self.end}) must be >= start ({self.start})"
@@ -53,9 +54,18 @@ class TimeInterval:
 
     @property
     def duration(self) -> float:
+        """Return the length of the interval."""
         return self.end - self.start
 
     def relate_to(self, other: TimeInterval) -> AllenRelation:
+        """Classify the Allen interval relation between this interval and another.
+
+        Args:
+            other: The interval to compare against.
+
+        Returns:
+            The AllenRelation describing how self relates to other.
+        """
         a_s, a_e = self.start, self.end
         b_s, b_e = other.start, other.end
 
@@ -94,9 +104,11 @@ class TimeInterval:
         return AllenRelation.EQUALS
 
     def overlaps_interval(self, other: TimeInterval) -> bool:
+        """Return True if this interval overlaps with other (open-ended comparison)."""
         return self.start < other.end and other.start < self.end
 
     def contains_point(self, t: float) -> bool:
+        """Return True if time point t falls within this closed interval."""
         return self.start <= t <= self.end
 
 
@@ -117,6 +129,7 @@ class TemporalConstraint:
 
     @property
     def inverse(self) -> TemporalConstraint:
+        """Return the constraint with swapped events and the inverse relation."""
         return TemporalConstraint(
             event_a_id=self.event_b_id,
             event_b_id=self.event_a_id,
@@ -127,6 +140,11 @@ class TemporalConstraint:
 
 class TemporalReasoner:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the reasoner with a hypergraph.
+
+        Args:
+            graph: The hypergraph whose nodes map to temporal events.
+        """
         self._graph = graph
         self._events: dict[str, TemporalEvent] = {}
         self._constraints: list[TemporalConstraint] = []
@@ -139,6 +157,18 @@ class TemporalReasoner:
         end: float,
         **metadata: Any,
     ) -> TemporalEvent:
+        """Register a temporal event with the given time interval.
+
+        Args:
+            event_id: Unique identifier for the event.
+            label: Human-readable label (typically matches a hypernode label).
+            start: Start time of the event.
+            end: End time of the event.
+            **metadata: Additional metadata stored on the event.
+
+        Returns:
+            The created TemporalEvent.
+        """
         interval = TimeInterval(start=start, end=end)
         event = TemporalEvent(
             event_id=event_id,
@@ -150,6 +180,7 @@ class TemporalReasoner:
         return event
 
     def get_event(self, event_id: str) -> TemporalEvent | None:
+        """Look up an event by ID, returning None if not found."""
         return self._events.get(event_id)
 
     def add_constraint(
@@ -159,6 +190,17 @@ class TemporalReasoner:
         relation: AllenRelation,
         confidence: float = 1.0,
     ) -> TemporalConstraint:
+        """Add an explicit temporal constraint between two events.
+
+        Args:
+            event_a_id: First event ID.
+            event_b_id: Second event ID.
+            relation: The required Allen relation from A to B.
+            confidence: Confidence score for the constraint.
+
+        Returns:
+            The created TemporalConstraint.
+        """
         constraint = TemporalConstraint(
             event_a_id=event_a_id,
             event_b_id=event_b_id,
@@ -169,6 +211,7 @@ class TemporalReasoner:
         return constraint
 
     def infer_constraints(self) -> list[TemporalConstraint]:
+        """Compute pairwise Allen relations for all registered events."""
         inferred: list[TemporalConstraint] = []
         event_ids = list(self._events.keys())
         for i in range(len(event_ids)):
@@ -188,6 +231,7 @@ class TemporalReasoner:
         return inferred
 
     def find_before(self, event_id: str) -> list[TemporalEvent]:
+        """Return all events that occur entirely before the given event."""
         target = self._events.get(event_id)
         if not target:
             return []
@@ -199,6 +243,7 @@ class TemporalReasoner:
         ]
 
     def find_after(self, event_id: str) -> list[TemporalEvent]:
+        """Return all events that occur entirely after the given event."""
         target = self._events.get(event_id)
         if not target:
             return []
@@ -210,6 +255,7 @@ class TemporalReasoner:
         ]
 
     def find_overlapping(self, event_id: str) -> list[TemporalEvent]:
+        """Return all events that temporally overlap with the given event."""
         target = self._events.get(event_id)
         if not target:
             return []
@@ -232,6 +278,7 @@ class TemporalReasoner:
         ]
 
     def find_containing(self, event_id: str) -> list[TemporalEvent]:
+        """Return all events whose intervals fully contain the given event's interval."""
         target = self._events.get(event_id)
         if not target:
             return []
@@ -243,6 +290,14 @@ class TemporalReasoner:
         ]
 
     def causal_order(self, event_ids: list[str]) -> list[str]:
+        """Sort the given event IDs by start time.
+
+        Args:
+            event_ids: Event IDs to order.
+
+        Returns:
+            The event IDs sorted chronologically by start time.
+        """
         events = [
             (eid, self._events[eid])
             for eid in event_ids
@@ -254,6 +309,15 @@ class TemporalReasoner:
     def detect_causal_chains(
         self, *, min_chain_length: int = 3, max_chains: int = 1000
     ) -> list[list[str]]:
+        """Find all BEFORE/MEETS chains among registered events.
+
+        Args:
+            min_chain_length: Minimum number of events in a chain.
+            max_chains: Stop searching after this many chains are found.
+
+        Returns:
+            List of chains, each a list of event IDs in causal order.
+        """
         adj: dict[str, set[str]] = {eid: set() for eid in self._events}
         for a_id, a in self._events.items():
             for b_id, b in self._events.items():
@@ -267,6 +331,7 @@ class TemporalReasoner:
         memo: dict[str, list[list[str]]] = {}
 
         def dfs(node: str) -> list[list[str]]:
+            """Recursively enumerate all paths starting from node."""
             if node in memo:
                 return memo[node]
             paths: list[list[str]] = [[node]]
@@ -302,6 +367,15 @@ class TemporalReasoner:
     def temporal_proximity(
         self, event_id: str, max_gap: float = 1.0
     ) -> list[tuple[TemporalEvent, float]]:
+        """Find events within a temporal gap of the given event.
+
+        Args:
+            event_id: The reference event.
+            max_gap: Maximum allowed temporal gap between intervals.
+
+        Returns:
+            List of (event, gap) pairs sorted by gap ascending.
+        """
         target = self._events.get(event_id)
         if not target:
             return []
@@ -378,10 +452,16 @@ class TemporalReasoner:
         }
 
     def _node_label(self, node_id: str, graph: Any) -> str:
+        """Resolve a node ID to its label, returning empty string if not found."""
         node = graph.get_node(node_id)
         return node.label if node else ""
 
     def check_constraint_consistency(self) -> list[dict[str, Any]]:
+        """Verify that all explicitly added constraints match the actual interval relations.
+
+        Returns:
+            List of inconsistency dicts with event labels and actual vs expected relations.
+        """
         inconsistencies: list[dict[str, Any]] = []
         events = list(self._events.values())
         if len(events) < 2:
@@ -410,6 +490,7 @@ class TemporalReasoner:
         return inconsistencies
 
     def get_event_for_node(self, node_id: str, graph: Any) -> TemporalEvent | None:
+        """Look up the temporal event whose label matches a graph node's label."""
         node = graph.get_node(node_id)
         if not node:
             return None
@@ -418,8 +499,10 @@ class TemporalReasoner:
 
     @property
     def events(self) -> list[TemporalEvent]:
+        """Return all registered events."""
         return list(self._events.values())
 
     @property
     def constraints(self) -> list[TemporalConstraint]:
+        """Return all registered constraints."""
         return list(self._constraints)

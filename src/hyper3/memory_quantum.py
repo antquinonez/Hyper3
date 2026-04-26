@@ -24,6 +24,19 @@ class QuantumMixin(_MemoryBase):
         amplitudes: list[float] | None = None,
         use_context_field: bool = True,
     ) -> QuantumState:
+        """Create a quantum superposition over the given concepts.
+
+        Resolves concept labels to node IDs, creates the superposition, and
+        optionally evolves it in the context of spreading activation values.
+
+        Args:
+            concepts: Labels of the nodes to superpose.
+            amplitudes: Optional amplitude list; uniform if not provided.
+            use_context_field: If True, evolve the state using activation context.
+
+        Returns:
+            The created QuantumState, or an empty state if no nodes are found.
+        """
         node_ids: list[str] = []
         for concept in concepts:
             node = self._find_node(concept)
@@ -47,6 +60,15 @@ class QuantumMixin(_MemoryBase):
         return qs
 
     def collapse(self, qs: QuantumState, context: dict[str, float] | None = None) -> Interpretation | None:
+        """Collapse a quantum superposition to a single interpretation via Born rule sampling.
+
+        Args:
+            qs: The quantum state to collapse.
+            context: Optional context weights influencing collapse probabilities.
+
+        Returns:
+            The selected Interpretation, or None if collapse fails.
+        """
         result = qs.collapse(context)
         if result:
             node = self._graph.get_node(result.node_id)
@@ -55,6 +77,17 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def collapse_with_basis(self, qs: QuantumState, basis_name: str) -> Interpretation | None:
+        """Collapse a quantum state using a named measurement basis.
+
+        Records effectiveness outcomes automatically.
+
+        Args:
+            qs: The quantum state to collapse.
+            basis_name: Name of the measurement basis to use.
+
+        Returns:
+            The selected Interpretation, or None if the basis is not found.
+        """
         result = self._quantum.collapse_with_basis(qs.id, basis_name)
         if result:
             node = self._graph.get_node(result.node_id)
@@ -63,6 +96,7 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def detect_collapse_triggers(self, qs: QuantumState) -> list[CollapseTrigger]:
+        """Detect automatic collapse triggers for a quantum state."""
         return self._quantum.detect_collapse_triggers(qs.id)
 
     def compute_interference(self, qs: QuantumState) -> Any:
@@ -72,6 +106,19 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def entangle(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> QuantumEntanglement:
+        """Create an entanglement between two groups of concept nodes.
+
+        Correlation keys use concept labels, which are internally remapped
+        to node IDs.
+
+        Args:
+            group_a: Labels of nodes in the first group.
+            group_b: Labels of nodes in the second group.
+            correlations: Dict mapping (label_a, label_b) pairs to correlation strengths.
+
+        Returns:
+            The created QuantumEntanglement.
+        """
         label_to_id: dict[str, str] = {}
         node_ids_a: list[str] = []
         node_ids_b: list[str] = []
@@ -95,12 +142,31 @@ class QuantumMixin(_MemoryBase):
         return ent
 
     def collapse_entangled(self, qs: QuantumState, observed_concept: str) -> dict[str, str]:
+        """Collapse an entangled state by observing one concept, returning all results.
+
+        Args:
+            qs: The entangled quantum state.
+            observed_concept: Label of the node to observe.
+
+        Returns:
+            Dict mapping node IDs to their collapsed interpretation node IDs.
+        """
         node = self._find_node(observed_concept)
         if not node:
             return {}
         return self._quantum.collapse_entangled(qs.id, node.id)
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
+        """Retrieve lateral insights from branchial or multiway space for a concept.
+
+        Args:
+            seed_concept: Label of the seed node.
+
+        Returns:
+            List of normalized insight dicts with keys like
+            ``branchial_distance``, ``complementary_nodes``, and
+            ``transferable_patterns``.
+        """
         if not self._multiway_engine:
             return []
         node = self._find_node(seed_concept)
@@ -118,6 +184,16 @@ class QuantumMixin(_MemoryBase):
         return []
 
     def reason_transfinite(self, concept: str, context: dict[str, Any] | None = None, *, max_level: int = 4) -> TransfiniteResult:
+        """Perform self-referential reasoning at increasing transfinite levels.
+
+        Args:
+            concept: The concept to reason about.
+            context: Optional context dict supplementing structural analysis.
+            max_level: Maximum transfinite recursion depth.
+
+        Returns:
+            A TransfiniteResult with boundary detection and partial proof info.
+        """
         return self._transfinite.reason_at_level(concept, context, max_level=max_level)
 
     def map_boundaries(self, concepts: list[str]) -> Any:
@@ -127,6 +203,7 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Ensure all lateral insight dicts have both key variants and default fields."""
         normalized: list[dict[str, Any]] = []
         for insight in insights:
             n = dict(insight)

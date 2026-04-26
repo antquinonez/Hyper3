@@ -84,6 +84,7 @@ class CognitiveSnapshot:
     feedback_evolution_fitness: list[float] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the snapshot to a plain dict suitable for JSON encoding."""
         d: dict[str, Any] = {}
         for f in self.__dataclass_fields__:
             val = getattr(self, f)
@@ -95,6 +96,7 @@ class CognitiveSnapshot:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> CognitiveSnapshot:
+        """Reconstruct a CognitiveSnapshot from a serialized dict."""
         kwargs: dict[str, Any] = {}
         for f in cls.__dataclass_fields__:
             if f in data:
@@ -106,12 +108,14 @@ class CognitiveSnapshot:
 
 
 def _serialize_amplitude(amp: float | complex) -> Any:
+    """Convert a possibly-complex amplitude to a JSON-safe value."""
     if isinstance(amp, complex):
         return [amp.real, amp.imag]
     return amp
 
 
 def _deserialize_amplitude(data: Any) -> float | complex:
+    """Reconstruct a float or complex amplitude from a serialized value."""
     if isinstance(data, list) and len(data) == 2:
         return complex(data[0], data[1])
     if isinstance(data, (int, float)):
@@ -131,8 +135,24 @@ def capture_snapshot(
     cache: LazyCache,
     feedback: OperationFeedback | None = None,
 ) -> CognitiveSnapshot:
-    snap = CognitiveSnapshot(saved_at=time.time())
+    """Capture the full state of all subsystems into an immutable snapshot.
 
+    Args:
+        quantum: Quantum cognitive layer whose states and entanglements to capture.
+        multiway_engine: Optional multiway engine whose DAG to capture.
+        branchial: Optional branchial space whose coordinates and clusters to capture.
+        rulial: Optional rulial space whose position, history, and patterns to capture.
+        provenance: Provenance tracker whose records to capture.
+        retrieval: Retrieval engine whose feedback and LTR weights to capture.
+        relativity: Computational relativity whose frame outcomes to capture.
+        meta: Meta-cognitive layer whose state and history to capture.
+        cache: LazyCache whose live items to capture.
+        feedback: Optional operation feedback tracker whose signals and stats to capture.
+
+    Returns:
+        A :class:`CognitiveSnapshot` containing serialized copies of all subsystem state.
+    """
+    snap = CognitiveSnapshot(saved_at=time.time())
     for qs in quantum._states.values():
         interps = []
         for interp in qs.interpretations:
@@ -589,18 +609,33 @@ def save_cognitive_state(
     path: str | Path,
     snapshot: CognitiveSnapshot,
 ) -> None:
+    """Write a snapshot to a JSON file on disk.
+
+    Args:
+        path: Destination file path. Parent directories are created automatically.
+        snapshot: The snapshot to persist.
+    """
     p = Path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(snapshot.to_dict(), indent=2, default=_json_default))
 
 
 def load_cognitive_state(path: str | Path) -> CognitiveSnapshot:
+    """Load a snapshot from a JSON file on disk.
+
+    Args:
+        path: Path to the JSON file produced by :func:`save_cognitive_state`.
+
+    Returns:
+        A reconstructed :class:`CognitiveSnapshot`.
+    """
     p = Path(path)
     data = json.loads(p.read_text())
     return CognitiveSnapshot.from_dict(data)
 
 
 def _json_default(obj: Any) -> Any:
+    """Fallback serializer for types that ``json.dumps`` cannot handle natively."""
     if isinstance(obj, (set, frozenset)):
         return sorted(obj)
     if isinstance(obj, tuple):

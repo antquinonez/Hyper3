@@ -33,6 +33,11 @@ from hyper3.memory_base import _MemoryBase
 class PersistenceMixin(_MemoryBase):
 
     def export_json(self, path: str) -> None:
+        """Export the graph to a JSON file.
+
+        Args:
+            path: Destination file path.
+        """
         self._serializer.export_json(self._graph, path)
         self._log.record("export_json", path=path)
 
@@ -66,10 +71,23 @@ class PersistenceMixin(_MemoryBase):
         return {"nodes": imported.node_count, "edges": imported.edge_count}
 
     def export_edgelist(self, path: str) -> None:
+        """Export the graph as an edge list file.
+
+        Args:
+            path: Destination file path.
+        """
         self._serializer.export_edgelist(self._graph, path)
         self._log.record("export_edgelist", path=path)
 
     def import_edgelist(self, path: str) -> dict[str, Any]:
+        """Import edges from an edge list file, skipping invalid entries.
+
+        Args:
+            path: Path to the edge list file.
+
+        Returns:
+            Dict with the count of imported edges.
+        """
         imported = self._serializer.import_edgelist(path)
         for edge in imported.edges:
             try:
@@ -80,6 +98,12 @@ class PersistenceMixin(_MemoryBase):
         return {"edges": imported.edge_count}
 
     def save(self, path: str, *, include_rules: bool = True) -> None:
+        """Save the graph, event log, and optionally rules to a file.
+
+        Args:
+            path: Destination file path.
+            include_rules: If True, serialize the active rule set as well.
+        """
         if include_rules and self._rules:
             self._serializer.save_with_rules(self._graph, self._log, self._rules, path)
         else:
@@ -87,6 +111,15 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("save", path=path, rules_saved=include_rules and len(self._rules) > 0)
 
     def load(self, path: str) -> None:
+        """Load graph and event log from a file, rebuilding all subsystems.
+
+        Constructor-level thresholds (merge, decay) are preserved; only
+        the graph and log are restored from the file.  The multiway engine,
+        overlay, and cached state are reset.
+
+        Args:
+            path: Path to the saved file.
+        """
         try:
             graph, log, loaded_rules = self._serializer.load_with_rules(path)
             self._rules = loaded_rules
@@ -128,6 +161,11 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)
 
     def save_cognitive_state(self, path: str) -> None:
+        """Save a full cognitive snapshot including quantum, multiway, and subsystem state.
+
+        Args:
+            path: Destination file path.
+        """
         snapshot = capture_snapshot(
             quantum=self._quantum,
             multiway_engine=self._multiway_engine,
@@ -144,6 +182,11 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("save_cognitive_state", path=path)
 
     def load_cognitive_state(self, path: str) -> None:
+        """Restore a full cognitive snapshot from disk.
+
+        Args:
+            path: Path to the saved snapshot file.
+        """
         snapshot = _load_snapshot(path)
         multiway_engine, branchial, rulial = restore_snapshot(
             snapshot=snapshot,
@@ -165,6 +208,7 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("load_cognitive_state", path=path)
 
     def stats(self) -> dict[str, Any]:
+        """Return a summary dict of graph, cache, quantum, evolution, and subsystem metrics."""
         return {
             "nodes": self._graph.node_count,
             "edges": self._graph.edge_count,

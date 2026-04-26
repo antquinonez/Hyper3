@@ -31,6 +31,13 @@ class CausalInvariant:
 
 class CausalInvarianceEngine:
     def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, threshold: float = 0.7) -> None:
+        """Initialize the causal invariance engine.
+
+        Args:
+            graph: The base hypergraph.
+            multiway: The multiway state graph to analyze.
+            threshold: Minimum similarity for states to be considered invariant.
+        """
         self._graph = graph
         self._multiway = multiway
         self._threshold = threshold
@@ -39,9 +46,21 @@ class CausalInvarianceEngine:
 
     @property
     def invariants(self) -> list[CausalInvariant]:
+        """Return all recorded causal invariants."""
         return list(self._invariants)
 
     def compute_state_similarity(self, state_a: MultiwayState, state_b: MultiwayState) -> float:
+        """Compute a combined similarity score from node overlap and edge overlap.
+
+        Uses a weighted combination of 0.7 * Jaccard(node IDs) + 0.3 * Jaccard(edge IDs).
+
+        Args:
+            state_a: First multiway state.
+            state_b: Second multiway state.
+
+        Returns:
+            Similarity score in [0.0, 1.0].
+        """
         nodes_a = state_a.active_node_ids
         nodes_b = state_b.active_node_ids
         if not nodes_a and not nodes_b:
@@ -105,6 +124,7 @@ class CausalInvarianceEngine:
             return self._approximate_isomorphism(g_a, g_b)
 
         def _node_match(a: dict, b: dict) -> bool:
+            """Compare two node attribute dicts by data similarity for isomorphism matching."""
             na = self._graph.get_node(a.get("nid", ""))
             nb = self._graph.get_node(b.get("nid", ""))
             if na and nb:
@@ -139,6 +159,14 @@ class CausalInvarianceEngine:
         return 0.8
 
     def find_invariants(self) -> list[tuple[str, str, float]]:
+        """Find pairs of leaf states that exceed the similarity threshold.
+
+        Uses vectorized numpy operations for Jaccard computation over all
+        leaf pairs.  Excludes sibling pairs (same parent) from consideration.
+
+        Returns:
+            List of (state_a_id, state_b_id, similarity) sorted by descending similarity.
+        """
         leaves = self._multiway.get_leaves()
         if len(leaves) < 2:
             return []
@@ -188,6 +216,11 @@ class CausalInvarianceEngine:
         return pairs
 
     def merge_invariant_states(self) -> list[CausalInvariant]:
+        """Merge pairs of similar leaf states into unified states.
+
+        Returns:
+            List of CausalInvariant records describing each merge.
+        """
         merged: list[CausalInvariant] = []
         consumed: set[str] = set()
         for state_a_id, state_b_id, similarity in self.find_invariants():
@@ -231,6 +264,11 @@ class CausalInvarianceEngine:
         return merged
 
     def enforce(self) -> dict[str, Any]:
+        """Run the full causal invariance check and merge cycle.
+
+        Returns:
+            Summary dict with invariants_found, states_before, states_after, and reduction.
+        """
         before = self._multiway.state_count
         invariants = self.merge_invariant_states()
         after = self._multiway.state_count

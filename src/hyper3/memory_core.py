@@ -19,10 +19,12 @@ class CoreMixin(_MemoryBase):
 
     @property
     def graph(self) -> Hypergraph:
+        """The underlying hypergraph data structure."""
         return self._graph
 
     @property
     def log(self) -> EventLog:
+        """The timestamped event log for all memory operations."""
         return self._log
 
     def store(
@@ -34,6 +36,21 @@ class CoreMixin(_MemoryBase):
         abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
         tags: dict[str, Any] | None = None,
     ) -> Hypernode:
+        """Store a concept as a hypernode in the graph.
+
+        If a node with the same label already exists, it is reinforced
+        and returned instead of creating a duplicate.
+
+        Args:
+            concept: Human-readable label for the node.
+            data: Arbitrary payload to attach to the node.
+            modalities: Set of modality tags for the node metadata.
+            abstraction: Abstraction layer classification.
+            tags: Additional custom metadata key-value pairs.
+
+        Returns:
+            The existing or newly created Hypernode.
+        """
         cached = self._cache.get(f"store:{concept}")
         if cached:
             existing = self._graph.get_node(cached)
@@ -64,6 +81,21 @@ class CoreMixin(_MemoryBase):
         max_nodes: int = 50,
         modalities: set[Modality] | None = None,
     ) -> list[Hypernode]:
+        """Recall a concept and its neighborhood from the graph.
+
+        Finds the best-matching node by label (or alias) and returns an
+        observer-limited subgraph around it.
+
+        Args:
+            concept: Label or alias of the target node.
+            max_depth: Maximum traversal depth from the start node.
+            max_nodes: Maximum number of nodes in the result.
+            modalities: Optional modality filter for the observer slice.
+
+        Returns:
+            List of Hypernodes in the recalled subgraph, or an empty list
+            if no matching node is found.
+        """
         cached_id = self._cache.get(f"store:{concept}")
         if cached_id:
             node = self._graph.get_node(cached_id)
@@ -98,6 +130,19 @@ class CoreMixin(_MemoryBase):
         bidirectional: bool = False,
         edge_data: Any = None,
     ) -> Hyperedge | None:
+        """Create a directed edge between two concept nodes.
+
+        Args:
+            source_concept: Label of the source node.
+            target_concept: Label of the target node.
+            label: Edge label describing the relationship.
+            bidirectional: If True, also create the reverse edge.
+            edge_data: Arbitrary payload to attach to the edge.
+
+        Returns:
+            The created Hyperedge, or None if either node is not found
+            or a boundary constraint rejects the edge.
+        """
         source = self._find_node(source_concept)
         target = self._find_node(target_concept)
         if not source or not target:
@@ -163,6 +208,19 @@ class CoreMixin(_MemoryBase):
         max_nodes: int = 100,
         modality: Modality | None = None,
     ) -> list[Hypernode]:
+        """Query the neighborhood of a concept using a traversal strategy.
+
+        Args:
+            concept: Label of the starting node.
+            strategy: Traversal strategy, either ``"bfs"`` or ``"dfs"``.
+            max_depth: Maximum traversal depth.
+            max_nodes: Maximum number of nodes to return.
+            modality: If set, filter traversal to this modality dimension.
+
+        Returns:
+            List of Hypernodes reached by the traversal, or an empty list
+            if the start node is not found.
+        """
         node = self._find_node(concept)
         if not node:
             return []
@@ -180,6 +238,12 @@ class CoreMixin(_MemoryBase):
         )
 
     def evolve(self) -> dict[str, Any]:
+        """Run a manual evolution cycle (decay, prune, merge, reinforce).
+
+        Returns:
+            Dict containing the evolution report and optional causal
+            invariance enforcement results.
+        """
         report = self._evolution.evolve()
         self._cache.evict_expired()
         causal_report = {}
@@ -189,6 +253,7 @@ class CoreMixin(_MemoryBase):
         return {**report, "causal": causal_report}
 
     def _find_node(self, label: str) -> Hypernode | None:
+        """Look up a node by label, checking cache, label index, and aliases."""
         cached_id = self._cache.get(f"store:{label}")
         if cached_id:
             node = self._graph.get_node(cached_id)
@@ -204,6 +269,7 @@ class CoreMixin(_MemoryBase):
         return None
 
     def _maybe_evolve(self) -> None:
+        """Increment the operation counter and trigger evolution if the interval is reached."""
         self._operation_count += 1
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
             self.evolve()
@@ -211,5 +277,6 @@ class CoreMixin(_MemoryBase):
                 self._meta.auto_metamorphosis()
 
     def _node_label(self, node_id: str) -> str:
+        """Return the human-readable label for a node ID, or a truncated ID fallback."""
         node = self._graph.get_node(node_id)
         return node.label if node else node_id[:8]

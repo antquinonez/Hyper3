@@ -18,6 +18,7 @@ class BoundaryIndicator:
 
     @property
     def boundary_score(self) -> float:
+        """Weighted aggregate of all boundary indicator dimensions."""
         return (
             0.3 * self.self_reference
             + 0.3 * self.universal_quantification
@@ -27,10 +28,12 @@ class BoundaryIndicator:
 
     @property
     def is_boundary(self) -> bool:
+        """Return True if the boundary score exceeds the 0.5 threshold."""
         return self.boundary_score > 0.5
 
     @property
     def is_decidable(self) -> bool:
+        """Return True if the boundary score is below the 0.3 decidable threshold."""
         return self.boundary_score < 0.3
 
 
@@ -69,6 +72,7 @@ class AxiomSet:
     provenance: dict[str, str] = field(default_factory=dict)
 
     def add(self, axiom: Axiom) -> None:
+        """Add an axiom to the set and record its provenance if available."""
         self.axioms[axiom.name] = axiom
         if axiom.source_edge_id:
             self.provenance[axiom.name] = axiom.source_edge_id
@@ -98,6 +102,7 @@ class PartialProof:
 
     @property
     def coverage_pct(self) -> float:
+        """Return branch coverage as a percentage."""
         if self.total_branches_estimated == 0:
             return 0.0
         return self.branches_explored / self.total_branches_estimated * 100.0
@@ -105,6 +110,11 @@ class PartialProof:
 
 class TransfiniteReasoner:
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize the reasoner with a hypergraph.
+
+        Args:
+            graph: The hypergraph to analyze for decidability boundaries.
+        """
         self._graph = graph
         self._boundary_regions: list[BoundaryRegion] = []
         self._reasoning_history: list[TransfiniteResult] = []
@@ -112,6 +122,15 @@ class TransfiniteReasoner:
         self._boundary_cache_ttl: float = 300.0
 
     def assess_decidability(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
+        """Evaluate decidability indicators for a concept.
+
+        Args:
+            concept: Label of the concept node to assess.
+            context: Optional hints overriding individual indicator scores.
+
+        Returns:
+            A BoundaryIndicator with scores for each dimension.
+        """
         indicator = BoundaryIndicator()
         indicator.self_reference = self._detect_self_reference(concept, context)
         indicator.universal_quantification = self._detect_universal_quantification(concept, context)
@@ -120,6 +139,7 @@ class TransfiniteReasoner:
         return indicator
 
     def _detect_self_reference(self, concept: str, context: dict[str, Any] | None) -> float:
+        """Score the degree of self-reference in the concept's graph neighborhood."""
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "self_reference", 0.0)
@@ -141,6 +161,7 @@ class TransfiniteReasoner:
         return self._context_boost(context, "self_reference", base)
 
     def _scc_self_reference(self, node_id: str) -> float:
+        """Return 0.7 if the node is in a strongly connected component of size > 1."""
         try:
             import networkx as nx
             G = nx.DiGraph()
@@ -159,6 +180,7 @@ class TransfiniteReasoner:
         return 0.0
 
     def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int) -> bool:
+        """Check whether a directed path exists from current back to start within max_depth."""
         if max_depth <= 0:
             return False
         for edge in self._graph.edges_for(current):
@@ -175,6 +197,7 @@ class TransfiniteReasoner:
         return False
 
     def _detect_universal_quantification(self, concept: str, context: dict[str, Any] | None) -> float:
+        """Score universal quantification risk based on connectivity and centrality."""
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "universal_quantification", 0.0)
@@ -191,6 +214,7 @@ class TransfiniteReasoner:
         return self._context_boost(context, "universal_quantification", base)
 
     def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
+        """Compute eigenvector centrality for a single node, falling back to degree ratio."""
         try:
             import networkx as nx
             G = nx.DiGraph()
@@ -207,6 +231,7 @@ class TransfiniteReasoner:
             return degree / max(total - 1, 1) if total > 1 else 0.0
 
     def _assess_diagonalization(self, concept: str, context: dict[str, Any] | None) -> float:
+        """Score diagonalization risk from contradictory edge labels or learned opposition."""
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "diagonalization", 0.0)
@@ -227,6 +252,7 @@ class TransfiniteReasoner:
         return self._context_boost(context, "diagonalization", base)
 
     def _learned_opposition_score(self, node_id: str, labels: list[str]) -> float:
+        """Detect opposition between labels via near-disjoint source node sets."""
         if len(labels) < 2:
             return 0.0
         source_nodes: dict[str, int] = {}
@@ -254,10 +280,12 @@ class TransfiniteReasoner:
         return 0.0
 
     def _are_contradictory(self, label_a: str, label_b: str) -> bool:
+        """Return True if the two edge labels form a known contradictory pair."""
         pairs = {("is", "is_not"), ("causes", "prevents"), ("true", "false"), ("yes", "no"), ("enabled", "disabled")}
         return (label_a, label_b) in pairs or (label_b, label_a) in pairs
 
     def _context_boost(self, context: dict[str, Any] | None, key: str, base: float) -> float:
+        """Apply a context hint as a boost or floor to a base score."""
         if not context:
             return base
         hint = context.get(key)
@@ -268,6 +296,7 @@ class TransfiniteReasoner:
         return base
 
     def _compare_to_known(self, concept: str, context: dict[str, Any] | None) -> float:
+        """Score similarity to known undecidable problem patterns."""
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "undecidable", 0.0)
@@ -292,6 +321,16 @@ class TransfiniteReasoner:
         *,
         max_level: int = 4,
     ) -> TransfiniteResult:
+        """Perform multi-level reasoning on a concept based on its decidability.
+
+        Args:
+            concept: Label of the concept to reason about.
+            context: Optional hints for indicator scoring.
+            max_level: Cap on the reasoning level (1-4).
+
+        Returns:
+            A TransfiniteResult with decidability status and partial results.
+        """
         indicator = self.assess_decidability(concept, context)
         level = self._dispatch_level(indicator)
         if level > max_level:
@@ -321,6 +360,7 @@ class TransfiniteReasoner:
         return result
 
     def _dispatch_level(self, indicator: BoundaryIndicator) -> int:
+        """Map a boundary score to a reasoning level (1-4)."""
         if indicator.boundary_score < 0.3:
             return 1
         if indicator.boundary_score < 0.5:
@@ -330,6 +370,7 @@ class TransfiniteReasoner:
         return 4
 
     def _standard_reasoning(self, concept: str, context: dict[str, Any] | None) -> list[dict[str, Any]]:
+        """Produce decidable reasoning results with neighbor info and confidence."""
         results: list[dict[str, Any]] = []
         node = self._find_concept_node(concept)
         if not node:
@@ -354,6 +395,7 @@ class TransfiniteReasoner:
         context: dict[str, Any] | None,
         indicator: BoundaryIndicator,
     ) -> list[dict[str, Any]]:
+        """Augment standard results with boundary-proximity structural conclusions."""
         results = self._standard_reasoning(concept, context)
         node = self._find_concept_node(concept)
         structural_conclusions: list[str] = []
@@ -388,6 +430,7 @@ class TransfiniteReasoner:
         context: dict[str, Any] | None,
         indicator: BoundaryIndicator,
     ) -> list[dict[str, Any]]:
+        """Apply transfinite reasoning with partial proof generation."""
         results = self._standard_reasoning(concept, context)
         pp = self._build_partial_proof(concept)
         results.append({
@@ -411,6 +454,7 @@ class TransfiniteReasoner:
         return results
 
     def _generate_warnings(self, indicator: BoundaryIndicator) -> list[str]:
+        """Produce human-readable warnings for high-scoring indicator dimensions."""
         warnings: list[str] = []
         if indicator.self_reference > 0.5:
             warnings.append("Self-referential structure detected - results may be incomplete")
@@ -423,6 +467,7 @@ class TransfiniteReasoner:
         return warnings
 
     def _reformulate(self, concept: str, context: dict[str, Any] | None) -> list[str]:
+        """Generate alternative formulations that may be more decidable."""
         formulations: list[str] = []
         formulations.append(f"Constrained version of '{concept}' within formal bounds")
         formulations.append(f"Approximation of '{concept}' with bounded error")
@@ -434,6 +479,7 @@ class TransfiniteReasoner:
         return formulations
 
     def _meta_mathematical_analysis(self, concept: str, indicator: BoundaryIndicator) -> list[str]:
+        """Produce meta-mathematical insights about the concept's decidability limits."""
         insights: list[str] = []
         if indicator.self_reference > 0.7:
             insights.append("Godel-like self-reference structure identified")
@@ -445,9 +491,11 @@ class TransfiniteReasoner:
         return insights
 
     def _find_concept_node(self, concept: str):
+        """Look up a graph node by its label."""
         return self._graph.get_node_by_label(concept)
 
     def _get_neighbor_labels(self, node_id: str) -> list[str]:
+        """Collect labels of all neighboring nodes."""
         labels: list[str] = []
         for neighbor_id in self._graph.neighbors(node_id):
             n = self._graph.get_node(neighbor_id)
@@ -456,6 +504,16 @@ class TransfiniteReasoner:
         return labels
 
     def _chernoff_bounds(self, observed_rate: float, n_samples: int, delta: float = 0.05) -> tuple[float, float]:
+        """Compute Chernoff confidence bounds for an observed rate.
+
+        Args:
+            observed_rate: The observed probability.
+            n_samples: Number of samples used to estimate the rate.
+            delta: Confidence parameter (smaller = tighter bounds).
+
+        Returns:
+            A (lower, upper) confidence interval.
+        """
         if n_samples <= 0:
             return (0.0, 1.0)
         epsilon = math.sqrt(math.log(2.0 / max(delta, 1e-15)) / (2.0 * n_samples))
@@ -464,6 +522,7 @@ class TransfiniteReasoner:
         return (lower, upper)
 
     def _build_partial_proof(self, concept: str) -> PartialProof:
+        """Construct a partial proof by exploring the concept's two-hop neighborhood."""
         node = self._find_concept_node(concept)
         if not node:
             return PartialProof(concept=concept)
@@ -505,6 +564,15 @@ class TransfiniteReasoner:
         )
 
     def extend_proof(self, proof: PartialProof, axiom: Axiom) -> PartialProof:
+        """Extend a partial proof by assuming an additional axiom.
+
+        Args:
+            proof: The existing partial proof.
+            axiom: The axiom to add.
+
+        Returns:
+            A new PartialProof with updated coverage and bounds.
+        """
         new_axioms = AxiomSet()
         for name, ax in proof.axioms_used.axioms.items():
             new_axioms.add(ax)
@@ -542,6 +610,15 @@ class TransfiniteReasoner:
         )
 
     def compose_proofs(self, proof_a: PartialProof, proof_b: PartialProof) -> PartialProof:
+        """Merge two partial proofs into a combined proof.
+
+        Args:
+            proof_a: First partial proof.
+            proof_b: Second partial proof.
+
+        Returns:
+            A new PartialProof covering the union of both inputs.
+        """
         merged_nodes = list(dict.fromkeys(proof_a.expanded_nodes + proof_b.expanded_nodes))
         merged_total = proof_a.total_branches_estimated + proof_b.total_branches_estimated
         merged_explored = proof_a.branches_explored + proof_b.branches_explored
@@ -574,6 +651,15 @@ class TransfiniteReasoner:
         )
 
     def suggest_axioms(self, concept: str, top_k: int = 5) -> list[Axiom]:
+        """Suggest bridging axioms that expand coverage to unreachable nodes.
+
+        Args:
+            concept: The concept to suggest axioms for.
+            top_k: Maximum number of axioms to return.
+
+        Returns:
+            Axioms sorted by estimated coverage gain, descending.
+        """
         node = self._find_concept_node(concept)
         if not node:
             return []
@@ -600,6 +686,14 @@ class TransfiniteReasoner:
         return [a for _, a in candidates[:top_k]]
 
     def precompute_boundaries(self, concepts: list[str]) -> dict[str, BoundaryIndicator]:
+        """Batch-compute and cache boundary indicators for a list of concepts.
+
+        Args:
+            concepts: Concept labels to assess.
+
+        Returns:
+            Dict mapping each concept to its BoundaryIndicator.
+        """
         results: dict[str, BoundaryIndicator] = {}
         now = time.time()
         for concept in concepts:
@@ -614,12 +708,25 @@ class TransfiniteReasoner:
         return results
 
     def invalidate_boundary_cache(self, concept: str | None = None) -> None:
+        """Clear cached boundary indicators for one concept or all.
+
+        Args:
+            concept: If given, invalidate only this concept; otherwise clear all.
+        """
         if concept is None:
             self._boundary_cache.clear()
         else:
             self._boundary_cache.pop(concept, None)
 
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
+        """Map each concept to a BoundaryRegion with decidability status.
+
+        Args:
+            concepts: Concept labels to map.
+
+        Returns:
+            List of BoundaryRegion objects.
+        """
         self._boundary_regions.clear()
         for concept in concepts:
             indicator = self.assess_decidability(concept)
@@ -634,13 +741,16 @@ class TransfiniteReasoner:
 
     @property
     def boundary_regions(self) -> list[BoundaryRegion]:
+        """Return all mapped boundary regions."""
         return list(self._boundary_regions)
 
     @property
     def reasoning_history(self) -> list[TransfiniteResult]:
+        """Return all past reasoning results."""
         return list(self._reasoning_history)
 
     def analyze(self) -> dict[str, Any]:
+        """Summarize mapped regions and reasoning history counts."""
         total = len(self._boundary_regions)
         decidable = sum(1 for r in self._boundary_regions if r.status == "decidable")
         boundary = sum(1 for r in self._boundary_regions if r.status == "boundary")
