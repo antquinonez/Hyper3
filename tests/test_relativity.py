@@ -1,0 +1,98 @@
+import pytest
+from hyper3 import (
+    ComputationalFrame,
+    ComputationalRelativity,
+    FrameAnalysis,
+    FrameTransformation,
+    Hyperedge,
+    Hypergraph,
+    Hypernode,
+)
+
+
+def _build_graph():
+    g = Hypergraph()
+    for label in ["concept_a", "concept_b", "concept_c"]:
+        g.add_node(Hypernode(id=label, label=label))
+    g.add_edge(Hyperedge(source_ids=frozenset({"concept_a"}), target_ids=frozenset({"concept_b"}), label="rel"))
+    g.add_edge(Hyperedge(source_ids=frozenset({"concept_b"}), target_ids=frozenset({"concept_c"}), label="rel"))
+    return g
+
+
+class TestComputationalFrame:
+    def test_complexity_empty_metrics(self):
+        f = ComputationalFrame(name="test")
+        assert f.complexity() == 0.0
+
+    def test_complexity_with_metrics(self):
+        f = ComputationalFrame(name="test", metrics={"a": 0.5, "b": 0.3})
+        assert abs(f.complexity() - 0.4) < 0.01
+
+
+class TestComputationalRelativity:
+    def test_builtin_frames(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        assert "classical" in cr.frames
+        assert "quantum" in cr.frames
+        assert "hypergraph" in cr.frames
+        assert "probabilistic" in cr.frames
+
+    def test_add_custom_frame(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        custom = ComputationalFrame(name="custom", frame_type="neural", metrics={"training_convergence": 0.5})
+        cr.add_frame(custom)
+        assert cr.get_frame("custom") is not None
+
+    def test_analyze_in_frame(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        analysis = cr.analyze_in_frame("concept_a", "classical")
+        assert isinstance(analysis, FrameAnalysis)
+        assert analysis.complexity >= 0.0
+        assert analysis.solution_approach
+
+    def test_multi_frame_analysis(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        results = cr.multi_frame_analysis("concept_a")
+        assert len(results) == 4
+        for name, analysis in results.items():
+            assert isinstance(analysis, FrameAnalysis)
+            assert analysis.frame_name == name
+
+    def test_select_optimal_frame(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        name, analysis = cr.select_optimal_frame("concept_a")
+        assert name in cr.frames
+        assert isinstance(analysis, FrameAnalysis)
+
+    def test_transform_between_frames(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        t = cr.transform_between_frames("classical", "quantum")
+        assert isinstance(t, FrameTransformation)
+        assert t.source_frame == "classical"
+        assert t.target_frame == "quantum"
+        assert t.information_preserved >= 0.0
+
+    def test_unknown_frame(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        analysis = cr.analyze_in_frame("concept_a", "nonexistent")
+        assert analysis.complexity == float("inf")
+
+    def test_concept_not_found(self):
+        g = Hypergraph()
+        cr = ComputationalRelativity(g)
+        analysis = cr.analyze_in_frame("nonexistent", "classical")
+        assert analysis.complexity == float("inf")
+
+    def test_analyze(self):
+        g = _build_graph()
+        cr = ComputationalRelativity(g)
+        report = cr.analyze()
+        assert "available_frames" in report
+        assert "transformations_computed" in report

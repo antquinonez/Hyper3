@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+import time
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import Any
+
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
+from hyper3.rules import Rule, RuleMatch, TransitiveRule, InverseRule
+
+
+@dataclass
+class DiscoveredRule:
+    pattern_type: str
+    pattern: dict[str, Any]
+    effectiveness: int = 0
+    discovered_at: float = 0.0
+    rule: Rule | None = None
+
+    def __post_init__(self) -> None:
+        if not self.discovered_at:
+            self.discovered_at = time.time()
+
+
+class RuleDiscoveryEngine:
+    def __init__(self, graph: Hypergraph) -> None:
+        self._graph = graph
+        self._discovered: list[DiscoveredRule] = []
+        self._edge_label_counts: Counter[str] = Counter()
+        self._pattern_cache: dict[str, bool] = {}
+        self._refresh_counts()
+
+    def _refresh_counts(self) -> None:
+        self._edge_label_counts.clear()
+        for edge in self._graph.edges:
+            if edge.label:
+                self._edge_label_counts[edge.label] += 1
+
+    def discover_transitive_patterns(self, min_occurrences: int = 2) -> list[DiscoveredRule]:
+        discovered: list[DiscoveredRule] = []
+        for label, count in self._edge_label_counts.items():
+            if count < min_occurrences:
+                continue
+            chain_count = self._count_chains(label)
+            if chain_count >= min_occurrences:
+                key = f"transitive:{label}"
+                if key in self._pattern_cache:
+                    continue
+                self._pattern_cache[key] = True
+                rule = TransitiveRule(edge_label=label, new_label=f"inferred_{label}")
+                dr = DiscoveredRule(
+                    pattern_type="transitive",
+                    pattern={"edge_label": label, "chain_count": chain_count},
+                    effectiveness=chain_count,
+                    rule=rule,
+                )
+                discovered.append(dr)
+                self._discovered.append(dr)
+        return discovered
+
+    def discover_inverse_patterns(self, min_pair_count: int = 2) -> list[DiscoveredRule]:
+        discovered: list[DiscoveredRule] = []
+        label_pairs: Counter[str] = Counter()
+        pair_edges: dict[str, list[tuple[str, str]]] = {}
+        for edge_a in self._graph.edges:
+            if not edge_a.label:
+                continue
+            for nid in edge_a.target_ids:
+                for edge_b in self._graph.edges_for(nid):
+                    if not edge_b.label or edge_b.label == edge_a.label:
+                        continue
+                    if nid in edge_b.source_ids:
+                        for target in edge_b.target_ids:
+                            if target in edge_a.source_ids:
+                                pair_key = f"{edge_a.label}::{edge_b.label}"
+                                label_pairs[pair_key] += 1
+                                pair_edges.setdefault(pair_key, []).append(
+                                    (edge_a.label, edge_b.label)
+                                )
+        for pair_key, count in label_pairs.items():
+            if count < min_pair_count:
+                continue
+            if pair_key in self._pattern_cache:
+                continue
+            self._pattern_cache[pair_key] = True
+            label_a, label_b = pair_key.split("::")
+            rule = InverseRule(edge_label=label_a, inverse_label=label_b)
+            dr = DiscoveredRule(
+                pattern_type="inverse",
+                pattern={"forward": label_a, "reverse": label_b, "pair_count": count},
+                effectiveness=count,
+                rule=rule,
+            )
+            discovered.append(dr)
+            self._discovered.append(dr)
+        return discovered
+
+    def discover_hub_patterns(self, min_fan_out: int = 3) -> list[DiscoveredRule]:
+        discovered: list[DiscoveredRule] = []
+        for node in self._graph.nodes:
+            outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
+            label_groups: Counter[str] = Counter()
+            for edge in outgoing:
+                if edge.label:
+                    label_groups[edge.label] += 1
+            for label, count in label_groups.items():
+                if count >= min_fan_out:
+                    key = f"hub:{node.id}:{label}"
+                    if key in self._pattern_cache:
+                        continue
+                    self._pattern_cache[key] = True
+                    dr = DiscoveredRule(
+                        pattern_type="hub",
+                        pattern={
+                            "hub_node": node.label,
+                            "edge_label": label,
+                            "fan_out": count,
+                        },
+                        effectiveness=count,
+                    )
+                    discovered.append(dr)
+                    self._discovered.append(dr)
+        return discovered
+
+    def discover_all(self) -> list[DiscoveredRule]:
+        self._refresh_counts()
+        results: list[DiscoveredRule] = []
+        results.extend(self.discover_transitive_patterns())
+        results.extend(self.discover_inverse_patterns())
+        results.extend(self.discover_hub_patterns())
+        return results
+
+    def get_discovered_rules(self) -> list[DiscoveredRule]:
+        return list(self._discovered)
+
+    def get_active_rules(self) -> list[Rule]:
+        return [dr.rule for dr in self._discovered if dr.rule is not None]
+
+    def analyze(self) -> dict[str, Any]:
+        discovered = self.discover_all()
+        return {
+            "total_patterns": len(self._discovered),
+            "new_patterns": len(discovered),
+            "active_rules": len(self.get_active_rules()),
+            "edge_labels": dict(self._edge_label_counts),
+            "pattern_types": Counter(dr.pattern_type for dr in self._discovered),
+        }
+
+    def _count_chains(self, label: str) -> int:
+        count = 0
+        for edge_a in self._graph.edges:
+            if edge_a.label != label:
+                continue
+            for mid_id in edge_a.target_ids:
+                for edge_b in self._graph.edges_for(mid_id):
+                    if edge_b.label != label:
+                        continue
+                    if mid_id in edge_b.source_ids:
+                        for end_id in edge_b.target_ids:
+                            if end_id not in edge_a.source_ids:
+                                count += 1
+        return count

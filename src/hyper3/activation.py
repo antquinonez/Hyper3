@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any
+
+from hyper3.kernel import Hypergraph
+
+
+@dataclass
+class ActivationResult:
+    node_id: str
+    label: str
+    activation: float
+    depth: int
+
+    def __lt__(self, other: ActivationResult) -> bool:
+        return self.activation < other.activation
+
+
+@dataclass
+class ActivationConfig:
+    decay_factor: float = 0.85
+    edge_weight_scale: float = 1.0
+    label_rates: dict[str, float] = field(default_factory=dict)
+    max_iterations: int = 5
+    min_activation: float = 0.01
+    activation_threshold: float = 0.1
+    normalize_per_step: bool = True
+    directional: bool = False
+
+
+class SpreadingActivation:
+    def __init__(self, graph: Hypergraph, *, config: ActivationConfig | None = None) -> None:
+        self._graph = graph
+        self._config = config or ActivationConfig()
+        self._activations: dict[str, float] = {}
+
+    @property
+    def config(self) -> ActivationConfig:
+        return self._config
+
+    @property
+    def activations(self) -> dict[str, float]:
+        return dict(self._activations)
+
+    def clear(self) -> None:
+        self._activations.clear()
+
+    def stimulate(self, node_id: str, energy: float = 1.0) -> None:
+        self._activations[node_id] = self._activations.get(node_id, 0.0) + energy
+
+    def stimulate_label(self, label: str, energy: float = 1.0) -> None:
+        node = self._graph.get_node_by_label(label)
+        if node:
+            self.stimulate(node.id, energy)
+
+    def spread(self, iterations: int | None = None) -> dict[str, float]:
+        iters = iterations if iterations is not None else self._config.max_iterations
+        for _ in range(iters):
+            if not self._activations:
+                break
+            delta: dict[str, float] = {}
+            current_max = max(self._activations.values()) if self._activations else 0.0
+            for node_id, activation in list(self._activations.items()):
+                edges = self._graph.edges_for(node_id)
+                for edge in edges:
+                    rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
+                    if self._config.directional:
+                        if node_id in edge.source_ids:
+                            neighbors = edge.target_ids
+                        else:
+                            neighbors = edge.source_ids
+                            rate *= 0.3
+                    else:
+                        neighbors = edge.node_ids - {node_id}
+                    spread_energy = activation * rate * self._config.decay_factor
+                    per_neighbor = spread_energy / len(neighbors) if neighbors else 0.0
+                    for neighbor_id in neighbors:
+                        delta[neighbor_id] = delta.get(neighbor_id, 0.0) + per_neighbor
+            for nid, energy in delta.items():
+                self._activations[nid] = self._activations.get(nid, 0.0) + energy
+            if self._config.normalize_per_step and current_max > 0:
+                new_max = max(self._activations.values()) if self._activations else 0.0
+                if new_max > 0:
+                    scale = current_max / new_max
+                    self._activations = {nid: a * scale for nid, a in self._activations.items()}
+            self._activations = {
+                nid: a for nid, a in self._activations.items()
+                if a >= self._config.min_activation
+            }
+        return dict(self._activations)
+
+    def get_activated(
+        self,
+        threshold: float | None = None,
+        top_k: int | None = None,
+    ) -> list[ActivationResult]:
+        t = threshold if threshold is not None else self._config.activation_threshold
+        results: list[ActivationResult] = []
+        for nid, activation in self._activations.items():
+            if activation < t:
+                continue
+            node = self._graph.get_node(nid)
+            label = node.label if node else ""
+            depth = 0
+            results.append(ActivationResult(node_id=nid, label=label, activation=activation, depth=depth))
+        results.sort(key=lambda r: r.activation, reverse=True)
+        if top_k is not None:
+            results = results[:top_k]
+        return results
+
+    def stimulate_and_spread(
+        self,
+        seeds: dict[str, float],
+        *,
+        iterations: int | None = None,
+    ) -> list[ActivationResult]:
+        for key, energy in seeds.items():
+            node = self._graph.get_node(key)
+            if node:
+                self.stimulate(node.id, energy)
+            else:
+                node = self._graph.get_node_by_label(key)
+                if node:
+                    self.stimulate(node.id, energy)
+        self.spread(iterations)
+        return self.get_activated()
+
+    def associative_recall(
+        self,
+        concept: str,
+        *,
+        energy: float = 1.0,
+        top_k: int = 10,
+        iterations: int | None = None,
+    ) -> list[ActivationResult]:
+        seed_node = self._graph.get_node_by_label(concept)
+        if not seed_node:
+            seed_node = self._graph.get_node(concept)
+        if not seed_node:
+            return []
+        self.stimulate(seed_node.id, energy)
+        self.spread(iterations)
+        results = self.get_activated(top_k=top_k * 2)
+        results = [r for r in results if r.node_id != seed_node.id]
+        return results[:top_k]
