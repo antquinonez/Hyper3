@@ -5,7 +5,8 @@ Retrieval, Activation, and Relevance Feedback
 This example demonstrates Hyper3's retrieval system which combines
 spreading activation (associative recall) with semantic similarity
 via Reciprocal Rank Fusion (RRF). It also shows how relevance
-feedback trains the retriever over time.
+feedback trains the retriever over time, and how OperationFeedback
+tracks system-wide learning signals.
 
 Use case: A document knowledge base where users search for
 related documents and provide relevance feedback to improve
@@ -18,10 +19,12 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import CognitiveMemory, Modality
+from hyper3.feedback import OperationFeedback
 
 
 def main():
     mem = CognitiveMemory(evolve_interval=0)
+    op_feedback = OperationFeedback(mem.graph)
 
     # =====================================================================
     # SECTION 1: Building a Document Knowledge Base
@@ -168,6 +171,11 @@ def main():
     relevant_labels2 = {"neural_networks", "gradient_descent", "backpropagation", "regularization"}
     count2 = mem.record_feedback("deep_learning", results2, relevant_labels2)
     print(f"  Recorded {count2} feedback entries for 'deep_learning'")
+
+    relevant_ids = {mem.graph.get_node_by_label(l).id for l in relevant_labels if mem.graph.get_node_by_label(l)}
+    irrelevant_ids = {r.node_id for r in results if r.label not in relevant_labels and mem.graph.get_node_by_label(r.label)}
+    op_feedback.record_retrieval_outcome(query, relevant_ids, irrelevant_ids)
+    print(f"  OperationFeedback recorded retrieval outcome for '{query}'")
     print()
 
     # =====================================================================
@@ -202,13 +210,48 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 7: Analogy (Vector Arithmetic)
+    # SECTION 7: OperationFeedback Learning Signals
+    # =====================================================================
+    # OperationFeedback tracks system-wide outcomes across collapse,
+    # retrieval, inference, and evolution operations. It identifies
+    # reinforced (consistently positive) and suppressed nodes.
+
+    print("=" * 70)
+    print("SECTION 7: OperationFeedback Learning Signals")
+    print("=" * 70)
+
+    qs = mem.superpose(["transformer_arch", "bert", "gpt"], amplitudes=[0.6, 0.3, 0.2])
+    answer = mem.collapse(qs, context={"transformer_arch": 2.0})
+    if answer:
+        op_feedback.record_collapse_outcome(qs.id, answer.node_id, correct=True)
+        print(f"  Collapse selected: {answer.label or answer.node_id[:8]}")
+
+    op_feedback.record_evolution_outcome(0.85)
+    op_feedback.record_evolution_outcome(0.88)
+    op_feedback.record_evolution_outcome(0.82)
+
+    print(f"  Total feedback signals: {op_feedback.signal_count}")
+    print(f"  Retrieval precision: {op_feedback.retrieval_precision():.3f}")
+    print(f"  Collapse accuracy: {op_feedback.collapse_accuracy():.3f}")
+    print(f"  Fitness trend: {op_feedback.get_fitness_trend()}")
+
+    reinforced = op_feedback.get_reinforced_nodes(min_signals=1)
+    if reinforced:
+        labels = []
+        for nid in reinforced:
+            node = mem.graph.get_node(nid)
+            labels.append(node.label if node else nid[:8])
+        print(f"  Reinforced nodes: {labels}")
+    print()
+
+    # =====================================================================
+    # SECTION 8: Analogy (Vector Arithmetic)
     # =====================================================================
     # analogy() performs king - man + woman = queen style operations
     # on embedding vectors.
 
     print("=" * 70)
-    print("SECTION 7: Semantic Analogy")
+    print("SECTION 8: Semantic Analogy")
     print("=" * 70)
 
     # "bert is to natural_language_processing as ? is to computer_vision"
@@ -229,7 +272,8 @@ def main():
     print("  3. Retrieved concepts using RRF (activation + similarity fusion)")
     print("  4. Recorded relevance feedback from simulated users")
     print("  5. Trained a Learning-to-Rank model from feedback")
-    print("  6. Demonstrated semantic analogy via vector arithmetic")
+    print("  6. Tracked system-wide learning signals with OperationFeedback")
+    print("  7. Demonstrated semantic analogy via vector arithmetic")
     print()
 
 

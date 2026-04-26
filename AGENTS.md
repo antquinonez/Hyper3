@@ -95,6 +95,12 @@ Do not use emojis in code or commit messages unless explicitly asked.
 ### `reason()` auto-commits existing overlays
 If `reason(use_overlay=True)` is called while an overlay already exists (from a prior `reason(auto_commit=False)`), the existing overlay is auto-committed before a new one is created. No uncommitted inferences are silently lost.
 
+### `Interpretation.amplitude` is `float | complex`
+After unitary evolution, amplitudes can be complex numbers. Code that consumes amplitudes should use `abs()` for magnitude comparisons. `probability` property already uses `abs()`.
+
+### `EquivalenceEngine` uses combined similarity
+`find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting.
+
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
@@ -102,6 +108,7 @@ If `reason(use_overlay=True)` is called while an overlay already exists (from a 
 - **`load()` resets thresholds**: `CognitiveMemory.load()` restores graph structure but constructor args (like `merge_threshold`) are set at construction time, not from the saved file. Tests must pass matching constructor args to the loading instance.
 - **Fitness never drops below 0.9**: The architectural fitness formula in `MetaCognitiveLayer` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
 - **Multiway expansion needs chains**: `TransitiveRule` only matches when there is a two-hop chain (A→B, B→C). Starting from a root node with no outgoing edges produces zero matches.
+- **EquivalenceEngine structural similarity**: Two nodes with no edges are structurally identical (score 1.0). Two nodes with no overlapping neighbors get structural score 0.0. The combined score can still exceed threshold via data similarity alone.
 
 ## Performance Indexes
 
@@ -120,11 +127,13 @@ The following are already optimized — maintain them when making changes:
 - **provenance.py** — `ProvenanceTracker` records inference derivations (rule name, input edges, depth). `explain()` produces recursive `Explanation` objects with `render()`. `retract()` cascades: removing a premise removes all dependent conclusions.
 - **temporal.py** — `TemporalReasoner` with full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, constraint checking, and edge-level temporal consistency.
 - **enrichment.py** — `LLMEnricher` extracts entities/relations from text. `RegexExtractor` is the zero-dependency fallback. Pluggable `LLMProvider` ABC for real language models.
+- **graph_embeddings.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
+- **feedback.py** — `OperationFeedback` tracks collapse, retrieval, inference, and evolution outcomes with accuracy/precision/acceptance metrics and fitness trend detection. `FeedbackSignal` dataclass for individual outcome records.
 
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 880 tests must pass.
+2. Run the full test suite after changes. All 971 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -205,7 +214,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 7. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 880
+- **Tests**: 971
 - **Coverage**: 96%
 - **Pyright**: 0 errors
 - **Examples**: 13 (3 basic, 4 intermediate, 4 advanced, 2 domain)

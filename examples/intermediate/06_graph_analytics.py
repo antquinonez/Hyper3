@@ -4,7 +4,8 @@ Graph Analytics
 
 This example demonstrates Hyper3's graph analytics capabilities:
 centrality measures, cycle detection, connected components,
-path finding, and degree distribution.
+path finding, degree distribution, and graph-structure-aware
+embeddings for role-based similarity.
 
 Use case: Social network analysis. An analyst wants to identify
 influencers, communities, and information flow paths in an
@@ -16,7 +17,10 @@ Run with:
 
 from __future__ import annotations
 
+import numpy as np
+
 from hyper3 import CognitiveMemory, Modality
+from hyper3.graph_embeddings import NeighborhoodFingerprintProvider, RandomWalkEmbeddingProvider
 
 
 def main():
@@ -203,6 +207,59 @@ def main():
     print()
 
     # =====================================================================
+    # SECTION 8: Graph-Structure-Aware Embeddings
+    # =====================================================================
+    # NeighborhoodFingerprintProvider creates embeddings based on edge
+    # structure: edge labels, directions, neighbor identities, and
+    # TF-IDF weighting. People with similar roles get similar vectors.
+
+    print("=" * 70)
+    print("SECTION 8: Graph-Structure-Aware Embeddings")
+    print("=" * 70)
+
+    fingerprint_provider = NeighborhoodFingerprintProvider(mem.graph, dim=32)
+
+    role_groups = {
+        "engineers": ["dave", "eve", "ivan", "laura", "mike", "oscar"],
+        "product": ["carol", "frank", "grace"],
+        "data": ["heidi", "karl"],
+    }
+    for group_name, members in role_groups.items():
+        print(f"\n  {group_name} similarity (fingerprint):")
+        for i in range(min(3, len(members))):
+            for j in range(i + 1, min(4, len(members))):
+                n1 = mem.graph.get_node_by_label(members[i])
+                n2 = mem.graph.get_node_by_label(members[j])
+                if n1 and n2:
+                    v1 = fingerprint_provider.embed_node(n1.id, n1.label)
+                    v2 = fingerprint_provider.embed_node(n2.id, n2.label)
+                    sim = float(np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2) + 1e-10))
+                    print(f"    {members[i]} <-> {members[j]}: {sim:.3f}")
+
+    walk_provider = RandomWalkEmbeddingProvider(mem.graph, dim=32, walk_length=15, num_walks=20, epochs=3)
+
+    print(f"\n  Role recovery via RandomWalk embeddings:")
+    ref_person = "dave"
+    ref_node = mem.graph.get_node_by_label(ref_person)
+    if ref_node:
+        ref_vec = walk_provider.embed_node(ref_node.id, ref_node.label)
+        similarities: list[tuple[str, float]] = []
+        for name in people:
+            if name == ref_person:
+                continue
+            node = mem.graph.get_node_by_label(name)
+            if node:
+                vec = walk_provider.embed_node(node.id, node.label)
+                sim = float(np.dot(ref_vec, vec) / (np.linalg.norm(ref_vec) * np.linalg.norm(vec) + 1e-10))
+                similarities.append((name, sim))
+        similarities.sort(key=lambda x: -x[1])
+        print(f"  Most similar to {ref_person} (senior_engineer):")
+        for name, sim in similarities[:5]:
+            role = people[name]["role"]
+            print(f"    {name:10s} ({role:20s}): {sim:.3f}")
+    print()
+
+    # =====================================================================
     # SUMMARY
     # =====================================================================
     print("=" * 70)
@@ -214,6 +271,7 @@ def main():
     print(f"  Top information broker: {top_broker[0]} (betweenness={top_broker[1]:.3f})")
     print(f"  Communities: {len(components)}")
     print(f"  Has feedback loops: {has_cycles}")
+    print(f"  Graph embeddings capture role-based structural similarity")
     print()
 
 

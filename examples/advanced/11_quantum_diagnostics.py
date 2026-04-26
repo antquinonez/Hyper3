@@ -8,6 +8,8 @@ This example demonstrates Hyper3's quantum cognitive layer in depth:
   - Collapse: Reducing to a single hypothesis with evidence
   - Interference: Constructive and destructive evidence combination
   - Measurement bases: Different perspectives for measurement
+  - Unitary evolution: Rotating quantum state with matrix operators
+  - Density matrix: Full quantum state representation and entropy
 
 Use case: Medical diagnosis with competing hypotheses. A doctor
 considers multiple diseases, incorporates correlated symptoms,
@@ -20,6 +22,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import CognitiveMemory, Modality
+import numpy as np
 
 
 def main():
@@ -250,6 +253,81 @@ def main():
     print()
 
     # =====================================================================
+    # SECTION 8: Unitary Evolution (Quantum State Rotation)
+    # =====================================================================
+    # Unitary operators rotate the quantum state, mixing hypotheses.
+    # The Hadamard gate creates equal superposition from a definite state.
+
+    print("=" * 70)
+    print("SECTION 8: Unitary Evolution")
+    print("=" * 70)
+
+    qs5 = mem.superpose(["pneumonia", "bronchitis"], amplitudes=[1.0, 0.0])
+    print(f"  Before Hadamard: {qs5.interpretations[0].label} "
+          f"amp={qs5.interpretations[0].amplitude:.3f}, "
+          f"{qs5.interpretations[1].label} "
+          f"amp={qs5.interpretations[1].amplitude:.3f}")
+
+    H = mem.quantum.hadamard_2x2()
+    mem.quantum.evolve_unitary(qs5.id, H)
+    print(f"  After Hadamard:  {qs5.interpretations[0].label} "
+          f"amp={qs5.interpretations[0].amplitude:.3f}, "
+          f"{qs5.interpretations[1].label} "
+          f"amp={qs5.interpretations[1].amplitude:.3f}")
+
+    total_prob = sum(abs(i.amplitude) ** 2 for i in qs5.interpretations)
+    print(f"  Probability preserved: {total_prob:.3f}")
+
+    phase = mem.quantum.phase_shift(np.pi / 4, 2, 0)
+    mem.quantum.evolve_unitary(qs5.id, phase)
+    amps = [i.amplitude for i in qs5.interpretations]
+    print(f"  After phase shift (pi/4): amps={[f'{a:.3f}' for a in amps]}")
+    print()
+
+    # =====================================================================
+    # SECTION 9: Density Matrix and Von Neumann Entropy
+    # =====================================================================
+    # The density matrix captures the full quantum state. Von Neumann
+    # entropy measures uncertainty: 0 = pure state (even superpositions),
+    # >0 = mixed state (statistical mixture of competing hypotheses).
+
+    print("=" * 70)
+    print("SECTION 9: Density Matrix and Von Neumann Entropy")
+    print("=" * 70)
+
+    qs_pure = mem.superpose(["asthma_attack"], amplitudes=[1.0])
+    rho_pure = mem.quantum.compute_density_matrix(qs_pure.id)
+    if rho_pure is not None:
+        entropy_pure = mem.quantum.von_neumann_entropy(rho_pure)
+        print(f"  Single-diagnosis (pure) entropy: {entropy_pure:.4f} bits")
+        print(f"  (=0 means no diagnostic uncertainty)")
+
+    qs_super = mem.superpose(["pneumonia", "bronchitis"], amplitudes=[0.7, 0.3])
+    rho_super = mem.quantum.compute_density_matrix(qs_super.id)
+    if rho_super is not None:
+        entropy_super = mem.quantum.von_neumann_entropy(rho_super)
+        print(f"  Two-diagnosis superposition entropy: {entropy_super:.4f} bits")
+        print(f"  (still 0: superposition is a pure quantum state)")
+
+    rho_mixed = np.zeros((3, 3), dtype=complex)
+    basis_states = [
+        (np.array([1, 0, 0], dtype=complex), 0.5),
+        (np.array([0, 1, 0], dtype=complex), 0.3),
+        (np.array([0, 0, 1], dtype=complex), 0.2),
+    ]
+    for state_vec, weight in basis_states:
+        rho_mixed += weight * np.outer(state_vec, state_vec.conj())
+    entropy_mixed = mem.quantum.von_neumann_entropy(rho_mixed)
+    print(f"  Mixed state (3 competing diagnoses) entropy: {entropy_mixed:.4f} bits")
+    print(f"  (>0 reflects genuine diagnostic uncertainty)")
+
+    rho_max = np.eye(4, dtype=complex) / 4
+    entropy_max = mem.quantum.von_neumann_entropy(rho_max)
+    print(f"  Maximally mixed (4 diagnoses) entropy: {entropy_max:.4f} bits")
+    print(f"  (=2.0 bits = log2(4), maximum uncertainty)")
+    print()
+
+    # =====================================================================
     # SUMMARY
     # =====================================================================
     print("=" * 70)
@@ -261,6 +339,8 @@ def main():
     print("  4. Interference shows constructive/destructive evidence patterns")
     print("  5. Entangled collapse cascades through correlated diagnoses")
     print("  6. Collapse triggers detect forced resolution conditions")
+    print("  7. Unitary evolution rotates hypothesis states (Hadamard, phase)")
+    print("  8. Density matrix and Von Neumann entropy quantify uncertainty")
     print()
 
 

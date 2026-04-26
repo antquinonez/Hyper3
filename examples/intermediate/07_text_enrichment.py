@@ -4,7 +4,9 @@ Text Enrichment and Knowledge Extraction
 
 This example demonstrates Hyper3's text enrichment capabilities:
 extracting entities and relations from unstructured text and
-automatically populating the knowledge graph.
+automatically populating the knowledge graph. Includes demonstration
+of enhanced extraction: passive voice, noun phrases, appositions,
+and list structures.
 
 Use case: A news analyst wants to automatically extract knowledge
 from news articles and build a searchable knowledge base.
@@ -100,14 +102,63 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 4: Custom LLM Provider
+    # SECTION 4: Enhanced Extraction Patterns
+    # =====================================================================
+    # The RegexExtractor now handles passive voice constructions,
+    # noun phrases (capitalized sequences, quoted terms), appositions,
+    # and list structures ("X such as A, B, and C").
+
+    print("=" * 70)
+    print("SECTION 4: Enhanced Extraction (Passive Voice, Noun Phrases)")
+    print("=" * 70)
+
+    enhanced_texts = [
+        (
+            "Gravity is caused by mass. The disease was transmitted by mosquitoes. "
+            "The project was led by Dr. Smith. Energy is produced by fusion.",
+            "Passive voice extraction",
+        ),
+        (
+            "Machine Learning is a subfield of Artificial Intelligence. "
+            "Natural Language Processing enables computers to understand text. "
+            'The "transformer architecture" revolutionized the field of AI.',
+            "Noun phrases and quoted terms",
+        ),
+        (
+            "Planets such as Earth, Mars, and Venus are rocky. "
+            "Languages including Python, Rust, and Go are modern. "
+            "Catalysts like iron and nickel accelerate reactions.",
+            "List structures",
+        ),
+        (
+            "Einstein, a physicist, developed relativity. "
+            "Paris, the capital of France, hosts the Eiffel Tower. "
+            "Tesla, an inventor, pioneered alternating current.",
+            "Apposition detection",
+        ),
+    ]
+
+    mem2 = CognitiveMemory(evolve_interval=0)
+    for text, desc in enhanced_texts:
+        result = mem2.ingest(text, extract=True)
+        entities = [e.label for e in result.entities]
+        relations = [f"{r.source_label} --[{r.relation_label}]--> {r.target_label}" for r in result.relations]
+        print(f"\n  {desc}:")
+        print(f"    Entities: {entities[:8]}")
+        print(f"    Relations: {relations[:5]}")
+
+    print(f"\n  Enhanced graph: {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
+    print()
+
+    # =====================================================================
+    # SECTION 5: Custom LLM Provider
     # =====================================================================
     # For production use, you can provide a custom LLM provider
     # that calls an actual language model for richer extraction.
     # Here we show the interface with a mock provider.
 
     print("=" * 70)
-    print("SECTION 4: Custom LLM Provider Interface")
+    print("SECTION 5: Custom LLM Provider Interface")
     print("=" * 70)
 
     from hyper3 import LLMProvider, ExtractionResult, ExtractedEntity, ExtractedRelation
@@ -139,13 +190,13 @@ RELATIONS:
     print()
 
     # =====================================================================
-    # SECTION 5: Manual Extraction (No Auto-Store)
+    # SECTION 6: Manual Extraction (No Auto-Store)
     # =====================================================================
     # You can also extract without auto-storing, inspect results,
     # then selectively store.
 
     print("=" * 70)
-    print("SECTION 5: Manual Extraction (Preview Mode)")
+    print("SECTION 6: Manual Extraction (Preview Mode)")
     print("=" * 70)
 
     preview_text = (
@@ -173,8 +224,9 @@ RELATIONS:
     print("  1. Extracted entities/relations from unstructured text")
     print("  2. Used batch ingestion with deduplication")
     print("  3. Queried the extracted knowledge graph")
-    print("  4. Demonstrated custom LLM provider interface")
-    print("  5. Showed preview mode (extract without storing)")
+    print("  4. Enhanced extraction: passive voice, noun phrases, lists, appositions")
+    print("  5. Demonstrated custom LLM provider interface")
+    print("  6. Showed preview mode (extract without storing)")
     print()
 
 

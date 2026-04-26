@@ -188,6 +188,42 @@ def main():
     print()
 
     # =====================================================================
+    # SECTION 6: Enhanced Computational Frame Metrics
+    # =====================================================================
+    # ComputationalRelativity now provides richer per-frame metrics:
+    # Kolmogorov complexity (classical), Von Neumann entropy (quantum),
+    # spectral gap (hypergraph), and Shannon entropy (probabilistic).
+
+    print("=" * 70)
+    print("SECTION 6: Enhanced Frame Metrics")
+    print("=" * 70)
+
+    for concept in ["account_A", "structuring", "crypto_exchange"]:
+        analyses = mem.multi_frame_analysis(concept)
+        node = mem.graph.get_node_by_label(concept)
+        print(f"\n  Multi-frame analysis for '{concept}':")
+        for frame_name, analysis in analyses.items():
+            params = analysis.parameters
+            extra = ""
+            if "kolmogorov_complexity" in params:
+                extra = f" kolmogorov={params['kolmogorov_complexity']:.3f}"
+            elif "von_neumann_entropy" in params:
+                extra = f" vn_entropy={params['von_neumann_entropy']:.3f}"
+            elif "spectral_gap" in params:
+                extra = f" spectral_gap={params['spectral_gap']:.3f}"
+            elif "shannon_entropy" in params:
+                extra = f" shannon={params['shannon_entropy']:.3f}"
+            print(f"    [{frame_name:15s}] complexity={analysis.complexity:.3f}{extra}")
+
+    # Select optimal frame with enhanced metrics
+    optimal_name, optimal = mem.select_optimal_frame("structuring")
+    print(f"\n  Optimal frame for 'structuring': {optimal_name} "
+          f"(complexity={optimal.complexity:.3f})")
+    if optimal.strengths:
+        print(f"  Strengths: {', '.join(optimal.strengths)}")
+    print()
+
+    # =====================================================================
     # SUMMARY
     # =====================================================================
     print("=" * 70)
@@ -199,6 +235,7 @@ def main():
     print("  2. Frame-guided reasoning across 4 computational perspectives")
     print("  3. Multi-frame analysis with optimal frame selection")
     print("  4. Backward chaining from target concepts")
+    print("  5. Enhanced frame metrics: Kolmogorov, Von Neumann, spectral gap, Shannon")
     print()
 
 
