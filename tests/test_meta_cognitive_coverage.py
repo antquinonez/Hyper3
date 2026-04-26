@@ -47,7 +47,7 @@ class TestMetaCognitiveDeep:
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
         layer = MetaCognitiveLayer(g, evo, log, disc)
-        from hyper3.rulial import RulialSpace
+        from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         for name in ["t1", "t2", "t3", "t4", "t5"]:
             rulial.record_rule_application(name)
@@ -88,7 +88,7 @@ class TestMetaCognitiveDeep:
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
         layer = MetaCognitiveLayer(g, evo, log, disc)
-        from hyper3.rulial import RulialSpace
+        from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         rulial._meta_patterns.append(
             __import__("hyper3").MetaComputationalPattern(
@@ -111,7 +111,7 @@ class TestMetaCognitiveDeep:
         disc = RuleDiscoveryEngine(g)
         layer = MetaCognitiveLayer(g, evo, log, disc)
         layer._state.architectural_fitness = 0.3
-        from hyper3.rulial import RulialSpace
+        from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         rulial._meta_patterns.append(
             __import__("hyper3").MetaComputationalPattern(
@@ -151,7 +151,7 @@ class TestMetaCognitiveDeep:
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
         layer = MetaCognitiveLayer(g, evo, log, disc)
-        from hyper3.discovery import DiscoveredRule
+        from hyper3.rules_discovery import DiscoveredRule
         discovered_with_rules = []
         for i in range(5):
             dr = DiscoveredRule(pattern_type="test", pattern={})
