@@ -21,7 +21,7 @@ from hyper3 import (
     ActivationConfig,
     SpreadingActivation,
 )
-from hyper3.retrieval import RetrievalEngine
+from hyper3.retrieval_engine import RetrievalEngine
 
 
 class SentenceTransformerProvider(EmbeddingProvider):
@@ -131,7 +131,7 @@ def print_results(label: str, results, expected: set[str] | None = None):
     print(f"\n{'=' * 70}")
     print(f"  {label}")
     print(f"{'=' * 70}")
-    from hyper3.retrieval import RetrievalResult
+    from hyper3.retrieval_engine import RetrievalResult
     if results and isinstance(results[0], RetrievalResult):
         print(f"{'Concept':<30} {'Act':>6} {'Sem':>6} {'RRF':>8} {'A#':>4} {'S#':>4}")
         print(f"{'-'*30} {'-'*6} {'-'*6} {'-'*8} {'-'*4} {'-'*4}")

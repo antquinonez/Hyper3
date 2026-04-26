@@ -20,7 +20,7 @@ from __future__ import annotations
 import numpy as np
 
 from hyper3 import CognitiveMemory, Modality
-from hyper3.graph_embeddings import NeighborhoodFingerprintProvider, RandomWalkEmbeddingProvider
+from hyper3.embedding_graph import NeighborhoodFingerprintProvider, RandomWalkEmbeddingProvider
 
 
 def main():

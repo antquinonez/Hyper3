@@ -45,25 +45,46 @@ The test suite and type checker are both correctness gates.
 
 The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
-- **kernel.py** — Core data structures (`Hypernode`, `Hyperedge`, `Hypergraph`) and engines (`EventLog`, `EquivalenceEngine`, `TraversalEngine`, `SelfEvolutionEngine`, `ObserverSlice`, `LazyCache`). `LazyCache` includes Markov-model prefetching for traversal prediction. This is the foundation everything else builds on.
+- **kernel.py** — Core data structures: `Hypernode`, `Hyperedge`, `Hypergraph`, `Modality`, `AbstractionLayer`, `Metadata`. The `Hypergraph` class includes indexes, batch mode, path finding, pattern matching, subgraph extraction, and networkx conversion.
 - **exceptions.py** — Domain-specific exception hierarchy (`Hyper3Error`, `NodeNotFoundError`, `EdgeNotFoundError`, etc.). `NodeNotFoundError` extends both `Hyper3Error` and `ValueError` for backward compatibility.
+- **event_log.py** — `EventLog` records timestamped events with query/filter support.
+- **equivalence.py** — `EquivalenceEngine` finds similar nodes using data + structural similarity with blocking.
+- **cache.py** — `LazyCache` LRU cache with TTL, optional Markov-model prefetching.
+- **traversal.py** — `TraversalEngine` (BFS, DFS, dimension-filtered, adaptive weight-priority), `SliceConfig`, `ObserverSlice`.
+- **evolution.py** — `SelfEvolutionEngine` with decay, prune, merge, reinforce. `EvolutionMetrics` dataclass.
 - **rules.py** — `Rule` ABC with 8 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
 - **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
-- **causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling.
-- **branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis (hierarchical Ward clustering at macro/meso/micro scales).
-- **rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking).
+- **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection.
+- **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `QuantumEntanglement`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
+- **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis (hierarchical Ward clustering at macro/meso/micro scales).
+- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking).
 - **transfinite.py** — `TransfiniteReasoner` handles self-referential and boundary cases (Gödel-like limits). `PartialProof` dataclass tracks coverage bounds for incomplete reasoning.
 - **relativity.py** — `ComputationalRelativity` provides multi-frame analysis (classical/quantum/hypergraph/probabilistic perspectives) with frame effectiveness learning via Thompson sampling.
 - **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection.
-- **memory.py** — `CognitiveMemory` is the unified API that integrates all subsystems. This is the main entry point users interact with.
+- **memory.py** — `CognitiveMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.
+- **memory_base.py** — `_MemoryBase` declares shared type annotations for all memory mixins.
+- **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label.
+- **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences.
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, transfinite reasoning.
+- **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants.
+- **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats.
+- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, relativity, discovery.
 - **persistence.py** — `Serializer` handles JSON save/load.
-- **discovery.py** — `RuleDiscoveryEngine` discovers transitive/inverse/hub patterns in the graph.
-- **activation.py** — `SpreadingActivation` provides associative recall via energy propagation through the graph. Configurable decay, per-label propagation rates, directional mode, and normalization.
+- **rules_discovery.py** — `RuleDiscoveryEngine` discovers transitive/inverse/hub patterns in the graph.
+- **retrieval_activation.py** — `SpreadingActivation` provides associative recall via energy propagation through the graph. Configurable decay, per-label propagation rates, directional mode, and normalization.
 - **embedding.py** — `EmbeddingEngine` provides semantic similarity via pluggable embedding providers. `HashEmbeddingProvider` is the built-in fallback; users can supply custom providers (e.g., sentence-transformers) via the `EmbeddingProvider` ABC. Supports cosine similarity, euclidean distance, find_similar, find_all_similar_pairs, and analogy (vector arithmetic). Optional FAISS index (`enable_faiss()`) for sub-millisecond similarity search on large graphs.
-- **retrieval.py** — `RetrievalEngine` combines activation + semantic signals via Reciprocal Rank Fusion (RRF). `FeedbackStore` and `LearningToRank` enable relevance feedback: users mark results relevant/irrelevant, then `train_retriever()` learns optimal feature weights. `RetrievalResult` carries activation, similarity, RRF score, and rank positions.
+- **retrieval_engine.py** — `RetrievalEngine` combines activation + semantic signals via Reciprocal Rank Fusion (RRF). `FeedbackStore` and `LearningToRank` enable relevance feedback: users mark results relevant/irrelevant, then `train_retriever()` learns optimal feature weights. `RetrievalResult` carries activation, similarity, RRF score, and rank positions.
 - **visualization.py** — Optional matplotlib plotting (requires `[viz]` extra).
 
 ## Key Conventions
+
+### Module naming convention
+Modules use domain prefixes to show relationships:
+- `multiway_*` — multiway expansion subsystem (branchial space, causal invariance, rulial space)
+- `memory_*` — CognitiveMemory mixin decomposition
+- `rules_*` — rule definition and discovery
+- `embedding_*` — embedding providers and engines
+- `retrieval_*` — activation, retrieval engine, and related components
 
 ### Frozenset edge IDs
 Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Always use `frozenset({...})` when constructing edges.
@@ -130,13 +151,29 @@ The following are already optimized — maintain them when making changes:
 - `TransitiveRule` uses a pre-built `edge_set: set[tuple[str, str]]` for O(1) edge-existence checks instead of scanning `edges_for()`.
 - `EmbeddingEngine` supports optional FAISS index (`enable_faiss()`). When enabled, `find_similar()` uses inner-product search instead of brute-force O(N) scan. IndexFlatIP for <1K nodes, IndexIVFFlat for >=1K. FAISS is an optional `[faiss]` extra.
 
+## Extracted Modules (from kernel.py refactoring)
+
+- **event_log.py** — `EventLog` (extracted from kernel.py)
+- **equivalence.py** — `EquivalenceEngine` (extracted from kernel.py)
+- **cache.py** — `LazyCache` (extracted from kernel.py)
+- **traversal.py** — `TraversalEngine`, `SliceConfig`, `ObserverSlice` (extracted from kernel.py)
+- **evolution.py** — `SelfEvolutionEngine`, `EvolutionMetrics` (extracted from kernel.py)
+- **quantum.py** — `QuantumCognitiveLayer` and all quantum data types (extracted from multiway_causal.py)
+- **memory_base.py** — `_MemoryBase` shared type annotations for memory mixins
+- **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label
+- **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, transfinite reasoning
+- **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants
+- **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats
+- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, relativity, discovery
+
 ## New Modules (Round 1-2 Additions)
 
 - **overlay.py** — `HypergraphOverlay` provides a temporary inference layer on top of the base graph. Supports `commit()` (merge to base) and `rollback()` (discard). Tracks per-edge confidence. `reason(use_overlay=True, auto_commit=False)` enables review-before-commit workflow.
 - **provenance.py** — `ProvenanceTracker` records inference derivations (rule name, input edges, depth). `explain()` produces recursive `Explanation` objects with `render()`. `retract()` cascades: removing a premise removes all dependent conclusions.
 - **temporal.py** — `TemporalReasoner` with full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, constraint checking, and edge-level temporal consistency.
 - **enrichment.py** — `LLMEnricher` extracts entities/relations from text. `RegexExtractor` is the zero-dependency fallback. Pluggable `LLMProvider` ABC for real language models.
-- **graph_embeddings.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
+- **embedding_graph.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
 - **feedback.py** — `OperationFeedback` tracks collapse, retrieval, inference, and evolution outcomes with accuracy/precision/acceptance metrics and fitness trend detection. `FeedbackSignal` dataclass for individual outcome records.
 
 ## Making Changes
@@ -197,6 +234,43 @@ When adding new examples, update `examples/README.md` with the file name, use ca
 
 ```
 src/hyper3/          Source code (flat, no sub-packages)
+  kernel.py          Core data structures: Hypernode, Hyperedge, Hypergraph
+  exceptions.py      Exception hierarchy
+  event_log.py       EventLog for timestamped event recording
+  equivalence.py     EquivalenceEngine for node similarity
+  cache.py           LazyCache with TTL and Markov prefetch
+  traversal.py       TraversalEngine, SliceConfig, ObserverSlice
+  evolution.py       SelfEvolutionEngine, EvolutionMetrics
+  quantum.py         QuantumCognitiveLayer and quantum data types
+  rules.py           Rule ABC with 8 concrete implementations
+  rules_discovery.py RuleDiscoveryEngine
+  multiway.py        MultiwayEngine, MultiwayGraph, MultiwayState
+  multiway_branchial.py BranchialSpace with distance/clustering
+  multiway_causal.py CausalInvarianceEngine
+  multiway_rulial.py RulialSpace for rule universe tracking
+  transfinite.py     TransfiniteReasoner
+  relativity.py      ComputationalRelativity
+  meta_cognitive.py  MetaCognitiveLayer
+  memory.py          CognitiveMemory facade (thin, uses mixins)
+  memory_base.py     _MemoryBase shared type annotations
+  memory_core.py     CoreMixin: store, recall, relate, query, evolve
+  memory_reasoning.py ReasoningMixin: reason, derive, commit/rollback
+  memory_quantum.py  QuantumMixin: superpose, collapse, entangle
+  memory_analytics.py AnalyticsMixin: paths, centrality, cycles
+  memory_persistence.py PersistenceMixin: save/load, import/export
+  memory_subsystems.py SubsystemMixin: temporal, enrichment, etc.
+  persistence.py     Serializer for JSON save/load
+  embedding.py       EmbeddingEngine with pluggable providers
+  embedding_graph.py Graph-structure-aware embedding providers
+  retrieval_activation.py SpreadingActivation
+  retrieval_engine.py RetrievalEngine with RRF and learning-to-rank
+  temporal.py        TemporalReasoner with Allen interval algebra
+  provenance.py      ProvenanceTracker with explain/retract
+  overlay.py         HypergraphOverlay for inference layers
+  enrichment.py      LLMEnricher, RegexExtractor
+  feedback.py        OperationFeedback for outcome tracking
+  visualization.py   Optional matplotlib plotting
+  __init__.py        Public API re-exports
 tests/               Test files (test_<module>.py naming)
 examples/            Example scripts organized by difficulty
   basic/             Foundational operations (store, recall, reason, retrieve)
@@ -204,7 +278,6 @@ examples/            Example scripts organized by difficulty
   advanced/          Multi-subsystem workflows (overlay, iterative reasoning, multiway, quantum)
   domain/            Full end-to-end domain applications
   README.md          Index of all examples
-demo*.py             Runnable demo scripts (legacy, kept for backward compat)
 demo*.py             Runnable demo scripts (legacy, kept for backward compat)
 benchmarks/          Performance microbenchmarks and evaluation suite
 pyproject.toml       Project config (hatchling build backend)

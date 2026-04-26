@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hyper3.kernel import Hypergraph, Hypernode, Hyperedge, Metadata, Modality
-from hyper3.graph_embeddings import (
+from hyper3.embedding_graph import (
     RandomWalkEmbeddingProvider,
     NeighborhoodFingerprintProvider,
     CompositeEmbeddingProvider,

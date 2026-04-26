@@ -151,7 +151,7 @@ def main() -> None:
     # --- Decay sensitivity ---
     print_header("Activation Decay Sensitivity")
     if seed_node:
-        from hyper3.activation import ActivationConfig, SpreadingActivation
+        from hyper3.retrieval_activation import ActivationConfig, SpreadingActivation
         dec_headers = ["Decay", "P@5", "P@10", "Activated"]
         dec_rows = []
         for decay in [0.5, 0.7, 0.85, 0.95]:

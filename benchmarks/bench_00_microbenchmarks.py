@@ -16,10 +16,11 @@ import os
 import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src"))
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, EquivalenceEngine
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+from hyper3.equivalence import EquivalenceEngine
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
-from hyper3.causal import CausalInvarianceEngine
+from hyper3.multiway_causal import CausalInvarianceEngine
 from hyper3.memory import CognitiveMemory
 
 
@@ -121,7 +122,7 @@ def bench_find_invariants(n_leaves=50, nodes_per_leaf=10):
 
 def bench_graph_isomorphism(n_nodes=50):
     from hyper3.multiway import MultiwayGraph, MultiwayState
-    from hyper3.causal import CausalInvarianceEngine
+    from hyper3.multiway_causal import CausalInvarianceEngine
 
     g = Hypergraph()
     for i in range(n_nodes):
@@ -211,7 +212,7 @@ def bench_lazy_expansion(n=50):
 
 
 def bench_prefetch(n=500):
-    from hyper3.kernel import LazyCache
+    from hyper3.cache import LazyCache
 
     cache = LazyCache()
     cache.enable_prefetch(True)
@@ -230,7 +231,7 @@ def bench_prefetch(n=500):
 
 def bench_multi_scale_branchial(n_states=50):
     from hyper3.multiway import MultiwayGraph, MultiwayState
-    from hyper3.branchial import BranchialSpace
+    from hyper3.multiway_branchial import BranchialSpace
 
     g = Hypergraph()
     for i in range(n_states):
@@ -260,7 +261,7 @@ def bench_multi_scale_branchial(n_states=50):
 
 
 def bench_basis_learning(n_outcomes=500):
-    from hyper3.causal import QuantumCognitiveLayer
+    from hyper3.quantum import QuantumCognitiveLayer
 
     g = Hypergraph()
     for i in range(10):

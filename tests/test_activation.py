@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
-from hyper3.activation import ActivationConfig, ActivationResult, SpreadingActivation
+from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
 from hyper3.memory import CognitiveMemory
 from hyper3.persistence import Serializer
 

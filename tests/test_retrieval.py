@@ -1,7 +1,7 @@
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
-from hyper3.activation import ActivationConfig, SpreadingActivation
+from hyper3.retrieval_activation import ActivationConfig, SpreadingActivation
 from hyper3.embedding import EmbeddingEngine, HashEmbeddingProvider
-from hyper3.retrieval import (
+from hyper3.retrieval_engine import (
     FeedbackStore,
     LearningToRank,
     RetrievalEngine,
@@ -91,7 +91,7 @@ class TestLearningToRank:
         assert 0.0 <= score <= 1.0
 
     def test_train(self):
-        from hyper3.retrieval import FeedbackRecord
+        from hyper3.retrieval_engine import FeedbackRecord
         ltr = LearningToRank()
         records = [
             FeedbackRecord("q", "n1", "a", True, {"activation": 0.9, "similarity": 0.8, "degree": 0.5, "inverse_depth": 1.0}),

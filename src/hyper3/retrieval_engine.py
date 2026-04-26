@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from hyper3.activation import ActivationResult, SpreadingActivation
+from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
 from hyper3.embedding import EmbeddingEngine
 from hyper3.kernel import Hypergraph
 
