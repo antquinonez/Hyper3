@@ -1,8 +1,9 @@
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, EventLog
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+from hyper3.event_log import EventLog
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
-from hyper3.branchial import BranchialSpace, BranchialCoordinates, BranchialEntanglement
-from hyper3.causal import QuantumCognitiveLayer, QuantumState
+from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialEntanglement
+from hyper3.quantum import QuantumCognitiveLayer, QuantumState
 from hyper3.visualization import (
     plot_branchial_space,
     plot_evolution_history,

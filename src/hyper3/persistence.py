@@ -6,13 +6,13 @@ from typing import Any
 
 from hyper3.kernel import (
     AbstractionLayer,
-    EventLog,
     Hyperedge,
     Hypergraph,
     Hypernode,
     Metadata,
     Modality,
 )
+from hyper3.event_log import EventLog
 
 
 class Serializer:

@@ -4,7 +4,8 @@ import json
 import os
 import tempfile
 
-from hyper3.kernel import EquivalenceEngine, Hyperedge, Hypergraph, Hypernode
+from hyper3.equivalence import EquivalenceEngine
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.memory import CognitiveMemory
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.overlay import HypergraphOverlay

@@ -157,7 +157,7 @@ class TestEquivalenceEngineUpgrade:
             target_ids=frozenset({c.id}),
             label="is_a",
         ))
-        from hyper3.kernel import EquivalenceEngine
+        from hyper3.equivalence import EquivalenceEngine
         eq = EquivalenceEngine(graph, threshold=0.3)
         pairs = eq.find_equivalences()
         assert len(pairs) >= 1
@@ -170,7 +170,7 @@ class TestEquivalenceEngineUpgrade:
         b = Hypernode(label="y", data={"k": "v"})
         graph.add_node(a)
         graph.add_node(b)
-        from hyper3.kernel import EquivalenceEngine
+        from hyper3.equivalence import EquivalenceEngine
         eq = EquivalenceEngine(graph)
         key_a = eq._blocking_key(a)
         key_b = eq._blocking_key(b)

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from hyper3 import CognitiveMemory, TransitiveRule
 from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, MetamorphosisPlan
-from hyper3.kernel import Hypergraph, EventLog, SelfEvolutionEngine
-from hyper3.discovery import RuleDiscoveryEngine
+from hyper3.kernel import Hypergraph
+from hyper3.event_log import EventLog
+from hyper3.evolution import SelfEvolutionEngine
+from hyper3.rules_discovery import RuleDiscoveryEngine
 
 
 class TestComputeFitnessEmptyGraph:

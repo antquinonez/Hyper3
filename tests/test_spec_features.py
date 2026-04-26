@@ -6,18 +6,16 @@ import uuid
 import numpy as np
 import pytest
 
-from hyper3.activation import SpreadingActivation
-from hyper3.branchial import BranchialSpace, MultiScaleAnalysis, ScaleLevel
-from hyper3.causal import (
-    CausalInvarianceEngine,
-    MeasurementBasis,
-    QuantumCognitiveLayer,
-)
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, LazyCache, Metadata, Modality
+from hyper3.retrieval_activation import SpreadingActivation
+from hyper3.multiway_branchial import BranchialSpace, MultiScaleAnalysis, ScaleLevel
+from hyper3.multiway_causal import CausalInvarianceEngine
+from hyper3.quantum import MeasurementBasis, QuantumCognitiveLayer
+from hyper3.cache import LazyCache
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 from hyper3.memory import CognitiveMemory
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
 from hyper3.relativity import ComputationalRelativity
-from hyper3.rulial import RulialSpace
+from hyper3.multiway_rulial import RulialSpace
 from hyper3.rules import (
     AnalogicalReasoningRule,
     CausalInferenceRule,
@@ -332,7 +330,7 @@ class TestMeasurementBasisLearning:
 
 class TestAdaptiveCoherenceTime:
     def test_adapt_scales_with_interpretations(self):
-        from hyper3.causal import QuantumState
+        from hyper3.quantum import QuantumState
         qs = QuantumState(created_at=time.time())
         qs.add_interpretation("n1", 0.5)
         qs.add_interpretation("n2", 0.5)
@@ -341,7 +339,7 @@ class TestAdaptiveCoherenceTime:
         assert qs.coherence_time > qs.base_coherence_time
 
     def test_urgency_shortens_coherence(self):
-        from hyper3.causal import QuantumState
+        from hyper3.quantum import QuantumState
         qs = QuantumState(created_at=time.time())
         qs.adapt_coherence(1, urgency=10.0)
         assert qs.coherence_time < qs.base_coherence_time

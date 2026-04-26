@@ -3,7 +3,8 @@ from __future__ import annotations
 import tempfile
 import os
 
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, EquivalenceEngine
+from hyper3.equivalence import EquivalenceEngine
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
 from hyper3.memory import CognitiveMemory
 from hyper3.rules import TransitiveRule, InverseRule, Rule, RuleMatch
 

@@ -13,20 +13,17 @@ from hyper3.exceptions import (
 )
 from hyper3.kernel import (
     AbstractionLayer,
-    EquivalenceEngine,
-    EventLog,
-    EvolutionMetrics,
     Hyperedge,
     Hypergraph,
     Hypernode,
-    LazyCache,
     Metadata,
     Modality,
-    ObserverSlice,
-    SelfEvolutionEngine,
-    SliceConfig,
-    TraversalEngine,
 )
+from hyper3.event_log import EventLog
+from hyper3.equivalence import EquivalenceEngine
+from hyper3.cache import LazyCache
+from hyper3.traversal import TraversalEngine, SliceConfig, ObserverSlice
+from hyper3.evolution import EvolutionMetrics, SelfEvolutionEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory import CognitiveMemory
 from hyper3.rules import (
@@ -48,9 +45,11 @@ from hyper3.multiway import (
     MultiwayGraph,
     MultiwayState,
 )
-from hyper3.causal import (
+from hyper3.multiway_causal import (
     CausalInvarianceEngine,
     CausalInvariant,
+)
+from hyper3.quantum import (
     CollapseTrigger,
     Interpretation,
     InterferencePattern,
@@ -60,8 +59,8 @@ from hyper3.causal import (
     QuantumState,
 )
 from hyper3.persistence import Serializer
-from hyper3.discovery import DiscoveredRule, RuleDiscoveryEngine
-from hyper3.branchial import (
+from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
+from hyper3.multiway_branchial import (
     BranchialCluster,
     BranchialCoordinates,
     BranchialDistanceMetrics,
@@ -71,7 +70,7 @@ from hyper3.branchial import (
     ScaleLevel,
     SimultaneityGroup,
 )
-from hyper3.rulial import (
+from hyper3.multiway_rulial import (
     MetaComputationalPattern,
     RulialPosition,
     RulialSpace,
@@ -103,17 +102,17 @@ from hyper3.embedding import (
     HashEmbeddingProvider,
     SimilarityResult,
 )
-from hyper3.graph_embeddings import (
+from hyper3.embedding_graph import (
     CompositeEmbeddingProvider,
     NeighborhoodFingerprintProvider,
     RandomWalkEmbeddingProvider,
 )
-from hyper3.activation import (
+from hyper3.retrieval_activation import (
     ActivationConfig,
     ActivationResult,
     SpreadingActivation,
 )
-from hyper3.retrieval import (
+from hyper3.retrieval_engine import (
     FeedbackRecord,
     FeedbackStore,
     LearningToRank,

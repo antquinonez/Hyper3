@@ -83,7 +83,7 @@ class TestCognitiveMemoryRecall:
         mem = CognitiveMemory()
         n1 = mem.store("alpha")
         n2 = mem.store("beta", data=n1.data)
-        from hyper3.kernel import EquivalenceEngine
+        from hyper3.equivalence import EquivalenceEngine
         eq = EquivalenceEngine(mem.graph, threshold=0.8)
         eq.merge_equivalences()
         results = mem.recall("beta")

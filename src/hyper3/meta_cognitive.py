@@ -5,15 +5,12 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from hyper3.kernel import (
-    EventLog,
-    EvolutionMetrics,
-    Hypergraph,
-    SelfEvolutionEngine,
-)
+from hyper3.kernel import Hypergraph
+from hyper3.event_log import EventLog
+from hyper3.evolution import EvolutionMetrics, SelfEvolutionEngine
 from hyper3.rules import Rule
-from hyper3.discovery import RuleDiscoveryEngine
-from hyper3.rulial import RulialSpace
+from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.multiway_rulial import RulialSpace
 
 
 @dataclass
