@@ -18,6 +18,9 @@ class EmbeddingProvider(ABC):
     def dimension(self) -> int:
         ...
 
+    def embed_node(self, node_id: str, text: str) -> np.ndarray:
+        return self.embed(text)
+
     def embed_batch(self, texts: list[str]) -> np.ndarray:
         return np.array([self.embed(t) for t in texts])
 
@@ -85,7 +88,7 @@ class EmbeddingEngine:
         if self._cache_embeddings and node_id in self._embedding_cache:
             return self._embedding_cache[node_id]
         text = node.label if node.label else str(node.data) if node.data is not None else node.id
-        emb = self._provider.embed(text)
+        emb = self._provider.embed_node(node_id, text)
         if self._cache_embeddings:
             self._embedding_cache[node_id] = emb
         return emb

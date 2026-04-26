@@ -97,6 +97,11 @@ from hyper3.embedding import (
     HashEmbeddingProvider,
     SimilarityResult,
 )
+from hyper3.graph_embeddings import (
+    CompositeEmbeddingProvider,
+    NeighborhoodFingerprintProvider,
+    RandomWalkEmbeddingProvider,
+)
 from hyper3.activation import (
     ActivationConfig,
     ActivationResult,
