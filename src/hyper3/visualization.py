@@ -7,8 +7,8 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from hyper3.branchial import BranchialSpace
-    from hyper3.causal import QuantumCognitiveLayer
+    from hyper3.multiway_branchial import BranchialSpace
+    from hyper3.quantum import QuantumCognitiveLayer
     from hyper3.kernel import Hypergraph
 
 

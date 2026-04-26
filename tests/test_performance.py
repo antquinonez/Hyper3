@@ -3,7 +3,7 @@ import time
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
-from hyper3.causal import CausalInvarianceEngine
+from hyper3.multiway_causal import CausalInvarianceEngine
 
 
 class TestLabelIndex:

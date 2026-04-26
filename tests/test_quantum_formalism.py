@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hyper3.kernel import Hypergraph, Hypernode, Hyperedge
-from hyper3.causal import QuantumCognitiveLayer, QuantumState
+from hyper3.quantum import QuantumCognitiveLayer, QuantumState
 
 
 def _make_graph_with_nodes(n: int = 4) -> tuple[Hypergraph, list[Hypernode]]:
