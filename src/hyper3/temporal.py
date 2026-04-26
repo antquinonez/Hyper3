@@ -319,6 +319,84 @@ class TemporalReasoner:
         results.sort(key=lambda x: x[1])
         return results
 
+    def edge_temporal_consistency(self, edge_a_id: str, edge_b_id: str, graph: Any) -> dict[str, Any]:
+        edge_a = graph.get_edge(edge_a_id)
+        edge_b = graph.get_edge(edge_b_id)
+        if not edge_a or not edge_b:
+            return {"consistent": True, "reason": "edge_not_found"}
+
+        events_by_label = {e.label: e for e in self._events.values()}
+
+        a_nodes = list(edge_a.source_ids | edge_a.target_ids)
+        b_nodes = list(edge_b.source_ids | edge_b.target_ids)
+
+        a_events = [events_by_label[self._node_label(nid, graph)] for nid in a_nodes if self._node_label(nid, graph) in events_by_label]
+        b_events = [events_by_label[self._node_label(nid, graph)] for nid in b_nodes if self._node_label(nid, graph) in events_by_label]
+
+        if not a_events or not b_events:
+            return {"consistent": True, "reason": "no_temporal_data"}
+
+        a_interval = TimeInterval(
+            start=min(e.interval.start for e in a_events),
+            end=max(e.interval.end for e in a_events),
+        )
+        b_interval = TimeInterval(
+            start=min(e.interval.start for e in b_events),
+            end=max(e.interval.end for e in b_events),
+        )
+
+        relation = a_interval.relate_to(b_interval)
+        inconsistent = relation in {
+            AllenRelation.AFTER,
+            AllenRelation.STARTED_BY,
+        }
+
+        return {
+            "consistent": not inconsistent,
+            "relation": relation.value if hasattr(relation, "value") else str(relation),
+            "edge_a_interval": {"start": a_interval.start, "end": a_interval.end},
+            "edge_b_interval": {"start": b_interval.start, "end": b_interval.end},
+        }
+
+    def _node_label(self, node_id: str, graph: Any) -> str:
+        node = graph.get_node(node_id)
+        return node.label if node else ""
+
+    def check_constraint_consistency(self) -> list[dict[str, Any]]:
+        inconsistencies: list[dict[str, Any]] = []
+        events = list(self._events.values())
+        if len(events) < 2:
+            return inconsistencies
+
+        constraints_by_source: dict[str, list[TemporalConstraint]] = {}
+        for c in self._constraints:
+            constraints_by_source.setdefault(c.event_a_id, []).append(c)
+
+        for i in range(len(events)):
+            for j in range(i + 1, len(events)):
+                a, b = events[i], events[j]
+                if not a.interval or not b.interval:
+                    continue
+                relation = a.interval.relate_to(b.interval)
+                for constraint in constraints_by_source.get(a.event_id, []):
+                    if constraint.event_b_id == b.event_id:
+                        allowed = constraint.relation
+                        if relation != allowed:
+                            inconsistencies.append({
+                                "event_a": a.label,
+                                "event_b": b.label,
+                                "actual_relation": relation.value if hasattr(relation, "value") else str(relation),
+                                "expected_relation": allowed.value if hasattr(allowed, "value") else str(allowed),
+                            })
+        return inconsistencies
+
+    def get_event_for_node(self, node_id: str, graph: Any) -> TemporalEvent | None:
+        node = graph.get_node(node_id)
+        if not node:
+            return None
+        events_by_label = {e.label: e for e in self._events.values()}
+        return events_by_label.get(node.label)
+
     @property
     def events(self) -> list[TemporalEvent]:
         return list(self._events.values())

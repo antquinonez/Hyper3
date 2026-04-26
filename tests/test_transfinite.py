@@ -49,39 +49,50 @@ class TestTransfiniteReasoner:
     def test_self_referential_concept(self):
         g = _build_graph()
         g.add_node(Hypernode(id="sr", label="self-referential paradox"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
         tr = TransfiniteReasoner(g)
         indicator = tr.assess_decidability("self-referential paradox")
         assert indicator.self_reference >= 0.3
 
     def test_universal_quantification(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="hub", label="universal hub"))
+        for label in ["cat", "dog", "mammal", "animal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({label}), label="connects"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("all things are universal")
+        indicator = tr.assess_decidability("universal hub")
         assert indicator.universal_quantification > 0.3
 
     def test_boundary_proximity_reasoning(self):
         g = _build_graph()
-        g.add_node(Hypernode(id="bp", label="self-meta recursive all"))
+        g.add_node(Hypernode(id="bp", label="boundary node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
+        for label in ["cat", "dog", "mammal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self-meta recursive all")
+        result = tr.reason_at_level("boundary node")
         assert result.boundary_score > 0.3
         if result.decidability_status == "boundary_proximity":
             assert len(result.boundary_warnings) > 0
 
     def test_transfinite_approach(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="undec", label="undecidable node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level(
-            "self-referential universal negation diagonalization",
-            {"self_reference": True, "meta": "meta"},
-        )
+        result = tr.reason_at_level("undecidable node")
         assert result.boundary_score > 0.0
 
     def test_map_boundaries(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="sr", label="cycle node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
+        for label in ["cat", "dog"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        regions = tr.map_boundaries(["cat", "self-referential paradox", "all universal things"])
-        assert len(regions) == 3
+        regions = tr.map_boundaries(["cat", "cycle node"])
+        assert len(regions) == 2
         statuses = {r.status for r in regions}
         assert "decidable" in statuses
 
@@ -94,8 +105,10 @@ class TestTransfiniteReasoner:
 
     def test_analyze(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="sr", label="cycle node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
         tr = TransfiniteReasoner(g)
-        tr.map_boundaries(["cat", "self-referential paradox"])
+        tr.map_boundaries(["cat", "cycle node"])
         report = tr.analyze()
         assert report["mapped_regions"] == 2
 
@@ -108,23 +121,33 @@ class TestTransfiniteReasoner:
 
     def test_alternative_formulations(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="paradox", label="paradox node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({"paradox"}), label="ref"))
+        for label in ["cat", "dog"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self-referential universal paradox")
+        result = tr.reason_at_level("paradox node")
         if result.decidability_status != "decidable":
             assert len(result.alternative_formulations) > 0
 
     def test_max_level_cap(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="paradox", label="paradox node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({"paradox"}), label="ref"))
+        for label in ["cat", "dog", "mammal", "animal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self-referential universal paradox", max_level=2)
+        result = tr.reason_at_level("paradox node", max_level=2)
         assert result.reasoning_level <= 2
 
 
 class TestTransfiniteDeepCoverage:
-    def test_self_reference_with_context_keys(self):
+    def test_self_reference_with_self_loop(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="thing", label="thing"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({"thing"}), label="ref"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("thing", {"self_reference": True, "meta_level": "high"})
+        indicator = tr.assess_decidability("thing")
         assert indicator.self_reference > 0.0
 
     def test_self_reference_concept_in_neighbors(self):
@@ -135,73 +158,96 @@ class TestTransfiniteDeepCoverage:
         indicator = tr.assess_decidability("self")
         assert indicator.self_reference > 0.0
 
-    def test_universal_quantification_in_context_values(self):
+    def test_universal_quantification_high_connectivity(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="thing", label="thing"))
+        for label in ["cat", "dog", "mammal", "animal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({label}), label="connects"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("thing", {"scope": "all things are universal"})
+        indicator = tr.assess_decidability("thing")
         assert indicator.universal_quantification > 0.0
 
-    def test_diagonalization_in_concept(self):
+    def test_diagonalization_contradictory_edges(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="diag", label="diagonalization node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"cat"}), label="is"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="is_not"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("negation of the complement")
+        indicator = tr.assess_decidability("diagonalization node")
         assert indicator.diagonalization_risk > 0.0
 
-    def test_diagonalization_in_context(self):
+    def test_diagonalization_multiple_contradictory_pairs(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="diag", label="contradictory"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"cat"}), label="causes"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="prevents"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("thing", {"pattern": "contradiction found"})
+        indicator = tr.assess_decidability("contradictory")
         assert indicator.diagonalization_risk > 0.0
 
-    def test_compare_to_known_undecidable(self):
+    def test_compare_to_known_terminal_node(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="sink", label="sink node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"cat"}), target_ids=frozenset({"sink"}), label="to_sink"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"dog"}), target_ids=frozenset({"sink"}), label="to_sink"))
         tr = TransfiniteReasoner(g)
-        indicator = tr.assess_decidability("halting problem")
+        indicator = tr.assess_decidability("sink node")
         assert indicator.known_undecidable_similarity > 0.0
 
     def test_boundary_aware_reasoning_with_node(self):
         g = _build_graph()
-        g.add_node(Hypernode(id="bp", label="self-meta recursive all"))
+        g.add_node(Hypernode(id="bp", label="boundary node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
+        for label in ["cat", "dog", "mammal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self-meta recursive all")
+        result = tr.reason_at_level("boundary node")
         if result.decidability_status == "boundary_proximity":
             assert len(result.partial_results) > 0
 
     def test_transfinite_approach_generates_insights(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="undec", label="undecidable node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level(
-            "self-referential universal negation diagonalization",
-            {"self_ref": True, "meta": "meta"},
-        )
+        result = tr.reason_at_level("undecidable node")
         if result.decidability_status == "undecidable":
             assert len(result.structural_insights) > 0
 
     def test_generate_warnings_all_categories(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="all", label="all boundary"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({"all"}), label="ref"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({"cat"}), label="is"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({"dog"}), label="is_not"))
+        for label in ["mammal", "animal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level(
-            "self-referential universal negation diagonalization halting problem"
-        )
+        result = tr.reason_at_level("all boundary")
         if result.decidability_status != "decidable":
             assert len(result.boundary_warnings) >= 1
 
     def test_reformulate_with_neighbors(self):
         g = _build_graph()
-        g.add_node(Hypernode(id="bp", label="self-meta all"))
+        g.add_node(Hypernode(id="bp", label="reformulate node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"cat"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"dog"}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self-meta all")
+        result = tr.reason_at_level("reformulate node")
         if result.decidability_status != "decidable":
             has_related = any("Related decidable" in f for f in result.alternative_formulations)
             assert has_related
 
     def test_meta_mathematical_analysis(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="meta", label="meta node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({"meta"}), label="ref"))
+        for label in ["cat", "dog"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({label}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level(
-            "self-referential universal negation diagonalization halting_problem"
-        )
+        result = tr.reason_at_level("meta node")
         if result.decidability_status == "undecidable":
             assert any("Godel" in s or "diagonalization" in s.lower() or "Boundary score" in s for s in result.structural_insights)
 
@@ -214,8 +260,11 @@ class TestTransfiniteDeepCoverage:
 
     def test_dispatch_level_2(self):
         g = _build_graph()
+        g.add_node(Hypernode(id="sa", label="boundary-ish"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"sa"}), target_ids=frozenset({"sa"}), label="ref"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"sa"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("self all")
+        result = tr.reason_at_level("boundary-ish")
         assert result.reasoning_level >= 1
 
     def test_standard_reasoning_found_concept(self):
@@ -225,3 +274,44 @@ class TestTransfiniteDeepCoverage:
         assert result.decidability_status == "decidable"
         assert result.partial_results[0]["status"] == "decidable"
         assert "mammal" in result.partial_results[0]["connections"]
+
+    def test_cycle_detection_indirect(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=label, label=label))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="e"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="e"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"a"}), label="e"))
+        tr = TransfiniteReasoner(g)
+        indicator = tr.assess_decidability("a")
+        assert indicator.self_reference >= 0.8
+
+    def test_hub_node_detection(self):
+        g = _build_graph()
+        g.add_node(Hypernode(id="hub", label="hub"))
+        for label in ["cat", "dog", "mammal", "animal"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({label}), label="rel"))
+            g.add_edge(Hyperedge(source_ids=frozenset({label}), target_ids=frozenset({"hub"}), label="back"))
+        tr = TransfiniteReasoner(g)
+        indicator = tr.assess_decidability("hub")
+        assert indicator.known_undecidable_similarity > 0.0
+
+    def test_structural_features_in_standard_reasoning(self):
+        g = _build_graph()
+        tr = TransfiniteReasoner(g)
+        result = tr.reason_at_level("cat")
+        assert "structural_features" in result.partial_results[0]
+        assert result.partial_results[0]["structural_features"]["degree"] == 1
+        assert not result.partial_results[0]["structural_features"]["is_isolated"]
+
+    def test_extended_neighborhood_in_transfinite(self):
+        g = _build_graph()
+        g.add_node(Hypernode(id="undec", label="undecidable node"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
+        tr = TransfiniteReasoner(g)
+        result = tr.reason_at_level("undecidable node")
+        if result.decidability_status == "undecidable":
+            transfinite_entries = [r for r in result.partial_results if r.get("status") == "transfinite"]
+            if transfinite_entries:
+                assert "extended_neighborhood" in transfinite_entries[0]

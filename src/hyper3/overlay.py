@@ -1,0 +1,186 @@
+from __future__ import annotations
+
+from hyper3.kernel import (
+    Hyperedge,
+    Hypergraph,
+    Hypernode,
+    Modality,
+)
+
+
+class HypergraphOverlay:
+    def __init__(self, base: Hypergraph) -> None:
+        self._base = base
+        self._overlay_nodes: dict[str, Hypernode] = {}
+        self._overlay_edges: dict[str, Hyperedge] = {}
+        self._overlay_node_to_edges: dict[str, set[str]] = {}
+        self._overlay_label_index: dict[str, str] = {}
+        self._confidence: dict[str, float] = {}
+
+    def add_node(self, node: Hypernode) -> Hypernode:
+        if node.id in self._overlay_nodes:
+            return self._overlay_nodes[node.id]
+        self._overlay_nodes[node.id] = node
+        self._overlay_node_to_edges[node.id] = set()
+        if node.label:
+            self._overlay_label_index[node.label] = node.id
+        return node
+
+    def get_node(self, node_id: str) -> Hypernode | None:
+        return self._overlay_nodes.get(node_id) or self._base.get_node(node_id)
+
+    def get_node_by_label(self, label: str) -> Hypernode | None:
+        nid = self._overlay_label_index.get(label)
+        if nid:
+            return self._overlay_nodes.get(nid)
+        return self._base.get_node_by_label(label)
+
+    def remove_node(self, node_id: str) -> bool:
+        if node_id in self._overlay_nodes:
+            edge_ids = list(self._overlay_node_to_edges.get(node_id, set()))
+            for eid in edge_ids:
+                self._remove_overlay_edge(eid)
+            node = self._overlay_nodes[node_id]
+            if node.label:
+                self._overlay_label_index.pop(node.label, None)
+            del self._overlay_nodes[node_id]
+            if node_id in self._overlay_node_to_edges:
+                del self._overlay_node_to_edges[node_id]
+            return True
+        return False
+
+    def add_edge(self, edge: Hyperedge) -> Hyperedge:
+        if edge.id in self._overlay_edges:
+            return self._overlay_edges[edge.id]
+        for nid in edge.node_ids:
+            self._overlay_node_to_edges.setdefault(nid, set()).add(edge.id)
+        self._overlay_edges[edge.id] = edge
+        return edge
+
+    def get_edge(self, edge_id: str) -> Hyperedge | None:
+        return self._overlay_edges.get(edge_id) or self._base.get_edge(edge_id)
+
+    def remove_edge(self, edge_id: str) -> bool:
+        if edge_id in self._overlay_edges:
+            self._remove_overlay_edge(edge_id)
+            return True
+        return False
+
+    def edges_for(self, node_id: str) -> list[Hyperedge]:
+        base_edges = self._base.edges_for(node_id)
+        overlay_ids = self._overlay_node_to_edges.get(node_id, set())
+        overlay_edges = [self._overlay_edges[eid] for eid in overlay_ids if eid in self._overlay_edges]
+        return base_edges + overlay_edges
+
+    def neighbors(self, node_id: str) -> list[str]:
+        base_nbrs = set(self._base.neighbors(node_id))
+        overlay_nbrs: set[str] = set()
+        for eid in self._overlay_node_to_edges.get(node_id, set()):
+            edge = self._overlay_edges.get(eid)
+            if edge:
+                for nid in edge.node_ids:
+                    if nid != node_id:
+                        overlay_nbrs.add(nid)
+        return list(base_nbrs | overlay_nbrs)
+
+    def query_dimension(self, modality: Modality) -> list[Hypernode]:
+        base = self._base.query_dimension(modality)
+        overlay = [
+            n for n in self._overlay_nodes.values()
+            if modality in n.metadata.modality_tags
+        ]
+        return base + overlay
+
+    def merge_node(self, primary_id: str, secondary_id: str) -> Hypernode | None:
+        return self._base.merge_node(primary_id, secondary_id)
+
+    @property
+    def nodes(self) -> list[Hypernode]:
+        base_nodes = {n.id: n for n in self._base.nodes}
+        base_nodes.update(self._overlay_nodes)
+        return list(base_nodes.values())
+
+    @property
+    def edges(self) -> list[Hyperedge]:
+        base_edges = {e.id: e for e in self._base.edges}
+        base_edges.update(self._overlay_edges)
+        return list(base_edges.values())
+
+    @property
+    def node_count(self) -> int:
+        base_ids = {n.id for n in self._base.nodes}
+        overlay_ids = set(self._overlay_nodes.keys())
+        return len(base_ids | overlay_ids)
+
+    @property
+    def edge_count(self) -> int:
+        base_ids = {e.id for e in self._base.edges}
+        overlay_ids = set(self._overlay_edges.keys())
+        return len(base_ids | overlay_ids)
+
+    def commit(self) -> tuple[list[str], list[str]]:
+        node_ids = list(self._overlay_nodes.keys())
+        edge_ids = list(self._overlay_edges.keys())
+        for eid, conf in self._confidence.items():
+            edge = self._overlay_edges.get(eid)
+            if edge:
+                edge.metadata.custom["confidence"] = conf
+        for node in self._overlay_nodes.values():
+            self._base.add_node(node)
+        failed: list[str] = []
+        for edge in self._overlay_edges.values():
+            try:
+                self._base.add_edge(edge)
+            except Exception:
+                failed.append(edge.id)
+        self._overlay_nodes.clear()
+        self._overlay_edges.clear()
+        self._overlay_node_to_edges.clear()
+        self._overlay_label_index.clear()
+        self._confidence.clear()
+        edge_ids = [eid for eid in edge_ids if eid not in failed]
+        return node_ids, edge_ids
+
+    def rollback(self) -> None:
+        self._overlay_nodes.clear()
+        self._overlay_edges.clear()
+        self._overlay_node_to_edges.clear()
+        self._overlay_label_index.clear()
+        self._confidence.clear()
+
+    def is_overlay_edge(self, edge_id: str) -> bool:
+        return edge_id in self._overlay_edges
+
+    def is_overlay_node(self, node_id: str) -> bool:
+        return node_id in self._overlay_nodes
+
+    def set_confidence(self, edge_id: str, confidence: float) -> None:
+        self._confidence[edge_id] = confidence
+
+    def get_confidence(self, edge_id: str) -> float:
+        if edge_id in self._confidence:
+            return self._confidence[edge_id]
+        edge = self._overlay_edges.get(edge_id) or self._base.get_edge(edge_id)
+        if edge and isinstance(edge.metadata.custom.get("confidence"), (int, float)):
+            return float(edge.metadata.custom["confidence"])
+        return 1.0
+
+    @property
+    def overlay_node_ids(self) -> set[str]:
+        return set(self._overlay_nodes.keys())
+
+    @property
+    def overlay_edge_ids(self) -> set[str]:
+        return set(self._overlay_edges.keys())
+
+    @property
+    def base(self) -> Hypergraph:
+        return self._base
+
+    def _remove_overlay_edge(self, edge_id: str) -> None:
+        edge = self._overlay_edges.pop(edge_id, None)
+        if edge:
+            for nid in edge.node_ids:
+                if nid in self._overlay_node_to_edges:
+                    self._overlay_node_to_edges[nid].discard(edge_id)
+        self._confidence.pop(edge_id, None)

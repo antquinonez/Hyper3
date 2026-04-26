@@ -72,11 +72,11 @@ class TestComputationalRelativity:
     def test_transform_between_frames(self):
         g = _build_graph()
         cr = ComputationalRelativity(g)
-        t = cr.transform_between_frames("classical", "quantum")
+        t = cr.transform_between_frames("concept_a", "classical", "quantum")
         assert isinstance(t, FrameTransformation)
         assert t.source_frame == "classical"
         assert t.target_frame == "quantum"
-        assert t.information_preserved >= 0.0
+        assert t.transformation_cost >= 0.0
 
     def test_unknown_frame(self):
         g = _build_graph()

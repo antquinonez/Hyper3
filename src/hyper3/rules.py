@@ -29,6 +29,31 @@ class Rule(ABC):
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         ...
 
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return 1.0
+
+    def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        return []
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": self.__class__.__name__}
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Rule:
+        rule_type = data.get("rule_type", "")
+        rule_classes: dict[str, type[Rule]] = {
+            "TransitiveRule": TransitiveRule,
+            "InverseRule": InverseRule,
+            "GeneralizationRule": GeneralizationRule,
+            "AbductiveRule": AbductiveRule,
+            "PropertyPropagationRule": PropertyPropagationRule,
+        }
+        target_cls = rule_classes.get(rule_type)
+        if target_cls is not None:
+            from_cls: Any = target_cls
+            return from_cls._from_dict(data)
+        raise ValueError(f"Unknown rule type: {rule_type}")
+
 
 class TransitiveRule(Rule):
     def __init__(self, *, edge_label: str | None = None, new_label: str = "") -> None:
@@ -79,7 +104,7 @@ class TransitiveRule(Rule):
             source_ids=frozenset({a}),
             target_ids=frozenset({c}),
             label=label,
-            metadata=Metadata(custom={"rule": self.name, "inferred": True}),
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": 0.9}),
         )
         graph.add_edge(edge)
         return [], [edge.id]
@@ -89,6 +114,50 @@ class TransitiveRule(Rule):
             if source in edge.source_ids and target in edge.target_ids:
                 return True
         return False
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        edge_ab = graph.get_edge(match.context.get("edge_ab", ""))
+        edge_bc = graph.get_edge(match.context.get("edge_bc", ""))
+        w_ab = edge_ab.weight if edge_ab else 1.0
+        w_bc = edge_bc.weight if edge_bc else 1.0
+        conf_ab = edge_ab.metadata.custom.get("confidence", 1.0) if edge_ab else 1.0
+        conf_bc = edge_bc.metadata.custom.get("confidence", 1.0) if edge_bc else 1.0
+        return w_ab * w_bc * conf_ab * conf_bc
+
+    def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        derivations: list[RuleMatch] = []
+        edge_set: set[tuple[str, str]] = set()
+        for edge in graph.edges:
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    edge_set.add((src, tgt))
+        incoming_to_c = [e for e in graph.edges_for(target_node_id) if target_node_id in e.target_ids]
+        for e_bc in incoming_to_c:
+            if self._edge_label and e_bc.label and e_bc.label != self._edge_label:
+                continue
+            for nid_b in e_bc.source_ids:
+                incoming_to_b = [e for e in graph.edges_for(nid_b) if nid_b in e.target_ids]
+                for e_ab in incoming_to_b:
+                    if self._edge_label and e_ab.label and e_ab.label != self._edge_label:
+                        continue
+                    for nid_a in e_ab.source_ids:
+                        if nid_a == target_node_id:
+                            continue
+                        if (nid_a, target_node_id) in edge_set:
+                            continue
+                        derivations.append(RuleMatch(
+                            rule_name=self.name,
+                            bindings={"A": nid_a, "B": nid_b, "C": target_node_id},
+                            context={"edge_ab": e_ab.id, "edge_bc": e_bc.id},
+                        ))
+        return derivations
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "TransitiveRule", "edge_label": self._edge_label, "new_label": self._new_label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> TransitiveRule:
+        return cls(edge_label=data.get("edge_label"), new_label=data.get("new_label", ""))
 
 
 class InverseRule(Rule):
@@ -124,7 +193,7 @@ class InverseRule(Rule):
             source_ids=frozenset({target}),
             target_ids=frozenset({source}),
             label=self._inverse_label,
-            metadata=Metadata(custom={"rule": self.name, "inferred": True}),
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": 0.9}),
         )
         graph.add_edge(edge)
         return [], [edge.id]
@@ -134,6 +203,34 @@ class InverseRule(Rule):
             if edge.label == self._inverse_label and source in edge.source_ids and target in edge.target_ids:
                 return True
         return False
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        edge = graph.get_edge(match.context.get("original_edge", ""))
+        w = edge.weight if edge else 1.0
+        conf = edge.metadata.custom.get("confidence", 1.0) if edge else 1.0
+        return w * conf
+
+    def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        derivations: list[RuleMatch] = []
+        outgoing = [e for e in graph.edges_for(target_node_id) if target_node_id in e.source_ids]
+        for edge in outgoing:
+            if edge.label != self._edge_label:
+                continue
+            for source_of_inverse in edge.target_ids:
+                if not self._inverse_exists(graph, source_of_inverse, target_node_id):
+                    derivations.append(RuleMatch(
+                        rule_name=self.name,
+                        bindings={"source": source_of_inverse, "target": target_node_id},
+                        context={"original_edge": edge.id},
+                    ))
+        return derivations
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "InverseRule", "edge_label": self._edge_label, "inverse_label": self._inverse_label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> InverseRule:
+        return cls(edge_label=data["edge_label"], inverse_label=data["inverse_label"])
 
 
 class GeneralizationRule(Rule):
@@ -187,7 +284,7 @@ class GeneralizationRule(Rule):
             source_ids=frozenset({abstract_node.id}),
             target_ids=frozenset({node_a.id, node_b.id}),
             label="generalizes",
-            metadata=Metadata(custom={"rule": self.name, "inferred": True}),
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": 0.8}),
         )
         graph.add_edge(edge_a)
         return [abstract_node.id], [edge_a.id]
@@ -197,6 +294,16 @@ class GeneralizationRule(Rule):
             if edge.label == "generalizes" and b.id in edge.target_ids:
                 return True
         return False
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return match.context.get("similarity", 0.5)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "GeneralizationRule", "similarity_threshold": self._threshold, "label_prefix": self._label_prefix}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> GeneralizationRule:
+        return cls(similarity_threshold=data.get("similarity_threshold", 0.8), label_prefix=data.get("label_prefix", "abstract_"))
 
 
 class AbductiveRule(Rule):
@@ -260,10 +367,20 @@ class AbductiveRule(Rule):
             source_ids=frozenset({hypothesis_node.id}),
             target_ids=frozenset({observed_id}),
             label=self._cause_label,
-            metadata=Metadata(custom={"rule": self.name, "inferred": True}),
+            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": 0.5}),
         )
         graph.add_edge(edge)
         return [hypothesis_node.id], [edge.id]
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return 0.5
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "AbductiveRule", "effect_label": self._effect_label, "cause_label": self._cause_label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> AbductiveRule:
+        return cls(effect_label=data.get("effect_label", ""), cause_label=data.get("cause_label", "possible_cause"))
 
 
 class PropertyPropagationRule(Rule):
@@ -310,3 +427,13 @@ class PropertyPropagationRule(Rule):
         target.metadata.custom[self._property_key] = match.context["property_value"]
         target.metadata.custom[f"{self._property_key}_inherited_from"] = match.bindings["source"]
         return [], []
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return 0.7
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"rule_type": "PropertyPropagationRule", "property_key": self._property_key, "edge_label": self._edge_label}
+
+    @classmethod
+    def _from_dict(cls, data: dict[str, Any]) -> PropertyPropagationRule:
+        return cls(property_key=data["property_key"], edge_label=data.get("edge_label", ""))

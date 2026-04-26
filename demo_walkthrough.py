@@ -67,6 +67,15 @@ causal_chain = [
 for src, tgt, label in causal_chain:
     mem.relate(src, tgt, label=label)
 
+extra_chains = [
+    ("ignition_coil", "engine_computer", "powers"),
+    ("engine_computer", "fuel_injector", "powers"),
+    ("fuel_tank", "gasoline", "feeds"),
+    ("gasoline", "fuel_pump", "feeds"),
+]
+for src, tgt, label in extra_chains:
+    mem.relate(src, tgt, label=label)
+
 print(f"Stored {mem.graph.node_count} components, {mem.graph.edge_count} causal relationships")
 print()
 
@@ -176,7 +185,9 @@ print()
 # Now we get new evidence: "headlights are dim" → battery confirmed weak
 print("New evidence arrives: 'headlights are dim' → battery is weak")
 answer = mem.collapse(qs, context={"battery": 3.0})
-print(f"Collapsed to: {answer.node_id} (amplitude={answer.amplitude:.3f})")
+collapsed_node = mem.graph.get_node(answer.node_id)
+collapsed_label = collapsed_node.label if collapsed_node else answer.node_id
+print(f"Collapsed to: {collapsed_label} (amplitude={answer.amplitude:.3f})")
 print()
 
 # ─── STEP 5: Interference patterns ───────────────────────────────────

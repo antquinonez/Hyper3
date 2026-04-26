@@ -75,68 +75,101 @@ class TransfiniteReasoner:
         return indicator
 
     def _detect_self_reference(self, concept: str, context: dict[str, Any] | None) -> float:
-        score = 0.0
-        self_ref_keywords = ["self", "itself", "own", "recursive", "meta", "about about"]
-        concept_lower = concept.lower()
-        for kw in self_ref_keywords:
-            if kw in concept_lower:
-                score += 0.3
-        if context:
-            for key in context:
-                if concept.lower() in key.lower():
-                    score += 0.2
-                if "self" in key.lower() or "meta" in key.lower():
-                    score += 0.1
-            if concept in str(context.values()):
-                score += 0.3
         node = self._find_concept_node(concept)
-        if node:
-            neighbors = self._get_neighbor_labels(node.id)
-            if concept in neighbors:
-                score += 0.4
-        return min(1.0, score)
+        if not node:
+            return self._context_boost(context, "self_reference", 0.0)
+        for edge in self._graph.edges_for(node.id):
+            if node.id in edge.target_ids and node.id in edge.source_ids:
+                return 0.9
+        visited: set[str] = set()
+        if self._dfs_cycle_check(node.id, node.id, visited, max_depth=10):
+            return 0.8
+        neighbors = self._get_neighbor_labels(node.id)
+        if concept in neighbors:
+            return 0.4
+        base = 0.0
+        if context and context.get("self_reference"):
+            base = 0.3
+        return self._context_boost(context, "self_reference", base)
+
+    def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int) -> bool:
+        if max_depth <= 0:
+            return False
+        for edge in self._graph.edges_for(current):
+            if current not in edge.source_ids:
+                continue
+            for tgt in edge.target_ids:
+                if tgt == start:
+                    return True
+                if tgt not in visited:
+                    visited.add(tgt)
+                    if self._dfs_cycle_check(start, tgt, visited, max_depth - 1):
+                        return True
+                    visited.discard(tgt)
+        return False
 
     def _detect_universal_quantification(self, concept: str, context: dict[str, Any] | None) -> float:
-        score = 0.0
-        universal_keywords = ["all", "every", "any", "none", "never", "always", "universal", "complete"]
-        concept_lower = concept.lower()
-        for kw in universal_keywords:
-            if kw in concept_lower:
-                score += 0.25
-        if context:
-            for val in context.values():
-                val_str = str(val).lower()
-                for kw in universal_keywords:
-                    if kw in val_str:
-                        score += 0.15
-        return min(1.0, score)
+        node = self._find_concept_node(concept)
+        if not node:
+            return self._context_boost(context, "universal_quantification", 0.0)
+        total = self._graph.node_count
+        if total <= 1:
+            return self._context_boost(context, "universal_quantification", 0.0)
+        degree = len(self._graph.edges_for(node.id))
+        connectivity = degree / (total - 1)
+        if connectivity >= 0.7:
+            return min(connectivity, 1.0)
+        base = connectivity * 0.3
+        return self._context_boost(context, "universal_quantification", base)
 
     def _assess_diagonalization(self, concept: str, context: dict[str, Any] | None) -> float:
-        score = 0.0
-        diag_keywords = ["negation", "complement", "not itself", "exclude", "contradiction"]
-        concept_lower = concept.lower()
-        for kw in diag_keywords:
-            if kw in concept_lower:
-                score += 0.3
-        if context:
-            context_str = str(context).lower()
-            for kw in diag_keywords:
-                if kw in context_str:
-                    score += 0.2
-        return min(1.0, score)
+        node = self._find_concept_node(concept)
+        if not node:
+            return self._context_boost(context, "diagonalization", 0.0)
+        edge_labels: set[str] = set()
+        for edge in self._graph.edges_for(node.id):
+            edge_labels.add(edge.label)
+        label_list = list(edge_labels)
+        for i, label_a in enumerate(label_list):
+            for label_b in label_list[i + 1:]:
+                if self._are_contradictory(label_a, label_b):
+                    return 0.7
+        base = 0.0
+        if context and context.get("contradictory"):
+            base = 0.3
+        return self._context_boost(context, "diagonalization", base)
+
+    def _are_contradictory(self, label_a: str, label_b: str) -> bool:
+        pairs = {("is", "is_not"), ("causes", "prevents"), ("true", "false"), ("yes", "no"), ("enabled", "disabled")}
+        return (label_a, label_b) in pairs or (label_b, label_a) in pairs
+
+    def _context_boost(self, context: dict[str, Any] | None, key: str, base: float) -> float:
+        if not context:
+            return base
+        hint = context.get(key)
+        if isinstance(hint, bool) and hint:
+            return min(base + 0.3, 1.0)
+        if isinstance(hint, (int, float)) and 0.0 < hint <= 1.0:
+            return min(max(base, hint), 1.0)
+        return base
 
     def _compare_to_known(self, concept: str, context: dict[str, Any] | None) -> float:
-        max_similarity = 0.0
-        concept_lower = concept.lower()
-        for pattern in UNDECIDABLE_PATTERNS:
-            ptype = pattern["type"].lower()
-            if ptype.replace("_", " ") in concept_lower or ptype.replace("_", "") in concept_lower:
-                max_similarity = max(max_similarity, 0.8)
-            for indicator_name, value in pattern.get("indicators", {}).items():
-                kw = indicator_name.replace("_", " ")
-                if kw in concept_lower:
-                    max_similarity = max(max_similarity, value * 0.5)
-        return max_similarity
+        node = self._find_concept_node(concept)
+        if not node:
+            return self._context_boost(context, "undecidable", 0.0)
+        outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
+        incoming = [e for e in self._graph.edges_for(node.id) if node.id in e.target_ids]
+        if not outgoing and incoming:
+            return 0.6
+        total = self._graph.node_count
+        if total > 1 and (len(outgoing) + len(incoming)) / (2 * (total - 1)) > 0.5:
+            return 0.7
+        base = 0.0
+        if context:
+            for pattern in UNDECIDABLE_PATTERNS:
+                if context.get(pattern["type"]):
+                    base = max(base, 0.5)
+        return self._context_boost(context, "undecidable", base)
 
     def reason_at_level(
         self,
@@ -188,11 +221,16 @@ class TransfiniteReasoner:
         if not node:
             return [{"status": "concept_not_found", "concept": concept}]
         neighbors = self._get_neighbor_labels(node.id)
+        degree = len(self._graph.edges_for(node.id))
         results.append({
             "status": "decidable",
             "concept": concept,
             "connections": neighbors[:10],
             "confidence": 1.0 - min(1.0, len(neighbors) / 100.0),
+            "structural_features": {
+                "degree": degree,
+                "is_isolated": degree == 0,
+            },
         })
         return results
 
@@ -207,7 +245,6 @@ class TransfiniteReasoner:
             "status": "boundary_proximity",
             "boundary_score": indicator.boundary_score,
             "conservative_extension": True,
-            "note": "Results within formal bounds but near decidability boundary",
         })
         return results
 
@@ -218,11 +255,23 @@ class TransfiniteReasoner:
         indicator: BoundaryIndicator,
     ) -> list[dict[str, Any]]:
         results = self._standard_reasoning(concept, context)
+        node = self._find_concept_node(concept)
+        extended: list[str] = []
+        if node:
+            for edge in self._graph.edges_for(node.id):
+                for nid in edge.target_ids:
+                    n = self._graph.get_node(nid)
+                    if n:
+                        for e2 in self._graph.edges_for(n.id):
+                            for nid2 in e2.target_ids:
+                                n2 = self._graph.get_node(nid2)
+                                if n2 and n2.label not in extended:
+                                    extended.append(n2.label)
         results.append({
             "status": "transfinite",
             "boundary_score": indicator.boundary_score,
             "approach": "partial_result_generation",
-            "note": "Engaging with undecidable region using conservative principles",
+            "extended_neighborhood": extended[:10],
         })
         return results
 

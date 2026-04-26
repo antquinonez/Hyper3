@@ -63,6 +63,81 @@ class Serializer:
         log = self.deserialize_event_log(data.get("event_log", []))
         return graph, log
 
+    def serialize_rules(self, rules: list[Any]) -> list[dict[str, Any]]:
+        return [r.to_dict() for r in rules]
+
+    def deserialize_rules(self, data: list[dict[str, Any]]) -> list[Any]:
+        from hyper3.rules import Rule
+        return [Rule.from_dict(d) for d in data]
+
+    def save_with_rules(self, graph: Hypergraph, log: EventLog, rules: list[Any], path: str | Path) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "graph": self.serialize_graph(graph),
+            "event_log": self.serialize_event_log(log),
+            "rules": self.serialize_rules(rules),
+        }
+        p.write_text(json.dumps(payload, indent=2, default=_json_default))
+
+    def load_with_rules(self, path: str | Path) -> tuple[Hypergraph, EventLog, list[Any]]:
+        p = Path(path)
+        data = json.loads(p.read_text())
+        graph = self.deserialize_graph(data["graph"])
+        log = self.deserialize_event_log(data.get("event_log", []))
+        rules = self.deserialize_rules(data.get("rules", []))
+        return graph, log, rules
+
+    def export_json(self, graph: Hypergraph, path: str | Path) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        data = self.serialize_graph(graph)
+        p.write_text(json.dumps(data, indent=2, default=_json_default))
+
+    def import_json(self, path: str | Path) -> Hypergraph:
+        p = Path(path)
+        data = json.loads(p.read_text())
+        return self.deserialize_graph(data)
+
+    def export_edgelist(self, graph: Hypergraph, path: str | Path) -> None:
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        lines: list[str] = []
+        for edge in graph.edges:
+            sources = ",".join(sorted(edge.source_ids))
+            targets = ",".join(sorted(edge.target_ids))
+            lines.append(f"{sources}\t{targets}\t{edge.label}\t{edge.weight}")
+        p.write_text("\n".join(lines))
+
+    def import_edgelist(self, path: str | Path) -> Hypergraph:
+        from hyper3.kernel import Hyperedge, Hypernode
+        p = Path(path)
+        graph = Hypergraph()
+        lines = p.read_text().strip().split("\n")
+        seen_ids: set[str] = set()
+        for line in lines:
+            if not line.strip():
+                continue
+            parts = line.split("\t")
+            if len(parts) < 3:
+                continue
+            source_ids = frozenset(parts[0].split(","))
+            target_ids = frozenset(parts[1].split(","))
+            label = parts[2] if len(parts) > 2 else ""
+            weight = float(parts[3]) if len(parts) > 3 else 1.0
+            for nid in source_ids | target_ids:
+                if nid not in seen_ids:
+                    graph.add_node(Hypernode(id=nid, label=nid))
+                    seen_ids.add(nid)
+            edge = Hyperedge(
+                source_ids=source_ids,
+                target_ids=target_ids,
+                label=label,
+                weight=weight,
+            )
+            graph.add_edge(edge)
+        return graph
+
     def _serialize_node(self, node: Hypernode) -> dict[str, Any]:
         return {
             "id": node.id,

@@ -162,6 +162,7 @@ class ExpansionReport:
     edges_produced: int = 0
     branches: int = 0
     max_depth_reached: int = 0
+    confidence_map: dict[str, float] = field(default_factory=dict)
 
 
 class MultiwayEngine:
@@ -185,6 +186,8 @@ class MultiwayEngine:
         max_depth: int = 3,
         max_branches_per_state: int = 10,
         max_total_states: int = 100,
+        overlay: Any | None = None,
+        confidence_decay: float = 0.9,
     ) -> ExpansionReport:
         report = ExpansionReport()
         root = MultiwayState(
@@ -206,7 +209,8 @@ class MultiwayEngine:
                 if not state:
                     continue
                 new_states = self._expand_state(
-                    state, rules, max_branches_per_state, report
+                    state, rules, max_branches_per_state, report,
+                    overlay=overlay, confidence_decay=confidence_decay,
                 )
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
@@ -231,6 +235,51 @@ class MultiwayEngine:
             if node.label in labels:
                 node_ids.add(node.id)
         return self.expand(node_ids, rules, **kwargs)
+
+    def expand_incremental(
+        self,
+        new_node_ids: set[str],
+        new_edge_ids: set[str],
+        rules: list[Rule],
+        *,
+        max_depth: int = 2,
+        max_branches_per_state: int = 10,
+        max_total_states: int = 50,
+    ) -> ExpansionReport:
+        report = ExpansionReport()
+        affected_leaves: list[str] = []
+        for leaf in self._multiway.get_leaves():
+            if new_node_ids & leaf.active_node_ids:
+                affected_leaves.append(leaf.id)
+            elif new_edge_ids & set(leaf.produced_edge_ids):
+                affected_leaves.append(leaf.id)
+        if not affected_leaves:
+            for leaf in self._multiway.get_leaves():
+                affected_leaves.append(leaf.id)
+                if len(affected_leaves) >= 5:
+                    break
+        frontier: list[str] = affected_leaves
+        for _ in range(max_depth):
+            next_frontier: list[str] = []
+            for state_id in frontier:
+                if report.states_created >= max_total_states:
+                    break
+                state = self._multiway.get_state(state_id)
+                if not state:
+                    continue
+                new_states = self._expand_state(
+                    state, rules, max_branches_per_state, report
+                )
+                next_frontier.extend(new_states)
+                report.states_created += len(new_states)
+            frontier = next_frontier
+            if not frontier:
+                break
+            report.max_depth_reached += 1
+        report.branches = sum(
+            1 for s in self._multiway.states if s.is_leaf
+        )
+        return report
 
     def find_convergent_states(self) -> list[tuple[str, str, float]]:
         leaves = self._multiway.get_leaves()
@@ -273,10 +322,13 @@ class MultiwayEngine:
         rules: list[Rule],
         max_branches: int,
         report: ExpansionReport,
+        overlay: Any | None = None,
+        confidence_decay: float = 0.9,
     ) -> list[str]:
+        target_graph = overlay if overlay is not None else self._graph
         all_matches: list[tuple[Rule, RuleMatch]] = []
         for rule in rules:
-            matches = rule.find_matches(self._graph, state.active_node_ids)
+            matches = rule.find_matches(target_graph, state.active_node_ids)
             for match in matches:
                 all_matches.append((rule, match))
                 if len(all_matches) >= max_branches:
@@ -289,7 +341,7 @@ class MultiwayEngine:
 
         new_state_ids: list[str] = []
         for rule, match in all_matches:
-            new_nodes, new_edges = rule.apply(self._graph, match)
+            new_nodes, new_edges = rule.apply(target_graph, match)
             new_active = state.active_node_ids | frozenset(new_nodes)
             child = MultiwayState(
                 parent_id=state.id,
@@ -306,5 +358,15 @@ class MultiwayEngine:
             report.rules_applied += 1
             report.nodes_produced += len(new_nodes)
             report.edges_produced += len(new_edges)
+            if overlay is not None and hasattr(overlay, "set_confidence"):
+                parent_conf = 1.0
+                for eid in state.produced_edge_ids:
+                    if hasattr(overlay, "get_confidence"):
+                        parent_conf = min(parent_conf, overlay.get_confidence(eid))
+                for eid in new_edges:
+                    overlay.set_confidence(eid, parent_conf * confidence_decay)
+                report.confidence_map.update(
+                    {eid: overlay.get_confidence(eid) for eid in new_edges}
+                )
 
         return new_state_ids

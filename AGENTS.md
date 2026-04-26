@@ -6,6 +6,8 @@ Instructions for AI coding agents working on this project.
 
 Hyper3 is a self-evolving hypergraph cognitive kernel library. It is a pure-Python package with numpy/scipy/networkx dependencies, no external services, no network calls, no database.
 
+**API stability**: The library is pre-release. Public APIs (classes, method signatures, exported symbols) may change between commits without deprecation warnings. Do not treat signature changes as bugs unless they break the test suite. Prioritize correctness and clarity over backward compatibility.
+
 ## Build & Run
 
 ```bash
@@ -84,6 +86,15 @@ Do not add comments unless explicitly asked.
 ### No emojis
 Do not use emojis in code or commit messages unless explicitly asked.
 
+### Edge weights are importance, not cost
+`Hyperedge.weight` represents importance/strength (higher = more important). The kernel inverts weights to `cost = 1/weight` when calling networkx algorithms (shortest path, betweenness centrality). Never pass weights directly to networkx — use `_to_networkx_inverted_weights()`.
+
+### `context` parameter in transfinite reasoning
+`TransfiniteReasoner` detection methods accept a `context` dict that supplements structural analysis. Supported keys: `self_reference` (bool/float), `universal_quantification` (bool/float), `diagonalization` (bool/float), `undecidable` (bool/float), and `contradictory` (bool). Pass `True` for a 0.3 boost, or a float in [0,1] to set a floor.
+
+### `reason()` auto-commits existing overlays
+If `reason(use_overlay=True)` is called while an overlay already exists (from a prior `reason(auto_commit=False)`), the existing overlay is auto-committed before a new one is created. No uncommitted inferences are silently lost.
+
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
@@ -103,22 +114,98 @@ The following are already optimized — maintain them when making changes:
 - `TransitiveRule` uses a pre-built `edge_set: set[tuple[str, str]]` for O(1) edge-existence checks instead of scanning `edges_for()`.
 - `EmbeddingEngine` supports optional FAISS index (`enable_faiss()`). When enabled, `find_similar()` uses inner-product search instead of brute-force O(N) scan. IndexFlatIP for <1K nodes, IndexIVFFlat for >=1K. FAISS is an optional `[faiss]` extra.
 
+## New Modules (Round 1-2 Additions)
+
+- **overlay.py** — `HypergraphOverlay` provides a temporary inference layer on top of the base graph. Supports `commit()` (merge to base) and `rollback()` (discard). Tracks per-edge confidence. `reason(use_overlay=True, auto_commit=False)` enables review-before-commit workflow.
+- **provenance.py** — `ProvenanceTracker` records inference derivations (rule name, input edges, depth). `explain()` produces recursive `Explanation` objects with `render()`. `retract()` cascades: removing a premise removes all dependent conclusions.
+- **temporal.py** — `TemporalReasoner` with full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, constraint checking, and edge-level temporal consistency.
+- **enrichment.py** — `LLMEnricher` extracts entities/relations from text. `RegexExtractor` is the zero-dependency fallback. Pluggable `LLMProvider` ABC for real language models.
+
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 640+ tests must pass.
+2. Run the full test suite after changes. All 880 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
+6. Run a coverage report after adding tests: `.venv/bin/python -m pytest tests/ --cov=hyper3 --cov-report=term-missing --tb=short`. Target 95%+ per module.
+
+## Writing Example Scripts
+
+### Structure and conventions
+
+- Place examples in `examples/` subdirectories: `basic/`, `intermediate/`, `advanced/`, `domain/`.
+- Each example must be self-contained: create its own data, no external files or network calls needed.
+- Use `if __name__ == "__main__": main()` guard.
+- Always use `CognitiveMemory(evolve_interval=0)` to keep behavior deterministic.
+- Always use `.venv/bin/python` (full path) to run examples — the system Python is not the project Python.
+- Include a module-level docstring explaining the use case and how to run the script.
+- Use section headers (`print("=" * 70)` / `print("SECTION N: ...")`) for readability.
+
+### Domain-specific data patterns
+
+- **For TransitiveRule to produce results**: The graph must contain same-label two-hop chains (A-[label]->B-[label]->C). Unique edge labels per pair produce zero matches. Add extra edges with reused labels to create chains.
+- **For collapse output**: Always resolve `Interpretation.node_id` to a label before printing: `node = mem.graph.get_node(answer.node_id); label = node.label if node else answer.node_id`.
+- **For `ActivationResult`**: The attribute is `activation` (not `energy` or `score`).
+- **For `lateral_insights()`**: Returns normalized dicts with both key variants (`novel_in_source` and `novel_nodes_in_source`). Always present: `branchial_distance`, `complementary_nodes`, `transferable_patterns`.
+
+### Validating examples
+
+After writing or modifying an example, validate it runs:
+
+```bash
+# Single example
+.venv/bin/python examples/basic/01_knowledge_basics.py
+
+# Batch-validate all examples
+for f in examples/basic/*.py examples/intermediate/*.py examples/advanced/*.py examples/domain/*.py; do
+  echo "--- Running $f ---"
+  .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK" || echo "FAILED"
+done
+```
+
+Also verify tests and type checker still pass:
+
+```bash
+.venv/bin/python -m pytest tests/ -q --tb=short
+.venv/bin/pyright src/hyper3/
+```
+
+### Updating the examples index
+
+When adding new examples, update `examples/README.md` with the file name, use case, and concepts demonstrated.
 
 ## File Layout
 
 ```
 src/hyper3/          Source code (flat, no sub-packages)
 tests/               Test files (test_<module>.py naming)
-examples/            Example scripts (require sentence-transformers)
-demo*.py             Runnable demo scripts
+examples/            Example scripts organized by difficulty
+  basic/             Foundational operations (store, recall, reason, retrieve)
+  intermediate/      Single-subsystem deep dives (temporal, provenance, analytics, text)
+  advanced/          Multi-subsystem workflows (overlay, iterative reasoning, multiway, quantum)
+  domain/            Full end-to-end domain applications
+  README.md          Index of all examples
+demo*.py             Runnable demo scripts (legacy, kept for backward compat)
 benchmark.py         Performance benchmarks
 pyproject.toml       Project config (hatchling build backend)
 resources/           Reference patent documents (architecture spec)
 ```
+
+## Housekeeping
+
+After making substantive changes (new features, bug fixes, API changes), perform these housekeeping tasks:
+
+1. **Update test count** in the "Making Changes" section of this file.
+2. **Update coverage report**: Run `.venv/bin/python -m pytest tests/ --cov=hyper3 --cov-report=term-missing --tb=short` and verify 95%+ per module.
+3. **Update `examples/README.md`** if new examples were added.
+4. **Update the Architecture section** if new modules were added.
+5. **Update Key Conventions** if new conventions were introduced (e.g., weight semantics, context parameters).
+6. **Update Common Pitfalls** if new pitfalls were discovered.
+7. **Run full validation**: tests + pyright + all examples.
+
+Current project metrics (update after changes):
+- **Tests**: 880
+- **Coverage**: 96%
+- **Pyright**: 0 errors
+- **Examples**: 13 (3 basic, 4 intermediate, 4 advanced, 2 domain)

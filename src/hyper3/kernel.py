@@ -8,6 +8,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Callable, Generator
 
+import networkx as nx
+
 from hyper3.exceptions import EdgeNotFoundError, NodeNotFoundError
 
 
@@ -92,6 +94,8 @@ class Hypergraph:
         self._dimension_index: dict[str, set[str]] = {}
         self._label_index: dict[str, str] = {}
         self._neighbor_cache: dict[str, list[str]] | None = None
+        self._batch_mode: bool = False
+        self._cache_invalidated_in_batch: bool = False
 
     def add_node(self, node: Hypernode) -> Hypernode:
         if node.id in self._nodes:
@@ -102,7 +106,10 @@ class Hypergraph:
             self._label_index[node.label] = node.id
         for modality in node.metadata.modality_tags:
             self._dimension_index.setdefault(modality.value, set()).add(node.id)
-        self._neighbor_cache = None
+        if self._batch_mode:
+            self._cache_invalidated_in_batch = True
+        else:
+            self._neighbor_cache = None
         return node
 
     def get_node(self, node_id: str) -> Hypernode | None:
@@ -127,7 +134,10 @@ class Hypergraph:
         del self._node_to_edges[node_id]
         for dim_set in self._dimension_index.values():
             dim_set.discard(node_id)
-        self._neighbor_cache = None
+        if self._batch_mode:
+            self._cache_invalidated_in_batch = True
+        else:
+            self._neighbor_cache = None
         return True
 
     def add_edge(self, edge: Hyperedge) -> Hyperedge:
@@ -138,7 +148,10 @@ class Hypergraph:
                 raise NodeNotFoundError(nid)
             self._node_to_edges[nid].add(edge.id)
         self._edges[edge.id] = edge
-        self._neighbor_cache = None
+        if self._batch_mode:
+            self._cache_invalidated_in_batch = True
+        else:
+            self._neighbor_cache = None
         return edge
 
     def get_edge(self, edge_id: str) -> Hyperedge | None:
@@ -152,7 +165,10 @@ class Hypergraph:
             if nid in self._node_to_edges:
                 self._node_to_edges[nid].discard(edge_id)
         del self._edges[edge_id]
-        self._neighbor_cache = None
+        if self._batch_mode:
+            self._cache_invalidated_in_batch = True
+        else:
+            self._neighbor_cache = None
         return True
 
     def edges_for(self, node_id: str) -> list[Hyperedge]:
@@ -169,6 +185,232 @@ class Hypergraph:
                 nbrs.discard(nid)
                 self._neighbor_cache[nid] = list(nbrs)
         return self._neighbor_cache.get(node_id, [])
+
+    def begin_batch(self) -> None:
+        self._batch_mode = True
+        self._cache_invalidated_in_batch = False
+
+    def end_batch(self) -> None:
+        self._batch_mode = False
+        if self._cache_invalidated_in_batch:
+            self._neighbor_cache = None
+            self._cache_invalidated_in_batch = False
+
+    def find_paths(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        edge_label: str | None = None,
+        max_depth: int = 5,
+        max_paths: int = 10,
+    ) -> list[list[str]]:
+        if source_id not in self._nodes or target_id not in self._nodes:
+            return []
+        paths: list[list[str]] = []
+        self._find_paths_dfs(source_id, target_id, edge_label, max_depth, max_paths, [source_id], set(), paths)
+        return paths
+
+    def _find_paths_dfs(
+        self,
+        current: str,
+        target: str,
+        edge_label: str | None,
+        max_depth: int,
+        max_paths: int,
+        path: list[str],
+        visited: set[str],
+        results: list[list[str]],
+    ) -> None:
+        if len(results) >= max_paths:
+            return
+        if current == target:
+            results.append(list(path))
+            return
+        if len(path) > max_depth:
+            return
+        visited.add(current)
+        for edge in self.edges_for(current):
+            if edge_label is not None and edge.label != edge_label:
+                continue
+            for next_id in edge.target_ids:
+                if next_id not in visited:
+                    path.append(next_id)
+                    self._find_paths_dfs(next_id, target, edge_label, max_depth, max_paths, path, visited, results)
+                    path.pop()
+        visited.discard(current)
+
+    def pattern_match(
+        self,
+        *,
+        edge_label: str | None = None,
+        source_label: str | None = None,
+        target_label: str | None = None,
+        limit: int = 100,
+    ) -> list[tuple[Hyperedge, dict[str, str]]]:
+        results: list[tuple[Hyperedge, dict[str, str]]] = []
+        for edge in self._edges.values():
+            if edge_label is not None and edge.label != edge_label:
+                continue
+            source_match = False
+            target_match = False
+            source_labels: set[str] = set()
+            target_labels: set[str] = set()
+            for sid in edge.source_ids:
+                node = self._nodes.get(sid)
+                if node:
+                    source_labels.add(node.label)
+            for tid in edge.target_ids:
+                node = self._nodes.get(tid)
+                if node:
+                    target_labels.add(node.label)
+            if source_label is not None:
+                source_match = source_label in source_labels
+            else:
+                source_match = True
+            if target_label is not None:
+                target_match = target_label in target_labels
+            else:
+                target_match = True
+            if source_match and target_match:
+                bindings: dict[str, str] = {}
+                bindings["source_label"] = next(iter(source_labels)) if source_labels else ""
+                bindings["target_label"] = next(iter(target_labels)) if target_labels else ""
+                results.append((edge, bindings))
+                if len(results) >= limit:
+                    break
+        return results
+
+    def subgraph(self, node_ids: set[str]) -> Hypergraph:
+        result = Hypergraph()
+        id_set = node_ids & set(self._nodes.keys())
+        for nid in id_set:
+            node = self._nodes[nid]
+            result.add_node(Hypernode(
+                id=node.id,
+                label=node.label,
+                data=node.data,
+                metadata=Metadata(
+                    temporal_tags=dict(node.metadata.temporal_tags),
+                    modality_tags=set(node.metadata.modality_tags),
+                    abstraction_layer=node.metadata.abstraction_layer,
+                    custom=dict(node.metadata.custom),
+                ),
+                access_count=node.access_count,
+                created_at=node.created_at,
+                last_accessed=node.last_accessed,
+                weight=node.weight,
+            ))
+        for edge in self._edges.values():
+            if edge.source_ids <= id_set and edge.target_ids <= id_set:
+                result.add_edge(Hyperedge(
+                    id=edge.id,
+                    source_ids=frozenset(edge.source_ids),
+                    target_ids=frozenset(edge.target_ids),
+                    label=edge.label,
+                    data=edge.data,
+                    metadata=Metadata(
+                        temporal_tags=dict(edge.metadata.temporal_tags),
+                        modality_tags=set(edge.metadata.modality_tags),
+                        abstraction_layer=edge.metadata.abstraction_layer,
+                        custom=dict(edge.metadata.custom),
+                    ),
+                    weight=edge.weight,
+                ))
+        return result
+
+    def to_networkx(self) -> nx.DiGraph:
+        G = nx.DiGraph()
+        for node in self._nodes.values():
+            G.add_node(node.id, label=node.label, weight=node.weight, data=node.data)
+        for edge in self._edges.values():
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    G.add_edge(src, tgt, label=edge.label, weight=edge.weight, edge_id=edge.id)
+        return G
+
+    def _to_networkx_inverted_weights(self) -> nx.DiGraph:
+        # Hyper3 edge weights represent importance (higher = stronger).
+        # NetworkX treats weights as costs (higher = farther). Invert
+        # so that important edges have low cost and are preferred by
+        # shortest-path and centrality algorithms.
+        G = self.to_networkx()
+        for u, v, data in G.edges(data=True):
+            w = data.get("weight", 1.0)
+            data["cost"] = 1.0 / max(w, 1e-9)
+        return G
+
+    def degree_centrality(self) -> dict[str, float]:
+        n = len(self._nodes)
+        if n <= 1:
+            return {nid: 1.0 for nid in self._nodes}
+        result: dict[str, float] = {}
+        for nid in self._nodes:
+            degree = len(self.edges_for(nid))
+            result[nid] = degree / (n - 1)
+        return result
+
+    def betweenness_centrality(self) -> dict[str, float]:
+        G = self._to_networkx_inverted_weights()
+        if G.number_of_nodes() == 0:
+            return {}
+        return dict(nx.betweenness_centrality(G, weight="cost"))
+
+    def connected_components(self) -> list[set[str]]:
+        G = self.to_networkx()
+        if G.number_of_nodes() == 0:
+            return []
+        return [set(c) for c in nx.weakly_connected_components(G)]
+
+    def has_cycle(self) -> bool:
+        G = self.to_networkx()
+        if G.number_of_nodes() == 0:
+            return False
+        try:
+            nx.find_cycle(G)
+            return True
+        except nx.NetworkXNoCycle:
+            return False
+
+    def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
+        G = self.to_networkx()
+        if G.number_of_nodes() == 0:
+            return []
+        cycles: list[list[str]] = []
+        try:
+            for cycle in nx.simple_cycles(G):
+                cycles.append(cycle)
+                if len(cycles) >= max_cycles:
+                    break
+        except Exception:
+            pass
+        return cycles
+
+    def shortest_path(self, source_id: str, target_id: str, weighted: bool = True) -> list[str] | None:
+        if weighted:
+            G = self._to_networkx_inverted_weights()
+            weight_attr = "cost"
+        else:
+            G = self.to_networkx()
+            weight_attr = None
+        if source_id not in G or target_id not in G:
+            return None
+        try:
+            if weight_attr:
+                return nx.dijkstra_path(G, source_id, target_id, weight=weight_attr)
+            return nx.shortest_path(G, source_id, target_id)
+        except nx.NetworkXNoPath:
+            return None
+
+    def node_degree(self, node_id: str) -> int:
+        return len(self.edges_for(node_id))
+
+    def degree_distribution(self) -> dict[int, int]:
+        dist: dict[int, int] = {}
+        for nid in self._nodes:
+            d = len(self.edges_for(nid))
+            dist[d] = dist.get(d, 0) + 1
+        return dist
 
     def query_dimension(self, modality: Modality) -> list[Hypernode]:
         node_ids = self._dimension_index.get(modality.value, set())
@@ -262,14 +504,28 @@ class EquivalenceEngine:
 
     def find_equivalences(self) -> list[tuple[str, str, float]]:
         nodes = self._graph.nodes
+        blocks: dict[str, list[Hypernode]] = {}
+        for node in nodes:
+            key = self._blocking_key(node)
+            blocks.setdefault(key, []).append(node)
         pairs: list[tuple[str, str, float]] = []
-        for i in range(len(nodes)):
-            for j in range(i + 1, len(nodes)):
-                score = nodes[i].matches(nodes[j])
-                if score >= self._threshold:
-                    pairs.append((nodes[i].id, nodes[j].id, score))
+        for block_nodes in blocks.values():
+            if len(block_nodes) < 2:
+                continue
+            for i in range(len(block_nodes)):
+                for j in range(i + 1, len(block_nodes)):
+                    score = block_nodes[i].matches(block_nodes[j])
+                    if score >= self._threshold:
+                        pairs.append((block_nodes[i].id, block_nodes[j].id, score))
         pairs.sort(key=lambda p: p[2], reverse=True)
         return pairs
+
+    def _blocking_key(self, node: Hypernode) -> str:
+        if node.data is None:
+            return "none"
+        if isinstance(node.data, dict):
+            return f"dict:{','.join(sorted(node.data.keys())[:5])}"
+        return type(node.data).__name__
 
     def merge_equivalences(self) -> list[str]:
         merged: list[str] = []

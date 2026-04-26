@@ -214,6 +214,7 @@ class Interpretation:
     node_id: str
     amplitude: float
     metadata: dict[str, Any] = field(default_factory=dict)
+    label: str = ""
 
     @property
     def probability(self) -> float:
@@ -231,7 +232,9 @@ class QuantumState:
     entanglement_ids: list[str] = field(default_factory=list)
 
     def add_interpretation(self, node_id: str, amplitude: float, **meta: Any) -> None:
-        self.interpretations.append(Interpretation(node_id=node_id, amplitude=amplitude, metadata=meta))
+        label = meta.pop("label", "")
+        interp = Interpretation(node_id=node_id, amplitude=amplitude, metadata=meta, label=label)
+        self.interpretations.append(interp)
 
     def normalize(self) -> None:
         total = sum(i.amplitude ** 2 for i in self.interpretations)
@@ -312,7 +315,9 @@ class QuantumCognitiveLayer:
             amp = 1.0 / (len(node_ids) ** 0.5) if node_ids else 0.0
             amplitudes = [amp] * len(node_ids)
         for nid, amp in zip(node_ids, amplitudes):
-            qs.add_interpretation(nid, amp)
+            node = self._graph.get_node(nid)
+            lbl = node.label if node else ""
+            qs.add_interpretation(nid, amp, label=lbl)
         qs.normalize()
         self._states[qs.id] = qs
         return qs

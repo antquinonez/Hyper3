@@ -27,6 +27,7 @@ from hyper3.kernel import (
     SliceConfig,
     TraversalEngine,
 )
+from hyper3.overlay import HypergraphOverlay
 from hyper3.memory import CognitiveMemory
 from hyper3.rules import (
     AbductiveRule,

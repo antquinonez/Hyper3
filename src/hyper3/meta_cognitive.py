@@ -64,12 +64,43 @@ class MetaCognitiveLayer:
     def attach_rulial(self, rulial: RulialSpace) -> None:
         self._rulial = rulial
 
+    def _compute_fitness(self, graph: Hypergraph, evolution_metrics: EvolutionMetrics, log: EventLog) -> float:
+        total_nodes = graph.node_count
+        total_edges = graph.edge_count
+        if total_nodes == 0:
+            return 1.0
+
+        isolated = sum(1 for n in graph.nodes if len(graph.edges_for(n.id)) == 0)
+        connectivity = 1.0 - (isolated / total_nodes)
+
+        accessed_edges = sum(
+            1 for e in graph.edges
+            if any(
+                (node := graph.get_node(nid)) is not None and node.access_count > 0
+                for nid in e.target_ids
+            )
+        )
+        edge_utility = accessed_edges / max(total_edges, 1)
+
+        total_ops = evolution_metrics.total_refinements
+        recent_prunes = evolution_metrics.total_prunes
+        prune_health = 1.0 - min(recent_prunes / max(total_ops + 1, 1), 1.0)
+
+        recall_events = [e for e in log.query("recall") if e["timestamp"] > (time.time() - 3600)]
+        if recall_events:
+            hits = sum(1 for e in recall_events if e.get("details", {}).get("result_count", 0) > 0)
+            query_hit_rate = hits / len(recall_events)
+        else:
+            query_hit_rate = 1.0
+
+        return 0.3 * edge_utility + 0.3 * connectivity + 0.2 * prune_health + 0.2 * query_hit_rate
+
     def assess_state(self, rules: list[Rule] | None = None) -> CognitiveStateModel:
         state = CognitiveStateModel(timestamp=time.time())
 
         metrics = self._evolution.metrics
         total_ops = metrics.total_merges + metrics.total_prunes + metrics.total_refinements
-        state.architectural_fitness = 1.0 - (metrics.total_prunes / max(total_ops + 1, 1)) * 0.1
+        state.architectural_fitness = self._compute_fitness(self._graph, metrics, self._log)
 
         state.computational_efficiency = {
             "merge_rate": metrics.total_merges / max(total_ops, 1),
@@ -250,6 +281,59 @@ class MetaCognitiveLayer:
 
         self._metamorphosis_history.append(plan)
         return plan
+
+    def execute_metamorphosis(self, plan: MetamorphosisPlan) -> dict[str, Any]:
+        results: dict[str, Any] = {}
+        for action in plan.actions:
+            action_type = action.get("action", "") if isinstance(action, dict) else str(action)
+            if action_type == "adjust_evolution_parameters":
+                results["adjust_evolution"] = self._adjust_evolution()
+            elif action_type == "run_rule_discovery":
+                results["rule_discovery"] = self._run_rule_discovery()
+            elif action_type == "increase_connectivity":
+                results["increase_connectivity"] = self._increase_connectivity()
+            elif action_type == "optimize_weights":
+                results["optimize_weights"] = self._optimize_weights()
+            else:
+                results[action_type] = "unknown_action"
+        return results
+
+    def _adjust_evolution(self) -> dict[str, Any]:
+        decay = self._evolution._decay_threshold
+        merge = self._evolution._equivalence._threshold
+        if self._state.architectural_fitness < 0.5:
+            self._evolution._decay_threshold = min(decay * 1.5, 0.5)
+            self._evolution._equivalence._threshold = max(merge - 0.1, 0.5)
+        return {"decay_threshold": self._evolution._decay_threshold, "merge_threshold": self._evolution._equivalence._threshold}
+
+    def _run_rule_discovery(self) -> dict[str, Any]:
+        if self._discovery:
+            discovered = self._discovery.discover_all()
+            return {"discovered_patterns": len(discovered)}
+        return {"discovered_patterns": 0}
+
+    def _increase_connectivity(self) -> dict[str, Any]:
+        isolated = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) == 0]
+        return {"isolated_nodes": len(isolated)}
+
+    def _optimize_weights(self) -> dict[str, Any]:
+        reinforced = 0
+        for node in self._graph.nodes:
+            if node.access_count > 2:
+                node.weight = min(node.weight * 1.1, 100.0)
+                reinforced += 1
+        return {"reinforced": reinforced}
+
+    def auto_metamorphosis(self) -> dict[str, Any]:
+        fitness = self._compute_fitness(self._graph, self._evolution.metrics, self._log)
+        self._state.architectural_fitness = fitness
+        if fitness < 0.6:
+            triggers = self.check_metamorphosis_triggers()
+            if triggers:
+                plan = self.propose_metamorphosis(triggers)
+                if plan is not None:
+                    return self.execute_metamorphosis(plan)
+        return {"fitness": fitness, "actions_taken": 0}
 
     @property
     def state(self) -> CognitiveStateModel:

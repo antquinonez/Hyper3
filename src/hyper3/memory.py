@@ -17,6 +17,7 @@ from hyper3.kernel import (
     SelfEvolutionEngine,
     TraversalEngine,
 )
+from hyper3.overlay import HypergraphOverlay
 from hyper3.causal import (
     CausalInvarianceEngine,
     CollapseTrigger,
@@ -89,6 +90,7 @@ class CognitiveMemory:
         self._temporal = TemporalReasoner(self._graph)
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
+        self._overlay: HypergraphOverlay | None = None
 
     @property
     def graph(self) -> Hypergraph:
@@ -244,6 +246,9 @@ class CognitiveMemory:
         max_depth: int = 3,
         max_total_states: int = 30,
         enforce_causal_invariance: bool = True,
+        use_overlay: bool = True,
+        confidence_decay: float = 0.9,
+        auto_commit: bool = True,
     ) -> dict[str, Any]:
         active_rules = rules or self._rules
         if not active_rules:
@@ -264,8 +269,15 @@ class CognitiveMemory:
         if not seed_ids:
             return {"error": "no seed nodes found", "states_created": 0}
 
+        if use_overlay:
+            if self._overlay is not None:
+                self._overlay.commit()
+            self._overlay = HypergraphOverlay(self._graph)
+
         report = self._multiway_engine.expand(
-            seed_ids, active_rules, max_depth=max_depth, max_total_states=max_total_states
+            seed_ids, active_rules, max_depth=max_depth, max_total_states=max_total_states,
+            overlay=self._overlay if use_overlay else None,
+            confidence_decay=confidence_decay,
         )
 
         if self._rulial and report.rules_applied > 0:
@@ -276,12 +288,13 @@ class CognitiveMemory:
             for name in applied_names:
                 self._rulial.record_rule_application(name)
 
+        target_graph = self._overlay if use_overlay and self._overlay else self._graph
         for state in self._multiway_engine.multiway.states:
             if state.rule_applied and state.produced_edge_ids:
                 prov_input_edges: list[str] = []
                 if state.match_bindings:
                     bvals = set(state.match_bindings.values())
-                    for edge in self._graph.edges:
+                    for edge in target_graph.edges:
                         if edge.id not in state.produced_edge_ids:
                             if edge.source_ids & bvals and edge.target_ids & bvals:
                                 prov_input_edges.append(edge.id)
@@ -309,14 +322,19 @@ class CognitiveMemory:
             self._rulial.update_position(active_rules)
             rulial_report = self._rulial.analyze()
 
+        auto_superpositions: list[QuantumState] = []
+        if use_overlay and self._overlay:
+            auto_superpositions = self._auto_superpose_inferences()
+
         self._log.record(
             "reason",
             seeds=list(seed_concepts),
             states=report.states_created,
             rules_applied=report.rules_applied,
             invariants=causal_report.get("invariants_found", 0),
+            overlay=use_overlay,
         )
-        return {
+        result: dict[str, Any] = {
             "expansion": {
                 "states_created": report.states_created,
                 "rules_applied": report.rules_applied,
@@ -330,6 +348,115 @@ class CognitiveMemory:
             "rulial": rulial_report,
             "multiway_leaves": self._multiway_engine.multiway.state_count,
         }
+        if use_overlay and self._overlay:
+            result["overlay"] = {
+                "node_count": len(self._overlay.overlay_node_ids),
+                "edge_count": len(self._overlay.overlay_edge_ids),
+            }
+            result["confidence"] = dict(report.confidence_map)
+            if auto_commit:
+                self._overlay.commit()
+                self._overlay = None
+        if auto_superpositions:
+            result["auto_superpositions"] = [
+                {"state_id": qs.id, "interpretations": qs.superposition_count}
+                for qs in auto_superpositions
+            ]
+        return result
+
+    def commit_inferences(self) -> dict[str, Any]:
+        if not self._overlay:
+            return {"committed_nodes": 0, "committed_edges": 0}
+        node_ids, edge_ids = self._overlay.commit()
+        self._log.record("commit_inferences", nodes=len(node_ids), edges=len(edge_ids))
+        self._overlay = None
+        return {"committed_nodes": len(node_ids), "committed_edges": len(edge_ids)}
+
+    def rollback_inferences(self) -> dict[str, Any]:
+        if not self._overlay:
+            return {"rolled_back": 0}
+        overlay = self._overlay
+        edge_count = len(overlay.overlay_edge_ids)
+        node_count = len(overlay.overlay_node_ids)
+        for eid in list(overlay.overlay_edge_ids):
+            self._provenance.retract(eid)
+        overlay.rollback()
+        self._overlay = None
+        self._log.record("rollback_inferences", nodes=node_count, edges=edge_count)
+        return {"rolled_back_nodes": node_count, "rolled_back_edges": edge_count}
+
+    def reason_incremental(
+        self,
+        new_node_labels: set[str],
+        rules: list[Rule] | None = None,
+        *,
+        max_depth: int = 2,
+        max_total_states: int = 50,
+    ) -> dict[str, Any]:
+        if self._multiway_engine is None:
+            return {"error": "no prior reasoning session", "states_created": 0}
+        active_rules = rules or self._rules
+        if not active_rules:
+            return {"error": "no rules defined", "states_created": 0}
+        new_node_ids: set[str] = set()
+        new_edge_ids: set[str] = set()
+        for label in new_node_labels:
+            node = self._find_node(label)
+            if node:
+                new_node_ids.add(node.id)
+        report = self._multiway_engine.expand_incremental(
+            new_node_ids, new_edge_ids, active_rules,
+            max_depth=max_depth, max_total_states=max_total_states,
+        )
+        self._log.record("reason_incremental", new_nodes=len(new_node_ids), states=report.states_created)
+        return {
+            "expansion": {
+                "states_created": report.states_created,
+                "rules_applied": report.rules_applied,
+                "nodes_produced": report.nodes_produced,
+                "edges_produced": report.edges_produced,
+            },
+        }
+
+    def find_paths(
+        self,
+        source_concept: str,
+        target_concept: str,
+        *,
+        edge_label: str | None = None,
+        max_depth: int = 5,
+        max_paths: int = 10,
+    ) -> list[list[str]]:
+        source = self._find_node(source_concept)
+        target = self._find_node(target_concept)
+        if not source or not target:
+            return []
+        return self._graph.find_paths(
+            source.id, target.id, edge_label=edge_label,
+            max_depth=max_depth, max_paths=max_paths,
+        )
+
+    def pattern_match(
+        self,
+        *,
+        edge_label: str | None = None,
+        source_label: str | None = None,
+        target_label: str | None = None,
+    ) -> list[dict[str, Any]]:
+        matches = self._graph.pattern_match(
+            edge_label=edge_label, source_label=source_label,
+            target_label=target_label,
+        )
+        results: list[dict[str, Any]] = []
+        for edge, bindings in matches:
+            results.append({
+                "edge_id": edge.id,
+                "label": edge.label,
+                "source_ids": list(edge.source_ids),
+                "target_ids": list(edge.target_ids),
+                "bindings": bindings,
+            })
+        return results
 
     def superpose(self, concepts: list[str], amplitudes: list[float] | None = None) -> QuantumState:
         node_ids: list[str] = []
@@ -404,11 +531,31 @@ class CognitiveMemory:
         if self._branchial:
             for state in self._multiway_engine.multiway.states:
                 if node.id in state.active_node_ids and state.is_leaf:
-                    return self._branchial.lateral_inference(state.id)
+                    raw = self._branchial.lateral_inference(state.id)
+                    return self._normalize_lateral_insights(raw)
         for state in self._multiway_engine.multiway.states:
             if node.id in state.active_node_ids and state.is_leaf:
-                return self._multiway_engine.get_lateral_insights(state.id)
+                raw = self._multiway_engine.get_lateral_insights(state.id)
+                return self._normalize_lateral_insights(raw)
         return []
+
+    def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        normalized: list[dict[str, Any]] = []
+        for insight in insights:
+            n = dict(insight)
+            if "novel_in_source" in n and "novel_nodes_in_source" not in n:
+                n["novel_nodes_in_source"] = n["novel_in_source"]
+            if "novel_in_lateral" in n and "novel_nodes_in_lateral" not in n:
+                n["novel_nodes_in_lateral"] = n["novel_in_lateral"]
+            if "novel_nodes_in_source" in n and "novel_in_source" not in n:
+                n["novel_in_source"] = n["novel_nodes_in_source"]
+            if "novel_nodes_in_lateral" in n and "novel_in_lateral" not in n:
+                n["novel_in_lateral"] = n["novel_nodes_in_lateral"]
+            n.setdefault("branchial_distance", 0.0)
+            n.setdefault("complementary_nodes", [])
+            n.setdefault("transferable_patterns", [])
+            normalized.append(n)
+        return normalized
 
     def reason_transfinite(self, concept: str, context: dict[str, Any] | None = None, *, max_level: int = 4) -> TransfiniteResult:
         return self._transfinite.reason_at_level(concept, context, max_level=max_level)
@@ -672,6 +819,189 @@ class CognitiveMemory:
         )
         return results
 
+    def export_json(self, path: str) -> None:
+        self._serializer.export_json(self._graph, path)
+        self._log.record("export_json", path=path)
+
+    def import_json(self, path: str) -> dict[str, Any]:
+        imported = self._serializer.import_json(path)
+        for node in imported.nodes:
+            if not self._graph.get_node(node.id):
+                self._graph.add_node(node)
+        for edge in imported.edges:
+            try:
+                if not self._graph.get_edge(edge.id):
+                    self._graph.add_edge(edge)
+            except Exception:
+                pass
+        self._log.record("import_json", path=path, nodes=imported.node_count, edges=imported.edge_count)
+        return {"nodes": imported.node_count, "edges": imported.edge_count}
+
+    def export_edgelist(self, path: str) -> None:
+        self._serializer.export_edgelist(self._graph, path)
+        self._log.record("export_edgelist", path=path)
+
+    def import_edgelist(self, path: str) -> dict[str, Any]:
+        imported = self._serializer.import_edgelist(path)
+        for edge in imported.edges:
+            try:
+                self._graph.add_edge(edge)
+            except Exception:
+                pass
+        self._log.record("import_edgelist", path=path, edges=imported.edge_count)
+        return {"edges": imported.edge_count}
+
+    def subgraph(self, concept_labels: set[str]) -> dict[str, Any]:
+        node_ids: set[str] = set()
+        for label in concept_labels:
+            node = self._find_node(label)
+            if node:
+                node_ids.add(node.id)
+        sg = self._graph.subgraph(node_ids)
+        return {"nodes": sg.node_count, "edges": sg.edge_count}
+
+    def degree_centrality(self) -> dict[str, float]:
+        return self._graph.degree_centrality()
+
+    def betweenness_centrality(self) -> dict[str, float]:
+        return self._graph.betweenness_centrality()
+
+    def connected_components(self) -> list[set[str]]:
+        return self._graph.connected_components()
+
+    def has_cycle(self) -> bool:
+        return self._graph.has_cycle()
+
+    def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
+        return self._graph.detect_cycles(max_cycles)
+
+    def shortest_path(self, source_concept: str, target_concept: str) -> list[str] | None:
+        source = self._find_node(source_concept)
+        target = self._find_node(target_concept)
+        if not source or not target:
+            return None
+        return self._graph.shortest_path(source.id, target.id)
+
+    def degree_distribution(self) -> dict[int, int]:
+        return self._graph.degree_distribution()
+
+    def find_paths_labels(self, source_concept: str, target_concept: str, **kwargs: Any) -> list[list[str]]:
+        raw_paths = self.find_paths(source_concept, target_concept, **kwargs)
+        return [[self._node_label(nid) for nid in path] for path in raw_paths]
+
+    def shortest_path_labels(self, source_concept: str, target_concept: str) -> list[str] | None:
+        raw = self.shortest_path(source_concept, target_concept)
+        if raw is None:
+            return None
+        return [self._node_label(nid) for nid in raw]
+
+    def degree_centrality_labels(self) -> dict[str, float]:
+        return {self._node_label(nid): score for nid, score in self._graph.degree_centrality().items()}
+
+    def betweenness_centrality_labels(self) -> dict[str, float]:
+        return {self._node_label(nid): score for nid, score in self._graph.betweenness_centrality().items()}
+
+    def connected_components_labels(self) -> list[set[str]]:
+        return [{self._node_label(nid) for nid in comp} for comp in self._graph.connected_components()]
+
+    def detect_cycles_labels(self, max_cycles: int = 10) -> list[list[str]]:
+        return [[self._node_label(nid) for nid in cycle] for cycle in self._graph.detect_cycles(max_cycles)]
+
+    def derive(self, target_concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
+        target = self._find_node(target_concept)
+        if not target:
+            return []
+        active_rules = rules or self._rules
+        results: list[dict[str, Any]] = []
+        for rule in active_rules:
+            derivations = rule.find_derivation(target.id, self._graph)
+            for d in derivations:
+                results.append({
+                    "rule": rule.name,
+                    "bindings": {k: self._node_label(v) for k, v in d.bindings.items()},
+                    "context": d.context,
+                })
+        return results
+
+    def _node_label(self, node_id: str) -> str:
+        node = self._graph.get_node(node_id)
+        return node.label if node else node_id[:8]
+
+    def reason_iterative(
+        self,
+        seed_concepts: set[str],
+        rules: list[Rule] | None = None,
+        *,
+        max_iterations: int = 3,
+        min_confidence: float = 0.3,
+        max_depth: int = 3,
+        max_total_states: int = 30,
+    ) -> dict[str, Any]:
+        active_rules = rules or self._rules
+        if not active_rules:
+            return {"error": "no rules defined", "states_created": 0}
+
+        iteration_results: list[dict[str, Any]] = []
+        total_new_edges = 0
+
+        for iteration in range(max_iterations):
+            result = self.reason(
+                seed_concepts, active_rules,
+                max_depth=max_depth,
+                max_total_states=max_total_states,
+                auto_commit=False,
+            )
+
+            if "error" in result:
+                break
+
+            iteration_results.append(result)
+            new_edges = result.get("overlay", {}).get("edge_count", 0)
+            total_new_edges += new_edges
+
+            confidence_map = result.get("confidence", {})
+            if confidence_map:
+                avg_conf = sum(confidence_map.values()) / len(confidence_map)
+                if avg_conf >= min_confidence or new_edges == 0:
+                    if new_edges > 0:
+                        self.commit_inferences()
+                    break
+
+            if new_edges > 0:
+                self.commit_inferences()
+            else:
+                break
+
+        self._log.record(
+            "reason_iterative",
+            seeds=list(seed_concepts),
+            iterations=len(iteration_results),
+            total_edges=total_new_edges,
+        )
+        return {
+            "iterations": len(iteration_results),
+            "total_edges_produced": total_new_edges,
+            "iteration_details": iteration_results,
+        }
+
+    def reason_with_frame(
+        self,
+        seed_concepts: set[str],
+        frame_name: str = "classical",
+        rules: list[Rule] | None = None,
+    ) -> dict[str, Any]:
+        frame_analysis = self._relativity.analyze_in_frame(
+            next(iter(seed_concepts), ""), frame_name
+        )
+        params = frame_analysis.parameters or {}
+        max_depth = params.get("max_depth", 3)
+        max_states = params.get("max_states", 20)
+        return self.reason(
+            seed_concepts, rules,
+            max_depth=max_depth,
+            max_total_states=max_states,
+        )
+
     @property
     def enricher(self) -> LLMEnricher:
         return self._enricher
@@ -708,12 +1038,28 @@ class CognitiveMemory:
     def provenance(self) -> ProvenanceTracker:
         return self._provenance
 
-    def save(self, path: str) -> None:
-        self._serializer.save(self._graph, self._log, path)
-        self._log.record("save", path=path)
+    @property
+    def overlay(self) -> HypergraphOverlay | None:
+        return self._overlay
+
+    @property
+    def embedding_engine(self) -> EmbeddingEngine | None:
+        return self._embedding_engine
+
+    def save(self, path: str, *, include_rules: bool = True) -> None:
+        if include_rules and self._rules:
+            self._serializer.save_with_rules(self._graph, self._log, self._rules, path)
+        else:
+            self._serializer.save(self._graph, self._log, path)
+        self._log.record("save", path=path, rules_saved=include_rules and len(self._rules) > 0)
 
     def load(self, path: str) -> None:
-        graph, log = self._serializer.load(path)
+        try:
+            graph, log, loaded_rules = self._serializer.load_with_rules(path)
+            self._rules = loaded_rules
+        except (KeyError, TypeError):
+            graph, log = self._serializer.load(path)
+            self._rules = []
         self._graph = graph
         self._log = log
         self._traversal = TraversalEngine(self._graph)
@@ -741,6 +1087,7 @@ class CognitiveMemory:
         self._temporal = TemporalReasoner(self._graph)
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
+        self._overlay = None
         self._cache.clear()
         for node in self._graph.nodes:
             self._cache.put(f"store:{node.label}", node.id)
@@ -762,10 +1109,36 @@ class CognitiveMemory:
                 "refinements": self._evolution.metrics.total_refinements,
             },
             "discovered_patterns": len(self._discovery.get_discovered_rules()),
+            "cycles": self._graph.has_cycle(),
+            "components": len(self._graph.connected_components()),
             "active_rules": len(self._rules),
+            "overlay_active": self._overlay is not None,
+            "overlay_edges": len(self._overlay.overlay_edge_ids) if self._overlay else 0,
             "rulial": self._rulial.analyze() if self._rulial else {},
             "meta_cognitive": self._meta.analyze(),
         }
+
+    def _auto_superpose_inferences(self) -> list[QuantumState]:
+        if not self._overlay:
+            return []
+        target_groups: dict[str, list[tuple[str, float]]] = {}
+        for eid in self._overlay.overlay_edge_ids:
+            edge = self._overlay.get_edge(eid)
+            if not edge or not edge.source_ids:
+                continue
+            for tid in edge.target_ids:
+                conf = self._overlay.get_confidence(eid)
+                source = next(iter(edge.source_ids))
+                target_groups.setdefault(tid, []).append((source, conf))
+        states: list[QuantumState] = []
+        for target_id, sources in target_groups.items():
+            if len(sources) < 2:
+                continue
+            node_ids = [s for s, _ in sources]
+            amplitudes = [c ** 0.5 for _, c in sources]
+            qs = self._quantum.create_superposition(node_ids, amplitudes)
+            states.append(qs)
+        return states
 
     def _find_node(self, label: str) -> Hypernode | None:
         cached_id = self._cache.get(f"store:{label}")
@@ -786,3 +1159,4 @@ class CognitiveMemory:
         self._operation_count += 1
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
             self.evolve()
+            self._meta.auto_metamorphosis()
