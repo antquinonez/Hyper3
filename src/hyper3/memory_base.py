@@ -26,6 +26,8 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.temporal import TemporalReasoner
 from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
+from hyper3.feedback import OperationFeedback
+from hyper3.constraints import BoundaryNavigator
 
 
 class _MemoryBase:
@@ -59,6 +61,8 @@ class _MemoryBase:
     _provenance: ProvenanceTracker
     _enricher: LLMEnricher
     _overlay: HypergraphOverlay | None
+    _feedback: OperationFeedback
+    _boundary_navigator: BoundaryNavigator | None
 
     def _find_node(self, label: str) -> Hypernode | None: ...
     def _node_label(self, node_id: str) -> str: ...

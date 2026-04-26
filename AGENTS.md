@@ -139,6 +139,8 @@ Frame selection shifts complexity by +1.0 to avoid zero-base issues, then applie
 - **Fitness never drops below 0.9**: The architectural fitness formula in `MetaCognitiveLayer` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
 - **Multiway expansion needs chains**: `TransitiveRule` only matches when there is a two-hop chain (A→B, B→C). Starting from a root node with no outgoing edges produces zero matches.
 - **EquivalenceEngine structural similarity**: Two nodes with no edges are structurally identical (score 1.0). Two nodes with no overlapping neighbors get structural score 0.0. The combined score can still exceed threshold via data similarity alone.
+- **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
+- **Quantum decoherence is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
 
 ## Performance Indexes
 
@@ -176,10 +178,18 @@ The following are already optimized — maintain them when making changes:
 - **embedding_graph.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
 - **feedback.py** — `OperationFeedback` tracks collapse, retrieval, inference, and evolution outcomes with accuracy/precision/acceptance metrics and fitness trend detection. `FeedbackSignal` dataclass for individual outcome records.
 
+## New Modules (Round 3 Additions — Gap Fill)
+
+- **snapshot.py** — `CognitiveSnapshot` dataclass for cross-session continuity. `capture()` freezes full memory state; `restore()` rebuilds from snapshot. Supports save/load to disk.
+- **frame_transform.py** — `FrameTransformer` defines 12 pair-wise transformation rules between classical/quantum/hypergraph/probabilistic frames. Returns `TransformedConfig` with transformed problem features.
+- **validation.py** — `ValidationEngine` compares simple vs enhanced reasoning with A/B testing. Produces `ValidationReport` with `AgreementMetrics` (precision, recall, F1, divergence).
+- **capabilities.py** — `CapabilityLevel` enum (BASIC/ENHANCED/ADVANCED) for staged implementation. `detect_capability_level()` inspects graph/engine state. `require_capability()` decorator gates functions.
+- **constraints.py** — `ConstraintCheck` ABC for boundary constraints. `BoundaryNavigator` checks and navigates constraints. Built-in: `NoSelfLoopConstraint`, `WeightInflationConstraint`, `ProvenanceDepthConstraint`.
+
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1019 tests must pass.
+2. Run the full test suite after changes. All 1235 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -269,6 +279,11 @@ src/hyper3/          Source code (flat, no sub-packages)
   overlay.py         HypergraphOverlay for inference layers
   enrichment.py      LLMEnricher, RegexExtractor
   feedback.py        OperationFeedback for outcome tracking
+  snapshot.py        CognitiveSnapshot for cross-session continuity
+  frame_transform.py FrameTransformer with 12 pair-wise transforms
+  validation.py      ValidationEngine with A/B comparison
+  capabilities.py    CapabilityLevel enum + detection + require_capability
+  constraints.py     ConstraintCheck ABC + BoundaryNavigator
   visualization.py   Optional matplotlib plotting
   __init__.py        Public API re-exports
 tests/               Test files (test_<module>.py naming)
@@ -297,7 +312,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 7. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1019
-- **Coverage**: 96%
+- **Tests**: 1235
+- **Coverage**: 95%
 - **Pyright**: 0 errors
 - **Examples**: 16 (3 basic, 5 intermediate, 5 advanced, 3 domain)

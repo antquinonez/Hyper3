@@ -100,7 +100,9 @@ class TestExecuteMetamorphosisEmptyPlan:
     def test_execute_optimize_weights(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("x")
-        node = mem.graph.nodes[0]
+        mem.store("y")
+        mem.relate("x", "y", label="rel")
+        node = mem.graph.get_node_by_label("x")
         node.access_count = 5
         plan = MetamorphosisPlan(actions=["optimize_weights"])
         result = mem.meta.execute_metamorphosis(plan)

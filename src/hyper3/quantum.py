@@ -137,6 +137,16 @@ class QuantumState:
         return self.age > self.coherence_time
 
 
+@dataclass
+class PotentialFieldConfig:
+    weight_field: float = 0.3
+    structural_field: float = 0.2
+    recency_field: float = 0.2
+    activation_field: float = 0.2
+    edge_field: float = 0.1
+    recency_half_life: float = 3600.0
+
+
 BUILTIN_BASES: dict[str, MeasurementBasis] = {
     "linguistic": MeasurementBasis(
         name="linguistic",
@@ -381,6 +391,91 @@ class QuantumCognitiveLayer:
             predictions.update(preds)
         return predictions
 
+    def compute_potential_field(
+        self,
+        qs_id: str,
+        activation_values: dict[str, float] | None = None,
+        config: PotentialFieldConfig | None = None,
+    ) -> dict[str, float]:
+        qs = self._states.get(qs_id)
+        if not qs or not qs.interpretations:
+            return {}
+        cfg = config or PotentialFieldConfig()
+        activations = activation_values or {}
+
+        node_weights: dict[str, float] = {}
+        node_degrees: dict[str, float] = {}
+        edge_sums: dict[str, float] = {}
+
+        max_weight = 0.0
+        max_degree = 0.0
+        max_edge_sum = 0.0
+
+        for interp in qs.interpretations:
+            nid = interp.node_id
+            node = self._graph.get_node(nid)
+            w = node.weight if node else 1.0
+            node_weights[nid] = w
+            if w > max_weight:
+                max_weight = w
+
+            edges = self._graph.edges_for(nid)
+            degree = len(edges)
+            node_degrees[nid] = float(degree)
+            if degree > max_degree:
+                max_degree = degree
+
+            edge_sum = sum(e.weight for e in edges)
+            edge_sums[nid] = edge_sum
+            if edge_sum > max_edge_sum:
+                max_edge_sum = edge_sum
+
+        now = time.time()
+        field: dict[str, float] = {}
+        for interp in qs.interpretations:
+            nid = interp.node_id
+            w_i = node_weights[nid] / max(max_weight, 1e-15)
+            s_i = node_degrees[nid] / max(max_degree, 1.0)
+            age = now - qs.created_at
+            r_i = math.exp(-age / max(cfg.recency_half_life, 1e-15))
+            a_i = activations.get(nid, 0.0)
+            e_i = edge_sums[nid] / max(max_edge_sum, 1e-15)
+            val = (
+                cfg.weight_field * w_i
+                + cfg.structural_field * s_i
+                + cfg.recency_field * r_i
+                + cfg.activation_field * a_i
+                + cfg.edge_field * e_i
+            )
+            field[nid] = val
+
+        total = sum(field.values())
+        if total > 0:
+            for nid in field:
+                field[nid] /= total
+        return field
+
+    def evolve_in_context(
+        self,
+        qs_id: str,
+        activation_values: dict[str, float] | None = None,
+        config: PotentialFieldConfig | None = None,
+    ) -> None:
+        field = self.compute_potential_field(qs_id, activation_values, config)
+        if not field:
+            return
+        self.evolve_amplitudes(qs_id, field)
+        qs = self._states.get(qs_id)
+        if not qs or not qs.interpretations:
+            return
+        max_prob = max(abs(i.amplitude) ** 2 for i in qs.interpretations)
+        if max_prob > 0.6:
+            qs.coherence_time = qs.base_coherence_time * 0.5
+        elif max_prob < 1.0 / max(len(qs.interpretations), 1) * 1.5:
+            qs.coherence_time = qs.base_coherence_time * 2.0
+        else:
+            qs.coherence_time = qs.base_coherence_time
+
     def get_state(self, qs_id: str) -> QuantumState | None:
         return self._states.get(qs_id)
 
@@ -436,3 +531,34 @@ class QuantumCognitiveLayer:
     @property
     def bases(self) -> dict[str, MeasurementBasis]:
         return dict(self._bases)
+
+    def decay_stale_states(self, max_age: float | None = None) -> list[str]:
+        decayed: list[str] = []
+        for qs in list(self._states.values()):
+            if qs.collapsed:
+                continue
+            age = qs.age
+            if max_age is not None and age < max_age:
+                continue
+            if not qs.is_decoherent:
+                continue
+            decay_factor = math.exp(-age / max(qs.coherence_time, 1e-15))
+            for interp in qs.interpretations:
+                interp.amplitude *= decay_factor
+            qs.normalize()
+            total_prob = sum(abs(i.amplitude) ** 2 for i in qs.interpretations)
+            if total_prob < 1e-12:
+                qs.collapsed = True
+                qs.collapsed_to = "__decayed__"
+                decayed.append(qs.id)
+        return decayed
+
+    def cleanup_collapsed(self, threshold_age: float = 3600.0) -> int:
+        now = time.time()
+        to_remove: list[str] = []
+        for qs_id, qs in self._states.items():
+            if qs.collapsed and (now - qs.created_at) > threshold_age:
+                to_remove.append(qs_id)
+        for qs_id in to_remove:
+            del self._states[qs_id]
+        return len(to_remove)

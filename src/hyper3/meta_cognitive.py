@@ -57,6 +57,13 @@ class MetaCognitiveLayer:
         self._introspection_log: list[dict[str, Any]] = []
         self._metamorphosis_history: list[MetamorphosisPlan] = []
         self._rulial: RulialSpace | None = None
+        self._rules: list[Rule] | None = None
+
+    def set_rulial(self, rulial: RulialSpace) -> None:
+        self._rulial = rulial
+
+    def set_rules(self, rules: list[Rule]) -> None:
+        self._rules = rules
 
     def attach_rulial(self, rulial: RulialSpace) -> None:
         self._rulial = rulial
@@ -297,6 +304,18 @@ class MetaCognitiveLayer:
                 results["increase_connectivity"] = self._increase_connectivity()
             elif action_type == "optimize_weights":
                 results["optimize_weights"] = self._optimize_weights()
+            elif action_type == "increase_merge_threshold":
+                results["increase_merge_threshold"] = self._increase_merge_threshold()
+            elif action_type == "expand_seed_set":
+                results["expand_seed_set"] = self._expand_seed_set()
+            elif action_type == "promote_pattern_to_rule":
+                results["promote_pattern_to_rule"] = self._promote_pattern_to_rule()
+            elif action_type == "update_rulial_position":
+                results["update_rulial_position"] = self._update_rulial_position()
+            elif action_type == "restructure_graph_dimensions":
+                results["restructure_graph_dimensions"] = self._restructure_graph_dimensions()
+            elif action_type == "recalibrate_modality_weights":
+                results["recalibrate_modality_weights"] = self._recalibrate_modality_weights()
             else:
                 results[action_type] = "unknown_action"
         return results
@@ -317,15 +336,165 @@ class MetaCognitiveLayer:
 
     def _increase_connectivity(self) -> dict[str, Any]:
         isolated = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) == 0]
-        return {"isolated_nodes": len(isolated)}
+        bridged = 0
+        for node in isolated:
+            candidates: list[tuple[Any, float]] = []
+            for other in self._graph.nodes:
+                if other.id == node.id:
+                    continue
+                if node.data is not None and other.data is not None:
+                    if type(node.data) == type(other.data):
+                        similarity = 1.0
+                    elif isinstance(node.data, dict) and isinstance(other.data, dict):
+                        shared_keys = set(node.data.keys()) & set(other.data.keys())
+                        similarity = len(shared_keys) / max(len(set(node.data.keys()) | set(other.data.keys())), 1)
+                    else:
+                        similarity = 0.0
+                else:
+                    common_tags = len(node.metadata.custom.keys() & other.metadata.custom.keys())
+                    similarity = common_tags / max(len(node.metadata.custom.keys() | other.metadata.custom.keys()), 1)
+                if similarity > 0:
+                    candidates.append((other, similarity))
+            candidates.sort(key=lambda x: x[1], reverse=True)
+            for target, sim in candidates[:3]:
+                if sim > 0:
+                    from hyper3.kernel import Hyperedge
+                    edge = Hyperedge(
+                        source_ids=frozenset({node.id}),
+                        target_ids=frozenset({target.id}),
+                        label="auto_bridge",
+                        weight=sim,
+                    )
+                    self._graph.add_edge(edge)
+                    bridged += 1
+                    break
+        return {"isolated_nodes": len(isolated), "bridged": bridged}
 
     def _optimize_weights(self) -> dict[str, Any]:
         reinforced = 0
+        smoothed = 0
+        edge_count: dict[str, int] = {}
         for node in self._graph.nodes:
-            if node.access_count > 2:
-                node.weight = min(node.weight * 1.1, 100.0)
+            for edge in self._graph.edges_for(node.id):
+                edge_count[edge.id] = edge_count.get(edge.id, 0) + 1
+        for edge in self._graph.edges:
+            sources = list(edge.source_ids)
+            if not sources:
+                continue
+            source_node = self._graph.get_node(sources[0])
+            if not source_node:
+                continue
+            if source_node.access_count > 2:
+                boost = min(0.1 * (1.0 + 0.05 * source_node.access_count), 0.5)
+                edge.weight = min(edge.weight * (1.0 + boost), 100.0)
                 reinforced += 1
-        return {"reinforced": reinforced}
+            neighbors: list[float] = []
+            for src_id in edge.source_ids:
+                for other_edge in self._graph.edges_for(src_id):
+                    if other_edge.id != edge.id:
+                        neighbors.append(other_edge.weight)
+            if neighbors:
+                avg_neighbor = sum(neighbors) / len(neighbors)
+                if abs(edge.weight - avg_neighbor) > avg_neighbor * 0.5:
+                    edge.weight = edge.weight * 0.7 + avg_neighbor * 0.3
+                    smoothed += 1
+        return {"reinforced": reinforced, "smoothed": smoothed}
+
+    def _increase_merge_threshold(self) -> dict[str, Any]:
+        current = self._evolution._equivalence._threshold
+        new_threshold = min(current + 0.05, 0.99)
+        self._evolution._equivalence._threshold = new_threshold
+        return {"old_threshold": current, "new_threshold": new_threshold}
+
+    def _expand_seed_set(self) -> dict[str, Any]:
+        poorly_connected = [
+            n for n in self._graph.nodes
+            if len(self._graph.edges_for(n.id)) < 2
+        ]
+        new_edges = 0
+        if self._rules:
+            for node in poorly_connected[:20]:
+                neighbors = self._graph.neighbors(node.id)
+                if len(neighbors) >= 2:
+                    for rule in self._rules:
+                        matches = rule.find_matches(self._graph, frozenset([node.id] + neighbors[:2]))
+                        for match in matches[:3]:
+                            _, edge_ids = rule.apply(self._graph, match)
+                            new_edges += len(edge_ids)
+        return {"poorly_connected": len(poorly_connected), "new_edges": new_edges}
+
+    def _promote_pattern_to_rule(self) -> dict[str, Any]:
+        if not self._rulial:
+            return {"promoted": False, "reason": "no rulial"}
+        patterns = self._rulial._meta_patterns
+        if not patterns:
+            return {"promoted": False, "reason": "no patterns"}
+        best = max(patterns, key=lambda p: p.significance)
+        if best.significance < 0.3:
+            return {"promoted": False, "reason": "insufficient significance", "significance": best.significance}
+        from hyper3.rules import TransitiveRule, InverseRule, CausalInferenceRule, ContextualSubstitutionRule
+        rule_map = {
+            "recurring_relation": TransitiveRule,
+            "chain_motif": TransitiveRule,
+            "hub_motif": CausalInferenceRule,
+            "mutual_information": CausalInferenceRule,
+            "cross_domain": ContextualSubstitutionRule,
+        }
+        rule_cls = rule_map.get(best.pattern_type, TransitiveRule)
+        new_rule = rule_cls()
+        if self._rules is not None:
+            self._rules.append(new_rule)
+        return {"promoted": True, "pattern_type": best.pattern_type, "rule_name": new_rule.name}
+
+    def _update_rulial_position(self) -> dict[str, Any]:
+        if not self._rulial:
+            return {"updated": False, "reason": "no rulial"}
+        pos = self._rulial.update_position(self._rules or [])
+        insights = self._rulial.generate_transcendental_insights()
+        return {
+            "updated": True,
+            "density": pos.computational_density,
+            "insights_generated": len(insights),
+        }
+
+    def _restructure_graph_dimensions(self) -> dict[str, Any]:
+        modality_counts: dict[Any, int] = {}
+        for node in self._graph.nodes:
+            for mod in node.metadata.modality_tags:
+                modality_counts[mod] = modality_counts.get(mod, 0) + 1
+        reassigned = 0
+        if modality_counts:
+            dominant = max(modality_counts, key=lambda m: modality_counts.get(m, 0))
+            for node in self._graph.nodes:
+                if not node.metadata.modality_tags:
+                    node.metadata.modality_tags = {dominant}
+                    reassigned += 1
+        return {"dominant_modality": str(dominant) if modality_counts else "none", "reassigned": reassigned}
+
+    def _recalibrate_modality_weights(self) -> dict[str, Any]:
+        from hyper3.kernel import Modality
+        weight_by_modality: dict[Modality, list[float]] = {}
+        for edge in self._graph.edges:
+            for source_id in edge.source_ids:
+                node = self._graph.get_node(source_id)
+                if node:
+                    for mod in node.metadata.modality_tags:
+                        weight_by_modality.setdefault(mod, []).append(edge.weight)
+        adjusted = 0
+        if weight_by_modality:
+            global_mean = sum(
+                sum(ws) for ws in weight_by_modality.values()
+            ) / max(sum(len(ws) for ws in weight_by_modality.values()), 1)
+            for mod, weights in weight_by_modality.items():
+                mod_mean = sum(weights) / max(len(weights), 1)
+                if abs(mod_mean - global_mean) > 0.5:
+                    for edge in self._graph.edges:
+                        for source_id in edge.source_ids:
+                            node = self._graph.get_node(source_id)
+                            if node and mod in node.metadata.modality_tags:
+                                edge.weight = edge.weight * 0.8 + global_mean * 0.2
+                                adjusted += 1
+        return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
     def auto_metamorphosis(self) -> dict[str, Any]:
         fitness = self._compute_fitness(self._graph, self._evolution.metrics, self._log)

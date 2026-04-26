@@ -18,7 +18,15 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.temporal import TemporalReasoner
 from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
+from hyper3.feedback import OperationFeedback
 from hyper3.persistence import Serializer
+from hyper3.snapshot import (
+    CognitiveSnapshot,
+    capture_snapshot,
+    restore_snapshot,
+    save_cognitive_state as _save_snapshot,
+    load_cognitive_state as _load_snapshot,
+)
 from hyper3.memory_base import _MemoryBase
 
 
@@ -98,10 +106,48 @@ class PersistenceMixin(_MemoryBase):
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
         self._overlay = None
+        self._feedback = OperationFeedback(self._graph)
         self._cache.clear()
         for node in self._graph.nodes:
             self._cache.put(f"store:{node.label}", node.id)
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)
+
+    def save_cognitive_state(self, path: str) -> None:
+        snapshot = capture_snapshot(
+            quantum=self._quantum,
+            multiway_engine=self._multiway_engine,
+            branchial=self._branchial,
+            rulial=self._rulial,
+            provenance=self._provenance,
+            retrieval=self._retrieval,
+            relativity=self._relativity,
+            meta=self._meta,
+            cache=self._cache,
+            feedback=self._feedback,
+        )
+        _save_snapshot(path, snapshot)
+        self._log.record("save_cognitive_state", path=path)
+
+    def load_cognitive_state(self, path: str) -> None:
+        snapshot = _load_snapshot(path)
+        multiway_engine, branchial, rulial = restore_snapshot(
+            snapshot=snapshot,
+            graph=self._graph,
+            quantum=self._quantum,
+            provenance=self._provenance,
+            retrieval=self._retrieval,
+            relativity=self._relativity,
+            meta=self._meta,
+            cache=self._cache,
+            rules=self._rules,
+            feedback=self._feedback,
+        )
+        self._multiway_engine = multiway_engine
+        self._branchial = branchial
+        self._rulial = rulial
+        if rulial is not None:
+            self._meta.set_rulial(rulial)
+        self._log.record("load_cognitive_state", path=path)
 
     def stats(self) -> dict[str, Any]:
         return {

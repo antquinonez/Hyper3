@@ -54,6 +54,7 @@ from hyper3.quantum import (
     Interpretation,
     InterferencePattern,
     MeasurementBasis,
+    PotentialFieldConfig,
     QuantumCognitiveLayer,
     QuantumEntanglement,
     QuantumState,
@@ -61,6 +62,7 @@ from hyper3.quantum import (
 from hyper3.persistence import Serializer
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
 from hyper3.multiway_branchial import (
+    AnalogyProposal,
     BranchialCluster,
     BranchialCoordinates,
     BranchialDistanceMetrics,
@@ -77,17 +79,29 @@ from hyper3.multiway_rulial import (
     TranscendentalInsight,
 )
 from hyper3.transfinite import (
+    Axiom,
+    AxiomSet,
     BoundaryIndicator,
     BoundaryRegion,
     PartialProof,
     TransfiniteReasoner,
     TransfiniteResult,
 )
+from hyper3.frame_transform import (
+    FrameTransformer,
+    TransformedConfig,
+)
 from hyper3.relativity import (
     ComputationalFrame,
     ComputationalRelativity,
+    ConsensusResult,
+    DisagreementRegion,
     FrameAnalysis,
+    FrameMetrics,
     FrameTransformation,
+    InvariantDetector,
+    InvariantSet,
+    ProblemFeatures,
 )
 from hyper3.meta_cognitive import (
     CognitiveStateModel,
@@ -139,7 +153,26 @@ from hyper3.enrichment import (
     LLMProvider,
     RegexExtractor,
 )
+from hyper3.capabilities import (
+    CapabilityLevel,
+    detect_capability_level,
+    require_capability,
+)
+from hyper3.constraints import (
+    BoundaryNavigator,
+    ConstraintCheck,
+    NoSelfLoopConstraint,
+    ProvenanceDepthConstraint,
+    WeightInflationConstraint,
+)
 from hyper3.feedback import (
     FeedbackSignal,
     OperationFeedback,
+)
+from hyper3.snapshot import CognitiveSnapshot
+from hyper3.validation import (
+    AgreementMetrics,
+    ReasoningSummary,
+    ValidationEngine,
+    ValidationReport,
 )

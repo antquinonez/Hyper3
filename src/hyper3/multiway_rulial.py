@@ -220,6 +220,20 @@ class RulialSpace:
         scored.sort(key=lambda x: x[1], reverse=True)
         return scored[:top_k]
 
+    def get_recommended_rules(self) -> list[str]:
+        effectiveness = self.get_rule_effectiveness()
+        if not effectiveness:
+            return []
+        scored = [(name, stats["retention_rate"]) for name, stats in effectiveness.items()]
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [name for name, _ in scored]
+
+    def get_rule_priority(self, rule_name: str) -> float:
+        eff = self.get_rule_effectiveness()
+        if rule_name not in eff:
+            return 0.5
+        return eff[rule_name]["retention_rate"]
+
     @property
     def rule_outcomes(self) -> dict[str, dict[str, int]]:
         return {k: dict(v) for k, v in self._rule_outcomes.items()}
@@ -468,6 +482,47 @@ class RulialSpace:
     @property
     def meta_patterns(self) -> list[MetaComputationalPattern]:
         return list(self._meta_patterns)
+
+    def compute_density_map(self, resolution: int = 10) -> list[list[float]]:
+        positions = self._position_history
+        if not positions:
+            return [[0.0] * resolution for _ in range(resolution)]
+        all_coords: list[list[float]] = []
+        for pos in positions:
+            if pos.branchial_coordinates:
+                coords = pos.branchial_coordinates[:2] if len(pos.branchial_coordinates) >= 2 else pos.branchial_coordinates + [0.0]
+                all_coords.append(coords)
+        if not all_coords:
+            return [[0.0] * resolution for _ in range(resolution)]
+        flat = [c for coords in all_coords for c in coords]
+        min_val = min(flat)
+        max_val = max(flat)
+        rng = max(max_val - min_val, 1e-10)
+        grid = [[0.0] * resolution for _ in range(resolution)]
+        for coords in all_coords:
+            x = min(int((coords[0] - min_val) / rng * (resolution - 1)), resolution - 1)
+            y = min(int((coords[1] - min_val) / rng * (resolution - 1)), resolution - 1)
+            total_weight = sum(
+                sum(pos.rule_application_frequency.values())
+                for pos in positions
+                if pos.branchial_coordinates and pos.branchial_coordinates[:2] == coords
+            )
+            grid[y][x] += max(total_weight, 1.0)
+        max_density = max(max(row) for row in grid)
+        if max_density > 0:
+            for r in range(resolution):
+                for c in range(resolution):
+                    grid[r][c] /= max_density
+        return grid
+
+    def identify_frontiers(self, min_density: float = 0.1, max_density: float = 0.4) -> list[tuple[float, float]]:
+        grid = self.compute_density_map()
+        frontiers: list[tuple[float, float]] = []
+        for r, row in enumerate(grid):
+            for c, val in enumerate(row):
+                if min_density <= val <= max_density:
+                    frontiers.append((float(r), float(c)))
+        return frontiers
 
     def analyze(self) -> dict[str, Any]:
         return {

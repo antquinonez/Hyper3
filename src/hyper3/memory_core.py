@@ -109,6 +109,19 @@ class CoreMixin(_MemoryBase):
             label=label,
             data=edge_data,
         )
+
+        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+            violations = self._boundary_navigator.validate_edge(edge, self._graph)
+            if violations:
+                self._log.record(
+                    "relate_rejected",
+                    source=source_concept,
+                    target=target_concept,
+                    label=label,
+                    violations=violations,
+                )
+                return None
+
         self._graph.add_edge(edge)
 
         if bidirectional:
@@ -118,6 +131,18 @@ class CoreMixin(_MemoryBase):
                 label=label,
                 data=edge_data,
             )
+            if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+                rev_violations = self._boundary_navigator.validate_edge(rev, self._graph)
+                if rev_violations:
+                    self._graph.remove_edge(edge.id)
+                    self._log.record(
+                        "relate_rejected",
+                        source=target_concept,
+                        target=source_concept,
+                        label=label,
+                        violations=rev_violations,
+                    )
+                    return None
             self._graph.add_edge(rev)
 
         self._log.record(

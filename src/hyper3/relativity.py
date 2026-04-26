@@ -8,7 +8,28 @@ from typing import Any
 
 import numpy as np
 
-from hyper3.kernel import Hypergraph, Hypernode
+from hyper3.kernel import Hypergraph, Hypernode, Modality
+from hyper3.frame_transform import FrameTransformer
+
+
+@dataclass
+class ProblemFeatures:
+    graph_density: float = 0.0
+    seed_degree: float = 0.0
+    modality_diversity: float = 0.0
+    temporal_range: float = 0.0
+    avg_weight: float = 0.0
+    connectivity: float = 0.0
+
+    def to_vector(self) -> np.ndarray:
+        return np.array([
+            self.graph_density,
+            self.seed_degree,
+            self.modality_diversity,
+            self.temporal_range,
+            self.avg_weight,
+            self.connectivity,
+        ])
 
 
 @dataclass
@@ -41,6 +62,123 @@ class FrameTransformation:
     transformation_cost: float = 0.0
     information_preserved: float = 1.0
     parameter_changes: dict[str, Any] | None = None
+
+
+@dataclass
+class InvariantSet:
+    invariant_nodes: set[str] = field(default_factory=set)
+    invariant_edges: set[str] = field(default_factory=set)
+    frame_unique: dict[str, set[str]] = field(default_factory=dict)
+    confidence: float = 0.0
+    frame_count: int = 0
+
+
+@dataclass
+class DisagreementRegion:
+    center_node: str
+    frames_agreeing: list[str] = field(default_factory=list)
+    frames_disagreeing: list[str] = field(default_factory=list)
+    disagreement_type: str = "reachability"
+
+
+@dataclass
+class ConsensusResult:
+    agreed_nodes: set[str] = field(default_factory=set)
+    agreed_edges: set[str] = field(default_factory=set)
+    frame_results: dict[str, FrameAnalysis] = field(default_factory=dict)
+    disagreement_regions: list[DisagreementRegion] = field(default_factory=list)
+    confidence: float = 0.0
+    strategy_used: str = "intersection"
+
+
+@dataclass
+class FrameMetrics:
+    curvature: float = 0.0
+    frame_dragging: float = 0.0
+    redshift: float = 0.0
+
+
+class InvariantDetector:
+    def __init__(self, relativity: ComputationalRelativity) -> None:
+        self._relativity = relativity
+
+    def find_invariants(
+        self,
+        seed_ids: list[str],
+        graph: Hypergraph,
+    ) -> InvariantSet:
+        frame_reachability: dict[str, set[str]] = {}
+        frame_edges: dict[str, set[str]] = {}
+        all_frames = list(self._relativity._frames.keys())
+        for frame_name in all_frames:
+            max_depth = 3
+            min_weight = 0.0
+            if seed_ids:
+                concept_node = graph.get_node(seed_ids[0])
+                concept = concept_node.label if concept_node else ""
+                analysis = self._relativity.analyze_in_frame(concept, frame_name)
+                params = analysis.parameters or {}
+                max_depth = int(params.get("max_depth", 3))
+                if frame_name == "probabilistic":
+                    min_weight = 0.3
+                elif frame_name == "quantum":
+                    max_depth = max(max_depth, 4)
+                elif frame_name == "hypergraph":
+                    min_weight = 0.1
+            reachable: set[str] = set(seed_ids)
+            edges_used: set[str] = set()
+            frontier = list(seed_ids)
+            visited: set[str] = set(seed_ids)
+            for _ in range(max_depth):
+                next_frontier: list[str] = []
+                for nid in frontier:
+                    for edge in graph.edges_for(nid):
+                        if edge.weight < min_weight:
+                            continue
+                        for tgt in edge.target_ids:
+                            if tgt not in visited:
+                                visited.add(tgt)
+                                next_frontier.append(tgt)
+                            reachable.add(tgt)
+                        edges_used.add(edge.id)
+                frontier = next_frontier
+            frame_reachability[frame_name] = reachable
+            frame_edges[frame_name] = edges_used
+
+        if not frame_reachability:
+            return InvariantSet(frame_count=0)
+
+        invariant_nodes = set.intersection(*frame_reachability.values())
+        invariant_edges = set.intersection(*frame_edges.values())
+
+        all_nodes = set.union(*frame_reachability.values())
+        frame_unique: dict[str, set[str]] = {}
+        for fname, nodes in frame_reachability.items():
+            unique = nodes - invariant_nodes
+            if unique:
+                frame_unique[fname] = unique
+
+        confidence = len(invariant_nodes) / max(len(all_nodes), 1)
+        return InvariantSet(
+            invariant_nodes=invariant_nodes,
+            invariant_edges=invariant_edges,
+            frame_unique=frame_unique,
+            confidence=confidence,
+            frame_count=len(all_frames),
+        )
+
+    def mark_invariants(self, invariant_set: InvariantSet, graph: Hypergraph) -> None:
+        for node_id in invariant_set.invariant_nodes:
+            node = graph.get_node(node_id)
+            if node:
+                node.metadata.custom["invariant"] = True
+                node.metadata.custom["invariant_confidence"] = invariant_set.confidence
+        for edge_id in invariant_set.invariant_edges:
+            for edge in graph.edges:
+                if edge.id == edge_id:
+                    edge.metadata.custom["invariant"] = True
+                    edge.metadata.custom["invariant_confidence"] = invariant_set.confidence
+                    break
 
 
 FRAME_TEMPLATES: dict[str, ComputationalFrame] = {
@@ -77,6 +215,8 @@ class ComputationalRelativity:
         self._frames: dict[str, ComputationalFrame] = dict(FRAME_TEMPLATES)
         self._transformations: list[FrameTransformation] = []
         self._frame_outcomes: dict[str, dict[str, int]] = {}
+        self._problem_history: list[tuple[np.ndarray, str, bool]] = []
+        self._transformer = FrameTransformer()
 
     def add_frame(self, frame: ComputationalFrame) -> None:
         self._frames[frame.name] = frame
@@ -118,16 +258,84 @@ class ComputationalRelativity:
 
         return FrameAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="unknown_frame")
 
-    def multi_frame_analysis(self, concept: str) -> dict[str, FrameAnalysis]:
+    def multi_frame_analysis(
+        self,
+        concept: str,
+        strategy: str = "best",
+    ) -> dict[str, FrameAnalysis]:
         results: dict[str, FrameAnalysis] = {}
         for frame_name in self._frames:
             results[frame_name] = self.analyze_in_frame(concept, frame_name)
+        if strategy == "top2_rrf" and len(results) >= 2:
+            sorted_frames = sorted(results, key=lambda n: results[n].complexity)[:2]
+            merged = self._merge_top2_rrf(results, sorted_frames)
+            for name in sorted_frames:
+                results[name] = merged.get(name, results[name])
         return results
+
+    def _merge_top2_rrf(
+        self,
+        analyses: dict[str, FrameAnalysis],
+        top2: list[str],
+    ) -> dict[str, FrameAnalysis]:
+        node_ranks: dict[str, dict[str, int]] = {}
+        for rank_idx, frame_name in enumerate(top2):
+            analysis = analyses[frame_name]
+            params = analysis.parameters or {}
+            targets: list[str] = []
+            if frame_name == "classical":
+                targets = [str(params.get("max_depth", 3))]
+            elif frame_name == "quantum":
+                targets = [str(params.get("max_states", 20))]
+            elif frame_name == "hypergraph":
+                targets = [str(params.get("hyper_edge_ratio", 0))]
+            elif frame_name == "probabilistic":
+                targets = [str(params.get("neighbor_count", 0))]
+            for t in targets:
+                if t not in node_ranks:
+                    node_ranks[t] = {}
+                node_ranks[t][frame_name] = rank_idx + 1
+
+        rrf_scores: dict[str, float] = {}
+        for target, frame_ranks in node_ranks.items():
+            score = sum(1.0 / (60 + r) for r in frame_ranks.values())
+            rrf_scores[target] = score
+
+        merged: dict[str, FrameAnalysis] = {}
+        for frame_name in top2:
+            analysis = analyses[frame_name]
+            merged[frame_name] = FrameAnalysis(
+                frame_name=frame_name,
+                complexity=analysis.complexity,
+                solution_approach=analysis.solution_approach + "+rrf",
+                strengths=analysis.strengths + ["rrf_merged"],
+                weaknesses=analysis.weaknesses,
+                parameters={**(analysis.parameters or {}), "rrf_score": rrf_scores.get(frame_name, 0.0)},
+            )
+        return merged
 
     def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
         analyses = self.multi_frame_analysis(concept)
         best_name = min(analyses, key=lambda n: analyses[n].complexity)
         return best_name, analyses[best_name]
+
+    def transform_config(
+        self,
+        concept: str,
+        from_frame: str,
+        to_frame: str,
+        max_depth: int = 3,
+        max_total_states: int = 30,
+    ) -> Any:
+        from hyper3.frame_transform import TransformedConfig
+        analysis = self.analyze_in_frame(concept, from_frame)
+        params = analysis.parameters or {}
+        return self._transformer.transform(
+            from_frame, to_frame,
+            max_depth=max_depth,
+            max_total_states=max_total_states,
+            parameters=params,
+        )
 
     def transform_between_frames(self, concept: str, frame_a: str, frame_b: str) -> FrameTransformation:
         analysis_a = self.analyze_in_frame(concept, frame_a)
@@ -414,6 +622,95 @@ class ComputationalRelativity:
     def transformations(self) -> list[FrameTransformation]:
         return list(self._transformations)
 
+    def extract_problem_features(self, seed_ids: list[str]) -> ProblemFeatures:
+        total_nodes = self._graph.node_count
+        total_edges = self._graph.edge_count
+        graph_density = total_edges / max(total_nodes * (total_nodes - 1), 1)
+
+        seed_degree = 0.0
+        modality_counts: dict[str, int] = {}
+        weight_sum = 0.0
+        weight_count = 0
+        connected_pairs = 0
+        total_pairs = 0
+
+        for sid in seed_ids:
+            edges = self._graph.edges_for(sid)
+            targets: set[str] = set()
+            for e in edges:
+                targets.update(e.target_ids)
+                weight_sum += e.weight
+                weight_count += 1
+                for tgt in e.target_ids:
+                    tgt_node = self._graph.get_node(tgt)
+                    if tgt_node:
+                        for mod in tgt_node.metadata.modality_tags:
+                            key = mod.value if isinstance(mod, Modality) else str(mod)
+                            modality_counts[key] = modality_counts.get(key, 0) + 1
+            seed_degree += len(targets)
+
+            for other_id in seed_ids:
+                if sid >= other_id:
+                    continue
+                total_pairs += 1
+                other_edges = self._graph.edges_for(other_id)
+                other_targets = {t for e in other_edges for t in e.target_ids}
+                if sid in other_targets or other_id in targets:
+                    connected_pairs += 1
+
+        seed_degree = seed_degree / max(len(seed_ids), 1)
+
+        modality_diversity = 0.0
+        if modality_counts:
+            total_m = sum(modality_counts.values())
+            probs = np.array([c / total_m for c in modality_counts.values()])
+            modality_diversity = float(-np.sum(probs * np.log2(probs + 1e-15)))
+
+        avg_weight = weight_sum / max(weight_count, 1)
+        connectivity = connected_pairs / max(total_pairs, 1)
+
+        return ProblemFeatures(
+            graph_density=graph_density,
+            seed_degree=seed_degree,
+            modality_diversity=modality_diversity,
+            avg_weight=avg_weight,
+            connectivity=connectivity,
+        )
+
+    def record_problem_outcome(self, features: ProblemFeatures, frame: str, success: bool) -> None:
+        self._problem_history.append((features.to_vector(), frame, success))
+
+    def recommend_frame(self, seed_ids: list[str]) -> str | None:
+        if not self._problem_history:
+            return None
+        current = self.extract_problem_features(seed_ids).to_vector()
+        current_norm = np.linalg.norm(current)
+        if current_norm < 1e-12:
+            return None
+
+        similarities: list[tuple[float, str, bool]] = []
+        for vec, frame, success in self._problem_history:
+            vec_norm = np.linalg.norm(vec)
+            if vec_norm < 1e-12:
+                continue
+            sim = float(np.dot(current, vec) / (current_norm * vec_norm))
+            similarities.append((sim, frame, success))
+
+        similarities.sort(key=lambda x: x[0], reverse=True)
+        top_k = similarities[:5]
+
+        frame_scores: dict[str, float] = {}
+        for sim, frame, success in top_k:
+            weight = sim
+            if frame not in frame_scores:
+                frame_scores[frame] = 0.0
+            if success:
+                frame_scores[frame] += weight
+
+        if not frame_scores:
+            return None
+        return max(frame_scores, key=lambda f: frame_scores[f])
+
     def record_frame_outcome(self, frame_name: str, success: bool) -> None:
         if frame_name not in self._frame_outcomes:
             self._frame_outcomes[frame_name] = {"selections": 0, "successes": 0}
@@ -456,3 +753,182 @@ class ComputationalRelativity:
             "transformations_computed": len(self._transformations),
             "frame_effectiveness": self.get_frame_effectiveness(),
         }
+
+    def compute_consensus(
+        self,
+        seed_ids: list[str],
+        strategy: str = "intersection",
+    ) -> ConsensusResult:
+        frame_reachability: dict[str, set[str]] = {}
+        frame_analyses: dict[str, FrameAnalysis] = {}
+        for frame_name in self._frames:
+            max_depth = 3
+            min_weight = 0.0
+            if seed_ids:
+                concept_node = self._graph.get_node(seed_ids[0])
+                concept = concept_node.label if concept_node else ""
+                analysis = self.analyze_in_frame(concept, frame_name)
+                frame_analyses[frame_name] = analysis
+                params = analysis.parameters or {}
+                max_depth = int(params.get("max_depth", 3))
+                if frame_name == "probabilistic":
+                    min_weight = 0.3
+                elif frame_name == "quantum":
+                    max_depth = max(max_depth, 4)
+                elif frame_name == "hypergraph":
+                    min_weight = 0.1
+            reachable: set[str] = set(seed_ids)
+            frontier = list(seed_ids)
+            visited: set[str] = set(seed_ids)
+            for _ in range(max_depth):
+                next_frontier: list[str] = []
+                for nid in frontier:
+                    for edge in self._graph.edges_for(nid):
+                        if edge.weight < min_weight:
+                            continue
+                        for tgt in edge.target_ids:
+                            if tgt not in visited:
+                                visited.add(tgt)
+                                next_frontier.append(tgt)
+                            reachable.add(tgt)
+                frontier = next_frontier
+            frame_reachability[frame_name] = reachable
+
+        if not frame_reachability:
+            return ConsensusResult(strategy_used=strategy)
+
+        all_nodes = set.union(*frame_reachability.values()) if frame_reachability else set()
+        intersection = set.intersection(*frame_reachability.values()) if frame_reachability else set()
+
+        disagreements: list[DisagreementRegion] = []
+        for nid in all_nodes - intersection:
+            agreeing = [f for f, nodes in frame_reachability.items() if nid in nodes]
+            disagreeing = [f for f in frame_reachability if f not in agreeing]
+            node_obj = self._graph.get_node(nid)
+            label = node_obj.label if node_obj else nid[:8]
+            disagreements.append(DisagreementRegion(
+                center_node=label,
+                frames_agreeing=agreeing,
+                frames_disagreeing=disagreeing,
+            ))
+
+        resolved = self.resolve_disagreement(
+            frame_reachability, strategy,
+        )
+
+        confidence = len(resolved) / max(len(all_nodes), 1)
+
+        return ConsensusResult(
+            agreed_nodes=resolved,
+            agreed_edges=set(),
+            frame_results=frame_analyses,
+            disagreement_regions=disagreements,
+            confidence=confidence,
+            strategy_used=strategy,
+        )
+
+    def resolve_disagreement(
+        self,
+        frame_reachability: dict[str, set[str]],
+        strategy: str,
+    ) -> set[str]:
+        if not frame_reachability:
+            return set()
+        all_sets = list(frame_reachability.values())
+        if strategy == "intersection":
+            return set.intersection(*all_sets)
+        elif strategy == "union":
+            return set.union(*all_sets)
+        elif strategy == "majority":
+            n = len(all_sets)
+            threshold = n // 2 + 1
+            counts: dict[str, int] = {}
+            for s in all_sets:
+                for nid in s:
+                    counts[nid] = counts.get(nid, 0) + 1
+            return {nid for nid, c in counts.items() if c >= threshold}
+        elif strategy == "weighted":
+            effectiveness = self.get_frame_effectiveness()
+            weighted_counts: dict[str, float] = {}
+            for frame_name, nodes in frame_reachability.items():
+                weight = effectiveness.get(frame_name, 0.5)
+                for nid in nodes:
+                    weighted_counts[nid] = weighted_counts.get(nid, 0.0) + weight
+            if not weighted_counts:
+                return set()
+            threshold = sum(effectiveness.get(f, 0.5) for f in frame_reachability) / 2
+            return {nid for nid, s in weighted_counts.items() if s >= threshold}
+        return set.intersection(*all_sets)
+
+    def compute_curvature(self, seed_ids: list[str]) -> float:
+        if not seed_ids:
+            return 0.0
+        concept_node = self._graph.get_node(seed_ids[0])
+        concept = concept_node.label if concept_node else ""
+        analyses = self.multi_frame_analysis(concept)
+        complexities = [a.complexity for a in analyses.values() if a.complexity != float("inf")]
+        if len(complexities) < 2:
+            return 0.0
+        mean_c = sum(complexities) / len(complexities)
+        variance = sum((c - mean_c) ** 2 for c in complexities) / len(complexities)
+        return min(float(variance ** 0.5), 1.0)
+
+    def compute_frame_dragging(self, seed_ids: list[str], from_frame: str, to_frame: str) -> float:
+        if not seed_ids:
+            return 0.0
+        from_reachable: set[str] = set(seed_ids)
+        from_visited: set[str] = set(seed_ids)
+        frontier = list(seed_ids)
+        for _ in range(3):
+            next_f: list[str] = []
+            for nid in frontier:
+                for edge in self._graph.edges_for(nid):
+                    for tgt in edge.target_ids:
+                        if tgt not in from_visited:
+                            from_visited.add(tgt)
+                            next_f.append(tgt)
+                        from_reachable.add(tgt)
+            frontier = next_f
+
+        to_reachable: set[str] = set(seed_ids)
+        to_visited: set[str] = set(seed_ids)
+        frontier = list(seed_ids)
+        to_params = self.analyze_in_frame(
+            (_n := self._graph.get_node(seed_ids[0])) and _n.label or "",
+            to_frame,
+        ).parameters or {}
+        max_depth = int(to_params.get("max_depth", 3))
+        min_weight = 0.3 if to_frame == "probabilistic" else 0.1 if to_frame == "hypergraph" else 0.0
+        for _ in range(max_depth):
+            next_f: list[str] = []
+            for nid in frontier:
+                for edge in self._graph.edges_for(nid):
+                    if edge.weight < min_weight:
+                        continue
+                    for tgt in edge.target_ids:
+                        if tgt not in to_visited:
+                            to_visited.add(tgt)
+                            next_f.append(tgt)
+                        to_reachable.add(tgt)
+            frontier = next_f
+
+        if not from_reachable:
+            return 0.0
+        overlap = len(from_reachable & to_reachable)
+        return overlap / max(len(from_reachable), 1)
+
+    def compute_redshift(self, seed_ids: list[str], frame: str) -> float:
+        if not seed_ids:
+            return 0.0
+        concept_node = self._graph.get_node(seed_ids[0])
+        concept = concept_node.label if concept_node else ""
+        analysis = self.analyze_in_frame(concept, frame)
+        transformed = self._transformer.transform("classical", frame)
+        return max(0.0, min(1.0, analysis.complexity * transformed.information_loss + analysis.complexity * 0.5))
+
+    def compute_frame_metrics(self, seed_ids: list[str]) -> FrameMetrics:
+        return FrameMetrics(
+            curvature=self.compute_curvature(seed_ids),
+            frame_dragging=self.compute_frame_dragging(seed_ids, "classical", "quantum"),
+            redshift=self.compute_redshift(seed_ids, "classical"),
+        )

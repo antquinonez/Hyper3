@@ -169,6 +169,16 @@ class MultiwayEngine:
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
         self._multiway = MultiwayGraph()
+        self._rulial: Any | None = None
+
+    def set_rulial(self, rulial: Any) -> None:
+        self._rulial = rulial
+
+    def _sort_rules_by_effectiveness(self, rules: list[Rule]) -> list[Rule]:
+        if not self._rulial:
+            return rules
+        rulial = self._rulial
+        return sorted(rules, key=lambda r: rulial.get_rule_priority(r.name), reverse=True)
 
     @property
     def multiway(self) -> MultiwayGraph:
@@ -383,8 +393,9 @@ class MultiwayEngine:
         confidence_decay: float = 0.9,
     ) -> list[str]:
         target_graph = overlay if overlay is not None else self._graph
+        sorted_rules = self._sort_rules_by_effectiveness(rules)
         all_matches: list[tuple[Rule, RuleMatch]] = []
-        for rule in rules:
+        for rule in sorted_rules:
             matches = rule.find_matches(target_graph, state.active_node_ids)
             for match in matches:
                 all_matches.append((rule, match))

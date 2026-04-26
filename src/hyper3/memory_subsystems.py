@@ -336,3 +336,24 @@ class SubsystemMixin(_MemoryBase):
     @property
     def enricher(self) -> LLMEnricher:
         return self._enricher
+
+    def validate_reasoning(
+        self,
+        seed_concepts: set[str],
+        rules: list[Any] | None = None,
+    ) -> Any:
+        from hyper3.validation import ValidationEngine
+        engine = ValidationEngine(self)
+        return engine.run_comparison(seed_concepts, rules)
+
+    def validate_comprehensive(
+        self,
+        test_cases: list[set[str]] | None = None,
+    ) -> list[Any]:
+        from hyper3.validation import ValidationEngine
+        engine = ValidationEngine(self)
+        return engine.run_validation_suite(test_cases)
+
+    def detect_capability(self):
+        from hyper3.capabilities import detect_capability_level
+        return detect_capability_level(self)

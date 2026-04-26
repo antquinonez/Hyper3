@@ -10,6 +10,7 @@ from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
 from hyper3.provenance import ProvenanceTracker
 from hyper3.quantum import QuantumState
+from hyper3.relativity import InvariantDetector
 from hyper3.memory_base import _MemoryBase
 
 
@@ -24,6 +25,8 @@ class ReasoningMixin(_MemoryBase):
         self._causal_engine = CausalInvarianceEngine(self._graph, self._multiway_engine.multiway)
         self._branchial = BranchialSpace(self._graph, self._multiway_engine.multiway)
         self._rulial = RulialSpace(self._graph, self._multiway_engine)
+        self._multiway_engine.set_rulial(self._rulial)
+        self._rulial_rule_productions: dict[str, list[str]] = {}
 
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
         seed_ids: set[str] = set()
@@ -36,12 +39,16 @@ class ReasoningMixin(_MemoryBase):
     def _record_rulial_applications(self, active_rules: list[Rule]) -> None:
         if not self._rulial or not self._multiway_engine:
             return
-        applied_names = set()
+        applied_names: dict[str, list[str]] = {}
         for state in self._multiway_engine.multiway.states:
-            if state.rule_applied:
-                applied_names.add(state.rule_applied)
-        for name in applied_names:
+            if state.rule_applied and state.produced_edge_ids:
+                applied_names.setdefault(state.rule_applied, []).extend(state.produced_edge_ids)
+        for name, edge_ids in applied_names.items():
             self._rulial.record_rule_application(name)
+        if self._rulial:
+            self._rulial_rule_productions = applied_names
+        for name in applied_names:
+            self._rulial.record_rule_outcome(name, "applied")
 
     def _record_provenance(self, target_graph: Hypergraph | Any) -> None:
         if not self._multiway_engine:
@@ -129,12 +136,40 @@ class ReasoningMixin(_MemoryBase):
             if auto_commit:
                 self._overlay.commit()
                 self._overlay = None
+                self._track_rule_effectiveness()
         if auto_superpositions:
             result["auto_superpositions"] = [
                 {"state_id": qs.id, "interpretations": qs.superposition_count}
                 for qs in auto_superpositions
             ]
         return result
+
+    def reason_with_consensus(
+        self,
+        seed_concepts: set[str],
+        rules: list[Rule] | None = None,
+    ) -> dict[str, Any]:
+        seed_ids = list(self._resolve_seeds(seed_concepts))
+        if not seed_ids:
+            return {"error": "no seed nodes found", "invariant_nodes": 0}
+
+        detector = InvariantDetector(self._relativity)
+        inv_set = detector.find_invariants(seed_ids, self._graph)
+        detector.mark_invariants(inv_set, self._graph)
+
+        active_rules = rules or self._rules
+        reason_result: dict[str, Any] = {}
+        if active_rules:
+            reason_result = self.reason(seed_concepts, rules)
+
+        return {
+            "invariant_nodes": len(inv_set.invariant_nodes),
+            "invariant_edges": len(inv_set.invariant_edges),
+            "confidence": inv_set.confidence,
+            "frame_count": inv_set.frame_count,
+            "frame_unique_counts": {k: len(v) for k, v in inv_set.frame_unique.items()},
+            "reasoning": reason_result,
+        }
 
     def reason(
         self,
@@ -193,6 +228,7 @@ class ReasoningMixin(_MemoryBase):
         if not self._overlay:
             return {"committed_nodes": 0, "committed_edges": 0}
         node_ids, edge_ids = self._overlay.commit()
+        self._track_rule_effectiveness()
         self._log.record("commit_inferences", nodes=len(node_ids), edges=len(edge_ids))
         self._overlay = None
         return {"committed_nodes": len(node_ids), "committed_edges": len(edge_ids)}
@@ -306,17 +342,38 @@ class ReasoningMixin(_MemoryBase):
         frame_name: str = "classical",
         rules: list[Rule] | None = None,
     ) -> dict[str, Any]:
-        frame_analysis = self._relativity.analyze_in_frame(
-            next(iter(seed_concepts), ""), frame_name
-        )
-        params = frame_analysis.parameters or {}
-        max_depth = params.get("max_depth", 3)
-        max_states = params.get("max_states", 20)
-        return self.reason(
+        seed_ids = self._resolve_seeds(seed_concepts)
+        features = self._relativity.extract_problem_features(list(seed_ids))
+
+        concept = next(iter(seed_concepts), "")
+        transformed = self._relativity.transform_config(concept, "classical", frame_name)
+        max_depth = transformed.max_depth
+        max_states = transformed.max_total_states
+
+        result = self.reason(
             seed_concepts, rules,
             max_depth=max_depth,
             max_total_states=max_states,
         )
+
+        success = False
+        if "overlay" in result:
+            edge_count = result["overlay"].get("edge_count", 0)
+            confidence_map = result.get("confidence", {})
+            high_conf = sum(1 for c in confidence_map.values() if c > 0.5)
+            success = edge_count > 0 and (high_conf > 0 or not confidence_map)
+        elif "error" not in result:
+            new_edges = result.get("new_edges_produced", 0)
+            success = new_edges > 0
+
+        self._relativity.record_frame_outcome(frame_name, success)
+        self._relativity.record_problem_outcome(features, frame_name, success)
+        result["frame_config"] = {
+            "algorithm": transformed.algorithm,
+            "information_loss": transformed.information_loss,
+            "preserved_properties": transformed.preserved_properties,
+        }
+        return result
 
     def derive(self, target_concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
         target = self._find_node(target_concept)
@@ -377,3 +434,18 @@ class ReasoningMixin(_MemoryBase):
             qs = self._quantum.create_superposition(node_ids, amplitudes)
             states.append(qs)
         return states
+
+    def _track_rule_effectiveness(self) -> None:
+        productions = getattr(self, "_rulial_rule_productions", None)
+        if not productions or not self._rulial:
+            return
+        for rule_name, edge_ids in productions.items():
+            for eid in edge_ids:
+                edge = self._graph.get_edge(eid)
+                if edge is None:
+                    self._rulial.record_rule_outcome(rule_name, "pruned")
+                else:
+                    self._rulial.record_rule_outcome(rule_name, "useful")
+                    if edge.weight > 1.0:
+                        self._rulial.record_rule_outcome(rule_name, "reinforced")
+        self._rulial_rule_productions = {}

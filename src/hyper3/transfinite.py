@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import math
+import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
@@ -52,6 +54,26 @@ class TransfiniteResult:
     reasoning_level: int = 1
 
 
+@dataclass
+class Axiom:
+    name: str
+    description: str
+    assumption: str
+    coverage_gain: float = 0.0
+    source_edge_id: str = ""
+
+
+@dataclass
+class AxiomSet:
+    axioms: dict[str, Axiom] = field(default_factory=dict)
+    provenance: dict[str, str] = field(default_factory=dict)
+
+    def add(self, axiom: Axiom) -> None:
+        self.axioms[axiom.name] = axiom
+        if axiom.source_edge_id:
+            self.provenance[axiom.name] = axiom.source_edge_id
+
+
 UNDECIDABLE_PATTERNS: list[dict[str, Any]] = [
     {"type": "halting_problem", "indicators": {"self_reference": 0.9, "diagonalization_risk": 0.8}},
     {"type": "godel_incompleteness", "indicators": {"self_reference": 0.95, "universal_quantification": 0.7}},
@@ -68,6 +90,11 @@ class PartialProof:
     branches_explored: int = 0
     coverage: float = 0.0
     bounds: dict[str, Any] = field(default_factory=dict)
+    axioms_used: AxiomSet = field(default_factory=AxiomSet)
+    coverage_lower: float = 0.0
+    coverage_upper: float = 0.0
+    branch_coverage: dict[str, float] = field(default_factory=dict)
+    axiom_dependent_nodes: list[str] = field(default_factory=list)
 
     @property
     def coverage_pct(self) -> float:
@@ -81,6 +108,8 @@ class TransfiniteReasoner:
         self._graph = graph
         self._boundary_regions: list[BoundaryRegion] = []
         self._reasoning_history: list[TransfiniteResult] = []
+        self._boundary_cache: dict[str, tuple[float, BoundaryIndicator]] = {}
+        self._boundary_cache_ttl: float = 300.0
 
     def assess_decidability(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
         indicator = BoundaryIndicator()
@@ -360,36 +389,12 @@ class TransfiniteReasoner:
         indicator: BoundaryIndicator,
     ) -> list[dict[str, Any]]:
         results = self._standard_reasoning(concept, context)
-        node = self._find_concept_node(concept)
-        extended: list[str] = []
-        total_branches = 0
-        branches_explored = 0
-        if node:
-            for edge in self._graph.edges_for(node.id):
-                for nid in edge.target_ids:
-                    n = self._graph.get_node(nid)
-                    if n:
-                        total_branches += 1
-                        for e2 in self._graph.edges_for(n.id):
-                            for nid2 in e2.target_ids:
-                                n2 = self._graph.get_node(nid2)
-                                if n2 and n2.label not in extended:
-                                    extended.append(n2.label)
-                                    branches_explored += 1
-        coverage = (branches_explored / total_branches * 100.0) if total_branches > 0 else 0.0
-        pp = PartialProof(
-            concept=concept,
-            expanded_nodes=extended[:10],
-            total_branches_estimated=total_branches,
-            branches_explored=branches_explored,
-            coverage=coverage,
-            bounds={"lower": coverage * 0.9, "upper": min(coverage * 1.1, 100.0)},
-        )
+        pp = self._build_partial_proof(concept)
         results.append({
             "status": "transfinite",
             "boundary_score": indicator.boundary_score,
             "approach": "partial_result_generation",
-            "extended_neighborhood": extended[:10],
+            "extended_neighborhood": pp.expanded_nodes[:10],
             "partial_proof": {
                 "concept": pp.concept,
                 "expanded_nodes": pp.expanded_nodes,
@@ -398,6 +403,9 @@ class TransfiniteReasoner:
                 "coverage": pp.coverage,
                 "coverage_pct": pp.coverage_pct,
                 "bounds": pp.bounds,
+                "coverage_lower": pp.coverage_lower,
+                "coverage_upper": pp.coverage_upper,
+                "branch_coverage": pp.branch_coverage,
             },
         })
         return results
@@ -446,6 +454,170 @@ class TransfiniteReasoner:
             if n:
                 labels.append(n.label)
         return labels
+
+    def _chernoff_bounds(self, observed_rate: float, n_samples: int, delta: float = 0.05) -> tuple[float, float]:
+        if n_samples <= 0:
+            return (0.0, 1.0)
+        epsilon = math.sqrt(math.log(2.0 / max(delta, 1e-15)) / (2.0 * n_samples))
+        lower = max(0.0, observed_rate - epsilon)
+        upper = min(1.0, observed_rate + epsilon)
+        return (lower, upper)
+
+    def _build_partial_proof(self, concept: str) -> PartialProof:
+        node = self._find_concept_node(concept)
+        if not node:
+            return PartialProof(concept=concept)
+        extended: list[str] = []
+        total_branches = 0
+        branches_explored = 0
+        branch_cov: dict[str, float] = {}
+        for edge in self._graph.edges_for(node.id):
+            for nid in edge.target_ids:
+                n = self._graph.get_node(nid)
+                if n:
+                    total_branches += 1
+                    for e2 in self._graph.edges_for(n.id):
+                        for nid2 in e2.target_ids:
+                            n2 = self._graph.get_node(nid2)
+                            if n2 and n2.label not in extended:
+                                extended.append(n2.label)
+                                branches_explored += 1
+                                if n.label not in branch_cov:
+                                    branch_cov[n.label] = 0.0
+                                branch_cov[n.label] += 1.0
+        coverage = min((branches_explored / total_branches * 100.0), 100.0) if total_branches > 0 else 0.0
+        rate = coverage / 100.0
+        lower, upper = self._chernoff_bounds(rate, max(branches_explored, 1))
+        lower_pct = min(lower * 100.0, coverage)
+        upper_pct = min(upper * 100.0, 100.0)
+        for label in branch_cov:
+            branch_cov[label] = branch_cov[label] / max(branches_explored, 1)
+        return PartialProof(
+            concept=concept,
+            expanded_nodes=extended[:20],
+            total_branches_estimated=total_branches,
+            branches_explored=branches_explored,
+            coverage=coverage,
+            bounds={"lower": lower_pct, "upper": upper_pct},
+            coverage_lower=lower_pct,
+            coverage_upper=upper_pct,
+            branch_coverage=branch_cov,
+        )
+
+    def extend_proof(self, proof: PartialProof, axiom: Axiom) -> PartialProof:
+        new_axioms = AxiomSet()
+        for name, ax in proof.axioms_used.axioms.items():
+            new_axioms.add(ax)
+        new_axioms.add(axiom)
+        node = self._find_concept_node(proof.concept)
+        axiom_nodes: list[str] = []
+        if node:
+            for edge in self._graph.edges:
+                for src in edge.source_ids:
+                    if src == node.id:
+                        for tgt in edge.target_ids:
+                            tgt_node = self._graph.get_node(tgt)
+                            if tgt_node and tgt_node.label not in proof.expanded_nodes:
+                                axiom_nodes.append(tgt_node.label)
+        combined_expanded = list(dict.fromkeys(proof.expanded_nodes + axiom_nodes))
+        new_branches = proof.branches_explored + len(axiom_nodes)
+        new_total = proof.total_branches_estimated + len(axiom_nodes)
+        coverage = min((new_branches / new_total * 100.0), 100.0) if new_total > 0 else 0.0
+        rate = coverage / 100.0
+        lower, upper = self._chernoff_bounds(rate, max(new_branches, 1))
+        lower_pct = min(lower * 100.0, coverage)
+        upper_pct = min(upper * 100.0, 100.0)
+        return PartialProof(
+            concept=proof.concept,
+            expanded_nodes=combined_expanded[:20],
+            total_branches_estimated=new_total,
+            branches_explored=new_branches,
+            coverage=coverage,
+            bounds={"lower": lower_pct, "upper": upper_pct},
+            axioms_used=new_axioms,
+            coverage_lower=lower_pct,
+            coverage_upper=upper_pct,
+            branch_coverage=dict(proof.branch_coverage),
+            axiom_dependent_nodes=list(set(proof.axiom_dependent_nodes + axiom_nodes)),
+        )
+
+    def compose_proofs(self, proof_a: PartialProof, proof_b: PartialProof) -> PartialProof:
+        merged_nodes = list(dict.fromkeys(proof_a.expanded_nodes + proof_b.expanded_nodes))
+        merged_total = proof_a.total_branches_estimated + proof_b.total_branches_estimated
+        merged_explored = proof_a.branches_explored + proof_b.branches_explored
+        coverage = min((merged_explored / merged_total * 100.0), 100.0) if merged_total > 0 else 0.0
+        rate = coverage / 100.0
+        lower, upper = self._chernoff_bounds(rate, max(merged_explored, 1))
+        lower_pct = min(lower * 100.0, coverage)
+        upper_pct = min(upper * 100.0, 100.0)
+        merged_axioms = AxiomSet()
+        for name, axiom in proof_a.axioms_used.axioms.items():
+            merged_axioms.add(axiom)
+        for name, axiom in proof_b.axioms_used.axioms.items():
+            merged_axioms.add(axiom)
+        merged_branch_cov = dict(proof_a.branch_coverage)
+        for label, cov in proof_b.branch_coverage.items():
+            merged_branch_cov[label] = merged_branch_cov.get(label, 0.0) + cov
+        dependent = list(set(proof_a.axiom_dependent_nodes + proof_b.axiom_dependent_nodes))
+        return PartialProof(
+            concept=f"{proof_a.concept}+{proof_b.concept}",
+            expanded_nodes=merged_nodes[:30],
+            total_branches_estimated=merged_total,
+            branches_explored=merged_explored,
+            coverage=coverage,
+            bounds={"lower": lower_pct, "upper": upper_pct},
+            axioms_used=merged_axioms,
+            coverage_lower=lower_pct,
+            coverage_upper=upper_pct,
+            branch_coverage=merged_branch_cov,
+            axiom_dependent_nodes=dependent,
+        )
+
+    def suggest_axioms(self, concept: str, top_k: int = 5) -> list[Axiom]:
+        node = self._find_concept_node(concept)
+        if not node:
+            return []
+        reachable: set[str] = set()
+        for edge in self._graph.edges_for(node.id):
+            reachable.update(edge.target_ids)
+        all_nodes = {n.id for n in self._graph.nodes}
+        frontier = all_nodes - reachable - {node.id}
+        candidates: list[tuple[float, Axiom]] = []
+        for nid in frontier:
+            target = self._graph.get_node(nid)
+            if not target:
+                continue
+            bridging_edges = self._graph.edges_for(nid)
+            gain = len(bridging_edges) / max(self._graph.node_count, 1)
+            axiom = Axiom(
+                name=f"bridge_{nid[:8]}",
+                description=f"Assume reachability to {target.label}",
+                assumption=f"{concept} -> {target.label}",
+                coverage_gain=gain,
+            )
+            candidates.append((gain, axiom))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+        return [a for _, a in candidates[:top_k]]
+
+    def precompute_boundaries(self, concepts: list[str]) -> dict[str, BoundaryIndicator]:
+        results: dict[str, BoundaryIndicator] = {}
+        now = time.time()
+        for concept in concepts:
+            if concept in self._boundary_cache:
+                cached_time, cached_indicator = self._boundary_cache[concept]
+                if now - cached_time < self._boundary_cache_ttl:
+                    results[concept] = cached_indicator
+                    continue
+            indicator = self.assess_decidability(concept)
+            self._boundary_cache[concept] = (now, indicator)
+            results[concept] = indicator
+        return results
+
+    def invalidate_boundary_cache(self, concept: str | None = None) -> None:
+        if concept is None:
+            self._boundary_cache.clear()
+        else:
+            self._boundary_cache.pop(concept, None)
 
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         self._boundary_regions.clear()

@@ -1,0 +1,358 @@
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from hyper3.memory import CognitiveMemory
+    from hyper3.rules import Rule
+
+
+@dataclass
+class ReasoningSummary:
+    nodes_produced: set[str] = field(default_factory=set)
+    edges_produced: set[str] = field(default_factory=set)
+    avg_confidence: float = 0.0
+    coverage: float = 0.0
+    time_ms: float = 0.0
+
+
+@dataclass
+class AgreementMetrics:
+    node_jaccard: float = 0.0
+    edge_jaccard: float = 0.0
+    consistency: float = 0.0
+    precision: float = 0.0
+    recall: float = 0.0
+    f1: float = 0.0
+
+
+@dataclass
+class ValidationReport:
+    simple_results: ReasoningSummary = field(default_factory=ReasoningSummary)
+    enhanced_results: ReasoningSummary = field(default_factory=ReasoningSummary)
+    agreement: AgreementMetrics = field(default_factory=AgreementMetrics)
+    novel_findings: list[dict[str, Any]] = field(default_factory=list)
+    contradictions: list[dict[str, Any]] = field(default_factory=list)
+    enhanced_overhead_ms: float = 0.0
+    recommendation: str = "equivalent"
+
+
+class ValidationEngine:
+    def __init__(self, memory: Any) -> None:
+        self._memory = memory
+        self._history: list[ValidationReport] = []
+
+    def run_comparison(
+        self,
+        seed_concepts: set[str],
+        rules: list[Rule] | None = None,
+    ) -> ValidationReport:
+        active_rules = rules or self._memory._rules
+        if not active_rules:
+            return ValidationReport()
+
+        simple_summary = self._run_simple(seed_concepts, active_rules)
+        enhanced_summary = self._run_enhanced(seed_concepts, active_rules)
+        agreement = self._compute_agreement(simple_summary, enhanced_summary)
+        novel = self._find_novel(simple_summary, enhanced_summary)
+        contradictions = self._find_contradictions(simple_summary, enhanced_summary)
+
+        enhanced_summary.time_ms = max(enhanced_summary.time_ms, 0.001)
+        simple_summary.time_ms = max(simple_summary.time_ms, 0.001)
+        overhead = enhanced_summary.time_ms - simple_summary.time_ms
+
+        recommendation = self._recommend(agreement, simple_summary, enhanced_summary)
+
+        report = ValidationReport(
+            simple_results=simple_summary,
+            enhanced_results=enhanced_summary,
+            agreement=agreement,
+            novel_findings=novel,
+            contradictions=contradictions,
+            enhanced_overhead_ms=overhead,
+            recommendation=recommendation,
+        )
+        self._history.append(report)
+        return report
+
+    def _run_simple(
+        self,
+        seed_concepts: set[str],
+        rules: list[Rule],
+    ) -> ReasoningSummary:
+        start = time.perf_counter()
+        nodes: set[str] = set()
+        edges: set[str] = set()
+
+        seed_ids: set[str] = set()
+        for concept in seed_concepts:
+            node = self._memory._find_node(concept)
+            if node:
+                seed_ids.add(node.id)
+        active_nodes = frozenset(seed_ids)
+
+        pre_edges = {e.id for e in self._memory._graph.edges}
+        pre_nodes = {n.id for n in self._memory._graph.nodes}
+
+        for rule in rules:
+            matches = rule.find_matches(self._memory._graph, active_nodes)
+            for match in matches:
+                node_ids, edge_ids_list = rule.apply(self._memory._graph, match)
+                for eid in edge_ids_list:
+                    edges.add(eid)
+                for nid in node_ids:
+                    nodes.add(nid)
+
+        new_edges = {e.id for e in self._memory._graph.edges} - pre_edges
+        new_nodes = {n.id for n in self._memory._graph.nodes} - pre_nodes
+        for eid in list(new_edges):
+            self._memory._graph.remove_edge(eid)
+
+        elapsed = (time.perf_counter() - start) * 1000.0
+
+        total_reachable = len(seed_ids)
+        for sid in seed_ids:
+            for edge in self._memory._graph.edges_for(sid):
+                total_reachable += len(edge.target_ids)
+        coverage = len(nodes) / max(total_reachable, 1)
+
+        confidence = self._compute_confidence(edges)
+
+        return ReasoningSummary(
+            nodes_produced=nodes,
+            edges_produced=edges,
+            avg_confidence=confidence,
+            coverage=coverage,
+            time_ms=elapsed,
+        )
+
+    def _run_enhanced(
+        self,
+        seed_concepts: set[str],
+        rules: list[Rule],
+    ) -> ReasoningSummary:
+        start = time.perf_counter()
+
+        pre_edges = {e.id for e in self._memory._graph.edges}
+        pre_nodes = {n.id for n in self._memory._graph.nodes}
+
+        result = self._memory.reason(
+            seed_concepts, rules,
+            auto_commit=True,
+        )
+
+        elapsed = (time.perf_counter() - start) * 1000.0
+
+        post_edges = {e.id for e in self._memory._graph.edges}
+        post_nodes = {n.id for n in self._memory._graph.nodes}
+
+        nodes = post_nodes - pre_nodes
+        edges = post_edges - pre_edges
+
+        expansion = result.get("expansion", {})
+        nodes_produced_count = expansion.get("nodes_produced", 0)
+        edges_produced_count = expansion.get("edges_produced", 0)
+
+        seed_ids: set[str] = set()
+        for concept in seed_concepts:
+            node = self._memory._find_node(concept)
+            if node:
+                seed_ids.add(node.id)
+        total_reachable = len(seed_ids)
+        for sid in seed_ids:
+            for edge in self._memory._graph.edges_for(sid):
+                total_reachable += len(edge.target_ids)
+        coverage = nodes_produced_count / max(total_reachable, 1)
+
+        confidence = self._compute_confidence(edges)
+
+        return ReasoningSummary(
+            nodes_produced=nodes,
+            edges_produced=edges,
+            avg_confidence=confidence,
+            coverage=coverage,
+            time_ms=elapsed,
+        )
+
+    def _compute_confidence(self, edge_ids: set[str]) -> float:
+        if not edge_ids:
+            return 0.0
+        weights: list[float] = []
+        depths: list[int] = []
+        for eid in edge_ids:
+            edge = self._memory._graph.get_edge(eid)
+            if edge:
+                weights.append(edge.weight)
+                depth = edge.metadata.custom.get("provenance_depth", 0)
+                depths.append(depth)
+        if not weights:
+            return 0.0
+        avg_weight = sum(weights) / len(weights)
+        depth_penalty = 1.0 / (1.0 + max(depths) * 0.1) if depths else 1.0
+        consistency_bonus = 1.0
+        if len(weights) > 1:
+            mean = sum(weights) / len(weights)
+            variance = sum((w - mean) ** 2 for w in weights) / len(weights)
+            std_dev = variance ** 0.5
+            cv = std_dev / max(mean, 1e-15)
+            consistency_bonus = 1.0 / (1.0 + cv)
+        return min(avg_weight * depth_penalty * consistency_bonus, 1.0)
+
+    def _compute_agreement(
+        self,
+        simple: ReasoningSummary,
+        enhanced: ReasoningSummary,
+    ) -> AgreementMetrics:
+        sn = simple.nodes_produced
+        en = enhanced.nodes_produced
+        node_union = sn | en
+        node_intersection = sn & en
+        node_jaccard = len(node_intersection) / max(len(node_union), 1)
+
+        se = simple.edges_produced
+        ee = enhanced.edges_produced
+        edge_union = se | ee
+        edge_intersection = se & ee
+        edge_jaccard = len(edge_intersection) / max(len(edge_union), 1)
+
+        consistency = len(edge_intersection) / max(len(se | ee), 1)
+
+        precision = len(en & sn) / max(len(en), 1)
+        recall = len(en & sn) / max(len(sn), 1)
+        f1 = 2 * precision * recall / max(precision + recall, 1e-15)
+
+        return AgreementMetrics(
+            node_jaccard=node_jaccard,
+            edge_jaccard=edge_jaccard,
+            consistency=consistency,
+            precision=precision,
+            recall=recall,
+            f1=f1,
+        )
+
+    def _find_novel(
+        self,
+        simple: ReasoningSummary,
+        enhanced: ReasoningSummary,
+    ) -> list[dict[str, Any]]:
+        novel_nodes = enhanced.nodes_produced - simple.nodes_produced
+        novel_edges = enhanced.edges_produced - simple.edges_produced
+        findings: list[dict[str, Any]] = []
+        for nid in list(novel_nodes)[:10]:
+            node = self._memory._graph.get_node(nid)
+            label = node.label if node else nid[:8]
+            findings.append({"type": "node", "id": nid, "label": label})
+        for eid in list(novel_edges)[:10]:
+            findings.append({"type": "edge", "id": eid})
+        return findings
+
+    def _find_contradictions(
+        self,
+        simple: ReasoningSummary,
+        enhanced: ReasoningSummary,
+    ) -> list[dict[str, Any]]:
+        contradictions: list[dict[str, Any]] = []
+
+        se = simple.edges_produced
+        ee = enhanced.edges_produced
+        simple_edges_by_src_tgt: dict[frozenset[str], list[Any]] = {}
+        for eid in se:
+            edge = self._memory._graph.get_edge(eid)
+            if edge:
+                key = edge.source_ids | edge.target_ids
+                simple_edges_by_src_tgt.setdefault(key, []).append(edge)
+
+        enhanced_edges_by_src_tgt: dict[frozenset[str], list[Any]] = {}
+        for eid in ee:
+            edge = self._memory._graph.get_edge(eid)
+            if edge:
+                key = edge.source_ids | edge.target_ids
+                enhanced_edges_by_src_tgt.setdefault(key, []).append(edge)
+
+        shared_keys = set(simple_edges_by_src_tgt.keys()) & set(enhanced_edges_by_src_tgt.keys())
+        for key in shared_keys:
+            for s_edge in simple_edges_by_src_tgt[key]:
+                for e_edge in enhanced_edges_by_src_tgt[key]:
+                    if s_edge.label and e_edge.label and s_edge.label != e_edge.label:
+                        contradictions.append({
+                            "type": "label_conflict",
+                            "simple_edge": s_edge.id,
+                            "enhanced_edge": e_edge.id,
+                            "simple_label": s_edge.label,
+                            "enhanced_label": e_edge.label,
+                            "nodes": list(key),
+                        })
+                    if s_edge.label == e_edge.label:
+                        weight_diff = abs(s_edge.weight - e_edge.weight)
+                        if weight_diff > 0.5:
+                            contradictions.append({
+                                "type": "weight_divergence",
+                                "simple_edge": s_edge.id,
+                                "enhanced_edge": e_edge.id,
+                                "simple_weight": s_edge.weight,
+                                "enhanced_weight": e_edge.weight,
+                                "divergence": weight_diff,
+                            })
+
+        simple_labels: dict[str, str] = {}
+        for eid in se:
+            edge = self._memory._graph.get_edge(eid)
+            if edge and edge.label:
+                for src in edge.source_ids:
+                    simple_labels.setdefault(src, edge.label)
+        enhanced_labels: dict[str, str] = {}
+        for eid in ee:
+            edge = self._memory._graph.get_edge(eid)
+            if edge and edge.label:
+                for src in edge.source_ids:
+                    enhanced_labels.setdefault(src, edge.label)
+        for node_id in set(simple_labels) & set(enhanced_labels):
+            if simple_labels[node_id] != enhanced_labels[node_id]:
+                contradictions.append({
+                    "type": "direction_conflict",
+                    "node_id": node_id,
+                    "simple_direction": simple_labels[node_id],
+                    "enhanced_direction": enhanced_labels[node_id],
+                })
+
+        return contradictions
+
+    def _recommend(
+        self,
+        agreement: AgreementMetrics,
+        simple: ReasoningSummary,
+        enhanced: ReasoningSummary,
+    ) -> str:
+        if enhanced.coverage > simple.coverage * 1.1 and agreement.precision >= 0.5:
+            return "enhanced"
+        if agreement.f1 >= 0.9:
+            return "equivalent"
+        if agreement.precision < 0.5 and simple.coverage > 0:
+            return "simple"
+        return "enhanced"
+
+    def run_validation_suite(
+        self,
+        test_cases: list[set[str]] | None = None,
+    ) -> list[ValidationReport]:
+        if test_cases is None:
+            nodes = list(self._memory._graph.nodes)
+            if not nodes:
+                return []
+            labels = [n.label for n in nodes[:5]]
+            test_cases = [{labels[0]}] if labels else []
+        reports: list[ValidationReport] = []
+        for seeds in test_cases:
+            report = self.run_comparison(seeds)
+            reports.append(report)
+        return reports
+
+    def is_enhanced_reliable(self) -> bool:
+        if not self._history:
+            return False
+        recent = self._history[-10:]
+        avg_f1 = sum(r.agreement.f1 for r in recent) / len(recent)
+        avg_precision = sum(r.agreement.precision for r in recent) / len(recent)
+        return avg_f1 >= 0.5 and avg_precision >= 0.5

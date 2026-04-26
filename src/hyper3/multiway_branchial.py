@@ -96,6 +96,16 @@ class MultiScaleAnalysis:
     cross_scale_insights: list[str] = field(default_factory=list)
 
 
+@dataclass
+class AnalogyProposal:
+    source_state_id: str
+    target_state_id: str
+    source_patterns: list[str] = field(default_factory=list)
+    proposed_edges: list[dict[str, Any]] = field(default_factory=list)
+    confidence: float = 0.0
+    mapping: dict[str, str] = field(default_factory=dict)
+
+
 class BranchialSpace:
     def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None) -> None:
         self._graph = graph
@@ -448,6 +458,245 @@ class BranchialSpace:
             if edge and edge.label:
                 patterns.append(edge.label)
         return list(set(patterns))
+
+    def find_analogous_states(
+        self,
+        state_id: str,
+        min_distance: float = 0.3,
+        max_distance: float = 0.7,
+    ) -> list[tuple[str, float]]:
+        if not self._coordinates:
+            self.assign_coordinates()
+        source_coord = self._coordinates.get(state_id)
+        if not source_coord:
+            return []
+        results: list[tuple[str, float]] = []
+        for sid, coord in self._coordinates.items():
+            if sid == state_id:
+                continue
+            dist = source_coord.distance_to(coord)
+            if min_distance <= dist <= max_distance:
+                results.append((sid, dist))
+        results.sort(key=lambda x: x[1])
+        return results
+
+    def transfer_insight(
+        self,
+        source_state_id: str,
+        target_state_id: str,
+    ) -> AnalogyProposal:
+        source = self._multiway.get_state(source_state_id)
+        target = self._multiway.get_state(target_state_id)
+        if not source or not target:
+            return AnalogyProposal(
+                source_state_id=source_state_id,
+                target_state_id=target_state_id,
+            )
+
+        source_patterns: list[str] = []
+        for eid in source.produced_edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge and edge.label:
+                source_patterns.append(edge.label)
+        source_patterns = list(set(source_patterns))
+
+        source_coord = self._coordinates.get(source_state_id)
+        target_coord = self._coordinates.get(target_state_id)
+        distance = source_coord.distance_to(target_coord) if source_coord and target_coord else float("inf")
+
+        mapping: dict[str, str] = {}
+        source_nodes = list(source.active_node_ids)
+        target_nodes = list(target.active_node_ids)
+
+        def _neighborhood_signature(nid: str) -> frozenset[str]:
+            labels: set[str] = set()
+            for edge in self._graph.edges_for(nid):
+                if edge.label:
+                    labels.add(edge.label)
+            return frozenset(labels)
+
+        source_sigs = {s: _neighborhood_signature(s) for s in source_nodes}
+        target_sigs = {t: _neighborhood_signature(t) for t in target_nodes}
+
+        used_targets: set[str] = set()
+        for s_id in source_nodes:
+            s_sig = source_sigs[s_id]
+            best_t: str | None = None
+            best_overlap: float = -1.0
+            for t_id in target_nodes:
+                if t_id in used_targets:
+                    continue
+                t_sig = target_sigs[t_id]
+                if not s_sig and not t_sig:
+                    overlap = 0.5
+                elif not s_sig or not t_sig:
+                    overlap = 0.0
+                else:
+                    overlap = len(s_sig & t_sig) / len(s_sig | t_sig)
+                if overlap > best_overlap:
+                    best_overlap = overlap
+                    best_t = t_id
+            if best_t is not None and best_overlap > 0:
+                mapping[s_id] = best_t
+                used_targets.add(best_t)
+
+        proposed: list[dict[str, Any]] = []
+        for label in source_patterns:
+            existing = {e.label for eid in target.produced_edge_ids
+                        for e in [self._graph.get_edge(eid)] if e}
+            if label not in existing:
+                for s_src, t_src in mapping.items():
+                    proposed.append({
+                        "source_node": s_src,
+                        "target_node": t_src,
+                        "edge_label": label,
+                    })
+
+        structural_overlap = len(
+            set(source.produced_edge_ids) & set(target.produced_edge_ids)
+        ) / max(len(set(source.produced_edge_ids) | set(target.produced_edge_ids)), 1)
+        conf = (1.0 - min(distance, 1.0)) * 0.5 + structural_overlap * 0.5
+
+        return AnalogyProposal(
+            source_state_id=source_state_id,
+            target_state_id=target_state_id,
+            source_patterns=source_patterns,
+            proposed_edges=proposed[:5],
+            confidence=min(conf, 1.0),
+            mapping=mapping,
+        )
+
+    def find_all_analogies(
+        self,
+        state_id: str,
+        top_k: int = 5,
+    ) -> list[AnalogyProposal]:
+        analogous = self.find_analogous_states(state_id)
+        proposals: list[AnalogyProposal] = []
+        for sid, _dist in analogous:
+            proposal = self.transfer_insight(state_id, sid)
+            if proposal.confidence > 0:
+                proposals.append(proposal)
+        proposals.sort(key=lambda p: p.confidence, reverse=True)
+        return proposals[:top_k]
+
+    def plan_path(self, source_state_id: str, target_state_id: str) -> list[str]:
+        if not self._coordinates:
+            self.assign_coordinates()
+        if source_state_id not in self._coordinates or target_state_id not in self._coordinates:
+            return []
+        if source_state_id == target_state_id:
+            return [source_state_id]
+        import heapq
+        target_pos = self._coordinates[target_state_id]
+        open_set: list[tuple[float, str]] = [(0.0, source_state_id)]
+        came_from: dict[str, str] = {}
+        g_score: dict[str, float] = {source_state_id: 0.0}
+        closed: set[str] = set()
+        while open_set:
+            _, current = heapq.heappop(open_set)
+            if current == target_state_id:
+                path = [current]
+                while current in came_from:
+                    current = came_from[current]
+                    path.append(current)
+                path.reverse()
+                return path
+            if current in closed:
+                continue
+            closed.add(current)
+            children = self._multiway.get_children(current)
+            parent = self._multiway.get_state(current)
+            if parent and parent.parent_id:
+                siblings = self._multiway.get_children(parent.parent_id)
+                neighbors = [c.id for c in children] + [parent.parent_id] + [s.id for s in siblings if s.id != current]
+            else:
+                neighbors = [c.id for c in children]
+            for neighbor in neighbors:
+                if neighbor in closed or neighbor not in self._coordinates:
+                    continue
+                coord = self._coordinates[neighbor]
+                edge_cost = 1.0
+                tentative_g = g_score[current] + edge_cost
+                if tentative_g < g_score.get(neighbor, float("inf")):
+                    came_from[neighbor] = current
+                    g_score[neighbor] = tentative_g
+                    h = coord.distance_to(target_pos)
+                    heapq.heappush(open_set, (tentative_g + h, neighbor))
+        return []
+
+    def nearest_high_density_region(self, state_id: str) -> str | None:
+        if not self._clusters:
+            return None
+        if not self._coordinates:
+            self.assign_coordinates()
+        source_coord = self._coordinates.get(state_id)
+        if not source_coord:
+            return None
+        best_cluster = None
+        best_size = 0
+        for cluster in self._clusters:
+            if cluster.size > best_size:
+                best_size = cluster.size
+                best_cluster = cluster
+        if not best_cluster or not best_cluster.state_ids:
+            return None
+        best_state = None
+        best_dist = float("inf")
+        for sid in best_cluster.state_ids:
+            if sid in self._coordinates:
+                d = source_coord.distance_to(self._coordinates[sid])
+                if d < best_dist:
+                    best_dist = d
+                    best_state = sid
+        return best_state
+
+    def update_coordinates_for_state(self, state_id: str, parent_id: str) -> None:
+        if not self._coordinates:
+            self.assign_coordinates()
+            return
+        if state_id in self._coordinates:
+            return
+        parent_coord = self._coordinates.get(parent_id)
+        if not parent_coord:
+            return
+        siblings = self._multiway.get_children(parent_id)
+        existing_count = sum(1 for s in siblings if s.id in self._coordinates)
+        new_pos = list(parent_coord.position) + [float(existing_count)]
+        self._coordinates[state_id] = BranchialCoordinates(
+            state_id=state_id,
+            position=new_pos,
+            depth=parent_coord.depth + 1,
+            branch_index=existing_count,
+        )
+        keys_to_remove: list[tuple[str, str]] = []
+        for key in self._distance_cache:
+            if state_id in key:
+                keys_to_remove.append(key)
+        for key in keys_to_remove:
+            del self._distance_cache[key]
+
+    def add_state_to_simultaneity(self, state: MultiwayState) -> None:
+        if not state.parent_id:
+            return
+        for group in self._simultaneity_groups:
+            if group.common_ancestor_id == state.parent_id:
+                group.state_ids.add(state.id)
+                return
+        parent = self._multiway.get_state(state.parent_id)
+        depth = parent.depth + 1 if parent else 0
+        group = SimultaneityGroup(
+            common_ancestor_id=state.parent_id,
+            state_ids={state.id},
+            depth=depth,
+        )
+        self._simultaneity_groups.append(group)
+
+    def remove_state_from_simultaneity(self, state_id: str) -> None:
+        for group in self._simultaneity_groups:
+            if state_id in group.state_ids:
+                group.state_ids.discard(state_id)
+                break
 
     @property
     def coordinates(self) -> dict[str, BranchialCoordinates]:

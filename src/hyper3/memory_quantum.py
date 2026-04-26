@@ -18,7 +18,12 @@ from hyper3.memory_base import _MemoryBase
 
 class QuantumMixin(_MemoryBase):
 
-    def superpose(self, concepts: list[str], amplitudes: list[float] | None = None) -> QuantumState:
+    def superpose(
+        self,
+        concepts: list[str],
+        amplitudes: list[float] | None = None,
+        use_context_field: bool = True,
+    ) -> QuantumState:
         node_ids: list[str] = []
         for concept in concepts:
             node = self._find_node(concept)
@@ -28,6 +33,16 @@ class QuantumMixin(_MemoryBase):
             qs = QuantumState(created_at=time.time())
             return qs
         qs = self._quantum.create_superposition(node_ids, amplitudes)
+        if use_context_field and len(node_ids) > 1:
+            activation_values: dict[str, float] = {}
+            if hasattr(self, '_activation'):
+                for nid in node_ids:
+                    self._activation.stimulate(nid, energy=1.0)
+                spread = self._activation.spread()
+                for nid in node_ids:
+                    activation_values[nid] = spread.get(nid, 0.0)
+                self._activation.clear()
+            self._quantum.evolve_in_context(qs.id, activation_values)
         self._log.record("superpose", concepts=concepts, state_id=qs.id, interpretations=qs.superposition_count)
         return qs
 

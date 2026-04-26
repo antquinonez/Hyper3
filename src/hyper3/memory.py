@@ -26,6 +26,8 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.temporal import TemporalReasoner
 from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
+from hyper3.feedback import OperationFeedback
+from hyper3.constraints import BoundaryNavigator
 from hyper3.memory_core import CoreMixin
 from hyper3.memory_reasoning import ReasoningMixin
 from hyper3.memory_quantum import QuantumMixin
@@ -88,3 +90,5 @@ class CognitiveMemory(
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
         self._overlay: HypergraphOverlay | None = None
+        self._feedback = OperationFeedback(self._graph)
+        self._boundary_navigator: BoundaryNavigator | None = None
