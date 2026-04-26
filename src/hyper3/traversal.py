@@ -147,14 +147,34 @@ class ObserverSlice:
         return self._config
 
     def narrow(self, start_id: str, *, max_depth: int = 2, max_nodes: int = 10) -> list[Hypernode]:
+        """Apply a narrow traversal slice, restoring config afterwards.
+
+        Temporarily overrides ``max_depth`` and ``max_nodes`` on the
+        shared :class:`SliceConfig`, runs :meth:`apply`, then restores the
+        original values.  This ensures the config is not permanently
+        mutated.
+        """
+        old_depth, old_nodes = self._config.max_depth, self._config.max_nodes
         self._config.max_depth = max_depth
         self._config.max_nodes = max_nodes
-        return self.apply(start_id)
+        result = self.apply(start_id)
+        self._config.max_depth, self._config.max_nodes = old_depth, old_nodes
+        return result
 
     def broaden(self, start_id: str, *, max_depth: int = 6, max_nodes: int = 200) -> list[Hypernode]:
+        """Apply a broad traversal slice, restoring config afterwards.
+
+        Temporarily overrides ``max_depth`` and ``max_nodes`` on the
+        shared :class:`SliceConfig`, runs :meth:`apply`, then restores the
+        original values.  This ensures the config is not permanently
+        mutated.
+        """
+        old_depth, old_nodes = self._config.max_depth, self._config.max_nodes
         self._config.max_depth = max_depth
         self._config.max_nodes = max_nodes
-        return self.apply(start_id)
+        result = self.apply(start_id)
+        self._config.max_depth, self._config.max_nodes = old_depth, old_nodes
+        return result
 
     def apply(self, start_id: str) -> list[Hypernode]:
         engine = TraversalEngine(self._graph)

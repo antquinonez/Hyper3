@@ -63,6 +63,22 @@ class CausalInvarianceEngine:
         return 0.7 * jaccard + 0.3 * edge_overlap
 
     def check_graph_isomorphism(self, state_a: MultiwayState, state_b: MultiwayState) -> float:
+        """Test whether two multiway states produce isomorphic subgraphs.
+
+        Builds a ``networkx.DiGraph`` from each state's ``produced_edge_ids``
+        and checks isomorphism.  For graphs with a combined node count
+        exceeding 100, falls back to :meth:`_approximate_isomorphism` which
+        compares degree sequences, in-degree sequences, and triangle counts
+        — returning 0.8 if all match.
+
+        Args:
+            state_a: First multiway state.
+            state_b: Second multiway state.
+
+        Returns:
+            1.0 if isomorphic, 0.8 if approximately isomorphic (large
+            graphs), 0.0 otherwise.
+        """
         g_a = nx.DiGraph()
         g_b = nx.DiGraph()
         for eid in state_a.produced_edge_ids:
@@ -81,8 +97,12 @@ class CausalInvarianceEngine:
                     for tgt in edge.target_ids:
                         g_b.add_node(tgt, nid=tgt)
                         g_b.add_edge(src, tgt)
-        if g_a.number_of_nodes() + g_b.number_of_nodes() > 50:
+        if g_a.number_of_nodes() != g_b.number_of_nodes():
             return 0.0
+        if g_a.number_of_edges() != g_b.number_of_edges():
+            return 0.0
+        if g_a.number_of_nodes() + g_b.number_of_nodes() > 100:
+            return self._approximate_isomorphism(g_a, g_b)
 
         def _node_match(a: dict, b: dict) -> bool:
             na = self._graph.get_node(a.get("nid", ""))
@@ -92,6 +112,31 @@ class CausalInvarianceEngine:
             return False
 
         return 1.0 if nx.is_isomorphic(g_a, g_b, node_match=_node_match) else 0.0
+
+    def _approximate_isomorphism(self, g_a: nx.DiGraph, g_b: nx.DiGraph) -> float:
+        """Fast approximate isomorphism check for large graphs.
+
+        Compares sorted degree sequences, sorted in-degree sequences, and
+        total triangle counts.  If all three match exactly, returns 0.8
+        (confident but not exact).  Returns 0.0 on any mismatch.
+        """
+        if g_a.number_of_nodes() == 0 and g_b.number_of_nodes() == 0:
+            return 1.0
+        deg_a = sorted(d for _, d in g_a.degree())
+        deg_b = sorted(d for _, d in g_b.degree())
+        if deg_a != deg_b:
+            return 0.0
+        in_deg_a = sorted(d for _, d in g_a.in_degree())
+        in_deg_b = sorted(d for _, d in g_b.in_degree())
+        if in_deg_a != in_deg_b:
+            return 0.0
+        tri_a_dict: dict[str, int] = nx.triangles(g_a.to_undirected())  # type: ignore[assignment]
+        tri_b_dict: dict[str, int] = nx.triangles(g_b.to_undirected())  # type: ignore[assignment]
+        tri_a = sum(tri_a_dict.values())
+        tri_b = sum(tri_b_dict.values())
+        if tri_a != tri_b:
+            return 0.0
+        return 0.8
 
     def find_invariants(self) -> list[tuple[str, str, float]]:
         leaves = self._multiway.get_leaves()

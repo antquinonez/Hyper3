@@ -204,7 +204,16 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
 
 
 def require_capability(level: CapabilityLevel):
+    """Decorator that gates a method on a minimum capability level.
+
+    Calls :func:`detect_capability_level` on ``self`` at runtime and
+    raises :class:`~hyper3.exceptions.Hyper3Error` if the current level
+    is below the required one.  Uses ``functools.wraps`` to preserve
+    the decorated function's name, docstring, and module.
+    """
+    import functools
     def decorator(func):
+        @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             current = detect_capability_level(self)
             levels = list(CapabilityLevel)

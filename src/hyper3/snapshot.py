@@ -343,6 +343,37 @@ def restore_snapshot(
     BranchialSpace | None,
     RulialSpace | None,
 ]:
+    """Rebuild all subsystems from a previously captured snapshot.
+
+    Clears and repopulates quantum states/entanglements, multiway DAG,
+    branchial coordinates, rulial position/history, provenance records,
+    retrieval feedback/LTR weights, relativity frame outcomes, and
+    meta-cognitive state.
+
+    Cache items are restored with their **original remaining TTL** by
+    backdating the insertion timestamp: ``insert_time = now - (ttl -
+    remaining_ttl)``.  This ensures items expire at the correct wall-clock
+    time relative to the snapshot's capture moment rather than receiving a
+    full fresh TTL.
+
+    Args:
+        snapshot: The snapshot to restore from.
+        graph: Live hypergraph (unchanged — graph structure must be
+            restored separately).
+        quantum: Quantum cognitive layer to repopulate.
+        provenance: Provenance tracker to repopulate.
+        retrieval: Retrieval engine whose feedback/LTR state to restore.
+        relativity: Computational relativity whose frame outcomes to
+            restore.
+        meta: Meta-cognitive layer whose state to restore.
+        cache: LazyCache whose items to restore with correct TTL.
+        rules: Current rule list (not modified).
+        feedback: Optional operation feedback tracker to restore.
+
+    Returns:
+        Tuple of ``(multiway_engine, branchial, rulial)`` — each may be
+        ``None`` if the snapshot contained no data for that subsystem.
+    """
     quantum._states.clear()
     quantum._entanglements.clear()
     quantum._basis_stats.clear()
@@ -531,7 +562,8 @@ def restore_snapshot(
     cache.clear()
     now = time.time()
     for key, value, remaining_ttl in snapshot.cache_items:
-        cache._cache[key] = (now, value)
+        insert_time = now - (cache._ttl - remaining_ttl)
+        cache._cache[key] = (insert_time, value)
 
     if feedback is not None:
         from hyper3.feedback import FeedbackSignal

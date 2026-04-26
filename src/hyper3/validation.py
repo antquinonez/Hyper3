@@ -82,6 +82,22 @@ class ValidationEngine:
         seed_concepts: set[str],
         rules: list[Rule],
     ) -> ReasoningSummary:
+        """Apply rules directly to the graph without multiway expansion.
+
+        Records pre-existing node and edge IDs, applies each rule's
+        ``find_matches`` → ``apply`` cycle, collects the new IDs, then
+        removes all newly added edges **and** any newly added nodes that
+        have become orphans (no remaining edges).  This ensures the graph
+        is left in its original state after the simple-path measurement.
+
+        Args:
+            seed_concepts: Seed node labels.
+            rules: Rules to apply.
+
+        Returns:
+            :class:`ReasoningSummary` with produced node/edge ID sets,
+            confidence, coverage, and elapsed time.
+        """
         start = time.perf_counter()
         nodes: set[str] = set()
         edges: set[str] = set()
@@ -109,6 +125,9 @@ class ValidationEngine:
         new_nodes = {n.id for n in self._memory._graph.nodes} - pre_nodes
         for eid in list(new_edges):
             self._memory._graph.remove_edge(eid)
+        for nid in list(new_nodes):
+            if not self._memory._graph.edges_for(nid):
+                self._memory._graph.remove_node(nid)
 
         elapsed = (time.perf_counter() - start) * 1000.0
 
@@ -253,6 +272,19 @@ class ValidationEngine:
         simple: ReasoningSummary,
         enhanced: ReasoningSummary,
     ) -> list[dict[str, Any]]:
+        """Detect contradictions between simple and enhanced reasoning.
+
+        Checks three conflict types:
+
+        1. **Label conflict** — edges sharing the same node set but with
+           different labels.
+        2. **Weight divergence** — same-label edges on the same node set
+           whose weights differ by more than 0.5.
+        3. **Direction conflict** — a source node that receives edges with
+           completely disjoint label sets from simple vs. enhanced.  All
+           labels per source are collected (not just the first) so that
+           partial overlaps are correctly handled.
+        """
         contradictions: list[dict[str, Any]] = []
 
         se = simple.edges_produced
@@ -296,25 +328,27 @@ class ValidationEngine:
                                 "divergence": weight_diff,
                             })
 
-        simple_labels: dict[str, str] = {}
+        simple_labels: dict[str, list[str]] = {}
         for eid in se:
             edge = self._memory._graph.get_edge(eid)
             if edge and edge.label:
                 for src in edge.source_ids:
-                    simple_labels.setdefault(src, edge.label)
-        enhanced_labels: dict[str, str] = {}
+                    simple_labels.setdefault(src, []).append(edge.label)
+        enhanced_labels: dict[str, list[str]] = {}
         for eid in ee:
             edge = self._memory._graph.get_edge(eid)
             if edge and edge.label:
                 for src in edge.source_ids:
-                    enhanced_labels.setdefault(src, edge.label)
+                    enhanced_labels.setdefault(src, []).append(edge.label)
         for node_id in set(simple_labels) & set(enhanced_labels):
-            if simple_labels[node_id] != enhanced_labels[node_id]:
+            s_set = set(simple_labels[node_id])
+            e_set = set(enhanced_labels[node_id])
+            if not s_set & e_set:
                 contradictions.append({
                     "type": "direction_conflict",
                     "node_id": node_id,
-                    "simple_direction": simple_labels[node_id],
-                    "enhanced_direction": enhanced_labels[node_id],
+                    "simple_direction": simple_labels[node_id][0],
+                    "enhanced_direction": enhanced_labels[node_id][0],
                 })
 
         return contradictions

@@ -20,14 +20,32 @@ class QuantumEntanglement:
     strength: float = 0.0
 
     def predict(self, observed_node_id: str, observed_value: str) -> dict[str, str]:
+        """Predict values for entangled partners given an observation.
+
+        For each correlation entry involving the observed node, returns the
+        partner node mapped to the observed value (positive correlation) or
+        ``"opposite"`` (negative correlation). Correlation entries with
+        magnitude below 1e-10 are skipped.
+
+        Args:
+            observed_node_id: ID of the node that was observed.
+            observed_value: Label/value of the observed node.
+
+        Returns:
+            Mapping of partner node IDs to their predicted values.
+        """
         predictions: dict[str, str] = {}
         for (node_a, node_b), corr in self.correlation_matrix.items():
-            if corr == 0.0:
+            if abs(corr) < 1e-10:
                 continue
+            if corr > 0:
+                scaled = observed_value
+            else:
+                scaled = "opposite"
             if node_a == observed_node_id and node_b in self.group_b_node_ids:
-                predictions[node_b] = observed_value if corr > 0 else "opposite"
+                predictions[node_b] = scaled
             elif node_b == observed_node_id and node_a in self.group_a_node_ids:
-                predictions[node_a] = observed_value if corr > 0 else "opposite"
+                predictions[node_a] = scaled
         return predictions
 
 
@@ -286,18 +304,67 @@ class QuantumCognitiveLayer:
 
     @staticmethod
     def partial_trace(rho: np.ndarray, keep: list[int], dims: list[int]) -> np.ndarray:
+        """Compute the partial trace of a density matrix over a composite system.
+
+        Given a density matrix ``rho`` representing a state on a tensor product
+        of subsystems with Hilbert-space dimensions ``dims``, trace out every
+        subsystem whose index is *not* in ``keep``.  The result is a reduced
+        density matrix of shape ``(keep_dim, keep_dim)`` where
+        ``keep_dim = product(dims[i] for i in keep)``.
+
+        The implementation reshapes ``rho`` into a rank-2*len(dims) tensor and
+        applies ``np.trace`` sequentially over the subsystems to be discarded,
+        processing them in reverse index order so that earlier axes remain
+        stable.
+
+        Args:
+            rho: Density matrix of shape ``(total, total)`` where
+                ``total = sum(dims)``.
+            keep: Indices of subsystems to *retain* (0-based).
+            dims: Hilbert-space dimension of each subsystem.
+
+        Returns:
+            Reduced density matrix of shape ``(keep_dim, keep_dim)``.
+            Returns an empty 2-D array if ``keep`` or ``dims`` is empty.
+            Returns ``rho`` unchanged if its shape does not match ``total``.
+        """
         total = sum(dims)
         if rho.shape != (total, total):
             return rho
-        kept_idx: list[int] = []
-        offset = 0
-        for i, d in enumerate(dims):
-            if i in keep:
-                kept_idx.extend(range(offset, offset + d))
-            offset += d
-        if not kept_idx:
+        if not keep or not dims:
             return np.array([[]])
-        return rho[np.ix_(kept_idx, kept_idx)]
+        keep_set = set(keep)
+        keep_dim = 1
+        for i in keep:
+            if 0 <= i < len(dims):
+                keep_dim *= dims[i]
+        if keep_dim == 0:
+            return np.array([[]])
+        trace_out = [i for i in range(len(dims)) if i not in keep_set]
+        new_dims = [dims[i] for i in range(len(dims)) if i in keep_set]
+        row_idx = list(range(len(dims)))
+        col_idx = list(range(len(dims), 2 * len(dims)))
+        for idx in reversed(trace_out):
+            d = dims[idx]
+            row_before = [dims[i] for i in range(len(dims)) if i < idx]
+            row_after = [dims[i] for i in range(len(dims)) if i > idx]
+            col_before = [dims[i] for i in range(len(dims)) if i < idx]
+            col_after = [dims[i] for i in range(len(dims)) if i > idx]
+            row_shape = []
+            for i in range(len(dims)):
+                if i < idx:
+                    row_shape.append(dims[i])
+                elif i == idx:
+                    row_shape.append(d)
+                else:
+                    row_shape.append(dims[i])
+            col_shape = list(row_shape)
+            shape = row_shape + col_shape
+            rho = rho.reshape(shape)
+            axes_to_sum = (idx, idx + len(dims))
+            rho = np.trace(rho, axis1=axes_to_sum[0], axis2=axes_to_sum[1])
+            dims = row_before + row_after
+        return rho.reshape(keep_dim, keep_dim)
 
     def detect_collapse_triggers(self, qs_id: str) -> list[CollapseTrigger]:
         qs = self._states.get(qs_id)

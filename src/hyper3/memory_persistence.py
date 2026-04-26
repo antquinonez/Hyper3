@@ -37,6 +37,21 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("export_json", path=path)
 
     def import_json(self, path: str) -> dict[str, Any]:
+        """Import graph data from a JSON file, merging into the live graph.
+
+        Nodes are added only if their ID is not already present.  Edges are
+        added only if their ID is not already present; import errors for
+        individual edges (e.g. missing source/target nodes) are caught as
+        ``(ValueError, TypeError, KeyError)`` and silently skipped so that
+        one bad edge does not abort the entire import.
+
+        Args:
+            path: Path to the JSON file produced by :meth:`export_json`.
+
+        Returns:
+            Dict with ``"nodes"`` and ``"edges"`` counts from the
+            deserialized graph.
+        """
         imported = self._serializer.import_json(path)
         for node in imported.nodes:
             if not self._graph.get_node(node.id):
@@ -45,7 +60,7 @@ class PersistenceMixin(_MemoryBase):
             try:
                 if not self._graph.get_edge(edge.id):
                     self._graph.add_edge(edge)
-            except Exception:
+            except (ValueError, TypeError, KeyError):
                 pass
         self._log.record("import_json", path=path, nodes=imported.node_count, edges=imported.edge_count)
         return {"nodes": imported.node_count, "edges": imported.edge_count}

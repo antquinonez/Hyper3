@@ -320,18 +320,37 @@ class TemporalReasoner:
         return results
 
     def edge_temporal_consistency(self, edge_a_id: str, edge_b_id: str, graph: Any) -> dict[str, Any]:
+        """Check temporal consistency between two edges.
+
+        Collects *all* temporal events matching each node label (not just
+        the first) so that duplicate labels across nodes are handled
+        correctly.  Aggregates the events per edge into a span
+        [min(start), max(end)] and then tests the Allen relation between
+        the two spans.
+
+        Args:
+            edge_a_id: First edge ID.
+            edge_b_id: Second edge ID.
+            graph: Graph object providing ``get_edge`` and ``get_node``.
+
+        Returns:
+            Dict with ``"consistent"`` (bool), ``"relation"``, and interval
+            details for both edges.
+        """
         edge_a = graph.get_edge(edge_a_id)
         edge_b = graph.get_edge(edge_b_id)
         if not edge_a or not edge_b:
             return {"consistent": True, "reason": "edge_not_found"}
 
-        events_by_label = {e.label: e for e in self._events.values()}
+        events_by_label: dict[str, list[Any]] = {}
+        for e in self._events.values():
+            events_by_label.setdefault(e.label, []).append(e)
 
         a_nodes = list(edge_a.source_ids | edge_a.target_ids)
         b_nodes = list(edge_b.source_ids | edge_b.target_ids)
 
-        a_events = [events_by_label[self._node_label(nid, graph)] for nid in a_nodes if self._node_label(nid, graph) in events_by_label]
-        b_events = [events_by_label[self._node_label(nid, graph)] for nid in b_nodes if self._node_label(nid, graph) in events_by_label]
+        a_events = [ev for nid in a_nodes for ev in events_by_label.get(self._node_label(nid, graph), [])]
+        b_events = [ev for nid in b_nodes for ev in events_by_label.get(self._node_label(nid, graph), [])]
 
         if not a_events or not b_events:
             return {"consistent": True, "reason": "no_temporal_data"}

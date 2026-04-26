@@ -106,6 +106,22 @@ class MetaCognitiveLayer:
         return geometric_mean
 
     def assess_state(self, rules: list[Rule] | None = None) -> CognitiveStateModel:
+        """Evaluate the current cognitive state of the system.
+
+        Computes architectural fitness, computational efficiency rates,
+        transcendental yield, and boundary-navigation success.  When
+        ``rules`` is provided, the count of active rules is recorded in
+        ``computational_efficiency["active_rules"]`` so callers can
+        distinguish externally-supplied rule sets from the default set.
+
+        Args:
+            rules: Optional list of active rules.  When supplied, their
+                count is included in the efficiency metrics.
+
+        Returns:
+            A fresh :class:`CognitiveStateModel` (also stored as
+            ``self._state``).
+        """
         state = CognitiveStateModel(timestamp=time.time())
 
         metrics = self._evolution.metrics
@@ -117,6 +133,10 @@ class MetaCognitiveLayer:
             "prune_rate": metrics.total_prunes / max(total_ops, 1),
             "refinement_rate": metrics.total_refinements / max(total_ops, 1),
         }
+
+        active_rules = rules if rules is not None else self._rules
+        if active_rules:
+            state.computational_efficiency["active_rules"] = len(active_rules)
 
         if self._rulial:
             state.transcendental_yield = len(self._rulial.insights)
@@ -202,11 +222,26 @@ class MetaCognitiveLayer:
         return patterns
 
     def _generate_recommendations(self, introspection: dict[str, Any]) -> list[str]:
+        """Generate actionable recommendations from introspection data.
+
+        Computes graph density from the ``graph_health`` node/edge counts
+        (rather than relying on a pre-computed ``"density"`` key) and
+        checks architectural fitness, density, and reasoning mode.
+
+        Args:
+            introspection: Output of :meth:`introspect`.
+
+        Returns:
+            List of human-readable recommendation strings.
+        """
         recs: list[str] = []
         fitness = introspection.get("cognitive_state", {}).get("fitness", 1.0)
         if fitness < 0.7:
             recs.append("Consider adjusting evolution parameters - fitness below threshold")
-        density = introspection.get("graph_health", {}).get("density", 0.0)
+        graph_health = introspection.get("graph_health", {})
+        nodes = graph_health.get("nodes", 0)
+        edges = graph_health.get("edges", 0)
+        density = edges / max(nodes * (nodes - 1), 1) if nodes > 1 else 0.0
         if density < 0.3:
             recs.append("Graph is sparse - add more relationships to improve connectivity")
         mode = introspection.get("cognitive_state", {}).get("mode", "sparse")

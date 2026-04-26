@@ -96,8 +96,11 @@ class HypergraphOverlay:
 
         If the secondary node exists in the overlay, removes it and remaps
         all overlay edges so that ``secondary_id`` is replaced by
-        ``primary_id`` in source/target frozensets. Then delegates to
-        ``base.merge_node()`` for the base graph merge.
+        ``primary_id`` in source/target frozensets.  If the primary is not
+        already in the overlay but exists in the base graph, a **deep copy**
+        is placed into the overlay to avoid dual-ownership of the same
+        object.  Finally delegates to ``base.merge_node()`` for the
+        permanent base-graph merge.
         """
         if secondary_id in self._overlay_nodes:
             secondary = self._overlay_nodes.pop(secondary_id)
@@ -117,7 +120,8 @@ class HypergraphOverlay:
             if not primary_in_overlay:
                 primary_base = self._base.get_node(primary_id)
                 if primary_base:
-                    self._overlay_nodes[primary_id] = primary_base
+                    import copy
+                    self._overlay_nodes[primary_id] = copy.deepcopy(primary_base)
         result = self._base.merge_node(primary_id, secondary_id)
         if result and result.label:
             self._overlay_label_index[result.label] = result.id

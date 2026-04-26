@@ -367,6 +367,13 @@ class Hypergraph:
             return False
 
     def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
+        """Find directed cycles in the graph using networkx.
+
+        Returns up to ``max_cycles`` simple cycles as lists of node IDs.
+        Catches ``NetworkXError`` and ``ValueError`` (e.g. for
+        self-loop-only graphs) and returns whatever cycles were found
+        before the error.
+        """
         G = self.to_networkx()
         if G.number_of_nodes() == 0:
             return []
@@ -376,7 +383,7 @@ class Hypergraph:
                 cycles.append(cycle)
                 if len(cycles) >= max_cycles:
                     break
-        except Exception:
+        except (nx.NetworkXError, ValueError):
             pass
         return cycles
 

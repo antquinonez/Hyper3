@@ -254,17 +254,41 @@ class ReasoningMixin(_MemoryBase):
         max_depth: int = 2,
         max_total_states: int = 50,
     ) -> dict[str, Any]:
+        """Expand the existing multiway DAG from newly added nodes.
+
+        Unlike :meth:`reason`, this does not create a fresh multiway engine.
+        Instead it finds leaf states whose active-node set overlaps with
+        ``new_node_labels`` (or that contain previously produced edges) and
+        continues expansion from those states.  Falls back to expanding from
+        up to 5 arbitrary leaves if no overlap is found.
+
+        Args:
+            new_node_labels: Labels of nodes added since the last reasoning
+                pass.  Resolved to IDs internally; missing labels are skipped.
+            rules: Rules to apply.  Falls back to ``self._rules``.
+            max_depth: Maximum expansion depth from each affected leaf.
+            max_total_states: Cap on total new states created.
+
+        Returns:
+            Dict with key ``"expansion"`` containing counts of states,
+            rules applied, nodes, and edges produced.  Returns
+            ``{"error": ..., "states_created": 0}`` if there is no prior
+            reasoning session or no rules are available.
+        """
         if self._multiway_engine is None:
             return {"error": "no prior reasoning session", "states_created": 0}
         active_rules = rules or self._rules
         if not active_rules:
             return {"error": "no rules defined", "states_created": 0}
         new_node_ids: set[str] = set()
-        new_edge_ids: set[str] = set()
         for label in new_node_labels:
             node = self._find_node(label)
             if node:
                 new_node_ids.add(node.id)
+        new_edge_ids: set[str] = set()
+        for state in self._multiway_engine.multiway.states:
+            for eid in state.produced_edge_ids:
+                new_edge_ids.add(eid)
         report = self._multiway_engine.expand_incremental(
             new_node_ids, new_edge_ids, active_rules,
             max_depth=max_depth, max_total_states=max_total_states,
@@ -342,11 +366,39 @@ class ReasoningMixin(_MemoryBase):
         frame_name: str = "classical",
         rules: list[Rule] | None = None,
     ) -> dict[str, Any]:
+        """Run reasoning with parameters derived from a computational frame.
+
+        Transforms the default (classical) configuration to the target frame
+        by evaluating *all* seed concepts and selecting the transformation
+        with the lowest information loss.  The resulting ``max_depth`` and
+        ``max_total_states`` are passed to :meth:`reason`.
+
+        After reasoning completes, the outcome (success/failure) is recorded
+        with the relativity engine for both the frame and the problem
+        features, enabling future frame recommendations via Thompson sampling.
+
+        Args:
+            seed_concepts: Labels of seed nodes.
+            frame_name: Target computational frame (e.g. ``"quantum"``).
+            rules: Rules to apply; defaults to ``self._rules``.
+
+        Returns:
+            The result of :meth:`reason` augmented with a ``"frame_config"``
+            key carrying the algorithm, information loss, and preserved
+            properties of the chosen transformation.
+        """
         seed_ids = self._resolve_seeds(seed_concepts)
         features = self._relativity.extract_problem_features(list(seed_ids))
 
-        concept = next(iter(seed_concepts), "")
-        transformed = self._relativity.transform_config(concept, "classical", frame_name)
+        all_seed_labels = list(seed_concepts)
+        best_transform = None
+        for concept in all_seed_labels:
+            transformed = self._relativity.transform_config(concept, "classical", frame_name)
+            if best_transform is None or transformed.information_loss < best_transform.information_loss:
+                best_transform = transformed
+        if best_transform is None:
+            best_transform = self._relativity.transform_config("", "classical", frame_name)
+        transformed = best_transform
         max_depth = transformed.max_depth
         max_states = transformed.max_total_states
 

@@ -278,23 +278,49 @@ class ComputationalRelativity:
         analyses: dict[str, FrameAnalysis],
         top2: list[str],
     ) -> dict[str, FrameAnalysis]:
+        """Fuse the top-2 frame analyses using Reciprocal Rank Fusion (RRF).
+
+        For each of the top-2 frames, ranks graph nodes by edge weight
+        (highest first) to produce a ranked list of up to 50 nodes per
+        frame.  Each node receives an RRF score of ``sum(1/(60 + rank))``
+        across the frames that contain it.  The merged analyses carry
+        ``"+rrf"`` in their ``solution_approach`` and include the RRF score
+        in their parameters.
+
+        Args:
+            analyses: Full per-frame analysis dict.
+            top2: The two frame names with lowest complexity.
+
+        Returns:
+            Dict mapping each of the two frame names to a new
+            :class:`FrameAnalysis` with RRF-augmented fields.
+        """
         node_ranks: dict[str, dict[str, int]] = {}
         for rank_idx, frame_name in enumerate(top2):
             analysis = analyses[frame_name]
+            edges = self._graph.edges
+            sorted_by_complexity = sorted(
+                range(len(edges)),
+                key=lambda i: edges[i].weight,
+                reverse=True,
+            )
+            ranked_nodes: list[str] = []
+            seen: set[str] = set()
+            for idx in sorted_by_complexity:
+                for nid in edges[idx].target_ids:
+                    if nid not in seen:
+                        ranked_nodes.append(nid)
+                        seen.add(nid)
             params = analysis.parameters or {}
-            targets: list[str] = []
-            if frame_name == "classical":
-                targets = [str(params.get("max_depth", 3))]
-            elif frame_name == "quantum":
-                targets = [str(params.get("max_states", 20))]
-            elif frame_name == "hypergraph":
-                targets = [str(params.get("hyper_edge_ratio", 0))]
-            elif frame_name == "probabilistic":
-                targets = [str(params.get("neighbor_count", 0))]
-            for t in targets:
-                if t not in node_ranks:
-                    node_ranks[t] = {}
-                node_ranks[t][frame_name] = rank_idx + 1
+            if params.get("strategy") == "bfs":
+                pass
+            if frame_name == "probabilistic":
+                ranked_nodes = [n for n in ranked_nodes
+                                if any(e.weight >= 0.3 for e in self._graph.edges_for(n))]
+            for rank, target in enumerate(ranked_nodes[:50]):
+                if target not in node_ranks:
+                    node_ranks[target] = {}
+                node_ranks[target][frame_name] = rank + 1
 
         rrf_scores: dict[str, float] = {}
         for target, frame_ranks in node_ranks.items():
@@ -358,22 +384,41 @@ class ComputationalRelativity:
         return t
 
     def _compute_information_preserved(self, params_a: dict[str, Any], params_b: dict[str, Any], analysis_a: FrameAnalysis, analysis_b: FrameAnalysis) -> float:
+        """Estimate how much information survives a frame transformation.
+
+        Computes a graded similarity between the two parameter sets.  For
+        numeric keys the similarity is ``1 - |a-b|/scale``; for equal
+        non-numeric keys it is 1.0; for strings it is proportional to shared
+        characters.  If there are no shared keys at all, the score falls
+        back to a complexity-based estimate.  The final score is the mean
+        similarity across *all* keys (not just shared ones).
+
+        Returns:
+            Float in [0, 1] where 1.0 means perfect preservation.
+        """
         all_keys = set(params_a.keys()) | set(params_b.keys())
         if not all_keys:
-            return 1.0 - abs(analysis_a.complexity - analysis_b.complexity)
+            complexity_preserved = 1.0 - abs(analysis_a.complexity - analysis_b.complexity)
+            return max(0.0, complexity_preserved)
         shared_keys = set(params_a.keys()) & set(params_b.keys())
         if not shared_keys:
-            return max(0.0, 1.0 - abs(analysis_a.complexity - analysis_b.complexity))
-        agreement = 0
-        for k in shared_keys:
-            va, vb = params_a[k], params_b[k]
+            complexity_preserved = 1.0 - abs(analysis_a.complexity - analysis_b.complexity)
+            return max(0.0, complexity_preserved * 0.5)
+        agreement = 0.0
+        for k in all_keys:
+            va = params_a.get(k)
+            vb = params_b.get(k)
+            if va is None or vb is None:
+                continue
             if isinstance(va, (int, float)) and isinstance(vb, (int, float)):
-                diff = abs(va - vb)
                 scale = max(abs(va), abs(vb), 1.0)
-                if diff / scale < 0.3:
-                    agreement += 1
+                similarity = 1.0 - min(abs(va - vb) / scale, 1.0)
+                agreement += similarity
             elif va == vb:
-                agreement += 1
+                agreement += 1.0
+            elif isinstance(va, str) and isinstance(vb, str):
+                shared_chars = sum(1 for a, b in zip(va, vb) if a == b)
+                agreement += shared_chars / max(len(va), len(vb), 1)
         return agreement / len(all_keys)
 
     def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
@@ -612,7 +657,16 @@ class ComputationalRelativity:
         return self._graph.get_node_by_label(concept)
 
     def _count_neighbors(self, node_id: str) -> int:
-        return len(self._graph.edges_for(node_id))
+        """Count unique neighbor nodes (excluding the node itself).
+
+        Differs from ``len(graph.edges_for(node_id))`` which counts edges,
+        not unique endpoints.
+        """
+        neighbors: set[str] = set()
+        for edge in self._graph.edges_for(node_id):
+            neighbors.update(edge.source_ids | edge.target_ids)
+        neighbors.discard(node_id)
+        return len(neighbors)
 
     @property
     def frames(self) -> dict[str, ComputationalFrame]:
@@ -861,6 +915,19 @@ class ComputationalRelativity:
         return set.intersection(*all_sets)
 
     def compute_curvature(self, seed_ids: list[str]) -> float:
+        """Compute an Ollivier-Ricci-inspired graph curvature at the seeds.
+
+        Measures local clustering among the seed nodes' shared neighborhood:
+        ``curvature = 2 * clustering + min(avg_degree, 10) * 0.05``.  High
+        clustering (triangles among neighbors) indicates positive curvature;
+        low clustering with low degree indicates flat or tree-like structure.
+
+        Args:
+            seed_ids: Node IDs to compute curvature around.
+
+        Returns:
+            Float in [0, 1].  Returns 0.0 if there are no seed neighbors.
+        """
         if not seed_ids:
             return 0.0
         concept_node = self._graph.get_node(seed_ids[0])
@@ -869,20 +936,63 @@ class ComputationalRelativity:
         complexities = [a.complexity for a in analyses.values() if a.complexity != float("inf")]
         if len(complexities) < 2:
             return 0.0
-        mean_c = sum(complexities) / len(complexities)
-        variance = sum((c - mean_c) ** 2 for c in complexities) / len(complexities)
-        return min(float(variance ** 0.5), 1.0)
+        seed_neighbors: set[str] = set()
+        for sid in seed_ids:
+            for edge in self._graph.edges_for(sid):
+                seed_neighbors.update(edge.target_ids)
+        if not seed_neighbors:
+            return 0.0
+        neighbor_degrees = [len(self._graph.edges_for(nid)) for nid in seed_neighbors]
+        avg_degree = sum(neighbor_degrees) / len(neighbor_degrees) if neighbor_degrees else 0
+        triangle_count = 0
+        neighbor_list = list(seed_neighbors)
+        for i, n1 in enumerate(neighbor_list):
+            n1_nbrs = {t for e in self._graph.edges_for(n1) for t in e.target_ids}
+            for n2 in neighbor_list[i + 1:]:
+                if n2 in n1_nbrs:
+                    triangle_count += 1
+        max_triangles = len(neighbor_list) * (len(neighbor_list) - 1) / 2
+        clustering = triangle_count / max(max_triangles, 1)
+        curvature = 2.0 * clustering + min(avg_degree, 10.0) * 0.05
+        return max(0.0, min(1.0, curvature))
 
     def compute_frame_dragging(self, seed_ids: list[str], from_frame: str, to_frame: str) -> float:
+        """Measure how much the *from_frame* perspective is "dragged" toward
+        the *to_frame* perspective.
+
+        Performs two separate traversals from the seed nodes: one using
+        parameters (depth, min-weight) derived from ``from_frame`` and one
+        using parameters from ``to_frame``.  The dragging score is the
+        Jaccard overlap of their respective reachable sets, normalised by
+        the size of the ``from_frame`` reachable set.
+
+        Args:
+            seed_ids: Starting node IDs.
+            from_frame: Source computational frame name.
+            to_frame: Target computational frame name.
+
+        Returns:
+            Float in [0, 1] — fraction of ``from_frame`` reachable nodes
+            also reachable under ``to_frame`` parameters.
+        """
         if not seed_ids:
             return 0.0
+        concept_label = ""
+        concept_node = self._graph.get_node(seed_ids[0])
+        if concept_node:
+            concept_label = concept_node.label
+        from_params = self.analyze_in_frame(concept_label, from_frame).parameters or {}
+        from_max_depth = int(from_params.get("max_depth", 3))
+        from_min_weight = 0.3 if from_frame == "probabilistic" else 0.1 if from_frame == "hypergraph" else 0.0
         from_reachable: set[str] = set(seed_ids)
         from_visited: set[str] = set(seed_ids)
         frontier = list(seed_ids)
-        for _ in range(3):
+        for _ in range(from_max_depth):
             next_f: list[str] = []
             for nid in frontier:
                 for edge in self._graph.edges_for(nid):
+                    if edge.weight < from_min_weight:
+                        continue
                     for tgt in edge.target_ids:
                         if tgt not in from_visited:
                             from_visited.add(tgt)
@@ -890,20 +1000,17 @@ class ComputationalRelativity:
                         from_reachable.add(tgt)
             frontier = next_f
 
+        to_params = self.analyze_in_frame(concept_label, to_frame).parameters or {}
+        to_max_depth = int(to_params.get("max_depth", 3))
+        to_min_weight = 0.3 if to_frame == "probabilistic" else 0.1 if to_frame == "hypergraph" else 0.0
         to_reachable: set[str] = set(seed_ids)
         to_visited: set[str] = set(seed_ids)
         frontier = list(seed_ids)
-        to_params = self.analyze_in_frame(
-            (_n := self._graph.get_node(seed_ids[0])) and _n.label or "",
-            to_frame,
-        ).parameters or {}
-        max_depth = int(to_params.get("max_depth", 3))
-        min_weight = 0.3 if to_frame == "probabilistic" else 0.1 if to_frame == "hypergraph" else 0.0
-        for _ in range(max_depth):
+        for _ in range(to_max_depth):
             next_f: list[str] = []
             for nid in frontier:
                 for edge in self._graph.edges_for(nid):
-                    if edge.weight < min_weight:
+                    if edge.weight < to_min_weight:
                         continue
                     for tgt in edge.target_ids:
                         if tgt not in to_visited:
