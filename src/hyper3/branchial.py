@@ -3,13 +3,16 @@ from __future__ import annotations
 import math
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.cluster.vq import kmeans2
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
+
+if TYPE_CHECKING:
+    from hyper3.embedding import EmbeddingEngine
 
 
 @dataclass
@@ -77,14 +80,20 @@ class SimultaneityGroup:
 
 
 class BranchialSpace:
-    def __init__(self, graph: Hypergraph, multiway: MultiwayGraph) -> None:
+    def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None) -> None:
         self._graph = graph
         self._multiway = multiway
+        self._embedding_engine = embedding_engine
         self._coordinates: dict[str, BranchialCoordinates] = {}
         self._clusters: list[BranchialCluster] = []
         self._entanglements: list[BranchialEntanglement] = []
         self._simultaneity_groups: list[SimultaneityGroup] = []
         self._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics] = {}
+        self._state_embeddings: dict[str, np.ndarray] = {}
+
+    def set_embedding_engine(self, engine: EmbeddingEngine) -> None:
+        self._embedding_engine = engine
+        self._state_embeddings.clear()
 
     def assign_coordinates(self) -> None:
         self._coordinates.clear()
@@ -147,6 +156,17 @@ class BranchialSpace:
             return 0.0
         if not nodes_a or not nodes_b:
             return float("inf")
+
+        if self._embedding_engine is not None:
+            emb_a = self._get_state_embedding(a_id)
+            emb_b = self._get_state_embedding(b_id)
+            if emb_a is not None and emb_b is not None:
+                norm_a = np.linalg.norm(emb_a)
+                norm_b = np.linalg.norm(emb_b)
+                if norm_a > 0 and norm_b > 0:
+                    cosine_sim = float(np.dot(emb_a, emb_b) / (norm_a * norm_b))
+                    return float(1.0 - cosine_sim)
+
         labels_a: set[str] = set()
         labels_b: set[str] = set()
         for nid in nodes_a:
@@ -167,6 +187,28 @@ class BranchialSpace:
         if union == 0:
             return 0.0
         return float(1.0 - overlap / union)
+
+    def _get_state_embedding(self, state_id: str) -> np.ndarray | None:
+        if state_id in self._state_embeddings:
+            return self._state_embeddings[state_id]
+        state = self._multiway.get_state(state_id)
+        if not state or not state.active_node_ids:
+            return None
+        if self._embedding_engine is None:
+            return None
+        embeddings: list[np.ndarray] = []
+        for nid in state.active_node_ids:
+            emb = self._embedding_engine.get_embedding(nid)
+            if emb is not None:
+                embeddings.append(emb)
+        if not embeddings:
+            return None
+        mean_emb = np.mean(embeddings, axis=0)
+        norm = np.linalg.norm(mean_emb)
+        if norm > 0:
+            mean_emb = mean_emb / norm
+        self._state_embeddings[state_id] = mean_emb
+        return mean_emb
 
     def _computational_distance(self, a_id: str, b_id: str) -> float:
         state_a = self._multiway.get_state(a_id)
@@ -342,7 +384,7 @@ class BranchialSpace:
             novel_in_current = set(current.produced_node_ids) - set(peer.produced_node_ids)
             complementary = novel_in_peer & (set(n.id for n in self._graph.nodes) - set(current.produced_node_ids))
             if novel_in_peer or novel_in_current:
-                insights.append({
+                insight: dict[str, Any] = {
                     "source_state": state_id,
                     "lateral_state": peer_id,
                     "rule_used": peer.rule_applied,
@@ -350,8 +392,37 @@ class BranchialSpace:
                     "novel_in_lateral": list(novel_in_peer),
                     "complementary_nodes": list(complementary),
                     "transferable_patterns": self._find_transferable(current, peer),
-                })
+                    "branchial_distance": 0.0,
+                }
+                if self._embedding_engine is not None:
+                    insight["semantic_novelty_scores"] = self._rank_novel_by_similarity(
+                        novel_in_peer, current.active_node_ids,
+                    )
+                insights.append(insight)
         return insights
+
+    def _rank_novel_by_similarity(
+        self, novel_ids: set[str], reference_ids: frozenset[str],
+    ) -> dict[str, float]:
+        if not self._embedding_engine or not novel_ids or not reference_ids:
+            return {}
+        ref_embs: list[np.ndarray] = []
+        for nid in reference_ids:
+            emb = self._embedding_engine.get_embedding(nid)
+            if emb is not None:
+                ref_embs.append(emb)
+        if not ref_embs:
+            return {}
+        ref_mean = np.mean(ref_embs, axis=0)
+        ref_norm = np.linalg.norm(ref_mean)
+        if ref_norm == 0:
+            return {}
+        scores: dict[str, float] = {}
+        for nid in novel_ids:
+            emb = self._embedding_engine.get_embedding(nid)
+            if emb is not None:
+                scores[nid] = float(np.dot(ref_mean, emb) / ref_norm)
+        return scores
 
     def _find_transferable(self, state_a: MultiwayState, state_b: MultiwayState) -> list[str]:
         patterns: list[str] = []

@@ -84,6 +84,9 @@ class TransfiniteReasoner:
         visited: set[str] = set()
         if self._dfs_cycle_check(node.id, node.id, visited, max_depth=10):
             return 0.8
+        scc_score = self._scc_self_reference(node.id)
+        if scc_score > 0:
+            return scc_score
         neighbors = self._get_neighbor_labels(node.id)
         if concept in neighbors:
             return 0.4
@@ -91,6 +94,24 @@ class TransfiniteReasoner:
         if context and context.get("self_reference"):
             base = 0.3
         return self._context_boost(context, "self_reference", base)
+
+    def _scc_self_reference(self, node_id: str) -> float:
+        try:
+            import networkx as nx
+            G = nx.DiGraph()
+            for node in self._graph.nodes:
+                G.add_node(node.id)
+            for edge in self._graph.edges:
+                for src in edge.source_ids:
+                    for tgt in edge.target_ids:
+                        G.add_edge(src, tgt)
+            sccs = list(nx.strongly_connected_components(G))
+            for scc in sccs:
+                if node_id in scc and len(scc) > 1:
+                    return 0.7
+        except (ImportError, Exception):
+            pass
+        return 0.0
 
     def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int) -> bool:
         if max_depth <= 0:
@@ -117,10 +138,28 @@ class TransfiniteReasoner:
             return self._context_boost(context, "universal_quantification", 0.0)
         degree = len(self._graph.edges_for(node.id))
         connectivity = degree / (total - 1)
-        if connectivity >= 0.7:
-            return min(connectivity, 1.0)
-        base = connectivity * 0.3
+        centrality = self._eigenvector_centrality_local(node.id, total)
+        score = max(connectivity, centrality)
+        if score >= 0.7:
+            return min(score, 1.0)
+        base = score * 0.5
         return self._context_boost(context, "universal_quantification", base)
+
+    def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
+        try:
+            import networkx as nx
+            G = nx.DiGraph()
+            for node in self._graph.nodes:
+                G.add_node(node.id)
+            for edge in self._graph.edges:
+                for src in edge.source_ids:
+                    for tgt in edge.target_ids:
+                        G.add_edge(src, tgt)
+            centrality = nx.eigenvector_centrality_numpy(G, max_iter=50)
+            return centrality.get(node_id, 0.0)
+        except (ImportError, Exception):
+            degree = len(self._graph.edges_for(node_id))
+            return degree / max(total - 1, 1) if total > 1 else 0.0
 
     def _assess_diagonalization(self, concept: str, context: dict[str, Any] | None) -> float:
         node = self._find_concept_node(concept)
@@ -134,10 +173,40 @@ class TransfiniteReasoner:
             for label_b in label_list[i + 1:]:
                 if self._are_contradictory(label_a, label_b):
                     return 0.7
+        learned = self._learned_opposition_score(node.id, label_list)
+        if learned > 0.5:
+            return learned
         base = 0.0
         if context and context.get("contradictory"):
             base = 0.3
         return self._context_boost(context, "diagonalization", base)
+
+    def _learned_opposition_score(self, node_id: str, labels: list[str]) -> float:
+        if len(labels) < 2:
+            return 0.0
+        source_nodes: dict[str, int] = {}
+        for label in labels:
+            for edge in self._graph.edges:
+                if edge.label == label:
+                    for src in edge.source_ids:
+                        source_nodes.setdefault(src, 0)
+                        key = f"{label}:{src}"
+                        source_nodes[key] = 1
+        label_node_sets: dict[str, set[str]] = {}
+        for edge in self._graph.edges:
+            if edge.label in labels:
+                for src in edge.source_ids:
+                    label_node_sets.setdefault(edge.label, set()).add(src)
+        for i, la in enumerate(labels):
+            for lb in labels[i + 1:]:
+                set_a = label_node_sets.get(la, set())
+                set_b = label_node_sets.get(lb, set())
+                if set_a and set_b:
+                    overlap = len(set_a & set_b)
+                    total = len(set_a | set_b)
+                    if total > 0 and overlap / total < 0.1 and len(set_a) >= 2 and len(set_b) >= 2:
+                        return 0.6
+        return 0.0
 
     def _are_contradictory(self, label_a: str, label_b: str) -> bool:
         pairs = {("is", "is_not"), ("causes", "prevents"), ("true", "false"), ("yes", "no"), ("enabled", "disabled")}

@@ -41,6 +41,7 @@ class MetaComputationalPattern:
     occurrence_count: int = 0
     domains: set[str] = field(default_factory=set)
     abstract_structure: dict[str, Any] = field(default_factory=dict)
+    significance: float = 0.0
 
 
 @dataclass
@@ -94,19 +95,82 @@ class RulialSpace:
 
     def _compute_complexity(self) -> float:
         n_nodes = self._graph.node_count
-        n_edges = self._graph.edge_count
-        if n_nodes == 0:
+        if n_nodes < 2:
             return 0.0
-        avg_degree = n_edges * 2 / n_nodes if n_nodes > 0 else 0.0
-        label_counts: dict[str, int] = {}
+        spectral = self._compute_spectral_entropy()
+        motif = self._compute_motif_diversity()
+        return min(1.0, 0.5 * spectral + 0.5 * motif)
+
+    def _compute_spectral_entropy(self) -> float:
+        n = self._graph.node_count
+        if n < 2:
+            return 0.0
+        adj = np.zeros((n, n))
+        node_list = list(self._graph.nodes)
+        idx = {node.id: i for i, node in enumerate(node_list)}
         for edge in self._graph.edges:
-            label_counts[edge.label] = label_counts.get(edge.label, 0) + 1
-        if label_counts:
-            counts = np.array(list(label_counts.values()), dtype=float)
-            ent = float(scipy_entropy(counts, base=2))
-        else:
-            ent = 0.0
-        return min(1.0, (avg_degree / 10.0 + ent / 5.0) * 0.5)
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    if src in idx and tgt in idx:
+                        adj[idx[src], idx[tgt]] += edge.weight
+        singular_values = np.linalg.svd(adj, compute_uv=False)
+        pos_sv = singular_values[singular_values > 1e-10]
+        if len(pos_sv) == 0:
+            return 0.0
+        total = np.sum(pos_sv)
+        if total == 0:
+            return 0.0
+        probs = pos_sv / total
+        entropy = -np.sum(probs * np.log2(probs + 1e-15))
+        max_entropy = math.log2(max(len(pos_sv), 1))
+        if max_entropy == 0:
+            return 0.0
+        return float(min(entropy / max_entropy, 1.0))
+
+    def _compute_motif_diversity(self) -> float:
+        n = self._graph.node_count
+        if n < 3:
+            return 0.0
+        node_list = list(self._graph.nodes)
+        idx = {node.id: i for i, node in enumerate(node_list)}
+        edge_set: set[tuple[int, int]] = set()
+        for edge in self._graph.edges:
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    if src in idx and tgt in idx:
+                        edge_set.add((idx[src], idx[tgt]))
+        motif_counts: dict[str, int] = {}
+        n_limit = min(n, 50)
+        for i in range(n_limit):
+            for j in range(i + 1, n_limit):
+                has_ij = (i, j) in edge_set
+                has_ji = (j, i) in edge_set
+                if has_ij or has_ji:
+                    motif_type = f"dyad:{int(has_ij)}{int(has_ji)}"
+                    motif_counts[motif_type] = motif_counts.get(motif_type, 0) + 1
+        for i in range(n_limit):
+            targets_i = {t for (s, t) in edge_set if s == i}
+            sources_i = {s for (s, t) in edge_set if t == i}
+            for j in range(i + 1, n_limit):
+                targets_j = {t for (s, t) in edge_set if s == j}
+                sources_j = {s for (s, t) in edge_set if t == j}
+                shared_out = targets_i & targets_j
+                shared_in = sources_i & sources_j
+                if shared_out:
+                    motif_counts["convergent_out"] = motif_counts.get("convergent_out", 0) + len(shared_out)
+                if shared_in:
+                    motif_counts["convergent_in"] = motif_counts.get("convergent_in", 0) + len(shared_in)
+        if not motif_counts:
+            return 0.0
+        n_types = len(motif_counts)
+        total_count = sum(motif_counts.values())
+        if total_count == 0:
+            return 0.0
+        counts = np.array(list(motif_counts.values()), dtype=float)
+        motif_entropy = float(scipy_entropy(counts, base=2))
+        max_motif_entropy = math.log2(max(n_types, 1))
+        diversity = motif_entropy / max(max_motif_entropy, 1.0) if max_motif_entropy > 0 else 0.0
+        return float(min(diversity, 1.0))
 
     def _compute_branchial_coords(self) -> list[float]:
         if not self._multiway:
@@ -145,19 +209,24 @@ class RulialSpace:
         self._find_recurring_patterns()
         self._find_cross_domain_patterns()
         self._find_optimization_patterns()
+        self._find_mutual_information_patterns()
+        self._find_structural_motifs()
         return self._meta_patterns
 
     def _find_recurring_patterns(self) -> None:
         edge_labels: dict[str, int] = {}
         for edge in self._graph.edges:
             edge_labels[edge.label] = edge_labels.get(edge.label, 0) + 1
+        total = sum(edge_labels.values())
         for label, count in edge_labels.items():
             if count >= 3:
+                freq = count / max(total, 1)
                 self._meta_patterns.append(MetaComputationalPattern(
                     pattern_type="recurring_relation",
-                    description=f"Relation '{label}' appears {count} times",
+                    description=f"Relation '{label}' appears {count} times (freq={freq:.2f})",
                     occurrence_count=count,
-                    abstract_structure={"label": label, "frequency": count},
+                    abstract_structure={"label": label, "frequency": count, "relative_freq": freq},
+                    significance=min(1.0, freq * 2),
                 ))
 
     def _find_cross_domain_patterns(self) -> None:
@@ -172,6 +241,7 @@ class RulialSpace:
                 domains=set(node_modalities.keys()),
                 occurrence_count=len(node_modalities),
                 abstract_structure={"modality_distribution": {k: len(v) for k, v in node_modalities.items()}},
+                significance=0.5,
             ))
 
     def _find_optimization_patterns(self) -> None:
@@ -182,6 +252,94 @@ class RulialSpace:
                 description=f"{len(high_weight)} nodes have been reinforced through usage",
                 occurrence_count=len(high_weight),
                 abstract_structure={"reinforced_node_count": len(high_weight)},
+                significance=min(1.0, len(high_weight) / max(self._graph.node_count, 1)),
+            ))
+
+    def _find_mutual_information_patterns(self) -> None:
+        node_labels: dict[str, set[str]] = {}
+        for node in self._graph.nodes:
+            labels: set[str] = set()
+            for edge in self._graph.edges_for(node.id):
+                labels.add(edge.label)
+            node_labels[node.id] = labels
+        label_counts: dict[str, int] = {}
+        for labels in node_labels.values():
+            for lbl in labels:
+                label_counts[lbl] = label_counts.get(lbl, 0) + 1
+        n_nodes = self._graph.node_count
+        if n_nodes < 2 or len(label_counts) < 2:
+            return
+        label_list = sorted(label_counts.keys())[:20]
+        pairs_checked = 0
+        for i, la in enumerate(label_list):
+            for lb in label_list[i + 1:]:
+                set_a = {nid for nid, lbls in node_labels.items() if la in lbls}
+                set_b = {nid for nid, lbls in node_labels.items() if lb in lbls}
+                both = len(set_a & set_b)
+                if both < 2:
+                    continue
+                pa = len(set_a) / n_nodes
+                pb = len(set_b) / n_nodes
+                pab = both / n_nodes
+                if pa > 0 and pb > 0 and pab > 0:
+                    mi = pab * math.log2(pab / (pa * pb))
+                    if mi > 0.3:
+                        self._meta_patterns.append(MetaComputationalPattern(
+                            pattern_type="mutual_information",
+                            description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
+                            occurrence_count=both,
+                            abstract_structure={
+                                "label_a": la, "label_b": lb,
+                                "mi": mi, "co_occurrence": both,
+                            },
+                            significance=min(1.0, mi),
+                        ))
+                        pairs_checked += 1
+                if pairs_checked >= 5:
+                    return
+
+    def _find_structural_motifs(self) -> None:
+        n = self._graph.node_count
+        if n < 3:
+            return
+        hub_nodes = []
+        for node in self._graph.nodes:
+            degree = len(self._graph.edges_for(node.id))
+            if degree >= 3:
+                hub_nodes.append((node, degree))
+        if hub_nodes:
+            hub_nodes.sort(key=lambda x: x[1], reverse=True)
+            top_hub = hub_nodes[0]
+            self._meta_patterns.append(MetaComputationalPattern(
+                pattern_type="hub_motif",
+                description=f"Hub node '{top_hub[0].label}' has degree {top_hub[1]}",
+                occurrence_count=len(hub_nodes),
+                abstract_structure={
+                    "hub_label": top_hub[0].label,
+                    "hub_degree": top_hub[1],
+                    "hub_count": len(hub_nodes),
+                },
+                significance=min(1.0, top_hub[1] / max(n, 1)),
+            ))
+        chains = 0
+        for edge in self._graph.edges:
+            if len(edge.source_ids) == 1 and len(edge.target_ids) == 1:
+                src = next(iter(edge.source_ids))
+                tgt = next(iter(edge.target_ids))
+                tgt_edges = self._graph.edges_for(tgt)
+                if any(
+                    len(e.source_ids) == 1 and len(e.target_ids) == 1 and tgt in e.source_ids
+                    for e in tgt_edges
+                    if e.id != edge.id
+                ):
+                    chains += 1
+        if chains >= 2:
+            self._meta_patterns.append(MetaComputationalPattern(
+                pattern_type="chain_motif",
+                description=f"Found {chains} transitive chain patterns",
+                occurrence_count=chains,
+                abstract_structure={"chain_count": chains},
+                significance=min(1.0, chains / max(n, 1)),
             ))
 
     def generate_transcendental_insights(self) -> list[TranscendentalInsight]:
@@ -189,24 +347,45 @@ class RulialSpace:
         if not self._meta_patterns:
             self.find_meta_patterns()
 
+        mi_patterns = [p for p in self._meta_patterns if p.pattern_type == "mutual_information"]
+        for p in mi_patterns[:3]:
+            self._insights.append(TranscendentalInsight(
+                principle=p.description,
+                domain="information_theory",
+                evidence=[p.description],
+                confidence=p.significance,
+                timestamp=time.time(),
+            ))
+
         recurring = [p for p in self._meta_patterns if p.pattern_type == "recurring_relation"]
         if recurring:
-            top = max(recurring, key=lambda p: p.occurrence_count)
+            top = max(recurring, key=lambda p: p.significance)
             self._insights.append(TranscendentalInsight(
-                principle=f"Dominant relation pattern: {top.description}",
+                principle=f"Dominant relation: {top.description}",
                 domain="structural",
                 evidence=[top.description],
-                confidence=min(1.0, top.occurrence_count / 10.0),
+                confidence=top.significance,
                 timestamp=time.time(),
             ))
 
         density = self._position.computational_density
-        if density > 0.5:
+        complexity = self._position.causal_graph_complexity
+        if density > 0.5 and complexity > 0.5:
             self._insights.append(TranscendentalInsight(
-                principle="High computational density indicates rich interconnection",
+                principle=f"High density ({density:.2f}) and complexity ({complexity:.2f}) suggest rich structural organization",
                 domain="computational",
-                evidence=[f"Density: {density:.3f}"],
-                confidence=density,
+                evidence=[f"Density: {density:.3f}", f"Complexity: {complexity:.3f}"],
+                confidence=min(density, complexity),
+                timestamp=time.time(),
+            ))
+
+        spectral = self._compute_spectral_entropy()
+        if spectral > 0.7:
+            self._insights.append(TranscendentalInsight(
+                principle=f"Spectral entropy {spectral:.2f} indicates diverse eigenvalue distribution",
+                domain="spectral",
+                evidence=[f"Spectral entropy: {spectral:.3f}"],
+                confidence=spectral,
                 timestamp=time.time(),
             ))
 
@@ -256,6 +435,7 @@ class RulialSpace:
         return {
             "computational_density": self._position.computational_density,
             "causal_complexity": self._position.causal_graph_complexity,
+            "spectral_entropy": self._compute_spectral_entropy(),
             "rule_diversity": len(self._explored_rules),
             "total_applications": self._total_applications,
             "meta_patterns": len(self._meta_patterns),

@@ -5,6 +5,8 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+import numpy as np
+
 from hyper3.kernel import Hypergraph, Hypernode
 
 
@@ -165,7 +167,7 @@ class ComputationalRelativity:
         return agreement / len(all_keys)
 
     def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
-        complexity = (neighbor_count * 0.5 + 1) / max(total_nodes, 1)
+        complexity = self._kolmogorov_complexity(node)
         approach = "direct_lookup"
         recommended_depth = 2
         recommended_states = 10
@@ -173,6 +175,8 @@ class ComputationalRelativity:
             approach = "breadth_first_search"
             recommended_depth = 3
             recommended_states = 25
+        if complexity > 0.7:
+            approach = "exhaustive_analysis"
         assessment = self._assess_frame("classical")
         if complexity > 0.7:
             assessment.get("weaknesses", []).append("high_complexity")
@@ -185,8 +189,24 @@ class ComputationalRelativity:
             weaknesses=assessment.get("weaknesses", []),
         )
 
+    def _kolmogorov_complexity(self, node: Hypernode) -> float:
+        import zlib
+        parts: list[str] = [node.label]
+        for edge in self._graph.edges_for(node.id):
+            parts.append(edge.label)
+            for nid in edge.target_ids:
+                n = self._graph.get_node(nid)
+                if n:
+                    parts.append(n.label)
+        raw = "|".join(parts).encode()
+        if not raw:
+            return 0.0
+        compressed = len(zlib.compress(raw))
+        ratio = compressed / max(len(raw), 1)
+        return min(ratio, 1.0)
+
     def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
-        complexity = max(1, math.sqrt(neighbor_count)) / max(total_nodes, 1)
+        complexity = self._von_neumann_entropy(node)
         approach = "superposition_sampling"
         recommended_depth = 3
         recommended_states = min(neighbor_count * 2, 50)
@@ -212,10 +232,28 @@ class ComputationalRelativity:
             weaknesses=assessment.get("weaknesses", []),
         )
 
+    def _von_neumann_entropy(self, node: Hypernode) -> float:
+        edges = self._graph.edges_for(node.id)
+        if not edges:
+            return 0.0
+        targets: list[str] = []
+        for edge in edges:
+            targets.extend(edge.target_ids)
+        if not targets:
+            return 0.0
+        counts: dict[str, int] = {}
+        for t in targets:
+            counts[t] = counts.get(t, 0) + 1
+        total = sum(counts.values())
+        probs = np.array([c / total for c in counts.values()])
+        entropy = -np.sum(probs * np.log2(probs + 1e-15))
+        max_entropy = np.log2(max(len(counts), 1))
+        if max_entropy == 0:
+            return 0.0
+        return float(min(entropy / max_entropy, 1.0))
+
     def _hypergraph_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
-        hyper_edges = [e for e in self._graph.edges if len(e.source_ids) > 1 or len(e.target_ids) > 1]
-        hyper_ratio = len(hyper_edges) / max(total_edges, 1)
-        complexity = (neighbor_count * 0.3 + total_edges * 0.01) / max(total_nodes, 1)
+        complexity = self._spectral_gap_complexity(node)
         approach = "multi_dimensional_traversal"
         modalities = set()
         for edge in self._graph.edges_for(node.id):
@@ -226,6 +264,8 @@ class ComputationalRelativity:
         assessment = self._assess_frame("hypergraph")
         if len(modalities) > 1:
             assessment.get("strengths", []).append("multi_modal_structure")
+        hyper_edges = [e for e in self._graph.edges if len(e.source_ids) > 1 or len(e.target_ids) > 1]
+        hyper_ratio = len(hyper_edges) / max(total_edges, 1)
         return FrameAnalysis(
             frame_name="hypergraph",
             complexity=min(complexity, 1.0),
@@ -239,13 +279,37 @@ class ComputationalRelativity:
             weaknesses=assessment.get("weaknesses", []),
         )
 
+    def _spectral_gap_complexity(self, node: Hypernode) -> float:
+        edges = self._graph.edges_for(node.id)
+        if not edges:
+            return 0.0
+        targets: set[str] = set()
+        for edge in edges:
+            targets.update(edge.target_ids)
+        targets.discard(node.id)
+        if not targets:
+            return 0.0
+        n = len(targets) + 1
+        local_nodes = [node.id] + list(targets)
+        idx = {nid: i for i, nid in enumerate(local_nodes)}
+        adj = np.zeros((n, n))
+        for edge in edges:
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    if src in idx and tgt in idx:
+                        adj[idx[src], idx[tgt]] += edge.weight
+        degree = adj.sum(axis=1)
+        eigenvalues = np.linalg.eigvalsh(adj)
+        if len(eigenvalues) < 2:
+            return 0.0
+        sorted_evals = np.sort(np.abs(eigenvalues))[::-1]
+        spectral_gap = sorted_evals[0] - sorted_evals[1] if len(sorted_evals) >= 2 else 0.0
+        max_eval = max(abs(sorted_evals[0]), 1e-10)
+        return float(min(spectral_gap / max_eval, 1.0))
+
     def _probabilistic_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
-        complexity = (neighbor_count * 0.7) / max(total_nodes, 1)
-        weights = [e.weight for e in self._graph.edges_for(node.id)]
-        avg_weight = sum(weights) / len(weights) if weights else 0.0
-        approach = "weighted_random_walk"
-        if avg_weight > 0:
-            approach = "importance_sampling"
+        complexity = self._transition_entropy(node)
+        approach = "importance_sampling"
         assessment = self._assess_frame("probabilistic")
         if neighbor_count > 5:
             assessment.get("strengths", []).append("sufficient_sample_size")
@@ -254,13 +318,28 @@ class ComputationalRelativity:
             complexity=min(complexity, 1.0),
             solution_approach=approach,
             parameters={
-                "average_edge_weight": avg_weight,
                 "neighbor_count": neighbor_count,
                 "sampling_recommended": neighbor_count > 5,
             },
             strengths=assessment.get("strengths", []),
             weaknesses=assessment.get("weaknesses", []),
         )
+
+    def _transition_entropy(self, node: Hypernode) -> float:
+        edges = self._graph.edges_for(node.id)
+        if not edges:
+            return 0.0
+        total_weight = sum(e.weight for e in edges)
+        if total_weight <= 0:
+            total_weight = len(edges)
+            probs = np.array([1.0 / len(edges)] * len(edges))
+        else:
+            probs = np.array([e.weight / total_weight for e in edges])
+        entropy = -np.sum(probs * np.log2(probs + 1e-15))
+        max_entropy = np.log2(max(len(edges), 1))
+        if max_entropy == 0:
+            return 0.0
+        return float(min(entropy / max_entropy, 1.0))
 
     def _compute_complexity(self, node: Hypernode | None, frame: ComputationalFrame) -> float:
         base = 0.0
