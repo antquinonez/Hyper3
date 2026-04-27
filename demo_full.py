@@ -153,7 +153,7 @@ test_concepts = [
 ]
 
 for concept in test_concepts:
-    result = mem.reason_transfinite(concept)
+    result = mem.detect_structural_anomalies(concept)
     print(f"   '{concept}':")
     print(f"     status={result.decidability_status}, score={result.boundary_score:.3f}, level={result.reasoning_level}")
     if result.boundary_warnings:

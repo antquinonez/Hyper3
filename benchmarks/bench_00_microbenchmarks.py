@@ -282,12 +282,12 @@ def bench_basis_learning(n_outcomes=500):
 
 
 def bench_frame_learning(n_outcomes=500):
-    from hyper3.relativity import ComputationalRelativity
+    from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 
     g = Hypergraph()
     for i in range(10):
         g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
-    cr = ComputationalRelativity(g)
+    cr = MultiPerspectiveAnalyzer(g)
 
     frames = ["classical", "quantum", "hypergraph", "probabilistic"]
     for i in range(n_outcomes):
@@ -303,7 +303,7 @@ def bench_frame_learning(n_outcomes=500):
 
 
 def bench_partial_proof():
-    from hyper3.transfinite import TransfiniteReasoner
+    from hyper3.structural_anomaly import StructuralAnomalyDetector
 
     g = Hypergraph()
     for i in range(50):
@@ -312,7 +312,7 @@ def bench_partial_proof():
         g.add_edge(Hyperedge(source_ids=frozenset({f"n{i}"}), target_ids=frozenset({f"n{i+1}"}), label="rel"))
     g.add_edge(Hyperedge(source_ids=frozenset({f"n49"}), target_ids=frozenset({f"n0"}), label="rel"))
 
-    tr = TransfiniteReasoner(g)
+    tr = StructuralAnomalyDetector(g)
 
     start = time.perf_counter()
     for i in range(10):

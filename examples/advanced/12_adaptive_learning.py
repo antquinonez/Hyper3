@@ -363,7 +363,7 @@ def main() -> None:
     print("SECTION 4: Frame Effectiveness Learning")
     print("=" * 70)
 
-    relativity = mem.relativity
+    analyzer = mem.relativity
 
     frame_training = [
         ("classical", True), ("classical", True), ("classical", False),
@@ -376,10 +376,10 @@ def main() -> None:
         ("probabilistic", False), ("probabilistic", True),
     ]
     for frame, success in frame_training:
-        relativity.record_frame_outcome(frame, success)
+        analyzer.record_frame_outcome(frame, success)
 
     print("  Frame effectiveness:")
-    for frame, eff in sorted(relativity.get_frame_effectiveness().items(), key=lambda x: x[1], reverse=True):
+    for frame, eff in sorted(analyzer.get_frame_effectiveness().items(), key=lambda x: x[1], reverse=True):
         print(f"    {frame:15s}  effectiveness={eff:.2f}")
 
     test_concepts = [
@@ -391,14 +391,14 @@ def main() -> None:
     print(f"    {'Concept':30s}  {'Complexity-based':>16s}  {'Learned (TS)':>16s}")
     print("    " + "-" * 70)
     for concept in test_concepts:
-        name_complexity, analysis_c = relativity.select_optimal_frame(concept)
-        name_learned, analysis_l = relativity.select_optimal_frame_learned(concept)
+        name_complexity, analysis_c = analyzer.select_optimal_frame(concept)
+        name_learned, analysis_l = analyzer.select_optimal_frame_learned(concept)
         print(f"    {concept:30s}  {name_complexity:>16s}  {name_learned:>16s}")
 
     frame_selections: dict[str, int] = {}
     for concept in test_concepts:
         for _ in range(50):
-            name, _ = relativity.select_optimal_frame_learned(concept)
+            name, _ = analyzer.select_optimal_frame_learned(concept)
             frame_selections[name] = frame_selections.get(name, 0) + 1
 
     print(f"\n  Learned frame selections over {len(test_concepts) * 50} trials:")
@@ -494,7 +494,7 @@ def main() -> None:
         print(f"  Worst measurement basis: {worst_basis} "
               f"(rate={quantum.basis_effectiveness[worst_basis]:.2f})")
 
-    frame_eff = relativity.get_frame_effectiveness()
+    frame_eff = analyzer.get_frame_effectiveness()
     if frame_eff:
         best_frame = max(frame_eff, key=frame_eff.get)
         print(f"\n  Optimal frame: {best_frame} "
