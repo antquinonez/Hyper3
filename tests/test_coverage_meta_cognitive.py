@@ -128,7 +128,7 @@ class TestAutoMetamorphosis:
             target.access_count = 3
         mem.meta.auto_metamorphosis()
         result = mem.meta.auto_metamorphosis()
-        assert "fitness" in result
+        assert "fitness_before" in result
 
 
 class TestProposeMetamorphosisMultipleTriggers:

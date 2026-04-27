@@ -174,27 +174,12 @@ class QuantumMixin(_MemoryBase):
             concept: Label of the node to observe.
 
         Returns:
-            Dict mapping node IDs to their collapsed interpretation node IDs.
+            Dict mapping concept labels to their predicted concept labels.
         """
         node = self._find_node(concept)
         if not node:
             return {}
-        return self._quantum.collapse_entangled(qs.id, node.id)
-
-    def collapse_entangled_labels(self, qs: QuantumState, concept: str) -> dict[str, str]:
-        """Collapse an entangled state, returning label-to-label predictions.
-
-        Unlike :meth:`collapse_entangled`, this method resolves node IDs to
-        human-readable labels in both keys and values.
-
-        Args:
-            qs: The entangled quantum state.
-            concept: Label of the node to observe.
-
-        Returns:
-            Dict mapping concept labels to their predicted concept labels.
-        """
-        raw = self.collapse_entangled(qs, concept)
+        raw = self._quantum.collapse_entangled(qs.id, node.id)
         labeled: dict[str, str] = {}
         for node_id, predicted_id in raw.items():
             label = self._node_label(node_id)
@@ -249,10 +234,13 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Ensure all lateral insight dicts have both key variants and default fields."""
+        """Ensure all lateral insight dicts have both key variants, default fields, and resolved labels."""
         normalized: list[dict[str, Any]] = []
         for insight in insights:
             n = dict(insight)
+            for key in ("novel_in_source", "novel_in_lateral", "complementary_nodes"):
+                if key in n and isinstance(n[key], list):
+                    n[key] = [self._node_label(nid) for nid in n[key]]
             if "novel_in_source" in n and "novel_nodes_in_source" not in n:
                 n["novel_nodes_in_source"] = n["novel_in_source"]
             if "novel_in_lateral" in n and "novel_nodes_in_lateral" not in n:

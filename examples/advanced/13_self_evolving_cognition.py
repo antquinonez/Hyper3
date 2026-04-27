@@ -117,10 +117,10 @@ def main() -> None:
 
             result = mem.execute_metamorphosis_validated(plan)
             print(f"  Validated execution:")
-            print(f"    rolled_back={result['rolled_back']}")
-            print(f"    fitness_before={result['fitness_before']:.3f}")
-            print(f"    fitness_after={result['fitness_after']:.3f}")
-            print(f"    improvement={result['improvement']:.3f}")
+            print(f"    rolled_back={result.rolled_back}")
+            print(f"    fitness_before={result.fitness_before:.3f}")
+            print(f"    fitness_after={result.fitness_after:.3f}")
+            print(f"    improvement={result.improvement:.3f}")
     else:
         print("  No metamorphosis triggers (system healthy)")
 
@@ -131,9 +131,9 @@ def main() -> None:
             if plan:
                 result = mem.execute_metamorphosis_validated(plan)
                 print(f"  Forced metamorphosis (fitness was 0.3):")
-                print(f"    rolled_back={result['rolled_back']}")
-                print(f"    fitness_before={result['fitness_before']:.3f}")
-                print(f"    fitness_after={result['fitness_after']:.3f}")
+                print(f"    rolled_back={result.rolled_back}")
+                print(f"    fitness_before={result.fitness_before:.3f}")
+                print(f"    fitness_after={result.fitness_after:.3f}")
 
     print()
     print("=" * 70)

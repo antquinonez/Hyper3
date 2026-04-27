@@ -353,7 +353,7 @@ def main() -> None:
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
+    print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Risk communities: {result.community_count}")
     print(f"  Evolution changes tracked: {delta.total_changes if delta else 0}")
     print()

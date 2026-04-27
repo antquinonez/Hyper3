@@ -482,11 +482,11 @@ def main():
         max_total_states=300,
     )
 
-    exp = result["expansion"]
+    exp = result.expansion
     print(f"  Seeds:             {len(all_labels)} nodes")
-    print(f"  States explored:   {exp['states_created']}")
-    print(f"  Rules applied:     {exp['rules_applied']}")
-    print(f"  Edges inferred:    {exp['edges_produced']}")
+    print(f"  States explored:   {exp.states_created}")
+    print(f"  Rules applied:     {exp.rules_applied}")
+    print(f"  Edges inferred:    {exp.edges_produced}")
     print(f"  Graph:             {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
     print()
 
@@ -519,7 +519,7 @@ def main():
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = mem.betweenness_centrality_labels()
+    bc = mem.betweenness_centrality()
     top_spof = sorted(bc.items(), key=lambda x: x[1], reverse=True)[:15]
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")
@@ -613,9 +613,9 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Nodes:            {stats['nodes']}")
-    print(f"  Edges:            {stats['edges']} ({exp['edges_produced']} inferred)")
-    print(f"  Active rules:     {stats['active_rules']}")
+    print(f"  Nodes:            {stats.nodes}")
+    print(f"  Edges:            {stats.edges} ({exp.edges_produced} inferred)")
+    print(f"  Active rules:     {stats.active_rules}")
     print()
     print("  Key insight: transitive rule inference discovers non-obvious")
     print("  dependencies that teams may not be aware of. The blast radius")

@@ -517,8 +517,8 @@ def main():
     indirect_edges = mem.pattern_match(edge_label="transfers_indirectly")
     print(f"  Indirect transfer chains discovered: {len(indirect_edges)}")
     for edge in indirect_edges[:8]:
-        src_label = edge["source_labels"][0] if edge["source_labels"] else "?"
-        tgt_label = edge["target_labels"][0] if edge["target_labels"] else "?"
+        src_label = edge.source_labels[0] if edge.source_labels else "?"
+        tgt_label = edge.target_labels[0] if edge.target_labels else "?"
         print(f"    {src_label} -> {tgt_label}")
     if len(indirect_edges) > 8:
         print(f"    ... and {len(indirect_edges) - 8} more")
@@ -527,8 +527,8 @@ def main():
     indirect_assoc = mem.pattern_match(edge_label="indirectly_associated")
     print(f"  Indirect associations discovered: {len(indirect_assoc)}")
     for edge in indirect_assoc[:8]:
-        src_label = edge["source_labels"][0] if edge["source_labels"] else "?"
-        tgt_label = edge["target_labels"][0] if edge["target_labels"] else "?"
+        src_label = edge.source_labels[0] if edge.source_labels else "?"
+        tgt_label = edge.target_labels[0] if edge.target_labels else "?"
         print(f"    {src_label} -- {tgt_label}")
     if len(indirect_assoc) > 8:
         print(f"    ... and {len(indirect_assoc) - 8} more")
@@ -538,7 +538,7 @@ def main():
     print("SECTION 4: Pattern Detection")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=10)
+    cycles = mem.detect_cycles(max_cycles=10)
     print(f"  Circular money flows detected: {len(cycles)}")
     for i, cycle in enumerate(cycles):
         print(f"    Cycle {i + 1}: {' -> '.join(cycle)} -> {cycle[0]}")
@@ -555,15 +555,15 @@ def main():
     print("SECTION 5: Funnel Account Identification")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
+    degree = mem.degree_centrality()
     transferred = mem.pattern_match(edge_label="transferred_to")
 
     in_degree: dict[str, int] = {}
     out_degree: dict[str, int] = {}
     for edge in transferred:
-        for lbl in edge["target_labels"]:
+        for lbl in edge.target_labels:
             in_degree[lbl] = in_degree.get(lbl, 0) + 1
-        for lbl in edge["source_labels"]:
+        for lbl in edge.source_labels:
             out_degree[lbl] = out_degree.get(lbl, 0) + 1
 
     all_acct_labels = set(in_degree.keys()) | set(out_degree.keys())
@@ -601,7 +601,7 @@ def main():
         if data.get("type") in ("vpn", "tor"):
             flagged_node_labels.add(label)
 
-    components = mem.connected_components_labels()
+    components = mem.connected_components()
     suspicious_clusters = []
     for comp in components:
         overlap = comp & flagged_node_labels
@@ -626,7 +626,7 @@ def main():
             print(f"      IPs/Devices: {', '.join(sorted(ip_in)[:6])}")
     print()
 
-    betweenness = mem.betweenness_centrality_labels()
+    betweenness = mem.betweenness_centrality()
     suspect_persons = {l: d for l, d in persons.items() if d.get("risk_score", 0) >= 0.50}
     ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
     print("  Risk ranking of suspects (by betweenness centrality):")
@@ -643,8 +643,8 @@ def main():
     print("=" * 70)
 
     stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
+    print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
+    print(f"  Connected components: {stats.components}")
     print(f"  Cycles detected: {len(cycles)}")
     print(f"  Funnel accounts: {len(funnel_accounts)}")
     print(f"  Suspicious clusters: {len(suspicious_clusters)}")
@@ -662,7 +662,7 @@ def main():
 
     if suspicious_clusters:
         sg = mem.subgraph(suspicious_clusters[0][0])
-        print(f"  Largest suspicious subgraph: {sg['node_count']} nodes, {sg['edge_count']} edges")
+        print(f"  Largest suspicious subgraph: {sg.node_count} nodes, {sg.edge_count} edges")
     print()
 
     print("  Recommended next steps:")

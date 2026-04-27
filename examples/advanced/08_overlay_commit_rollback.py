@@ -409,15 +409,15 @@ def print_hypothesis_report(
     seeds: set[str],
     analysis: dict,
 ) -> None:
-    exp = analysis["result"]["expansion"]
+    exp = analysis["result"].expansion
     overlay_info = analysis["result"].get("overlay", {})
 
     print(f"  Hypothesis: {name}")
     print(f"  Description: {description}")
     print(f"  Seeds: {', '.join(sorted(seeds))}")
-    print(f"  Expansion: {exp['states_created']} states, "
-          f"{exp['rules_applied']} rules applied, "
-          f"{exp['edges_produced']} edges produced")
+    print(f"  Expansion: {exp.states_created} states, "
+          f"{exp.rules_applied} rules applied, "
+          f"{exp.edges_produced} edges produced")
     print(f"  Overlay: {overlay_info.get('edge_count', 0)} edges, "
           f"{overlay_info.get('node_count', 0)} new nodes")
     print()

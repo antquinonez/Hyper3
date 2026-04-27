@@ -295,11 +295,11 @@ def main():
             ev = mem.temporal.get_event(label)
             print(f"  Overlapping with {label} ({context}):")
             for r in results:
-                other = mem.temporal.get_event(r["label"])
+                other = mem.temporal.get_event(r.label)
                 if ev and other:
                     rel = ev.interval.relate_to(other.interval)
                     off_s = (other.interval.start - BASE) / H
-                    print(f"    {r['label']:25s} {fmt(off_s)} [{rel.value}]")
+                    print(f"    {r.label:25s} {fmt(off_s)} [{rel.value}]")
             print()
 
     # =====================================================================

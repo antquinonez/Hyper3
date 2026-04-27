@@ -408,8 +408,8 @@ def main() -> None:
     print("=" * 70)
 
     discovery_result = mem.auto_discover_and_apply()
-    print(f"  Total patterns discovered: {discovery_result['total_patterns']}")
-    print(f"  New rules added to active set: {discovery_result['new_rules_added']}")
+    print(f"  Total patterns discovered: {discovery_result.total_patterns}")
+    print(f"  New rules added to active set: {discovery_result.new_rules_added}")
 
     discovered = mem.discovery.get_discovered_rules()
     type_counts = Counter(dr.pattern_type for dr in discovered)
@@ -632,7 +632,7 @@ def main() -> None:
     print("SUMMARY")
     print("=" * 70)
     print(f"  Infrastructure:  {initial_nodes} nodes, {initial_edges} edges")
-    print(f"  Auto-discovery:  {discovery_result['total_patterns']} patterns")
+    print(f"  Auto-discovery:  {discovery_result.total_patterns} patterns")
     for ptype, count in sorted(type_counts.items()):
         print(f"    {ptype}: {count}")
     print(f"  Transitive chains:  {len(t_matches)} hidden dependency paths")

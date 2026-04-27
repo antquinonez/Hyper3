@@ -197,73 +197,73 @@ class TestConnectedComponents:
 
 
 class TestLabelConvenienceMethods:
-    def test_find_paths_labels(self):
+    def test_find_paths(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
         mem.relate("a", "b", label="x")
         mem.relate("b", "c", label="x")
-        paths = mem.find_paths_labels("a", "c")
+        paths = mem.find_paths("a", "c")
         assert len(paths) > 0
         assert paths[0][0] == "a"
         assert paths[0][-1] == "c"
 
-    def test_shortest_path_labels(self):
+    def test_shortest_path(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
         mem.relate("a", "b", label="x")
         mem.relate("b", "c", label="x")
-        path = mem.shortest_path_labels("a", "c")
+        path = mem.shortest_path("a", "c")
         assert path is not None
         assert "a" in path and "c" in path
 
-    def test_shortest_path_labels_no_path(self):
+    def test_shortest_path_no_path(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
-        path = mem.shortest_path_labels("a", "b")
+        path = mem.shortest_path("a", "b")
         assert path is None
 
-    def test_degree_centrality_labels(self):
+    def test_degree_centrality(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
         mem.relate("a", "b", label="x")
         mem.relate("a", "c", label="x")
-        centrality = mem.degree_centrality_labels()
+        centrality = mem.degree_centrality()
         assert "a" in centrality
         assert centrality["a"] > centrality["b"]
 
-    def test_betweenness_centrality_labels(self):
+    def test_betweenness_centrality(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
         mem.relate("a", "b", label="x")
         mem.relate("b", "c", label="x")
-        centrality = mem.betweenness_centrality_labels()
+        centrality = mem.betweenness_centrality()
         assert "b" in centrality
 
-    def test_connected_components_labels(self):
+    def test_connected_components(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
         mem.relate("a", "b", label="x")
-        components = mem.connected_components_labels()
+        components = mem.connected_components()
         assert len(components) >= 1
 
-    def test_detect_cycles_labels(self):
+    def test_detect_cycles(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="x")
         mem.relate("b", "a", label="y")
-        cycles = mem.detect_cycles_labels()
+        cycles = mem.detect_cycles()
         assert len(cycles) > 0
 
 

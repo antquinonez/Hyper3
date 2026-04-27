@@ -19,7 +19,8 @@ class _SimpleResultBase:
     def get(self, key: str, default: Any = None) -> Any:
         if not hasattr(self, key) or key.startswith('_'):
             return default
-        return getattr(self, key, default)
+        val = getattr(self, key, default)
+        return default if val is None else val
 
     def keys(self) -> list[str]:
         return [k for k in getattr(self, '__dataclass_fields__', {}) if not k.startswith('_')]
@@ -370,3 +371,15 @@ class BiasProfileResult(_SimpleResultBase):
     bias_score: float = 0.0
     average_effectiveness: float = 0.0
     rule_count: int = 0
+
+
+@dataclass
+class MetamorphosisResult(_SimpleResultBase):
+    results: dict[str, Any] = field(default_factory=dict)
+    validated: bool = False
+    rolled_back: bool = False
+    fitness_before: float = 0.0
+    fitness_after: float = 0.0
+    improvement: float = 0.0
+    actions_taken: int = 0
+    delta: Any = None

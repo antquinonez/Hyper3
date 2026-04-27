@@ -190,7 +190,7 @@ def main() -> None:
     print(f"  Servers: {len(SERVERS)}")
     print(f"  Dependencies: {len(DEPENDENCIES)}")
     print(f"  Failure modes: {len(FAILURE_MODES)}")
-    print(f"  Total nodes: {stats['nodes']}, edges: {stats['edges']}")
+    print(f"  Total nodes: {stats.nodes}, edges: {stats.edges}")
     print()
 
     print("=" * 70)
@@ -367,10 +367,10 @@ def main() -> None:
 
             result = mem.execute_metamorphosis_validated(plan)
             print(f"  Validated execution:")
-            print(f"    rolled_back={result['rolled_back']}")
-            print(f"    fitness_before={result['fitness_before']:.4f}")
-            print(f"    fitness_after={result['fitness_after']:.4f}")
-            print(f"    improvement={result['improvement']:.6f}")
+            print(f"    rolled_back={result.rolled_back}")
+            print(f"    fitness_before={result.fitness_before:.4f}")
+            print(f"    fitness_after={result.fitness_after:.4f}")
+            print(f"    improvement={result.improvement:.6f}")
     else:
         print("  No metamorphosis triggers (system recovered)")
 
@@ -420,7 +420,7 @@ def main() -> None:
     print("SUMMARY")
     print("=" * 70)
     final_stats = mem.stats()
-    print(f"  Final graph: {final_stats['nodes']} nodes, {final_stats['edges']} edges")
+    print(f"  Final graph: {final_stats.nodes} nodes, {final_stats.edges} edges")
     print(f"  Stale nodes cleaned: {len(NOISY_NODES) - remaining_stale}/{len(NOISY_NODES)}")
     print(f"  Healthy nodes preserved: {remaining_healthy}")
     print(f"  Fitness journey: declining -> {summary_after['fitness_trend']}")

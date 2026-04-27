@@ -6,6 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
+from hyper3.results import RelativityAnalysis
 import numpy as np
 
 from hyper3.kernel import Hypergraph, Hypernode, Modality
@@ -985,13 +986,13 @@ class ComputationalRelativity:
             best_name = min(analyses, key=lambda n: analyses[n].complexity)
         return best_name, analyses[best_name]
 
-    def analyze(self) -> dict[str, Any]:
-        """Return a summary dict of available frames, transformation count, and effectiveness."""
-        return {
-            "available_frames": list(self._frames.keys()),
-            "transformations_computed": len(self._transformations),
-            "frame_effectiveness": self.get_frame_effectiveness(),
-        }
+    def analyze(self) -> RelativityAnalysis:
+        """Return a typed summary of available frames, transformation count, and effectiveness."""
+        return RelativityAnalysis(
+            available_frames=list(self._frames.keys()),
+            transformations_computed=len(self._transformations),
+            frame_effectiveness=self.get_frame_effectiveness(),
+        )
 
     def compute_consensus(
         self,

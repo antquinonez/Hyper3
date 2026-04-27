@@ -307,8 +307,8 @@ def main():
     causes_edges = mem.pattern_match(edge_label="causes")
     print(f"  'causes' relationships ({len(causes_edges)}):")
     for match in causes_edges[:5]:
-        src_labels = match["source_labels"]
-        tgt_labels = match["target_labels"]
+        src_labels = match.source_labels
+        tgt_labels = match.target_labels
         if src_labels and tgt_labels:
             print(f"    {src_labels[0]} causes {tgt_labels[0]}")
     print()
@@ -316,8 +316,8 @@ def main():
     exploited_edges = mem.pattern_match(edge_label="exploited_via")
     print(f"  'exploited_via' relationships ({len(exploited_edges)}):")
     for match in exploited_edges[:5]:
-        src_labels = match["source_labels"]
-        tgt_labels = match["target_labels"]
+        src_labels = match.source_labels
+        tgt_labels = match.target_labels
         if src_labels and tgt_labels:
             print(f"    {src_labels[0]} exploited_via {tgt_labels[0]}")
     print()
@@ -363,9 +363,9 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Final graph: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
-    print(f"  Has cycles: {stats['cycles']}")
+    print(f"  Final graph: {stats.nodes} nodes, {stats.edges} edges")
+    print(f"  Connected components: {stats.components}")
+    print(f"  Has cycles: {stats.cycles}")
     print(f"  Incident reports processed: {len(REPORTS)}")
     print(f"  Entity types discovered: {len(indicator_values)} categories")
     print()

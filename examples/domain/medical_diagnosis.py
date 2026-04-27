@@ -355,7 +355,7 @@ def main() -> None:
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
+    print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Top differential: {scores[0][0]} (confidence={scores[0][1]:.2f})")
     print(f"  Contradictions resolved: {revision.edges_removed_count}")
     print(f"  Low-confidence nodes flagged: {len(low_conf)}")

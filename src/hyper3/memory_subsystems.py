@@ -22,7 +22,7 @@ from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, Meta
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, FeedbackSummaryResult, BiasProfileResult
+from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, FeedbackSummaryResult, BiasProfileResult, MetamorphosisResult
 from hyper3.feedback import OperationFeedback
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
@@ -587,7 +587,7 @@ class SubsystemMixin(_MemoryBase):
         plan: MetamorphosisPlan,
         *,
         fitness_tolerance: float = 0.0,
-    ) -> dict[str, Any]:
+    ) -> MetamorphosisResult:
         """Execute a metamorphosis plan with snapshot, validation, and rollback.
 
         Requires a graph differ (created automatically on first capture_version
@@ -599,8 +599,8 @@ class SubsystemMixin(_MemoryBase):
                 the metamorphosis. If 0, any non-degrading change is accepted.
 
         Returns:
-            Dict with results, validated, rolled_back, fitness_before,
-            fitness_after, and optional delta.
+            MetamorphosisResult with results, validated, rolled_back,
+            fitness_before, fitness_after, and optional delta.
         """
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)

@@ -41,10 +41,6 @@ class AnalyticsMixin(_MemoryBase):
         )
         return [[self._node_label(nid) for nid in path] for path in raw]
 
-    def find_paths_labels(self, source: str, target: str, **kwargs: Any) -> list[list[str]]:
-        """Deprecated: use :meth:`find_paths` which now returns labels."""
-        return self.find_paths(source, target, **kwargs)
-
     def pattern_match(
         self,
         *,
@@ -167,23 +163,3 @@ class AnalyticsMixin(_MemoryBase):
     def degree_distribution(self) -> dict[int, int]:
         """Return a histogram of node degrees across the graph."""
         return self._graph.degree_distribution()
-
-    def shortest_path_labels(self, source: str, target: str) -> list[str] | None:
-        """Deprecated: use :meth:`shortest_path` which now returns labels."""
-        return self.shortest_path(source, target)
-
-    def degree_centrality_labels(self) -> dict[str, float]:
-        """Deprecated: use :meth:`degree_centrality` which now returns labels."""
-        return self.degree_centrality()
-
-    def betweenness_centrality_labels(self) -> dict[str, float]:
-        """Deprecated: use :meth:`betweenness_centrality` which now returns labels."""
-        return self.betweenness_centrality()
-
-    def connected_components_labels(self) -> list[set[str]]:
-        """Deprecated: use :meth:`connected_components` which now returns labels."""
-        return self.connected_components()
-
-    def detect_cycles_labels(self, *, max_cycles: int = 10) -> list[list[str]]:
-        """Deprecated: use :meth:`detect_cycles` which now returns labels."""
-        return self.detect_cycles(max_cycles=max_cycles)

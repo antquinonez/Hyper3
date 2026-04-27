@@ -447,8 +447,8 @@ def main():
     print("SECTION 3: Most Critical Modules (Centrality)")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
-    betweenness = mem.betweenness_centrality_labels()
+    degree = mem.degree_centrality()
+    betweenness = mem.betweenness_centrality()
 
     combined = {}
     for label in all_modules:
@@ -473,7 +473,7 @@ def main():
     print("SECTION 4: Circular Dependencies")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=10)
+    cycles = mem.detect_cycles(max_cycles=10)
     if cycles:
         print(f"  Found {len(cycles)} circular dependency chains:")
         for i, cycle in enumerate(cycles, 1):
@@ -635,9 +635,9 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
+    print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Circular dependencies: {len(cycles)} cycles")
-    print(f"  Connected components: {stats['components']}")
+    print(f"  Connected components: {stats.components}")
     print(f"  Indirect dependencies found: {new_count}")
     print(f"  Outdated packages: {len(outdated)}")
     print(f"  Low-coverage at-risk modules: {len(at_risk)}")

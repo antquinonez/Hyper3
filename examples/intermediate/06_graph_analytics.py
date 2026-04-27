@@ -516,14 +516,14 @@ def compute_risk_scores(
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
-        for lbl in edge["source_labels"]:
+        for lbl in edge.source_labels:
             node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "host":
                 vuln_count[node.label] += 1
 
     exploit_edges = []
     for edge in vuln_edges:
-        for lbl in edge["target_labels"]:
+        for lbl in edge.target_labels:
             node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "vulnerability":
                 if node.data.get("exploit_available"):
@@ -557,8 +557,8 @@ def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str
 
     zone_rank = {"dmz": 0, "internal": 1, "restricted": 2}
     for edge in route_edges:
-        src_label = edge["source_labels"][0] if edge["source_labels"] else ""
-        tgt_label = edge["target_labels"][0] if edge["target_labels"] else ""
+        src_label = edge.source_labels[0] if edge.source_labels else ""
+        tgt_label = edge.target_labels[0] if edge.target_labels else ""
 
         sz = seg_zones.get(src_label, "")
         tz = seg_zones.get(tgt_label, "")
@@ -570,8 +570,8 @@ def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str
 
     trust_edges = mem.pattern_match(edge_label="trusts")
     for edge in trust_edges:
-        src_label = edge["source_labels"][0] if edge["source_labels"] else ""
-        tgt_label = edge["target_labels"][0] if edge["target_labels"] else ""
+        src_label = edge.source_labels[0] if edge.source_labels else ""
+        tgt_label = edge.target_labels[0] if edge.target_labels else ""
 
         if src_label and tgt_label:
             src_node = mem.graph.get_node_by_label(src_label)
@@ -623,7 +623,7 @@ def main():
     print("SECTION 2: Degree Centrality - Most Exposed Assets")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
+    degree = mem.degree_centrality()
     host_degree = {
         lbl: score for lbl, score in degree.items()
         if lbl in set(hosts)
@@ -646,7 +646,7 @@ def main():
     print("SECTION 3: Betweenness Centrality - Critical Chokepoints")
     print("=" * 70)
 
-    betweenness = mem.betweenness_centrality_labels()
+    betweenness = mem.betweenness_centrality()
     top_choke = sorted(betweenness.items(), key=lambda x: -x[1])[:10]
     print(f"  {'Node':25s} {'Betweenness':>12s}  {'Kind':10s}")
     print(f"  {'-' * 25} {'-' * 12}  {'-' * 10}")
@@ -673,7 +673,7 @@ def main():
     print("SECTION 4: Connected Components - Segmentation Verification")
     print("=" * 70)
 
-    components = mem.connected_components_labels()
+    components = mem.connected_components()
     print(f"  Total connected components: {len(components)}")
     for i, comp in enumerate(components):
         zones: dict[str, int] = defaultdict(int)
@@ -699,7 +699,7 @@ def main():
     print("SECTION 5: Cycle Detection - Circular Trust Relationships")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=15)
+    cycles = mem.detect_cycles(max_cycles=15)
     print(f"  Detected {len(cycles)} cycles\n")
 
     trust_cycles = []
@@ -790,7 +790,7 @@ def main():
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
-        for lbl in edge["source_labels"]:
+        for lbl in edge.source_labels:
             node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "host":
                 vuln_count[node.label] += 1
@@ -835,7 +835,7 @@ def main():
         ("ws-exec-01", "dc-01", "Exec workstation to domain controller"),
     ]
     for src, tgt, desc in lateral_targets:
-        path = mem.shortest_path_labels(src, tgt)
+        path = mem.shortest_path(src, tgt)
         if path:
             zones_in_path = []
             for p in path:

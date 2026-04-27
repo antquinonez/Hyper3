@@ -542,9 +542,7 @@ Higher-level methods (facades, coordinator classes) should call the underlying e
 
 These are known violations of the EP/DP principles that remain for backward compatibility or require significant refactoring:
 
-- **Engine `dict[str, Any]` returns** (EP-3): Most engine `analyze()`, `evolve()`, `enforce()`, and `train()` methods now return typed dataclasses. Remaining untyped returns: `ComputationalRelativity.analyze()`, `TransfiniteReasoner.analyze()`, `MetaCognitiveLayer.execute_metamorphosis()`, `MetaCognitiveLayer.execute_metamorphosis_validated()`, `MetaCognitiveLayer.auto_metamorphosis()`, and internal helper methods in `MetaCognitiveLayer` (e.g., `_adjust_evolution()`, `_run_rule_discovery()`).
-- **Deprecated `_labels` method variants** (EP-1): `find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, and `detect_cycles_labels` in `AnalyticsMixin` are thin wrappers that delegate to the canonical methods (which already return labels). They are kept for backward compatibility with existing examples and tests.
-- **`collapse_entangled` / `lateral_insights` label leaks** (EP-1): These quantum mixin methods return node IDs instead of labels. A future refactor should add label resolution.
+- **`execute_metamorphosis()` untyped return** (EP-3): `MetaCognitiveLayer.execute_metamorphosis()` (the unvalidated path) still returns `dict[str, Any]`. The validated variant (`execute_metamorphosis_validated`) and automated variant (`auto_metamorphosis`) return `MetamorphosisResult`. Internal helper methods (`_adjust_evolution()`, `_run_rule_discovery()`) also remain untyped.
 
 ## Common Pitfalls
 
@@ -556,7 +554,7 @@ These are known violations of the EP/DP principles that remain for backward comp
 - **EquivalenceEngine structural similarity**: Two nodes with no edges are structurally identical (score 1.0). Two nodes with no overlapping neighbors get structural score 0.0. The combined score can still exceed threshold via data similarity alone.
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Quantum decoherence is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
-- **`_SimpleResultBase.get()` returns `None` for existing fields**: When a field exists but is `None`, `.get("field", fallback)` returns `None`, not the fallback. This differs from `dict.get()`. Use attribute access with explicit `None` checks for fields that may be absent (e.g., `result.causal_invariance` with `if ci:` guards).
+- **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.causal_invariance`), use attribute access with explicit `if ci:` guards instead of `.get()`.
 
 ## Performance Indexes
 

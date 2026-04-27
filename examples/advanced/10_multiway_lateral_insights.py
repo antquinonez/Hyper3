@@ -385,13 +385,13 @@ def main():
         max_total_states=50,
     )
 
-    exp = result["expansion"]
-    print(f"  States created:    {exp['states_created']}")
-    print(f"  Rules applied:     {exp['rules_applied']}")
-    print(f"  New edges:         {exp['edges_produced']}")
-    print(f"  New nodes:         {exp['nodes_produced']}")
-    print(f"  Max depth:         {exp['max_depth']}")
-    print(f"  Branches (leaves): {exp['branches']}")
+    exp = result.expansion
+    print(f"  States created:    {exp.states_created}")
+    print(f"  Rules applied:     {exp.rules_applied}")
+    print(f"  New edges:         {exp.edges_produced}")
+    print(f"  New nodes:         {exp.nodes_produced}")
+    print(f"  Max depth:         {exp.max_depth}")
+    print(f"  Branches (leaves): {exp.branches}")
     print()
 
     # =====================================================================
@@ -627,8 +627,8 @@ def main():
     print("=" * 70)
     print(f"  Infrastructure graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
     print(f"  Reasoning branches explored: {len(leaves)}")
-    print(f"  Total inference edges produced: {exp['edges_produced']}")
-    print(f"  Total inference nodes produced: {exp['nodes_produced']}")
+    print(f"  Total inference edges produced: {exp.edges_produced}")
+    print(f"  Total inference nodes produced: {exp.nodes_produced}")
     if branch_scores:
         best = branch_scores[0]
         print(f"  Best explanation branch: rule={best[0]['rule']}, score={best[1]:.3f}")

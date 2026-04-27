@@ -452,11 +452,11 @@ def main():
 
     cve_to_industry: dict[str, set[str]] = {}
     for exp in exploits_edges:
-        actor_lbl = exp["source_labels"][0] if exp["source_labels"] else ""
+        actor_lbl = exp.source_labels[0] if exp.source_labels else ""
         for tgt in targets_edges:
-            if actor_lbl and actor_lbl in tgt["source_labels"]:
-                ind_lbl = tgt["target_labels"][0] if tgt["target_labels"] else ""
-                cve_lbl = exp["target_labels"][0] if exp["target_labels"] else ""
+            if actor_lbl and actor_lbl in tgt.source_labels:
+                ind_lbl = tgt.target_labels[0] if tgt.target_labels else ""
+                cve_lbl = exp.target_labels[0] if exp.target_labels else ""
                 if cve_lbl and ind_lbl:
                     cve_to_industry.setdefault(cve_lbl, set()).add(ind_lbl)
 
@@ -470,7 +470,7 @@ def main():
     print("SECTION 4: Top 5 Most Connected CVEs (Highest Degree)")
     print("=" * 70)
 
-    centrality = mem.degree_centrality_labels()
+    centrality = mem.degree_centrality()
     cve_set = {c["label"] for c in CVES}
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
     top_cves = sorted(cve_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -496,26 +496,26 @@ def main():
     apt28_labels = {"APT28"}
     for edges in [apt28_exploits, apt28_uses, apt28_targets, apt28_ttps]:
         for e in edges:
-            apt28_labels.update(e["source_labels"])
-            apt28_labels.update(e["target_labels"])
+            apt28_labels.update(e.source_labels)
+            apt28_labels.update(e.target_labels)
 
     sg = mem.subgraph(apt28_labels)
-    print(f"  APT28 profile subgraph: {sg['node_count']} nodes, {sg['edge_count']} edges")
+    print(f"  APT28 profile subgraph: {sg.node_count} nodes, {sg.edge_count} edges")
     print(f"    CVEs exploited:")
     for e in apt28_exploits:
-        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
+        tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
     print(f"    Malware used:")
     for e in apt28_uses:
-        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
+        tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
     print(f"    Sectors targeted:")
     for e in apt28_targets:
-        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
+        tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
     print(f"    TTPs:")
     for e in apt28_ttps:
-        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
+        tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
     print()
 
@@ -523,7 +523,7 @@ def main():
     print("SECTION 6: Attack Paths - Lazarus to Financial Sector")
     print("=" * 70)
 
-    paths = mem.find_paths_labels("Lazarus", "FIN", max_depth=4, max_paths=10)
+    paths = mem.find_paths("Lazarus", "FIN", max_depth=4, max_paths=10)
     if paths:
         print(f"  Found {len(paths)} path(s) from Lazarus to Financial sector:")
         for i, path in enumerate(paths, 1):
@@ -531,7 +531,7 @@ def main():
     else:
         print("  No direct paths found from Lazarus to Financial sector")
 
-    paths2 = mem.find_paths_labels("Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
+    paths2 = mem.find_paths("Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
     if paths2:
         print(f"\n  Found {len(paths2)} path(s) from Volt Typhoon to Energy sector:")
         for i, path in enumerate(paths2, 1):
@@ -568,7 +568,7 @@ def main():
     print("SECTION 8: Connected Components - Threat Ecosystems")
     print("=" * 70)
 
-    components = mem.connected_components_labels()
+    components = mem.connected_components()
     components_sorted = sorted(components, key=len, reverse=True)
     print(f"  Total connected components: {len(components_sorted)}")
     for i, comp in enumerate(components_sorted, 1):
@@ -630,11 +630,11 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Nodes:                {stats['nodes']}")
-    print(f"  Edges:                {stats['edges']}")
-    print(f"  Event log entries:    {stats['log_size']}")
-    print(f"  Connected components: {stats['components']}")
-    print(f"  Has cycles:           {stats['cycles']}")
+    print(f"  Nodes:                {stats.nodes}")
+    print(f"  Edges:                {stats.edges}")
+    print(f"  Event log entries:    {stats.log_size}")
+    print(f"  Connected components: {stats.components}")
+    print(f"  Has cycles:           {stats.cycles}")
     print(f"  Threat actors:        {len(THREAT_ACTORS)}")
     print(f"  CVEs:                 {len(CVES)}")
     print(f"  Malware families:     {len(MALWARE)}")

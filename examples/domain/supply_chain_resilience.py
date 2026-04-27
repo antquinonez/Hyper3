@@ -504,8 +504,8 @@ def main():
     print("SECTION 2: Centrality Analysis - Critical Nodes & Chokepoints")
     print("=" * 70)
 
-    deg = mem.degree_centrality_labels()
-    btw = mem.betweenness_centrality_labels()
+    deg = mem.degree_centrality()
+    btw = mem.betweenness_centrality()
 
     sorted_deg = sorted(deg.items(), key=lambda x: -x[1])
     sorted_btw = sorted(btw.items(), key=lambda x: -x[1])
@@ -592,10 +592,10 @@ def main():
         max_depth=3,
         max_total_states=50,
     )
-    exp1 = result1["expansion"]
-    print(f"    States explored: {exp1['states_created']}")
-    print(f"    Rules applied:   {exp1['rules_applied']}")
-    print(f"    New edges:       {exp1['edges_produced']}")
+    exp1 = result1.expansion
+    print(f"    States explored: {exp1.states_created}")
+    print(f"    Rules applied:   {exp1.rules_applied}")
+    print(f"    New edges:       {exp1.edges_produced}")
 
     print("\n  Phase 2: Indirect supply chain reasoning (supplies_to)...")
     mem.add_rules(
@@ -607,10 +607,10 @@ def main():
         max_depth=3,
         max_total_states=50,
     )
-    exp2 = result2["expansion"]
-    print(f"    States explored: {exp2['states_created']}")
-    print(f"    Rules applied:   {exp2['rules_applied']}")
-    print(f"    New edges:       {exp2['edges_produced']}")
+    exp2 = result2.expansion
+    print(f"    States explored: {exp2.states_created}")
+    print(f"    Rules applied:   {exp2.rules_applied}")
+    print(f"    New edges:       {exp2.edges_produced}")
 
     cascades = mem.pattern_match(edge_label="cascade_affected_by")
     indirect = mem.pattern_match(edge_label="indirectly_supplies")
@@ -619,8 +619,8 @@ def main():
 
     risk_impacts: dict[str, list[str]] = {}
     for edge_info in cascades:
-        src_labels = edge_info["source_labels"]
-        tgt_labels = edge_info["target_labels"]
+        src_labels = edge_info.source_labels
+        tgt_labels = edge_info.target_labels
         if src_labels and tgt_labels and src_labels[0].startswith("risk_"):
             risk_impacts.setdefault(src_labels[0], []).append(tgt_labels[0])
 
@@ -647,7 +647,7 @@ def main():
     print("\n  Top risk-to-product disruption paths:")
     for risk_name, risk_data in high_impact_risks[:4]:
         print(f"\n  {risk_name} (p={risk_data['probability']:.2f}, impact={risk_data['impact']:.2f}):")
-        paths = mem.find_paths_labels(risk_name, "prod_vehicle", max_depth=8, max_paths=3)
+        paths = mem.find_paths(risk_name, "prod_vehicle", max_depth=8, max_paths=3)
         if paths:
             for i, path in enumerate(paths[:2]):
                 lead_total = 0
@@ -660,7 +660,7 @@ def main():
         else:
             print(f"    No direct path to final vehicle")
 
-    components = mem.connected_components_labels()
+    components = mem.connected_components()
     print(f"\n  Connected components: {len(components)}")
     for i, comp in enumerate(sorted(components, key=len, reverse=True)[:3]):
         cats: dict[str, int] = {}
@@ -786,7 +786,7 @@ def main():
             continue
         risk_count = 0
         for edge_info in mem.pattern_match(edge_label="affected_by", target_label=name):
-            src_labels = edge_info["source_labels"]
+            src_labels = edge_info.source_labels
             if src_labels and src_labels[0].startswith("risk_"):
                 risk_node = mem.graph.get_node_by_label(src_labels[0])
                 if risk_node and risk_node.data:
@@ -813,8 +813,8 @@ def main():
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
-    print(f"  Network: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
+    print(f"  Network: {stats.nodes} nodes, {stats.edges} edges")
+    print(f"  Connected components: {stats.components}")
     print()
     print("  Key findings:")
     print(f"    - {len(single_source_suppliers)} single-source suppliers identified")

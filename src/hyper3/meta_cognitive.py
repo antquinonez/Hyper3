@@ -19,6 +19,7 @@ from hyper3.results import (
     EvolutionHealthInfo,
     DiscoveryHealthInfo,
     MetaCognitiveStats,
+    MetamorphosisResult,
 )
 
 
@@ -429,7 +430,7 @@ class MetaCognitiveLayer:
         plan: MetamorphosisPlan,
         *,
         fitness_tolerance: float = 0.0,
-    ) -> dict[str, Any]:
+    ) -> MetamorphosisResult:
         """Execute a metamorphosis plan with pre-snapshot, validation, and rollback.
 
         If a :class:`GraphDiffer` is attached via :meth:`set_differ`, the method
@@ -445,8 +446,8 @@ class MetaCognitiveLayer:
                 accepted.
 
         Returns:
-            A dict with ``results``, ``validated`` (bool), ``rolled_back`` (bool),
-            ``fitness_before``, ``fitness_after``, and optional ``delta``.
+            MetamorphosisResult with results, validated, rolled_back,
+            fitness_before, fitness_after, improvement, and optional delta.
         """
         pre_version = None
         fitness_before = self._compute_fitness(
@@ -474,15 +475,15 @@ class MetaCognitiveLayer:
                 self._graph, self._evolution.metrics, self._log,
             )
 
-        return {
-            "results": results,
-            "validated": self._differ is not None,
-            "rolled_back": rolled_back,
-            "fitness_before": fitness_before,
-            "fitness_after": fitness_after,
-            "improvement": improvement if not rolled_back else fitness_after - fitness_before,
-            "delta": delta,
-        }
+        return MetamorphosisResult(
+            results=results,
+            validated=self._differ is not None,
+            rolled_back=rolled_back,
+            fitness_before=fitness_before,
+            fitness_after=fitness_after,
+            improvement=improvement if not rolled_back else fitness_after - fitness_before,
+            delta=delta,
+        )
 
     def _adjust_evolution(self) -> dict[str, Any]:
         """Relax decay and merge thresholds when fitness is critically low."""
@@ -679,7 +680,7 @@ class MetaCognitiveLayer:
                                 adjusted += 1
         return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
-    def auto_metamorphosis(self) -> dict[str, Any]:
+    def auto_metamorphosis(self) -> MetamorphosisResult:
         """Check fitness and automatically trigger a validated metamorphosis if below threshold.
 
         When a :class:`GraphDiffer` is attached, the metamorphosis is executed
@@ -687,8 +688,8 @@ class MetaCognitiveLayer:
         to the unvalidated path.
 
         Returns:
-            The results of the executed plan, or a dict with the current
-            fitness and ``"actions_taken": 0`` when no metamorphosis was needed.
+            MetamorphosisResult with fitness data. When no metamorphosis was
+            needed, ``actions_taken`` is 0.
         """
         fitness = self._compute_fitness(self._graph, self._evolution.metrics, self._log)
         self._state.architectural_fitness = fitness
@@ -699,8 +700,15 @@ class MetaCognitiveLayer:
                 if plan is not None:
                     if self._differ is not None:
                         return self.execute_metamorphosis_validated(plan)
-                    return self.execute_metamorphosis(plan)
-        return {"fitness": fitness, "actions_taken": 0}
+                    results = self.execute_metamorphosis(plan)
+                    return MetamorphosisResult(
+                        results=results,
+                        fitness_before=fitness,
+                        fitness_after=self._compute_fitness(
+                            self._graph, self._evolution.metrics, self._log,
+                        ),
+                    )
+        return MetamorphosisResult(fitness_before=fitness, fitness_after=fitness)
 
     @property
     def state(self) -> CognitiveStateModel:

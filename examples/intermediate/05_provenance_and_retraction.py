@@ -101,10 +101,10 @@ def main():
         max_total_states=40,
     )
 
-    exp = result["expansion"]
-    print(f"  States explored: {exp['states_created']}")
-    print(f"  Rules applied: {exp['rules_applied']}")
-    print(f"  Edges inferred: {exp['edges_produced']}")
+    exp = result.expansion
+    print(f"  States explored: {exp.states_created}")
+    print(f"  Rules applied: {exp.rules_applied}")
+    print(f"  Edges inferred: {exp.edges_produced}")
     print(f"  Provenance records: {mem.provenance.record_count}")
     print()
 

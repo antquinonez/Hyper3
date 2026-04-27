@@ -197,6 +197,7 @@ from hyper3.results import (
     LateralInferenceInsight,
     MemoryStats,
     MetaCognitiveStats,
+    MetamorphosisResult,
     PatternMatchInfo,
     ReasonResult,
     RelativityAnalysis,

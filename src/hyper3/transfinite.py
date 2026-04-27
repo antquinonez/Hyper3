@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import TransfiniteAnalysis
 
 
 @dataclass
@@ -749,16 +750,16 @@ class TransfiniteReasoner:
         """Return all past reasoning results."""
         return list(self._reasoning_history)
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self) -> TransfiniteAnalysis:
         """Summarize mapped regions and reasoning history counts."""
         total = len(self._boundary_regions)
         decidable = sum(1 for r in self._boundary_regions if r.status == "decidable")
         boundary = sum(1 for r in self._boundary_regions if r.status == "boundary")
         undecidable = sum(1 for r in self._boundary_regions if r.status == "undecidable")
-        return {
-            "mapped_regions": total,
-            "decidable": decidable,
-            "boundary": boundary,
-            "undecidable": undecidable,
-            "reasoning_history": len(self._reasoning_history),
-        }
+        return TransfiniteAnalysis(
+            mapped_regions=total,
+            decidable=decidable,
+            boundary=boundary,
+            undecidable=undecidable,
+            reasoning_history=len(self._reasoning_history),
+        )
