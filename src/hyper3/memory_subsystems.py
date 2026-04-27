@@ -22,7 +22,7 @@ from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, Meta
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, CognitiveStateInfo, GraphHealthInfo, EvolutionHealthInfo, DiscoveryHealthInfo
+from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, CognitiveStateInfo, GraphHealthInfo, EvolutionHealthInfo, DiscoveryHealthInfo, FeedbackSummaryResult, BiasProfileResult
 from hyper3.feedback import OperationFeedback
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
@@ -226,12 +226,12 @@ class SubsystemMixin(_MemoryBase):
         """The operational feedback tracker for collapse, inference, and evolution outcomes."""
         return self._feedback
 
-    def feedback_summary(self) -> dict[str, Any]:
+    def feedback_summary(self) -> FeedbackSummaryResult:
         """Compute a cross-operation feedback summary with correlations.
 
         Returns:
-            Dict with per-operation metrics, overall health score, fitness
-            trend, and nodes that appear across multiple operation types.
+            FeedbackSummaryResult with per-operation metrics, overall health,
+            fitness trend, and nodes appearing across multiple operation types.
         """
         return self._feedback.cross_operation_summary()
 
@@ -534,15 +534,15 @@ class SubsystemMixin(_MemoryBase):
             self._rulial = RulialSpace(self._graph)
         return self._rulial
 
-    def compute_bias_profile(self) -> dict[str, Any]:
+    def compute_bias_profile(self) -> BiasProfileResult:
         """Analyze the system's computational biases from rule effectiveness data.
 
         Requires reasoning operations to have been run (so rule outcomes are
         recorded). Returns an empty profile if no rule data is available.
 
         Returns:
-            Dict with dominant_rules, underused_rules, reasoning_style,
-            position_trajectory, and bias_score.
+            BiasProfileResult with dominant/underused rules, reasoning style,
+            position trajectory, and bias score.
         """
         return self.rulial.compute_bias_profile()
 

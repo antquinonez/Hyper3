@@ -9,6 +9,8 @@ from typing import Any
 import numpy as np
 from scipy.stats import entropy as scipy_entropy
 
+from hyper3.results import BiasProfileResult
+
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule
 from hyper3.multiway import MultiwayEngine, MultiwayGraph
@@ -291,7 +293,7 @@ class RulialSpace:
             return 0.5
         return eff[rule_name]["retention_rate"]
 
-    def compute_bias_profile(self) -> dict[str, Any]:
+    def compute_bias_profile(self) -> BiasProfileResult:
         """Analyze the system's computational biases from rule effectiveness data.
 
         Produces a profile showing which rules are over- or under-used relative
@@ -299,18 +301,12 @@ class RulialSpace:
         temporal shifts in computational behavior from position history.
 
         Returns:
-            Dict with ``dominant_rules``, ``underused_rules``, ``reasoning_style``,
-            ``position_trajectory``, and ``bias_score``.
+            BiasProfileResult with dominant/underused rules, reasoning style,
+            position trajectory, and bias score.
         """
         effectiveness = self.get_rule_effectiveness()
         if not effectiveness:
-            return {
-                "dominant_rules": [],
-                "underused_rules": [],
-                "reasoning_style": "unknown",
-                "position_trajectory": "no_data",
-                "bias_score": 0.0,
-            }
+            return BiasProfileResult()
 
         sorted_by_eff = sorted(
             effectiveness.items(),
@@ -351,15 +347,15 @@ class RulialSpace:
         max_share = max(e["applications"] / max(total_apps, 1) for _, e in sorted_by_eff)
         bias_score = max_share
 
-        return {
-            "dominant_rules": dominant,
-            "underused_rules": underused,
-            "reasoning_style": style,
-            "position_trajectory": trajectory,
-            "bias_score": bias_score,
-            "average_effectiveness": avg_effectiveness,
-            "rule_count": len(sorted_by_eff),
-        }
+        return BiasProfileResult(
+            dominant_rules=dominant,
+            underused_rules=underused,
+            reasoning_style=style,
+            position_trajectory=trajectory,
+            bias_score=bias_score,
+            average_effectiveness=avg_effectiveness,
+            rule_count=len(sorted_by_eff),
+        )
 
     @property
     def rule_outcomes(self) -> dict[str, dict[str, int]]:

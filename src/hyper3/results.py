@@ -299,3 +299,33 @@ class IntrospectionReport(_SimpleResultBase):
     rulial_health: dict[str, Any] | None = None
     anti_patterns: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class CorrelatedNodeInfo(_SimpleResultBase):
+    positive_rate: float = 0.0
+    signal_count: int = 0
+    signal_types: list[str] = field(default_factory=list)
+
+
+@dataclass
+class FeedbackSummaryResult(_SimpleResultBase):
+    collapse_accuracy: float = 0.5
+    retrieval_precision: float = 0.5
+    inference_acceptance_rate: float = 0.5
+    fitness_trend: str = "insufficient_data"
+    overall_health: float = 0.5
+    signal_type_distribution: dict[str, int] = field(default_factory=dict)
+    total_signals: int = 0
+    correlated_nodes: dict[str, CorrelatedNodeInfo] = field(default_factory=dict)
+
+
+@dataclass
+class BiasProfileResult(_SimpleResultBase):
+    dominant_rules: list[str] = field(default_factory=list)
+    underused_rules: list[str] = field(default_factory=list)
+    reasoning_style: str = "unknown"
+    position_trajectory: str = "no_data"
+    bias_score: float = 0.0
+    average_effectiveness: float = 0.0
+    rule_count: int = 0

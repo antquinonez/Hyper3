@@ -179,14 +179,17 @@ from hyper3.validation import (
 )
 from hyper3.results import (
     BackwardChainResult,
+    BiasProfileResult,
     CommitResult,
     CommunityResult,
     ConsensusReasonResult,
+    CorrelatedNodeInfo,
     DerivationInfo,
     DiscoverResult,
     EvolveResult,
     EvolutionStats,
     ExpansionInfo,
+    FeedbackSummaryResult,
     GraphDeltaResult,
     HebbianResult,
     ImportResult,
