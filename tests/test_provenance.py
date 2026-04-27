@@ -256,7 +256,7 @@ class TestIntegrationCognitiveMemory:
         mem.relate("A", "B", label="related")
         mem.relate("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
-        mem.reason({"A", "B", "C"}, [rule], max_depth=1)
+        mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         exp = mem.explain("A", "C")
         assert exp is not None
         assert exp.source_label == "A"
@@ -289,7 +289,7 @@ class TestIntegrationCognitiveMemory:
         mem.relate("A", "B", label="related")
         mem.relate("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
-        mem.reason({"A", "B", "C"}, [rule], max_depth=1)
+        mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         assert mem.explain("A", "C") is not None
         retracted = mem.retract_inference("A", "C")
         assert len(retracted) >= 1
@@ -313,7 +313,7 @@ class TestIntegrationCognitiveMemory:
         mem.relate("A", "B", label="related")
         mem.relate("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
-        mem.reason({"A", "B", "C"}, [rule], max_depth=1)
+        mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         assert mem.provenance.record_count >= 1
 
     def test_load_resets_provenance(self, tmp_path):
@@ -338,7 +338,7 @@ class TestCascadeRetraction:
         mem.relate("B", "C", label="rel")
         mem.relate("C", "D", label="rel")
         rule = TransitiveRule(edge_label="rel")
-        mem.reason({"A", "B", "C", "D"}, [rule], max_depth=3, max_total_states=50)
+        mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
         initial_edges = mem.graph.edge_count
         inferred_labels = set()
         for edge in list(mem.graph.edges):
@@ -362,7 +362,7 @@ class TestCascadeRetraction:
         e_ab = mem.relate("A", "B", label="rel")
         e_bc = mem.relate("B", "C", label="rel")
         rule = TransitiveRule(edge_label="rel")
-        mem.reason({"A", "B", "C"}, [rule], max_depth=1)
+        mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         mem.retract_inference("A", "C")
         assert mem.graph.get_edge(e_ab.id) is not None
         assert mem.graph.get_edge(e_bc.id) is not None
@@ -377,7 +377,7 @@ class TestCascadeRetraction:
         mem.relate("B", "C", label="rel")
         mem.relate("C", "D", label="rel")
         rule = TransitiveRule(edge_label="rel")
-        mem.reason({"A", "B", "C", "D"}, [rule], max_depth=3, max_total_states=50)
+        mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
         provenance_count_before = mem.provenance.record_count
         assert provenance_count_before >= 1
         tracker = mem.provenance

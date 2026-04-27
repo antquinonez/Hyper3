@@ -139,7 +139,7 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("activate", concept=concept, results=len(result))
         return result
 
-    def stimulate(self, concept: str, energy: float = 1.0) -> None:
+    def stimulate(self, concept: str, *, energy: float = 1.0) -> None:
         """Inject energy into a concept node for spreading activation.
 
         Args:
@@ -471,7 +471,7 @@ class SubsystemMixin(_MemoryBase):
         """
         self._cache.record_access(f"store:{concept}")
 
-    def predict_next_access(self, concept: str, top_k: int = 3) -> list[str]:
+    def predict_next_access(self, concept: str, *, top_k: int = 3) -> list[str]:
         """Predict which concepts are likely to be accessed next.
 
         Args:
@@ -804,7 +804,7 @@ class SubsystemMixin(_MemoryBase):
         return len(updates)
 
     def strongest_associations(
-        self, concept: str, top_k: int = 10,
+        self, concept: str, *, top_k: int = 10,
     ) -> list[tuple[str, float]]:
         """Return the strongest Hebbian associations from a concept.
 
@@ -1026,7 +1026,7 @@ class SubsystemMixin(_MemoryBase):
             self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
         return self._belief_revision.detect_contradictions()
 
-    def revise_beliefs(self, strategy: str = "higher_confidence") -> RevisionResult:
+    def revise_beliefs(self, *, strategy: str = "higher_confidence") -> RevisionResult:
         """Detect and resolve contradictions in the graph.
 
         Args:

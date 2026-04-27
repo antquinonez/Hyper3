@@ -167,6 +167,7 @@ class ReasoningMixin(_MemoryBase):
     def reason_with_consensus(
         self,
         seed_concepts: set[str],
+        *,
         rules: list[Rule] | None = None,
     ) -> ConsensusReasonResult:
         """Find multi-frame invariants then reason, returning consensus results.
@@ -189,7 +190,7 @@ class ReasoningMixin(_MemoryBase):
         active_rules = rules or self._rules
         reason_result: ReasonResult = ReasonResult()
         if active_rules:
-            reason_result = self.reason(seed_concepts, rules)
+            reason_result = self.reason(seed_concepts, rules=rules)
 
         return ConsensusReasonResult(
             invariant_nodes=len(inv_set.invariant_nodes),
@@ -203,8 +204,8 @@ class ReasoningMixin(_MemoryBase):
     def reason(
         self,
         seed_concepts: set[str],
-        rules: list[Rule] | None = None,
         *,
+        rules: list[Rule] | None = None,
         max_depth: int = 3,
         max_total_states: int = 30,
         enforce_causal_invariance: bool = True,
@@ -313,8 +314,8 @@ class ReasoningMixin(_MemoryBase):
     def reason_incremental(
         self,
         new_node_labels: set[str],
-        rules: list[Rule] | None = None,
         *,
+        rules: list[Rule] | None = None,
         max_depth: int = 2,
         max_total_states: int = 50,
     ) -> ReasonResult:
@@ -368,8 +369,8 @@ class ReasoningMixin(_MemoryBase):
     def reason_iterative(
         self,
         seed_concepts: set[str],
-        rules: list[Rule] | None = None,
         *,
+        rules: list[Rule] | None = None,
         max_iterations: int = 3,
         min_confidence: float = 0.3,
         max_depth: int = 3,
@@ -399,7 +400,7 @@ class ReasoningMixin(_MemoryBase):
 
         for _iteration in range(max_iterations):
             result = self.reason(
-                seed_concepts, active_rules,
+                seed_concepts, rules=active_rules,
                 max_depth=max_depth,
                 max_total_states=max_total_states,
                 auto_commit=False,
@@ -440,6 +441,7 @@ class ReasoningMixin(_MemoryBase):
     def reason_with_frame(
         self,
         seed_concepts: set[str],
+        *,
         frame_name: str = "classical",
         rules: list[Rule] | None = None,
     ) -> ReasonResult:
@@ -479,7 +481,7 @@ class ReasoningMixin(_MemoryBase):
         max_states = transformed.max_total_states
 
         result = self.reason(
-            seed_concepts, rules,
+            seed_concepts, rules=rules,
             max_depth=max_depth,
             max_total_states=max_states,
         )
@@ -503,7 +505,7 @@ class ReasoningMixin(_MemoryBase):
         }
         return result
 
-    def derive(self, concept: str, rules: list[Rule] | None = None) -> list[DerivationInfo]:
+    def derive(self, concept: str, *, rules: list[Rule] | None = None) -> list[DerivationInfo]:
         """Find derivation paths to a concept using inference rules.
 
         Args:

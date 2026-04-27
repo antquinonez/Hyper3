@@ -32,8 +32,8 @@ class CoreMixin(_MemoryBase):
     def store(
         self,
         concept: str,
-        data: Any = None,
         *,
+        data: Any = None,
         modalities: set[Modality] | None = None,
         abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
         tags: dict[str, Any] | None = None,

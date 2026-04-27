@@ -253,14 +253,14 @@ class TestIntegrationMemory:
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y")
-        mem.stimulate("x", 1.0)
+        mem.stimulate("x", energy=1.0)
         result = mem.spread_activation()
         assert len(result) >= 1
 
     def test_clear_activations(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("x")
-        mem.stimulate("x", 1.0)
+        mem.stimulate("x", energy=1.0)
         mem.clear_activations()
         result = mem.spread_activation()
         assert len(result) == 0

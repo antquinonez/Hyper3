@@ -20,9 +20,9 @@ def tmp_path_fixture():
 
 
 def _populate_memory(mem):
-    a = mem.store("alpha", {"type": "concept"})
-    b = mem.store("beta", {"type": "concept"})
-    c = mem.store("gamma", {"type": "concept"})
+    a = mem.store("alpha", data={"type": "concept"})
+    b = mem.store("beta", data={"type": "concept"})
+    c = mem.store("gamma", data={"type": "concept"})
     mem.relate("alpha", "beta", label="connects")
     mem.relate("beta", "gamma", label="connects")
     mem._rules.append(TransitiveRule())

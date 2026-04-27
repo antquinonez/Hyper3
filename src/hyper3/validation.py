@@ -182,7 +182,7 @@ class ValidationEngine:
         pre_nodes = {n.id for n in self._memory._graph.nodes}
 
         result = self._memory.reason(
-            seed_concepts, rules,
+            seed_concepts, rules=rules,
             auto_commit=True,
         )
 

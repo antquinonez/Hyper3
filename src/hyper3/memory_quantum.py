@@ -23,6 +23,7 @@ class QuantumMixin(_MemoryBase):
     def superpose(
         self,
         concepts: list[str],
+        *,
         amplitudes: list[float] | None = None,
         use_context_field: bool = True,
     ) -> QuantumState:
@@ -68,7 +69,7 @@ class QuantumMixin(_MemoryBase):
         self._log.record("superpose", concepts=concepts, state_id=qs.id, interpretations=qs.superposition_count)
         return qs
 
-    def collapse(self, qs: QuantumState, context: dict[str, float] | None = None) -> Interpretation | None:
+    def collapse(self, qs: QuantumState, *, context: dict[str, float] | None = None) -> Interpretation | None:
         """Collapse a quantum superposition to a single interpretation via Born rule sampling.
 
         Args:
@@ -158,22 +159,22 @@ class QuantumMixin(_MemoryBase):
         self._log.record("entangle", group_a=group_a, group_b=group_b, entanglement_id=ent.id)
         return ent
 
-    def collapse_entangled(self, qs: QuantumState, observed_concept: str) -> dict[str, str]:
+    def collapse_entangled(self, qs: QuantumState, concept: str) -> dict[str, str]:
         """Collapse an entangled state by observing one concept, returning all results.
 
         Args:
             qs: The entangled quantum state.
-            observed_concept: Label of the node to observe.
+            concept: Label of the node to observe.
 
         Returns:
             Dict mapping node IDs to their collapsed interpretation node IDs.
         """
-        node = self._find_node(observed_concept)
+        node = self._find_node(concept)
         if not node:
             return {}
         return self._quantum.collapse_entangled(qs.id, node.id)
 
-    def collapse_entangled_labels(self, qs: QuantumState, observed_concept: str) -> dict[str, str]:
+    def collapse_entangled_labels(self, qs: QuantumState, concept: str) -> dict[str, str]:
         """Collapse an entangled state, returning label-to-label predictions.
 
         Unlike :meth:`collapse_entangled`, this method resolves node IDs to
@@ -181,12 +182,12 @@ class QuantumMixin(_MemoryBase):
 
         Args:
             qs: The entangled quantum state.
-            observed_concept: Label of the node to observe.
+            concept: Label of the node to observe.
 
         Returns:
             Dict mapping concept labels to their predicted concept labels.
         """
-        raw = self.collapse_entangled(qs, observed_concept)
+        raw = self.collapse_entangled(qs, concept)
         labeled: dict[str, str] = {}
         for node_id, predicted_id in raw.items():
             label = self._node_label(node_id)
@@ -221,7 +222,7 @@ class QuantumMixin(_MemoryBase):
                 return self._normalize_lateral_insights(raw)
         return []
 
-    def reason_transfinite(self, concept: str, context: dict[str, Any] | None = None, *, max_level: int = 4) -> TransfiniteResult:
+    def reason_transfinite(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> TransfiniteResult:
         """Perform self-referential reasoning at increasing transfinite levels.
 
         Args:
