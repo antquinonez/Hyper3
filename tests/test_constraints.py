@@ -153,10 +153,11 @@ class TestBoundaryNavigatorIntegration:
     def test_relate_respects_constraints(self):
         mem = CognitiveMemory(evolve_interval=0)
         from hyper3.constraints import BoundaryNavigator
+        from hyper3.exceptions import ConstraintViolationError
         mem._boundary_navigator = BoundaryNavigator()
         mem.store("a")
-        edge = mem.relate("a", "a")
-        assert edge is None
+        with pytest.raises(ConstraintViolationError):
+            mem.relate("a", "a")
 
     def test_relate_allows_valid_edge(self):
         mem = CognitiveMemory(evolve_interval=0)

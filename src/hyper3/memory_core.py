@@ -12,7 +12,9 @@ from hyper3.kernel import (
     Modality,
 )
 from hyper3.event_log import EventLog
+from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
+from hyper3.results import EvolveResult
 
 
 class CoreMixin(_MemoryBase):
@@ -129,7 +131,7 @@ class CoreMixin(_MemoryBase):
         label: str = "",
         bidirectional: bool = False,
         edge_data: Any = None,
-    ) -> Hyperedge | None:
+    ) -> Hyperedge:
         """Create a directed edge between two concept nodes.
 
         Args:
@@ -140,13 +142,18 @@ class CoreMixin(_MemoryBase):
             edge_data: Arbitrary payload to attach to the edge.
 
         Returns:
-            The created Hyperedge, or None if either node is not found
-            or a boundary constraint rejects the edge.
+            The created Hyperedge.
+
+        Raises:
+            NodeNotFoundError: If either node is not found.
+            ConstraintViolationError: If a boundary constraint rejects the edge.
         """
         source = self._find_node(source_concept)
         target = self._find_node(target_concept)
-        if not source or not target:
-            return None
+        if not source:
+            raise NodeNotFoundError(source_concept)
+        if not target:
+            raise NodeNotFoundError(target_concept)
 
         edge = Hyperedge(
             source_ids=frozenset({source.id}),
@@ -165,7 +172,7 @@ class CoreMixin(_MemoryBase):
                     label=label,
                     violations=violations,
                 )
-                return None
+                raise ConstraintViolationError(violations)
 
         self._graph.add_edge(edge)
 
@@ -187,7 +194,7 @@ class CoreMixin(_MemoryBase):
                         label=label,
                         violations=rev_violations,
                     )
-                    return None
+                    raise ConstraintViolationError(rev_violations)
             self._graph.add_edge(rev)
 
         self._log.record(
@@ -237,20 +244,27 @@ class CoreMixin(_MemoryBase):
             node.id, max_depth=max_depth, max_nodes=max_nodes
         )
 
-    def evolve(self) -> dict[str, Any]:
+    def evolve(self) -> EvolveResult:
         """Run a manual evolution cycle (decay, prune, merge, reinforce).
 
         Returns:
-            Dict containing the evolution report and optional causal
+            EvolveResult containing the evolution report and optional causal
             invariance enforcement results.
         """
         report = self._evolution.evolve()
         self._cache.evict_expired()
-        causal_report = {}
+        causal_report: dict[str, Any] = {}
         if hasattr(self, '_causal_engine') and self._causal_engine:
             causal_report = self._causal_engine.enforce()
         self._log.record("evolve", report=report, causal=causal_report)
-        return {**report, "causal": causal_report}
+        return EvolveResult(
+            decayed=report.get("decayed", 0),
+            pruned=report.get("pruned", 0),
+            merged=report.get("merged", 0),
+            node_count=report.get("node_count", 0),
+            edge_count=report.get("edge_count", 0),
+            causal=causal_report,
+        )
 
     def _find_node(self, label: str) -> Hypernode | None:
         """Look up a node by label, checking cache, label index, and aliases."""

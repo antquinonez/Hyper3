@@ -10,6 +10,7 @@ from hyper3 import (
     MultiwayEngine,
     MultiwayGraph,
     MultiwayState,
+    NodeNotFoundError,
     QuantumCognitiveLayer,
     QuantumState,
     TransitiveRule,
@@ -224,8 +225,8 @@ class TestCognitiveMemoryIntegration:
 
     def test_superpose_empty(self):
         mem = CognitiveMemory()
-        qs = mem.superpose(["nonexistent"])
-        assert qs.superposition_count == 0
+        with pytest.raises(NodeNotFoundError):
+            mem.superpose(["nonexistent"])
 
     def test_lateral_insights(self):
         mem = CognitiveMemory()

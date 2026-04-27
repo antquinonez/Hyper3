@@ -77,3 +77,16 @@ class TemporalConstraintError(Hyper3Error):
 
 class InferenceError(Hyper3Error):
     """Raised when an inference operation fails."""
+
+
+class ConstraintViolationError(Hyper3Error):
+    """Raised when a boundary constraint rejects an operation."""
+
+    def __init__(self, violations: list[str]) -> None:
+        """Initialize with the list of violation descriptions.
+
+        Args:
+            violations: Descriptions of the constraint violations.
+        """
+        self.violations = violations
+        super().__init__(f"Constraint violations: {', '.join(violations)}")

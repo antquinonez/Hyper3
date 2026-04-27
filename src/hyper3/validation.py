@@ -192,9 +192,9 @@ class ValidationEngine:
         nodes = post_nodes - pre_nodes
         edges = post_edges - pre_edges
 
-        expansion = result.get("expansion", {})
-        nodes_produced_count = expansion.get("nodes_produced", 0)
-        edges_produced_count = expansion.get("edges_produced", 0)
+        expansion = result.expansion if result.expansion else None
+        nodes_produced_count = expansion.nodes_produced if expansion else 0
+        edges_produced_count = expansion.edges_produced if expansion else 0
 
         seed_ids: set[str] = set()
         for concept in seed_concepts:

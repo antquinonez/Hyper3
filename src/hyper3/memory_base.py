@@ -28,6 +28,17 @@ from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
 from hyper3.feedback import OperationFeedback
 from hyper3.constraints import BoundaryNavigator
+from hyper3.results import (
+    CommitResult,
+    ConsensusReasonResult,
+    DiscoverResult,
+    EvolveResult,
+    IterativeReasonResult,
+    MemoryStats,
+    ReasonResult,
+    RollbackResult,
+    TrainResult,
+)
 
 
 class _MemoryBase:
@@ -79,8 +90,41 @@ class _MemoryBase:
         """Store a concept node in the hypergraph."""
         ...
     def relate(self, source_concept: str, target_concept: str, **kwargs: Any) -> Any:
-        """Create a directed edge between two concept nodes."""
+        """Create a directed edge between two concept nodes.
+
+        Raises NodeNotFoundError or ConstraintViolationError on failure.
+        """
         ...
-    def commit_inferences(self) -> dict[str, Any]:
+    def commit_inferences(self) -> CommitResult:
         """Merge the current inference overlay into the base graph."""
+        ...
+    def reason(self, seed_concepts: set[str], rules: list[Rule] | None = None, **kwargs: Any) -> ReasonResult:
+        """Expand the multiway DAG from seed concepts using inference rules."""
+        ...
+    def reason_iterative(self, seed_concepts: set[str], rules: list[Rule] | None = None, **kwargs: Any) -> IterativeReasonResult:
+        """Run multiple reasoning iterations until confidence or convergence is reached."""
+        ...
+    def reason_with_frame(self, seed_concepts: set[str], frame_name: str = "classical", rules: list[Rule] | None = None) -> ReasonResult:
+        """Run reasoning with parameters derived from a computational frame."""
+        ...
+    def reason_with_consensus(self, seed_concepts: set[str], rules: list[Rule] | None = None) -> ConsensusReasonResult:
+        """Find multi-frame invariants then reason, returning consensus results."""
+        ...
+    def reason_incremental(self, new_node_labels: set[str], rules: list[Rule] | None = None, **kwargs: Any) -> ReasonResult:
+        """Expand the existing multiway DAG from newly added nodes."""
+        ...
+    def evolve(self) -> EvolveResult:
+        """Run a manual evolution cycle (decay, prune, merge, reinforce)."""
+        ...
+    def stats(self) -> MemoryStats:
+        """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
+        ...
+    def auto_discover_and_apply(self) -> DiscoverResult:
+        """Discover graph patterns and add the resulting rules to the active set."""
+        ...
+    def train_retriever(self) -> TrainResult:
+        """Train the learning-to-rank model from accumulated feedback."""
+        ...
+    def rollback_inferences(self) -> RollbackResult:
+        """Discard the current inference overlay and retract provenance entries."""
         ...

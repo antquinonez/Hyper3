@@ -2,6 +2,7 @@ import time
 import pytest
 from hyper3.memory import CognitiveMemory
 from hyper3.kernel import Modality, AbstractionLayer
+from hyper3.exceptions import NodeNotFoundError
 
 
 class TestCognitiveMemoryStore:
@@ -107,10 +108,11 @@ class TestCognitiveMemoryRelate:
         mem.relate("a", "b", bidirectional=True)
         assert mem.graph.edge_count == 2
 
-    def test_relate_missing_concept_returns_none(self):
+    def test_relate_missing_concept_raises(self):
         mem = CognitiveMemory()
         mem.store("a")
-        assert mem.relate("a", "missing") is None
+        with pytest.raises(NodeNotFoundError):
+            mem.relate("a", "missing")
 
     def test_relate_with_edge_data(self):
         mem = CognitiveMemory()

@@ -1,8 +1,10 @@
 import math
 import time
 
+import pytest
 from hyper3.memory import CognitiveMemory
 from hyper3.kernel import Hyperedge
+from hyper3.exceptions import NodeNotFoundError
 from hyper3.quantum import PotentialFieldConfig
 
 
@@ -78,9 +80,8 @@ class TestComputePotentialField:
 
     def test_empty_state_returns_empty(self):
         mem = _make_mem()
-        qs = mem.superpose(["nonexistent"], use_context_field=False)
-        field = mem._quantum.compute_potential_field(qs.id)
-        assert field == {}
+        with pytest.raises(NodeNotFoundError):
+            mem.superpose(["nonexistent"], use_context_field=False)
 
 
 class TestEvolveInContext:

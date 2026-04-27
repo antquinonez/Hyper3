@@ -147,6 +147,7 @@ def build_services(mem: CognitiveMemory) -> list[str]:
         ("svc-winrm", {"port": 5985, "protocol": "tcp", "encrypted": False}),
         ("svc-k8s-api", {"port": 6443, "protocol": "tcp", "encrypted": True}),
         ("svc-prometheus", {"port": 9090, "protocol": "tcp", "encrypted": False}),
+        ("svc-mqtt", {"port": 1883, "protocol": "tcp", "encrypted": False}),
     ]
     for label, data in specs:
         data["kind"] = "service"

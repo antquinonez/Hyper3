@@ -28,6 +28,7 @@ from hyper3.snapshot import (
     load_cognitive_state as _load_snapshot,
 )
 from hyper3.memory_base import _MemoryBase
+from hyper3.results import EvolutionStats, MemoryStats, MetaCognitiveStats
 
 
 class PersistenceMixin(_MemoryBase):
@@ -207,28 +208,36 @@ class PersistenceMixin(_MemoryBase):
             self._meta.set_rulial(rulial)
         self._log.record("load_cognitive_state", path=path)
 
-    def stats(self) -> dict[str, Any]:
-        """Return a summary dict of graph, cache, quantum, evolution, and subsystem metrics."""
-        return {
-            "nodes": self._graph.node_count,
-            "edges": self._graph.edge_count,
-            "log_size": self._log.size,
-            "cache_size": self._cache.size,
-            "operations": self._operation_count,
-            "multiway_states": self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
-            "quantum_active": len(self._quantum.active_superpositions),
-            "quantum_collapsed": len(self._quantum.collapsed_states),
-            "evolution": {
-                "merges": self._evolution.metrics.total_merges,
-                "prunes": self._evolution.metrics.total_prunes,
-                "refinements": self._evolution.metrics.total_refinements,
-            },
-            "discovered_patterns": len(self._discovery.get_discovered_rules()),
-            "cycles": self._graph.has_cycle(),
-            "components": len(self._graph.connected_components()),
-            "active_rules": len(self._rules),
-            "overlay_active": self._overlay is not None,
-            "overlay_edges": len(self._overlay.overlay_edge_ids) if self._overlay else 0,
-            "rulial": self._rulial.analyze() if self._rulial else {},
-            "meta_cognitive": self._meta.analyze(),
-        }
+    def stats(self) -> MemoryStats:
+        """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
+        meta_raw = self._meta.analyze()
+        return MemoryStats(
+            nodes=self._graph.node_count,
+            edges=self._graph.edge_count,
+            log_size=self._log.size,
+            cache_size=self._cache.size,
+            operations=self._operation_count,
+            multiway_states=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
+            quantum_active=len(self._quantum.active_superpositions),
+            quantum_collapsed=len(self._quantum.collapsed_states),
+            evolution=EvolutionStats(
+                merges=self._evolution.metrics.total_merges,
+                prunes=self._evolution.metrics.total_prunes,
+                refinements=self._evolution.metrics.total_refinements,
+            ),
+            discovered_patterns=len(self._discovery.get_discovered_rules()),
+            cycles=self._graph.has_cycle(),
+            components=len(self._graph.connected_components()),
+            active_rules=len(self._rules),
+            overlay_active=self._overlay is not None,
+            overlay_edges=len(self._overlay.overlay_edge_ids) if self._overlay else 0,
+            rulial=self._rulial.analyze() if self._rulial else {},
+            meta_cognitive=MetaCognitiveStats(
+                architectural_fitness=meta_raw.get("architectural_fitness", 0.0),
+                reasoning_mode=meta_raw.get("reasoning_mode", ""),
+                meta_level=meta_raw.get("meta_level", 0),
+                introspections=meta_raw.get("introspections", 0),
+                metamorphoses=meta_raw.get("metamorphoses", 0),
+                transcendental_yield=meta_raw.get("transcendental_yield", 0.0),
+            ),
+        )

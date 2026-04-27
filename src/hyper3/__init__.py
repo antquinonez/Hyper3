@@ -1,5 +1,6 @@
 from hyper3.exceptions import (
     CollapseError,
+    ConstraintViolationError,
     EdgeNotFoundError,
     EntanglementError,
     Hyper3Error,
@@ -175,4 +176,18 @@ from hyper3.validation import (
     ReasoningSummary,
     ValidationEngine,
     ValidationReport,
+)
+from hyper3.results import (
+    CommitResult,
+    ConsensusReasonResult,
+    DiscoverResult,
+    EvolveResult,
+    EvolutionStats,
+    ExpansionInfo,
+    IterativeReasonResult,
+    MemoryStats,
+    MetaCognitiveStats,
+    ReasonResult,
+    RollbackResult,
+    TrainResult,
 )

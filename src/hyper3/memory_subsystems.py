@@ -4,6 +4,7 @@ from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.cache import LazyCache
+from hyper3.capabilities import CapabilityLevel
 from hyper3.embedding import EmbeddingEngine, EmbeddingProvider, SimilarityResult
 from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
 from hyper3.retrieval_engine import FeedbackStore, LearningToRank, RetrievalEngine, RetrievalResult
@@ -21,6 +22,8 @@ from hyper3.meta_cognitive import MetaCognitiveLayer
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
+from hyper3.results import TrainResult
+from hyper3.validation import ValidationReport
 
 
 class SubsystemMixin(_MemoryBase):
@@ -182,15 +185,21 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("feedback", query=query, relevant=len(relevant_labels), total=count)
         return count
 
-    def train_retriever(self) -> dict[str, Any]:
+    def train_retriever(self) -> TrainResult:
         """Train the learning-to-rank model from accumulated feedback.
 
         Returns:
-            Training report dict from the retrieval engine.
+            TrainResult indicating whether training occurred and the learned weights.
         """
         report = self._retrieval.train_from_feedback()
         self._log.record("train_retriever", **report)
-        return report
+        if report.get("trained", False):
+            return TrainResult(
+                trained=True,
+                weights=report.get("weights", {}),
+                samples=report.get("samples", 0),
+            )
+        return TrainResult(reason=report.get("reason", ""))
 
     @property
     def feedback(self) -> FeedbackStore:
@@ -288,12 +297,15 @@ class SubsystemMixin(_MemoryBase):
                     data={"type": entity.entity_type} if entity.entity_type else None,
                 )
             for rel in result.relations:
-                self.relate(
-                    rel.source_label,
-                    rel.target_label,
-                    label=rel.relation_label,
-                    bidirectional=rel.bidirectional,
-                )
+                try:
+                    self.relate(
+                        rel.source_label,
+                        rel.target_label,
+                        label=rel.relation_label,
+                        bidirectional=rel.bidirectional,
+                    )
+                except Exception:
+                    pass
         self._log.record(
             "ingest",
             text_length=len(text),
@@ -333,12 +345,15 @@ class SubsystemMixin(_MemoryBase):
                     )
                     seen_entities.add(entity.label)
                 for rel in result.relations:
-                    self.relate(
-                        rel.source_label,
-                        rel.target_label,
-                        label=rel.relation_label,
-                        bidirectional=rel.bidirectional,
-                    )
+                    try:
+                        self.relate(
+                            rel.source_label,
+                            rel.target_label,
+                            label=rel.relation_label,
+                            bidirectional=rel.bidirectional,
+                        )
+                    except Exception:
+                        pass
             results.append(result)
         self._log.record(
             "ingest_batch",
@@ -548,7 +563,7 @@ class SubsystemMixin(_MemoryBase):
         self,
         seed_concepts: set[str],
         rules: list[Any] | None = None,
-    ) -> Any:
+    ) -> ValidationReport:
         """Run an A/B validation comparing simple vs enhanced reasoning.
 
         Args:
@@ -565,7 +580,7 @@ class SubsystemMixin(_MemoryBase):
     def validate_comprehensive(
         self,
         test_cases: list[set[str]] | None = None,
-    ) -> list[Any]:
+    ) -> list[ValidationReport]:
         """Run the full validation suite across multiple test cases.
 
         Args:
@@ -578,7 +593,7 @@ class SubsystemMixin(_MemoryBase):
         engine = ValidationEngine(self)
         return engine.run_validation_suite(test_cases)
 
-    def detect_capability(self):
+    def detect_capability(self) -> CapabilityLevel:
         """Detect the current capability level of this memory instance."""
         from hyper3.capabilities import detect_capability_level
         return detect_capability_level(self)

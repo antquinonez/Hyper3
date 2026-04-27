@@ -4,15 +4,17 @@ import time
 from typing import Any
 
 from hyper3.kernel import Hypergraph, Hypernode
+from hyper3.exceptions import NodeNotFoundError
 from hyper3.quantum import (
     CollapseTrigger,
+    InterferencePattern,
     Interpretation,
     MeasurementBasis,
     QuantumCognitiveLayer,
     QuantumEntanglement,
     QuantumState,
 )
-from hyper3.transfinite import TransfiniteResult
+from hyper3.transfinite import BoundaryRegion, TransfiniteResult
 from hyper3.memory_base import _MemoryBase
 
 
@@ -35,16 +37,23 @@ class QuantumMixin(_MemoryBase):
             use_context_field: If True, evolve the state using activation context.
 
         Returns:
-            The created QuantumState, or an empty state if no nodes are found.
+            The created QuantumState.
+
+        Raises:
+            NodeNotFoundError: If none of the provided concepts exist in the graph.
         """
         node_ids: list[str] = []
+        missing: list[str] = []
         for concept in concepts:
             node = self._find_node(concept)
             if node:
                 node_ids.append(node.id)
+            else:
+                missing.append(concept)
+        if missing:
+            self._log.record("superpose_missing", missing=missing, requested=len(concepts))
         if not node_ids:
-            qs = QuantumState(created_at=time.time())
-            return qs
+            raise NodeNotFoundError(concepts[0] if concepts else "")
         qs = self._quantum.create_superposition(node_ids, amplitudes)
         if use_context_field and len(node_ids) > 1:
             activation_values: dict[str, float] = {}
@@ -107,7 +116,7 @@ class QuantumMixin(_MemoryBase):
         """Detect automatic collapse triggers for a quantum state."""
         return self._quantum.detect_collapse_triggers(qs.id)
 
-    def compute_interference(self, qs: QuantumState) -> Any:
+    def compute_interference(self, qs: QuantumState) -> list[InterferencePattern]:
         """Compute the interference pattern for a quantum superposition state."""
         result = self._quantum.compute_interference(qs.id)
         self._log.record("compute_interference", state_id=qs.id)
@@ -164,6 +173,27 @@ class QuantumMixin(_MemoryBase):
             return {}
         return self._quantum.collapse_entangled(qs.id, node.id)
 
+    def collapse_entangled_labels(self, qs: QuantumState, observed_concept: str) -> dict[str, str]:
+        """Collapse an entangled state, returning label-to-label predictions.
+
+        Unlike :meth:`collapse_entangled`, this method resolves node IDs to
+        human-readable labels in both keys and values.
+
+        Args:
+            qs: The entangled quantum state.
+            observed_concept: Label of the node to observe.
+
+        Returns:
+            Dict mapping concept labels to their predicted concept labels.
+        """
+        raw = self.collapse_entangled(qs, observed_concept)
+        labeled: dict[str, str] = {}
+        for node_id, predicted_id in raw.items():
+            label = self._node_label(node_id)
+            pred_label = self._node_label(predicted_id)
+            labeled[label] = pred_label
+        return labeled
+
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
         """Retrieve lateral insights from branchial or multiway space for a concept.
 
@@ -204,7 +234,7 @@ class QuantumMixin(_MemoryBase):
         """
         return self._transfinite.reason_at_level(concept, context, max_level=max_level)
 
-    def map_boundaries(self, concepts: list[str]) -> Any:
+    def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         """Map transfinite boundaries (self-referential, undecidable regions) for concepts."""
         result = self._transfinite.map_boundaries(concepts)
         self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)

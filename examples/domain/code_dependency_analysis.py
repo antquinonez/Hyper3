@@ -71,8 +71,9 @@ def main():
         "data.models_audit", "data.models_media", "data.models_analytics",
         "data.models_inventory", "data.models_shipping", "data.models_review",
         "data.repo_user", "data.repo_order", "data.repo_product",
-        "data.repo_payment", "data.repo_analytics", "data.migration_framework",
-        "data.connection_pool", "data.query_builder",
+        "data.repo_payment", "data.repo_analytics", "data.repo_inventory",
+        "data.repo_audit", "data.migration_framework", "data.connection_pool",
+        "data.query_builder",
     ], start=1):
         data_modules[name] = {
             "category": "data",
@@ -90,7 +91,8 @@ def main():
         ("3p.psycopg2", "2.9", 2021), ("3p.pymongo", "4.5", 2023),
         ("3p.boto3", "1.28", 2023), ("3p.pyjwt", "2.8", 2023),
         ("3p.sentry", "1.38", 2023), ("3p.urllib3", "1.26", 2021),
-        ("3p.protobuf", "4.24", 2023),
+        ("3p.protobuf", "4.24", 2023), ("3p.stripe", "8.0", 2024),
+        ("3p.elasticsearch", "8.11", 2024),
     ], start=1):
         third_party[name] = {
             "category": "third_party",

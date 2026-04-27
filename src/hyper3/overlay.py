@@ -344,6 +344,29 @@ class HypergraphOverlay:
         """IDs of edges that exist only in the overlay layer."""
         return set(self._overlay_edges.keys())
 
+    def _resolve_label(self, node_id: str) -> str:
+        """Resolve a node ID to its label, with fallback to truncated ID."""
+        node = self._overlay_nodes.get(node_id) or self._base.get_node(node_id)
+        return node.label if node and node.label else node_id[:8]
+
+    @property
+    def labeled_edges(self) -> list[dict[str, str]]:
+        """Overlay edges with source/target labels resolved.
+
+        Returns:
+            List of dicts with keys: id, source_labels, target_labels, label, confidence.
+        """
+        result: list[dict[str, str]] = []
+        for edge in self._overlay_edges.values():
+            result.append({
+                "id": edge.id,
+                "source_labels": ", ".join(sorted(self._resolve_label(nid) for nid in edge.source_ids)),
+                "target_labels": ", ".join(sorted(self._resolve_label(nid) for nid in edge.target_ids)),
+                "label": edge.label,
+                "confidence": f"{self.get_confidence(edge.id):.2f}",
+            })
+        return result
+
     @property
     def base(self) -> Hypergraph:
         """The underlying base graph."""
