@@ -112,7 +112,7 @@ All engines receive and return IDs. All facade methods accept and return labels.
 
 ### DP-5: Typed Result Dataclasses with Backward-Compatible Access
 
-Public methods return dedicated result dataclasses, not dicts. All result dataclasses extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for backward-compatible dict-like bracket access. New code should use attribute access; bracket access is preserved for migration smoothness.
+All result dataclasses across every module extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for backward-compatible dict-like bracket access. This applies to result dataclasses defined in `results.py`, in engine modules (e.g., `CommunityResult` in `community.py`, `BackwardChainResult` in `backward_chain.py`), and in any new modules. New code should use attribute access; bracket access is preserved for migration smoothness.
 
 **Why**: The spec describes "immutable event logging" and "consistency verification" as foundational layers. Typed dataclasses are the code-level analog: they make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The backward-compat layer ensures that code written before the migration continues to work.
 
@@ -129,7 +129,7 @@ fitness = report.cognitive_state.fitness      # preferred
 fitness = report["cognitive_state"]["fitness"] # still works via __getitem__
 ```
 
-When creating new result types, always extend `_SimpleResultBase` (from `results.py`).
+When creating new result types in any module, always extend `_SimpleResultBase` (import from `results.py`).
 
 ### DP-6: Hypergraph as the Universal Substrate
 
@@ -453,11 +453,13 @@ When `CausalInvarianceEngine` merges convergent multiway states, it computes `Me
 
 ## API Ergonomic Principles
 
-These principles govern the design of public-facing `CognitiveMemory` method signatures and return types. All existing public methods conform to these principles. Apply them when adding new methods or refactoring existing ones.
+These principles govern the design of public-facing method signatures and return types across **all** modules — the `CognitiveMemory` facade, engine classes, utility classes, and result dataclasses. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
 
 ### EP-1: Labels in, labels out
 
-Public methods accept concept labels (strings) as input and return concept labels in output. Node IDs are an internal implementation detail. The only exception is the `graph` property, which exposes the raw `Hypergraph` for advanced use.
+Public-facing methods (facade and any method called by user code) accept concept labels (strings) as input and return concept labels in output. Node IDs are an internal implementation detail. The only exception is the `graph` property, which exposes the raw `Hypergraph` for advanced use.
+
+Engine-level classes that operate on IDs internally should document that they work at the ID level. The facade boundary (label → ID resolution, ID → label in output) is the responsibility of the facade method calling the engine.
 
 Bad:
 ```python
@@ -481,11 +483,11 @@ Use `concept` for single-label parameters. Use `source` and `target` for ordered
 | 2 (ordered) | `source: str, target: str` |
 | N | `concepts: set[str]` or `concepts: list[str]` |
 
-Context-specific names (e.g., `observed_concept`, `target_concept`, `seed_concepts`) are acceptable when they add meaningful semantics that `concept` alone cannot convey.
+Context-specific names (e.g., `seed_concepts`) are acceptable when they add meaningful semantics that `concept` alone cannot convey. Names like `observed_concept` or `target_concept` are discouraged — use `concept` instead.
 
 ### EP-3: Return typed dataclasses, not dicts
 
-Public methods return dedicated result dataclasses extending `_SimpleResultBase`. Do not unpack internal dataclasses into `dict[str, Any]` at the facade boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
+Public methods across all modules return dedicated result dataclasses extending `_SimpleResultBase`. Engine methods should also return typed dataclasses rather than `dict[str, Any]`, so that facade methods can return engine results directly per DP-2. Do not unpack internal dataclasses into `dict[str, Any]` at the boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
 
 Bad:
 ```python
@@ -508,7 +510,7 @@ Every public method must have a concrete return type annotation. Replace bare `A
 When a concept label does not resolve to a node, methods should follow one of two patterns based on the operation's semantics:
 
 - **Query/read operations** (`recall`, `find_paths`, `find_similar`, `explain`, `prove`): return an empty result (`[]`, `None`, or a result object with `achievable=False`). Do not raise.
-- **Write/mutation operations** (`relate`, `entangle`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
+- **Write/mutation operations** (`relate`, `entangle`, `stimulate`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
 
 Document the behavior in the docstring.
 
@@ -532,7 +534,15 @@ Methods that mutate the graph return a typed result summarizing what changed (ed
 
 ### EP-8: Facade methods delegate, don't rewrap
 
-Facade methods on `CognitiveMemory` should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type.
+Facade methods on `CognitiveMemory` should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type. When an engine's result type is not suitable for public use, modify the engine to return a proper typed result rather than adding translation layers in the facade.
+
+## Known API Gaps
+
+These are known violations of the EP/DP principles that remain for backward compatibility or require significant refactoring:
+
+- **Engine `dict[str, Any]` returns** (EP-3): Several engine `analyze()`, `evolve()`, and `enforce()` methods still return untyped dicts. The facade rewraps these into typed results (violating EP-8). Converting all ~13 engines to typed returns is planned.
+- **Deprecated `_labels` method variants** (EP-1): `find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, and `detect_cycles_labels` in `AnalyticsMixin` are thin wrappers that delegate to the canonical methods (which already return labels). They are kept for backward compatibility with existing examples and tests.
+- **`collapse_entangled` / `lateral_insights` label leaks** (EP-1): These quantum mixin methods return node IDs instead of labels. A future refactor should add label resolution.
 
 ## Common Pitfalls
 
