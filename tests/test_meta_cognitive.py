@@ -184,7 +184,7 @@ class TestCognitiveMemoryNewFeatures:
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("test")
         stats = mem.stats()
-        assert "rulial" in stats
+        assert hasattr(stats, "rulial")
         assert "meta_cognitive" in stats
 
     def test_transfinite_property(self):

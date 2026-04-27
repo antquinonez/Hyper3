@@ -9,6 +9,7 @@ import numpy as np
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
+from hyper3.results import CausalEnforceReport
 from hyper3.quantum import (
     BUILTIN_BASES,
     CollapseTrigger,
@@ -294,18 +295,18 @@ class CausalInvarianceEngine:
             merged.append(invariant)
         return merged
 
-    def enforce(self) -> dict[str, Any]:
+    def enforce(self) -> CausalEnforceReport:
         """Run the full causal invariance check and merge cycle.
 
         Returns:
-            Summary dict with invariants_found, states_before, states_after, and reduction.
+            CausalEnforceReport with invariants_found, states_before, states_after, and reduction.
         """
         before = self._multiway.state_count
         invariants = self.merge_invariant_states()
         after = self._multiway.state_count
-        return {
-            "invariants_found": len(invariants),
-            "states_before": before,
-            "states_after": after,
-            "reduction": len(invariants),
-        }
+        return CausalEnforceReport(
+            invariants_found=len(invariants),
+            states_before=before,
+            states_after=after,
+            reduction=len(invariants),
+        )

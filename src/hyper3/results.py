@@ -41,9 +41,9 @@ class ExpansionInfo(_SimpleResultBase):
 @dataclass
 class ReasonResult(_SimpleResultBase):
     expansion: ExpansionInfo | None = None
-    causal_invariance: dict[str, Any] | None = None
-    branchial: dict[str, Any] | None = None
-    rulial: dict[str, Any] | None = None
+    causal_invariance: CausalEnforceReport | None = None
+    branchial: BranchialAnalysis | None = None
+    rulial: RulialAnalysis | None = None
     multiway_leaves: int = 0
     overlay: dict[str, int] | None = None
     confidence: dict[str, float] | None = None
@@ -74,6 +74,14 @@ class ConsensusReasonResult(_SimpleResultBase):
 
 
 @dataclass
+class CausalEnforceReport(_SimpleResultBase):
+    invariants_found: int = 0
+    states_before: int = 0
+    states_after: int = 0
+    reduction: int = 0
+
+
+@dataclass
 class EvolveResult(_SimpleResultBase):
     decayed: int = 0
     pruned: int = 0
@@ -82,7 +90,98 @@ class EvolveResult(_SimpleResultBase):
     suppressed: int = 0
     node_count: int = 0
     edge_count: int = 0
-    causal: dict[str, Any] = field(default_factory=dict)
+    causal: CausalEnforceReport | None = None
+
+
+@dataclass
+class BranchialAnalysis(_SimpleResultBase):
+    states_mapped: int = 0
+    clusters: int = 0
+    entanglements: int = 0
+    simultaneity_groups: int = 0
+    avg_cluster_size: float = 0.0
+    avg_entanglement_correlation: float = 0.0
+    multi_scale_available: bool = True
+
+
+@dataclass
+class RulialAnalysis(_SimpleResultBase):
+    computational_density: float = 0.0
+    causal_complexity: float = 0.0
+    spectral_entropy: float = 0.0
+    rule_diversity: int = 0
+    total_applications: int = 0
+    rule_effectiveness: dict[str, dict[str, float]] = field(default_factory=dict)
+    meta_patterns: int = 0
+    transcendental_insights: int = 0
+    position_history_length: int = 0
+
+
+@dataclass
+class RelativityAnalysis(_SimpleResultBase):
+    available_frames: list[str] = field(default_factory=list)
+    transformations_computed: int = 0
+    frame_effectiveness: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class TransfiniteAnalysis(_SimpleResultBase):
+    mapped_regions: int = 0
+    decidable: int = 0
+    boundary: int = 0
+    undecidable: int = 0
+    reasoning_history: int = 0
+
+
+@dataclass
+class DiscoveryAnalysis(_SimpleResultBase):
+    total_patterns: int = 0
+    new_patterns: int = 0
+    active_rules: int = 0
+    edge_labels: dict[str, int] = field(default_factory=dict)
+    pattern_types: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass
+class LateralInferenceInsight(_SimpleResultBase):
+    source_state: str = ""
+    lateral_state: str = ""
+    rule_used: str | None = None
+    novel_in_source: list[str] = field(default_factory=list)
+    novel_in_lateral: list[str] = field(default_factory=list)
+    complementary_nodes: list[str] = field(default_factory=list)
+    transferable_patterns: list[str] = field(default_factory=list)
+    branchial_distance: float = 0.0
+    semantic_novelty_scores: dict[str, float] | None = None
+
+
+@dataclass
+class RuleNeighborhoodResult(_SimpleResultBase):
+    explored_rules: list[str] = field(default_factory=list)
+    rule_diversity: int = 0
+    computational_density: float = 0.0
+    coverage: float = 0.0
+    unexplored: list[str] = field(default_factory=list)
+    error: str | None = None
+
+
+@dataclass
+class TemporalConsistencyResult(_SimpleResultBase):
+    consistent: bool = True
+    relation: str = ""
+    edge_a_interval_start: float = 0.0
+    edge_a_interval_end: float = 0.0
+    edge_b_interval_start: float = 0.0
+    edge_b_interval_end: float = 0.0
+    reason: str = ""
+
+
+@dataclass
+class TemporalInconsistency(_SimpleResultBase):
+    event_a: str = ""
+    event_b: str = ""
+    actual_relation: str = ""
+    expected_relation: str = ""
 
 
 @dataclass
@@ -119,7 +218,7 @@ class MemoryStats(_SimpleResultBase):
     active_rules: int = 0
     overlay_active: bool = False
     overlay_edges: int = 0
-    rulial: dict[str, Any] = field(default_factory=dict)
+    rulial: RulialAnalysis | None = None
     meta_cognitive: MetaCognitiveStats = field(default_factory=MetaCognitiveStats)
     multi_edge_count: int = 0
 
@@ -128,7 +227,7 @@ class MemoryStats(_SimpleResultBase):
 class DiscoverResult(_SimpleResultBase):
     total_patterns: int = 0
     new_rules_added: int = 0
-    analysis: dict[str, Any] = field(default_factory=dict)
+    analysis: DiscoveryAnalysis | None = None
 
 
 @dataclass
@@ -238,7 +337,7 @@ class IntrospectionReport(_SimpleResultBase):
     graph_health: GraphHealthInfo = field(default_factory=GraphHealthInfo)
     evolution_health: EvolutionHealthInfo = field(default_factory=EvolutionHealthInfo)
     discovery_health: DiscoveryHealthInfo = field(default_factory=DiscoveryHealthInfo)
-    rulial_health: dict[str, Any] | None = None
+    rulial_health: RulialAnalysis | None = None
     anti_patterns: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
 

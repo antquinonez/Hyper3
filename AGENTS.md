@@ -337,16 +337,16 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **equivalence.py** — `EquivalenceEngine` finds similar nodes using data + structural similarity with blocking.
 - **cache.py** — `LazyCache` LRU cache with TTL, optional Markov-model prefetching.
 - **traversal.py** — `TraversalEngine` (BFS, DFS, dimension-filtered, adaptive weight-priority), `SliceConfig`, `ObserverSlice`.
-- **evolution.py** — `SelfEvolutionEngine` with decay, prune, merge, reinforce. `EvolutionMetrics` dataclass.
+- **evolution.py** — `SelfEvolutionEngine` with decay, prune, merge, reinforce. Returns typed `EvolveResult`. `EvolutionMetrics` dataclass.
 - **rules.py** — `Rule` ABC with 8 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
 - **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
-- **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection.
+- **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. Returns typed `CausalEnforceReport`.
 - **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `QuantumEntanglement`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
-- **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis (hierarchical Ward clustering at macro/meso/micro scales).
-- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking).
+- **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
+- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
 - **transfinite.py** — `TransfiniteReasoner` handles self-referential and boundary cases (Gödel-like limits). `PartialProof` dataclass tracks coverage bounds for incomplete reasoning.
 - **relativity.py** — `ComputationalRelativity` provides multi-frame analysis (classical/quantum/hypergraph/probabilistic perspectives) with frame effectiveness learning via Thompson sampling.
-- **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection.
+- **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `IntrospectionReport`, `analyze()` returns typed `MetaCognitiveStats`.
 - **memory.py** — `CognitiveMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.
 - **memory_base.py** — `_MemoryBase` declares shared type annotations for all memory mixins.
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label.
@@ -356,10 +356,10 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats.
 - **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, relativity, discovery.
 - **persistence.py** — `Serializer` handles JSON save/load.
-- **rules_discovery.py** — `RuleDiscoveryEngine` discovers transitive/inverse/hub patterns in the graph.
+- **rules_discovery.py** — `RuleDiscoveryEngine` discovers transitive/inverse/hub patterns in the graph. `analyze()` returns typed `DiscoveryAnalysis`.
 - **retrieval_activation.py** — `SpreadingActivation` provides associative recall via energy propagation through the graph. Configurable decay, per-label propagation rates, directional mode, and normalization.
 - **embedding.py** — `EmbeddingEngine` provides semantic similarity via pluggable embedding providers. `HashEmbeddingProvider` is the built-in fallback; users can supply custom providers (e.g., sentence-transformers) via the `EmbeddingProvider` ABC. Supports cosine similarity, euclidean distance, find_similar, find_all_similar_pairs, and analogy (vector arithmetic). Optional FAISS index (`enable_faiss()`) for sub-millisecond similarity search on large graphs.
-- **retrieval_engine.py** — `RetrievalEngine` combines activation + semantic signals via Reciprocal Rank Fusion (RRF). `FeedbackStore` and `LearningToRank` enable relevance feedback: users mark results relevant/irrelevant, then `train_retriever()` learns optimal feature weights. `RetrievalResult` carries activation, similarity, RRF score, and rank positions.
+- **retrieval_engine.py** — `RetrievalEngine` combines activation + semantic signals via Reciprocal Rank Fusion (RRF). `FeedbackStore` and `LearningToRank` enable relevance feedback: users mark results relevant/irrelevant, then `train_retriever()` learns optimal feature weights. `RetrievalResult` carries activation, similarity, RRF score, and rank positions. `train()` and `train_from_feedback()` return typed `TrainResult`.
 - **visualization.py** — Optional matplotlib plotting (requires `[viz]` extra).
 
 ## Key Conventions
@@ -542,7 +542,7 @@ Higher-level methods (facades, coordinator classes) should call the underlying e
 
 These are known violations of the EP/DP principles that remain for backward compatibility or require significant refactoring:
 
-- **Engine `dict[str, Any]` returns** (EP-3): Several engine `analyze()`, `evolve()`, and `enforce()` methods still return untyped dicts. Higher-level callers rewrap these into typed results (violating EP-8). Converting all ~13 engines to typed returns is planned.
+- **Engine `dict[str, Any]` returns** (EP-3): Most engine `analyze()`, `evolve()`, `enforce()`, and `train()` methods now return typed dataclasses. Remaining untyped returns: `ComputationalRelativity.analyze()`, `TransfiniteReasoner.analyze()`, `MetaCognitiveLayer.execute_metamorphosis()`, `MetaCognitiveLayer.execute_metamorphosis_validated()`, `MetaCognitiveLayer.auto_metamorphosis()`, and internal helper methods in `MetaCognitiveLayer` (e.g., `_adjust_evolution()`, `_run_rule_discovery()`).
 - **Deprecated `_labels` method variants** (EP-1): `find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, and `detect_cycles_labels` in `AnalyticsMixin` are thin wrappers that delegate to the canonical methods (which already return labels). They are kept for backward compatibility with existing examples and tests.
 - **`collapse_entangled` / `lateral_insights` label leaks** (EP-1): These quantum mixin methods return node IDs instead of labels. A future refactor should add label resolution.
 
@@ -556,6 +556,7 @@ These are known violations of the EP/DP principles that remain for backward comp
 - **EquivalenceEngine structural similarity**: Two nodes with no edges are structurally identical (score 1.0). Two nodes with no overlapping neighbors get structural score 0.0. The combined score can still exceed threshold via data similarity alone.
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Quantum decoherence is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
+- **`_SimpleResultBase.get()` returns `None` for existing fields**: When a field exists but is `None`, `.get("field", fallback)` returns `None`, not the fallback. This differs from `dict.get()`. Use attribute access with explicit `None` checks for fields that may be absent (e.g., `result.causal_invariance` with `if ci:` guards).
 
 ## Performance Indexes
 

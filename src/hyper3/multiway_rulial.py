@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from scipy.stats import entropy as scipy_entropy
 
-from hyper3.results import BiasProfileResult
+from hyper3.results import BiasProfileResult, RulialAnalysis, RuleNeighborhoodResult
 
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule
@@ -362,18 +362,17 @@ class RulialSpace:
         """Return a deep copy of per-rule outcome counters."""
         return {k: dict(v) for k, v in self._rule_outcomes.items()}
 
-    def explore_rule_neighborhood(self, rules: list[Rule]) -> dict[str, Any]:
+    def explore_rule_neighborhood(self, rules: list[Rule]) -> RuleNeighborhoodResult:
         """Summarize which rules have been explored and their coverage.
 
         Args:
             rules: The full set of available rules.
 
         Returns:
-            Dict with explored_rules, rule_diversity, computational_density,
-            coverage, and unexplored rule names.
+            RuleNeighborhoodResult with explored rules, diversity, density, coverage, and unexplored.
         """
         if not self._multiway:
-            return {"error": "no multiway engine"}
+            return RuleNeighborhoodResult(error="no multiway engine")
         rule_names = [r.name for r in rules]
         for name in rule_names:
             if name not in self._explored_rules:
@@ -381,13 +380,13 @@ class RulialSpace:
         density = self._compute_density()
         diversity = len(self._explored_rules)
         coverage = diversity / max(len(rules), 1)
-        return {
-            "explored_rules": list(self._explored_rules.keys()),
-            "rule_diversity": diversity,
-            "computational_density": density,
-            "coverage": coverage,
-            "unexplored": [r.name for r in rules if r.name not in self._explored_rules],
-        }
+        return RuleNeighborhoodResult(
+            explored_rules=list(self._explored_rules.keys()),
+            rule_diversity=diversity,
+            computational_density=density,
+            coverage=coverage,
+            unexplored=[r.name for r in rules if r.name not in self._explored_rules],
+        )
 
     def find_meta_patterns(self) -> list[MetaComputationalPattern]:
         """Detect meta-computational patterns across five analysis dimensions.
@@ -700,16 +699,16 @@ class RulialSpace:
                     frontiers.append((float(r), float(c)))
         return frontiers
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self) -> RulialAnalysis:
         """Return a summary of the rulial space state."""
-        return {
-            "computational_density": self._position.computational_density,
-            "causal_complexity": self._position.causal_graph_complexity,
-            "spectral_entropy": self._compute_spectral_entropy(),
-            "rule_diversity": len(self._explored_rules),
-            "total_applications": self._total_applications,
-            "rule_effectiveness": self.get_rule_effectiveness(),
-            "meta_patterns": len(self._meta_patterns),
-            "transcendental_insights": len(self._insights),
-            "position_history_length": len(self._position_history),
-        }
+        return RulialAnalysis(
+            computational_density=self._position.computational_density,
+            causal_complexity=self._position.causal_graph_complexity,
+            spectral_entropy=self._compute_spectral_entropy(),
+            rule_diversity=len(self._explored_rules),
+            total_applications=self._total_applications,
+            rule_effectiveness=self.get_rule_effectiveness(),
+            meta_patterns=len(self._meta_patterns),
+            transcendental_insights=len(self._insights),
+            position_history_length=len(self._position_history),
+        )

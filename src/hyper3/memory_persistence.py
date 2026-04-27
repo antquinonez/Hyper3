@@ -29,7 +29,7 @@ from hyper3.snapshot import (
     load_cognitive_state as _load_snapshot,
 )
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolutionStats, MemoryStats, MetaCognitiveStats
+from hyper3.results import EvolutionStats, MemoryStats
 
 
 class PersistenceMixin(_MemoryBase):
@@ -210,7 +210,7 @@ class PersistenceMixin(_MemoryBase):
 
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
-        meta_raw = self._meta.analyze()
+        meta_stats = self._meta.analyze()
         multi_edge_count = sum(
             1 for e in self._graph.edges
             if len(e.source_ids) > 1 or len(e.target_ids) > 1
@@ -235,14 +235,7 @@ class PersistenceMixin(_MemoryBase):
             active_rules=len(self._rules),
             overlay_active=self._overlay is not None,
             overlay_edges=len(self._overlay.overlay_edge_ids) if self._overlay else 0,
-            rulial=self._rulial.analyze() if self._rulial else {},
-            meta_cognitive=MetaCognitiveStats(
-                architectural_fitness=meta_raw.get("architectural_fitness", 0.0),
-                reasoning_mode=meta_raw.get("reasoning_mode", ""),
-                meta_level=meta_raw.get("meta_level", 0),
-                introspections=meta_raw.get("introspections", 0),
-                metamorphoses=meta_raw.get("metamorphoses", 0),
-                transcendental_yield=meta_raw.get("transcendental_yield", 0.0),
-            ),
+            rulial=self._rulial.analyze() if self._rulial else None,
+            meta_cognitive=meta_stats,
             multi_edge_count=multi_edge_count,
         )

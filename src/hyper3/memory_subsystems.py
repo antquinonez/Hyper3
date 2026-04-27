@@ -22,7 +22,7 @@ from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, Meta
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, CognitiveStateInfo, GraphHealthInfo, EvolutionHealthInfo, DiscoveryHealthInfo, FeedbackSummaryResult, BiasProfileResult
+from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, FeedbackSummaryResult, BiasProfileResult
 from hyper3.feedback import OperationFeedback
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
@@ -211,15 +211,9 @@ class SubsystemMixin(_MemoryBase):
         Returns:
             TrainResult indicating whether training occurred and the learned weights.
         """
-        report = self._retrieval.train_from_feedback()
-        self._log.record("train_retriever", **report)
-        if report.get("trained", False):
-            return TrainResult(
-                trained=True,
-                weights=report.get("weights", {}),
-                samples=report.get("samples", 0),
-            )
-        return TrainResult(reason=report.get("reason", ""))
+        result = self._retrieval.train_from_feedback()
+        self._log.record("train_retriever", trained=result.trained, samples=result.samples)
+        return result
 
     @property
     def feedback(self) -> FeedbackStore:
@@ -578,36 +572,7 @@ class SubsystemMixin(_MemoryBase):
 
     def introspect(self) -> IntrospectionReport:
         """Return a meta-cognitive introspection report for the current state."""
-        raw = self._meta.introspect(self._rules)
-        cs = raw.get("cognitive_state", {})
-        gh = raw.get("graph_health", {})
-        eh = raw.get("evolution_health", {})
-        dh = raw.get("discovery_health", {})
-        return IntrospectionReport(
-            cognitive_state=CognitiveStateInfo(
-                fitness=cs.get("fitness", 0.0),
-                mode=cs.get("mode", ""),
-                meta_level=cs.get("meta_level", 0),
-                transcendental_yield=cs.get("transcendental_yield", 0),
-            ),
-            graph_health=GraphHealthInfo(
-                nodes=gh.get("nodes", 0),
-                edges=gh.get("edges", 0),
-                avg_degree=gh.get("avg_degree", 0.0),
-            ),
-            evolution_health=EvolutionHealthInfo(
-                merges=eh.get("merges", 0),
-                prunes=eh.get("prunes", 0),
-                refinements=eh.get("refinements", 0),
-            ),
-            discovery_health=DiscoveryHealthInfo(
-                patterns=dh.get("patterns", 0),
-                active_rules=dh.get("active_rules", 0),
-            ),
-            rulial_health=raw.get("rulial_health"),
-            anti_patterns=raw.get("anti_patterns", []),
-            recommendations=raw.get("recommendations", []),
-        )
+        return self._meta.introspect(self._rules)
 
     def check_metamorphosis(self) -> list[MetamorphosisTrigger]:
         """Check whether any metamorphosis triggers fire (fitness, efficiency, staleness)."""

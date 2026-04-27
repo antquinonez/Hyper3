@@ -443,7 +443,7 @@ def main():
     print("SECTION 4: Branchial Space Analysis")
     print("=" * 70)
 
-    branchial_report = result.get("branchial", {})
+    branchial_report = result.branchial
     if branchial_report:
         print("  Branchial analysis:")
         for key, val in branchial_report.items():
@@ -487,9 +487,11 @@ def main():
     print("SECTION 5: Convergent Hypothesis Branches")
     print("=" * 70)
 
-    ci = result.get("causal_invariance", {})
-    print(f"  Causal invariants found: {ci.get('invariants_found', 0)}")
-    print(f"  States reduced via merge: {ci.get('reduction', 0)}")
+    ci = result.causal_invariance
+    invariants = ci.invariants_found if ci else 0
+    reduction = ci.reduction if ci else 0
+    print(f"  Causal invariants found: {invariants}")
+    print(f"  States reduced via merge: {reduction}")
 
     convergent_pairs: list[tuple[str, str, int]] = []
     if mw_graph:

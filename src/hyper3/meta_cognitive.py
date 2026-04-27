@@ -12,6 +12,14 @@ from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.graph_diff import GraphDiffer
+from hyper3.results import (
+    IntrospectionReport,
+    CognitiveStateInfo,
+    GraphHealthInfo,
+    EvolutionHealthInfo,
+    DiscoveryHealthInfo,
+    MetaCognitiveStats,
+)
 
 
 @dataclass
@@ -187,59 +195,61 @@ class MetaCognitiveLayer:
         self._state = state
         return state
 
-    def introspect(self, rules: list[Rule] | None = None) -> dict[str, Any]:
+    def introspect(self, rules: list[Rule] | None = None) -> IntrospectionReport:
         """Perform a full introspective analysis of the cognitive system.
 
         Args:
             rules: Optional active rules forwarded to :meth:`assess_state`.
 
         Returns:
-            A dict containing ``cognitive_state``, ``graph_health``,
-            ``evolution_health``, ``discovery_health``, optional
-            ``rulial_health``, ``anti_patterns``, and ``recommendations``.
+            IntrospectionReport with cognitive_state, graph_health, evolution_health,
+            discovery_health, optional rulial_health, anti_patterns, and recommendations.
         """
         state = self.assess_state(rules)
 
-        introspection: dict[str, Any] = {
-            "cognitive_state": {
-                "fitness": state.architectural_fitness,
-                "mode": state.reasoning_mode,
-                "meta_level": state.meta_computational_level,
-                "transcendental_yield": state.transcendental_yield,
-            },
-            "graph_health": {
-                "nodes": self._graph.node_count,
-                "edges": self._graph.edge_count,
-                "avg_degree": self._graph.edge_count / max(self._graph.node_count, 1),
-            },
-            "evolution_health": {
-                "merges": self._evolution.metrics.total_merges,
-                "prunes": self._evolution.metrics.total_prunes,
-                "refinements": self._evolution.metrics.total_refinements,
-            },
-            "discovery_health": {
-                "patterns": len(self._discovery.get_discovered_rules()),
-                "active_rules": sum(1 for d in self._discovery.get_discovered_rules() if d.rule is not None),
-            },
-        }
-
+        rulial_health = None
         if self._rulial:
-            introspection["rulial_health"] = self._rulial.analyze()
+            rulial_health = self._rulial.analyze()
 
-        patterns = self._detect_anti_patterns()
-        if patterns:
-            introspection["anti_patterns"] = patterns
+        anti_patterns = self._detect_anti_patterns()
+        report = IntrospectionReport(
+            cognitive_state=CognitiveStateInfo(
+                fitness=state.architectural_fitness,
+                mode=state.reasoning_mode,
+                meta_level=state.meta_computational_level,
+                transcendental_yield=state.transcendental_yield,
+            ),
+            graph_health=GraphHealthInfo(
+                nodes=self._graph.node_count,
+                edges=self._graph.edge_count,
+                avg_degree=self._graph.edge_count / max(self._graph.node_count, 1),
+            ),
+            evolution_health=EvolutionHealthInfo(
+                merges=self._evolution.metrics.total_merges,
+                prunes=self._evolution.metrics.total_prunes,
+                refinements=self._evolution.metrics.total_refinements,
+            ),
+            discovery_health=DiscoveryHealthInfo(
+                patterns=len(self._discovery.get_discovered_rules()),
+                active_rules=sum(1 for d in self._discovery.get_discovered_rules() if d.rule is not None),
+            ),
+            rulial_health=rulial_health,
+            anti_patterns=anti_patterns,
+        )
 
-        recommendations = self._generate_recommendations(introspection)
+        recommendations = self._generate_recommendations({
+            "cognitive_state": {"fitness": state.architectural_fitness, "mode": state.reasoning_mode},
+            "graph_health": {"nodes": self._graph.node_count, "edges": self._graph.edge_count},
+        })
         if recommendations:
-            introspection["recommendations"] = recommendations
+            report.recommendations = recommendations
 
         self._introspection_log.append({
             "timestamp": time.time(),
-            "summary": introspection,
+            "summary": report,
         })
 
-        return introspection
+        return report
 
     def _detect_anti_patterns(self) -> list[str]:
         """Detect structural anti-patterns such as low connectivity or engagement."""
@@ -707,13 +717,13 @@ class MetaCognitiveLayer:
         """A snapshot of all metamorphosis plans ever proposed."""
         return list(self._metamorphosis_history)
 
-    def analyze(self) -> dict[str, Any]:
-        """Return a summary dict of fitness, mode, meta-level, and activity counts."""
-        return {
-            "architectural_fitness": self._state.architectural_fitness,
-            "reasoning_mode": self._state.reasoning_mode,
-            "meta_level": self._state.meta_computational_level,
-            "introspections": len(self._introspection_log),
-            "metamorphoses": len(self._metamorphosis_history),
-            "transcendental_yield": self._state.transcendental_yield,
-        }
+    def analyze(self) -> MetaCognitiveStats:
+        """Return a typed summary of fitness, mode, meta-level, and activity counts."""
+        return MetaCognitiveStats(
+            architectural_fitness=self._state.architectural_fitness,
+            reasoning_mode=self._state.reasoning_mode,
+            meta_level=self._state.meta_computational_level,
+            introspections=len(self._introspection_log),
+            metamorphoses=len(self._metamorphosis_history),
+            transcendental_yield=self._state.transcendental_yield,
+        )

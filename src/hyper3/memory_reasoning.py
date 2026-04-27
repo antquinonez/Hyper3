@@ -13,6 +13,8 @@ from hyper3.quantum import QuantumState
 from hyper3.relativity import InvariantDetector
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
+    BranchialAnalysis,
+    CausalEnforceReport,
     CommitResult,
     ConsensusReasonResult,
     DerivationInfo,
@@ -21,6 +23,7 @@ from hyper3.results import (
     IterativeReasonResult,
     ReasonResult,
     RollbackResult,
+    RulialAnalysis,
 )
 
 
@@ -90,23 +93,23 @@ class ReasoningMixin(_MemoryBase):
         self,
         active_rules: list[Rule],
         enforce_causal_invariance: bool,
-    ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    ) -> tuple[CausalEnforceReport | None, BranchialAnalysis | None, RulialAnalysis | None]:
         """Run causal invariance enforcement, branchial analysis, and rulial analysis after expansion.
 
         Returns:
             Tuple of (causal_report, branchial_report, rulial_report).
         """
-        causal_report: dict[str, Any] = {}
+        causal_report: CausalEnforceReport | None = None
         if enforce_causal_invariance and self._causal_engine:
             causal_report = self._causal_engine.enforce()
 
-        branchial_report: dict[str, Any] = {}
+        branchial_report: BranchialAnalysis | None = None
         if self._branchial:
             self._branchial.assign_coordinates()
             self._branchial.build_simultaneity_groups()
             branchial_report = self._branchial.analyze()
 
-        rulial_report: dict[str, Any] = {}
+        rulial_report: RulialAnalysis | None = None
         if self._rulial:
             self._rulial.update_position(active_rules)
             rulial_report = self._rulial.analyze()
@@ -119,9 +122,9 @@ class ReasoningMixin(_MemoryBase):
         seed_concepts: set[str],
         use_overlay: bool,
         auto_commit: bool,
-        causal_report: dict[str, Any],
-        branchial_report: dict[str, Any],
-        rulial_report: dict[str, Any],
+        causal_report: CausalEnforceReport | None,
+        branchial_report: BranchialAnalysis | None,
+        rulial_report: RulialAnalysis | None,
         auto_superpositions: list[QuantumState],
     ) -> ReasonResult:
         """Assemble the final ReasonResult from expansion and post-expansion reports."""
@@ -130,7 +133,7 @@ class ReasoningMixin(_MemoryBase):
             seeds=list(seed_concepts),
             states=report.states_created,
             rules_applied=report.rules_applied,
-            invariants=causal_report.get("invariants_found", 0),
+            invariants=causal_report.invariants_found if causal_report else 0,
             overlay=use_overlay,
         )
         result = ReasonResult(

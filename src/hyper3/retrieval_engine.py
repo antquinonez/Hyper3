@@ -8,6 +8,7 @@ import numpy as np
 from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
 from hyper3.embedding import EmbeddingEngine
 from hyper3.kernel import Hypergraph
+from hyper3.results import TrainResult
 
 
 @dataclass
@@ -100,7 +101,7 @@ class LearningToRank:
             total += weight * features.get(name, 0.0)
         return total
 
-    def train(self, records: list[FeedbackRecord], learning_rate: float = 0.1, epochs: int = 50) -> dict[str, Any]:
+    def train(self, records: list[FeedbackRecord], learning_rate: float = 0.1, epochs: int = 50) -> TrainResult:
         """Train feature weights via gradient descent on feedback records.
 
         Args:
@@ -109,10 +110,10 @@ class LearningToRank:
             epochs: Number of training passes.
 
         Returns:
-            Dict with training status and final weights.
+            TrainResult with training status and final weights.
         """
         if not records:
-            return {"trained": False, "reason": "no records"}
+            return TrainResult(reason="no records")
 
         for _ in range(epochs):
             gradients = {f: 0.0 for f in self._feature_names}
@@ -129,7 +130,7 @@ class LearningToRank:
         if total > 0:
             self._weights = {k: v / total for k, v in self._weights.items()}
 
-        return {"trained": True, "weights": dict(self._weights), "samples": len(records)}
+        return TrainResult(trained=True, weights=dict(self._weights), samples=len(records))
 
 
 def reciprocal_rank_fusion(
@@ -353,10 +354,10 @@ class RetrievalEngine:
             count += 1
         return count
 
-    def train_from_feedback(self) -> dict[str, Any]:
+    def train_from_feedback(self) -> TrainResult:
         """Train the learning-to-rank model from accumulated feedback.
 
         Returns:
-            Training result dict from LearningToRank.train().
+            TrainResult from LearningToRank.train().
         """
         return self._ltr.train(self._feedback.records)

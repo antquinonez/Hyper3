@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
+from hyper3.results import DiscoveryAnalysis
 from hyper3.rules import Rule, RuleMatch, TransitiveRule, InverseRule
 
 
@@ -170,21 +171,21 @@ class RuleDiscoveryEngine:
         """Return only discovered rules that have a concrete ``Rule`` attached."""
         return [dr.rule for dr in self._discovered if dr.rule is not None]
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self) -> DiscoveryAnalysis:
         """Run discovery and return a summary of all patterns found.
 
         Returns:
-            Dictionary with keys ``total_patterns``, ``new_patterns``,
-            ``active_rules``, ``edge_labels``, and ``pattern_types``.
+            DiscoveryAnalysis with total_patterns, new_patterns,
+            active_rules, edge_labels, and pattern_types.
         """
         discovered = self.discover_all()
-        return {
-            "total_patterns": len(self._discovered),
-            "new_patterns": len(discovered),
-            "active_rules": len(self.get_active_rules()),
-            "edge_labels": dict(self._edge_label_counts),
-            "pattern_types": Counter(dr.pattern_type for dr in self._discovered),
-        }
+        return DiscoveryAnalysis(
+            total_patterns=len(self._discovered),
+            new_patterns=len(discovered),
+            active_rules=len(self.get_active_rules()),
+            edge_labels=dict(self._edge_label_counts),
+            pattern_types=dict(Counter(dr.pattern_type for dr in self._discovered)),
+        )
 
     def _count_chains(self, label: str) -> int:
         """Count two-hop edge chains with the given label."""

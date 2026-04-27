@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.equivalence import EquivalenceEngine
+from hyper3.results import EvolveResult
 
 
 @dataclass
@@ -104,24 +104,23 @@ class SelfEvolutionEngine:
         if node:
             node.weight = min(node.weight * boost, 100.0)
 
-    def evolve(self) -> dict[str, Any]:
+    def evolve(self) -> EvolveResult:
         """Run a full evolution cycle: decay, prune, then merge.
 
         Returns:
-            Summary dict with ``decayed``, ``pruned``, ``merged``, ``node_count``,
-            and ``edge_count`` keys.
+            EvolveResult with decayed, pruned, merged, node_count, and edge_count.
         """
         decayed = self.decay_weights()
         pruned = self.prune_dead_nodes()
         merged = self.merge_equivalences()
         self._metrics.total_refinements += 1
-        return {
-            "decayed": decayed,
-            "pruned": len(pruned),
-            "merged": len(merged),
-            "node_count": self._graph.node_count,
-            "edge_count": self._graph.edge_count,
-        }
+        return EvolveResult(
+            decayed=decayed,
+            pruned=len(pruned),
+            merged=len(merged),
+            node_count=self._graph.node_count,
+            edge_count=self._graph.edge_count,
+        )
 
     def evolve_with_feedback(
         self,
@@ -131,7 +130,7 @@ class SelfEvolutionEngine:
         suppressed_nodes: set[str] | None = None,
         decay_factor: float = 0.95,
         boost: float = 1.1,
-    ) -> dict[str, Any]:
+    ) -> EvolveResult:
         """Run an evolution cycle that adapts based on operational feedback.
 
         When ``fitness_trend`` is ``"declining"``, the decay factor is reduced
@@ -146,8 +145,8 @@ class SelfEvolutionEngine:
             boost: Weight multiplier for reinforced nodes.
 
         Returns:
-            Summary dict with the same keys as :meth:`evolve`, plus
-            ``reinforced`` and ``suppressed`` counts.
+            EvolveResult with the same fields as :meth:`evolve`, plus
+            reinforced and suppressed counts.
         """
         if fitness_trend == "declining":
             decay_factor = min(decay_factor + 0.03, 0.99)
@@ -173,12 +172,12 @@ class SelfEvolutionEngine:
                     self._metrics.total_prunes += 1
 
         self._metrics.total_refinements += 1
-        return {
-            "decayed": decayed,
-            "pruned": len(pruned),
-            "merged": len(merged),
-            "reinforced": reinforced_count,
-            "suppressed": suppressed_count,
-            "node_count": self._graph.node_count,
-            "edge_count": self._graph.edge_count,
-        }
+        return EvolveResult(
+            decayed=decayed,
+            pruned=len(pruned),
+            merged=len(merged),
+            reinforced=reinforced_count,
+            suppressed=suppressed_count,
+            node_count=self._graph.node_count,
+            edge_count=self._graph.edge_count,
+        )

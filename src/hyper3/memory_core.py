@@ -14,7 +14,7 @@ from hyper3.kernel import (
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolveResult
+from hyper3.results import EvolveResult, CausalEnforceReport
 
 
 class CoreMixin(_MemoryBase):
@@ -253,7 +253,7 @@ class CoreMixin(_MemoryBase):
         """
         report = self._evolution.evolve()
         self._cache.evict_expired()
-        causal_report: dict[str, Any] = {}
+        causal_report: CausalEnforceReport | None = None
         if hasattr(self, '_causal_engine') and self._causal_engine:
             causal_report = self._causal_engine.enforce()
         self._log.record("evolve", report=report, causal=causal_report)
@@ -261,16 +261,16 @@ class CoreMixin(_MemoryBase):
         node_count = self._graph.node_count
         edge_count = self._graph.edge_count
         total = node_count + edge_count
-        fitness = 1.0 - (report.get("pruned", 0) / max(total, 1)) * 0.1
+        fitness = 1.0 - (report.pruned / max(total, 1)) * 0.1
         if hasattr(self, '_feedback') and self._feedback is not None:
             self._feedback.record_evolution_outcome(fitness)
 
         return EvolveResult(
-            decayed=report.get("decayed", 0),
-            pruned=report.get("pruned", 0),
-            merged=report.get("merged", 0),
-            reinforced=report.get("reinforced", 0),
-            suppressed=report.get("suppressed", 0),
+            decayed=report.decayed,
+            pruned=report.pruned,
+            merged=report.merged,
+            reinforced=report.reinforced,
+            suppressed=report.suppressed,
             node_count=node_count,
             edge_count=edge_count,
             causal=causal_report,
@@ -296,7 +296,7 @@ class CoreMixin(_MemoryBase):
             suppressed_nodes=suppressed if suppressed else None,
         )
         self._cache.evict_expired()
-        causal_report: dict[str, Any] = {}
+        causal_report: CausalEnforceReport | None = None
         if hasattr(self, '_causal_engine') and self._causal_engine:
             causal_report = self._causal_engine.enforce()
         self._log.record("evolve_with_feedback", report=report, causal=causal_report)
@@ -304,15 +304,15 @@ class CoreMixin(_MemoryBase):
         node_count = self._graph.node_count
         edge_count = self._graph.edge_count
         total = node_count + edge_count
-        fitness = 1.0 - (report.get("pruned", 0) / max(total, 1)) * 0.1
+        fitness = 1.0 - (report.pruned / max(total, 1)) * 0.1
         self._feedback.record_evolution_outcome(fitness)
 
         return EvolveResult(
-            decayed=report.get("decayed", 0),
-            pruned=report.get("pruned", 0),
-            merged=report.get("merged", 0),
-            reinforced=report.get("reinforced", 0),
-            suppressed=report.get("suppressed", 0),
+            decayed=report.decayed,
+            pruned=report.pruned,
+            merged=report.merged,
+            reinforced=report.reinforced,
+            suppressed=report.suppressed,
             node_count=node_count,
             edge_count=edge_count,
             causal=causal_report,

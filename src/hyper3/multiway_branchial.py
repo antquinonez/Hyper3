@@ -11,6 +11,7 @@ from scipy.cluster.vq import kmeans2
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
+from hyper3.results import BranchialAnalysis
 
 if TYPE_CHECKING:
     from hyper3.embedding import EmbeddingEngine
@@ -948,16 +949,16 @@ class BranchialSpace:
             insights.append(f"{len(clusters)} clusters with avg size {sum(sizes)/len(sizes):.1f}")
         return ScaleLevel(name=name, n_clusters=len(clusters), clusters=clusters, insights=insights)
 
-    def analyze(self) -> dict[str, Any]:
+    def analyze(self) -> BranchialAnalysis:
         """Return a summary of the branchial space state."""
-        return {
-            "states_mapped": len(self._coordinates),
-            "clusters": len(self._clusters),
-            "entanglements": len(self._entanglements),
-            "simultaneity_groups": len(self._simultaneity_groups),
-            "avg_cluster_size": sum(c.size for c in self._clusters) / max(len(self._clusters), 1),
-            "avg_entanglement_correlation": (
+        return BranchialAnalysis(
+            states_mapped=len(self._coordinates),
+            clusters=len(self._clusters),
+            entanglements=len(self._entanglements),
+            simultaneity_groups=len(self._simultaneity_groups),
+            avg_cluster_size=sum(c.size for c in self._clusters) / max(len(self._clusters), 1),
+            avg_entanglement_correlation=(
                 sum(e.correlation for e in self._entanglements) / max(len(self._entanglements), 1)
             ),
-            "multi_scale_available": True,
-        }
+            multi_scale_available=True,
+        )
