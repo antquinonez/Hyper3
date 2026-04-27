@@ -5,7 +5,7 @@ Branchial Space | Rulial Space | Transfinite Reasoning
 Computational Relativity | Meta-Cognitive Introspection
 Quantum Entanglement | Interference | Measurement Bases
 
-Run with: .venv/bin/python demo_full.py
+Run with: .venv/bin/python demos/demo_full.py
 """
 
 from hyper3 import (
@@ -67,8 +67,8 @@ print(f"   {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
 print("\n[2] Discovering rules and reasoning...")
 
 result = mem.auto_discover_and_apply()
-print(f"   Patterns discovered: {result['total_patterns']}")
-print(f"   New rules added: {result['new_rules_added']}")
+print(f"   Patterns discovered: {result.total_patterns}")
+print(f"   New rules added: {result.new_rules_added}")
 
 mem.add_rules(TransitiveRule(edge_label="causes"), InverseRule(edge_label="causes", inverse_label="caused_by"))
 
@@ -77,17 +77,18 @@ reason_result = mem.reason(
     max_depth=3,
     max_total_states=30,
 )
-exp = reason_result["expansion"]
-print(f"   Reasoning: {exp['rules_applied']} rules applied, {exp['edges_produced']} edges produced")
-print(f"   Multiway states: {reason_result['multiway_leaves']}")
+exp = reason_result.expansion
+if exp:
+    print(f"   Reasoning: {exp.rules_applied} rules applied, {exp.edges_produced} edges produced")
+print(f"   Multiway states: {reason_result.multiway_leaves}")
 
 # --- 3. Branchial Space ---
 print("\n[3] Branchial space analysis...")
 
 if mem.branchial:
     report = mem.branchial.analyze()
-    print(f"   States mapped: {report['states_mapped']}")
-    print(f"   Simultaneity groups: {report['simultaneity_groups']}")
+    print(f"   States mapped: {report.states_mapped}")
+    print(f"   Simultaneity groups: {report.simultaneity_groups}")
     entanglements = mem.branchial.detect_entanglements()
     print(f"   Branchial entanglements: {len(entanglements)}")
     for ent in entanglements[:3]:
@@ -116,7 +117,7 @@ for ins in insights[:3]:
 # --- 5. Quantum Enhanced ---
 print("\n[5] Quantum cognitive effects...")
 
-qs = mem.superpose(["spark", "battery", "fuel_flow"], [0.6, 0.5, 0.4])
+qs = mem.superpose(["spark", "battery", "fuel_flow"], amplitudes=[0.6, 0.5, 0.4])
 print(f"   Superposition: {qs.superposition_count} interpretations")
 
 triggers = mem.detect_collapse_triggers(qs)
@@ -143,8 +144,8 @@ qs2 = mem.superpose(["spark", "battery"])
 preds = mem.collapse_entangled(qs2, "spark")
 print(f"   Entangled predictions from 'spark': {preds}")
 
-# --- 6. Transfinite Reasoning ---
-print("\n[6] Transfinite reasoning...")
+# --- 6. Structural Anomaly Detection ---
+print("\n[6] Structural anomaly detection...")
 
 test_concepts = [
     "spark",
@@ -164,8 +165,8 @@ boundary_map = mem.map_boundaries(test_concepts)
 decidable = sum(1 for r in boundary_map if r.status == "decidable")
 print(f"   Boundary map: {decidable}/{len(boundary_map)} decidable")
 
-# --- 7. Computational Relativity ---
-print("\n[7] Computational relativity...")
+# --- 7. Multi-Perspective Analysis ---
+print("\n[7] Multi-perspective analysis...")
 
 optimal_name, optimal_analysis = mem.select_optimal_frame("combustion")
 print(f"   Optimal frame for 'combustion': {optimal_name}")
@@ -179,18 +180,18 @@ for frame_name, analysis in multi.items():
 print("\n[8] Meta-cognitive introspection...")
 
 introspection = mem.introspect()
-cs = introspection["cognitive_state"]
+cs = introspection.cognitive_state
 print(f"   Architectural fitness: {cs.fitness:.3f}")
 print(f"   Reasoning mode: {cs.mode}")
 print(f"   Meta-computational level: {cs.meta_level}")
 print(f"   Transcendental yield: {cs.transcendental_yield}")
 
-gh = introspection["graph_health"]
+gh = introspection.graph_health
 print(f"   Graph: {gh.nodes} nodes, {gh.edges} edges, avg_degree={gh.avg_degree:.3f}")
 
-if "recommendations" in introspection:
+if introspection.recommendations:
     print(f"   Recommendations:")
-    for rec in introspection["recommendations"]:
+    for rec in introspection.recommendations:
         print(f"     - {rec}")
 
 triggers = mem.check_metamorphosis()

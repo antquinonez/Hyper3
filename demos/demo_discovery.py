@@ -1,7 +1,7 @@
 """
 Demo: self-discovering rules + persistence across sessions.
 
-Run with: .venv/bin/python demo_discovery.py
+Run with: .venv/bin/python demos/demo_discovery.py
 """
 
 import tempfile, os
@@ -76,12 +76,13 @@ print(f"  After additions: {mem2.graph.node_count} nodes, {mem2.graph.edge_count
 
 # Discover new patterns with the expanded graph
 result2 = mem2.auto_discover_and_apply()
-print(f"\n  New rule discovery: {result2['new_rules_added']} new rules")
+print(f"\n  New rule discovery: {result2.new_rules_added} new rules")
 
 # Reason again with all rules (old + newly discovered)
 reason2 = mem2.reason({"battery", "starter_motor", "spark", "fuel_flow"}, max_depth=3, max_total_states=15)
-exp2 = reason2["expansion"]
-print(f"  Reasoning: {exp2['rules_applied']} rules applied, {exp2['edges_produced']} edges produced")
+exp2 = reason2.expansion
+if exp2:
+    print(f"  Reasoning: {exp2.rules_applied} rules applied, {exp2.edges_produced} edges produced")
 
 print(f"\n  New inferred edges in session 2:")
 count = 0

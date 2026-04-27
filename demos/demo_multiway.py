@@ -2,7 +2,7 @@
 Multiway expansion demo: the hypergraph reasons about a legal domain,
 branching through multiple rule applications simultaneously.
 
-Run with: .venv/bin/python demo_multiway.py
+Run with: .venv/bin/python demos/demo_multiway.py
 """
 
 from hyper3 import (

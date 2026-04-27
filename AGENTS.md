@@ -313,7 +313,7 @@ Modules use naming prefixes to show their subsystem relationships:
 .venv/bin/python -m pytest tests/test_kernel.py -v
 
 # Run demos
-.venv/bin/python demo_walkthrough.py
+.venv/bin/python demos/demo_walkthrough.py
 ```
 
 ## Test & Lint Commands
@@ -759,7 +759,7 @@ examples/            Example scripts organized by difficulty
   advanced/          Multi-subsystem workflows (overlay, iterative reasoning, multiway, quantum)
   domain/            Full end-to-end domain applications
   README.md          Index of all examples
-demo*.py             Runnable demo scripts (legacy, kept for backward compat)
+demos/               Runnable demo scripts
 benchmarks/          Performance microbenchmarks and evaluation suite
 pyproject.toml       Project config (hatchling build backend)
 resources/           Reference patent documents (architecture spec)

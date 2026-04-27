@@ -2,7 +2,7 @@
 A walk through hyper3 with a real scenario: diagnosing a car that won't start.
 Each section shows what the system is doing and why it matters.
 
-Run with: .venv/bin/python demo_walkthrough.py
+Run with: .venv/bin/python demos/demo_walkthrough.py
 """
 
 from hyper3 import CognitiveMemory, TransitiveRule, InverseRule, Modality

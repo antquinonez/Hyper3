@@ -2,7 +2,7 @@
 Full integrated demo: store knowledge, reason with multiway rules,
 enforce causal invariance, create quantum superpositions, and collapse.
 
-Run with: .venv/bin/python demo_integrated.py
+Run with: .venv/bin/python demos/demo_integrated.py
 """
 
 from hyper3 import (
