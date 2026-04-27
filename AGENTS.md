@@ -602,6 +602,7 @@ The following are already optimized — maintain them when making changes:
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
 6. Run a coverage report after adding tests: `.venv/bin/python -m pytest tests/ --cov=hyper3 --cov-report=term-missing --tb=short`. Target 95%+ per module.
+7. **Do not commit unless the user explicitly asks.** Stage changes and report readiness, but let the user decide when to commit.
 
 ## Writing Example Scripts
 
@@ -725,7 +726,9 @@ After making substantive changes (new features, bug fixes, API changes), perform
 4. **Update the Architecture section** if new modules were added.
 5. **Update Key Conventions** if new conventions were introduced (e.g., weight semantics, context parameters).
 6. **Update Common Pitfalls** if new pitfalls were discovered.
-7. **Run full validation**: tests + pyright + all examples.
+7. **Update the Extracted Modules or New Modules sections** if new result dataclasses were added to `results.py`.
+8. **Update `src/hyper3/__init__.py`** if new public classes were added.
+9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
 - **Tests**: 1348
