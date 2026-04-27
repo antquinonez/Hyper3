@@ -120,12 +120,12 @@ def main():
 
     # Find inferred edges and explain them
     inferred_edges = []
-    for edge in mem.graph.edges:
-        if edge.metadata.custom.get("inferred"):
-            src = mem.graph.get_node(next(iter(edge.source_ids)))
-            tgt = mem.graph.get_node(next(iter(edge.target_ids)))
-            if src and tgt:
-                inferred_edges.append((edge, src.label, tgt.label))
+    for le in mem.graph.labeled_edges:
+        if not le["source_labels"] or not le["target_labels"]:
+            continue
+        raw = mem.graph.get_edge(le["id"])
+        if raw and raw.metadata.custom.get("inferred"):
+            inferred_edges.append((raw, le["source_labels"][0], le["target_labels"][0]))
 
     print(f"  {len(inferred_edges)} inferred edges. Explaining each:")
     for edge, src_label, tgt_label in inferred_edges[:6]:

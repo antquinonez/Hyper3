@@ -619,12 +619,10 @@ def main():
 
     risk_impacts: dict[str, list[str]] = {}
     for edge_info in cascades:
-        src_id = edge_info["source_ids"][0]
-        tgt_id = edge_info["target_ids"][0]
-        src_node = mem.graph.get_node(src_id)
-        tgt_node = mem.graph.get_node(tgt_id)
-        if src_node and tgt_node and src_node.label.startswith("risk_"):
-            risk_impacts.setdefault(src_node.label, []).append(tgt_node.label)
+        src_labels = edge_info["source_labels"]
+        tgt_labels = edge_info["target_labels"]
+        if src_labels and tgt_labels and src_labels[0].startswith("risk_"):
+            risk_impacts.setdefault(src_labels[0], []).append(tgt_labels[0])
 
     print(f"\n  Risk cascade impact summary:")
     for risk_label in sorted(risk_impacts):
@@ -788,10 +786,9 @@ def main():
             continue
         risk_count = 0
         for edge_info in mem.pattern_match(edge_label="affected_by", target_label=name):
-            src_id = edge_info["source_ids"][0]
-            src_node = mem.graph.get_node(src_id)
-            if src_node and src_node.label.startswith("risk_"):
-                risk_node = mem.graph.get_node_by_label(src_node.label)
+            src_labels = edge_info["source_labels"]
+            if src_labels and src_labels[0].startswith("risk_"):
+                risk_node = mem.graph.get_node_by_label(src_labels[0])
                 if risk_node and risk_node.data:
                     risk_count += risk_node.data.get("impact", 0)
         has_backup = name in backup_srcs

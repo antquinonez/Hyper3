@@ -63,11 +63,21 @@ class AnalyticsMixin(_MemoryBase):
         )
         results: list[dict[str, Any]] = []
         for edge, bindings in matches:
+            src_labels: list[str] = []
+            for sid in edge.source_ids:
+                node = self._graph.get_node(sid)
+                if node:
+                    src_labels.append(node.label)
+            tgt_labels: list[str] = []
+            for tid in edge.target_ids:
+                node = self._graph.get_node(tid)
+                if node:
+                    tgt_labels.append(node.label)
             results.append({
                 "edge_id": edge.id,
                 "label": edge.label,
-                "source_ids": list(edge.source_ids),
-                "target_ids": list(edge.target_ids),
+                "source_labels": src_labels,
+                "target_labels": tgt_labels,
                 "bindings": bindings,
             })
         return results
@@ -93,8 +103,8 @@ class AnalyticsMixin(_MemoryBase):
                 {
                     "id": e.id,
                     "label": e.label,
-                    "source_ids": list(e.source_ids),
-                    "target_ids": list(e.target_ids),
+                    "source_labels": [n.label for sid in e.source_ids if (n := sg.get_node(sid))],
+                    "target_labels": [n.label for tid in e.target_ids if (n := sg.get_node(tid))],
                     "weight": e.weight,
                 }
                 for e in sg.edges

@@ -307,19 +307,19 @@ def main():
     causes_edges = mem.pattern_match(edge_label="causes")
     print(f"  'causes' relationships ({len(causes_edges)}):")
     for match in causes_edges[:5]:
-        src = mem.graph.get_node(next(iter(match["source_ids"])))
-        tgt = mem.graph.get_node(next(iter(match["target_ids"])))
-        if src and tgt:
-            print(f"    {src.label} causes {tgt.label}")
+        src_labels = match["source_labels"]
+        tgt_labels = match["target_labels"]
+        if src_labels and tgt_labels:
+            print(f"    {src_labels[0]} causes {tgt_labels[0]}")
     print()
 
     exploited_edges = mem.pattern_match(edge_label="exploited_via")
     print(f"  'exploited_via' relationships ({len(exploited_edges)}):")
     for match in exploited_edges[:5]:
-        src = mem.graph.get_node(next(iter(match["source_ids"])))
-        tgt = mem.graph.get_node(next(iter(match["target_ids"])))
-        if src and tgt:
-            print(f"    {src.label} exploited_via {tgt.label}")
+        src_labels = match["source_labels"]
+        tgt_labels = match["target_labels"]
+        if src_labels and tgt_labels:
+            print(f"    {src_labels[0]} exploited_via {tgt_labels[0]}")
     print()
 
     print("=" * 70)

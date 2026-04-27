@@ -515,15 +515,15 @@ def compute_risk_scores(
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
-        for sid in edge["source_ids"]:
-            node = mem.graph.get_node(sid)
+        for lbl in edge["source_labels"]:
+            node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "host":
                 vuln_count[node.label] += 1
 
     exploit_edges = []
     for edge in vuln_edges:
-        for tid in edge["target_ids"]:
-            node = mem.graph.get_node(tid)
+        for lbl in edge["target_labels"]:
+            node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "vulnerability":
                 if node.data.get("exploit_available"):
                     exploit_edges.append(edge)
@@ -556,17 +556,8 @@ def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str
 
     zone_rank = {"dmz": 0, "internal": 1, "restricted": 2}
     for edge in route_edges:
-        src_label = edge.get("bindings", {}).get("source_label", "")
-        tgt_label = edge.get("bindings", {}).get("target_label", "")
-        if not src_label or not tgt_label:
-            sids = list(edge["source_ids"])
-            tids = list(edge["target_ids"])
-            if sids:
-                n = mem.graph.get_node(sids[0])
-                src_label = n.label if n else ""
-            if tids:
-                n = mem.graph.get_node(tids[0])
-                tgt_label = n.label if n else ""
+        src_label = edge["source_labels"][0] if edge["source_labels"] else ""
+        tgt_label = edge["target_labels"][0] if edge["target_labels"] else ""
 
         sz = seg_zones.get(src_label, "")
         tz = seg_zones.get(tgt_label, "")
@@ -578,17 +569,8 @@ def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str
 
     trust_edges = mem.pattern_match(edge_label="trusts")
     for edge in trust_edges:
-        src_label = edge.get("bindings", {}).get("source_label", "")
-        tgt_label = edge.get("bindings", {}).get("target_label", "")
-        if not src_label or not tgt_label:
-            sids = list(edge["source_ids"])
-            tids = list(edge["target_ids"])
-            if sids:
-                n = mem.graph.get_node(sids[0])
-                src_label = n.label if n else ""
-            if tids:
-                n = mem.graph.get_node(tids[0])
-                tgt_label = n.label if n else ""
+        src_label = edge["source_labels"][0] if edge["source_labels"] else ""
+        tgt_label = edge["target_labels"][0] if edge["target_labels"] else ""
 
         if src_label and tgt_label:
             src_node = mem.graph.get_node_by_label(src_label)
@@ -808,8 +790,8 @@ def main():
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
-        for sid in edge["source_ids"]:
-            node = mem.graph.get_node(sid)
+        for lbl in edge["source_labels"]:
+            node = mem.graph.get_node_by_label(lbl)
             if node and node.data.get("kind") == "host":
                 vuln_count[node.label] += 1
 

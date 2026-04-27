@@ -447,12 +447,9 @@ def main():
     queue_nodes = [n for n in mem.graph.nodes if n.data.get("type") == "queue"]
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
-    for edge in mem.graph.edges:
-        if edge.label == "depends_on" and not edge.metadata.custom.get("inferred"):
-            src = mem.graph.get_node(next(iter(edge.source_ids)))
-            tgt = mem.graph.get_node(next(iter(edge.target_ids)))
-            if src and tgt:
-                direct_dep_map[tgt.label].append(src.label)
+    for le in mem.graph.labeled_edges:
+        if le["label"] == "depends_on" and le["source_labels"] and le["target_labels"]:
+            direct_dep_map[le["target_labels"][0]].append(le["source_labels"][0])
 
     for node in db_nodes + queue_nodes:
         direct = direct_dep_map.get(node.label, [])
@@ -498,13 +495,9 @@ def main():
     print("=" * 70)
 
     indirect_reverse: dict[str, set[str]] = defaultdict(set)
-    for edge in mem.graph.edges:
-        src_node = mem.graph.get_node(next(iter(edge.source_ids), ""))
-        tgt_node = mem.graph.get_node(next(iter(edge.target_ids), ""))
-        if not src_node or not tgt_node:
-            continue
-        if edge.label == "indirectly_depends_on":
-            indirect_reverse[tgt_node.label].add(src_node.label)
+    for le in mem.graph.labeled_edges:
+        if le["label"] == "indirectly_depends_on" and le["source_labels"] and le["target_labels"]:
+            indirect_reverse[le["target_labels"][0]].add(le["source_labels"][0])
 
     print("  Full blast radius of each database and queue:")
     print()
@@ -544,12 +537,9 @@ def main():
     edge_labels_of_interest = {"depends_on", "indirectly_depends_on"}
 
     deps_forward: dict[str, list[str]] = defaultdict(list)
-    for edge in mem.graph.edges:
-        if edge.label in edge_labels_of_interest:
-            src_node = mem.graph.get_node(next(iter(edge.source_ids), ""))
-            tgt_node = mem.graph.get_node(next(iter(edge.target_ids), ""))
-            if src_node and tgt_node:
-                deps_forward[src_node.label].append(tgt_node.label)
+    for le in mem.graph.labeled_edges:
+        if le["label"] in edge_labels_of_interest and le["source_labels"] and le["target_labels"]:
+            deps_forward[le["source_labels"][0]].append(le["target_labels"][0])
 
     def longest_chain(start: str, visited: frozenset[str] | None = None) -> list[str]:
         if visited is None:

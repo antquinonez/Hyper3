@@ -478,6 +478,40 @@ class Hypergraph:
             data["cost"] = 1.0 / max(w, 1e-9)
         return G
 
+    @property
+    def labeled_edges(self) -> list[dict[str, Any]]:
+        """Return all edges with source/target resolved to labels.
+
+        Unlike :attr:`edges` which exposes raw ``frozenset`` IDs, this
+        property translates every edge into a dict with human-readable
+        ``source_labels`` and ``target_labels`` keyed by node labels.
+
+        Returns:
+            List of dicts, each with keys ``id``, ``label``,
+            ``source_labels``, ``target_labels``, ``weight``, ``data``.
+        """
+        results: list[dict[str, Any]] = []
+        for edge in self._edges.values():
+            src_labels: list[str] = []
+            for sid in edge.source_ids:
+                node = self._nodes.get(sid)
+                if node:
+                    src_labels.append(node.label)
+            tgt_labels: list[str] = []
+            for tid in edge.target_ids:
+                node = self._nodes.get(tid)
+                if node:
+                    tgt_labels.append(node.label)
+            results.append({
+                "id": edge.id,
+                "label": edge.label,
+                "source_labels": src_labels,
+                "target_labels": tgt_labels,
+                "weight": edge.weight,
+                "data": edge.data,
+            })
+        return results
+
     def degree_centrality(self) -> dict[str, float]:
         """Compute normalized degree centrality for every node.
 

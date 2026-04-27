@@ -361,19 +361,14 @@ def section_3_collapse(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     for h, p in zip(hypotheses, expected_probs):
         print(f"    {h:40s} {p:.1%}")
 
-    label_to_id: dict[str, str] = {}
-    for h in hypotheses:
-        node = mem.graph.get_node_by_label(h)
-        if node:
-            label_to_id[h] = node.id
-    id_context = {label_to_id[h]: w for h, w in evidence_weights_by_label.items() if h in label_to_id}
+    context_weights = evidence_weights_by_label
 
     print("\n  Running collapse 1000 times to check distribution...")
     counts: dict[str, int] = {h: 0 for h in hypotheses}
     n_trials = 1000
     for _ in range(n_trials):
         qs_trial = mem.superpose(concepts=hypotheses, amplitudes=None, use_context_field=False)
-        answer = mem.collapse(qs_trial, context=id_context)
+        answer = mem.collapse(qs_trial, context=context_weights)
         if answer:
             node = mem.graph.get_node(answer.node_id)
             label = node.label if node else answer.node_id
@@ -390,8 +385,7 @@ def section_3_collapse(mem: CognitiveMemory, hypotheses: list[str]) -> None:
         c = int(np.sum(simple_counts == label))
         print(f"    {label:40s} {c:4d} ({c/n_trials:.1%})")
     print("\n  --> Distributions match. Collapse = weighted sampling, nothing magical.")
-    print("  Note: collapse() expects node IDs as context keys, not labels.")
-    print("  This is a common gotcha -- mem.collapse() passes context straight through.")
+    print("  Note: collapse() now accepts node labels as context keys directly.")
     print()
 
 

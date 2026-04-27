@@ -526,12 +526,10 @@ def main():
     print(f"  Multiway states explored: {expansion.get('states_created', 0)}")
     print(f"  Rules applied: {expansion.get('rules_applied', 0)}")
     if new_count > 0:
-        sample = [e for e in mem.graph.edges if e.label == "indirectly_depends_on"][:5]
-        for e in sample:
-            src = mem.graph.get_node(next(iter(e.source_ids)))
-            tgt = mem.graph.get_node(next(iter(e.target_ids)))
-            s = src.label if src else "?"
-            t = tgt.label if tgt else "?"
+        sample = [le for le in mem.graph.labeled_edges if le["label"] == "indirectly_depends_on"][:5]
+        for le in sample:
+            s = le["source_labels"][0] if le["source_labels"] else "?"
+            t = le["target_labels"][0] if le["target_labels"] else "?"
             print(f"    {s} -> {t}")
     print()
 
@@ -550,14 +548,11 @@ def main():
         age = current_year - data["last_updated"]
         if age >= 2:
             outdated.append((label, data))
-            node = mem.graph.get_node_by_label(label)
-            deps_count = 0
-            if node:
-                deps_count = sum(
-                    1 for e in mem.graph.edges
-                    if e.label in ("depends_on", "imports")
-                    and node.id in e.target_ids
-                )
+            deps_count = sum(
+                1 for le in mem.graph.labeled_edges
+                if le["label"] in ("depends_on", "imports")
+                and label in le["target_labels"]
+            )
             print(f"    {label:<20s} version={data['version']:<8s} "
                   f"last_updated={data['last_updated']}  "
                   f"age={age}yr  dependents={deps_count}  "
@@ -621,14 +616,12 @@ def main():
             if tgt_sub == "test":
                 continue
             count = 0
-            for e in mem.graph.edges:
-                if e.label not in ("depends_on", "imports", "extends"):
+            for e in mem.graph.labeled_edges:
+                if e["label"] not in ("depends_on", "imports", "extends"):
                     continue
-                src_node = mem.graph.get_node(next(iter(e.source_ids), ""))
-                tgt_node = mem.graph.get_node(next(iter(e.target_ids), ""))
-                if (src_node and tgt_node
-                        and src_node.label in src_labels
-                        and tgt_node.label in tgt_labels):
+                if (e["source_labels"] and e["target_labels"]
+                        and e["source_labels"][0] in src_labels
+                        and e["target_labels"][0] in tgt_labels):
                     count += 1
             row += f"{count:>12d}"
         print(row)

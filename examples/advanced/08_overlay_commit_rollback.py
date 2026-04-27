@@ -347,11 +347,6 @@ def build_infrastructure(mem: CognitiveMemory) -> None:
             mem.relate(src, tgt, label=label)
 
 
-def resolve_label(mem: CognitiveMemory, node_id: str) -> str:
-    node = mem.graph.get_node(node_id)
-    return node.label if node else node_id
-
-
 def analyze_hypothesis(
     mem: CognitiveMemory,
     seeds: set[str],
@@ -374,8 +369,10 @@ def analyze_hypothesis(
             edge = overlay.get_edge(eid)
             if not edge:
                 continue
-            src_label = resolve_label(mem, next(iter(edge.source_ids)))
-            tgt_label = resolve_label(mem, next(iter(edge.target_ids)))
+            _src = mem.graph.get_node(next(iter(edge.source_ids)))
+            _tgt = mem.graph.get_node(next(iter(edge.target_ids)))
+            src_label = _src.label if _src else ""
+            tgt_label = _tgt.label if _tgt else ""
             conf = overlay.get_confidence(eid)
             overlay_details.append({
                 "source": src_label,
@@ -385,9 +382,10 @@ def analyze_hypothesis(
             })
             for nid in edge.source_ids | edge.target_ids:
                 if nid in symptom_ids:
-                    blast_radius.add(nid)
+                    node = mem.graph.get_node(nid)
+                    if node:
+                        blast_radius.add(node.label)
 
-    matched_labels = sorted(resolve_label(mem, nid) for nid in blast_radius)
     confidence_map = result.get("confidence", {})
     avg_conf = (
         sum(confidence_map.values()) / len(confidence_map)
@@ -398,7 +396,7 @@ def analyze_hypothesis(
     return {
         "result": result,
         "overlay_details": overlay_details,
-        "blast_radius": matched_labels,
+        "blast_radius": sorted(blast_radius),
         "match_count": len(blast_radius),
         "match_score": len(blast_radius) / len(symptom_ids) if symptom_ids else 0.0,
         "avg_confidence": avg_conf,

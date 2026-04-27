@@ -65,11 +65,19 @@ class QuantumMixin(_MemoryBase):
         Args:
             qs: The quantum state to collapse.
             context: Optional context weights influencing collapse probabilities.
+                Keys may be node labels **or** node IDs. Labels are automatically
+                resolved to IDs before applying weights.
 
         Returns:
             The selected Interpretation, or None if collapse fails.
         """
-        result = qs.collapse(context)
+        id_context: dict[str, float] | None = None
+        if context:
+            id_context = {}
+            for key, value in context.items():
+                node = self._find_node(key)
+                id_context[node.id if node else key] = value
+        result = qs.collapse(id_context)
         if result:
             node = self._graph.get_node(result.node_id)
             label = node.label if node else result.node_id

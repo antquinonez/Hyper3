@@ -373,10 +373,6 @@ ACTOR_TO_TTP = [
 ]
 
 
-def _resolve_label(node_id: str, label_map: dict[str, str]) -> str:
-    return label_map.get(node_id, node_id[:8])
-
-
 def main():
     mem = CognitiveMemory(evolve_interval=0)
 
@@ -454,17 +450,15 @@ def main():
     targets_edges = mem.pattern_match(edge_label="targets")
     print(f"  Total 'targets' edges: {len(targets_edges)}")
 
-    id_to_label = {n.id: n.label for n in mem.graph.nodes}
-
     cve_to_industry: dict[str, set[str]] = {}
     for exp in exploits_edges:
-        actor_id = list(exp["source_ids"])[0]
-        actor_lbl = _resolve_label(actor_id, id_to_label)
+        actor_lbl = exp["source_labels"][0] if exp["source_labels"] else ""
         for tgt in targets_edges:
-            if actor_id in tgt["source_ids"]:
-                ind_lbl = _resolve_label(list(tgt["target_ids"])[0], id_to_label)
-                cve_lbl = _resolve_label(list(exp["target_ids"])[0], id_to_label)
-                cve_to_industry.setdefault(cve_lbl, set()).add(ind_lbl)
+            if actor_lbl and actor_lbl in tgt["source_labels"]:
+                ind_lbl = tgt["target_labels"][0] if tgt["target_labels"] else ""
+                cve_lbl = exp["target_labels"][0] if exp["target_labels"] else ""
+                if cve_lbl and ind_lbl:
+                    cve_to_industry.setdefault(cve_lbl, set()).add(ind_lbl)
 
     print(f"\n  CVEs enabling attacks on the most sectors:")
     sorted_cves = sorted(cve_to_industry.items(), key=lambda x: len(x[1]), reverse=True)
@@ -506,28 +500,26 @@ def main():
     apt28_labels = {"APT28"}
     for edges in [apt28_exploits, apt28_uses, apt28_targets, apt28_ttps]:
         for e in edges:
-            for sid in e["source_ids"]:
-                apt28_labels.add(_resolve_label(sid, id_to_label))
-            for tid in e["target_ids"]:
-                apt28_labels.add(_resolve_label(tid, id_to_label))
+            apt28_labels.update(e["source_labels"])
+            apt28_labels.update(e["target_labels"])
 
     sg = mem.subgraph(apt28_labels)
     print(f"  APT28 profile subgraph: {sg['node_count']} nodes, {sg['edge_count']} edges")
     print(f"    CVEs exploited:")
     for e in apt28_exploits:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
+        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
         print(f"      {tgt_lbl}")
     print(f"    Malware used:")
     for e in apt28_uses:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
+        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
         print(f"      {tgt_lbl}")
     print(f"    Sectors targeted:")
     for e in apt28_targets:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
+        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
         print(f"      {tgt_lbl}")
     print(f"    TTPs:")
     for e in apt28_ttps:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
+        tgt_lbl = e["target_labels"][0] if e["target_labels"] else "?"
         print(f"      {tgt_lbl}")
     print()
 
@@ -558,11 +550,9 @@ def main():
 
     all_labels = {n.label for n in mem.graph.nodes}
     connected_labels: set[str] = set()
-    for edge in mem.graph.edges:
-        for sid in edge.source_ids:
-            connected_labels.add(_resolve_label(sid, id_to_label))
-        for tid in edge.target_ids:
-            connected_labels.add(_resolve_label(tid, id_to_label))
+    for edge in mem.graph.labeled_edges:
+        connected_labels.update(edge["source_labels"])
+        connected_labels.update(edge["target_labels"])
 
     isolated = all_labels - connected_labels
     if isolated:

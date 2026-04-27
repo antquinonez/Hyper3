@@ -517,10 +517,8 @@ def main():
     indirect_edges = mem.pattern_match(edge_label="transfers_indirectly")
     print(f"  Indirect transfer chains discovered: {len(indirect_edges)}")
     for edge in indirect_edges[:8]:
-        src_node = mem.graph.get_node(next(iter(edge["source_ids"])))
-        tgt_node = mem.graph.get_node(next(iter(edge["target_ids"])))
-        src_label = src_node.label if src_node else "?"
-        tgt_label = tgt_node.label if tgt_node else "?"
+        src_label = edge["source_labels"][0] if edge["source_labels"] else "?"
+        tgt_label = edge["target_labels"][0] if edge["target_labels"] else "?"
         print(f"    {src_label} -> {tgt_label}")
     if len(indirect_edges) > 8:
         print(f"    ... and {len(indirect_edges) - 8} more")
@@ -529,10 +527,8 @@ def main():
     indirect_assoc = mem.pattern_match(edge_label="indirectly_associated")
     print(f"  Indirect associations discovered: {len(indirect_assoc)}")
     for edge in indirect_assoc[:8]:
-        src_node = mem.graph.get_node(next(iter(edge["source_ids"])))
-        tgt_node = mem.graph.get_node(next(iter(edge["target_ids"])))
-        src_label = src_node.label if src_node else "?"
-        tgt_label = tgt_node.label if tgt_node else "?"
+        src_label = edge["source_labels"][0] if edge["source_labels"] else "?"
+        tgt_label = edge["target_labels"][0] if edge["target_labels"] else "?"
         print(f"    {src_label} -- {tgt_label}")
     if len(indirect_assoc) > 8:
         print(f"    ... and {len(indirect_assoc) - 8} more")
@@ -565,14 +561,10 @@ def main():
     in_degree: dict[str, int] = {}
     out_degree: dict[str, int] = {}
     for edge in transferred:
-        for tid in edge["target_ids"]:
-            t_node = mem.graph.get_node(tid)
-            if t_node:
-                in_degree[t_node.label] = in_degree.get(t_node.label, 0) + 1
-        for sid in edge["source_ids"]:
-            s_node = mem.graph.get_node(sid)
-            if s_node:
-                out_degree[s_node.label] = out_degree.get(s_node.label, 0) + 1
+        for lbl in edge["target_labels"]:
+            in_degree[lbl] = in_degree.get(lbl, 0) + 1
+        for lbl in edge["source_labels"]:
+            out_degree[lbl] = out_degree.get(lbl, 0) + 1
 
     all_acct_labels = set(in_degree.keys()) | set(out_degree.keys())
     funnel_accounts = []
