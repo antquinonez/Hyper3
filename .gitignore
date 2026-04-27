@@ -16,3 +16,4 @@ htmlcov/
 .pyright/
 .ruff_cache/
 issues/second-pass/
+issues/*
