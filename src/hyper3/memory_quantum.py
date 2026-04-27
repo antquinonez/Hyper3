@@ -136,6 +136,9 @@ class QuantumMixin(_MemoryBase):
 
         Returns:
             The created QuantumEntanglement.
+        Raises:
+            NodeNotFoundError: If any concept label in group_a or group_b does
+                not resolve to an existing node.
         """
         label_to_id: dict[str, str] = {}
         node_ids_a: list[str] = []
@@ -145,11 +148,15 @@ class QuantumMixin(_MemoryBase):
             if node:
                 node_ids_a.append(node.id)
                 label_to_id[label] = node.id
+            else:
+                raise NodeNotFoundError(label)
         for label in group_b:
             node = self._find_node(label)
             if node:
                 node_ids_b.append(node.id)
                 label_to_id[label] = node.id
+            else:
+                raise NodeNotFoundError(label)
         id_correlations: dict[tuple[str, str], float] = {}
         for (key_a, key_b), corr in correlations.items():
             id_a = label_to_id.get(key_a, key_a)

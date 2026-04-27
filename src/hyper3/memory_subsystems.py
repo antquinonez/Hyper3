@@ -145,10 +145,15 @@ class SubsystemMixin(_MemoryBase):
         Args:
             concept: Label of the node to stimulate.
             energy: Amount of energy to inject.
+
+        Raises:
+            NodeNotFoundError: If the concept does not resolve to an existing node.
         """
         node = self._find_node(concept)
-        if node:
-            self._activation.stimulate(node.id, energy)
+        if not node:
+            from hyper3.exceptions import NodeNotFoundError
+            raise NodeNotFoundError(concept)
+        self._activation.stimulate(node.id, energy)
 
     def spread_activation(self, *, iterations: int | None = None) -> list[ActivationResult]:
         """Run one round of spreading activation and return activated nodes.
