@@ -19,7 +19,7 @@ Every module in `src/hyper3/` maps to a concept from these specifications. When 
 
 ## Design Principles
 
-These principles govern the architecture, API design, and implementation patterns of the entire Hyper3 codebase — not just the `CognitiveMemory` facade, but all engine classes, utility classes, result dataclasses, and module relationships. They are derived from the inspiration documents and refined through implementation experience.
+These principles govern the architecture, API design, and implementation patterns of the entire Hyper3 codebase — all engine classes, utility classes, result dataclasses, and module relationships. They are derived from the inspiration documents and refined through implementation experience.
 
 ### DP-1: Compositional Architecture via Mixin Decomposition
 
@@ -54,7 +54,7 @@ class ReasoningMixin(_MemoryBase):
 
 ### DP-2: Engine-Facade Separation with Delegation
 
-Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). Higher-level callers (the `CognitiveMemory` facade, other engines, subsystem classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
+Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
 **Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
@@ -97,9 +97,9 @@ This pattern applies beyond `CognitiveMemory` — any class that owns optional e
 
 ### DP-4: Label-at-the-Boundary, IDs Internally
 
-The public API accepts concept labels (human-readable strings) as input and returns labels in output. Node IDs (auto-generated UUID hex) are an internal implementation detail used by engines. The facade performs label-to-ID resolution at the boundary.
+The public API accepts concept labels (human-readable strings) as input and returns labels in output. Node IDs (auto-generated UUID hex) are an internal implementation detail used by engines. The public API boundary performs label-to-ID resolution at the boundary.
 
-**Why**: The spec's "Observer-Centric Adaptive Filtering" (Figure 4, Figure 7) describes how different observers see different projections of the same underlying structure. Labels are the observer-facing projection; IDs are the underlying structure. The facade is the boundary where the projection is applied.
+**Why**: The spec's "Observer-Centric Adaptive Filtering" (Figure 4, Figure 7) describes how different observers see different projections of the same underlying structure. Labels are the observer-facing projection; IDs are the underlying structure. The public API is the boundary where the projection is applied.
 
 **Pattern**:
 ```python
@@ -110,7 +110,7 @@ def relate(self, source: str, target: str, *, label: str = "related"):
     return edge
 ```
 
-All engines receive and return IDs. All facade methods accept and return labels. See EP-1 and EP-2 in the API Ergonomic Principles section for the detailed migration status.
+All engines receive and return IDs. All public methods accept and return labels. See EP-1 and EP-2 in the API Ergonomic Principles section for the detailed migration status.
 
 ### DP-5: Typed Result Dataclasses with Backward-Compatible Access
 
@@ -421,7 +421,7 @@ Frame selection shifts complexity by +1.0 to avoid zero-base issues, then applie
 `BeliefRevisionEngine` has a built-in `NEGATION_MAP` with pairs like `supports`/`opposes`, `causes`/`prevents`, `enables`/`blocks`. Custom negation pairs can be added via the `custom_negations` constructor parameter. Two edges between the same nodes with negated labels are flagged as contradictions.
 
 ### Subsystem lazy initialization
-The new subsystems (backward chain, Hebbian, uncertainty, structural match, belief revision, abstraction, community detection, graph diff) are lazily initialized on first use via their `CognitiveMemory` methods. They can also be accessed via properties (e.g., `mem.hebbian`, `mem.backward_chain`) after first use. Direct constructor access is available for testing individual engines.
+The new subsystems (backward chain, Hebbian, uncertainty, structural match, belief revision, abstraction, community detection, graph diff) are lazily initialized on first use. They can be accessed via properties (e.g., `mem.hebbian`, `mem.backward_chain`) after first use. Direct constructor access is available for testing individual engines.
 
 ### Hebbian learning requires activation state
 `hebbian_reinforce()` uses the current `SpreadingActivation` state to find co-activated node pairs. Call `stimulate()` + `spread_activation()` before `hebbian_reinforce()` to have non-trivial results. Without prior activation, the result will be empty.
@@ -439,13 +439,13 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 `GraphDiffer.capture()` snapshots the full node/edge state. Diffs are computed against these snapshots, not against the live graph. Multiple versions can be captured and compared pairwise.
 
 ### Feedback-driven evolution adapts to trends
-`evolve_with_feedback()` checks the fitness trend from `OperationFeedback`. On declining trends, it intensifies decay (1.5x) and pruning (0.75x threshold), reinforces top-3 positively-reinforced nodes, and force-prunes suppressed nodes. On stable/improving trends, it uses standard parameters. The facade `evolve_with_feedback()` returns `EvolveResult` with `reinforced` and `suppressed` counts.
+`evolve_with_feedback()` checks the fitness trend from `OperationFeedback`. On declining trends, it intensifies decay (1.5x) and pruning (0.75x threshold), reinforces top-3 positively-reinforced nodes, and force-prunes suppressed nodes. On stable/improving trends, it uses standard parameters. `evolve_with_feedback()` returns `EvolveResult` with `reinforced` and `suppressed` counts.
 
 ### Validated metamorphosis requires a GraphDiffer
 `execute_metamorphosis_validated()` captures a pre-version, executes the metamorphosis plan, then compares fitness. If fitness degrades below `fitness_tolerance`, it rolls back to the pre-version. Without a `GraphDiffer` wired to the meta layer, it falls back to unvalidated execution. Call `capture_version()` first to auto-wire the differ.
 
 ### Cross-operation feedback identifies correlated nodes
-`feedback_summary()` (facade for `OperationFeedback.cross_operation_summary()`) computes aggregate health across collapse/retrieval/inference/evolution operations and identifies nodes that appear in signals across multiple operation types, reporting their positive rate and signal type distribution.
+`feedback_summary()` (delegates to `OperationFeedback.cross_operation_summary()`) computes aggregate health across collapse/retrieval/inference/evolution operations and identifies nodes that appear in signals across multiple operation types, reporting their positive rate and signal type distribution.
 
 ### Bias profile reveals reasoning tendencies
 `compute_bias_profile()` returns a dict with `reasoning_style` (focused/exploratory/balanced/unknown), `bias_score`, `dominant_rules`, `underused_rules`, `position_trajectory` (exploring/exploiting/stable), and `average_effectiveness`. Requires rule effectiveness data from prior reasoning sessions; returns early with "unknown" style when no data exists.
@@ -455,13 +455,13 @@ When `CausalInvarianceEngine` merges convergent multiway states, it computes `Me
 
 ## API Ergonomic Principles
 
-These principles govern the design of public-facing method signatures and return types across **all** modules — the `CognitiveMemory` facade, engine classes, utility classes, and result dataclasses. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
+These principles govern the design of public-facing method signatures and return types across **all** modules — engine classes, utility classes, result dataclasses, and facades. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
 
 ### EP-1: Labels in, labels out
 
-Public-facing methods (facade and any method called by user code) accept concept labels (strings) as input and return concept labels in output. Node IDs are an internal implementation detail. The only exception is the `graph` property, which exposes the raw `Hypergraph` for advanced use.
+Public-facing methods (any method called by user code) accept concept labels (strings) as input and return concept labels in output. Node IDs are an internal implementation detail. The only exception is the `graph` property, which exposes the raw `Hypergraph` for advanced use.
 
-Engine-level classes that operate on IDs internally should document that they work at the ID level. The facade boundary (label → ID resolution, ID → label in output) is the responsibility of the facade method calling the engine.
+Engine-level classes that operate on IDs internally should document that they work at the ID level. The label-to-ID boundary is the responsibility of the calling method.
 
 Bad:
 ```python
@@ -473,7 +473,7 @@ Good:
 def find_paths(source: str, target: str) -> list[list[str]]:  # returns labels
 ```
 
-Do not maintain parallel `_labels` variants of methods. If the underlying engine returns IDs, translate to labels inside the facade method before returning.
+Do not maintain parallel `_labels` variants of methods. If the underlying engine returns IDs, translate to labels inside the calling method before returning.
 
 ### EP-2: One name for "a node label" parameter
 
@@ -536,7 +536,7 @@ Methods that mutate the graph return a typed result summarizing what changed (ed
 
 ### EP-8: Callers delegate, don't rewrap
 
-Higher-level methods (facade methods, coordinator classes) should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type. When an engine's result type is not suitable for public use, modify the engine to return a proper typed result rather than adding translation layers in the calling code.
+Higher-level methods (facades, coordinator classes) should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type. When an engine's result type is not suitable for public use, modify the engine to return a proper typed result rather than adding translation layers in the calling code.
 
 ## Known API Gaps
 
