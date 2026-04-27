@@ -8,6 +8,290 @@ Hyper3 is a self-evolving hypergraph cognitive kernel library. It is a pure-Pyth
 
 **API stability**: The library is pre-release. Public APIs (classes, method signatures, exported symbols) may change between commits without deprecation warnings. Do not treat signature changes as bugs unless they break the test suite. Prioritize correctness and clarity over backward compatibility.
 
+## Inspirational Foundation
+
+A primary goal of this project is to produce a working analogic implementation of the architecture described in the documents under `inspiration_analogic_resources/`:
+
+- **Hypergraph-Ruliad Integration Framework** — Dynamic hypergraph instantiation, infinite-dimensional traversal, Ruliad-based multiway expansion with equivalence merging, observer-centric adaptive filtering, lazy evaluation, continuous structural self-evolution, and removal of token-count dependence.
+- **Rulial-Enhanced Hypergraph Cognitive Architecture v2-1** — Multiway causal invariance, branchial space navigation, rulial consciousness, computational relativity, transfinite reasoning, quantum cognitive effects, and automated rule space exploration.
+
+Every module in `src/hyper3/` maps to a concept from these specifications. When adding features or evaluating design decisions, consult the inspiration documents to ensure the implementation remains a faithful analog of the described architecture. The principles below codify the design patterns that bridge the specifications to the code.
+
+## Design Principles
+
+These principles govern the architecture, API design, and implementation patterns of Hyper3. They are derived from the inspiration documents and refined through implementation experience.
+
+### DP-1: Compositional Architecture via Mixin Decomposition
+
+Complex facades are decomposed into focused mixins, each owning a coherent domain of responsibility. The `CognitiveMemory` facade composes from six mixins:
+
+```
+CognitiveMemory(CoreMixin, ReasoningMixin, QuantumMixin,
+                AnalyticsMixin, PersistenceMixin, SubsystemMixin)
+```
+
+Each mixin lives in its own module (`memory_core.py`, `memory_reasoning.py`, etc.) and operates on shared state declared in `_MemoryBase`. New capabilities are added by creating a new mixin and extending the facade class list, not by expanding existing files.
+
+**Why**: The inspiration documents describe a "layered cognitive-computational integration architecture" where each layer interacts with and informs the others (Figure 5). Mixin decomposition is the code-level analog: each layer is independently testable and replaceable while sharing a unified state surface.
+
+**Pattern**:
+```python
+class _MemoryBase:
+    _graph: Hypergraph
+    _log: EventLog
+    _evolution: SelfEvolutionEngine
+    # ... shared state declarations
+
+class CoreMixin(_MemoryBase):
+    def store(self, concept: str, **kw): ...
+    def recall(self, concept: str, **kw): ...
+
+class ReasoningMixin(_MemoryBase):
+    def reason(self, concepts: set[str], **kw): ...
+```
+
+**When adding a new subsystem**: Create `memory_<domain>.py` with a class extending `_MemoryBase`. Add the mixin to `CognitiveMemory`'s inheritance list. Initialize any new engine instances in `CognitiveMemory.__init__`.
+
+### DP-2: Engine-Facade Separation with Delegation
+
+Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). The `CognitiveMemory` facade methods delegate to these engines and return their result objects directly. The facade does not rewrap, unpack, or translate engine results.
+
+**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-facade pattern mirrors this: engines are the specialized subsystems; the facade is the coordination layer.
+
+**Pattern**:
+```python
+class QuantumMixin(_MemoryBase):
+    def superpose(self, concept: str, *, interpretations: list[str], ...):
+        node_id = self._resolve(concept)
+        return self._quantum.create_superposition(node_id, interpretations, ...)
+```
+
+The facade resolves labels to IDs (the analog of the "input translation layer" from Figure 9 of the v2-1 spec), then delegates to the engine. Engine results flow back to the caller unchanged.
+
+**Violations to avoid**: Do not unpack an engine's typed result into a dict and rewrap it in another dataclass. Do not add intermediate translation layers between the facade and engine. If the engine's result type is not suitable for public use, modify the engine — not the facade.
+
+### DP-3: Lazy Subsystem Initialization
+
+Subsystems that may not be used in every session are initialized lazily on first access. The `CognitiveMemory.__init__` creates core engines eagerly (graph, event log, cache, traversal, evolution, equivalence, quantum) but defers optional subsystems:
+
+```python
+self._backward_chain: BackwardChainEngine | None = None
+self._hebbian: HebbianLearner | None = None
+self._community_detector: CommunityDetector | None = None
+```
+
+First access via a property or method checks for `None` and initializes.
+
+**Why**: The "Lazy Evaluation Protocol" (Appendix E of the spec) describes instantiation on demand: "nodes and hyperedges should only be instantiated when explicitly required." This principle extends from data structures to the subsystems themselves. A session that never uses community detection should not pay the cost of initializing it.
+
+**Pattern**:
+```python
+@property
+def hebbian(self) -> HebbianLearner:
+    if self._hebbian is None:
+        self._hebbian = HebbianLearner(self._graph)
+    return self._hebbian
+```
+
+### DP-4: Label-at-the-Boundary, IDs Internally
+
+The public API accepts concept labels (human-readable strings) as input and returns labels in output. Node IDs (auto-generated UUID hex) are an internal implementation detail used by engines. The facade performs label-to-ID resolution at the boundary.
+
+**Why**: The spec's "Observer-Centric Adaptive Filtering" (Figure 4, Figure 7) describes how different observers see different projections of the same underlying structure. Labels are the observer-facing projection; IDs are the underlying structure. The facade is the boundary where the projection is applied.
+
+**Pattern**:
+```python
+def relate(self, source: str, target: str, *, label: str = "related"):
+    source_id = self._resolve(source)   # label -> ID at boundary
+    target_id = self._resolve(target)
+    edge = self._graph.add_edge(frozenset({source_id}), frozenset({target_id}), label=label)
+    return edge
+```
+
+All engines receive and return IDs. All facade methods accept and return labels. See EP-1 and EP-2 in the API Ergonomic Principles section for the detailed migration status.
+
+### DP-5: Typed Result Dataclasses with Backward-Compatible Access
+
+Public methods return dedicated result dataclasses, not dicts. All result dataclasses extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for backward-compatible dict-like bracket access. New code should use attribute access; bracket access is preserved for migration smoothness.
+
+**Why**: The spec describes "immutable event logging" and "consistency verification" as foundational layers. Typed dataclasses are the code-level analog: they make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The backward-compat layer ensures that code written before the migration continues to work.
+
+**Pattern**:
+```python
+@dataclass
+class IntrospectionReport(_SimpleResultBase):
+    cognitive_state: CognitiveStateInfo
+    graph_health: GraphHealthInfo
+    recommendations: list[str]
+
+report = mem.introspect()
+fitness = report.cognitive_state.fitness      # preferred
+fitness = report["cognitive_state"]["fitness"] # still works via __getitem__
+```
+
+When creating new result types, always extend `_SimpleResultBase` (from `results.py`).
+
+### DP-6: Hypergraph as the Universal Substrate
+
+All knowledge, reasoning state, and cognitive structure are represented as nodes and edges in the hypergraph. There is no separate "knowledge base," "working memory," or "inference store." New features store their state in the graph via typed data on nodes/edges and labeled edges, not in parallel data structures.
+
+**Why**: The spec's opening claim is for "real-time dynamic instantiation of hypergraph nodes and edges" as the foundation of the entire architecture. Figure 1 of the spec shows the iterative loop of contextual trigger -> instantiate node -> instantiate edge -> link to existing -> update metadata -> ready for traversal. The hypergraph IS the memory, IS the reasoning surface, IS the cognitive structure.
+
+**Pattern**:
+```python
+mem.store("dna_damage", data={"type": "biological_event"})
+mem.store("cancer", data={"type": "disease"})
+mem.relate("dna_damage", "cancer", label="causes")
+```
+
+These three calls create hypernodes with data payloads and a hyperedge with a semantic label. The `reason()` method applies rules (analog of the spec's "rule templates") to find new edges. The `evolve()` method performs decay/prune/merge (analog of "continuous structural self-evolution"). All of this operates on the same graph.
+
+**Violations to avoid**: Do not create a separate dict, list, or database to store cognitive state. If a feature needs to track state, create nodes and edges for it. If the graph alone cannot represent the needed structure, extend the graph (add data fields to nodes/edges) rather than bypassing it.
+
+### DP-7: Rule-Based Multiway Expansion
+
+Reasoning is driven by rules that find matching patterns in the graph and produce new edges. Rules are pure queries (side-effect-free `find_matches()`) that the multiway engine applies to produce expansions. The engine explores all possible rule applications simultaneously, creating a multiway graph of computational states.
+
+**Why**: This is the direct analog of the spec's "Ruliad-based Multiway Expansion" (Figure 3) and "Explicit Rule Templates" (Appendix B). The spec defines rule categories: deductive inference, contextual substitution, temporal/causal rewrites, abductive reasoning, analogical reasoning, equivalence merging. Hyper3 implements these as the `Rule` ABC with concrete subclasses (`TransitiveRule`, `SymmetricRule`, `InverseRule`, `CompositionRule`, etc.).
+
+**Pattern**:
+```python
+class TransitiveRule(Rule):
+    def find_matches(self, graph: Hypergraph) -> list[dict]:
+        matches = []
+        for edge_set in edge_label_groups.values():
+            if len(edge_set) >= 2:
+                for (s1, t1), (s2, t2) in combinations(edge_set, 2):
+                    if t1 == s2:
+                        matches.append({"source": s1, "target": t2, ...})
+        return matches
+
+    def apply(self, graph, match) -> Hyperedge | None:
+        return graph.add_edge(...)
+```
+
+The `MultiwayEngine` applies all registered rules to the current graph state, branching into multiple possible futures. The `CausalInvarianceEngine` then merges equivalent states (the "equivalence merging" from Figure 6 of the spec).
+
+### DP-8: Quantum-Inspired Superposition and Collapse
+
+Ambiguous or multi-faceted concepts are represented as quantum superpositions with multiple interpretations, each having a complex amplitude. Contextual triggers cause collapse to a single interpretation via the Born rule.
+
+**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `QuantumCognitiveLayer.create_superposition()` creates states with amplitude-weighted interpretations; `collapse()` samples from `|amplitude|^2`; `create_entanglement()` correlates interpretation collapse between nodes.
+
+**Pattern**:
+```python
+mem.superpose("bank", interpretations=["financial", "river_edge", "billiards"])
+mem.entangle("bank", "water", correlation={"financial": -0.8, "river_edge": 0.9, "billiards": -0.3})
+result = mem.collapse("bank")  # probabilistic, context-dependent
+```
+
+**Key constraint**: Collapse is probabilistic. Tests must use statistical methods or single-interpretation states. See "Born rule collapse is probabilistic" in Common Pitfalls.
+
+### DP-9: Multi-Frame Computational Relativity
+
+Problems are analyzed through multiple computational reference frames (classical, quantum, hypergraph, probabilistic). Each frame produces its own complexity assessment and solution approach. Frame effectiveness is learned via Thompson sampling.
+
+**Why**: The v2-1 spec's "Computational Relativity Framework" (Figure 4, Figure 18) describes how "complexity is relative to the computational frame used to analyze them." The implementation provides `analyze_in_frame()` and `multi_frame_analysis()` methods that evaluate problems through different computational lenses, with `select_optimal_frame()` choosing the best frame based on learned effectiveness.
+
+**Pattern**:
+```python
+analysis = mem.multi_frame_analysis("protein_folding")
+for frame_name, result in analysis.items():
+    print(f"{frame_name}: complexity={result.complexity}")
+
+best_frame, best_analysis = mem.select_optimal_frame("protein_folding")
+```
+
+### DP-10: Observer-Centric Slicing and Traversal
+
+The hypergraph supports infinite-dimensional traversal, but observers (users, tasks, subsystems) see filtered slices. `TraversalEngine` provides BFS, DFS, dimension-filtered, and adaptive weight-priority traversals. `ObserverSlice` applies dimension-based filtering to reduce complexity for the current context.
+
+**Why**: The spec's "Observer-Centric Real-Time Filtering" (Figure 4, Figure 7, Figure 19) describes how "observer slices adaptively adjust the complexity and focus of information presentation based on immediate user context." The `SliceConfig` and `ObserverSlice` classes implement this: they filter traversal results by modality, abstraction layer, dimension, and weight bounds.
+
+**Pattern**:
+```python
+config = SliceConfig(
+    modalities={Modality.CAUSAL, Modality.CONCEPTUAL},
+    max_depth=5,
+    min_weight=0.3,
+)
+results = mem.recall("cancer", config=config)
+```
+
+### DP-11: Self-Evolution via Decay, Prune, Merge, and Reinforce
+
+The graph continuously evolves its own structure: decaying unused edges, pruning below-threshold nodes, merging equivalent nodes, and reinforcing frequently-used paths. This operates as a background process triggered by operation count.
+
+**Why**: The spec's "Continuous Structural Self-Evolution" (Figure 9, Figure 14) describes a feedback loop: "new interactions trigger dynamic instantiation, followed by immediate assessment of structural impact, leading to dynamic refinements." The `SelfEvolutionEngine` implements this as `decay()` (reduce weights), `prune()` (remove below-threshold), `merge()` (combine equivalent nodes), and `reinforce()` (strengthen used paths).
+
+**Pattern**:
+```python
+mem = CognitiveMemory(evolve_interval=10)  # auto-evolve every 10 operations
+mem.store("concept_a")
+mem.relate("concept_a", "concept_b")
+# ... after 10 operations, evolution runs automatically
+```
+
+For deterministic tests, use `evolve_interval=0` and call `mem.evolve()` manually.
+
+### DP-12: Branchial Space as Lateral Reasoning
+
+The multiway expansion produces many simultaneous computational states. Branchial space maps these states into a coordinate space with distance metrics, enabling lateral inference: insights from one branch can transfer to nearby branches.
+
+**Why**: The v2-1 spec's "Branchial Space Navigation" (Figure 2, Figure 13) describes how "computationally simultaneous states" can be related by branchial distance, enabling "lateral inference" and "cross-domain insight transfer." The `BranchialSpace` class implements coordinate assignment via multidimensional scaling, distance calculation between states, clustering (Ward hierarchical at macro/meso/micro scales), and lateral inference generation.
+
+**Pattern**:
+```python
+insights = mem.lateral_insights(
+    source_state="state_A",
+    target_states=["state_B", "state_C"],
+    max_distance=0.5,
+)
+```
+
+### DP-13: Transfinite Reasoning at Formal Boundaries
+
+The system recognizes when reasoning approaches the boundaries of formal decidability (Godel-like limits) and provides bounded, partial proofs rather than failing or producing unsound results.
+
+**Why**: The v2-1 spec's "Transfinite Reasoning Capability" (Figure 5) describes "coherent navigation and reasoning about concepts beyond formal decidability boundaries." The `TransfiniteReasoner` detects self-reference, universal quantification, and diagonalization patterns, returning `PartialProof` dataclasses that track coverage bounds.
+
+**Pattern**:
+```python
+proof = mem.prove("A", "Z")
+if proof and proof.achievable:
+    print(f"Proof found with {proof.steps} steps")
+```
+
+### DP-14: Performance Through Lazy Caching and Index Maintenance
+
+Frequently-accessed graph operations are accelerated by lazy caches and structural indexes. Caches are invalidated on mutation; indexes are maintained incrementally.
+
+**Why**: The spec's "Lazy Evaluation Protocol" (Appendix E) describes "instantiation on demand" and "active node caching with expiration." The `LazyCache` implements LRU with TTL and optional Markov-model prefetching. The `Hypergraph` maintains a `_label_index` and lazily-built `_neighbor_cache` that invalidate on any structural mutation.
+
+**Existing indexes** (maintain when making changes):
+- `Hypergraph._label_index: dict[str, str]` — label to node_id mapping
+- `Hypergraph._neighbor_cache: dict[str, list[str]]` — full neighbor map, lazily built, invalidated on mutation
+- `MultiwayGraph._leaves_cache: list[MultiwayState]` — cached leaf list
+- `BranchialSpace._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics]`
+- `TransitiveRule` pre-built `edge_set` for O(1) edge-existence checks
+
+### DP-15: Zero External Dependencies for Core
+
+The core library has no network calls, no database, no external services. All computation is local and deterministic (given fixed random seeds). Optional capabilities (FAISS embeddings, matplotlib visualization) are gated behind `[faiss]` and `[viz]` extras.
+
+**Why**: The spec describes a "self-contained cognitive-computational architecture." External dependencies introduce fragility and non-determinism. The library must be fully functional with only numpy/scipy/networkx.
+
+### DP-16: Domain Prefixes for Module Relationships
+
+Modules use naming prefixes to show their subsystem relationships:
+- `multiway_*` — multiway expansion subsystem (branchial space, causal invariance, rulial space)
+- `memory_*` — CognitiveMemory mixin decomposition
+- `rules_*` — rule definition and discovery
+- `retrieval_*` — activation, retrieval engine, and related components
+- `embedding_*` — embedding providers and engines
+
+**Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `multiway_branchial.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `multiway_rulial.py`.
+
 ## Build & Run
 
 ```bash
@@ -148,7 +432,7 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 
 ## API Ergonomic Principles
 
-These principles govern the design of public-facing `CognitiveMemory` method signatures and return types. Apply them when adding new methods or refactoring existing ones.
+These principles govern the design of public-facing `CognitiveMemory` method signatures and return types. All existing public methods conform to these principles. Apply them when adding new methods or refactoring existing ones.
 
 ### EP-1: Labels in, labels out
 
@@ -180,7 +464,7 @@ Context-specific names (e.g., `observed_concept`, `target_concept`, `seed_concep
 
 ### EP-3: Return typed dataclasses, not dicts
 
-Public methods return dedicated result dataclasses. Do not unpack internal dataclasses into `dict[str, Any]` at the facade boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
+Public methods return dedicated result dataclasses extending `_SimpleResultBase`. Do not unpack internal dataclasses into `dict[str, Any]` at the facade boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
 
 Bad:
 ```python
@@ -193,8 +477,6 @@ Good:
 def detect_contradictions(self) -> list[Contradiction]:
     return contradictions
 ```
-
-This applies to all methods currently returning `dict[str, Any]` or `list[dict[str, Any]]`.
 
 ### EP-4: No `Any` in return types
 
@@ -230,62 +512,6 @@ Methods that mutate the graph return a typed result summarizing what changed (ed
 ### EP-8: Facade methods delegate, don't rewrap
 
 Facade methods on `CognitiveMemory` should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type.
-
-## Ergonomic Migration Status
-
-The EP principles above were introduced retroactively. This section tracks which methods have been migrated and which remain.
-
-### EP-1 (labels in, labels out) — Complete
-
-The 6 analytics base methods now return labels by default. The `_labels` variants (`find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, `detect_cycles_labels`) are kept as backward-compat aliases that delegate to the base methods. Do not add new `_labels` variants.
-
-### EP-2 (parameter naming) — Complete
-
-All facade methods now use `concept` (arity 1), `source`/`target` (arity 2), or `concepts`/`seed_concepts` (arity N). The old names (`source_concept`, `target_concept`, `concept_a`, `concept_b`, `source_label`, `target_label`, `target_concept`) have been removed from facade signatures. Internal engine methods may still use descriptive names for clarity.
-
-### EP-3 (typed dataclass returns) — Partial
-
-Methods that now return typed dataclasses directly:
-- `detect_contradictions()` → `list[Contradiction]`
-- `check_consistency()` → `list[Contradiction]`
-- `compute_confidence()` → `ConfidenceScore | None`
-- `flag_low_confidence()` → `list[ConfidenceScore]`
-- `trace_confidence_chain()` → `ConfidenceChain | None`
-- `hebbian_reinforce_pair()` → `HebbianUpdate | None`
-- `expand_summary()` → `ExpandResult | None`
-- `list_summaries()` → `list[AbstractionMapping]`
-- `version_history()` → `GraphHistoryResult`
-
-Methods still returning `dict[str, Any]` (need migration):
-- `derive()` → `list[dict[str, Any]]` (needs `DerivationInfo` dataclass)
-- `pattern_match()` → `list[dict[str, Any]]` (needs `PatternMatchInfo` dataclass)
-- `subgraph()` → `dict[str, Any]` (needs `SubgraphResult` dataclass)
-- `introspect()` → `dict[str, Any]`
-- `temporal_query()` → `list[dict]`
-- `import_json()` → `dict[str, Any]`
-- `import_edgelist()` → `dict[str, Any]`
-- `collapse_entangled()` → `dict[str, str]` (ID-keyed; use `collapse_entangled_labels()` for labels)
-
-### EP-4 (no `Any` in returns) — Pending
-
-Five methods still return bare `Any`:
-- `check_metamorphosis()` → `list[Any]`
-- `propose_metamorphosis()` → `Any`
-- `analyze_in_frame()` → `Any`
-- `multi_frame_analysis()` → `Any`
-- `select_optimal_frame()` → `Any`
-
-### EP-5 (consistent missing-node behavior) — Current state
-
-- `relate()` raises `NodeNotFoundError` (correct per convention)
-- Query methods (`recall`, `find_paths`, `find_similar`, `activate`, `explain`, `prove`, `derive`) return empty/None (correct per convention)
-- `stimulate()` silently returns `None` for missing nodes (should it warn?)
-
-### EP-6 (keyword-only options) — Partial
-
-Methods already migrated to keyword-only: `explain`, `retract_inference`, `hebbian_reinforce_pair`, `flag_low_confidence`, `trace_confidence_chain`, `detect_cycles`, `collapse_subgraph`, `detect_communities`, `match_structural_pattern`, `match_chains`.
-
-Methods still with positional optional params: `hebbian_decay_unused(threshold_access_count)`, `temporal_query(relation, max_gap)`, `match_diamonds(edge_label, max_matches)`, `match_fan_out(edge_label, min_fan, max_results)`.
 
 ## Common Pitfalls
 
