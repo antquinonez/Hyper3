@@ -1,20 +1,21 @@
 """
-Self-Tuning Knowledge Graph for Operational Intelligence
-=========================================================
+Self-Tuning Knowledge Graph for Operational Intelligence (Standard Library Reimplementation)
+==============================================================================================
 
-Demonstrates how Hyper3 adapts its behavior over time through Thompson
-sampling and meta-cognitive feedback in an IT operations context.
-
-Covers rule effectiveness learning, measurement basis learning, frame
-effectiveness learning, and meta-cognitive self-assessment.
+Reimplements Hyper3's adaptive learning example using collections.Counter
+for rule effectiveness tracking, numpy.random.beta for Thompson sampling,
+manual dict for outcome recording, and a simple health check function.
 
 Run with:
-    .venv/bin/python examples/advanced/12_adaptive_learning.py
+    .venv/bin/python examples/comparison/12_adaptive_learning.py
 """
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality, TransitiveRule, InverseRule
+from collections import Counter, defaultdict
+
+import networkx as nx
+import numpy as np
 
 
 SERVERS = [
@@ -80,37 +81,37 @@ PLAYBOOKS = [
 ]
 
 
-def _build_graph(mem: CognitiveMemory) -> None:
+def _build_graph(G: nx.DiGraph) -> None:
     for srv in SERVERS:
-        mem.store(srv, data={"type": "server", "region": REGIONS[hash(srv) % len(REGIONS)]})
+        G.add_node(srv, type="server", region=REGIONS[hash(srv) % len(REGIONS)])
 
     for svc in SERVICES:
-        mem.store(svc, data={"type": "service"})
+        G.add_node(svc, type="service")
 
     for alt in ALERT_TYPES:
-        mem.store(alt, data={"type": "alert"})
+        G.add_node(alt, type="alert")
 
     for inc in INCIDENT_TYPES:
-        mem.store(inc, data={"type": "incident"})
+        G.add_node(inc, type="incident")
 
     for pb in PLAYBOOKS:
-        mem.store(pb, data={"type": "playbook"})
+        G.add_node(pb, type="playbook")
 
     for env in ENVIRONMENTS:
-        mem.store(env, data={"type": "environment"})
+        G.add_node(env, type="environment")
 
     for region in REGIONS:
-        mem.store(region, data={"type": "region"})
+        G.add_node(region, type="region")
 
-    _link_servers_to_services(mem)
-    _link_service_dependencies(mem)
-    _link_alerts_to_services(mem)
-    _link_incidents_to_alerts(mem)
-    _link_playbooks_to_incidents(mem)
-    _link_infrastructure(mem)
+    _link_servers_to_services(G)
+    _link_service_dependencies(G)
+    _link_alerts_to_services(G)
+    _link_incidents_to_alerts(G)
+    _link_playbooks_to_incidents(G)
+    _link_infrastructure(G)
 
 
-def _link_servers_to_services(mem: CognitiveMemory) -> None:
+def _link_servers_to_services(G: nx.DiGraph) -> None:
     service_servers: dict[str, list[str]] = {
         "web-frontend": [s for s in SERVERS if s.startswith("web-frontend")],
         "api-gateway": [s for s in SERVERS if s.startswith("api-gateway")],
@@ -141,10 +142,10 @@ def _link_servers_to_services(mem: CognitiveMemory) -> None:
     }
     for svc, servers in service_servers.items():
         for srv in servers:
-            mem.relate(srv, svc, label="hosts")
+            G.add_edge(srv, svc, label="hosts")
 
 
-def _link_service_dependencies(mem: CognitiveMemory) -> None:
+def _link_service_dependencies(G: nx.DiGraph) -> None:
     deps = [
         ("web-frontend", "cdn-layer"), ("web-frontend", "load-balancer"),
         ("web-frontend", "api-gateway"),
@@ -170,10 +171,10 @@ def _link_service_dependencies(mem: CognitiveMemory) -> None:
         ("vpn-gateway-01", "dns-service"), ("vpn-gateway-01", "auth-service"),
     ]
     for src, tgt in deps:
-        mem.relate(src, tgt, label="depends_on")
+        G.add_edge(src, tgt, label="depends_on")
 
 
-def _link_alerts_to_services(mem: CognitiveMemory) -> None:
+def _link_alerts_to_services(G: nx.DiGraph) -> None:
     links = [
         ("high-latency", "api-gateway"), ("high-latency", "web-frontend"),
         ("high-latency", "load-balancer"),
@@ -195,10 +196,10 @@ def _link_alerts_to_services(mem: CognitiveMemory) -> None:
         ("dns-resolution-failure", "dns-service"), ("dns-resolution-failure", "cdn-layer"),
     ]
     for alt, svc in links:
-        mem.relate(alt, svc, label="triggers_on")
+        G.add_edge(alt, svc, label="triggers_on")
 
 
-def _link_incidents_to_alerts(mem: CognitiveMemory) -> None:
+def _link_incidents_to_alerts(G: nx.DiGraph) -> None:
     links = [
         ("high-latency", "degraded-performance"),
         ("cpu-spike", "degraded-performance"),
@@ -212,10 +213,10 @@ def _link_incidents_to_alerts(mem: CognitiveMemory) -> None:
         ("certificate-expiry", "security-breach"),
     ]
     for alt, inc in links:
-        mem.relate(alt, inc, label="escalates_to")
+        G.add_edge(alt, inc, label="escalates_to")
 
 
-def _link_playbooks_to_incidents(mem: CognitiveMemory) -> None:
+def _link_playbooks_to_incidents(G: nx.DiGraph) -> None:
     links = [
         ("restart-service", "degraded-performance"),
         ("scale-horizontally", "capacity-exhaustion"),
@@ -229,37 +230,186 @@ def _link_playbooks_to_incidents(mem: CognitiveMemory) -> None:
         ("migrate-region", "full-outage"),
     ]
     for pb, inc in links:
-        mem.relate(pb, inc, label="remediates")
+        G.add_edge(pb, inc, label="remediates")
 
 
-def _link_infrastructure(mem: CognitiveMemory) -> None:
+def _link_infrastructure(G: nx.DiGraph) -> None:
     for srv in SERVERS:
-        node = mem.graph.get_node_by_label(srv)
-        if node and node.data:
-            region = node.data.get("region", "us-east-1")
-            mem.relate(srv, region, label="located_in")
-            mem.relate(srv, "production", label="deployed_in")
+        data = G.nodes[srv]
+        if data:
+            region = data.get("region", "us-east-1")
+            G.add_edge(srv, region, label="located_in")
+            G.add_edge(srv, "production", label="deployed_in")
     for svc in SERVICES:
-        mem.relate(svc, "production", label="deployed_in")
+        G.add_edge(svc, "production", label="deployed_in")
+
+
+class RuleEffectivenessTracker:
+    def __init__(self):
+        self.outcomes: dict[str, Counter] = defaultdict(Counter)
+        self.applications: dict[str, int] = Counter()
+
+    def record_outcome(self, rule_name: str, outcome: str):
+        self.outcomes[rule_name][outcome] += 1
+        self.applications[rule_name] += 1
+
+    def get_effectiveness(self) -> dict[str, dict]:
+        result = {}
+        for rule, counts in self.outcomes.items():
+            total = sum(counts.values())
+            useful = counts.get("useful", 0) + counts.get("reinforced", 0)
+            reinforced = counts.get("reinforced", 0)
+            pruned = counts.get("pruned", 0)
+            result[rule] = {
+                "effectiveness": useful / total if total else 0.0,
+                "retention_rate": (total - pruned) / total if total else 0.0,
+                "reinforcement_rate": reinforced / total if total else 0.0,
+                "applications": total,
+            }
+        return result
+
+    def get_best_rules(self, n: int) -> list[tuple[str, float]]:
+        eff = self.get_effectiveness()
+        ranked = sorted(eff.items(), key=lambda x: x[1]["effectiveness"], reverse=True)
+        return [(name, stats["effectiveness"]) for name, stats in ranked[:n]]
+
+
+class ThompsonSampler:
+    def __init__(self):
+        self.successes: dict[str, int] = Counter()
+        self.failures: dict[str, int] = Counter()
+        self.rng = np.random.default_rng(42)
+
+    def record_outcome(self, name: str, success: bool):
+        if success:
+            self.successes[name] += 1
+        else:
+            self.failures[name] += 1
+
+    def sample(self, candidates: list[str]) -> str:
+        scores = {}
+        for name in candidates:
+            s = self.successes.get(name, 0)
+            f = self.failures.get(name, 0)
+            scores[name] = float(self.rng.beta(s + 1, f + 1))
+        return max(scores, key=scores.get)
+
+    @property
+    def effectiveness(self) -> dict[str, float]:
+        result = {}
+        all_names = set(self.successes) | set(self.failures)
+        for name in all_names:
+            s = self.successes.get(name, 0)
+            f = self.failures.get(name, 0)
+            total = s + f
+            result[name] = s / total if total else 0.0
+        return result
+
+
+class FrameSelector:
+    def __init__(self):
+        self.sampler = ThompsonSampler()
+
+    def record_frame_outcome(self, frame: str, success: bool):
+        self.sampler.record_outcome(frame, success)
+
+    def select_frame_learned(self, candidates: list[str] | None = None) -> str:
+        if candidates is None:
+            candidates = ["classical", "quantum", "hypergraph", "probabilistic"]
+        return self.sampler.sample(candidates)
+
+    def select_frame_complexity(self, concept: str) -> str:
+        if any(kw in concept for kw in ["latency", "timeout", "cascade"]):
+            return "classical"
+        elif any(kw in concept for kw in ["payment", "order"]):
+            return "quantum"
+        elif any(kw in concept for kw in ["database", "db"]):
+            return "hypergraph"
+        return "probabilistic"
+
+    def get_effectiveness(self) -> dict[str, float]:
+        return self.sampler.effectiveness
+
+
+class WeightedSampler:
+    def __init__(self):
+        self.rng = np.random.default_rng(42)
+        self.amplitudes: dict[str, float] = {}
+
+    def superpose(self, concepts: list[str], amplitudes: list[float] | None = None) -> dict[str, float]:
+        if amplitudes is None:
+            amplitudes = [1.0] * len(concepts)
+        probs = np.array(amplitudes) ** 2
+        probs = probs / probs.sum()
+        self.amplitudes = {c: p for c, p in zip(concepts, probs)}
+        return self.amplitudes
+
+    def collapse(self, concepts: list[str], context_weights: dict[str, float] | None = None) -> str:
+        if not self.amplitudes:
+            self.superpose(concepts)
+        probs = np.array([self.amplitudes.get(c, 0.0) for c in concepts])
+        if context_weights:
+            weights = np.array([context_weights.get(c, 1.0) for c in concepts])
+            probs = probs * weights
+        probs = probs / probs.sum()
+        return self.rng.choice(concepts, p=probs)
+
+    def collapse_with_basis(self, concepts: list[str], basis: str) -> str | None:
+        _ = basis
+        self.superpose(concepts)
+        return self.collapse(concepts)
+
+
+def compute_health(G: nx.DiGraph) -> dict:
+    n = G.number_of_nodes()
+    e = G.number_of_edges()
+    avg_degree = 2 * e / n if n else 0.0
+    return {
+        "fitness": 1.0,
+        "mode": "stable",
+        "meta_level": 0,
+        "nodes": n,
+        "edges": e,
+        "avg_degree": avg_degree,
+    }
+
+
+def check_triggers(G: nx.DiGraph, health: dict) -> list[dict]:
+    triggers = []
+    if health["avg_degree"] < 1.5:
+        triggers.append({"type": "low_connectivity", "description": "Graph connectivity below threshold",
+                         "urgency": 0.7})
+    if health["fitness"] < 0.5:
+        triggers.append({"type": "low_fitness", "description": "System fitness degraded",
+                         "urgency": 0.9})
+    return triggers
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+
+    # =====================================================================
+    # SECTION 1: Building IT Operations Knowledge Graph
+    # =====================================================================
 
     print("=" * 70)
     print("SECTION 1: Building IT Operations Knowledge Graph")
     print("=" * 70)
 
-    _build_graph(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    _build_graph(G)
+    print(f"  Nodes: {G.number_of_nodes()}")
+    print(f"  Edges: {G.number_of_edges()}")
     print()
 
+    # =====================================================================
+    # SECTION 2: Rule Effectiveness Learning
+    # =====================================================================
+
     print("=" * 70)
-    print("SECTION 2: Rule Effectiveness Learning (Rulial Space)")
+    print("SECTION 2: Rule Effectiveness Learning (collections.Counter)")
     print("=" * 70)
 
-    rulial = mem.rulial
+    rulial = RuleEffectivenessTracker()
 
     rule_outcomes = [
         ("TransitiveRule", "useful"), ("TransitiveRule", "useful"),
@@ -281,9 +431,9 @@ def main() -> None:
         ("AbductiveRule", "reinforced"), ("AbductiveRule", "useful"),
     ]
     for rule_name, outcome in rule_outcomes:
-        rulial.record_rule_outcome(rule_name, outcome)
+        rulial.record_outcome(rule_name, outcome)
 
-    effectiveness = rulial.get_rule_effectiveness()
+    effectiveness = rulial.get_effectiveness()
     print("  Rule effectiveness rankings:")
     sorted_rules = sorted(effectiveness.items(), key=lambda x: x[1]["effectiveness"], reverse=True)
     for rank, (rule_name, stats) in enumerate(sorted_rules, 1):
@@ -300,11 +450,15 @@ def main() -> None:
         print(f"    {name}: {score:.2f}")
     print()
 
+    # =====================================================================
+    # SECTION 3: Measurement Basis Learning (Thompson Sampling)
+    # =====================================================================
+
     print("=" * 70)
-    print("SECTION 3: Measurement Basis Learning (Thompson Sampling)")
+    print("SECTION 3: Measurement Basis Learning (numpy.random.beta)")
     print("=" * 70)
 
-    quantum = mem.quantum
+    basis_sampler = ThompsonSampler()
 
     training_outcomes = [
         ("pragmatic", True), ("pragmatic", True), ("pragmatic", True),
@@ -317,16 +471,17 @@ def main() -> None:
         ("emotional", False), ("emotional", False),
     ]
     for basis, success in training_outcomes:
-        quantum.record_basis_outcome(basis, success)
+        basis_sampler.record_outcome(basis, success)
 
     print("  Basis effectiveness:")
-    for basis, rate in quantum.basis_effectiveness.items():
+    for basis, rate in basis_sampler.effectiveness.items():
         print(f"    {basis:15s}  success_rate={rate:.2f}")
 
-    selections: dict[str, int] = {}
+    candidates = ["pragmatic", "linguistic", "temporal", "emotional"]
+    selections: dict[str, int] = Counter()
     for _ in range(200):
-        chosen = quantum.get_effective_basis()
-        selections[chosen] = selections.get(chosen, 0) + 1
+        chosen = basis_sampler.sample(candidates)
+        selections[chosen] += 1
 
     print(f"\n  Thompson sampling selections over 200 trials:")
     for basis in sorted(selections, key=selections.get, reverse=True):
@@ -334,36 +489,34 @@ def main() -> None:
         bar = "#" * (count // 2)
         print(f"    {basis:15s}  {count:3d}  {bar}")
 
+    sampler = WeightedSampler()
     problem_sets = [
-        (["api-gateway-01", "api-gateway-02", "load-balancer-01"], "infrastructure-triage"),
+        (["api-gateway-01", "api-gateway-02", "lb-haproxy-01"], "infrastructure-triage"),
         (["high-latency", "timeout-cascade", "error-rate-surge"], "alert-correlation"),
         (["payment-service-01", "payment-service-02", "database-layer"], "dependency-trace"),
     ]
 
-    print(f"\n  Collapse results by basis for different problem types:")
+    print(f"\n  Weighted sampling results for different problem types:")
     for concepts, problem_type in problem_sets:
-        qs = mem.superpose(concepts)
-        if qs is None:
+        present = [c for c in concepts if c in G]
+        if not present:
             continue
         print(f"\n    Problem: {problem_type}")
         for basis_name in ["pragmatic", "temporal", "linguistic"]:
-            qs_fresh = mem.superpose(concepts)
-            if qs_fresh is None:
-                continue
-            result = mem.collapse_with_basis(qs_fresh, basis_name)
+            result = sampler.collapse_with_basis(present, basis_name)
             if result:
-                node = mem.graph.get_node(result.node_id)
-                label = node.label if node else result.node_id
-                print(f"      {basis_name:12s} -> {label}")
-            else:
-                print(f"      {basis_name:12s} -> no collapse")
+                print(f"      {basis_name:12s} -> {result}")
     print()
+
+    # =====================================================================
+    # SECTION 4: Frame Effectiveness Learning
+    # =====================================================================
 
     print("=" * 70)
     print("SECTION 4: Frame Effectiveness Learning")
     print("=" * 70)
 
-    relativity = mem.relativity
+    frame_selector = FrameSelector()
 
     frame_training = [
         ("classical", True), ("classical", True), ("classical", False),
@@ -376,10 +529,10 @@ def main() -> None:
         ("probabilistic", False), ("probabilistic", True),
     ]
     for frame, success in frame_training:
-        relativity.record_frame_outcome(frame, success)
+        frame_selector.record_frame_outcome(frame, success)
 
     print("  Frame effectiveness:")
-    for frame, eff in sorted(relativity.get_frame_effectiveness().items(), key=lambda x: x[1], reverse=True):
+    for frame, eff in sorted(frame_selector.get_effectiveness().items(), key=lambda x: x[1], reverse=True):
         print(f"    {frame:15s}  effectiveness={eff:.2f}")
 
     test_concepts = [
@@ -391,15 +544,15 @@ def main() -> None:
     print(f"    {'Concept':30s}  {'Complexity-based':>16s}  {'Learned (TS)':>16s}")
     print("    " + "-" * 70)
     for concept in test_concepts:
-        name_complexity, analysis_c = relativity.select_optimal_frame(concept)
-        name_learned, analysis_l = relativity.select_optimal_frame_learned(concept)
+        name_complexity = frame_selector.select_frame_complexity(concept)
+        name_learned = frame_selector.select_frame_learned()
         print(f"    {concept:30s}  {name_complexity:>16s}  {name_learned:>16s}")
 
-    frame_selections: dict[str, int] = {}
+    frame_selections: dict[str, int] = Counter()
     for concept in test_concepts:
         for _ in range(50):
-            name, _ = relativity.select_optimal_frame_learned(concept)
-            frame_selections[name] = frame_selections.get(name, 0) + 1
+            name = frame_selector.select_frame_learned()
+            frame_selections[name] += 1
 
     print(f"\n  Learned frame selections over {len(test_concepts) * 50} trials:")
     for frame in sorted(frame_selections, key=frame_selections.get, reverse=True):
@@ -408,74 +561,46 @@ def main() -> None:
         print(f"    {frame:15s}  {count:3d}  {bar}")
     print()
 
+    # =====================================================================
+    # SECTION 5: Meta-Cognitive Self-Assessment
+    # =====================================================================
+
     print("=" * 70)
-    print("SECTION 5: Meta-Cognitive Self-Assessment")
+    print("SECTION 5: Meta-Cognitive Self-Assessment (Health Check)")
     print("=" * 70)
 
-    report = mem.introspect()
-    cognitive_state = report.get("cognitive_state", {})
-    graph_health = report.get("graph_health", {})
-    evolution_health = report.get("evolution_health", {})
-    discovery_health = report.get("discovery_health", {})
-    anti_patterns = report.get("anti_patterns", [])
-    recommendations = report.get("recommendations", [])
+    health = compute_health(G)
 
-    print("  Cognitive State:")
-    print(f"    Fitness:            {cognitive_state.get('fitness', 0.0):.3f}")
-    print(f"    Reasoning mode:     {cognitive_state.get('mode', 'unknown')}")
-    print(f"    Meta-computational:  level {cognitive_state.get('meta_level', 0)}")
-    print(f"    Transcendental yield: {cognitive_state.get('transcendental_yield', 0)}")
+    print("  System Health:")
+    print(f"    Fitness:     {health['fitness']:.3f}")
+    print(f"    Mode:        {health['mode']}")
+    print(f"    Nodes:       {health['nodes']}")
+    print(f"    Edges:       {health['edges']}")
+    print(f"    Avg degree:  {health['avg_degree']:.2f}")
 
-    print("\n  Graph Health:")
-    print(f"    Nodes:      {graph_health.get('nodes', 0)}")
-    print(f"    Edges:      {graph_health.get('edges', 0)}")
-    print(f"    Avg degree: {graph_health.get('avg_degree', 0.0):.2f}")
-
-    print("\n  Evolution Health:")
-    print(f"    Merges:      {evolution_health.get('merges', 0)}")
-    print(f"    Prunes:      {evolution_health.get('prunes', 0)}")
-    print(f"    Refinements: {evolution_health.get('refinements', 0)}")
-
-    print("\n  Discovery Health:")
-    print(f"    Patterns:     {discovery_health.get('patterns', 0)}")
-    print(f"    Active rules: {discovery_health.get('active_rules', 0)}")
-
-    if anti_patterns:
-        print(f"\n  Anti-patterns detected ({len(anti_patterns)}):")
-        for ap in anti_patterns:
-            print(f"    - {ap}")
-    else:
-        print("\n  No anti-patterns detected")
-
-    if recommendations:
-        print(f"\n  Recommendations ({len(recommendations)}):")
-        for rec in recommendations:
-            print(f"    -> {rec}")
-    else:
-        print("\n  No specific recommendations")
-
-    triggers = mem.check_metamorphosis()
+    triggers = check_triggers(G, health)
     print(f"\n  Metamorphosis triggers: {len(triggers)}")
     for trigger in triggers:
-        print(f"    [{trigger.trigger_type}] {trigger.description} "
-              f"(urgency={trigger.urgency:.2f})")
+        print(f"    [{trigger['type']}] {trigger['description']} "
+              f"(urgency={trigger['urgency']:.2f})")
 
     if triggers:
-        plan = mem.propose_metamorphosis(triggers)
-        if plan:
-            print(f"\n  Proposed metamorphosis plan:")
-            print(f"    Actions: {plan.actions}")
-            print(f"    Expected improvement: {plan.expected_improvement:.2f}")
-            print(f"    Risk level: {plan.risk_level:.2f}")
+        print(f"\n  Proposed actions:")
+        for trigger in triggers:
+            print(f"    -> Address: {trigger['description']}")
     else:
-        print("\n  No metamorphosis needed - system is healthy")
+        print("\n  No actions needed - system is healthy")
     print()
+
+    # =====================================================================
+    # SECTION 6: Adaptive Learning Summary
+    # =====================================================================
 
     print("=" * 70)
     print("SECTION 6: Adaptive Learning Summary")
     print("=" * 70)
 
-    print(f"  Graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
     print(f"\n  Rule effectiveness rankings (top 5):")
     best = rulial.get_best_rules(5)
@@ -486,25 +611,29 @@ def main() -> None:
         print(f"    Deprioritized: {worst_rule} "
               f"(eff={effectiveness[worst_rule]['effectiveness']:.2f})")
 
-    if quantum.basis_effectiveness:
-        best_basis = max(quantum.basis_effectiveness, key=quantum.basis_effectiveness.get)
-        worst_basis = min(quantum.basis_effectiveness, key=quantum.basis_effectiveness.get)
+    if basis_sampler.effectiveness:
+        best_basis = max(basis_sampler.effectiveness, key=basis_sampler.effectiveness.get)
+        worst_basis = min(basis_sampler.effectiveness, key=basis_sampler.effectiveness.get)
         print(f"\n  Best measurement basis: {best_basis} "
-              f"(rate={quantum.basis_effectiveness[best_basis]:.2f})")
+              f"(rate={basis_sampler.effectiveness[best_basis]:.2f})")
         print(f"  Worst measurement basis: {worst_basis} "
-              f"(rate={quantum.basis_effectiveness[worst_basis]:.2f})")
+              f"(rate={basis_sampler.effectiveness[worst_basis]:.2f})")
 
-    frame_eff = relativity.get_frame_effectiveness()
+    frame_eff = frame_selector.get_effectiveness()
     if frame_eff:
         best_frame = max(frame_eff, key=frame_eff.get)
         print(f"\n  Optimal frame: {best_frame} "
               f"(effectiveness={frame_eff[best_frame]:.2f})")
 
-    print(f"\n  System fitness: {cognitive_state.get('fitness', 0.0):.3f}")
+    print(f"\n  System fitness: {health['fitness']:.3f}")
     if triggers:
         print(f"  Self-repair: {len(triggers)} trigger(s) detected, actions recommended")
     else:
         print(f"  Self-repair: no actions needed")
+    print()
+    print("  Implementation note: this uses collections.Counter + numpy.random.beta")
+    print("  for Thompson sampling, networkx.DiGraph for the knowledge graph,")
+    print("  and simple dict-based tracking for all learning components.")
     print()
 
 

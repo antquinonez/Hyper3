@@ -1,31 +1,25 @@
 """
-Multi-Perspective Risk Assessment
-==================================
+Multi-Perspective Risk Assessment (Standard Library Reimplementation)
+=====================================================================
 
-Analyzes an enterprise infrastructure graph from four operational
-perspectives (dependency, risk propagation, compliance, operational
-impact) using Hyper3's multi-frame reasoning. Finds cross-perspective
-invariants (assets to protect first) and disagreement regions (areas
-needing further analysis).
+Reimplements Hyper3's multi-frame reasoning example using networkx.DiGraph,
+BFS with 4 different parameter sets (frames), reachability set comparison,
+zlib compression for Kolmogorov approximation, and numpy spectral gap.
 
 Run with:
-    .venv/bin/python examples/advanced/09_iterative_frame_reasoning.py
+    .venv/bin/python examples/comparison/09_iterative_frame_reasoning.py
 """
 
 from __future__ import annotations
 
+import zlib
 from collections import defaultdict
 
-from hyper3 import (
-    CognitiveMemory,
-    InvariantDetector,
-    Modality,
-    TransitiveRule,
-    InverseRule,
-)
+import networkx as nx
+import numpy as np
 
 
-def build_infrastructure(mem: CognitiveMemory) -> set[str]:
+def build_infrastructure(G: nx.DiGraph) -> set[str]:
     services = {
         "web_frontend": {"type": "service", "exposure": "internet", "criticality": 8, "data_classification": "public"},
         "mobile_app": {"type": "service", "exposure": "internet", "criticality": 7, "data_classification": "public"},
@@ -129,7 +123,7 @@ def build_infrastructure(mem: CognitiveMemory) -> set[str]:
         all_entities.update(group)
 
     for name, data in all_entities.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(name, **data)
 
     relations = [
         ("seg_public", "cdn_edge", "contains"),
@@ -330,184 +324,171 @@ def build_infrastructure(mem: CognitiveMemory) -> set[str]:
     ]
 
     for src, tgt, label in relations:
-        mem.relate(src, tgt, label=label)
+        G.add_edge(src, tgt, label=label)
 
     return set(all_entities.keys())
 
 
-def _traverse(
-    mem: CognitiveMemory,
-    seed_labels: set[str],
-    *,
-    max_depth: int = 4,
-    edge_filter: set[str] | None = None,
-    node_filter=None,
-    weight_threshold: float = 0.0,
-) -> set[str]:
-    seed_ids = set()
-    for label in seed_labels:
-        node = mem.graph.get_node_by_label(label)
-        if node:
-            seed_ids.add(node.id)
+def add_transitive_edges(G: nx.DiGraph, edge_label: str, new_label: str) -> int:
+    added = 0
+    edges_of_label = [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == edge_label]
+    for u, v in edges_of_label:
+        for w in G.successors(v):
+            vd = G.edges[v, w]
+            if vd.get("label") == edge_label:
+                if not G.has_edge(u, w) or not any(
+                    d.get("label") == new_label for d in [G.edges[u, w]]
+                ):
+                    G.add_edge(u, w, label=new_label)
+                    added += 1
+    return added
 
+
+def add_inverse_edges(G: nx.DiGraph, edge_label: str, inverse_label: str) -> int:
+    added = 0
+    edges_of_label = [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == edge_label]
+    for u, v in edges_of_label:
+        if not G.has_edge(v, u) or not any(
+            G.edges[v, u].get("label") == inverse_label
+        ):
+            G.add_edge(v, u, label=inverse_label)
+            added += 1
+    return added
+
+
+def bfs_reachable(G: nx.DiGraph, seeds: set[str], max_depth: int = 4,
+                  edge_filter: set[str] | None = None,
+                  node_filter=None) -> set[str]:
     reachable: set[str] = set()
-    frontier = list(seed_ids)
-    visited = set(seed_ids)
+    frontier = list(seeds)
+    visited = set(seeds)
 
     for _ in range(max_depth):
         next_frontier = []
         for nid in frontier:
-            for edge in mem.graph.edges_for(nid):
-                if edge.weight < weight_threshold:
+            for _, tgt, data in G.out_edges(nid, data=True):
+                label = data.get("label", "")
+                if edge_filter and label not in edge_filter:
                     continue
-                if edge_filter and edge.label not in edge_filter:
-                    continue
-                for tgt in edge.target_ids:
-                    if node_filter and not node_filter(mem, tgt):
-                        reachable.add(tgt)
-                        continue
-                    if tgt not in visited:
-                        visited.add(tgt)
-                        next_frontier.append(tgt)
+                if node_filter and node_filter(tgt):
                     reachable.add(tgt)
+                    continue
+                if tgt not in visited:
+                    visited.add(tgt)
+                    next_frontier.append(tgt)
+                reachable.add(tgt)
         frontier = next_frontier
 
     return reachable
 
 
-def _is_sensitive_node(mem: CognitiveMemory, nid: str) -> bool:
-    node = mem.graph.get_node(nid)
-    if not node or not isinstance(node.data, dict):
-        return True
-    classification = node.data.get("data_classification", "internal")
+def degree_centrality(G: nx.DiGraph) -> dict[str, float]:
+    deg = {}
+    n = G.number_of_nodes()
+    if n <= 1:
+        return {n: 1.0 for n in G.nodes()}
+    for node in G.nodes():
+        deg[node] = (G.in_degree(node) + G.out_degree(node)) / (2 * (n - 1))
+    return deg
+
+
+def is_sensitive(node: str, G: nx.DiGraph) -> bool:
+    data = G.nodes[node]
+    classification = data.get("data_classification", "internal")
     return classification in ("confidential", "restricted")
 
 
+def kolmogorov_approx(items: set[str]) -> int:
+    serialized = ",".join(sorted(items)).encode()
+    return len(zlib.compress(serialized, 9))
+
+
+def spectral_gap(G: nx.DiGraph) -> float:
+    nodes = list(G.nodes())
+    n = len(nodes)
+    if n < 2:
+        return 0.0
+    idx = {node: i for i, node in enumerate(nodes)}
+    A = np.zeros((n, n))
+    for u, v in G.edges():
+        A[idx[u], idx[v]] = 1.0
+    L = np.diag(A.sum(axis=1)) - A
+    eigenvalues = np.sort(np.linalg.eigvalsh(L))
+    pos = eigenvalues[eigenvalues > 1e-10]
+    if len(pos) >= 2:
+        return float(pos[1])
+    elif len(pos) == 1:
+        return float(pos[0])
+    return 0.0
+
+
 def analyze_perspective(
-    mem: CognitiveMemory,
-    seed_labels: set[str],
+    G: nx.DiGraph,
+    seeds: set[str],
     frame_name: str,
     perspective_label: str,
 ) -> dict:
     print(f"\n  --- {perspective_label} ({frame_name} frame) ---")
 
-    result = mem.reason_with_frame(seed_labels, frame_name=frame_name)
-    expansion = result.get("expansion", {})
-    frame_config = result.get("frame_config", {})
-    print(f"    Expansion: {expansion.get('edges_produced', 0)} edges, "
-          f"{expansion.get('states_created', 0)} states, "
-          f"{expansion.get('rules_applied', 0)} rule applications")
-    print(f"    Algorithm: {frame_config.get('algorithm', 'N/A')}, "
-          f"info_loss: {frame_config.get('information_loss', 0):.3f}")
+    centrality = degree_centrality(G)
 
     if frame_name == "classical":
-        reachable = _traverse(mem, seed_labels, max_depth=4)
+        reachable = bfs_reachable(G, seeds, max_depth=4)
     elif frame_name == "hypergraph":
-        reachable = _traverse(
-            mem, seed_labels, max_depth=5,
+        reachable = bfs_reachable(
+            G, seeds, max_depth=5,
             edge_filter={"depends_on", "routes_to", "indirect_depends_on",
                          "indirect_routes_to", "accesses", "stores"},
         )
     elif frame_name == "probabilistic":
-        reachable = _traverse(
-            mem, seed_labels, max_depth=3,
+        reachable = bfs_reachable(
+            G, seeds, max_depth=3,
             edge_filter={"accesses", "stores", "processes", "depends_on",
                          "contains", "protects"},
-            node_filter=_is_sensitive_node,
+            node_filter=lambda n: is_sensitive(n, G),
         )
     elif frame_name == "quantum":
-        reachable = _traverse(
-            mem, seed_labels, max_depth=6,
+        reachable = bfs_reachable(
+            G, seeds, max_depth=6,
             edge_filter={"depends_on", "routes_to", "indirect_depends_on",
                          "indirect_routes_to"},
         )
     else:
-        reachable = _traverse(mem, seed_labels, max_depth=4)
-
-    centrality = mem.degree_centrality_labels()
+        reachable = bfs_reachable(G, seeds, max_depth=4)
 
     reachability_scores: dict[str, float] = {}
-    for nid in reachable:
-        node = mem.graph.get_node(nid)
-        if node and node.label in centrality:
-            data = node.data if isinstance(node.data, dict) else {}
+    for node in reachable:
+        if node in centrality:
+            data = G.nodes[node]
             crit = data.get("criticality", 5)
-            reachability_scores[node.label] = centrality[node.label] * crit
+            reachability_scores[node] = centrality[node] * crit
 
     sorted_assets = sorted(reachability_scores.items(), key=lambda x: x[1], reverse=True)
 
-    reachable_labels = set()
-    for nid in reachable:
-        node = mem.graph.get_node(nid)
-        if node:
-            reachable_labels.add(node.label)
-
-    print(f"    Reachable nodes: {len(reachable_labels)}")
+    print(f"    Reachable nodes: {len(reachable)}")
     print(f"    Top critical assets from this perspective:")
     for label, score in sorted_assets[:6]:
-        node = mem.graph.get_node_by_label(label)
-        dtype = node.data.get("type", "?") if isinstance(node.data, dict) else "?"
+        data = G.nodes[label]
+        dtype = data.get("type", "?")
         print(f"      {label:25s}  score={score:.3f}  type={dtype}")
 
+    comp_size = kolmogorov_approx(reachable)
+    print(f"    Kolmogorov approx (zlib bytes): {comp_size}")
+
     return {
-        "reachable_labels": reachable_labels,
+        "reachable_labels": reachable,
         "sorted_assets": sorted_assets,
-        "expansion": expansion,
-        "frame_config": frame_config,
+        "frame_name": frame_name,
     }
 
 
 def find_invariants_and_disagreements(
-    mem: CognitiveMemory,
-    seed_labels: set[str],
+    G: nx.DiGraph,
+    seeds: set[str],
     perspective_results: dict[str, dict],
 ) -> None:
     print("\n  --- Cross-Perspective Invariants ---")
 
-    seed_ids = set()
-    for label in seed_labels:
-        node = mem.graph.get_node_by_label(label)
-        if node:
-            seed_ids.add(node.id)
-
-    detector = InvariantDetector(mem.relativity)
-    inv = detector.find_invariants(list(seed_ids), mem.graph)
-
-    inv_labels = set()
-    for nid in inv.invariant_nodes:
-        node = mem.graph.get_node(nid)
-        if node:
-            inv_labels.add(node.label)
-
-    print(f"    Invariant nodes (reachable from ALL built-in frames): {len(inv_labels)}")
-    print(f"    Invariant confidence: {inv.confidence:.3f}")
-    if inv.frame_unique:
-        print(f"    Per-frame unique nodes:")
-        for fname, unique_ids in inv.frame_unique.items():
-            unique_labels = set()
-            for uid in unique_ids:
-                n = mem.graph.get_node(uid)
-                if n:
-                    unique_labels.add(n.label)
-            print(f"      {fname:15s}: {len(unique_labels)} unique")
-            for ul in sorted(unique_labels)[:4]:
-                print(f"        - {ul}")
-
-    invariant_assets = []
-    for label in inv_labels:
-        node = mem.graph.get_node_by_label(label)
-        if node and isinstance(node.data, dict):
-            crit = node.data.get("criticality", 0)
-            dtype = node.data.get("type", "?")
-            invariant_assets.append((label, crit, dtype))
-
-    invariant_assets.sort(key=lambda x: x[1], reverse=True)
-
-    print(f"\n    Top invariant assets (protect these first):")
-    for label, crit, dtype in invariant_assets[:10]:
-        print(f"      {label:25s}  criticality={crit}  type={dtype}")
-
-    print("\n  --- Disagreement Regions (Perspective Analysis) ---")
     all_reachable: dict[str, set[str]] = {}
     for pname, res in perspective_results.items():
         all_reachable[pname] = res["reachable_labels"]
@@ -519,6 +500,34 @@ def find_invariants_and_disagreements(
     intersection_all = set.intersection(*all_reachable.values()) if len(all_reachable) > 1 else union_all
     disagreeing = union_all - intersection_all
 
+    invariant_assets = []
+    for label in intersection_all:
+        data = G.nodes[label]
+        crit = data.get("criticality", 0)
+        dtype = data.get("type", "?")
+        invariant_assets.append((label, crit, dtype))
+
+    invariant_assets.sort(key=lambda x: x[1], reverse=True)
+
+    print(f"    Invariant nodes (reachable from ALL frames): {len(intersection_all)}")
+    print(f"    Confidence: {len(intersection_all) / len(union_all):.3f}" if union_all else "    Confidence: 0.000")
+
+    per_frame_unique: dict[str, set[str]] = {}
+    for fname, reachable in all_reachable.items():
+        unique = reachable - intersection_all
+        per_frame_unique[fname] = unique
+
+    print(f"    Per-frame unique nodes:")
+    for fname, unique in per_frame_unique.items():
+        print(f"      {fname:15s}: {len(unique)} unique")
+        for ul in sorted(unique)[:4]:
+            print(f"        - {ul}")
+
+    print(f"\n    Top invariant assets (protect these first):")
+    for label, crit, dtype in invariant_assets[:10]:
+        print(f"      {label:25s}  criticality={crit}  type={dtype}")
+
+    print("\n  --- Disagreement Regions (Perspective Analysis) ---")
     disagreements: list[tuple[str, list[str], list[str]]] = []
     for label in sorted(disagreeing):
         agreeing = [p for p, nodes in all_reachable.items() if label in nodes]
@@ -530,14 +539,18 @@ def find_invariants_and_disagreements(
     print(f"    Nodes seen by ALL perspectives: {len(intersection_all)}")
     print(f"    Nodes where perspectives disagree: {len(disagreements)}")
     for label, agreeing, disagreeing_frames in disagreements[:12]:
-        node = mem.graph.get_node_by_label(label)
-        dtype = node.data.get("type", "?") if node and isinstance(node.data, dict) else "?"
+        data = G.nodes[label]
+        dtype = data.get("type", "?")
         print(f"      {label:25s}  type={dtype}  "
               f"seen_by={agreeing}  missed_by={disagreeing_frames}")
 
+    gap = spectral_gap(G)
+    print(f"\n  Graph spectral gap (algebraic connectivity): {gap:.4f}")
+    print(f"  Higher spectral gap = more connected = harder to partition")
+
 
 def generate_recommendations(
-    mem: CognitiveMemory,
+    G: nx.DiGraph,
     perspective_results: dict[str, dict],
 ) -> None:
     print("\n  --- Recommended Action Items ---")
@@ -552,8 +565,7 @@ def generate_recommendations(
 
     print(f"    Critical in 3+ perspectives ({len(universal_critical)} assets):")
     for label in sorted(universal_critical):
-        node = mem.graph.get_node_by_label(label)
-        data = node.data if node and isinstance(node.data, dict) else {}
+        data = G.nodes[label]
         print(f"      - Prioritize hardening: {label} "
               f"(criticality={data.get('criticality', '?')}, "
               f"exposure={data.get('exposure', '?')})")
@@ -562,8 +574,7 @@ def generate_recommendations(
     if secondary:
         print(f"\n    Critical in 2 perspectives ({len(secondary)} assets):")
         for label in sorted(secondary):
-            node = mem.graph.get_node_by_label(label)
-            data = node.data if node and isinstance(node.data, dict) else {}
+            data = G.nodes[label]
             print(f"      - Add monitoring: {label} "
                   f"(criticality={data.get('criticality', '?')}, "
                   f"type={data.get('type', '?')})")
@@ -578,15 +589,15 @@ def generate_recommendations(
                   f"(flagged by: {', '.join(perspectives)})")
 
     high_crit = []
-    for node in mem.graph.nodes:
-        if isinstance(node.data, dict):
-            crit = node.data.get("criticality", 0)
-            exposure = node.data.get("exposure", "internal")
-            dtype = node.data.get("type", "")
-            if crit >= 9 and dtype == "service":
-                dep_count = sum(1 for e in mem.graph.edges
-                                if e.label == "depends_on" and node.id in e.target_ids)
-                high_crit.append((node.label, crit, exposure, dep_count))
+    for node in G.nodes():
+        data = G.nodes[node]
+        crit = data.get("criticality", 0)
+        exposure = data.get("exposure", "internal")
+        dtype = data.get("type", "")
+        if crit >= 9 and dtype == "service":
+            dep_count = sum(1 for _, tgt, d in G.in_edges(node, data=True)
+                            if d.get("label") == "depends_on")
+            high_crit.append((node, crit, exposure, dep_count))
 
     if high_crit:
         high_crit.sort(key=lambda x: x[3], reverse=True)
@@ -597,7 +608,7 @@ def generate_recommendations(
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
 
     # =====================================================================
     # SECTION 1: Infrastructure Graph Construction
@@ -607,17 +618,18 @@ def main():
     print("SECTION 1: Infrastructure Graph Construction")
     print("=" * 70)
 
-    all_labels = build_infrastructure(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    all_labels = build_infrastructure(G)
+    print(f"  Nodes: {G.number_of_nodes()}")
+    print(f"  Edges: {G.number_of_edges()}")
 
-    mem.add_rules(
-        TransitiveRule(edge_label="depends_on", new_label="indirect_depends_on"),
-        TransitiveRule(edge_label="routes_to", new_label="indirect_routes_to"),
-        TransitiveRule(edge_label="accesses", new_label="indirect_accesses"),
-        InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
-        InverseRule(edge_label="contains", inverse_label="contained_in"),
-    )
+    t1 = add_transitive_edges(G, "depends_on", "indirect_depends_on")
+    t2 = add_transitive_edges(G, "routes_to", "indirect_routes_to")
+    t3 = add_transitive_edges(G, "accesses", "indirect_accesses")
+    i1 = add_inverse_edges(G, "depends_on", "depended_on_by")
+    i2 = add_inverse_edges(G, "contains", "contained_in")
+    print(f"  Transitive edges added: depends_on={t1}, routes_to={t2}, accesses={t3}")
+    print(f"  Inverse edges added: depends_on={i1}, contains={i2}")
+    print(f"  Total edges after inference: {G.number_of_edges()}")
 
     # =====================================================================
     # SECTION 2: Four Analysis Perspectives
@@ -640,7 +652,7 @@ def main():
     perspective_results: dict[str, dict] = {}
     for frame, label in perspectives.items():
         perspective_results[frame] = analyze_perspective(
-            mem, seeds, frame, label,
+            G, seeds, frame, label,
         )
 
     # =====================================================================
@@ -652,7 +664,7 @@ def main():
     print("SECTION 3: Cross-Perspective Invariants & Disagreements")
     print("=" * 70)
 
-    find_invariants_and_disagreements(mem, seeds, perspective_results)
+    find_invariants_and_disagreements(G, seeds, perspective_results)
 
     # =====================================================================
     # SECTION 4: Actionable Recommendations
@@ -663,7 +675,7 @@ def main():
     print("SECTION 4: Actionable Recommendations")
     print("=" * 70)
 
-    generate_recommendations(mem, perspective_results)
+    generate_recommendations(G, perspective_results)
 
     # =====================================================================
     # SUMMARY
@@ -673,12 +685,9 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Infrastructure: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
-    total_new = sum(
-        r["expansion"].get("edges_produced", 0)
-        for r in perspective_results.values()
-    )
-    print(f"  Inferred edges across all perspectives: {total_new}")
+    print(f"  Infrastructure: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    total_inferred = t1 + t2 + t3 + i1 + i2
+    print(f"  Inferred edges (transitive + inverse): {total_inferred}")
     print("  Analysis performed from 4 operational perspectives:")
     print("    1. Classical (dependency traversal)")
     print("    2. Hypergraph (structural multi-hop risk)")
@@ -686,6 +695,7 @@ def main():
     print("    4. Quantum (operational impact breadth)")
     print("  Cross-perspective invariants identify highest-priority assets.")
     print("  Disagreement regions flag areas needing deeper investigation.")
+    print("  Kolmogorov complexity (zlib) and spectral gap provide graph metrics.")
     print()
 
 

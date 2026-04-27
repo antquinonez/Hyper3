@@ -1,25 +1,26 @@
 """
-Code Dependency and Blast Radius Analysis
-==========================================
+Code Dependency and Blast Radius Analysis (Standard Library)
+=============================================================
 
-Model a realistic large monorepo as a dependency graph in Hyper3, then
-analyze blast radius, circular dependencies, coupling, test-coverage gaps,
-and outdated third-party packages.
+Reimplementation of the Hyper3 code dependency example using networkx.DiGraph,
+numpy, and standard Python libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/domain/code_dependency_analysis.py
+    .venv/bin/python examples/comparison/code_dependency_analysis.py
 """
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, TransitiveRule
+import networkx as nx
+from collections import deque
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
 
     # =====================================================================
-    # SECTION 1: Generate 120+ Module Nodes
+    # SECTION 1: Generating Monorepo Module Graph
     # =====================================================================
 
     print("=" * 70)
@@ -146,13 +147,14 @@ def main():
         all_modules.update(group)
 
     for label, data in all_modules.items():
-        mem.store(label, data=data)
+        G.add_node(label)
+        node_data[label] = data
 
     print(f"  Stored {len(all_modules)} modules")
     print()
 
     # =====================================================================
-    # SECTION 2: Create 250+ Dependency Edges
+    # SECTION 2: Creating Dependency Edges
     # =====================================================================
 
     print("=" * 70)
@@ -350,6 +352,7 @@ def main():
         ("test.regression_payments", "svc.payments", "tests"),
     ]
 
+    svc = list(service_modules)[24]
     edges.append((svc, "core.health", "imports"))
 
     for svc in list(service_modules)[:6]:
@@ -434,21 +437,21 @@ def main():
             unique_edges.append((src, tgt, label))
 
     for src, tgt, label in unique_edges:
-        mem.relate(src, tgt, label=label)
+        G.add_edge(src, tgt, label=label)
 
-    print(f"  {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print()
 
     # =====================================================================
-    # SECTION 3: Centrality Analysis
+    # SECTION 3: Most Critical Modules (Centrality)
     # =====================================================================
 
     print("=" * 70)
     print("SECTION 3: Most Critical Modules (Centrality)")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
-    betweenness = mem.betweenness_centrality_labels()
+    degree = nx.degree_centrality(G)
+    betweenness = nx.betweenness_centrality(G)
 
     combined = {}
     for label in all_modules:
@@ -473,7 +476,12 @@ def main():
     print("SECTION 4: Circular Dependencies")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=10)
+    try:
+        all_cycles = list(nx.simple_cycles(G))
+        cycles = all_cycles[:10]
+    except Exception:
+        cycles = []
+
     if cycles:
         print(f"  Found {len(cycles)} circular dependency chains:")
         for i, cycle in enumerate(cycles, 1):
@@ -483,7 +491,7 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 5: Blast Radius Analysis
+    # SECTION 5: Blast Radius of Core Modules
     # =====================================================================
 
     print("=" * 70)
@@ -495,9 +503,25 @@ def main():
         "core.event_bus", "core.cache_base", "util.logging",
     ]
 
+    def bfs_neighborhood(graph, source, max_depth=6, max_nodes=200):
+        visited = {source}
+        queue = deque([(source, 0)])
+        results = []
+        while queue and len(results) < max_nodes:
+            node, depth = queue.popleft()
+            if depth > 0:
+                results.append(node)
+            if depth >= max_depth:
+                continue
+            for nb in list(graph.successors(node)) + list(graph.predecessors(node)):
+                if nb not in visited:
+                    visited.add(nb)
+                    queue.append((nb, depth + 1))
+        return results
+
     for target in blast_targets:
-        neighborhood = mem.query(target, strategy="bfs", max_depth=6, max_nodes=200)
-        affected = [n.label for n in neighborhood if n.label != target and n.data.get("category") != "test"]
+        neighborhood = bfs_neighborhood(G, target, max_depth=6, max_nodes=200)
+        affected = [n for n in neighborhood if n != target and node_data.get(n, {}).get("category") != "test"]
         print(f"  {target}: blast radius = {len(affected)} modules")
         if len(affected) <= 12:
             print(f"    Affected: {sorted(affected)}")
@@ -511,28 +535,22 @@ def main():
     print("SECTION 6: Transitive Dependency Discovery")
     print("=" * 70)
 
-    mem.add_rules(TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"))
-    chain_seeds = {"core.engine", "core.registry", "core.resolver",
-                   "core.config_base", "core.logging_base",
-                   "core.auth_base", "core.crypto"}
-    result = mem.reason(
-        seed_concepts=chain_seeds,
-        max_depth=3,
-        max_total_states=50,
-    )
-    new_count = sum(1 for e in mem.graph.edges if e.label == "indirectly_depends_on")
-    expansion = result.get("expansion", {})
-    print(f"  TransitiveRule applied: {new_count} indirect dependencies discovered")
-    print(f"  Multiway states explored: {expansion.get('states_created', 0)}")
-    print(f"  Rules applied: {expansion.get('rules_applied', 0)}")
-    if new_count > 0:
-        sample = [e for e in mem.graph.edges if e.label == "indirectly_depends_on"][:5]
-        for e in sample:
-            src = mem.graph.get_node(next(iter(e.source_ids)))
-            tgt = mem.graph.get_node(next(iter(e.target_ids)))
-            s = src.label if src else "?"
-            t = tgt.label if tgt else "?"
-            print(f"    {s} -> {t}")
+    depends_subgraph = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "depends_on":
+            depends_subgraph.add_edge(u, v)
+
+    trans_dep_tc = nx.transitive_closure(depends_subgraph)
+    new_transitive = []
+    for u, v in trans_dep_tc.edges():
+        if not depends_subgraph.has_edge(u, v):
+            new_transitive.append((u, v))
+
+    print(f"  TransitiveRule equivalent: {len(new_transitive)} indirect dependencies discovered")
+    print(f"  (via nx.transitive_closure on depends_on subgraph)")
+    if new_transitive:
+        for src, tgt in new_transitive[:5]:
+            print(f"    {src} -> {tgt}")
     print()
 
     # =====================================================================
@@ -550,14 +568,10 @@ def main():
         age = current_year - data["last_updated"]
         if age >= 2:
             outdated.append((label, data))
-            node = mem.graph.get_node_by_label(label)
             deps_count = 0
-            if node:
-                deps_count = sum(
-                    1 for e in mem.graph.edges
-                    if e.label in ("depends_on", "imports")
-                    and node.id in e.target_ids
-                )
+            for u, v, d in G.edges(data=True):
+                if d.get("label") in ("depends_on", "imports") and v == label:
+                    deps_count += 1
             print(f"    {label:<20s} version={data['version']:<8s} "
                   f"last_updated={data['last_updated']}  "
                   f"age={age}yr  dependents={deps_count}  "
@@ -567,7 +581,7 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 8: Test Coverage Gaps
+    # SECTION 8: Test Coverage Risk Analysis
     # =====================================================================
 
     print("=" * 70)
@@ -580,8 +594,8 @@ def main():
         tc = data.get("test_coverage", 1.0)
         if tc > 0.7:
             continue
-        neighborhood = mem.query(label, strategy="bfs", max_depth=3, max_nodes=50)
-        dep_count = len([n for n in neighborhood if n.label != label])
+        neighborhood = bfs_neighborhood(G, label, max_depth=3, max_nodes=50)
+        dep_count = len(neighborhood)
         if dep_count >= 3:
             at_risk.append((label, tc, dep_count))
 
@@ -613,6 +627,7 @@ def main():
     print(header)
     print("  " + "-" * (len(header) - 2))
 
+    coupling_labels = ("depends_on", "imports", "extends")
     for src_sub, src_labels in subsystems.items():
         if src_sub == "test":
             continue
@@ -621,14 +636,8 @@ def main():
             if tgt_sub == "test":
                 continue
             count = 0
-            for e in mem.graph.edges:
-                if e.label not in ("depends_on", "imports", "extends"):
-                    continue
-                src_node = mem.graph.get_node(next(iter(e.source_ids), ""))
-                tgt_node = mem.graph.get_node(next(iter(e.target_ids), ""))
-                if (src_node and tgt_node
-                        and src_node.label in src_labels
-                        and tgt_node.label in tgt_labels):
+            for u, v, d in G.edges(data=True):
+                if d.get("label") in coupling_labels and u in src_labels and v in tgt_labels:
                     count += 1
             row += f"{count:>12d}"
         print(row)
@@ -641,19 +650,20 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
+    undirected = G.to_undirected()
+    n_components = nx.number_connected_components(undirected)
+    print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print(f"  Circular dependencies: {len(cycles)} cycles")
-    print(f"  Connected components: {stats['components']}")
-    print(f"  Indirect dependencies found: {new_count}")
+    print(f"  Connected components: {n_components}")
+    print(f"  Indirect dependencies found: {len(new_transitive)}")
     print(f"  Outdated packages: {len(outdated)}")
     print(f"  Low-coverage at-risk modules: {len(at_risk)}")
     print()
 
     top = sorted(combined.items(), key=lambda x: -x[1])[0]
     print(f"  Highest-risk module: {top[0]} (criticality={top[1]:.3f})")
-    blast = mem.query(top[0], strategy="bfs", max_depth=6, max_nodes=200)
-    blast_count = len([n for n in blast if n.label != top[0] and n.data.get("category") != "test"])
+    blast = bfs_neighborhood(G, top[0], max_depth=6, max_nodes=200)
+    blast_count = len([n for n in blast if n != top[0] and node_data.get(n, {}).get("category") != "test"])
     print(f"  Its blast radius: {blast_count} modules affected by a change")
     print()
 

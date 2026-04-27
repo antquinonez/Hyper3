@@ -1,28 +1,22 @@
 """
-Speculative Incident Investigation with Overlay
-================================================
+Speculative Incident Investigation with Overlay (networkx reimplementation)
+============================================================================
 
-An SRE team investigates why their application is down. They build a
-microservices infrastructure graph, identify 6 services reporting errors,
-and use the overlay system to explore 3 competing root-cause hypotheses
-without contaminating the base knowledge graph.
-
-The overlay acts as a scratchpad: each hypothesis is tested in isolation,
-reviewed against observed symptoms, and either committed (correct) or
-rolled back (wrong).  Only the winning hypothesis persists.
+Reimplements examples/advanced/08_overlay_commit_rollback.py using only
+networkx. Simulates overlay transactions via G.copy() + manual diff tracking.
+This demonstrates how much boilerplate is needed to replicate Hyper3's
+overlay feature with plain networkx.
 
 Run with:
-    .venv/bin/python examples/advanced/08_overlay_commit_rollback.py
+    .venv/bin/python examples/comparison/08_overlay_commit_rollback.py
 """
 
 from __future__ import annotations
 
-from hyper3 import (
-    CognitiveMemory,
-    TransitiveRule,
-    InverseRule,
-    Modality,
-)
+from collections import Counter, defaultdict
+
+import networkx as nx
+
 
 SERVICES: dict[str, dict] = {
     "web_frontend": {"type": "service", "team": "platform", "criticality": 8},
@@ -319,7 +313,65 @@ SYMPTOMS: list[tuple[str, str]] = [
 ]
 
 
-def build_infrastructure(mem: CognitiveMemory) -> None:
+class OverlayTransaction:
+    """Manual overlay simulation on top of a networkx DiGraph.
+
+    Tracks nodes/edges added during a transactional exploration.
+    commit() applies changes to the base graph.
+    rollback() discards the overlay copy entirely.
+    """
+
+    def __init__(self, base: nx.DiGraph):
+        self.base = base
+        self.overlay = base.copy()
+        self.added_nodes: list[str] = []
+        self.added_edges: list[tuple[str, str, dict]] = []
+        self.confidence: dict[tuple[str, str, str], float] = {}
+
+    def add_node(self, label: str, **kwargs) -> None:
+        if label not in self.overlay:
+            self.added_nodes.append(label)
+        self.overlay.add_node(label, **kwargs)
+
+    def add_edge(self, src: str, tgt: str, label: str, confidence: float = 0.8) -> None:
+        self.added_edges.append((src, tgt, {"label": label, "confidence": confidence}))
+        self.confidence[(src, tgt, label)] = confidence
+        self.overlay.add_edge(src, tgt, label=label, confidence=confidence)
+
+    def commit(self) -> dict:
+        committed_nodes = 0
+        committed_edges = 0
+        for node in self.added_nodes:
+            if node not in self.base:
+                self.base.add_node(node, **self.overlay.nodes[node])
+                committed_nodes += 1
+        for src, tgt, data in self.added_edges:
+            if not self.base.has_edge(src, tgt):
+                self.base.add_edge(src, tgt, **data)
+                committed_edges += 1
+            elif self.base[src][tgt].get("label") != data.get("label"):
+                self.base.add_edge(src, tgt, **data)
+                committed_edges += 1
+        return {"committed_nodes": committed_nodes, "committed_edges": committed_edges}
+
+    def rollback(self) -> dict:
+        count = len(self.added_edges)
+        self.overlay = None
+        self.added_nodes = []
+        self.added_edges = []
+        self.confidence = {}
+        return {"rolled_back_edges": count}
+
+    def get_edge_details(self) -> list[dict]:
+        details = []
+        for src, tgt, data in self.added_edges:
+            label = data.get("label", "")
+            conf = data.get("confidence", 0.0)
+            details.append({"source": src, "target": tgt, "label": label, "confidence": conf})
+        return details
+
+
+def build_infrastructure(G: nx.DiGraph) -> None:
     all_nodes: dict[str, dict] = {}
     all_nodes.update(SERVICES)
     all_nodes.update(DATABASES)
@@ -331,7 +383,7 @@ def build_infrastructure(mem: CognitiveMemory) -> None:
     all_nodes.update(INFRASTRUCTURE)
 
     for label, data in all_nodes.items():
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
 
     edge_groups: list[tuple[list[tuple[str, str]], str]] = [
         (DEPENDS_ON, "depends_on"),
@@ -344,64 +396,93 @@ def build_infrastructure(mem: CognitiveMemory) -> None:
     ]
     for edges, label in edge_groups:
         for src, tgt in edges:
-            mem.relate(src, tgt, label=label)
+            G.add_edge(src, tgt, label=label)
 
 
-def resolve_label(mem: CognitiveMemory, node_id: str) -> str:
-    node = mem.graph.get_node(node_id)
-    return node.label if node else node_id
+def find_transitive_chains(G: nx.DiGraph, edge_label: str, new_label: str) -> list[tuple[str, str, str]]:
+    edges_of_label = {(u, v) for u, v, d in G.edges(data=True) if d.get("label") == edge_label}
+    chains = []
+    for a, b in edges_of_label:
+        for b2, c in edges_of_label:
+            if b == b2 and a != c:
+                chains.append((a, b, c))
+    return chains
 
 
-def analyze_hypothesis(
-    mem: CognitiveMemory,
+def find_inverse_edges(G: nx.DiGraph, edge_label: str) -> list[tuple[str, str]]:
+    edges_of_label = {(u, v) for u, v, d in G.edges(data=True) if d.get("label") == edge_label}
+    pairs = []
+    for u, v in edges_of_label:
+        if (v, u) in edges_of_label:
+            pairs.append((u, v))
+    return pairs
+
+
+def expand_hypothesis(
+    G: nx.DiGraph,
     seeds: set[str],
-    symptom_ids: set[str],
+    symptom_labels: set[str],
+    max_depth: int = 3,
+    decay: float = 0.9,
 ) -> dict:
-    result = mem.reason(
-        seed_concepts=seeds,
-        max_depth=3,
-        max_total_states=30,
-        auto_commit=False,
-        confidence_decay=0.9,
-    )
+    overlay = OverlayTransaction(G)
 
-    overlay = mem.overlay
-    blast_radius: set[str] = set()
-    overlay_details: list[dict] = []
+    visited: set[str] = set()
+    frontier: set[str] = set(seeds)
+    rules_applied = 0
+    states_created = 0
 
-    if overlay:
-        for eid in sorted(overlay.overlay_edge_ids):
-            edge = overlay.get_edge(eid)
-            if not edge:
+    for depth in range(max_depth):
+        next_frontier: set[str] = set()
+        for node in frontier:
+            if node in visited:
                 continue
-            src_label = resolve_label(mem, next(iter(edge.source_ids)))
-            tgt_label = resolve_label(mem, next(iter(edge.target_ids)))
-            conf = overlay.get_confidence(eid)
-            overlay_details.append({
-                "source": src_label,
-                "target": tgt_label,
-                "label": edge.label,
-                "confidence": conf,
-            })
-            for nid in edge.source_ids | edge.target_ids:
-                if nid in symptom_ids:
-                    blast_radius.add(nid)
+            visited.add(node)
+            states_created += 1
 
-    matched_labels = sorted(resolve_label(mem, nid) for nid in blast_radius)
-    confidence_map = result.get("confidence", {})
-    avg_conf = (
-        sum(confidence_map.values()) / len(confidence_map)
-        if confidence_map
-        else 0.0
-    )
+            for _, tgt, data in G.out_edges(node, data=True):
+                label = data.get("label", "")
+                if label == "depends_on":
+                    conf = decay ** (depth + 1)
+                    overlay.add_edge(node, tgt, "indirectly_depends_on", confidence=conf)
+                    rules_applied += 1
+                    if tgt not in visited:
+                        next_frontier.add(tgt)
+
+            for pred, _, data in G.in_edges(node, data=True):
+                label = data.get("label", "")
+                if label == "depends_on":
+                    conf = decay ** (depth + 1)
+                    overlay.add_edge(pred, node, "depended_on_by", confidence=conf)
+                    rules_applied += 1
+
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    blast_radius: set[str] = set()
+    for src, tgt, data in overlay.added_edges:
+        if src in symptom_labels:
+            blast_radius.add(src)
+        if tgt in symptom_labels:
+            blast_radius.add(tgt)
+
+    overlay_details = overlay.get_edge_details()
+    confidences = [d["confidence"] for d in overlay_details]
+    avg_conf = sum(confidences) / len(confidences) if confidences else 0.0
+
+    matched_labels = sorted(blast_radius)
 
     return {
-        "result": result,
+        "overlay": overlay,
         "overlay_details": overlay_details,
         "blast_radius": matched_labels,
         "match_count": len(blast_radius),
-        "match_score": len(blast_radius) / len(symptom_ids) if symptom_ids else 0.0,
+        "match_score": len(blast_radius) / len(symptom_labels) if symptom_labels else 0.0,
         "avg_confidence": avg_conf,
+        "states_created": states_created,
+        "rules_applied": rules_applied,
+        "edges_produced": len(overlay_details),
     }
 
 
@@ -411,17 +492,14 @@ def print_hypothesis_report(
     seeds: set[str],
     analysis: dict,
 ) -> None:
-    exp = analysis["result"]["expansion"]
-    overlay_info = analysis["result"].get("overlay", {})
-
     print(f"  Hypothesis: {name}")
     print(f"  Description: {description}")
     print(f"  Seeds: {', '.join(sorted(seeds))}")
-    print(f"  Expansion: {exp['states_created']} states, "
-          f"{exp['rules_applied']} rules applied, "
-          f"{exp['edges_produced']} edges produced")
-    print(f"  Overlay: {overlay_info.get('edge_count', 0)} edges, "
-          f"{overlay_info.get('node_count', 0)} new nodes")
+    print(f"  Expansion: {analysis['states_created']} states, "
+          f"{analysis['rules_applied']} rules applied, "
+          f"{analysis['edges_produced']} edges produced")
+    print(f"  Overlay: {len(analysis['overlay_details'])} edges, "
+          f"{len(analysis['overlay'].added_nodes)} new nodes")
     print()
 
     if analysis["overlay_details"]:
@@ -444,13 +522,13 @@ def print_hypothesis_report(
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
 
     print("=" * 70)
     print("SECTION 1: Building Microservices Infrastructure Graph")
     print("=" * 70)
 
-    build_infrastructure(mem)
+    build_infrastructure(G)
 
     service_count = len(SERVICES)
     db_count = len(DATABASES)
@@ -473,7 +551,7 @@ def main() -> None:
     print(f"  Infrastructure: {infra_count:>3}")
     print(f"  -------------------")
     print(f"  Total nodes:    {total_nodes:>3}")
-    print(f"  Total edges:    {mem.graph.edge_count:>3}")
+    print(f"  Total edges:    {G.number_of_edges():>3}")
     print()
 
     print("  Edge types:")
@@ -496,36 +574,30 @@ def main() -> None:
         print(f"    {label:<25} {desc}")
     print()
 
-    symptom_ids: set[str] = set()
+    symptom_labels: set[str] = set()
     for label, _ in SYMPTOMS:
-        node = mem.graph.get_node_by_label(label)
-        if node:
-            symptom_ids.add(node.id)
-    print(f"  {len(symptom_ids)} symptom services require explanation")
+        if label in G:
+            symptom_labels.add(label)
+    print(f"  {len(symptom_labels)} symptom services require explanation")
     print()
 
-    base_edge_count = mem.graph.edge_count
-
-    mem.add_rules(
-        TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"),
-        InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
-    )
+    base_edge_count = G.number_of_edges()
 
     print("=" * 70)
     print("SECTION 3: Hypothesis A - Redis Cache Auth Failure (CORRECT)")
     print("=" * 70)
 
     seeds_a = {"redis_cache_auth", "auth_service", "user_service", "api_gateway", "payment_service"}
-    analysis_a = analyze_hypothesis(mem, seeds_a, symptom_ids)
+    analysis_a = expand_hypothesis(G, seeds_a, symptom_labels)
     print_hypothesis_report(
         "A", "redis_cache_auth authentication cache failure", seeds_a, analysis_a
     )
 
     print("  Verdict: STRONG MATCH - blast radius covers most symptoms")
     print("  Action: Rollback for now, will re-test and commit after comparing")
-    rb = mem.rollback_inferences()
+    rb = analysis_a["overlay"].rollback()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {G.number_of_edges()} edges (unchanged)")
     print()
 
     print("=" * 70)
@@ -533,34 +605,34 @@ def main() -> None:
     print("=" * 70)
 
     seeds_b = {"network_segment_dmz", "lb_web", "lb_api", "dns_primary"}
-    analysis_b = analyze_hypothesis(mem, seeds_b, symptom_ids)
+    analysis_b = expand_hypothesis(G, seeds_b, symptom_labels)
     print_hypothesis_report(
         "B", "DMZ network segment partition or misconfiguration", seeds_b, analysis_b
     )
 
     print("  Verdict: NO MATCH - inferred edges do not reach any symptom services")
     print("  Action: Rollback - hypothesis does not explain observed failures")
-    rb = mem.rollback_inferences()
+    rb = analysis_b["overlay"].rollback()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {G.number_of_edges()} edges (unchanged)")
     print()
 
     print("=" * 70)
-    print("SECTION 5: Hypothesis C - Kafka Inestion Cluster Issue (PARTIAL)")
+    print("SECTION 5: Hypothesis C - Kafka Ingestion Cluster Issue (PARTIAL)")
     print("=" * 70)
 
     seeds_c = {"kafka_ingestion", "kafka_analytics", "kafka_events",
                "analytics_service", "reporting_service", "search_service"}
-    analysis_c = analyze_hypothesis(mem, seeds_c, symptom_ids)
+    analysis_c = expand_hypothesis(G, seeds_c, symptom_labels)
     print_hypothesis_report(
         "C", "Kafka ingestion cluster degradation or partition", seeds_c, analysis_c
     )
 
     print("  Verdict: PARTIAL MATCH - explains some symptoms but not critical ones")
     print("  Action: Rollback - incomplete explanation for auth/payment failures")
-    rb = mem.rollback_inferences()
+    rb = analysis_c["overlay"].rollback()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {G.number_of_edges()} edges (unchanged)")
     print()
 
     print("=" * 70)
@@ -595,14 +667,14 @@ def main() -> None:
     print("=" * 70)
 
     print("  Re-running hypothesis A reasoning...")
-    analysis_final = analyze_hypothesis(mem, seeds_a, symptom_ids)
+    analysis_final = expand_hypothesis(G, seeds_a, symptom_labels)
 
-    if mem.overlay:
-        print(f"  Overlay contains {len(mem.overlay.overlay_edge_ids)} inference edges")
+    if analysis_final["overlay"].added_edges:
+        print(f"  Overlay contains {len(analysis_final['overlay'].added_edges)} inference edges")
         print()
 
         print("  Committing overlay to base graph...")
-        committed = mem.commit_inferences()
+        committed = analysis_final["overlay"].commit()
         print(f"  Committed: {committed['committed_nodes']} nodes, "
               f"{committed['committed_edges']} edges")
     else:
@@ -614,10 +686,10 @@ def main() -> None:
     print("=" * 70)
 
     print(f"  Base graph edges before: {base_edge_count}")
-    print(f"  Base graph edges after:  {mem.graph.edge_count}")
-    print(f"  Inference edges added:   {mem.graph.edge_count - base_edge_count}")
+    print(f"  Base graph edges after:  {G.number_of_edges()}")
+    print(f"  Inference edges added:   {G.number_of_edges() - base_edge_count}")
     print()
-    print(f"  Overlay active: {mem.overlay is not None}")
+    print(f"  Overlay active: {analysis_final['overlay'].overlay is not None}")
     print()
 
     print("  Committed inferences now in the base graph:")
@@ -642,6 +714,34 @@ def main() -> None:
     print()
     print("  This is critical for incident investigation where multiple")
     print("  team members propose competing theories simultaneously.")
+    print()
+
+    print("=" * 70)
+    print("SECTION 10: Boilerplate Comparison")
+    print("=" * 70)
+    print()
+    print("  What Hyper3 gives you for free (that we had to build manually):")
+    print()
+    print("  1. OverlayTransaction class (~50 lines)")
+    print("     - G.copy() for snapshot")
+    print("     - Manual tracking of added_nodes, added_edges, confidence")
+    print("     - commit() iterates and adds to base graph")
+    print("     - rollback() nulls the overlay reference")
+    print()
+    print("  2. Transitive chain discovery (~15 lines)")
+    print("     - Must build edge sets manually")
+    print("     - Nested loop over all same-label edge pairs")
+    print()
+    print("  3. Inverse edge discovery (~10 lines)")
+    print("     - Must build edge sets, check reverse membership")
+    print()
+    print("  4. Hypothesis expansion (~40 lines)")
+    print("     - Manual BFS with confidence decay tracking")
+    print("     - Manual blast radius calculation")
+    print("     - No rule engine, no multiway expansion")
+    print()
+    print("  Total boilerplate: ~115 lines to replicate what Hyper3 does")
+    print("  with mem.reason() + mem.commit_inferences().")
     print()
 
 

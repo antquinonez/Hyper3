@@ -1,24 +1,23 @@
 """
-Network Attack Surface Analysis
-================================
+Network Attack Surface Analysis (networkx reimplementation)
+============================================================
 
-Build a realistic 120+ node enterprise network topology and analyze it for
-security risks using graph analytics: degree centrality (exposure),
-betweenness centrality (chokepoints), connected components (segmentation
-violations), cycle detection (circular trust), and composite risk scoring.
+Reimplements examples/intermediate/06_graph_analytics.py using only
+networkx, numpy, and standard library. Same data, same outputs, no Hyper3.
 
 Run with:
-    .venv/bin/python examples/intermediate/06_graph_analytics.py
+    .venv/bin/python examples/comparison/06_graph_analytics.py
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
+import hashlib
+from collections import Counter, defaultdict
 
-from hyper3 import CognitiveMemory, Modality
+import networkx as nx
 
 
-def build_hosts(mem: CognitiveMemory) -> list[str]:
+def build_hosts(G: nx.DiGraph) -> list[str]:
     specs = [
         ("web-01", {"os": "linux", "zone": "dmz", "criticality": 9, "patch_level": 0.8}),
         ("web-02", {"os": "linux", "zone": "dmz", "criticality": 9, "patch_level": 0.7}),
@@ -68,11 +67,11 @@ def build_hosts(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "host"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_segments(mem: CognitiveMemory) -> list[str]:
+def build_segments(G: nx.DiGraph) -> list[str]:
     specs = [
         ("seg-dmz-1", {"zone": "dmz", "cidr": "10.0.1.0/24"}),
         ("seg-dmz-2", {"zone": "dmz", "cidr": "10.0.2.0/24"}),
@@ -99,11 +98,11 @@ def build_segments(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "segment"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_controls(mem: CognitiveMemory) -> list[str]:
+def build_controls(G: nx.DiGraph) -> list[str]:
     specs = [
         ("fw-perimeter", {"type": "firewall", "coverage": 0.9}),
         ("fw-internal", {"type": "firewall", "coverage": 0.7}),
@@ -124,11 +123,11 @@ def build_controls(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "control"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_services(mem: CognitiveMemory) -> list[str]:
+def build_services(G: nx.DiGraph) -> list[str]:
     specs = [
         ("svc-ssh", {"port": 22, "protocol": "tcp", "encrypted": True}),
         ("svc-http", {"port": 80, "protocol": "tcp", "encrypted": False}),
@@ -150,11 +149,11 @@ def build_services(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "service"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_vulnerabilities(mem: CognitiveMemory) -> list[str]:
+def build_vulnerabilities(G: nx.DiGraph) -> list[str]:
     specs = [
         ("cve-2024-0001", {"cvss": 9.8, "exploit_available": True}),
         ("cve-2024-0002", {"cvss": 8.5, "exploit_available": True}),
@@ -175,11 +174,11 @@ def build_vulnerabilities(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "vulnerability"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_users(mem: CognitiveMemory) -> list[str]:
+def build_users(G: nx.DiGraph) -> list[str]:
     specs = [
         ("admin-root", {"privilege_level": 10, "department": "ops"}),
         ("admin-network", {"privilege_level": 9, "department": "network"}),
@@ -196,11 +195,11 @@ def build_users(mem: CognitiveMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "user"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(label, **data)
     return [s[0] for s in specs]
 
 
-def build_edges(mem: CognitiveMemory) -> int:
+def build_edges(G: nx.DiGraph) -> int:
     edges = 0
 
     host_seg = {
@@ -229,7 +228,7 @@ def build_edges(mem: CognitiveMemory) -> int:
         "k8s-worker-02": "seg-k8s-pod", "api-gateway": "seg-cloud-edge",
     }
     for host, seg in host_seg.items():
-        mem.relate(host, seg, label="connects_to")
+        G.add_edge(host, seg, label="connects_to")
         edges += 1
 
     host_services = {
@@ -281,7 +280,9 @@ def build_edges(mem: CognitiveMemory) -> int:
     }
     for host, svcs in host_services.items():
         for svc in svcs:
-            mem.relate(host, svc, label="runs")
+            if svc not in G:
+                G.add_node(svc, kind="service")
+            G.add_edge(host, svc, label="runs")
             edges += 1
 
     exposure = {
@@ -305,7 +306,7 @@ def build_edges(mem: CognitiveMemory) -> int:
     }
     for host, svcs in exposure.items():
         for svc in svcs:
-            mem.relate(host, svc, label="exposed_on")
+            G.add_edge(host, svc, label="exposed_on")
             edges += 1
 
     vuln_map = {
@@ -343,7 +344,7 @@ def build_edges(mem: CognitiveMemory) -> int:
     }
     for host, vulns in vuln_map.items():
         for vuln in vulns:
-            mem.relate(host, vuln, label="vulnerable_to")
+            G.add_edge(host, vuln, label="vulnerable_to")
             edges += 1
 
     protections = {
@@ -382,7 +383,7 @@ def build_edges(mem: CognitiveMemory) -> int:
     }
     for host, ctrls in protections.items():
         for ctrl in ctrls:
-            mem.relate(host, ctrl, label="protected_by")
+            G.add_edge(host, ctrl, label="protected_by")
             edges += 1
 
     trust = [
@@ -422,7 +423,7 @@ def build_edges(mem: CognitiveMemory) -> int:
         ("monitoring-01", "log-collector", "trusts"),
     ]
     for src, tgt, lbl in trust:
-        mem.relate(src, tgt, label=lbl)
+        G.add_edge(src, tgt, label=lbl)
         edges += 1
 
     access = [
@@ -468,7 +469,7 @@ def build_edges(mem: CognitiveMemory) -> int:
         ("service-account", "nas-01"),
     ]
     for user, host in access:
-        mem.relate(user, host, label="has_access")
+        G.add_edge(user, host, label="has_access")
         edges += 1
 
     routes = [
@@ -501,112 +502,119 @@ def build_edges(mem: CognitiveMemory) -> int:
         ("seg-dmz-2", "seg-honeypot"),
     ]
     for src, tgt in routes:
-        mem.relate(src, tgt, label="routes_to")
+        G.add_edge(src, tgt, label="routes_to")
         edges += 1
 
     return edges
 
 
+def manual_degree_centrality(G: nx.DiGraph) -> dict[str, float]:
+    n = G.number_of_nodes()
+    if n <= 1:
+        return {n: 0.0 for n in G.nodes()}
+    norm = n - 1
+    return {node: (G.in_degree(node) + G.out_degree(node)) / norm for node in G.nodes()}
+
+
+def manual_betweenness_centrality(G: nx.DiGraph) -> dict[str, float]:
+    return nx.betweenness_centrality(G, normalized=True)
+
+
+def manual_weakly_connected_components(G: nx.DiGraph) -> list[set[str]]:
+    return list(nx.weakly_connected_components(G))
+
+
+def manual_simple_cycles(G: nx.DiGraph, max_cycles: int = 15) -> list[list[str]]:
+    try:
+        all_cycles = list(nx.simple_cycles(G))
+    except Exception:
+        return []
+    return all_cycles[:max_cycles]
+
+
+def edges_by_label(G: nx.DiGraph, label: str) -> list[tuple[str, str]]:
+    return [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == label]
+
+
 def compute_risk_scores(
-    mem: CognitiveMemory,
+    G: nx.DiGraph,
     degree: dict[str, float],
     betweenness: dict[str, float],
+    host_set: set[str],
 ) -> dict[str, float]:
-    vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
+    vuln_edges = edges_by_label(G, "vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
-    for edge in vuln_edges:
-        for sid in edge["source_ids"]:
-            node = mem.graph.get_node(sid)
-            if node and node.data.get("kind") == "host":
-                vuln_count[node.label] += 1
-
-    exploit_edges = []
-    for edge in vuln_edges:
-        for tid in edge["target_ids"]:
-            node = mem.graph.get_node(tid)
-            if node and node.data.get("kind") == "vulnerability":
-                if node.data.get("exploit_available"):
-                    exploit_edges.append(edge)
-
-    host_labels: set[str] = set()
-    for n in mem.graph.nodes:
-        if n.data.get("kind") == "host":
-            host_labels.add(n.label)
+    for src, tgt in vuln_edges:
+        if src in host_set:
+            vuln_count[src] += 1
 
     scores: dict[str, float] = {}
-    for label in host_labels:
+    for label in host_set:
         vc = vuln_count.get(label, 0)
         dc = degree.get(label, 0.0)
         bc = betweenness.get(label, 0.0)
-        node = mem.graph.get_node_by_label(label)
-        crit = node.data.get("criticality", 1) if node else 1
-        patch = node.data.get("patch_level", 0.5) if node else 0.5
+        ndata = G.nodes[label]
+        crit = ndata.get("criticality", 1)
+        patch = ndata.get("patch_level", 0.5)
         scores[label] = vc * 10 + dc * 50 + bc * 80 + crit * 3 + (1.0 - patch) * 15
 
     return scores
 
 
-def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str, str, str]]:
+def find_cross_zone_violations(G: nx.DiGraph) -> list[tuple[str, str, str, str, str]]:
     violations: list[tuple[str, str, str, str, str]] = []
-    route_edges = mem.pattern_match(edge_label="routes_to")
+
     seg_zones: dict[str, str] = {}
-    for n in mem.graph.nodes:
-        if n.data.get("kind") == "segment":
-            seg_zones[n.label] = n.data.get("zone", "unknown")
+    for node in G.nodes():
+        ndata = G.nodes[node]
+        if ndata.get("kind") == "segment":
+            seg_zones[node] = ndata.get("zone", "unknown")
 
     zone_rank = {"dmz": 0, "internal": 1, "restricted": 2}
-    for edge in route_edges:
-        src_label = edge.get("bindings", {}).get("source_label", "")
-        tgt_label = edge.get("bindings", {}).get("target_label", "")
-        if not src_label or not tgt_label:
-            sids = list(edge["source_ids"])
-            tids = list(edge["target_ids"])
-            if sids:
-                n = mem.graph.get_node(sids[0])
-                src_label = n.label if n else ""
-            if tids:
-                n = mem.graph.get_node(tids[0])
-                tgt_label = n.label if n else ""
 
-        sz = seg_zones.get(src_label, "")
-        tz = seg_zones.get(tgt_label, "")
+    for src, tgt in edges_by_label(G, "routes_to"):
+        sz = seg_zones.get(src, "")
+        tz = seg_zones.get(tgt, "")
         if sz and tz and sz != tz:
             sr = zone_rank.get(sz, -1)
             tr = zone_rank.get(tz, -1)
             if tr - sr >= 2:
-                violations.append((src_label, sz, tgt_label, tz, "routes_to"))
+                violations.append((src, sz, tgt, tz, "routes_to"))
 
-    trust_edges = mem.pattern_match(edge_label="trusts")
-    for edge in trust_edges:
-        src_label = edge.get("bindings", {}).get("source_label", "")
-        tgt_label = edge.get("bindings", {}).get("target_label", "")
-        if not src_label or not tgt_label:
-            sids = list(edge["source_ids"])
-            tids = list(edge["target_ids"])
-            if sids:
-                n = mem.graph.get_node(sids[0])
-                src_label = n.label if n else ""
-            if tids:
-                n = mem.graph.get_node(tids[0])
-                tgt_label = n.label if n else ""
-
-        if src_label and tgt_label:
-            src_node = mem.graph.get_node_by_label(src_label)
-            tgt_node = mem.graph.get_node_by_label(tgt_label)
-            if src_node and tgt_node:
-                sz = src_node.data.get("zone", "")
-                tz = tgt_node.data.get("zone", "")
-                if sz and tz and sz != tz:
-                    sr = zone_rank.get(sz, -1)
-                    tr = zone_rank.get(tz, -1)
-                    if tr > sr:
-                        violations.append((src_label, sz, tgt_label, tz, "trusts"))
+    for src, tgt in edges_by_label(G, "trusts"):
+        src_data = G.nodes.get(src, {})
+        tgt_data = G.nodes.get(tgt, {})
+        sz = src_data.get("zone", "")
+        tz = tgt_data.get("zone", "")
+        if sz and tz and sz != tz:
+            sr = zone_rank.get(sz, -1)
+            tr = zone_rank.get(tz, -1)
+            if tr > sr:
+                violations.append((src, sz, tgt, tz, "trusts"))
 
     return violations
 
 
+def degree_distribution(G: nx.DiGraph) -> dict[int, int]:
+    dist: dict[int, int] = Counter()
+    for node in G.nodes():
+        d = G.in_degree(node) + G.out_degree(node)
+        dist[d] += 1
+    return dict(dist)
+
+
+def shortest_path(G: nx.DiGraph, src: str, tgt: str) -> list[str] | None:
+    try:
+        path = nx.shortest_path(G, src, tgt)
+        return path
+    except nx.NetworkXNoPath:
+        return None
+    except nx.NodeNotFound:
+        return None
+
+
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
 
     # =====================================================================
     # SECTION 1: Building Enterprise Network Topology
@@ -615,13 +623,13 @@ def main():
     print("SECTION 1: Building Enterprise Network Topology")
     print("=" * 70)
 
-    hosts = build_hosts(mem)
-    segments = build_segments(mem)
-    controls = build_controls(mem)
-    services = build_services(mem)
-    vulns = build_vulnerabilities(mem)
-    users = build_users(mem)
-    edge_count = build_edges(mem)
+    hosts = build_hosts(G)
+    segments = build_segments(G)
+    controls = build_controls(G)
+    services = build_services(G)
+    vulns = build_vulnerabilities(G)
+    users = build_users(G)
+    edge_count = build_edges(G)
 
     print(f"  Hosts:             {len(hosts)}")
     print(f"  Network segments:  {len(segments)}")
@@ -629,8 +637,8 @@ def main():
     print(f"  Services:          {len(services)}")
     print(f"  Vulnerabilities:   {len(vulns)}")
     print(f"  Users/roles:       {len(users)}")
-    print(f"  Total nodes:       {mem.graph.node_count}")
-    print(f"  Total edges:       {mem.graph.edge_count}")
+    print(f"  Total nodes:       {G.number_of_nodes()}")
+    print(f"  Total edges:       {G.number_of_edges()}")
     print()
 
     # =====================================================================
@@ -640,19 +648,17 @@ def main():
     print("SECTION 2: Degree Centrality - Most Exposed Assets")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
-    host_degree = {
-        lbl: score for lbl, score in degree.items()
-        if lbl in set(hosts)
-    }
+    degree = manual_degree_centrality(G)
+    host_set = set(hosts)
+    host_degree = {lbl: score for lbl, score in degree.items() if lbl in host_set}
     top_exposed = sorted(host_degree.items(), key=lambda x: -x[1])[:10]
     print(f"  {'Host':25s} {'Degree':>8s}  {'Zone':12s}  Crit Patch")
     print(f"  {'-' * 25} {'-' * 8}  {'-' * 12}  ---- -----")
     for label, score in top_exposed:
-        node = mem.graph.get_node_by_label(label)
-        zone = node.data.get("zone", "?") if node else "?"
-        crit = node.data.get("criticality", 0) if node else 0
-        patch = node.data.get("patch_level", 0) if node else 0
+        ndata = G.nodes[label]
+        zone = ndata.get("zone", "?")
+        crit = ndata.get("criticality", 0)
+        patch = ndata.get("patch_level", 0)
         print(f"  {label:25s} {score:8.4f}  {zone:12s}  {crit:4d} {patch:.2f}")
     print()
 
@@ -663,23 +669,23 @@ def main():
     print("SECTION 3: Betweenness Centrality - Critical Chokepoints")
     print("=" * 70)
 
-    betweenness = mem.betweenness_centrality_labels()
+    betweenness = manual_betweenness_centrality(G)
     top_choke = sorted(betweenness.items(), key=lambda x: -x[1])[:10]
     print(f"  {'Node':25s} {'Betweenness':>12s}  {'Kind':10s}")
     print(f"  {'-' * 25} {'-' * 12}  {'-' * 10}")
     for label, score in top_choke:
-        node = mem.graph.get_node_by_label(label)
-        kind = node.data.get("kind", "?") if node else "?"
+        ndata = G.nodes.get(label, {})
+        kind = ndata.get("kind", "?")
         print(f"  {label:25s} {score:12.4f}  {kind:10s}")
     print()
 
     print("  Top 5 critical chokepoints (assets whose compromise reaches many systems):")
-    host_bw = {lbl: s for lbl, s in betweenness.items() if lbl in set(hosts)}
+    host_bw = {lbl: s for lbl, s in betweenness.items() if lbl in host_set}
     top5_choke = sorted(host_bw.items(), key=lambda x: -x[1])[:5]
     for i, (label, score) in enumerate(top5_choke, 1):
-        node = mem.graph.get_node_by_label(label)
-        zone = node.data.get("zone", "?") if node else "?"
-        crit = node.data.get("criticality", 0) if node else 0
+        ndata = G.nodes[label]
+        zone = ndata.get("zone", "?")
+        crit = ndata.get("criticality", 0)
         print(f"    {i}. {label:25s} betweenness={score:.4f}  zone={zone}  criticality={crit}")
     print()
 
@@ -690,14 +696,13 @@ def main():
     print("SECTION 4: Connected Components - Segmentation Verification")
     print("=" * 70)
 
-    components = mem.connected_components_labels()
+    components = manual_weakly_connected_components(G)
     print(f"  Total connected components: {len(components)}")
     for i, comp in enumerate(components):
         zones: dict[str, int] = defaultdict(int)
         for lbl in comp:
-            node = mem.graph.get_node_by_label(lbl)
-            if node:
-                zones[node.data.get("zone", "unknown")] += 1
+            ndata = G.nodes.get(lbl, {})
+            zones[ndata.get("zone", "unknown")] += 1
         zones_str = ", ".join(f"{z}:{c}" for z, c in sorted(zones.items()))
         print(f"    Component {i + 1}: {len(comp)} nodes  [{zones_str}]")
     print()
@@ -716,25 +721,21 @@ def main():
     print("SECTION 5: Cycle Detection - Circular Trust Relationships")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=15)
+    cycles = manual_simple_cycles(G, max_cycles=15)
     print(f"  Detected {len(cycles)} cycles\n")
+
+    trust_edge_set = set()
+    for src, tgt in edges_by_label(G, "trusts"):
+        trust_edge_set.add((src, tgt))
 
     trust_cycles = []
     for cycle in cycles:
         has_trust = False
-        cycle_set = set(cycle)
         for i in range(len(cycle)):
             src = cycle[i]
             tgt = cycle[(i + 1) % len(cycle)]
-            src_node = mem.graph.get_node_by_label(src)
-            tgt_node = mem.graph.get_node_by_label(tgt)
-            if src_node and tgt_node:
-                for edge in mem.graph.edges:
-                    if src_node.id in edge.source_ids and tgt_node.id in edge.target_ids:
-                        if edge.label == "trusts":
-                            has_trust = True
-                            break
-            if has_trust:
+            if (src, tgt) in trust_edge_set:
+                has_trust = True
                 break
         if has_trust:
             trust_cycles.append(cycle)
@@ -756,7 +757,7 @@ def main():
     print("SECTION 6: Cross-Zone Violations - Segmentation Policy Breaches")
     print("=" * 70)
 
-    violations = find_cross_zone_violations(mem)
+    violations = find_cross_zone_violations(G)
     print(f"  Found {len(violations)} cross-zone violations\n")
 
     trust_violations = [v for v in violations if v[4] == "trusts"]
@@ -781,7 +782,7 @@ def main():
     print("SECTION 7: Degree Distribution")
     print("=" * 70)
 
-    dist = mem.degree_distribution()
+    dist = degree_distribution(G)
     print(f"  {'Degree':>6s}  {'Nodes':>6s}  Distribution")
     print(f"  {'-' * 6}  {'-' * 6}  {'-' * 40}")
     max_count = max(dist.values()) if dist else 1
@@ -802,23 +803,21 @@ def main():
     print("SECTION 8: Composite Risk Scoring - Critical Risk Hosts")
     print("=" * 70)
 
-    risk_scores = compute_risk_scores(mem, degree, betweenness)
+    risk_scores = compute_risk_scores(G, degree, betweenness, host_set)
     top_risk = sorted(risk_scores.items(), key=lambda x: -x[1])[:15]
 
-    vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
-    vuln_count: dict[str, int] = defaultdict(int)
-    for edge in vuln_edges:
-        for sid in edge["source_ids"]:
-            node = mem.graph.get_node(sid)
-            if node and node.data.get("kind") == "host":
-                vuln_count[node.label] += 1
+    vuln_edges_list = edges_by_label(G, "vulnerable_to")
+    vuln_count_display: dict[str, int] = defaultdict(int)
+    for src, tgt in vuln_edges_list:
+        if src in host_set:
+            vuln_count_display[src] += 1
 
     print(f"  {'Host':25s} {'Risk':>7s}  {'Vulns':>5s}  {'Deg':>6s}  {'Btw':>7s}  Zone")
     print(f"  {'-' * 25} {'-' * 7}  {'-' * 5}  {'-' * 6}  {'-' * 7}  {'-' * 12}")
     for label, risk in top_risk:
-        node = mem.graph.get_node_by_label(label)
-        zone = node.data.get("zone", "?") if node else "?"
-        vc = vuln_count.get(label, 0)
+        ndata = G.nodes[label]
+        zone = ndata.get("zone", "?")
+        vc = vuln_count_display.get(label, 0)
         dc = degree.get(label, 0)
         bc = betweenness.get(label, 0)
         print(f"  {label:25s} {risk:7.1f}  {vc:5d}  {dc:6.4f}  {bc:7.4f}  {zone}")
@@ -832,15 +831,14 @@ def main():
     print("=" * 70)
 
     print("  Highest-risk DMZ hosts (attacker entry points):")
-    dmz_hosts = [h for h in hosts if h in set(hosts)]
     dmz_with_vulns = []
-    for h in dmz_hosts:
-        node = mem.graph.get_node_by_label(h)
-        if node and node.data.get("zone") == "dmz" and vuln_count.get(h, 0) > 0:
+    for h in hosts:
+        ndata = G.nodes.get(h, {})
+        if ndata.get("zone") == "dmz" and vuln_count_display.get(h, 0) > 0:
             dmz_with_vulns.append((h, risk_scores.get(h, 0)))
     dmz_with_vulns.sort(key=lambda x: -x[1])
     for label, risk in dmz_with_vulns[:5]:
-        vc = vuln_count.get(label, 0)
+        vc = vuln_count_display.get(label, 0)
         print(f"    {label:25s}  risk={risk:.1f}  vulns={vc}")
     print()
 
@@ -853,13 +851,12 @@ def main():
         ("ws-exec-01", "dc-01", "Exec workstation to domain controller"),
     ]
     for src, tgt, desc in lateral_targets:
-        path = mem.shortest_path_labels(src, tgt)
+        path = shortest_path(G, src, tgt)
         if path:
             zones_in_path = []
             for p in path:
-                n = mem.graph.get_node_by_label(p)
-                if n:
-                    zones_in_path.append(n.data.get("zone", "?"))
+                ndata = G.nodes.get(p, {})
+                zones_in_path.append(ndata.get("zone", "?"))
             print(f"    {desc}:")
             print(f"      {' -> '.join(path)}")
             print(f"      Zone traversal: {' -> '.join(zones_in_path)}")
@@ -871,7 +868,7 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Network: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print(f"  Connected components: {len(components)}")
     print(f"  Total cycles detected: {len(cycles)}")
     print(f"  Cross-zone violations: {len(violations)}")

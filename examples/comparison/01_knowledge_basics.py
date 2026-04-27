@@ -1,24 +1,19 @@
 """
-Building and Querying a Threat Intelligence Knowledge Base
-==========================================================
+Building and Querying a Threat Intelligence Knowledge Base (Plain Python)
+=========================================================================
 
-This example builds a realistic cyber threat intelligence graph with 100+
-nodes and 200+ edges, then demonstrates how to query it for actionable
-security insights that would be impractical to find by manual inspection.
-
-Use case: A security operations center (SOC) analyst needs to understand
-which CVEs are most heavily linked to active threat actors, find isolated
-indicators that lack context, trace attack paths from specific APT groups
-to targeted industries, and identify which threat ecosystems are connected
-through shared infrastructure or malware.
+Reimplements examples/basic/01_knowledge_basics.py using only networkx,
+numpy, and standard libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/basic/01_knowledge_basics.py
+    .venv/bin/python examples/comparison/01_knowledge_basics.py
 """
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality
+from collections import defaultdict, deque
+
+import networkx as nx
 
 
 THREAT_ACTORS = [
@@ -373,71 +368,141 @@ ACTOR_TO_TTP = [
 ]
 
 
-def _resolve_label(node_id: str, label_map: dict[str, str]) -> str:
-    return label_map.get(node_id, node_id[:8])
+def bfs_nodes(G: nx.DiGraph, start: str, max_depth: int, max_nodes: int) -> list[str]:
+    visited = {start}
+    result = [start]
+    queue = deque([(start, 0)])
+    while queue and len(result) < max_nodes:
+        node, depth = queue.popleft()
+        if depth >= max_depth:
+            continue
+        for nb in list(G.successors(node)) + list(G.predecessors(node)):
+            if nb not in visited and len(result) < max_nodes:
+                visited.add(nb)
+                result.append(nb)
+                queue.append((nb, depth + 1))
+    return result
+
+
+def find_all_paths(G: nx.DiGraph, start: str, end: str, max_depth: int, max_paths: int) -> list[list[str]]:
+    paths = []
+    stack = [(start, [start])]
+    while stack and len(paths) < max_paths:
+        node, path = stack.pop()
+        if len(path) > max_depth + 1:
+            continue
+        if node == end and len(path) > 1:
+            paths.append(path)
+            continue
+        for nb in G.successors(node):
+            if nb not in path:
+                stack.append((nb, path + [nb]))
+    return paths
+
+
+def edges_by_label(G: nx.DiGraph, label: str, source: str | None = None) -> list[tuple[str, str]]:
+    results = []
+    for u, v, data in G.edges(data=True):
+        if data.get("label") == label:
+            if source is None or u == source:
+                results.append((u, v))
+    return results
+
+
+def degree_centrality_labels(G: nx.DiGraph) -> dict[str, float]:
+    raw = nx.degree_centrality(G)
+    return raw
+
+
+def betweenness_centrality_labels(G: nx.DiGraph) -> dict[str, float]:
+    return nx.betweenness_centrality(G, normalized=True)
+
+
+def connected_components_labels(G: nx.DiGraph) -> list[set[str]]:
+    undirected = G.to_undirected()
+    return [set(comp) for comp in nx.connected_components(undirected)]
+
+
+def has_cycles(G: nx.DiGraph) -> bool:
+    try:
+        nx.find_cycle(G)
+        return True
+    except nx.NetworkXNoCycle:
+        return False
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
+    modality_map: dict[str, str] = {}
 
     print("=" * 70)
     print("SECTION 1: Building the Threat Intelligence Knowledge Base")
     print("=" * 70)
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        G.add_node(actor["label"])
+        node_data[actor["label"]] = actor["data"]
+        modality_map[actor["label"]] = "CAUSAL"
 
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        G.add_node(cve["label"])
+        node_data[cve["label"]] = cve["data"]
+        modality_map[cve["label"]] = "SENSORY"
 
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        G.add_node(mw["label"])
+        node_data[mw["label"]] = mw["data"]
+        modality_map[mw["label"]] = "CONCEPTUAL"
 
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        G.add_node(ttp["label"])
+        node_data[ttp["label"]] = ttp["data"]
+        modality_map[ttp["label"]] = "CONCEPTUAL"
 
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        G.add_node(infra["label"])
+        node_data[infra["label"]] = infra["data"]
+        modality_map[infra["label"]] = "SENSORY"
 
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        G.add_node(ind["label"])
+        node_data[ind["label"]] = ind["data"]
+        modality_map[ind["label"]] = "ABSTRACT"
 
-    print(f"  Stored {mem.graph.node_count} nodes")
+    print(f"  Stored {G.number_of_nodes()} nodes")
 
     edge_count = 0
     for rel_label, pairs in RELATIONSHIP_MAP.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
+            G.add_edge(src, tgt, label=rel_label)
             edge_count += 1
 
     for src, tgt in ACTOR_TO_TTP:
-        mem.relate(src, tgt, label="uses_tactic")
+        G.add_edge(src, tgt, label="uses_tactic")
         edge_count += 1
 
-    print(f"  Created {mem.graph.edge_count} edges ({edge_count} requested)")
+    print(f"  Created {G.number_of_edges()} edges ({edge_count} requested)")
     print()
 
     print("=" * 70)
     print("SECTION 2: Recall and Neighborhood Traversal")
     print("=" * 70)
 
-    lazarus_neighborhood = mem.recall("Lazarus", max_depth=2, max_nodes=30)
+    lazarus_neighborhood = bfs_nodes(G, "Lazarus", max_depth=2, max_nodes=30)
     print(f"  Lazarus neighborhood (depth=2): {len(lazarus_neighborhood)} nodes")
     neighbors_by_type: dict[str, list[str]] = {}
-    for node in lazarus_neighborhood:
-        if isinstance(node.data, dict):
-            cat = node.data.get("type", node.data.get("sector", node.data.get("origin", "other")))
-        else:
-            cat = "other"
-        neighbors_by_type.setdefault(cat, []).append(node.label)
+    for lbl in lazarus_neighborhood:
+        data = node_data.get(lbl, {})
+        cat = data.get("type", data.get("sector", data.get("origin", "other")))
+        neighbors_by_type.setdefault(cat, []).append(lbl)
     for cat, labels in sorted(neighbors_by_type.items()):
         print(f"    {cat}: {', '.join(labels[:6])}{'...' if len(labels) > 6 else ''}")
 
-    gov_reachable = mem.query("GOV", strategy="bfs", max_depth=3, max_nodes=50)
+    gov_reachable = bfs_nodes(G, "GOV", max_depth=3, max_nodes=50)
     print(f"\n  BFS from GOV sector (depth=3): {len(gov_reachable)} nodes")
-    gov_labels = [n.label for n in gov_reachable]
     actor_set = {a["label"] for a in THREAT_ACTORS}
-    gov_actors = [l for l in gov_labels if l in actor_set]
+    gov_actors = [l for l in gov_reachable if l in actor_set]
     print(f"    Threat actors targeting government: {gov_actors}")
     print()
 
@@ -445,25 +510,19 @@ def main():
     print("SECTION 3: Pattern Matching for Attack Chains")
     print("=" * 70)
 
-    exploits_edges = mem.pattern_match(edge_label="exploits")
+    exploits_edges = edges_by_label(G, "exploits")
     print(f"  Total 'exploits' edges: {len(exploits_edges)}")
 
-    uses_edges = mem.pattern_match(edge_label="uses")
+    uses_edges = edges_by_label(G, "uses")
     print(f"  Total 'uses' (malware) edges: {len(uses_edges)}")
 
-    targets_edges = mem.pattern_match(edge_label="targets")
+    targets_edges = edges_by_label(G, "targets")
     print(f"  Total 'targets' edges: {len(targets_edges)}")
 
-    id_to_label = {n.id: n.label for n in mem.graph.nodes}
-
     cve_to_industry: dict[str, set[str]] = {}
-    for exp in exploits_edges:
-        actor_id = list(exp["source_ids"])[0]
-        actor_lbl = _resolve_label(actor_id, id_to_label)
-        for tgt in targets_edges:
-            if actor_id in tgt["source_ids"]:
-                ind_lbl = _resolve_label(list(tgt["target_ids"])[0], id_to_label)
-                cve_lbl = _resolve_label(list(exp["target_ids"])[0], id_to_label)
+    for actor_lbl, cve_lbl in exploits_edges:
+        for a2, ind_lbl in targets_edges:
+            if actor_lbl == a2:
                 cve_to_industry.setdefault(cve_lbl, set()).add(ind_lbl)
 
     print(f"\n  CVEs enabling attacks on the most sectors:")
@@ -476,21 +535,17 @@ def main():
     print("SECTION 4: Top 5 Most Connected CVEs (Highest Degree)")
     print("=" * 70)
 
-    centrality = mem.degree_centrality_labels()
+    centrality = degree_centrality_labels(G)
     cve_set = {c["label"] for c in CVES}
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
     top_cves = sorted(cve_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
 
-    print("  Rank  CVE                  Centality  CVSS   Product")
+    print("  Rank  CVE                  Centrality  CVSS   Product")
     print("  " + "-" * 60)
     for rank, (cve_label, score) in enumerate(top_cves, 1):
-        node = None
-        for n in mem.graph.nodes:
-            if n.label == cve_label:
-                node = n
-                break
-        cvss = node.data["cvss"] if node and isinstance(node.data, dict) else "?"
-        product = node.data["product"] if node and isinstance(node.data, dict) else "?"
+        data = node_data.get(cve_label, {})
+        cvss = data.get("cvss", "?")
+        product = data.get("product", "?")
         print(f"  {rank}.    {cve_label:22s} {score:.4f}   {cvss:<5}  {product}")
     print()
 
@@ -498,44 +553,38 @@ def main():
     print("SECTION 5: Subgraph Extraction - APT28 Full Profile")
     print("=" * 70)
 
-    apt28_exploits = mem.pattern_match(source_label="APT28", edge_label="exploits")
-    apt28_uses = mem.pattern_match(source_label="APT28", edge_label="uses")
-    apt28_targets = mem.pattern_match(source_label="APT28", edge_label="targets")
-    apt28_ttps = mem.pattern_match(source_label="APT28", edge_label="uses_tactic")
+    apt28_exploits = edges_by_label(G, "exploits", source="APT28")
+    apt28_uses = edges_by_label(G, "uses", source="APT28")
+    apt28_targets = edges_by_label(G, "targets", source="APT28")
+    apt28_ttps = edges_by_label(G, "uses_tactic", source="APT28")
 
     apt28_labels = {"APT28"}
     for edges in [apt28_exploits, apt28_uses, apt28_targets, apt28_ttps]:
-        for e in edges:
-            for sid in e["source_ids"]:
-                apt28_labels.add(_resolve_label(sid, id_to_label))
-            for tid in e["target_ids"]:
-                apt28_labels.add(_resolve_label(tid, id_to_label))
+        for u, v in edges:
+            apt28_labels.add(u)
+            apt28_labels.add(v)
 
-    sg = mem.subgraph(apt28_labels)
-    print(f"  APT28 profile subgraph: {sg['node_count']} nodes, {sg['edge_count']} edges")
+    sg = G.subgraph(apt28_labels)
+    print(f"  APT28 profile subgraph: {sg.number_of_nodes()} nodes, {sg.number_of_edges()} edges")
     print(f"    CVEs exploited:")
-    for e in apt28_exploits:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
-        print(f"      {tgt_lbl}")
+    for _, v in apt28_exploits:
+        print(f"      {v}")
     print(f"    Malware used:")
-    for e in apt28_uses:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
-        print(f"      {tgt_lbl}")
+    for _, v in apt28_uses:
+        print(f"      {v}")
     print(f"    Sectors targeted:")
-    for e in apt28_targets:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
-        print(f"      {tgt_lbl}")
+    for _, v in apt28_targets:
+        print(f"      {v}")
     print(f"    TTPs:")
-    for e in apt28_ttps:
-        tgt_lbl = _resolve_label(list(e["target_ids"])[0], id_to_label)
-        print(f"      {tgt_lbl}")
+    for _, v in apt28_ttps:
+        print(f"      {v}")
     print()
 
     print("=" * 70)
     print("SECTION 6: Attack Paths - Lazarus to Financial Sector")
     print("=" * 70)
 
-    paths = mem.find_paths_labels("Lazarus", "FIN", max_depth=4, max_paths=10)
+    paths = find_all_paths(G, "Lazarus", "FIN", max_depth=4, max_paths=10)
     if paths:
         print(f"  Found {len(paths)} path(s) from Lazarus to Financial sector:")
         for i, path in enumerate(paths, 1):
@@ -543,7 +592,7 @@ def main():
     else:
         print("  No direct paths found from Lazarus to Financial sector")
 
-    paths2 = mem.find_paths_labels("Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
+    paths2 = find_all_paths(G, "Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
     if paths2:
         print(f"\n  Found {len(paths2)} path(s) from Volt Typhoon to Energy sector:")
         for i, path in enumerate(paths2, 1):
@@ -556,25 +605,19 @@ def main():
     print("SECTION 7: Isolated Indicators Needing Enrichment")
     print("=" * 70)
 
-    all_labels = {n.label for n in mem.graph.nodes}
+    all_labels = set(G.nodes())
     connected_labels: set[str] = set()
-    for edge in mem.graph.edges:
-        for sid in edge.source_ids:
-            connected_labels.add(_resolve_label(sid, id_to_label))
-        for tid in edge.target_ids:
-            connected_labels.add(_resolve_label(tid, id_to_label))
+    for u, v in G.edges():
+        connected_labels.add(u)
+        connected_labels.add(v)
 
     isolated = all_labels - connected_labels
     if isolated:
         print(f"  {len(isolated)} nodes with NO edges (need enrichment):")
         for label in sorted(isolated):
-            node = None
-            for n in mem.graph.nodes:
-                if n.label == label:
-                    node = n
-                    break
-            if node and isinstance(node.data, dict):
-                detail = node.data.get("tactic", node.data.get("type", node.data.get("sector", "")))
+            data = node_data.get(label, {})
+            detail = data.get("tactic", data.get("type", data.get("sector", "")))
+            if detail:
                 print(f"    {label} [{detail}]")
             else:
                 print(f"    {label}")
@@ -586,7 +629,7 @@ def main():
     print("SECTION 8: Connected Components - Threat Ecosystems")
     print("=" * 70)
 
-    components = mem.connected_components_labels()
+    components = connected_components_labels(G)
     components_sorted = sorted(components, key=len, reverse=True)
     print(f"  Total connected components: {len(components_sorted)}")
     for i, comp in enumerate(components_sorted, 1):
@@ -622,37 +665,33 @@ def main():
     print("SECTION 9: Modality-Filtered Traversal")
     print("=" * 70)
 
-    causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, max_depth=2, max_nodes=20)
-    print(f"  CAUSAL modality from Log4j CVE: {len(causal_nodes)} nodes")
-    for n in causal_nodes:
-        origin = n.data.get("origin", "") if isinstance(n.data, dict) else ""
-        suffix = f" (origin: {origin})" if origin else ""
-        print(f"    {n.label}{suffix}")
-
-    sensory_nodes = mem.query("CVE-2023-44228", modality=Modality.SENSORY, max_depth=2, max_nodes=20)
-    print(f"\n  SENSORY modality from Log4j CVE: {len(sensory_nodes)} nodes")
-    for n in sensory_nodes:
-        cvss = n.data.get("cvss", n.data.get("type", "")) if isinstance(n.data, dict) else ""
-        suffix = f" (cvss/type: {cvss})" if cvss else ""
-        print(f"    {n.label}{suffix}")
-
-    conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max_depth=2, max_nodes=20)
-    print(f"\n  CONCEPTUAL modality from Log4j CVE: {len(conceptual_nodes)} nodes")
-    for n in conceptual_nodes:
-        mw_type = n.data.get("type", n.data.get("tactic", "")) if isinstance(n.data, dict) else ""
-        suffix = f" ({mw_type})" if mw_type else ""
-        print(f"    {n.label}{suffix}")
-    print()
+    for modality_name in ["CAUSAL", "SENSORY", "CONCEPTUAL"]:
+        neighborhood = bfs_nodes(G, "CVE-2023-44228", max_depth=2, max_nodes=20)
+        filtered = [l for l in neighborhood if modality_map.get(l) == modality_name]
+        print(f"  {modality_name} modality from Log4j CVE: {len(filtered)} nodes")
+        for lbl in filtered:
+            data = node_data.get(lbl, {})
+            if modality_name == "CAUSAL":
+                origin = data.get("origin", "")
+                suffix = f" (origin: {origin})" if origin else ""
+            elif modality_name == "SENSORY":
+                cvss = data.get("cvss", data.get("type", ""))
+                suffix = f" (cvss/type: {cvss})" if cvss else ""
+            else:
+                mw_type = data.get("type", data.get("tactic", ""))
+                suffix = f" ({mw_type})" if mw_type else ""
+            print(f"    {lbl}{suffix}")
+        print()
 
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Nodes:                {stats['nodes']}")
-    print(f"  Edges:                {stats['edges']}")
-    print(f"  Event log entries:    {stats['log_size']}")
-    print(f"  Connected components: {stats['components']}")
-    print(f"  Has cycles:           {stats['cycles']}")
+    components_count = len(connected_components_labels(G))
+    cycles = has_cycles(G)
+    print(f"  Nodes:                {G.number_of_nodes()}")
+    print(f"  Edges:                {G.number_of_edges()}")
+    print(f"  Connected components: {components_count}")
+    print(f"  Has cycles:           {cycles}")
     print(f"  Threat actors:        {len(THREAT_ACTORS)}")
     print(f"  CVEs:                 {len(CVES)}")
     print(f"  Malware families:     {len(MALWARE)}")

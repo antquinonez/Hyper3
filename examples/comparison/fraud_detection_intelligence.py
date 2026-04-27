@@ -1,29 +1,24 @@
 """
-Fraud Network Intelligence
-===========================
+Fraud Network Intelligence (Standard Library)
+==============================================
 
-Models a realistic fraud investigation scenario: a ring leader orchestrates
-money laundering through shell companies, money mules, and layered transactions.
-The investigation starts from a flagged alert, uses activation and retrieval to
-surface related entities, applies reasoning rules to discover hidden connections,
-detects circular money flows and funnel accounts, and ranks suspects by risk.
+Reimplementation of the Hyper3 fraud detection example using networkx.DiGraph,
+BFS with decay for spreading activation, and standard Python libraries. No
+Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/domain/fraud_detection_intelligence.py
+    .venv/bin/python examples/comparison/fraud_detection_intelligence.py
 """
 
 from __future__ import annotations
 
-from hyper3 import (
-    CognitiveMemory,
-    Modality,
-    TransitiveRule,
-    InverseRule,
-)
+import networkx as nx
+from collections import defaultdict, deque
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
 
     print("=" * 70)
     print("SECTION 1: Fraud Network Construction")
@@ -179,7 +174,8 @@ def main():
     all_nodes.update(alerts)
 
     for label, data in all_nodes.items():
-        mem.store(label, data=data)
+        G.add_node(label)
+        node_data[label] = data
 
     owns_edges = [
         ("viktor_kingpin", "acct_viktor_personal"),
@@ -460,11 +456,11 @@ def main():
     total_edges = 0
     for label, pairs in edge_groups.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=label)
+            G.add_edge(src, tgt, label=label)
         total_edges += len(pairs)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {G.number_of_nodes()}")
+    print(f"  Edges: {G.number_of_edges()}")
     print(f"  Edge breakdown:")
     for label, pairs in edge_groups.items():
         print(f"    {label}: {len(pairs)}")
@@ -475,65 +471,116 @@ def main():
     print("SECTION 2: Alert Triage and Activation")
     print("=" * 70)
 
-    activated = mem.activate("alert_circular_001", energy=1.0, top_k=15)
+    def spreading_activation(graph, source, energy=1.0, decay=0.6, max_depth=4, top_k=15):
+        activations = {source: energy}
+        visited = {source}
+        queue = deque([(source, energy, 0)])
+        while queue:
+            node, act, depth = queue.popleft()
+            if depth >= max_depth:
+                continue
+            new_act = act * decay
+            if new_act < 0.01:
+                continue
+            undirected = graph.to_undirected()
+            for nb in undirected.neighbors(node):
+                if nb not in visited or activations.get(nb, 0) < new_act:
+                    if nb not in visited:
+                        visited.add(nb)
+                    old = activations.get(nb, 0)
+                    activations[nb] = max(old, new_act)
+                    queue.append((nb, new_act, depth + 1))
+        results = [(n, a) for n, a in activations.items() if n != source]
+        results.sort(key=lambda x: -x[1])
+        return results[:top_k]
+
+    def compute_depth(graph, source, target):
+        undirected = graph.to_undirected()
+        try:
+            return nx.shortest_path_length(undirected, source, target)
+        except nx.NetworkXNoPath:
+            return -1
+
+    activated = spreading_activation(G, "alert_circular_001", energy=1.0, top_k=15)
     print("  Spreading activation from alert_circular_001:")
-    for r in activated:
-        data = mem.graph.get_node_by_label(r.label)
-        dtype = data.data.get("type", data.data.get("role", "?")) if data and data.data else "?"
-        print(f"    {r.label:35s} activation={r.activation:.3f} depth={r.depth} [{dtype}]")
+    for name, act in activated:
+        d = node_data.get(name, {})
+        dtype = d.get("type", d.get("role", "?"))
+        depth = compute_depth(G, "alert_circular_001", name)
+        print(f"    {name:35s} activation={act:.3f} depth={depth} [{dtype}]")
     print()
 
-    retrieved = mem.retrieve("acct_zenith_holdings", top_k=15, iterations=3)
+    def retrieve_neighbors(graph, source, top_k=15, iterations=3):
+        scores: dict[str, float] = {}
+        current = {source}
+        for it in range(iterations):
+            next_set = set()
+            for node in current:
+                for nb in graph.successors(node):
+                    if nb != source:
+                        scores[nb] = scores.get(nb, 0) + 1.0 / (it + 1)
+                        next_set.add(nb)
+                for nb in graph.predecessors(node):
+                    if nb != source:
+                        scores[nb] = scores.get(nb, 0) + 1.0 / (it + 1)
+                        next_set.add(nb)
+            current = next_set
+        results = sorted(scores.items(), key=lambda x: -x[1])
+        return results[:top_k]
+
+    retrieved = retrieve_neighbors(G, "acct_zenith_holdings", top_k=15, iterations=3)
     print("  Retrieval from acct_zenith_holdings (suspicious hub account):")
-    for r in retrieved[:10]:
-        data = mem.graph.get_node_by_label(r.label)
-        dtype = data.data.get("type", data.data.get("role", "?")) if data and data.data else "?"
-        print(f"    {r.label:35s} [{dtype}]")
+    for name, score in retrieved[:10]:
+        d = node_data.get(name, {})
+        dtype = d.get("type", d.get("role", "?"))
+        print(f"    {name:35s} [{dtype}]")
     print()
 
     print("=" * 70)
     print("SECTION 3: Reasoning and Hidden Connection Discovery")
     print("=" * 70)
 
-    mem.add_rules(
-        TransitiveRule(edge_label="transferred_to", new_label="transfers_indirectly"),
-        InverseRule(edge_label="owns", inverse_label="owned_by"),
-        TransitiveRule(edge_label="associated_with", new_label="indirectly_associated"),
-    )
+    transfer_sub = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "transferred_to":
+            transfer_sub.add_edge(u, v)
 
-    reason_result = mem.reason(
-        seed_concepts={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
-        max_depth=3,
-        max_total_states=50,
-    )
+    transfer_tc = nx.transitive_closure(transfer_sub)
+    indirect_transfers = []
+    for u, v in transfer_tc.edges():
+        if not transfer_sub.has_edge(u, v):
+            indirect_transfers.append((u, v))
 
-    expansion = reason_result.get("expansion", {})
-    if expansion:
-        print(f"  Expansion: {expansion.get('states_created', 0)} states, "
-              f"{expansion.get('rules_applied', 0)} rules applied, "
-              f"depth={expansion.get('max_depth', 0)}")
+    assoc_sub = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "associated_with":
+            assoc_sub.add_edge(u, v)
+
+    assoc_tc = nx.transitive_closure(assoc_sub)
+    indirect_assoc = []
+    for u, v in assoc_tc.edges():
+        if not assoc_sub.has_edge(u, v):
+            indirect_assoc.append((u, v))
+
+    owns_sub = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "owns":
+            owns_sub.add_edge(u, v)
+
+    inverse_owns = nx.DiGraph()
+    for u, v in owns_sub.edges():
+        inverse_owns.add_edge(v, u)
+
+    print(f"  Indirect transfer chains discovered: {len(indirect_transfers)}")
+    for src, tgt in indirect_transfers[:8]:
+        print(f"    {src} -> {tgt}")
+    if len(indirect_transfers) > 8:
+        print(f"    ... and {len(indirect_transfers) - 8} more")
     print()
 
-    indirect_edges = mem.pattern_match(edge_label="transfers_indirectly")
-    print(f"  Indirect transfer chains discovered: {len(indirect_edges)}")
-    for edge in indirect_edges[:8]:
-        src_node = mem.graph.get_node(next(iter(edge["source_ids"])))
-        tgt_node = mem.graph.get_node(next(iter(edge["target_ids"])))
-        src_label = src_node.label if src_node else "?"
-        tgt_label = tgt_node.label if tgt_node else "?"
-        print(f"    {src_label} -> {tgt_label}")
-    if len(indirect_edges) > 8:
-        print(f"    ... and {len(indirect_edges) - 8} more")
-    print()
-
-    indirect_assoc = mem.pattern_match(edge_label="indirectly_associated")
     print(f"  Indirect associations discovered: {len(indirect_assoc)}")
-    for edge in indirect_assoc[:8]:
-        src_node = mem.graph.get_node(next(iter(edge["source_ids"])))
-        tgt_node = mem.graph.get_node(next(iter(edge["target_ids"])))
-        src_label = src_node.label if src_node else "?"
-        tgt_label = tgt_node.label if tgt_node else "?"
-        print(f"    {src_label} -- {tgt_label}")
+    for src, tgt in indirect_assoc[:8]:
+        print(f"    {src} -- {tgt}")
     if len(indirect_assoc) > 8:
         print(f"    ... and {len(indirect_assoc) - 8} more")
     print()
@@ -542,37 +589,55 @@ def main():
     print("SECTION 4: Pattern Detection")
     print("=" * 70)
 
-    cycles = mem.detect_cycles_labels(max_cycles=10)
+    try:
+        all_cycles = list(nx.simple_cycles(G))
+        cycles = all_cycles[:10]
+    except Exception:
+        cycles = []
+
     print(f"  Circular money flows detected: {len(cycles)}")
     for i, cycle in enumerate(cycles):
         print(f"    Cycle {i + 1}: {' -> '.join(cycle)} -> {cycle[0]}")
     print()
 
-    similar = mem.find_similar("acct_zenith_holdings", top_k=10)
+    def find_similar_nodes(graph, source, top_k=10):
+        undirected = graph.to_undirected()
+        src_neighbors = set(undirected.neighbors(source))
+        if not src_neighbors:
+            return []
+        scores = []
+        for node in graph.nodes():
+            if node == source:
+                continue
+            node_neighbors = set(undirected.neighbors(node))
+            if not node_neighbors:
+                continue
+            intersection = len(src_neighbors & node_neighbors)
+            union = len(src_neighbors | node_neighbors)
+            if union > 0:
+                jaccard = intersection / union
+                scores.append((node, jaccard))
+        scores.sort(key=lambda x: -x[1])
+        return scores[:top_k]
+
+    similar = find_similar_nodes(G, "acct_zenith_holdings", top_k=10)
     print("  Accounts similar to acct_zenith_holdings:")
-    for s in similar:
-        other = s.label_b if s.label_a == "acct_zenith_holdings" else s.label_a
-        print(f"    {other:35s} similarity={s.similarity:.3f}")
+    for name, sim in similar:
+        print(f"    {name:35s} similarity={sim:.3f}")
     print()
 
     print("=" * 70)
     print("SECTION 5: Funnel Account Identification")
     print("=" * 70)
 
-    degree = mem.degree_centrality_labels()
-    transferred = mem.pattern_match(edge_label="transferred_to")
+    degree = nx.degree_centrality(G)
 
     in_degree: dict[str, int] = {}
     out_degree: dict[str, int] = {}
-    for edge in transferred:
-        for tid in edge["target_ids"]:
-            t_node = mem.graph.get_node(tid)
-            if t_node:
-                in_degree[t_node.label] = in_degree.get(t_node.label, 0) + 1
-        for sid in edge["source_ids"]:
-            s_node = mem.graph.get_node(sid)
-            if s_node:
-                out_degree[s_node.label] = out_degree.get(s_node.label, 0) + 1
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "transferred_to":
+            in_degree[v] = in_degree.get(v, 0) + 1
+            out_degree[u] = out_degree.get(u, 0) + 1
 
     all_acct_labels = set(in_degree.keys()) | set(out_degree.keys())
     funnel_accounts = []
@@ -585,8 +650,8 @@ def main():
     funnel_accounts.sort(key=lambda x: -x[3])
     print(f"  Funnel accounts (in_degree >= 2 AND out_degree >= 2):")
     for acct, ind, outd, total in funnel_accounts:
-        node = mem.graph.get_node_by_label(acct)
-        flagged = node.data.get("flagged", False) if node and node.data else False
+        d = node_data.get(acct, {})
+        flagged = d.get("flagged", False)
         flag_str = "FLAGGED" if flagged else "clean"
         print(f"    {acct:30s} in={ind} out={outd} total={total} [{flag_str}]")
     print()
@@ -609,7 +674,8 @@ def main():
         if data.get("type") in ("vpn", "tor"):
             flagged_node_labels.add(label)
 
-    components = mem.connected_components_labels()
+    undirected = G.to_undirected()
+    components = list(nx.connected_components(undirected))
     suspicious_clusters = []
     for comp in components:
         overlap = comp & flagged_node_labels
@@ -634,7 +700,7 @@ def main():
             print(f"      IPs/Devices: {', '.join(sorted(ip_in)[:6])}")
     print()
 
-    betweenness = mem.betweenness_centrality_labels()
+    betweenness = nx.betweenness_centrality(G)
     suspect_persons = {l: d for l, d in persons.items() if d.get("risk_score", 0) >= 0.50}
     ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
     print("  Risk ranking of suspects (by betweenness centrality):")
@@ -650,13 +716,13 @@ def main():
     print("SECTION 7: Investigation Summary")
     print("=" * 70)
 
-    stats = mem.stats()
-    print(f"  Graph: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
+    n_components = nx.number_connected_components(undirected)
+    print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"  Connected components: {n_components}")
     print(f"  Cycles detected: {len(cycles)}")
     print(f"  Funnel accounts: {len(funnel_accounts)}")
     print(f"  Suspicious clusters: {len(suspicious_clusters)}")
-    print(f"  Indirect transfers inferred: {len(indirect_edges)}")
+    print(f"  Indirect transfers inferred: {len(indirect_transfers)}")
     print(f"  Indirect associations inferred: {len(indirect_assoc)}")
     print()
 
@@ -669,8 +735,9 @@ def main():
     print()
 
     if suspicious_clusters:
-        sg = mem.subgraph(suspicious_clusters[0][0])
-        print(f"  Largest suspicious subgraph: {sg['node_count']} nodes, {sg['edge_count']} edges")
+        sg_nodes = suspicious_clusters[0][0]
+        sg = G.subgraph(sg_nodes)
+        print(f"  Largest suspicious subgraph: {sg.number_of_nodes()} nodes, {sg.number_of_edges()} edges")
     print()
 
     print("  Recommended next steps:")

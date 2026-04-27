@@ -1,23 +1,20 @@
 """
-Building a Knowledge Graph from Security Incident Reports
-==========================================================
+Building a Knowledge Graph from Security Incident Reports (reimplementation)
+=============================================================================
 
-Demonstrates extracting structured knowledge from unstructured security
-incident text using Hyper3's RegexExtractor, then building and querying
-a knowledge graph. Honest about what regex-based extraction catches versus
-what it misses in domain-specific text, and shows the pluggable LLMProvider
-interface for upgrading to a real NER pipeline.
+Reimplements examples/intermediate/07_text_enrichment.py using only
+re, collections, and networkx. Same data, same outputs, no Hyper3.
 
 Run with:
-    .venv/bin/python examples/intermediate/07_text_enrichment.py
+    .venv/bin/python examples/comparison/07_text_enrichment.py
 """
 
 from __future__ import annotations
 
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 
-from hyper3 import CognitiveMemory, LLMProvider, ExtractionResult
+import networkx as nx
 
 
 REPORTS: list[str] = [
@@ -126,14 +123,58 @@ def extract_technical_indicators(text: str) -> dict[str, list[str]]:
     return results
 
 
-class SecurityNERProvider(LLMProvider):
-    """Mock security-focused NER provider.
+RELATION_PATTERNS = [
+    (r'(\w[\w\s-]+?)\s+causes\s+(\w[\w\s-]+)', "causes"),
+    (r'(\w[\w\s-]+?)\s+is\s+associated\s+with\s+(\w[\w\s-]+)', "associated_with"),
+    (r'(\w[\w\s-]+?)\s+leads\s+to\s+(\w[\w\s-]+)', "leads_to"),
+    (r'(\w[\w\s-]+?)\s+exploited\s+(\w[\w\s-]+)', "exploited"),
+]
 
-    Demonstrates the LLMProvider interface. In production, replace
-    complete() with calls to a real NER service or fine-tuned model
-    (e.g., spaCy custom NER, HuggingFace token classifier, OpenAI).
-    """
 
+def regex_extract_entities_and_relations(text: str) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
+    np_pattern = r'\b(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b'
+    raw_entities = re.findall(np_pattern, text)
+    stop_words = {
+        "The", "This", "A", "An", "In", "On", "At", "To", "For", "And",
+        "Or", "But", "Not", "Is", "Was", "Were", "Been", "Have", "Has",
+        "It", "Its", "From", "By", "With", "As", "Of", "Each", "All",
+    }
+    entities = [(e, "entity") for e in raw_entities if e not in stop_words and len(e) > 1]
+
+    relations: list[tuple[str, str, str]] = []
+    for pattern, label in RELATION_PATTERNS:
+        for m in re.finditer(pattern, text, re.IGNORECASE):
+            src = m.group(1).strip()
+            tgt = m.group(2).strip()
+            if src and tgt:
+                relations.append((src, tgt, label))
+
+    return entities, relations
+
+
+def deduplicate_entities(entities: list[tuple[str, str]]) -> list[tuple[str, str]]:
+    seen: set[str] = set()
+    result: list[tuple[str, str]] = []
+    for label, etype in entities:
+        key = label.lower()
+        if key not in seen:
+            seen.add(key)
+            result.append((label, etype))
+    return result
+
+
+def deduplicate_relations(relations: list[tuple[str, str, str]]) -> list[tuple[str, str, str]]:
+    seen: set[tuple[str, str, str]] = set()
+    result: list[tuple[str, str, str]] = []
+    for src, tgt, label in relations:
+        key = (src.lower(), tgt.lower(), label)
+        if key not in seen:
+            seen.add(key)
+            result.append((src, tgt, label))
+    return result
+
+
+class SecurityNERProvider:
     INDICATOR_MAP: dict[str, list[tuple[str, str]]] = {
         "CVE-2024-3094": [("CVE-2024-3094", "vulnerability")],
         "CVE-2024-1234": [("CVE-2024-1234", "vulnerability")],
@@ -154,20 +195,38 @@ class SecurityNERProvider(LLMProvider):
         "BAdChapter": [("BAdChapter", "tool")],
     }
 
-    def complete(self, prompt: str) -> str:
-        lines = ['{"entities": [']
-        entities: list[str] = []
+    def complete(self, prompt: str) -> list[tuple[str, str]]:
+        entities: list[tuple[str, str]] = []
         for indicator, entries in self.INDICATOR_MAP.items():
             if indicator in prompt:
-                for label, etype in entries:
-                    entities.append(f'  {{"label": "{label}", "type": "{etype}"}}')
-        lines.append(",\n".join(entities))
-        lines.append('], "relations": []}')
-        return "\n".join(lines)
+                entities.extend(entries)
+        return entities
+
+
+def neighbors(G: nx.DiGraph, node: str, max_depth: int = 2) -> list[str]:
+    visited: set[str] = {node}
+    frontier: set[str] = {node}
+    for _ in range(max_depth):
+        next_frontier: set[str] = set()
+        for n in frontier:
+            for succ in G.successors(n):
+                if succ not in visited:
+                    next_frontier.add(succ)
+                    visited.add(succ)
+            for pred in G.predecessors(n):
+                if pred not in visited:
+                    next_frontier.add(pred)
+                    visited.add(pred)
+        frontier = next_frontier
+    return list(visited - {node})
+
+
+def edges_by_label(G: nx.DiGraph, label: str) -> list[tuple[str, str]]:
+    return [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == label]
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
 
     print("=" * 70)
     print("SECTION 1: Security Incident Reports")
@@ -181,21 +240,48 @@ def main():
     print("=" * 70)
     print("SECTION 2: Regex Extraction (Built-in)")
     print("=" * 70)
-    results = mem.ingest_batch(REPORTS, extract=True, deduplicate=True)
-    total_entities = sum(len(r.entities) for r in results)
-    total_relations = sum(len(r.relations) for r in results)
+
+    all_entities: list[tuple[str, str]] = []
+    all_relations: list[tuple[str, str, str]] = []
+    per_report_results: list[dict] = []
+
+    for report in REPORTS:
+        entities, relations = regex_extract_entities_and_relations(report)
+        entities = deduplicate_entities(entities)
+        relations = deduplicate_relations(relations)
+        all_entities.extend(entities)
+        all_relations.extend(relations)
+        per_report_results.append({"entities": entities, "relations": relations})
+
+    all_entities = deduplicate_entities(all_entities)
+    all_relations = deduplicate_relations(all_relations)
+
+    total_entities = sum(len(r["entities"]) for r in per_report_results)
+    total_relations = sum(len(r["relations"]) for r in per_report_results)
+
+    for label, etype in all_entities:
+        if label not in G:
+            G.add_node(label, entity_type=etype, source="regex")
+
+    for src, tgt, label in all_relations:
+        if src not in G:
+            G.add_node(src, entity_type="entity", source="regex")
+        if tgt not in G:
+            G.add_node(tgt, entity_type="entity", source="regex")
+        G.add_edge(src, tgt, label=label)
+
     print(f"  Processed {len(REPORTS)} reports")
     print(f"  Extracted {total_entities} entity mentions ({total_relations} relations)")
-    print(f"  Graph: {mem.graph.node_count} unique nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {G.number_of_nodes()} unique nodes, {G.number_of_edges()} edges")
     print()
 
     print("  Sample extracted relations:")
     shown = 0
-    for r in results:
-        for rel in r.relations:
+    for r in per_report_results:
+        for src, tgt, label in r["relations"]:
             if shown >= 8:
                 break
-            print(f"    {rel.source_label} --[{rel.relation_label}]--> {rel.target_label}")
+            print(f"    {src} --[{label}]--> {tgt}")
             shown += 1
         if shown >= 8:
             break
@@ -206,9 +292,9 @@ def main():
     print("=" * 70)
 
     regex_entity_labels: set[str] = set()
-    for r in results:
-        for e in r.entities:
-            regex_entity_labels.add(e.label)
+    for r in per_report_results:
+        for label, _ in r["entities"]:
+            regex_entity_labels.add(label)
 
     indicator_totals: Counter[str] = Counter()
     indicator_values: dict[str, set[str]] = {}
@@ -264,7 +350,8 @@ def main():
         indicators = extract_technical_indicators(report)
         for category, values in indicators.items():
             for value in values:
-                mem.store(value, data={"type": category, "source": "manual_regex"})
+                if value not in G:
+                    G.add_node(value, type=category, source="manual_regex")
 
         ip_addrs = indicators.get("ip_address", [])
         cves = indicators.get("cve_id", [])
@@ -274,19 +361,19 @@ def main():
 
         for ip in ip_addrs:
             for domain in domains:
-                mem.relate(ip, domain, label="communicated_with")
+                G.add_edge(ip, domain, label="communicated_with")
             for cve in cves:
-                mem.relate(ip, cve, label="exploited_via")
+                G.add_edge(ip, cve, label="exploited_via")
 
         for technique in techniques:
             for cve in cves:
-                mem.relate(technique, cve, label="maps_to")
+                G.add_edge(technique, cve, label="maps_to")
 
         for h in hashes:
             for fp in indicators.get("file_path_windows", []) + indicators.get("file_path_unix", []):
-                mem.relate(h, fp, label="found_at")
+                G.add_edge(h, fp, label="found_at")
 
-    print(f"  Graph after manual enrichment: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph after manual enrichment: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print()
 
     print("=" * 70)
@@ -295,48 +382,38 @@ def main():
 
     target_nodes = ["CVE-2024-3094", "10.0.1.50", "T1059.001"]
     for concept in target_nodes:
-        recalled = mem.recall(concept, max_depth=2)
-        if recalled:
-            labels = [n.label for n in recalled[:8]]
-            print(f"  recall('{concept}', max_depth=2) -> {len(recalled)} nodes")
+        if concept in G:
+            nbrs = neighbors(G, concept, max_depth=2)
+            labels = nbrs[:8]
+            print(f"  recall('{concept}', max_depth=2) -> {len(nbrs)} nodes")
             print(f"    Neighbors: {labels}")
         else:
             print(f"  recall('{concept}') -> not found (node not in graph)")
     print()
 
-    causes_edges = mem.pattern_match(edge_label="causes")
-    print(f"  'causes' relationships ({len(causes_edges)}):")
-    for match in causes_edges[:5]:
-        src = mem.graph.get_node(next(iter(match["source_ids"])))
-        tgt = mem.graph.get_node(next(iter(match["target_ids"])))
-        if src and tgt:
-            print(f"    {src.label} causes {tgt.label}")
+    causes = edges_by_label(G, "causes")
+    print(f"  'causes' relationships ({len(causes)}):")
+    for src, tgt in causes[:5]:
+        print(f"    {src} causes {tgt}")
     print()
 
-    exploited_edges = mem.pattern_match(edge_label="exploited_via")
-    print(f"  'exploited_via' relationships ({len(exploited_edges)}):")
-    for match in exploited_edges[:5]:
-        src = mem.graph.get_node(next(iter(match["source_ids"])))
-        tgt = mem.graph.get_node(next(iter(match["target_ids"])))
-        if src and tgt:
-            print(f"    {src.label} exploited_via {tgt.label}")
+    exploited = edges_by_label(G, "exploited_via")
+    print(f"  'exploited_via' relationships ({len(exploited)}):")
+    for src, tgt in exploited[:5]:
+        print(f"    {src} exploited_via {tgt}")
     print()
 
     print("=" * 70)
-    print("SECTION 6: Pluggable LLMProvider for Richer Extraction")
+    print("SECTION 6: Pluggable Provider for Richer Extraction")
     print("=" * 70)
 
-    mem_llm = CognitiveMemory(evolve_interval=0)
-    mem_llm.set_llm_provider(SecurityNERProvider())
-
+    provider = SecurityNERProvider()
     sample_reports = REPORTS[:3]
-    llm_results = mem_llm.ingest_batch(sample_reports, extract=True, deduplicate=True)
-    print(f"  Custom provider extracted from {len(sample_reports)} reports:")
-    for i, r in enumerate(llm_results):
-        entities = [(e.label, e.entity_type) for e in r.entities]
+    for i, report in enumerate(sample_reports):
+        entities = provider.complete(report)
         print(f"    Report {i+1}: {entities}")
     print()
-    print("  The LLMProvider.complete() interface lets you plug in any NER")
+    print("  The provider interface lets you plug in any NER")
     print("  backend (spaCy, HuggingFace, GPT-4) for domain-specific extraction")
     print("  without changing application code.")
     print()
@@ -355,17 +432,23 @@ def main():
     print()
     print("  Production recommendation:")
     print("    Use RegexExtractor for prototyping and general text.")
-    print("    Implement LLMProvider with a real NER model for security text.")
+    print("    Implement provider with a real NER model for security text.")
     print("    Combine both: regex for general patterns + custom for IOCs.")
     print()
 
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Final graph: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
-    print(f"  Has cycles: {stats['cycles']}")
+    components = list(nx.weakly_connected_components(G))
+    has_cycles = False
+    try:
+        if list(nx.simple_cycles(G)):
+            has_cycles = True
+    except Exception:
+        pass
+    print(f"  Final graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"  Connected components: {len(components)}")
+    print(f"  Has cycles: {has_cycles}")
     print(f"  Incident reports processed: {len(REPORTS)}")
     print(f"  Entity types discovered: {len(indicator_values)} categories")
     print()

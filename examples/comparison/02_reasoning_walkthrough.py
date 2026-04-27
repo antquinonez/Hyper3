@@ -1,32 +1,24 @@
 """
-Reasoning and Inference Walkthrough
-====================================
+Reasoning and Inference Walkthrough (Plain Python)
+====================================================
 
-Infers hidden service dependency chains in a microservices architecture.
-
-Real ops teams maintain dependency maps, but the *transitive* blast radius
-of an infrastructure failure is rarely obvious.  This script builds a
-synthetic 100+ node, 200+ edge graph, applies TransitiveRule and
-InverseRule inference, and produces actionable operational reports:
-
-  - Full blast radius of each database / message queue
-  - Single points of failure (betweenness centrality)
-  - Longest dependency chains (critical paths)
-  - Services most at risk from a given infrastructure outage
+Reimplements examples/basic/02_reasoning_walkthrough.py using only networkx
+and standard libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/basic/02_reasoning_walkthrough.py
+    .venv/bin/python examples/comparison/02_reasoning_walkthrough.py
 """
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
 
-from hyper3 import CognitiveMemory, InverseRule, Modality, TransitiveRule
+import networkx as nx
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
 
     print("=" * 70)
     print("SECTION 1: Building a Microservices Architecture Graph")
@@ -147,19 +139,22 @@ def main():
 
     for domain_services in domains.values():
         for name, data in domain_services:
-            mem.store(name, data={**data, "type": "microservice"}, modalities={Modality.CONCEPTUAL})
+            G.add_node(name)
+            node_data[name] = {**data, "type": "microservice"}
 
     for name, data in infrastructure.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(name)
+        node_data[name] = data
 
     for name, data in external.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        G.add_node(name)
+        node_data[name] = data
 
     svc_count = sum(len(v) for v in domains.values())
     print(f"  Microservices:      {svc_count}")
     print(f"  Infrastructure:     {len(infrastructure)}")
     print(f"  External services:  {len(external)}")
-    print(f"  Total nodes:        {mem.graph.node_count}")
+    print(f"  Total nodes:        {G.number_of_nodes()}")
     print()
 
     print("=" * 70)
@@ -434,29 +429,26 @@ def main():
         + caching + publishes + subscribes + routes + ext_deps
     )
     for src, tgt, label in all_edges:
-        mem.relate(src, tgt, label=label)
+        G.add_edge(src, tgt, label=label)
 
-    print(f"  Total edges created: {mem.graph.edge_count}")
+    print(f"  Total edges created: {G.number_of_edges()}")
     print()
 
     print("=" * 70)
     print("SECTION 3: Direct vs Transitive Dependencies -- The Tip of the Iceberg")
     print("=" * 70)
 
-    db_nodes = [n for n in mem.graph.nodes if n.data.get("type") == "database"]
-    queue_nodes = [n for n in mem.graph.nodes if n.data.get("type") == "queue"]
+    db_nodes = [n for n in G.nodes() if node_data.get(n, {}).get("type") == "database"]
+    queue_nodes = [n for n in G.nodes() if node_data.get(n, {}).get("type") == "queue"]
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
-    for edge in mem.graph.edges:
-        if edge.label == "depends_on" and not edge.metadata.custom.get("inferred"):
-            src = mem.graph.get_node(next(iter(edge.source_ids)))
-            tgt = mem.graph.get_node(next(iter(edge.target_ids)))
-            if src and tgt:
-                direct_dep_map[tgt.label].append(src.label)
+    for u, v, data in G.edges(data=True):
+        if data.get("label") == "depends_on":
+            direct_dep_map[v].append(u)
 
-    for node in db_nodes + queue_nodes:
-        direct = direct_dep_map.get(node.label, [])
-        print(f"  {node.label}: {len(direct)} direct dependents")
+    for n in db_nodes + queue_nodes:
+        direct = direct_dep_map.get(n, [])
+        print(f"  {n}: {len(direct)} direct dependents")
     print()
     print("  This is only the surface -- transitive chains hide far more.")
     print()
@@ -464,11 +456,6 @@ def main():
     print("=" * 70)
     print("SECTION 4: Adding Reasoning Rules")
     print("=" * 70)
-
-    mem.add_rules(
-        TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"),
-        InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
-    )
     print("  TransitiveRule: A depends_on B, B depends_on C => A indirectly_depends_on C")
     print("  InverseRule:    A depends_on B => B depended_on_by A")
     print()
@@ -477,20 +464,52 @@ def main():
     print("SECTION 5: Running Reasoning on Critical Infrastructure")
     print("=" * 70)
 
-    all_labels = {n.label for n in mem.graph.nodes}
+    all_labels = set(G.nodes())
 
-    result = mem.reason(
-        seed_concepts=all_labels,
-        max_depth=4,
-        max_total_states=300,
-    )
+    inferred_count = 0
+    rules_applied = 0
 
-    exp = result["expansion"]
+    dep_edges = [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == "depends_on"]
+    dep_set = {(u, v) for u, v in dep_edges}
+
+    transitive_new: list[tuple[str, str, str]] = []
+    for a, b in dep_edges:
+        for c, d in dep_edges:
+            if b == c and (a, d) not in dep_set and a != d:
+                if not G.has_edge(a, d) or all(
+                    ed.get("label") != "indirectly_depends_on"
+                    for _, _, ed in G.edges(a, data=True)
+                    if _ == d
+                ):
+                    transitive_new.append((a, d, "indirectly_depends_on"))
+
+    seen_transitive = set()
+    for src, tgt, lbl in transitive_new:
+        key = (src, tgt, lbl)
+        if key not in seen_transitive:
+            G.add_edge(src, tgt, label=lbl, inferred=True)
+            seen_transitive.add(key)
+            inferred_count += 1
+            rules_applied += 1
+
+    inverse_new: list[tuple[str, str, str]] = []
+    for u, v, data in list(G.edges(data=True)):
+        if data.get("label") == "depends_on":
+            inverse_new.append((v, u, "depended_on_by"))
+
+    seen_inverse = set()
+    for src, tgt, lbl in inverse_new:
+        key = (src, tgt, lbl)
+        if key not in seen_inverse:
+            G.add_edge(src, tgt, label=lbl, inferred=True)
+            seen_inverse.add(key)
+            inferred_count += 1
+            rules_applied += 1
+
     print(f"  Seeds:             {len(all_labels)} nodes")
-    print(f"  States explored:   {exp['states_created']}")
-    print(f"  Rules applied:     {exp['rules_applied']}")
-    print(f"  Edges inferred:    {exp['edges_produced']}")
-    print(f"  Graph:             {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Rules applied:     {rules_applied}")
+    print(f"  Edges inferred:    {inferred_count}")
+    print(f"  Graph:             {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print()
 
     print("=" * 70)
@@ -498,21 +517,17 @@ def main():
     print("=" * 70)
 
     indirect_reverse: dict[str, set[str]] = defaultdict(set)
-    for edge in mem.graph.edges:
-        src_node = mem.graph.get_node(next(iter(edge.source_ids), ""))
-        tgt_node = mem.graph.get_node(next(iter(edge.target_ids), ""))
-        if not src_node or not tgt_node:
-            continue
-        if edge.label == "indirectly_depends_on":
-            indirect_reverse[tgt_node.label].add(src_node.label)
+    for u, v, data in G.edges(data=True):
+        if data.get("label") == "indirectly_depends_on":
+            indirect_reverse[v].add(u)
 
     print("  Full blast radius of each database and queue:")
     print()
-    for node in db_nodes + queue_nodes:
-        direct = set(direct_dep_map.get(node.label, []))
-        transitive = indirect_reverse.get(node.label, set()) - direct
+    for n in db_nodes + queue_nodes:
+        direct = set(direct_dep_map.get(n, []))
+        transitive = indirect_reverse.get(n, set()) - direct
         total = direct | transitive
-        print(f"  {node.label}")
+        print(f"  {n}")
         print(f"    Direct dependents:    {len(direct)}")
         print(f"    Transitive dependents: {len(transitive)} (discovered by inference)")
         print(f"    Total blast radius:   {len(total)}")
@@ -526,7 +541,7 @@ def main():
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = mem.betweenness_centrality_labels()
+    bc = nx.betweenness_centrality(G, normalized=True)
     top_spof = sorted(bc.items(), key=lambda x: x[1], reverse=True)[:15]
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")
@@ -544,12 +559,9 @@ def main():
     edge_labels_of_interest = {"depends_on", "indirectly_depends_on"}
 
     deps_forward: dict[str, list[str]] = defaultdict(list)
-    for edge in mem.graph.edges:
-        if edge.label in edge_labels_of_interest:
-            src_node = mem.graph.get_node(next(iter(edge.source_ids), ""))
-            tgt_node = mem.graph.get_node(next(iter(edge.target_ids), ""))
-            if src_node and tgt_node:
-                deps_forward[src_node.label].append(tgt_node.label)
+    for u, v, data in G.edges(data=True):
+        if data.get("label") in edge_labels_of_interest:
+            deps_forward[u].append(v)
 
     def longest_chain(start: str, visited: frozenset[str] | None = None) -> list[str]:
         if visited is None:
@@ -565,9 +577,9 @@ def main():
         return best
 
     chains: list[tuple[int, list[str]]] = []
-    for n in mem.graph.nodes:
-        if n.data.get("type") == "microservice":
-            chain = longest_chain(n.label)
+    for n in G.nodes():
+        if node_data.get(n, {}).get("type") == "microservice":
+            chain = longest_chain(n)
             if len(chain) > 2:
                 chains.append((len(chain), chain))
     chains.sort(reverse=True)
@@ -597,9 +609,9 @@ def main():
         total = direct | transitive
 
         svc_data_map: dict[str, dict] = {}
-        for n in mem.graph.nodes:
-            if n.label in total:
-                svc_data_map[n.label] = n.data
+        for lbl in total:
+            if lbl in node_data:
+                svc_data_map[lbl] = node_data[lbl]
 
         critical_count = sum(1 for d in svc_data_map.values() if d.get("criticality", 0) >= 4)
         high_count = sum(1 for d in svc_data_map.values() if d.get("criticality", 0) == 3)
@@ -622,10 +634,9 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Nodes:            {stats['nodes']}")
-    print(f"  Edges:            {stats['edges']} ({exp['edges_produced']} inferred)")
-    print(f"  Active rules:     {stats['active_rules']}")
+    print(f"  Nodes:            {G.number_of_nodes()}")
+    print(f"  Edges:            {G.number_of_edges()} ({inferred_count} inferred)")
+    print(f"  Rules applied:    {rules_applied}")
     print()
     print("  Key insight: transitive rule inference discovers non-obvious")
     print("  dependencies that teams may not be aware of. The blast radius")

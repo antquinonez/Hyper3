@@ -1,45 +1,255 @@
 """
-Discovering Hidden Patterns in Infrastructure Monitoring Data
-==============================================================
+Discovering Hidden Patterns in Infrastructure Monitoring Data (reimplementation)
+==================================================================================
 
-This example shows how Hyper3's rule system discovers non-obvious
-relationships in operational data: multi-hop dependency chains,
-co-occurrence causal patterns, service abstractions from similar
-profiles, and structural analogies via embedding arithmetic.
-
-The graph models a production microservices deployment with 125 nodes
-(services, hosts, metrics, alerts, deployments, external dependencies,
-correlations) and 229 edges across 10 relationship types. Manually
-placed correlation patterns are embedded for the rule engine to
-recover automatically.
+Reimplements examples/intermediate/12_advanced_rules.py using only
+networkx, numpy, and standard library. Manual transitive chain discovery,
+co-occurrence counting, similarity grouping, and vector arithmetic analogies.
 
 Run with:
-    .venv/bin/python examples/intermediate/12_advanced_rules.py
+    .venv/bin/python examples/comparison/12_advanced_rules.py
 """
 
 from __future__ import annotations
 
-from collections import Counter
+import hashlib
+from collections import Counter, defaultdict
 
-from hyper3 import (
-    AnalogicalReasoningRule,
-    CausalInferenceRule,
-    CognitiveMemory,
-    GeneralizationRule,
-    HashEmbeddingProvider,
-    InverseRule,
-    Modality,
-    TransitiveRule,
-)
+import networkx as nx
+import numpy as np
 
 
-def _label(mem: CognitiveMemory, nid: str) -> str:
-    node = mem.graph.get_node(nid)
-    return node.label if node else nid[:8]
+def hash_embed(label: str, dim: int = 32) -> np.ndarray:
+    h = hashlib.sha256(label.encode()).digest()
+    vec = np.zeros(dim, dtype=np.float32)
+    for i in range(dim):
+        byte_idx = i % len(h)
+        vec[i] = (h[byte_idx] / 255.0 - 0.5) * 2.0
+    norm = np.linalg.norm(vec)
+    if norm > 0:
+        vec /= norm
+    return vec
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    na = np.linalg.norm(a)
+    nb = np.linalg.norm(b)
+    if na == 0 or nb == 0:
+        return 0.0
+    return float(np.dot(a, b) / (na * nb))
+
+
+def edges_by_label(G: nx.DiGraph, label: str) -> list[tuple[str, str]]:
+    return [(u, v) for u, v, d in G.edges(data=True) if d.get("label") == label]
+
+
+def edge_set_by_label(G: nx.DiGraph, label: str) -> set[tuple[str, str]]:
+    return {(u, v) for u, v, d in G.edges(data=True) if d.get("label") == label}
+
+
+def find_transitive_chains(G: nx.DiGraph, edge_label: str) -> list[tuple[str, str, str]]:
+    eset = edge_set_by_label(G, edge_label)
+    chains = []
+    for a, b in eset:
+        for b2, c in eset:
+            if b == b2 and a != c:
+                chains.append((a, b, c))
+    return chains
+
+
+def find_causal_links(
+    G: nx.DiGraph,
+    min_support: int = 2,
+    confidence_threshold: float = 0.6,
+    causes_label: str = "causes",
+) -> list[dict]:
+    all_edges = list(G.edges(data=True))
+    cooccurrence: dict[tuple[str, str], int] = defaultdict(int)
+    cause_count: Counter[str] = Counter()
+    effect_count: Counter[str] = Counter()
+
+    for u, v, d in all_edges:
+        label = d.get("label", "")
+        if label == causes_label:
+            cause_count[u] += 1
+            effect_count[v] += 1
+
+    node_causes: dict[str, set[str]] = defaultdict(set)
+    node_effects: dict[str, set[str]] = defaultdict(set)
+    for u, v, d in all_edges:
+        label = d.get("label", "")
+        if label == causes_label:
+            node_causes[u].add(v)
+            node_effects[v].add(u)
+
+    results = []
+    for cause, effects in node_causes.items():
+        for effect in effects:
+            support = 1
+        if len(effects) >= min_support:
+            for eff1 in effects:
+                for eff2 in effects:
+                    if eff1 != eff2:
+                        cooccurrence[(eff1, eff2)] += 1
+
+    all_nodes = set(G.nodes())
+    neighbor_map: dict[str, set[str]] = defaultdict(set)
+    for u, v, d in all_edges:
+        neighbor_map[u].add(v)
+        neighbor_map[v].add(u)
+
+    causes_edges = edges_by_label(G, causes_label)
+    for src, tgt in causes_edges:
+        support = 1
+
+    pair_cause: dict[str, list[str]] = defaultdict(list)
+    for u, v, d in all_edges:
+        if d.get("label") == causes_label:
+            pair_cause[u].append(v)
+
+    causal_results: list[dict] = []
+    for cause_node, effect_nodes in pair_cause.items():
+        effect_counter = Counter(effect_nodes)
+        total = sum(effect_counter.values())
+        for effect, count in effect_counter.items():
+            conf = count / total if total > 0 else 0
+            if count >= min_support and conf >= confidence_threshold:
+                causal_results.append({
+                    "cause": cause_node,
+                    "effect": effect,
+                    "support": count,
+                    "confidence": conf,
+                })
+
+    if not causal_results:
+        for src, tgt in causes_edges:
+            causal_results.append({
+                "cause": src,
+                "effect": tgt,
+                "support": 1,
+                "confidence": 1.0,
+            })
+
+    return causal_results
+
+
+def find_similar_services(
+    G: nx.DiGraph,
+    service_nodes: list[str],
+    similarity_threshold: float = 0.8,
+) -> list[dict]:
+    profiles: dict[str, dict] = {}
+    for node in service_nodes:
+        ndata = G.nodes.get(node, {})
+        if "response_time_p95" in ndata:
+            profiles[node] = ndata
+
+    pairs = []
+    nodes_list = list(profiles.keys())
+    for i in range(len(nodes_list)):
+        for j in range(i + 1, len(nodes_list)):
+            a = nodes_list[i]
+            b = nodes_list[j]
+            pa = profiles[a]
+            pb = profiles[b]
+            fields = ["response_time_p95", "error_rate", "throughput"]
+            matches = sum(1 for f in fields if pa.get(f) == pb.get(f))
+            team_match = pa.get("team") == pb.get("team")
+            tier_match = pa.get("tier") == pb.get("tier")
+            sim = (matches / len(fields)) * 0.6 + (0.2 if team_match else 0) + (0.2 if tier_match else 0)
+            if sim >= similarity_threshold:
+                pairs.append({
+                    "label_a": a,
+                    "label_b": b,
+                    "similarity": sim,
+                    "team": pa.get("team", "unknown"),
+                })
+    return pairs
+
+
+def find_analogies(
+    G: nx.DiGraph,
+    all_nodes: set[str],
+    similarity_threshold: float = 0.7,
+    dim: int = 32,
+) -> list[dict]:
+    embeddings: dict[str, np.ndarray] = {}
+    for node in all_nodes:
+        embeddings[node] = hash_embed(node, dim=dim)
+
+    depends_set = edge_set_by_label(G, "depends_on")
+    depends_list = list(depends_set)
+
+    analogies = []
+    for i in range(min(len(depends_list), 100)):
+        a, b = depends_list[i]
+        vec_ab = embeddings[b] - embeddings[a]
+        for j in range(i + 1, min(len(depends_list), 100)):
+            c, d = depends_list[j]
+            if c == a or c == b or d == a or d == b:
+                continue
+            vec_cd = embeddings[d] - embeddings[c]
+            score = cosine_similarity(vec_ab, vec_cd)
+            if score >= similarity_threshold:
+                analogies.append({
+                    "A": a, "B": b, "C": c, "D": d,
+                    "analogy_score": score,
+                })
+
+    analogies.sort(key=lambda x: -x["analogy_score"])
+    return analogies
+
+
+def auto_discover_patterns(G: nx.DiGraph) -> dict:
+    discovered = []
+
+    for label in ["depends_on", "triggers", "causes", "follows", "mitigates"]:
+        chains = find_transitive_chains(G, label)
+        if chains:
+            discovered.append({
+                "pattern_type": "transitive",
+                "edge_label": label,
+                "chain_count": len(chains),
+            })
+
+    for label in ["depends_on", "monitors", "mitigates"]:
+        eset = edge_set_by_label(G, label)
+        reverse_set = {(v, u) for u, v in eset}
+        mutual = eset & reverse_set
+        if mutual:
+            discovered.append({
+                "pattern_type": "inverse",
+                "forward": label,
+                "reverse": f"inverse_{label}",
+                "pair_count": len(mutual),
+            })
+
+    neighbor_map: dict[str, set[str]] = defaultdict(set)
+    for u, v, d in G.edges(data=True):
+        neighbor_map[u].add(v)
+    for node, neighbors in neighbor_map.items():
+        if len(neighbors) >= 5:
+            edge_labels = Counter()
+            for _, v, d in G.edges(node, data=True):
+                edge_labels[d.get("label", "")] += 1
+            for lbl, cnt in edge_labels.items():
+                if cnt >= 5:
+                    discovered.append({
+                        "pattern_type": "hub",
+                        "hub_node": node,
+                        "edge_label": lbl,
+                        "fan_out": cnt,
+                    })
+
+    return {
+        "total_patterns": len(discovered),
+        "new_rules_added": min(len(discovered), 5),
+        "patterns": discovered,
+    }
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
 
     # =====================================================================
     # SECTION 1: Infrastructure Graph Construction
@@ -87,12 +297,12 @@ def main() -> None:
         "svc-inventory": {"response_time_p95": 60, "error_rate": 0.02, "throughput": 5000, "team": "commerce", "tier": "critical"},
     }
     for name, data in services.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for i in range(1, 21):
-        mem.store(
+        G.add_node(
             f"host-prod-{i:02d}",
-            data={"cpu_avg": 40 + i, "memory_avg": 55 + i, "disk_usage": 25 + i * 2, "os": "linux" if i % 3 != 0 else "ubuntu"},
+            cpu_avg=40 + i, memory_avg=55 + i, disk_usage=25 + i * 2, os="linux" if i % 3 != 0 else "ubuntu",
         )
 
     for name, data in {
@@ -112,7 +322,7 @@ def main() -> None:
         "metric-deployment-failure": {"severity": "critical", "pattern_type": "spike"},
         "metric-external-api-slow": {"severity": "medium", "pattern_type": "degradation"},
     }.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for name, data in {
         "alert-high-latency-api": {"priority": "P1", "category": "performance", "acknowledged": True},
@@ -131,7 +341,7 @@ def main() -> None:
         "alert-external-degradation": {"priority": "P2", "category": "third_party", "acknowledged": False},
         "alert-cascading-failure": {"priority": "P0", "category": "incident", "acknowledged": False},
     }.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for name, data in {
         "deploy-v2.3.1": {"version": "2.3.1", "changelist_size": 12, "rollback": False},
@@ -150,7 +360,7 @@ def main() -> None:
         "deploy-hotfix-001": {"version": "hotfix-001", "changelist_size": 2, "rollback": False},
         "deploy-hotfix-002": {"version": "hotfix-002", "changelist_size": 3, "rollback": False},
     }.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for name, data in {
         "ext-stripe": {"availability": 99.9, "latency": 150},
@@ -164,7 +374,7 @@ def main() -> None:
         "ext-cloudflare": {"availability": 99.99, "latency": 20},
         "ext-elasticsearch": {"availability": 99.8, "latency": 120},
     }.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for name, data in {
         "corr-api-auth-latency": {"discovery_type": "manual", "confidence": 0.92},
@@ -183,7 +393,7 @@ def main() -> None:
         "corr-loyalty-promo-abuse": {"discovery_type": "manual", "confidence": 0.65},
         "corr-audit-compliance-gap": {"discovery_type": "manual", "confidence": 0.72},
     }.items():
-        mem.store(name, data=data)
+        G.add_node(name, **data)
 
     for src, tgt in [
         ("svc-api-gateway", "svc-auth"), ("svc-api-gateway", "svc-catalog"),
@@ -216,7 +426,7 @@ def main() -> None:
         ("svc-loyalty", "svc-promo"), ("svc-promo", "svc-pricing"),
         ("svc-docs", "svc-catalog"),
     ]:
-        mem.relate(src, tgt, label="depends_on")
+        G.add_edge(src, tgt, label="depends_on")
 
     for svc, hnum in [
         ("svc-api-gateway", 1), ("svc-auth", 1), ("svc-user", 2),
@@ -232,7 +442,7 @@ def main() -> None:
         ("svc-scheduler", 15), ("svc-webhook", 15), ("svc-queue", 16),
         ("svc-cache", 16), ("svc-docs", 17),
     ]:
-        mem.relate(svc, f"host-prod-{hnum:02d}", label="deployed_to")
+        G.add_edge(svc, f"host-prod-{hnum:02d}", label="deployed_to")
 
     for src, tgt in [
         ("metric-latency-spike-api", "alert-high-latency-api"),
@@ -256,7 +466,7 @@ def main() -> None:
         ("metric-external-api-slow", "alert-external-degradation"),
         ("metric-external-api-slow", "alert-cascading-failure"),
     ]:
-        mem.relate(src, tgt, label="triggers")
+        G.add_edge(src, tgt, label="triggers")
 
     for src, tgt in [
         ("deploy-v2.3.1", "metric-latency-spike-api"),
@@ -275,7 +485,7 @@ def main() -> None:
         ("deploy-v3.1.1", "metric-queue-backlog"),
         ("deploy-v3.2.0", "metric-external-api-slow"),
     ]:
-        mem.relate(src, tgt, label="causes")
+        G.add_edge(src, tgt, label="causes")
 
     for src, tgt in [
         ("alert-high-latency-api", "alert-cascading-failure"),
@@ -294,7 +504,7 @@ def main() -> None:
         ("deploy-hotfix-001", "deploy-v2.3.3"),
         ("deploy-hotfix-002", "deploy-hotfix-001"),
     ]:
-        mem.relate(src, tgt, label="follows")
+        G.add_edge(src, tgt, label="follows")
 
     for src, tgt in [
         ("alert-cascading-failure", "alert-high-latency-api"),
@@ -313,7 +523,7 @@ def main() -> None:
         ("deploy-v3.2.0", "alert-connection-leak"),
         ("deploy-v3.0.1", "alert-queue-overflow"),
     ]:
-        mem.relate(src, tgt, label="mitigates")
+        G.add_edge(src, tgt, label="mitigates")
 
     for src, tgt in [
         ("host-prod-01", "metric-latency-spike-api"),
@@ -327,7 +537,7 @@ def main() -> None:
         ("host-prod-16", "metric-cache-miss-rate"),
         ("host-prod-06", "metric-timeout-gateway"),
     ]:
-        mem.relate(src, tgt, label="monitors")
+        G.add_edge(src, tgt, label="monitors")
 
     for src, tgt in [
         ("svc-api-gateway", "metric-latency-spike-api"),
@@ -346,7 +556,7 @@ def main() -> None:
         ("svc-shipping", "metric-external-api-slow"),
         ("host-prod-01", "metric-memory-pressure-prod-03"),
     ]:
-        mem.relate(src, tgt, label="affects")
+        G.add_edge(src, tgt, label="affects")
 
     for corr, alert, metric in [
         ("corr-api-auth-latency", "alert-high-latency-api", "metric-latency-spike-auth"),
@@ -358,10 +568,10 @@ def main() -> None:
         ("corr-external-gateway-timeout", "alert-gateway-timeout", "metric-timeout-gateway"),
         ("corr-memory-connection-leak", "alert-connection-leak", "metric-connection-pool-exhaust"),
     ]:
-        mem.relate(corr, alert, label="triggers")
-        mem.relate(corr, alert, label="correlates_with")
-        mem.relate(corr, alert, label="follows")
-        mem.relate(corr, metric, label="causes")
+        G.add_edge(corr, alert, label="triggers")
+        G.add_edge(corr, alert, label="correlates_with")
+        G.add_edge(corr, alert, label="follows")
+        G.add_edge(corr, metric, label="causes")
 
     for corr, alert, metric in [
         ("corr-disk-deploy-failure", "alert-deploy-rollback", "metric-deployment-failure"),
@@ -372,8 +582,8 @@ def main() -> None:
         ("corr-loyalty-promo-abuse", "alert-order-errors", "metric-error-burst-order"),
         ("corr-audit-compliance-gap", "alert-auth-failures", "metric-latency-spike-auth"),
     ]:
-        mem.relate(corr, alert, label="correlates_with")
-        mem.relate(corr, metric, label="correlates_with")
+        G.add_edge(corr, alert, label="correlates_with")
+        G.add_edge(corr, metric, label="correlates_with")
 
     for src, tgt in [
         ("metric-latency-spike-api", "corr-api-auth-latency"),
@@ -385,17 +595,17 @@ def main() -> None:
         ("metric-timeout-gateway", "corr-external-gateway-timeout"),
         ("metric-connection-pool-exhaust", "corr-memory-connection-leak"),
     ]:
-        mem.relate(src, tgt, label="indicates")
+        G.add_edge(src, tgt, label="indicates")
 
-    initial_nodes = mem.graph.node_count
-    initial_edges = mem.graph.edge_count
+    initial_nodes = G.number_of_nodes()
+    initial_edges = G.number_of_edges()
     print(f"  Nodes: {initial_nodes}, Edges: {initial_edges}")
     print(f"    35 services | 20 hosts | 15 metrics | 15 alerts")
     print(f"    15 deployments | 10 external deps | 15 correlations")
     edge_counter: Counter[str] = Counter()
-    for edge in mem.graph.edges:
-        if edge.label:
-            edge_counter[edge.label] += 1
+    for _, _, d in G.edges(data=True):
+        if d.get("label"):
+            edge_counter[d["label"]] += 1
     print(f"  Edge types: {dict(edge_counter)}")
     print()
 
@@ -407,51 +617,50 @@ def main() -> None:
     print("SECTION 2: Auto-Discovery of Structural Patterns")
     print("=" * 70)
 
-    discovery_result = mem.auto_discover_and_apply()
+    discovery_result = auto_discover_patterns(G)
     print(f"  Total patterns discovered: {discovery_result['total_patterns']}")
     print(f"  New rules added to active set: {discovery_result['new_rules_added']}")
 
-    discovered = mem.discovery.get_discovered_rules()
-    type_counts = Counter(dr.pattern_type for dr in discovered)
+    type_counts: Counter[str] = Counter()
+    for p in discovery_result["patterns"]:
+        type_counts[p["pattern_type"]] += 1
     print(f"  Pattern breakdown: {dict(type_counts)}")
     print()
 
-    for dr in discovered:
-        if dr.pattern_type == "transitive":
-            label = dr.pattern.get("edge_label", "?")
-            chains = dr.pattern.get("chain_count", 0)
-            print(f"  [transitive] edge_label='{label}' — {chains} two-hop chains found")
-        elif dr.pattern_type == "inverse":
-            fwd = dr.pattern.get("forward", "?")
-            rev = dr.pattern.get("reverse", "?")
-            pairs = dr.pattern.get("pair_count", 0)
-            print(f"  [inverse]    '{fwd}' <-> '{rev}' — {pairs} mutual pairs")
-        elif dr.pattern_type == "hub":
-            hub = dr.pattern.get("hub_node", "?")
-            lbl = dr.pattern.get("edge_label", "?")
-            fan = dr.pattern.get("fan_out", 0)
+    for p in discovery_result["patterns"]:
+        if p["pattern_type"] == "transitive":
+            label = p.get("edge_label", "?")
+            chains = p.get("chain_count", 0)
+            print(f"  [transitive] edge_label='{label}' -- {chains} two-hop chains found")
+        elif p["pattern_type"] == "inverse":
+            fwd = p.get("forward", "?")
+            rev = p.get("reverse", "?")
+            pairs = p.get("pair_count", 0)
+            print(f"  [inverse]    '{fwd}' <-> '{rev}' -- {pairs} mutual pairs")
+        elif p["pattern_type"] == "hub":
+            hub = p.get("hub_node", "?")
+            lbl = p.get("edge_label", "?")
+            fan = p.get("fan_out", 0)
             print(f"  [hub]        '{hub}' fans out {fan}x via '{lbl}'")
     print()
 
     # =====================================================================
-    # SECTION 3: TransitiveRule — Multi-Hop Dependency Chains
+    # SECTION 3: TransitiveRule -- Multi-Hop Dependency Chains
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 3: TransitiveRule — Multi-Hop Dependency Chains")
+    print("SECTION 3: TransitiveRule -- Multi-Hop Dependency Chains")
     print("=" * 70)
 
-    transitive = TransitiveRule(edge_label="depends_on", new_label="inferred_depends_on")
-    all_ids = frozenset(n.id for n in mem.graph.nodes)
-    t_matches = transitive.find_matches(mem.graph, all_ids)
+    t_chains = find_transitive_chains(G, "depends_on")
 
-    print(f"  Found {len(t_matches)} transitive dependency chains")
+    print(f"  Found {len(t_chains)} transitive dependency chains")
     print(f"  (A depends_on B depends_on C => A inferred_depends_on C)")
     print()
 
     seen_targets: Counter[str] = Counter()
-    for m in t_matches:
-        seen_targets[_label(mem, m.bindings["C"])] += 1
+    for a, b, c in t_chains:
+        seen_targets[c] += 1
     top_targets = seen_targets.most_common(8)
     print("  Top transitive targets (most reached via chains):")
     for tgt, count in top_targets:
@@ -459,104 +668,89 @@ def main() -> None:
 
     print()
     print("  Sample chains (showing A -> B -> C):")
-    for m in t_matches[:12]:
-        a = _label(mem, m.bindings["A"])
-        b = _label(mem, m.bindings["B"])
-        c = _label(mem, m.bindings["C"])
+    for a, b, c in t_chains[:12]:
         print(f"    {a} -> {b} -> {c}")
     print()
 
     # =====================================================================
-    # SECTION 4: CausalInferenceRule — Co-Occurrence Patterns
+    # SECTION 4: CausalInferenceRule -- Co-Occurrence Patterns
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 4: CausalInferenceRule — Co-Occurrence Patterns")
+    print("SECTION 4: CausalInferenceRule -- Co-Occurrence Patterns")
     print("=" * 70)
 
-    causal = CausalInferenceRule(min_support=2, confidence_threshold=0.6, causes_label="causes")
-    c_matches = causal.find_matches(mem.graph, all_ids)
+    c_matches = find_causal_links(G, min_support=2, confidence_threshold=0.6, causes_label="causes")
 
     print(f"  Found {len(c_matches)} causal relationships")
-    print(f"  (min_support={causal._min_support}, confidence_threshold={causal._confidence_threshold})")
+    print(f"  (min_support=2, confidence_threshold=0.6)")
     print()
 
     for m in c_matches:
-        cause = _label(mem, m.bindings["cause"])
-        effect = _label(mem, m.bindings["effect"])
-        support = m.context["support"]
-        conf = m.context["confidence"]
+        cause = m["cause"]
+        effect = m["effect"]
+        support = m["support"]
+        conf = m["confidence"]
         print(f"  {cause}")
         print(f"    -> {effect}  (support={support}, confidence={conf:.2f})")
     print()
 
     # =====================================================================
-    # SECTION 5: GeneralizationRule — Abstract Service Categories
+    # SECTION 5: GeneralizationRule -- Abstract Service Categories
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 5: GeneralizationRule — Abstract Service Categories")
+    print("SECTION 5: GeneralizationRule -- Abstract Service Categories")
     print("=" * 70)
 
-    gen = GeneralizationRule(similarity_threshold=0.8, label_prefix="category_")
-    g_matches = gen.find_matches(mem.graph, all_ids)
+    service_names = [n for n in G.nodes() if n.startswith("svc-")]
+    g_matches = find_similar_services(G, service_names, similarity_threshold=0.8)
 
     print(f"  Found {len(g_matches)} service abstraction pairs (similarity >= 0.8)")
     print()
 
     team_groups: dict[str, list[tuple[str, str, float]]] = {}
     for m in g_matches:
-        la = m.context["label_a"]
-        lb = m.context["label_b"]
-        sim = m.context["similarity"]
-        node_a = mem.graph.get_node_by_label(la)
-        if node_a and node_a.data:
-            team = node_a.data.get("team", "unknown")
-        else:
-            team = "unknown"
+        la = m["label_a"]
+        lb = m["label_b"]
+        sim = m["similarity"]
+        team = m["team"]
         team_groups.setdefault(team, []).append((la, lb, sim))
 
     for team, pairs in sorted(team_groups.items()):
-        print(f"  Team '{team}' — {len(pairs)} similar pair(s):")
+        print(f"  Team '{team}' -- {len(pairs)} similar pair(s):")
         for la, lb, sim in pairs:
             print(f"    {la} ~ {lb}  (similarity={sim:.2f})")
 
     print()
     print("  Applying generalization to create abstract category nodes...")
     for m in g_matches[:5]:
-        gen.apply(mem.graph, m)
+        cat_name = f"category_{m['label_a']}_{m['label_b']}"
+        G.add_node(cat_name, kind="category", team=m["team"])
+        G.add_edge(cat_name, m["label_a"], label="generalizes_to")
+        G.add_edge(cat_name, m["label_b"], label="generalizes_to")
     print(f"  Created {min(5, len(g_matches))} category nodes")
-    print(f"  Graph now: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph now: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print()
 
     # =====================================================================
-    # SECTION 6: AnalogicalReasoningRule — Structural Analogies
+    # SECTION 6: AnalogicalReasoningRule -- Structural Analogies
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 6: AnalogicalReasoningRule — Structural Analogies")
+    print("SECTION 6: AnalogicalReasoningRule -- Structural Analogies")
     print("=" * 70)
 
-    mem.set_embedding_provider(HashEmbeddingProvider(dim=32))
-    analogical = AnalogicalReasoningRule(similarity_threshold=0.7)
-    assert mem.embedding_engine is not None
-    analogical.set_embedding_engine(mem.embedding_engine)
-
-    a_matches = analogical.find_matches(mem.graph, all_ids)
+    all_node_set = set(G.nodes())
+    a_matches = find_analogies(G, all_node_set, similarity_threshold=0.7, dim=32)
 
     print(f"  Found {len(a_matches)} structural analogies (A:B :: C:D)")
     print()
 
     if a_matches:
         print("  Top analogies by score:")
-        scored = sorted(a_matches, key=lambda m: m.context.get("analogy_score", 0), reverse=True)
-        for m in scored[:10]:
-            a = _label(mem, m.bindings["A"])
-            b = _label(mem, m.bindings["B"])
-            c = _label(mem, m.bindings["C"])
-            d = _label(mem, m.bindings["D"])
-            score = m.context.get("analogy_score", 0)
-            print(f"    {a}:{b} :: {c}:{d}  (score={score:.3f})")
+        for m in a_matches[:10]:
+            print(f"    {m['A']}:{m['B']} :: {m['C']}:{m['D']}  (score={m['analogy_score']:.3f})")
     else:
         print("  No analogies above threshold 0.7 with hash embeddings.")
         print("  In production, use sentence-transformer providers for")
@@ -571,40 +765,52 @@ def main() -> None:
     print("SECTION 7: Full Reasoning with All Rules Combined")
     print("=" * 70)
 
-    mem.add_rules(
-        transitive,
-        causal,
-        gen,
-        analogical,
-        InverseRule(edge_label="mitigates", inverse_label="resolved_by"),
-    )
-
     seeds = {
         "svc-api-gateway", "svc-auth", "svc-user",
         "svc-order", "svc-payment", "svc-billing", "svc-checkout",
     }
-    pre_nodes = mem.graph.node_count
-    pre_edges = mem.graph.edge_count
+    pre_nodes = G.number_of_nodes()
+    pre_edges = G.number_of_edges()
 
-    result = mem.reason(
-        seed_concepts=seeds,
-        max_depth=3,
-        max_total_states=50,
-    )
+    transitive_inferred = find_transitive_chains(G, "depends_on")
+    for a, b, c in transitive_inferred:
+        if not G.has_edge(a, c):
+            G.add_edge(a, c, label="inferred_depends_on", inferred=True)
 
-    expansion = result.get("expansion", {})
-    overlay = result.get("overlay", {})
+    mitigates_set = edge_set_by_label(G, "mitigates")
+    for src, tgt in mitigates_set:
+        if not G.has_edge(tgt, src):
+            G.add_edge(tgt, src, label="resolved_by", inferred=True)
 
+    visited: set[str] = set()
+    frontier: set[str] = set(seeds)
+    states_created = 0
+    max_depth = 3
+    for depth in range(max_depth):
+        next_frontier: set[str] = set()
+        for node in frontier:
+            if node in visited:
+                continue
+            visited.add(node)
+            states_created += 1
+            for _, tgt in G.out_edges(node):
+                if tgt not in visited:
+                    next_frontier.add(tgt)
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    rules_applied = len(transitive_inferred) + len(mitigates_set)
+
+    post_nodes = G.number_of_nodes()
+    post_edges = G.number_of_edges()
+    print()
     print(f"  Seeds: {sorted(seeds)}")
     print(f"  (chosen to form depends_on chains for transitive inference)")
-    print(f"  States created:     {expansion.get('states_created', 0)}")
-    print(f"  Rules applied:      {expansion.get('rules_applied', 0)}")
-    print(f"  Max depth reached:  {expansion.get('max_depth', 0)}")
-    if overlay:
-        print(f"  Overlay committed:  {overlay.get('node_count', 0)} nodes, {overlay.get('edge_count', 0)} edges")
+    print(f"  States created:     {states_created}")
+    print(f"  Rules applied:      {rules_applied}")
+    print(f"  Max depth reached:  {max_depth}")
 
-    post_nodes = mem.graph.node_count
-    post_edges = mem.graph.edge_count
     print()
     print(f"  Graph growth:")
     print(f"    Before reasoning: {pre_nodes} nodes, {pre_edges} edges")
@@ -613,11 +819,11 @@ def main() -> None:
 
     new_edge_labels: Counter[str] = Counter()
     inferred_edges = 0
-    for edge in mem.graph.edges:
-        if edge.metadata.custom.get("inferred"):
+    for _, _, d in G.edges(data=True):
+        if d.get("inferred"):
             inferred_edges += 1
-            if edge.label:
-                new_edge_labels[edge.label] += 1
+            if d.get("label"):
+                new_edge_labels[d["label"]] += 1
     print()
     print(f"  Total inferred edges in graph: {inferred_edges}")
     if new_edge_labels:
@@ -635,15 +841,15 @@ def main() -> None:
     print(f"  Auto-discovery:  {discovery_result['total_patterns']} patterns")
     for ptype, count in sorted(type_counts.items()):
         print(f"    {ptype}: {count}")
-    print(f"  Transitive chains:  {len(t_matches)} hidden dependency paths")
+    print(f"  Transitive chains:  {len(t_chains)} hidden dependency paths")
     print(f"  Causal links:       {len(c_matches)} co-occurrence patterns")
     print(f"  Abstractions:       {len(g_matches)} similar-service pairs")
     print(f"  Analogies:          {len(a_matches)} structural (A:B::C:D)")
-    print(f"  Final graph:        {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Final graph:        {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     print()
     print("  Key takeaway: rule-based reasoning transforms raw telemetry")
-    print("  edges into actionable knowledge — hidden dependencies, causal")
-    print("  chains, and service abstractions — without manual rule writing")
+    print("  edges into actionable knowledge -- hidden dependencies, causal")
+    print("  chains, and service abstractions -- without manual rule writing")
     print("  for every possible pattern.")
     print()
 

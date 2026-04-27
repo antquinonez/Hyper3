@@ -1,28 +1,141 @@
 """
-Semantic Retrieval with Relevance Feedback in a Knowledge Base
-==============================================================
+Semantic Retrieval with Relevance Feedback (Plain Python)
+==========================================================
 
-This example builds a 150+ node cybersecurity / IT operations knowledge
-base and demonstrates multi-signal retrieval: spreading activation for
-associative recall, hash-based embedding similarity, Reciprocal Rank
-Fusion (RRF) to merge both signals, and a learning-to-rank model that
-improves after user relevance feedback.
-
-The HashEmbeddingProvider used here is a deterministic placeholder. In
-production you would inject a real provider (e.g. sentence-transformers)
-via ``mem.set_embedding_provider(my_provider)`` for meaningful semantic
-similarity.
+Reimplements examples/basic/03_retrieval_and_feedback.py using networkx,
+numpy, and standard libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/basic/03_retrieval_and_feedback.py
+    .venv/bin/python examples/comparison/03_retrieval_and_feedback.py
 """
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality
+from collections import defaultdict, deque
+from dataclasses import dataclass
+
+import numpy as np
+import networkx as nx
 
 
-def _build_kb(mem: CognitiveMemory) -> None:
+@dataclass
+class ActivationResult:
+    label: str
+    activation: float
+    depth: int
+
+
+@dataclass
+class SimilarityResult:
+    label_b: str
+    similarity: float
+    embedding_distance: float
+
+
+@dataclass
+class RetrievalResult:
+    label: str
+    rrf_score: float
+    activation: float
+    similarity: float
+    activation_rank: int
+    similarity_rank: int
+
+
+def hash_embedding(label: str, dim: int = 64) -> np.ndarray:
+    rng = np.random.RandomState(hash(label) & 0xFFFFFFFF)
+    vec = rng.randn(dim)
+    return vec / np.linalg.norm(vec)
+
+
+def cosine_similarity(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b) + 1e-12))
+
+
+def euclidean_distance(a: np.ndarray, b: np.ndarray) -> float:
+    return float(np.linalg.norm(a - b))
+
+
+def spreading_activation(
+    G: nx.DiGraph, seed: str, energy: float = 1.0, decay: float = 0.4,
+    iterations: int = 3, top_k: int = 15,
+) -> list[ActivationResult]:
+    activation: dict[str, float] = {seed: energy}
+    depth_map: dict[str, int] = {seed: 0}
+
+    for _ in range(iterations):
+        new_activation: dict[str, float] = {}
+        for node, act in activation.items():
+            for nb in list(G.successors(node)) + list(G.predecessors(node)):
+                transferred = act * decay
+                if transferred > 0.01:
+                    new_activation[nb] = new_activation.get(nb, 0.0) + transferred
+                    if nb not in depth_map or depth_map[nb] > depth_map.get(node, 0) + 1:
+                        depth_map[nb] = depth_map.get(node, 0) + 1
+        for node, act in new_activation.items():
+            activation[node] = activation.get(node, 0.0) + act
+
+    results = []
+    for node, act in activation.items():
+        if node != seed:
+            results.append(ActivationResult(label=node, activation=act, depth=depth_map.get(node, 0)))
+    results.sort(key=lambda r: -r.activation)
+    return results[:top_k]
+
+
+def find_similar(
+    embeddings: dict[str, np.ndarray], query: str, top_k: int = 15,
+    threshold: float = -1.0,
+) -> list[SimilarityResult]:
+    if query not in embeddings:
+        return []
+    query_vec = embeddings[query]
+    results = []
+    for label, vec in embeddings.items():
+        if label == query:
+            continue
+        sim = cosine_similarity(query_vec, vec)
+        dist = euclidean_distance(query_vec, vec)
+        if sim >= threshold:
+            results.append(SimilarityResult(label_b=label, similarity=sim, embedding_distance=dist))
+    results.sort(key=lambda r: -r.similarity)
+    return results[:top_k]
+
+
+def rrf_fuse(
+    activation_results: list[ActivationResult],
+    similarity_results: list[SimilarityResult],
+    top_k: int = 15, k: int = 60,
+) -> list[RetrievalResult]:
+    act_ranks = {r.label: i + 1 for i, r in enumerate(activation_results)}
+    sim_ranks = {r.label_b: i + 1 for i, r in enumerate(similarity_results)}
+
+    all_labels = set(act_ranks.keys()) | set(sim_ranks.keys())
+    scored = []
+    for label in all_labels:
+        act_rank = act_ranks.get(label, len(act_ranks) + 1)
+        sim_rank = sim_ranks.get(label, len(sim_ranks) + 1)
+        rrf = 1.0 / (k + act_rank) + 1.0 / (k + sim_rank)
+        act_val = 0.0
+        sim_val = 0.0
+        for r in activation_results:
+            if r.label == label:
+                act_val = r.activation
+                break
+        for r in similarity_results:
+            if r.label_b == label:
+                sim_val = r.similarity
+                break
+        scored.append(RetrievalResult(
+            label=label, rrf_score=rrf, activation=act_val,
+            similarity=sim_val, activation_rank=act_rank,
+            similarity_rank=sim_rank,
+        ))
+    scored.sort(key=lambda r: -r.rrf_score)
+    return scored[:top_k]
+
+
+def _build_kb(G: nx.DiGraph, node_data: dict[str, dict], embeddings: dict[str, np.ndarray]) -> None:
     security_threats = [
         "sql_injection", "xss", "csrf", "rce", "privilege_escalation",
         "buffer_overflow", "mitm", "phishing", "ransomware", "rootkit",
@@ -121,7 +234,9 @@ def _build_kb(mem: CognitiveMemory) -> None:
 
     def _store_group(labels: list[str], type_name: str, category: str, kw: list[str]) -> None:
         for label in labels:
-            mem.store(label, data={"type": type_name, "category": category, "keywords": kw})
+            G.add_node(label)
+            node_data[label] = {"type": type_name, "category": category, "keywords": kw}
+            embeddings[label] = hash_embedding(label)
 
     _store_group(security_threats, "threat", "security", ["attack", "exploit", "adversary"])
     _store_group(security_vulns, "vulnerability", "security", ["cve", "flaw", "weakness"])
@@ -426,72 +541,114 @@ def _build_kb(mem: CognitiveMemory) -> None:
         _add(sev, alert, "subclass_of")
 
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        G.add_edge(src, tgt, label=label)
+
+
+def retrieve(
+    G: nx.DiGraph, embeddings: dict[str, np.ndarray], query: str,
+    top_k: int = 15, iterations: int = 3,
+    ltr_weights: dict[str, float] | None = None,
+) -> list[RetrievalResult]:
+    act_results = spreading_activation(G, query, energy=1.0, top_k=top_k, iterations=iterations)
+    sim_results = find_similar(embeddings, query, top_k=top_k, threshold=-1.0)
+    rrf_results = rrf_fuse(act_results, sim_results, top_k=top_k)
+
+    if ltr_weights is not None:
+        w_act = ltr_weights.get("activation", 0.5)
+        w_sim = ltr_weights.get("similarity", 0.5)
+        for r in rrf_results:
+            r.rrf_score = w_act * r.activation + w_sim * r.similarity
+        rrf_results.sort(key=lambda r: -r.rrf_score)
+
+    return rrf_results
+
+
+def record_feedback(
+    query: str, results: list[RetrievalResult], relevant: set[str],
+    feedback_store: list[dict],
+) -> int:
+    count = 0
+    for r in results:
+        is_rel = r.label in relevant
+        feedback_store.append({
+            "query": query, "label": r.label,
+            "activation": r.activation, "similarity": r.similarity,
+            "relevant": is_rel,
+        })
+        count += 1
+    return count
+
+
+def train_ltr(feedback_store: list[dict]) -> dict[str, float]:
+    if not feedback_store:
+        return {"activation": 0.5, "similarity": 0.5}
+
+    X = []
+    y = []
+    for rec in feedback_store:
+        X.append([rec["activation"], rec["similarity"]])
+        y.append(1.0 if rec["relevant"] else 0.0)
+
+    X_arr = np.array(X)
+    y_arr = np.array(y)
+
+    X_with_bias = np.column_stack([X_arr, np.ones(len(X_arr))])
+    try:
+        weights, _, _, _ = np.linalg.lstsq(X_with_bias, y_arr, rcond=None)
+        return {"activation": float(weights[0]), "similarity": float(weights[1])}
+    except np.linalg.LinAlgError:
+        return {"activation": 0.5, "similarity": 0.5}
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
-
-    # =====================================================================
-    # SECTION 1: Knowledge Base Construction
-    # =====================================================================
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
+    embeddings: dict[str, np.ndarray] = {}
 
     print("=" * 70)
     print("SECTION 1: Knowledge Base Construction")
     print("=" * 70)
 
-    _build_kb(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    _build_kb(G, node_data, embeddings)
+    print(f"  Nodes: {G.number_of_nodes()}")
+    print(f"  Edges: {G.number_of_edges()}")
 
     categories: dict[str, int] = {}
-    for node in mem.graph.nodes:
-        cat = node.data.get("category", "unknown") if isinstance(node.data, dict) else "unknown"
+    for lbl, data in node_data.items():
+        cat = data.get("category", "unknown")
         categories[cat] = categories.get(cat, 0) + 1
     for cat, count in sorted(categories.items()):
         print(f"    {cat}: {count} nodes")
     print()
 
-    # =====================================================================
-    # SECTION 2: Spreading Activation Retrieval
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 2: Spreading Activation from 'ransomware'")
     print("=" * 70)
 
-    activated = mem.activate("ransomware", energy=1.0, top_k=15, iterations=3)
+    activated = spreading_activation(G, "ransomware", energy=1.0, top_k=15, iterations=3)
     print(f"  {'Label':30s} {'Activation':>10s} {'Depth':>5s}")
     print(f"  {'-'*30} {'-'*10} {'-'*5}")
     for r in activated:
         print(f"  {r.label:30s} {r.activation:10.4f} {r.depth:5d}")
     print()
 
-    # =====================================================================
-    # SECTION 3: Embedding Similarity (HashEmbeddingProvider)
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 3: Embedding Similarity from 'ransomware'")
     print("=" * 70)
     print("  (HashEmbeddingProvider is a deterministic placeholder)")
 
-    similar = mem.find_similar("ransomware", top_k=15, threshold=-1.0)
+    similar = find_similar(embeddings, "ransomware", top_k=15, threshold=-1.0)
     print(f"  {'Label':30s} {'Cosine':>8s} {'Euclid':>8s}")
     print(f"  {'-'*30} {'-'*8} {'-'*8}")
     for s in similar:
         print(f"  {s.label_b:30s} {s.similarity:8.4f} {s.embedding_distance:8.4f}")
     print()
 
-    # =====================================================================
-    # SECTION 4: Reciprocal Rank Fusion
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 4: RRF-Retrieved Concepts for 'ransomware'")
     print("=" * 70)
 
-    rrf_results = mem.retrieve("ransomware", top_k=15, iterations=3)
+    rrf_results = retrieve(G, embeddings, "ransomware", top_k=15, iterations=3)
     print(f"  {'Label':30s} {'RRF':>7s} {'Act':>7s} {'Sim':>7s} {'A#':>4s} {'S#':>4s}")
     print(f"  {'-'*30} {'-'*7} {'-'*7} {'-'*7} {'-'*4} {'-'*4}")
     for r in rrf_results:
@@ -499,14 +656,11 @@ def main():
               f"{r.similarity:7.4f} {r.activation_rank:4d} {r.similarity_rank:4d}")
     print()
 
-    # =====================================================================
-    # SECTION 5: Relevance Feedback
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 5: Recording Relevance Feedback")
     print("=" * 70)
 
+    feedback_store: list[dict] = []
     feedback_queries: list[tuple[str, list, set]] = []
 
     relevant_ransomware = {
@@ -514,58 +668,49 @@ def main():
         "siem", "yara", "alert_malware_detected", "severity_critical",
     }
     feedback_queries.append(("ransomware", rrf_results, relevant_ransomware))
-    n1 = mem.record_feedback("ransomware", rrf_results, relevant_ransomware)
+    n1 = record_feedback("ransomware", rrf_results, relevant_ransomware, feedback_store)
     print(f"  Query 'ransomware': {n1} judgments, {len(relevant_ransomware)} relevant")
 
-    rrf_phishing = mem.retrieve("phishing", top_k=15, iterations=3)
+    rrf_phishing = retrieve(G, embeddings, "phishing", top_k=15, iterations=3)
     relevant_phishing = {
         "mfa", "waf", "ids", "alert_phishing_click", "severity_medium",
         "revoke_credentials", "soc_team", "open_redirect", "burp_suite",
     }
     feedback_queries.append(("phishing", rrf_phishing, relevant_phishing))
-    n2 = mem.record_feedback("phishing", rrf_phishing, relevant_phishing)
+    n2 = record_feedback("phishing", rrf_phishing, relevant_phishing, feedback_store)
     print(f"  Query 'phishing':   {n2} judgments, {len(relevant_phishing)} relevant")
 
-    rrf_ddos = mem.retrieve("ddos", top_k=15, iterations=3)
+    rrf_ddos = retrieve(G, embeddings, "ddos", top_k=15, iterations=3)
     relevant_ddos = {
         "ips", "cdn_edge", "load_balancer", "alert_ddos_spike",
         "block_ip", "severity_high", "firewall", "suricata", "snort",
     }
     feedback_queries.append(("ddos", rrf_ddos, relevant_ddos))
-    n3 = mem.record_feedback("ddos", rrf_ddos, relevant_ddos)
+    n3 = record_feedback("ddos", rrf_ddos, relevant_ddos, feedback_store)
     print(f"  Query 'ddos':       {n3} judgments, {len(relevant_ddos)} relevant")
 
-    rrf_zero_day = mem.retrieve("zero_day", top_k=15, iterations=3)
+    rrf_zero_day = retrieve(G, embeddings, "zero_day", top_k=15, iterations=3)
     relevant_zero_day = {
         "edr", "xdr", "siem", "mitre_attack", "alert_privilege_escalation",
         "severity_critical", "patch_system", "nmap", "nessus",
     }
     feedback_queries.append(("zero_day", rrf_zero_day, relevant_zero_day))
-    n4 = mem.record_feedback("zero_day", rrf_zero_day, relevant_zero_day)
+    n4 = record_feedback("zero_day", rrf_zero_day, relevant_zero_day, feedback_store)
     print(f"  Query 'zero_day':   {n4} judgments, {len(relevant_zero_day)} relevant")
-    print(f"  Total feedback records: {mem.feedback.size}")
+    print(f"  Total feedback records: {len(feedback_store)}")
     print()
-
-    # =====================================================================
-    # SECTION 6: Training the Learning-to-Rank Model
-    # =====================================================================
 
     print("=" * 70)
     print("SECTION 6: Training Learning-to-Rank Model")
     print("=" * 70)
 
-    report = mem.train_retriever()
-    print(f"  Trained: {report.get('trained', False)}")
-    print(f"  Samples: {report.get('samples', 0)}")
-    if "weights" in report:
-        print("  Learned feature weights:")
-        for feat, weight in sorted(report["weights"].items()):
-            print(f"    {feat:20s} {weight:+.4f}")
+    weights = train_ltr(feedback_store)
+    print(f"  Trained: True")
+    print(f"  Samples: {len(feedback_store)}")
+    print("  Learned feature weights:")
+    for feat, weight in sorted(weights.items()):
+        print(f"    {feat:20s} {weight:+.4f}")
     print()
-
-    # =====================================================================
-    # SECTION 7: Improved Retrieval After Training
-    # =====================================================================
 
     print("=" * 70)
     print("SECTION 7: Retrieval Comparison (Before vs After LTR)")
@@ -573,8 +718,8 @@ def main():
 
     queries = ["ransomware", "phishing", "ddos", "zero_day"]
     for query in queries:
-        before = mem.retrieve(query, top_k=15, iterations=3, use_ltr=False)
-        after = mem.retrieve(query, top_k=15, iterations=3, use_ltr=True)
+        before = retrieve(G, embeddings, query, top_k=15, iterations=3, ltr_weights=None)
+        after = retrieve(G, embeddings, query, top_k=15, iterations=3, ltr_weights=weights)
 
         before_labels = [r.label for r in before]
         after_labels = [r.label for r in after]
@@ -594,10 +739,6 @@ def main():
             print(f"    Demoted from top-5:   {demoted}")
         print()
 
-    # =====================================================================
-    # SECTION 8: Signal Comparison Across Query Types
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 8: Activation vs Embedding by Query Type")
     print("=" * 70)
@@ -611,8 +752,8 @@ def main():
     ]
 
     for query, description in comparison_queries:
-        act = mem.activate(query, energy=1.0, top_k=5, iterations=3)
-        sim = mem.find_similar(query, top_k=5, threshold=-1.0)
+        act = spreading_activation(G, query, energy=1.0, top_k=5, iterations=3)
+        sim = find_similar(embeddings, query, top_k=5, threshold=-1.0)
         act_labels = [r.label for r in act]
         sim_labels = [s.label_b for s in sim]
         overlap = set(act_labels) & set(sim_labels)
@@ -623,18 +764,12 @@ def main():
         print(f"    Overlap: {len(overlap)}/5  {sorted(overlap) if overlap else '(none)'}")
         print()
 
-    # =====================================================================
-    # SUMMARY
-    # =====================================================================
-
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Graph:     {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Events:    {stats['log_size']}")
-    print(f"  Feedback:  {mem.feedback.size} judgments across {len(queries)} queries")
-    print(f"  LTR model: trained with {report.get('samples', 0)} samples")
+    print(f"  Graph:     {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"  Feedback:  {len(feedback_store)} judgments across {len(queries)} queries")
+    print(f"  LTR model: trained with {len(feedback_store)} samples")
     print(f"  Key takeaway: RRF fuses graph topology (activation) with")
     print(f"  embedding similarity. Relevance feedback teaches the system")
     print(f"  which signal matters more for each type of query.")

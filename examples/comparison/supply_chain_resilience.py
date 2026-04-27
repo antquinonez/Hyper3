@@ -1,22 +1,23 @@
 """
-Supply Chain Risk Assessment and Disruption Analysis
-=====================================================
+Supply Chain Risk Assessment and Disruption Analysis (Standard Library)
+========================================================================
 
-Models a multi-tier global supply chain network with 120+ nodes and 250+ edges,
-analyzes it for vulnerabilities, single points of failure, risk cascade
-propagation, and produces actionable diversification recommendations.
+Reimplementation of the Hyper3 supply chain example using networkx.DiGraph,
+numpy, and standard Python libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/domain/supply_chain_resilience.py
+    .venv/bin/python examples/comparison/supply_chain_resilience.py
 """
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, TransitiveRule, InverseRule, Modality
+import networkx as nx
+from collections import defaultdict, deque
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    G = nx.DiGraph()
+    node_data: dict[str, dict] = {}
 
     # =====================================================================
     # SECTION 1: Supply Chain Network Construction
@@ -174,7 +175,8 @@ def main():
 
     all_nodes = {**suppliers, **products, **factories, **dist_centers, **transport, **risks, **customers}
     for name, data in all_nodes.items():
-        mem.store(name, data=data)
+        G.add_node(name)
+        node_data[name] = data
 
     supplies_to = [
         ("sup_t3_australia_bauxite", "sup_t2_australia_iron"),
@@ -480,21 +482,17 @@ def main():
     ]
 
     total_edges = 0
+    edge_label_counts: dict[str, int] = {}
     for edges, label in edge_groups:
         for src, tgt in edges:
-            mem.relate(src, tgt, label=label)
+            G.add_edge(src, tgt, label=label)
+        edge_label_counts[label] = len(edges)
         total_edges += len(edges)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
-    print(f"    supplies_to:      {len(supplies_to)}")
-    print(f"    manufactured_at:   {len(manufactured_at)}")
-    print(f"    stored_at:         {len(stored_at)}")
-    print(f"    transported_via:   {len(transported_via)}")
-    print(f"    affected_by:       {len(affected_by)}")
-    print(f"    depends_on:        {len(depends_on)}")
-    print(f"    serves:            {len(serves_edges)}")
-    print(f"    backup_for:        {len(backup_for)}")
+    print(f"  Nodes: {G.number_of_nodes()}")
+    print(f"  Edges: {G.number_of_edges()}")
+    for label, count in edge_label_counts.items():
+        print(f"    {label}:      {count}")
     print()
 
     # =====================================================================
@@ -504,22 +502,22 @@ def main():
     print("SECTION 2: Centrality Analysis - Critical Nodes & Chokepoints")
     print("=" * 70)
 
-    deg = mem.degree_centrality_labels()
-    btw = mem.betweenness_centrality_labels()
+    deg = nx.degree_centrality(G)
+    btw = nx.betweenness_centrality(G)
 
     sorted_deg = sorted(deg.items(), key=lambda x: -x[1])
     sorted_btw = sorted(btw.items(), key=lambda x: -x[1])
 
     print("\n  Top 10 by degree centrality (most connected / highest ripple):")
     for name, score in sorted_deg[:10]:
-        node = mem.graph.get_node_by_label(name)
-        cat = node.data.get("category", "?") if node and node.data else "?"
+        d = node_data.get(name, {})
+        cat = d.get("category", "?")
         print(f"    {name:35s} deg={score:.3f}  [{cat}]")
 
     print("\n  Top 10 by betweenness centrality (critical chokepoints):")
     for name, score in sorted_btw[:10]:
-        node = mem.graph.get_node_by_label(name)
-        cat = node.data.get("category", "?") if node and node.data else "?"
+        d = node_data.get(name, {})
+        cat = d.get("category", "?")
         print(f"    {name:35s} btw={score:.3f}  [{cat}]")
     print()
 
@@ -556,75 +554,52 @@ def main():
     ]
     print(f"\n  Single-source suppliers with NO backup coverage ({len(unprotected_suppliers)}):")
     for name in unprotected_suppliers:
-        node = mem.graph.get_node_by_label(name)
-        d = node.data if node and node.data else {}
+        d = node_data.get(name, {})
         print(f"    {name:35s} country={d.get('country', '?'):15s} "
               f"material={d.get('material', '?')}")
     print()
 
     # =====================================================================
-    # SECTION 4: Risk Cascade Reasoning
+    # SECTION 4: Risk Cascade Reasoning (via transitive closure)
     # =====================================================================
     print("=" * 70)
     print("SECTION 4: Risk Cascade Reasoning")
     print("=" * 70)
 
-    mem.add_rules(
-        TransitiveRule(edge_label="supplies_to", new_label="indirectly_supplies"),
-        TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by"),
-        InverseRule(edge_label="supplies_to", inverse_label="supplied_by"),
-    )
+    affected_subgraph = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "affected_by":
+            affected_subgraph.add_edge(u, v)
 
-    cascade_seeds = (
-        {"risk_earthquake_pacific", "risk_trade_war", "risk_pandemic",
-         "risk_geopolitical_tension", "risk_sanctions", "risk_material_shortage"}
-        | {n for n in suppliers}
-        | {n for n in products}
-    )
-    print(f"\n  Seed nodes for reasoning: {len(cascade_seeds)}")
+    cascade_tc = nx.transitive_closure(affected_subgraph)
+    cascade_edges = []
+    for u, v in cascade_tc.edges():
+        if not affected_subgraph.has_edge(u, v):
+            cascade_edges.append((u, v))
 
-    print("\n  Phase 1: Risk cascade reasoning (affected_by)...")
-    mem.add_rules(
-        TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by"),
-    )
-    result1 = mem.reason(
-        seed_concepts=cascade_seeds,
-        max_depth=3,
-        max_total_states=50,
-    )
-    exp1 = result1["expansion"]
-    print(f"    States explored: {exp1['states_created']}")
-    print(f"    Rules applied:   {exp1['rules_applied']}")
-    print(f"    New edges:       {exp1['edges_produced']}")
+    supplies_subgraph = nx.DiGraph()
+    for u, v, d in G.edges(data=True):
+        if d.get("label") == "supplies_to":
+            supplies_subgraph.add_edge(u, v)
 
-    print("\n  Phase 2: Indirect supply chain reasoning (supplies_to)...")
-    mem.add_rules(
-        TransitiveRule(edge_label="supplies_to", new_label="indirectly_supplies"),
-        InverseRule(edge_label="supplies_to", inverse_label="supplied_by"),
-    )
-    result2 = mem.reason(
-        seed_concepts=cascade_seeds,
-        max_depth=3,
-        max_total_states=50,
-    )
-    exp2 = result2["expansion"]
-    print(f"    States explored: {exp2['states_created']}")
-    print(f"    Rules applied:   {exp2['rules_applied']}")
-    print(f"    New edges:       {exp2['edges_produced']}")
+    supply_tc = nx.transitive_closure(supplies_subgraph)
+    indirect_supply_edges = []
+    for u, v in supply_tc.edges():
+        if not supplies_subgraph.has_edge(u, v):
+            indirect_supply_edges.append((u, v))
 
-    cascades = mem.pattern_match(edge_label="cascade_affected_by")
-    indirect = mem.pattern_match(edge_label="indirectly_supplies")
-    print(f"\n  Cascade edges discovered: {len(cascades)}")
-    print(f"  Indirect supply edges:    {len(indirect)}")
+    print(f"\n  Cascade edges discovered (transitive affected_by): {len(cascade_edges)}")
+    print(f"  Indirect supply edges (transitive supplies_to):    {len(indirect_supply_edges)}")
 
     risk_impacts: dict[str, list[str]] = {}
-    for edge_info in cascades:
-        src_id = edge_info["source_ids"][0]
-        tgt_id = edge_info["target_ids"][0]
-        src_node = mem.graph.get_node(src_id)
-        tgt_node = mem.graph.get_node(tgt_id)
-        if src_node and tgt_node and src_node.label.startswith("risk_"):
-            risk_impacts.setdefault(src_node.label, []).append(tgt_node.label)
+    for src, tgt in cascade_edges:
+        if src.startswith("risk_"):
+            risk_impacts.setdefault(src, []).append(tgt)
+    for src, tgt in affected_subgraph.edges():
+        if src.startswith("risk_") and src not in risk_impacts:
+            risk_impacts.setdefault(src, []).append(tgt)
+        elif src.startswith("risk_"):
+            risk_impacts[src].append(tgt)
 
     print(f"\n  Risk cascade impact summary:")
     for risk_label in sorted(risk_impacts):
@@ -646,31 +621,47 @@ def main():
     print("=" * 70)
 
     high_impact_risks = sorted(risks.items(), key=lambda x: -(x[1].get("probability", 0) * x[1].get("impact", 0)))
+
+    def find_paths_bfs(graph, source, target, max_depth=8, max_paths=3):
+        results = []
+        queue = deque([[source]])
+        while queue and len(results) < max_paths:
+            path = queue.popleft()
+            if len(path) > max_depth:
+                continue
+            if path[-1] == target and len(path) > 1:
+                results.append(path)
+                continue
+            for nb in graph.successors(path[-1]):
+                if nb not in path:
+                    queue.append(path + [nb])
+        return results
+
     print("\n  Top risk-to-product disruption paths:")
     for risk_name, risk_data in high_impact_risks[:4]:
         print(f"\n  {risk_name} (p={risk_data['probability']:.2f}, impact={risk_data['impact']:.2f}):")
-        paths = mem.find_paths_labels(risk_name, "prod_vehicle", max_depth=8, max_paths=3)
+        paths = find_paths_bfs(G, risk_name, "prod_vehicle", max_depth=8, max_paths=3)
         if paths:
             for i, path in enumerate(paths[:2]):
                 lead_total = 0
                 for step in path:
-                    n = mem.graph.get_node_by_label(step)
-                    if n and n.data and "lead_time_days" in n.data:
-                        lead_total += n.data["lead_time_days"]
+                    n = node_data.get(step, {})
+                    if "lead_time_days" in n:
+                        lead_total += n["lead_time_days"]
                 print(f"    Path {i+1} ({len(path)} hops, lead_time_sum={lead_total}d):")
                 print(f"      {' -> '.join(path)}")
         else:
             print(f"    No direct path to final vehicle")
 
-    components = mem.connected_components_labels()
+    undirected = G.to_undirected()
+    components = list(nx.connected_components(undirected))
     print(f"\n  Connected components: {len(components)}")
     for i, comp in enumerate(sorted(components, key=len, reverse=True)[:3]):
         cats: dict[str, int] = {}
         for lbl in comp:
-            n = mem.graph.get_node_by_label(lbl)
-            if n and n.data:
-                c = n.data.get("category", "unknown")
-                cats[c] = cats.get(c, 0) + 1
+            d = node_data.get(lbl, {})
+            c = d.get("category", "unknown")
+            cats[c] = cats.get(c, 0) + 1
         print(f"    Component {i+1}: {len(comp)} nodes - {cats}")
     print()
 
@@ -703,39 +694,33 @@ def main():
     worst_chain_lead = 0
     worst_chain_path: list[str] = []
     for t3_name in tier3_suppliers:
-        t3_node = mem.graph.get_node_by_label(t3_name)
-        if not t3_node:
-            continue
         t3_lt = suppliers[t3_name]["lead_time_days"]
-        for e1 in mem.graph.edges_for(t3_node.id):
-            if e1.label != "supplies_to":
+        for t2_name in G.successors(t3_name):
+            if G.edges[t3_name, t2_name].get("label") != "supplies_to":
                 continue
-            for t2_id in e1.target_ids:
-                t2_node = mem.graph.get_node(t2_id)
-                if not t2_node or t2_node.data.get("tier") != 2:
+            t2_d = node_data.get(t2_name, {})
+            if t2_d.get("tier") != 2:
+                continue
+            t2_lt = t2_d.get("lead_time_days", 0)
+            for t1_name in G.successors(t2_name):
+                if G.edges[t2_name, t1_name].get("label") != "supplies_to":
                     continue
-                t2_lt = t2_node.data.get("lead_time_days", 0)
-                for e2 in mem.graph.edges_for(t2_id):
-                    if e2.label != "supplies_to":
-                        continue
-                    for t1_id in e2.target_ids:
-                        t1_node = mem.graph.get_node(t1_id)
-                        if not t1_node or t1_node.data.get("tier") != 1:
-                            continue
-                        t1_lt = t1_node.data.get("lead_time_days", 0)
-                        total = t3_lt + t2_lt + t1_lt
-                        if total > worst_chain_lead:
-                            worst_chain_lead = total
-                            worst_chain_path = [t3_name, t2_node.label, t1_node.label]
+                t1_d = node_data.get(t1_name, {})
+                if t1_d.get("tier") != 1:
+                    continue
+                t1_lt = t1_d.get("lead_time_days", 0)
+                total = t3_lt + t2_lt + t1_lt
+                if total > worst_chain_lead:
+                    worst_chain_lead = total
+                    worst_chain_path = [t3_name, t2_name, t1_name]
 
     if worst_chain_path:
         print(f"\n  Worst-case supply chain lead time: {worst_chain_lead}d")
         print(f"    Path: {' -> '.join(worst_chain_path)}")
         for step in worst_chain_path:
-            n = mem.graph.get_node_by_label(step)
-            if n and n.data:
-                print(f"      {step}: {n.data.get('lead_time_days', '?')}d  "
-                      f"[{n.data.get('material', '?')}]")
+            n = node_data.get(step, {})
+            print(f"      {step}: {n.get('lead_time_days', '?')}d  "
+                  f"[{n.get('material', '?')}]")
 
     print(f"\n  Supplier reliability risk ranking:")
     supplier_risk = []
@@ -762,8 +747,7 @@ def main():
     dc_no_backup = [name for name, data in dist_centers.items() if not data.get("backup")]
     print(f"\n  Distribution centers without backup ({len(dc_no_backup)}):")
     for name in dc_no_backup:
-        node = mem.graph.get_node_by_label(name)
-        d = node.data if node and node.data else {}
+        d = node_data.get(name, {})
         print(f"    {name:25s} region={d.get('region', '?')} capacity={d.get('capacity', '?')}")
 
     backup_srcs = {src for src, _ in backup_for}
@@ -773,8 +757,7 @@ def main():
     print(f"\n  Suppliers not listed as backup providers ({len(suppliers_without_backup_entry)}):")
     critical_no_backup = []
     for name in suppliers_without_backup_entry:
-        node = mem.graph.get_node_by_label(name)
-        d = node.data if node and node.data else {}
+        d = node_data.get(name, {})
         if d.get("single_source") or d.get("reliability_score", 1.0) < 0.80:
             critical_no_backup.append((name, d))
     for name, d in sorted(critical_no_backup, key=lambda x: x[1].get("reliability_score", 1.0)):
@@ -787,13 +770,11 @@ def main():
         if not data.get("single_source"):
             continue
         risk_count = 0
-        for edge_info in mem.pattern_match(edge_label="affected_by", target_label=name):
-            src_id = edge_info["source_ids"][0]
-            src_node = mem.graph.get_node(src_id)
-            if src_node and src_node.label.startswith("risk_"):
-                risk_node = mem.graph.get_node_by_label(src_node.label)
-                if risk_node and risk_node.data:
-                    risk_count += risk_node.data.get("impact", 0)
+        for pred in G.predecessors(name):
+            edge = G.edges[pred, name]
+            if edge.get("label") == "affected_by" and pred.startswith("risk_"):
+                rd = node_data.get(pred, {})
+                risk_count += rd.get("impact", 0)
         has_backup = name in backup_srcs
         priority_score = (1.0 - data["reliability_score"]) * data["lead_time_days"] * (risk_count + 1)
         if not has_backup:
@@ -815,14 +796,13 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Network: {stats['nodes']} nodes, {stats['edges']} edges")
-    print(f"  Connected components: {stats['components']}")
+    print(f"  Network: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"  Connected components: {len(components)}")
     print()
     print("  Key findings:")
     print(f"    - {len(single_source_suppliers)} single-source suppliers identified")
     print(f"    - {len(critical_low_alternate)} critical products with <=1 alternate source")
-    print(f"    - {len(cascades)} risk cascade paths discovered via reasoning")
+    print(f"    - {len(cascade_edges)} risk cascade paths discovered via transitive closure")
     print(f"    - {len(dc_no_backup)} distribution centers lack backup coverage")
     if worst_chain_path:
         print(f"    - Worst-case supply chain lead time: {worst_chain_lead} days")
