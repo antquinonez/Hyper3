@@ -20,6 +20,10 @@ from hyper3.rules import TransitiveRule, InverseRule
 def main() -> None:
     mem = CognitiveMemory(evolve_interval=0)
 
+    def _id(label: str) -> str:
+        n = mem.graph.get_node_by_label(label)
+        return n.id if n else label
+
     print("=" * 70)
     print("SECTION 1: Feedback-Driven Evolution")
     print("=" * 70)
@@ -31,11 +35,11 @@ def main() -> None:
     mem.relate("gamma", "delta", label="connects")
     mem.relate("delta", "epsilon", label="connects")
 
-    mem._feedback.record_evolution_outcome(0.8)
-    mem._feedback.record_evolution_outcome(0.7)
-    mem._feedback.record_evolution_outcome(0.6)
+    mem.operation_feedback.record_evolution_outcome(0.8)
+    mem.operation_feedback.record_evolution_outcome(0.7)
+    mem.operation_feedback.record_evolution_outcome(0.6)
 
-    print(f"  Fitness trend: {mem._feedback.get_fitness_trend()}")
+    print(f"  Fitness trend: {mem.operation_feedback.get_fitness_trend()}")
     print(f"  Evolution before feedback-driven cycle:")
     result = mem.evolve_with_feedback()
     print(f"    decayed={result.decayed}, pruned={result.pruned}, "
@@ -47,20 +51,24 @@ def main() -> None:
         mem.store(concept)
     mem.relate("epsilon", "zeta", label="connects")
 
-    mem._feedback.record_inference_outcome("edge_1", accepted=True)
-    mem._feedback.record_inference_outcome("edge_2", accepted=True)
-    mem._feedback.record_inference_outcome("edge_3", accepted=False)
+    mem.operation_feedback.record_inference_outcome("edge_1", accepted=True)
+    mem.operation_feedback.record_inference_outcome("edge_2", accepted=True)
+    mem.operation_feedback.record_inference_outcome("edge_3", accepted=False)
 
-    print(f"  Inference acceptance rate: {mem._feedback.inference_acceptance_rate():.2f}")
-    print(f"  Reinforced nodes: {len(mem._feedback.get_reinforced_nodes())}")
+    print(f"  Inference acceptance rate: {mem.operation_feedback.inference_acceptance_rate():.2f}")
+    print(f"  Reinforced nodes: {len(mem.operation_feedback.get_reinforced_nodes())}")
 
     print()
     print("=" * 70)
     print("SECTION 2: Cross-Operation Feedback Summary")
     print("=" * 70)
 
-    mem._feedback.record_retrieval_outcome("connects", {"alpha"}, {"epsilon"})
-    mem._feedback.record_retrieval_outcome("connects", {"beta"}, set())
+    mem.operation_feedback.record_retrieval_outcome(
+        "connects", {_id("alpha")}, {_id("epsilon")},
+    )
+    mem.operation_feedback.record_retrieval_outcome(
+        "connects", {_id("beta")}, set(),
+    )
 
     summary = mem.feedback_summary()
     print(f"  Overall health: {summary['overall_health']:.2f}")
@@ -75,7 +83,9 @@ def main() -> None:
     if correlated:
         print(f"  Nodes appearing across multiple operations: {len(correlated)}")
         for nid, info in list(correlated.items())[:3]:
-            print(f"    {nid[:8]}: positive_rate={info['positive_rate']:.2f}, "
+            n = mem.graph.get_node(nid)
+            label = n.label if n else nid[:8]
+            print(f"    {label}: positive_rate={info['positive_rate']:.2f}, "
                   f"types={info['signal_types']}")
 
     print()

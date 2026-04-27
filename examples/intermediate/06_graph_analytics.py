@@ -712,11 +712,10 @@ def main():
             src_node = mem.graph.get_node_by_label(src)
             tgt_node = mem.graph.get_node_by_label(tgt)
             if src_node and tgt_node:
-                for edge in mem.graph.edges:
-                    if src_node.id in edge.source_ids and tgt_node.id in edge.target_ids:
-                        if edge.label == "trusts":
-                            has_trust = True
-                            break
+                for edge in mem.graph.edges_for(src_node.id):
+                    if tgt_node.id in edge.target_ids and edge.label == "trusts":
+                        has_trust = True
+                        break
             if has_trust:
                 break
         if has_trust:

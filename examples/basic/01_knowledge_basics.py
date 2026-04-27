@@ -478,11 +478,7 @@ def main():
     print("  Rank  CVE                  Centality  CVSS   Product")
     print("  " + "-" * 60)
     for rank, (cve_label, score) in enumerate(top_cves, 1):
-        node = None
-        for n in mem.graph.nodes:
-            if n.label == cve_label:
-                node = n
-                break
+        node = mem.graph.get_node_by_label(cve_label)
         cvss = node.data["cvss"] if node and isinstance(node.data, dict) else "?"
         product = node.data["product"] if node and isinstance(node.data, dict) else "?"
         print(f"  {rank}.    {cve_label:22s} {score:.4f}   {cvss:<5}  {product}")
@@ -558,11 +554,7 @@ def main():
     if isolated:
         print(f"  {len(isolated)} nodes with NO edges (need enrichment):")
         for label in sorted(isolated):
-            node = None
-            for n in mem.graph.nodes:
-                if n.label == label:
-                    node = n
-                    break
+            node = mem.graph.get_node_by_label(label)
             if node and isinstance(node.data, dict):
                 detail = node.data.get("tactic", node.data.get("type", node.data.get("sector", "")))
                 print(f"    {label} [{detail}]")

@@ -169,6 +169,10 @@ def main() -> None:
     mem.add_rules(TransitiveRule(edge_label="blocks"))
     mem.add_rules(InverseRule(edge_label="blocks", inverse_label="blocked_by"))
 
+    def _id(label: str) -> str:
+        n = mem.graph.get_node_by_label(label)
+        return n.id if n else label
+
     print("=" * 70)
     print("SECTION 1: Building Healthy Infrastructure Graph")
     print("=" * 70)
@@ -199,20 +203,20 @@ def main() -> None:
     for path in paths[:3]:
         print(f"    {' -> '.join(path)}")
 
-    mem._feedback.record_collapse_outcome("qs_auth", "auth-svc-01", correct=True)
-    mem._feedback.record_collapse_outcome("qs_payment", "payment-svc-01", correct=True)
-    mem._feedback.record_collapse_outcome("qs_order", "order-svc-01", correct=True)
+    mem.operation_feedback.record_collapse_outcome("qs_auth", _id("auth-svc-01"), correct=True)
+    mem.operation_feedback.record_collapse_outcome("qs_payment", _id("payment-svc-01"), correct=True)
+    mem.operation_feedback.record_collapse_outcome("qs_order", _id("order-svc-01"), correct=True)
 
-    mem._feedback.record_retrieval_outcome("database", {"db-pg-primary", "db-pg-replica-01"}, set())
-    mem._feedback.record_retrieval_outcome("cache", {"cache-redis-01", "cache-redis-02"}, {"cache-redis-02"})
+    mem.operation_feedback.record_retrieval_outcome("database", {_id("db-pg-primary"), _id("db-pg-replica-01")}, set())
+    mem.operation_feedback.record_retrieval_outcome("cache", {_id("cache-redis-01"), _id("cache-redis-02")}, {_id("cache-redis-02")})
 
-    mem._feedback.record_inference_outcome("inf_call_chain_1", accepted=True)
-    mem._feedback.record_inference_outcome("inf_call_chain_2", accepted=True)
+    mem.operation_feedback.record_inference_outcome("inf_call_chain_1", accepted=True)
+    mem.operation_feedback.record_inference_outcome("inf_call_chain_2", accepted=True)
 
     result1 = mem.evolve()
     print(f"\n  Round 1 evolve: decayed={result1.decayed}, pruned={result1.pruned}, "
           f"merged={result1.merged}")
-    print(f"  Fitness trend after Round 1: {mem._feedback.get_fitness_trend()}")
+    print(f"  Fitness trend after Round 1: {mem.operation_feedback.get_fitness_trend()}")
     print(f"  Nodes: {mem.graph.node_count}, Edges: {mem.graph.edge_count}")
     print()
 
@@ -244,37 +248,37 @@ def main() -> None:
         sid = n.id if n else stale_name
         stale_ids[stale_name] = sid
         for _ in range(3):
-            mem._feedback.record_retrieval_outcome(
+            mem.operation_feedback.record_retrieval_outcome(
                 "infrastructure_search", set(), {sid},
             )
 
-    mem._feedback.record_collapse_outcome("qs_stale", stale_ids.get("stale-metric-aggregator-01", "x"), correct=False)
-    mem._feedback.record_collapse_outcome("qs_stale_2", stale_ids.get("deprecated-test-runner-01", "x"), correct=False)
-    mem._feedback.record_collapse_outcome("qs_stale_3", stale_ids.get("legacy-xml-api-01", "x"), correct=False)
+    mem.operation_feedback.record_collapse_outcome("qs_stale", stale_ids.get("stale-metric-aggregator-01", "x"), correct=False)
+    mem.operation_feedback.record_collapse_outcome("qs_stale_2", stale_ids.get("deprecated-test-runner-01", "x"), correct=False)
+    mem.operation_feedback.record_collapse_outcome("qs_stale_3", stale_ids.get("legacy-xml-api-01", "x"), correct=False)
 
     for healthy_name in ["api-gw-01", "order-svc-01", "payment-svc-01", "db-pg-primary", "cache-redis-01"]:
         n = mem.graph.get_node_by_label(healthy_name)
         hid = n.id if n else healthy_name
-        mem._feedback.record_collapse_outcome(f"qs_{healthy_name}", hid, correct=True)
+        mem.operation_feedback.record_collapse_outcome(f"qs_{healthy_name}", hid, correct=True)
         for _ in range(3):
-            mem._feedback.record_retrieval_outcome(
+            mem.operation_feedback.record_retrieval_outcome(
                 "infrastructure_search", {hid}, set(),
             )
 
-    mem._feedback.record_inference_outcome("inf_stale_1", accepted=False)
-    mem._feedback.record_inference_outcome("inf_stale_2", accepted=False)
-    mem._feedback.record_inference_outcome("inf_stale_3", accepted=False)
-    mem._feedback.record_inference_outcome("inf_good_1", accepted=True)
+    mem.operation_feedback.record_inference_outcome("inf_stale_1", accepted=False)
+    mem.operation_feedback.record_inference_outcome("inf_stale_2", accepted=False)
+    mem.operation_feedback.record_inference_outcome("inf_stale_3", accepted=False)
+    mem.operation_feedback.record_inference_outcome("inf_good_1", accepted=True)
 
-    trend = mem._feedback.get_fitness_trend()
+    trend = mem.operation_feedback.get_fitness_trend()
     summary_before = mem.feedback_summary()
     print(f"\n  Fitness trend after degradation: {trend}")
     print(f"  Overall health: {summary_before['overall_health']:.2f}")
     print(f"  Collapse accuracy: {summary_before['collapse_accuracy']:.2f}")
     print(f"  Retrieval precision: {summary_before['retrieval_precision']:.2f}")
     print(f"  Inference acceptance: {summary_before['inference_acceptance_rate']:.2f}")
-    print(f"  Reinforced nodes: {len(mem._feedback.get_reinforced_nodes())}")
-    print(f"  Suppressed nodes: {len(mem._feedback.get_suppressed_nodes())}")
+    print(f"  Reinforced nodes: {len(mem.operation_feedback.get_reinforced_nodes())}")
+    print(f"  Suppressed nodes: {len(mem.operation_feedback.get_suppressed_nodes())}")
     print()
 
     print("=" * 70)
@@ -316,10 +320,8 @@ def main() -> None:
     correlated = summary_after["correlated_nodes"]
     print(f"  Nodes appearing across multiple operation types: {len(correlated)}")
     for nid, info in sorted(correlated.items(), key=lambda x: x[1]["signal_count"], reverse=True)[:8]:
-        node = mem.graph.get_node(nid)
-        if not node:
-            node = mem.graph.get_node_by_label(nid)
-        label = node.label if node else f"[removed:{nid[:12]}]"
+        n = mem.graph.get_node(nid)
+        label = n.label if n else f"[removed:{nid[:12]}]"
         print(f"    {label:<30} signals={info['signal_count']}, "
               f"positive_rate={info['positive_rate']:.2f}, "
               f"types={info['signal_types']}")
@@ -407,9 +409,7 @@ def main() -> None:
     for inv in invariants[:5]:
         print(f"    Merge: similarity={inv.similarity:.3f}")
         for insight in inv.insights:
-            node = mem.graph.get_node(insight.state_id) if len(insight.state_id) < 20 else None
-            label = node.label if node else insight.state_id[:16]
-            print(f"      {label}: rule={insight.rule_applied}, "
+            print(f"      state={insight.state_id[:16]}: rule={insight.rule_applied}, "
                   f"unique_nodes={len(insight.unique_nodes)}, "
                   f"unique_edges={len(insight.unique_edges)}")
     if len(invariants) > 5:

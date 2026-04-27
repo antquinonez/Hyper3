@@ -584,7 +584,7 @@ def generate_recommendations(
             exposure = node.data.get("exposure", "internal")
             dtype = node.data.get("type", "")
             if crit >= 9 and dtype == "service":
-                dep_count = sum(1 for e in mem.graph.edges
+                dep_count = sum(1 for e in mem.graph.edges_for(node.id)
                                 if e.label == "depends_on" and node.id in e.target_ids)
                 high_crit.append((node.label, crit, exposure, dep_count))
 

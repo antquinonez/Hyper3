@@ -352,8 +352,6 @@ def main():
         ("test.regression_payments", "svc.payments", "tests"),
     ]
 
-    edges.append((svc, "core.health", "imports"))
-
     for svc in list(service_modules)[:6]:
         edges.append((svc, "util.tracing", "imports"))
         edges.append((svc, "util.metrics", "imports"))

@@ -276,8 +276,8 @@ def main() -> None:
     mem.relate("archegos_capital", "vix_futures", label="holds")
     mem.relate("archegos_capital", "sec", label="regulated_by")
 
-    node_gs = mem.graph.get_node_by_label("credit_suisse")
-    if node_gs:
+    node_cs = mem.graph.get_node_by_label("credit_suisse")
+    if node_cs:
         mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
 
     v1 = mem.capture_version()
