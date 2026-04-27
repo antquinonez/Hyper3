@@ -19,7 +19,7 @@ Every module in `src/hyper3/` maps to a concept from these specifications. When 
 
 ## Design Principles
 
-These principles govern the architecture, API design, and implementation patterns of Hyper3. They are derived from the inspiration documents and refined through implementation experience.
+These principles govern the architecture, API design, and implementation patterns of the entire Hyper3 codebase — not just the `CognitiveMemory` facade, but all engine classes, utility classes, result dataclasses, and module relationships. They are derived from the inspiration documents and refined through implementation experience.
 
 ### DP-1: Compositional Architecture via Mixin Decomposition
 
@@ -54,9 +54,9 @@ class ReasoningMixin(_MemoryBase):
 
 ### DP-2: Engine-Facade Separation with Delegation
 
-Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). The `CognitiveMemory` facade methods delegate to these engines and return their result objects directly. The facade does not rewrap, unpack, or translate engine results.
+Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). Higher-level callers (the `CognitiveMemory` facade, other engines, subsystem classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
-**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-facade pattern mirrors this: engines are the specialized subsystems; the facade is the coordination layer.
+**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
 **Pattern**:
 ```python
@@ -66,13 +66,13 @@ class QuantumMixin(_MemoryBase):
         return self._quantum.create_superposition(node_id, interpretations, ...)
 ```
 
-The facade resolves labels to IDs (the analog of the "input translation layer" from Figure 9 of the v2-1 spec), then delegates to the engine. Engine results flow back to the caller unchanged.
+The calling layer resolves labels to IDs (the analog of the "input translation layer" from Figure 9 of the v2-1 spec), then delegates to the engine. Engine results flow back to the caller unchanged.
 
-**Violations to avoid**: Do not unpack an engine's typed result into a dict and rewrap it in another dataclass. Do not add intermediate translation layers between the facade and engine. If the engine's result type is not suitable for public use, modify the engine — not the facade.
+**Violations to avoid**: Do not unpack an engine's typed result into a dict and rewrap it in another dataclass. Do not add intermediate translation layers between caller and engine. If the engine's result type is not suitable for public use, modify the engine — not the caller.
 
 ### DP-3: Lazy Subsystem Initialization
 
-Subsystems that may not be used in every session are initialized lazily on first access. The `CognitiveMemory.__init__` creates core engines eagerly (graph, event log, cache, traversal, evolution, equivalence, quantum) but defers optional subsystems:
+Subsystems that may not be used in every session are initialized lazily on first access. Core engines (graph, event log, cache, traversal, evolution, equivalence, quantum) are created eagerly, but optional subsystems are deferred:
 
 ```python
 self._backward_chain: BackwardChainEngine | None = None
@@ -92,6 +92,8 @@ def hebbian(self) -> HebbianLearner:
         self._hebbian = HebbianLearner(self._graph)
     return self._hebbian
 ```
+
+This pattern applies beyond `CognitiveMemory` — any class that owns optional expensive collaborators should defer their construction.
 
 ### DP-4: Label-at-the-Boundary, IDs Internally
 
@@ -487,7 +489,7 @@ Context-specific names (e.g., `seed_concepts`) are acceptable when they add mean
 
 ### EP-3: Return typed dataclasses, not dicts
 
-Public methods across all modules return dedicated result dataclasses extending `_SimpleResultBase`. Engine methods should also return typed dataclasses rather than `dict[str, Any]`, so that facade methods can return engine results directly per DP-2. Do not unpack internal dataclasses into `dict[str, Any]` at the boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
+Public methods across all modules return dedicated result dataclasses extending `_SimpleResultBase`. Engine methods should also return typed dataclasses rather than `dict[str, Any]`, so that callers can return engine results directly per DP-2. Do not unpack internal dataclasses into `dict[str, Any]` at any boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
 
 Bad:
 ```python
@@ -532,15 +534,15 @@ def recall(concept: str, *, max_depth: int = 3, max_nodes: int = 50):
 
 Methods that mutate the graph return a typed result summarizing what changed (edges added, nodes affected, etc.). Void returns (`None`) are acceptable only for internal bookkeeping methods (cache, logging). Methods that create a single entity (`store`, `relate`) may return the created object directly.
 
-### EP-8: Facade methods delegate, don't rewrap
+### EP-8: Callers delegate, don't rewrap
 
-Facade methods on `CognitiveMemory` should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type. When an engine's result type is not suitable for public use, modify the engine to return a proper typed result rather than adding translation layers in the facade.
+Higher-level methods (facade methods, coordinator classes) should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type. When an engine's result type is not suitable for public use, modify the engine to return a proper typed result rather than adding translation layers in the calling code.
 
 ## Known API Gaps
 
 These are known violations of the EP/DP principles that remain for backward compatibility or require significant refactoring:
 
-- **Engine `dict[str, Any]` returns** (EP-3): Several engine `analyze()`, `evolve()`, and `enforce()` methods still return untyped dicts. The facade rewraps these into typed results (violating EP-8). Converting all ~13 engines to typed returns is planned.
+- **Engine `dict[str, Any]` returns** (EP-3): Several engine `analyze()`, `evolve()`, and `enforce()` methods still return untyped dicts. Higher-level callers rewrap these into typed results (violating EP-8). Converting all ~13 engines to typed returns is planned.
 - **Deprecated `_labels` method variants** (EP-1): `find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, and `detect_cycles_labels` in `AnalyticsMixin` are thin wrappers that delegate to the canonical methods (which already return labels). They are kept for backward compatibility with existing examples and tests.
 - **`collapse_entangled` / `lateral_insights` label leaks** (EP-1): These quantum mixin methods return node IDs instead of labels. A future refactor should add label resolution.
 
