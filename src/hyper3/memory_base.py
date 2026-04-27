@@ -17,8 +17,8 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.persistence import Serializer
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
-from hyper3.transfinite import TransfiniteReasoner
-from hyper3.relativity import ComputationalRelativity
+from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.meta_cognitive import MetaCognitiveLayer
 from hyper3.embedding import EmbeddingEngine
 from hyper3.retrieval_activation import SpreadingActivation
@@ -72,8 +72,8 @@ class _MemoryBase:
     _serializer: Serializer
     _branchial: BranchialSpace | None
     _rulial: RulialSpace | None
-    _transfinite: TransfiniteReasoner
-    _relativity: ComputationalRelativity
+    _transfinite: StructuralAnomalyDetector
+    _relativity: MultiPerspectiveAnalyzer
     _meta: MetaCognitiveLayer
     _embedding_engine: EmbeddingEngine | None
     _activation: SpreadingActivation

@@ -30,7 +30,7 @@ from hyper3.multiway_rulial import (
 )
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
 from hyper3.retrieval_engine import FeedbackRecord, FeedbackStore, LearningToRank, RetrievalEngine
-from hyper3.relativity import ComputationalRelativity
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.meta_cognitive import CognitiveStateModel, MetaCognitiveLayer
 from hyper3.feedback import OperationFeedback
 from hyper3.rules import Rule
@@ -130,7 +130,7 @@ def capture_snapshot(
     rulial: RulialSpace | None,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
-    relativity: ComputationalRelativity,
+    relativity: MultiPerspectiveAnalyzer,
     meta: MetaCognitiveLayer,
     cache: LazyCache,
     feedback: OperationFeedback | None = None,
@@ -353,7 +353,7 @@ def restore_snapshot(
     quantum: QuantumCognitiveLayer,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
-    relativity: ComputationalRelativity,
+    relativity: MultiPerspectiveAnalyzer,
     meta: MetaCognitiveLayer,
     cache: LazyCache,
     rules: list[Rule],

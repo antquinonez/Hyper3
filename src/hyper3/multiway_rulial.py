@@ -48,13 +48,16 @@ class MetaComputationalPattern:
 
 
 @dataclass
-class TranscendentalInsight:
+class HighLevelInsight:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     principle: str = ""
     domain: str = "meta"
     evidence: list[str] = field(default_factory=list)
     confidence: float = 0.0
     timestamp: float = 0.0
+
+
+TranscendentalInsight = HighLevelInsight
 
 
 class RulialSpace:
@@ -539,14 +542,14 @@ class RulialSpace:
                 significance=min(1.0, chains / max(n, 1)),
             ))
 
-    def generate_transcendental_insights(self) -> list[TranscendentalInsight]:
+    def generate_high_level_insights(self) -> list[HighLevelInsight]:
         """Derive high-level insights from meta-patterns and graph statistics.
 
         Generates insights across information-theory, structural, computational,
         spectral, rulial, and meta domains.
 
         Returns:
-            List of TranscendentalInsight objects.
+            List of HighLevelInsight objects.
         """
         self._insights.clear()
         if not self._meta_patterns:
@@ -554,7 +557,7 @@ class RulialSpace:
 
         mi_patterns = [p for p in self._meta_patterns if p.pattern_type == "mutual_information"]
         for p in mi_patterns[:3]:
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle=p.description,
                 domain="information_theory",
                 evidence=[p.description],
@@ -565,7 +568,7 @@ class RulialSpace:
         recurring = [p for p in self._meta_patterns if p.pattern_type == "recurring_relation"]
         if recurring:
             top = max(recurring, key=lambda p: p.significance)
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle=f"Dominant relation: {top.description}",
                 domain="structural",
                 evidence=[top.description],
@@ -576,7 +579,7 @@ class RulialSpace:
         density = self._position.computational_density
         complexity = self._position.causal_graph_complexity
         if density > 0.5 and complexity > 0.5:
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle=f"High density ({density:.2f}) and complexity ({complexity:.2f}) suggest rich structural organization",
                 domain="computational",
                 evidence=[f"Density: {density:.3f}", f"Complexity: {complexity:.3f}"],
@@ -586,7 +589,7 @@ class RulialSpace:
 
         spectral = self._compute_spectral_entropy()
         if spectral > 0.7:
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle=f"Spectral entropy {spectral:.2f} indicates diverse eigenvalue distribution",
                 domain="spectral",
                 evidence=[f"Spectral entropy: {spectral:.3f}"],
@@ -596,7 +599,7 @@ class RulialSpace:
 
         rule_diversity = len(self._explored_rules)
         if rule_diversity >= 3:
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle=f"Rule diversity ({rule_diversity} rules) enables multi-perspective reasoning",
                 domain="rulial",
                 evidence=[f"Rules: {list(self._explored_rules.keys())}"],
@@ -606,7 +609,7 @@ class RulialSpace:
 
         cross = [p for p in self._meta_patterns if p.pattern_type == "cross_domain"]
         if cross:
-            self._insights.append(TranscendentalInsight(
+            self._insights.append(HighLevelInsight(
                 principle="Cross-domain knowledge enables analogical transfer",
                 domain="meta",
                 evidence=[p.description for p in cross],
@@ -615,6 +618,10 @@ class RulialSpace:
             ))
 
         return self._insights
+
+    def generate_transcendental_insights(self) -> list[HighLevelInsight]:
+        """Backward-compatible alias for generate_high_level_insights."""
+        return self.generate_high_level_insights()
 
     @property
     def position(self) -> RulialPosition:

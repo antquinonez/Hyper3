@@ -251,17 +251,17 @@ insights = mem.lateral_insights(
 )
 ```
 
-### DP-13: Transfinite Reasoning at Formal Boundaries
+### DP-13: Structural Anomaly Detection at Formal Boundaries
 
-The system recognizes when reasoning approaches the boundaries of formal decidability (Godel-like limits) and provides bounded, partial proofs rather than failing or producing unsound results.
+The system detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a decidable/boundary/anomalous spectrum. The `StructuralAnomalyDetector` (formerly `TransfiniteReasoner`) uses heuristic graph analysis to identify concepts that warrant deeper analysis, returning `ExplorationReport` (formerly `PartialProof`) dataclasses with coverage bounds.
 
-**Why**: The v2-1 spec's "Transfinite Reasoning Capability" (Figure 5) describes "coherent navigation and reasoning about concepts beyond formal decidability boundaries." The `TransfiniteReasoner` detects self-reference, universal quantification, and diagonalization patterns, returning `PartialProof` dataclasses that track coverage bounds.
+**Why**: The v2-1 spec's "Transfinite Reasoning Capability" (Figure 5) describes boundary detection. The implementation uses heuristic graph metrics (cycle detection, centrality, label contradiction) rather than formal decidability proofs. The naming has been updated from "transfinite/Godel/diagonalization" to accurately describe what the code does.
 
 **Pattern**:
 ```python
-proof = mem.prove("A", "Z")
-if proof and proof.achievable:
-    print(f"Proof found with {proof.steps} steps")
+result = mem.detect_structural_anomalies("A")
+if result.decidability_status == "undecidable":
+    print(f"Structural anomaly detected, score={result.boundary_score:.2f}")
 ```
 
 ### DP-14: Performance Through Lazy Caching and Index Maintenance
@@ -343,15 +343,17 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. Returns typed `CausalEnforceReport`.
 - **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `QuantumEntanglement`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
 - **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
-- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, transcendental insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
-- **transfinite.py** — `TransfiniteReasoner` handles self-referential and boundary cases (Gödel-like limits). `PartialProof` dataclass tracks coverage bounds for incomplete reasoning.
-- **relativity.py** — `ComputationalRelativity` provides multi-frame analysis (classical/quantum/hypergraph/probabilistic perspectives) with frame effectiveness learning via Thompson sampling.
+- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, high-level insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
+- **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a decidable/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds. Backward-compatible aliases: `TransfiniteReasoner`, `PartialProof` (via `transfinite.py` shim).
+- **multi_perspective.py** — `MultiPerspectiveAnalyzer` provides multi-perspective analysis (classical/quantum/hypergraph/probabilistic perspectives) with perspective effectiveness learning via Thompson sampling. Backward-compatible aliases: `ComputationalRelativity`, `FrameMetrics` (via `relativity.py` shim).
+- **transfinite.py** — Backward-compatibility shim re-exporting from `structural_anomaly.py`.
+- **relativity.py** — Backward-compatibility shim re-exporting from `multi_perspective.py`.
 - **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `IntrospectionReport`, `analyze()` returns typed `MetaCognitiveStats`.
 - **memory.py** — `CognitiveMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.
 - **memory_base.py** — `_MemoryBase` declares shared type annotations for all memory mixins.
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label.
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences.
-- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, transfinite reasoning.
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, structural anomaly detection.
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants.
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats.
 - **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, relativity, discovery.
@@ -578,10 +580,12 @@ The following are already optimized — maintain them when making changes:
 - **memory_base.py** — `_MemoryBase` shared type annotations for memory mixins
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences
-- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, transfinite reasoning
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, structural anomaly detection
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats
-- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, relativity, discovery
+- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, multi-perspective analysis, discovery
+- **structural_anomaly.py** — `StructuralAnomalyDetector` (renamed from `TransfiniteReasoner` in transfinite.py). Detects cycles, centrality, contradictions. Backward-compat shim in `transfinite.py`.
+- **multi_perspective.py** — `MultiPerspectiveAnalyzer` (renamed from `ComputationalRelativity` in relativity.py). Multi-frame parameter selection. Backward-compat shim in `relativity.py`.
 
 ## New Modules (Round 1-2 Additions)
 
@@ -610,6 +614,32 @@ The following are already optimized — maintain them when making changes:
 - **abstraction.py** — `AbstractionNavigator` collapses subgraphs into summary nodes and expands them back. `collapse_subgraph()` removes internal edges, rewires external connections to the summary node. `expand_node()` restores original structure. `AbstractionMapping` tracks the collapse/expand relationship.
 - **community.py** — `CommunityDetector` identifies communities (clusters) in the main hypergraph. Label propagation (unweighted and weighted) and connected-components methods. Returns `CommunityResult` with per-community membership, internal/external edge counts, modularity, and coverage.
 - **graph_diff.py** — `GraphDiffer` captures graph versions and computes deltas. `capture()` snapshots node/edge state. `diff_from_version()` and `diff_between_versions()` produce `GraphDelta` with added/removed/modified nodes and edges. `rollback_to_version()` restores a prior state.
+
+## Terminology Mapping
+
+The inspiration documents use theoretical terms from advanced mathematics. Many of these are implemented as structural heuristics rather than formal mathematics. This table documents the mapping between spec terminology and actual implementation.
+
+| Spec Term | Implementation | Module | Mathematical Status |
+|---|---|---|---|
+| Transfinite reasoning | Structural anomaly detection (cycles, centrality, contradictions) | `structural_anomaly.py` | Heuristic |
+| Godel-like limits | Cycle detection + eigenvector centrality | `structural_anomaly.py` | Heuristic |
+| Cantor diagonalization | Hardcoded contradictory label pairs + near-disjoint source sets | `structural_anomaly.py` | Heuristic |
+| Partial proofs | 2-hop BFS neighborhood exploration with Chernoff bounds | `structural_anomaly.py` | Heuristic (Chernoff bounds are rigorous, but the "proof" is a coverage count) |
+| Computational relativity | Multi-perspective parameter selection (4 scalar complexity estimators) | `multi_perspective.py` | Heuristic |
+| Ollivier-Ricci curvature | Local clustering coefficient (triangle density) | `multi_perspective.py` | Heuristic |
+| Frame dragging | Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
+| Gravitational redshift | Product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
+| Transcendental insights | String templates from pattern detection | `multiway_rulial.py` | Heuristic |
+| Quantum superposition | Born rule collapse with complex amplitudes | `quantum.py` | Rigorous |
+| Von Neumann entropy | Density matrix eigenvalue entropy | `quantum.py` | Rigorous |
+| Partial trace | Tensor contraction over subsystems | `quantum.py` | Rigorous |
+| Unitary evolution | Matrix multiplication with renormalization | `quantum.py` | Rigorous |
+| Spectral entropy | SVD of adjacency matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
+| Kolmogorov complexity | zlib compression ratio | `multi_perspective.py` | Approximation (well-known technique) |
+| Thompson sampling | Beta distribution sampling for frame/basis selection | `multi_perspective.py`, `quantum.py` | Rigorous |
+| Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
+| Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
+| Hypergraph | Directed multigraph with n-ary edge storage, pairwise expansion for algorithms | `kernel.py` | Structural (new hypergraph primitives added: incidence matrix, Laplacian, directed edge accessors) |
 
 ## Making Changes
 
@@ -684,8 +714,10 @@ src/hyper3/          Source code (flat, no sub-packages)
   multiway_branchial.py BranchialSpace with distance/clustering
   multiway_causal.py CausalInvarianceEngine
   multiway_rulial.py RulialSpace for rule universe tracking
-  transfinite.py     TransfiniteReasoner
-  relativity.py      ComputationalRelativity
+  structural_anomaly.py StructuralAnomalyDetector (renamed from TransfiniteReasoner)
+  multi_perspective.py MultiPerspectiveAnalyzer (renamed from ComputationalRelativity)
+  transfinite.py     Backward-compat shim → structural_anomaly.py
+  relativity.py      Backward-compat shim → multi_perspective.py
   meta_cognitive.py  MetaCognitiveLayer
   memory.py          CognitiveMemory facade (thin, uses mixins)
   memory_base.py     _MemoryBase shared type annotations

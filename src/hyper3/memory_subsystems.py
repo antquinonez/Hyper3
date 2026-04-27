@@ -16,8 +16,8 @@ from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.multiway_causal import CausalInvarianceEngine
 from hyper3.quantum import QuantumCognitiveLayer
-from hyper3.transfinite import TransfiniteReasoner
-from hyper3.relativity import ComputationalRelativity, FrameAnalysis
+from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer, FrameAnalysis
 from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, MetamorphosisPlan
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
@@ -546,13 +546,18 @@ class SubsystemMixin(_MemoryBase):
         return self.rulial.compute_bias_profile()
 
     @property
-    def transfinite(self) -> TransfiniteReasoner:
-        """The transfinite reasoner for self-referential and boundary analysis."""
+    def structural_anomaly(self) -> StructuralAnomalyDetector:
+        """The structural anomaly detector for cyclic, contradictory, and high-centrality analysis."""
         return self._transfinite
 
     @property
-    def relativity(self) -> ComputationalRelativity:
-        """The computational relativity engine for multi-frame analysis."""
+    def transfinite(self) -> StructuralAnomalyDetector:
+        """Backward-compatible alias for structural_anomaly."""
+        return self._transfinite
+
+    @property
+    def relativity(self) -> MultiPerspectiveAnalyzer:
+        """The multi-perspective analyzer for multi-frame analysis."""
         return self._relativity
 
     @property

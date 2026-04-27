@@ -74,36 +74,44 @@ from hyper3.multiway_branchial import (
     SimultaneityGroup,
 )
 from hyper3.multiway_rulial import (
+    HighLevelInsight,
     MetaComputationalPattern,
     RulialPosition,
     RulialSpace,
     TranscendentalInsight,
 )
-from hyper3.transfinite import (
+from hyper3.structural_anomaly import (
+    AnomalyDetectionResult,
     Axiom,
     AxiomSet,
     BoundaryIndicator,
     BoundaryRegion,
-    PartialProof,
-    TransfiniteReasoner,
-    TransfiniteResult,
+    ExplorationReport,
+    StructuralAnomalyDetector,
 )
+
+TransfiniteReasoner = StructuralAnomalyDetector
+TransfiniteResult = AnomalyDetectionResult
+PartialProof = ExplorationReport
 from hyper3.frame_transform import (
     FrameTransformer,
     TransformedConfig,
 )
-from hyper3.relativity import (
+from hyper3.multi_perspective import (
     ComputationalFrame,
-    ComputationalRelativity,
     ConsensusResult,
     DisagreementRegion,
     FrameAnalysis,
-    FrameMetrics,
     FrameTransformation,
     InvariantDetector,
     InvariantSet,
+    MultiPerspectiveAnalyzer,
     ProblemFeatures,
+    StructuralMetrics,
 )
+
+ComputationalRelativity = MultiPerspectiveAnalyzer
+FrameMetrics = StructuralMetrics
 from hyper3.meta_cognitive import (
     CognitiveStateModel,
     MetaCognitiveLayer,

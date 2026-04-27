@@ -691,6 +691,144 @@ class Hypergraph:
         self.remove_node(secondary_id)
         return primary
 
+    def outgoing_edges(self, node_id: str) -> list[Hyperedge]:
+        """Return edges where node_id is in source_ids.
+
+        Unlike ``edges_for`` which returns all edges touching a node,
+        this only returns edges where the node is a source.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges where node_id appears in source_ids.
+        """
+        return [e for e in self.edges_for(node_id) if node_id in e.source_ids]
+
+    def incoming_edges(self, node_id: str) -> list[Hyperedge]:
+        """Return edges where node_id is in target_ids.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges where node_id appears in target_ids.
+        """
+        return [e for e in self.edges_for(node_id) if node_id in e.target_ids]
+
+    def out_neighbors(self, node_id: str) -> list[str]:
+        """Return target IDs of outgoing edges.
+
+        For pairwise edges (singleton source/target), this is the direct
+        successor set.  For hyperedges, this includes all target IDs of
+        edges where node_id is a source.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of unique target node IDs from outgoing edges.
+        """
+        seen: set[str] = set()
+        result: list[str] = []
+        for edge in self.outgoing_edges(node_id):
+            for tgt in edge.target_ids:
+                if tgt not in seen and tgt != node_id:
+                    seen.add(tgt)
+                    result.append(tgt)
+        return result
+
+    def in_neighbors(self, node_id: str) -> list[str]:
+        """Return source IDs of incoming edges.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of unique source node IDs from incoming edges.
+        """
+        seen: set[str] = set()
+        result: list[str] = []
+        for edge in self.incoming_edges(node_id):
+            for src in edge.source_ids:
+                if src not in seen and src != node_id:
+                    seen.add(src)
+                    result.append(src)
+        return result
+
+    def incidence_matrix(self) -> tuple[Any, list[str], list[str]]:
+        """Return the node-edge incidence matrix H.
+
+        H[i, j] = 1 if node i participates in edge j, 0 otherwise.
+        For directed hyperedges, source nodes get +1 and target nodes
+        get -1, distinguishing direction.
+
+        Returns:
+            Tuple of (H, node_ids, edge_ids) where H is a numpy array
+            of shape (n_nodes, n_edges), node_ids lists row indices,
+            and edge_ids lists column indices.
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        edge_list = [e.id for e in self._edges.values()]
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+        H = np.zeros((len(node_list), len(edge_list)))
+        for j, edge in enumerate(self._edges.values()):
+            for src in edge.source_ids:
+                if src in node_idx:
+                    H[node_idx[src], j] = 1.0
+            for tgt in edge.target_ids:
+                if tgt in node_idx:
+                    H[node_idx[tgt], j] = -1.0
+        return H, node_list, edge_list
+
+    def hypergraph_laplacian(self) -> Any:
+        """Compute the hypergraph Laplacian L = D_v - H W D_e^{-1} H^T.
+
+        Where:
+        - H is the incidence matrix (unsigned, all positive entries)
+        - W is a diagonal matrix of edge weights
+        - D_v is the node degree matrix
+        - D_e is the edge degree matrix (|source_ids| + |target_ids| for each edge)
+
+        For the unsigned version used in spectral clustering, all
+        incidence entries are positive (1.0).
+
+        Returns:
+            A numpy array of shape (n_nodes, n_nodes) representing
+            the hypergraph Laplacian.  Returns a zero matrix if the
+            graph has no edges.
+        """
+        import numpy as np
+
+        if not self._edges:
+            n = len(self._nodes)
+            return np.zeros((n, n))
+
+        node_list = [n.id for n in self._nodes.values()]
+        edge_list = list(self._edges.values())
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+        n = len(node_list)
+        m = len(edge_list)
+
+        H = np.zeros((n, m))
+        W = np.zeros((m, m))
+        for j, edge in enumerate(edge_list):
+            for nid in edge.node_ids:
+                if nid in node_idx:
+                    H[node_idx[nid], j] = 1.0
+            W[j, j] = edge.weight
+
+        edge_degrees = np.array([
+            len(edge.source_ids) + len(edge.target_ids) for edge in edge_list
+        ], dtype=float)
+        D_e_inv = np.diag(np.where(edge_degrees > 0, 1.0 / edge_degrees, 0.0))
+
+        D_v = np.diag(H @ W @ np.ones(m))
+        L = D_v - H @ W @ D_e_inv @ H.T
+        return L
+
     @property
     def node_count(self) -> int:
         """Number of nodes in the graph."""

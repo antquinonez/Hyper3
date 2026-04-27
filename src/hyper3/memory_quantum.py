@@ -14,7 +14,7 @@ from hyper3.quantum import (
     QuantumEntanglement,
     QuantumState,
 )
-from hyper3.transfinite import BoundaryRegion, TransfiniteResult
+from hyper3.structural_anomaly import BoundaryRegion, AnomalyDetectionResult
 from hyper3.memory_base import _MemoryBase
 
 
@@ -214,21 +214,28 @@ class QuantumMixin(_MemoryBase):
                 return self._normalize_lateral_insights(raw)
         return []
 
-    def reason_transfinite(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> TransfiniteResult:
-        """Perform self-referential reasoning at increasing transfinite levels.
+    def detect_structural_anomalies(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> AnomalyDetectionResult:
+        """Detect structural anomalies in the concept's graph neighborhood.
+
+        Analyzes the concept for cycles, high centrality, contradictory
+        labels, and unusual connectivity patterns.
 
         Args:
-            concept: The concept to reason about.
+            concept: The concept to analyze.
             context: Optional context dict supplementing structural analysis.
-            max_level: Maximum transfinite recursion depth.
+            max_level: Maximum analysis depth level.
 
         Returns:
-            A TransfiniteResult with boundary detection and partial proof info.
+            An AnomalyDetectionResult with boundary detection and exploration info.
         """
         return self._transfinite.reason_at_level(concept, context, max_level=max_level)
 
+    def reason_transfinite(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> AnomalyDetectionResult:
+        """Backward-compatible alias for detect_structural_anomalies."""
+        return self.detect_structural_anomalies(concept, context=context, max_level=max_level)
+
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
-        """Map transfinite boundaries (self-referential, undecidable regions) for concepts."""
+        """Map structural anomaly boundaries (cyclic, high-centrality, contradictory regions) for concepts."""
         result = self._transfinite.map_boundaries(concepts)
         self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)
         return result

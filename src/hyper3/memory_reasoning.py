@@ -10,7 +10,7 @@ from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
 from hyper3.provenance import ProvenanceTracker
 from hyper3.quantum import QuantumState
-from hyper3.relativity import InvariantDetector
+from hyper3.multi_perspective import InvariantDetector
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     BranchialAnalysis,

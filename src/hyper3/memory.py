@@ -17,8 +17,8 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.persistence import Serializer
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
-from hyper3.transfinite import TransfiniteReasoner
-from hyper3.relativity import ComputationalRelativity
+from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.meta_cognitive import MetaCognitiveLayer
 from hyper3.embedding import EmbeddingEngine
 from hyper3.retrieval_activation import SpreadingActivation
@@ -97,8 +97,8 @@ class CognitiveMemory(
         self._serializer = Serializer()
         self._branchial: BranchialSpace | None = None
         self._rulial: RulialSpace | None = None
-        self._transfinite = TransfiniteReasoner(self._graph)
-        self._relativity = ComputationalRelativity(self._graph)
+        self._transfinite = StructuralAnomalyDetector(self._graph)
+        self._relativity = MultiPerspectiveAnalyzer(self._graph)
         self._meta = MetaCognitiveLayer(
             self._graph, self._evolution, self._log, self._discovery,
         )
