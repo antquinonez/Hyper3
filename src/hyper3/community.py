@@ -38,6 +38,7 @@ class CommunityDetector:
         max_iterations: int = 100,
         seed: int | None = None,
         edge_label: str | None = None,
+        weighted_fallback: bool = True,
     ) -> CommunityResult:
         if seed is not None:
             random.seed(seed)
@@ -73,7 +74,16 @@ class CommunityDetector:
             if not changed:
                 break
 
-        return self._build_result(labels, neighbor_map)
+        result = self._build_result(labels, neighbor_map)
+
+        if weighted_fallback and result.modularity < 0:
+            weighted = self.detect_weighted_label_propagation(
+                max_iterations=max_iterations, seed=seed, edge_label=edge_label,
+            )
+            if weighted.modularity > result.modularity:
+                return weighted
+
+        return result
 
     def detect_weighted_label_propagation(
         self,

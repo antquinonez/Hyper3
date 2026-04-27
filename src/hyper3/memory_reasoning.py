@@ -211,6 +211,7 @@ class ReasoningMixin(_MemoryBase):
         use_overlay: bool = True,
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
+        exhaustive: bool = False,
     ) -> ReasonResult:
         """Expand the multiway DAG from seed concepts using inference rules.
 
@@ -227,6 +228,9 @@ class ReasoningMixin(_MemoryBase):
             use_overlay: Route new edges through an inference overlay.
             confidence_decay: Per-depth decay factor for overlay confidence.
             auto_commit: If True, commit the overlay after expansion.
+            exhaustive: If True, disable ``max_total_states`` bounding so that
+                every applicable rule is explored.  Useful for small graphs
+                where completeness matters more than performance.
 
         Returns:
             ReasonResult with expansion, causal, branchial, rulial reports and
@@ -248,8 +252,9 @@ class ReasoningMixin(_MemoryBase):
             self._overlay = HypergraphOverlay(self._graph)
 
         assert self._multiway_engine is not None
+        effective_max_states = max_total_states if not exhaustive else 10_000_000
         report = self._multiway_engine.expand(
-            seed_ids, active_rules, max_depth=max_depth, max_total_states=max_total_states,
+            seed_ids, active_rules, max_depth=max_depth, max_total_states=effective_max_states,
             overlay=self._overlay if use_overlay else None,
             confidence_decay=confidence_decay,
         )

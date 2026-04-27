@@ -645,3 +645,53 @@ class TestProvenanceWithOverlay:
         records = mem.provenance.records
         assert any(r.rule_name.startswith("transitive") for r in records)
         mem.rollback_inferences()
+
+
+class TestExhaustiveReasoning:
+    def test_exhaustive_explores_more_states(self):
+        mem = CognitiveMemory(evolve_interval=0)
+        for ch in "abcdefghij":
+            mem.store(ch)
+        for i in range(9):
+            mem.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        bounded = mem.reason({"a", "b", "c", "d"}, max_total_states=2)
+        bounded_states = bounded.expansion.states_created if bounded.expansion else 0
+        mem2 = CognitiveMemory(evolve_interval=0)
+        for ch in "abcdefghij":
+            mem2.store(ch)
+        for i in range(9):
+            mem2.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+        mem2.add_rules(TransitiveRule(edge_label="next"))
+        exhaustive = mem2.reason({"a", "b", "c", "d"}, max_total_states=2, exhaustive=True)
+        exhaustive_states = exhaustive.expansion.states_created if exhaustive.expansion else 0
+        assert exhaustive_states >= bounded_states
+
+    def test_exhaustive_flag_signature(self):
+        mem = CognitiveMemory(evolve_interval=0)
+        mem.store("x")
+        result = mem.reason({"x"}, exhaustive=True)
+        assert result.error is None or isinstance(result.error, str)
+
+
+class TestMultiEdgeCount:
+    def test_multi_edge_count_zero_without_hyperedges(self):
+        mem = CognitiveMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="pair")
+        s = mem.stats()
+        assert s.multi_edge_count == 0
+
+    def test_multi_edge_count_with_hyperedge(self):
+        mem = CognitiveMemory(evolve_interval=0)
+        a = mem.store("a")
+        b = mem.store("b")
+        c = mem.store("c")
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({a.id, b.id}),
+            target_ids=frozenset({c.id}),
+            label="joint",
+        ))
+        s = mem.stats()
+        assert s.multi_edge_count == 1

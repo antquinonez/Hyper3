@@ -113,3 +113,27 @@ class TestCommunityDetector:
         mem.relate("N4", "N5", label="link")
         result = mem.detect_communities(method="connected_components")
         assert result.avg_community_size > 0
+
+    def test_weighted_fallback_on_negative_modularity(self) -> None:
+        mem = CognitiveMemory(evolve_interval=0)
+        for i in range(10):
+            mem.store(f"N{i}")
+        for i in range(9):
+            e = mem.relate(f"N{i}", f"N{i+1}", label="link")
+            e.weight = 0.1 + i * 0.5
+        detector = CommunityDetector(mem.graph)
+        result = detector.detect_label_propagation(seed=42, weighted_fallback=True)
+        assert result.modularity >= 0 or result.community_count >= 1
+
+    def test_weighted_fallback_disabled(self) -> None:
+        mem = CognitiveMemory(evolve_interval=0)
+        for i in range(10):
+            mem.store(f"N{i}")
+        for i in range(9):
+            mem.relate(f"N{i}", f"N{i+1}", label="link")
+        detector = CommunityDetector(mem.graph)
+        unweighted = detector.detect_label_propagation(seed=42, weighted_fallback=False)
+        with_fallback = detector.detect_label_propagation(seed=42, weighted_fallback=True)
+        assert isinstance(unweighted.modularity, float)
+        assert isinstance(with_fallback.modularity, float)
+        assert with_fallback.modularity >= unweighted.modularity

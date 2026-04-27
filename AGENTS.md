@@ -425,7 +425,13 @@ The new subsystems (backward chain, Hebbian, uncertainty, structural match, beli
 `hebbian_reinforce()` uses the current `SpreadingActivation` state to find co-activated node pairs. Call `stimulate()` + `spread_activation()` before `hebbian_reinforce()` to have non-trivial results. Without prior activation, the result will be empty.
 
 ### Community detection is non-deterministic
-Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible results in tests. The `connected_components` method is deterministic.
+Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible results in tests. The `connected_components` method is deterministic. Unweighted `detect_label_propagation` with `weighted_fallback=True` (default) automatically retries with weighted propagation if modularity is negative, returning whichever result has higher modularity.
+
+### `exhaustive` flag disables multiway state bounding
+`reason(exhaustive=True)` sets the internal `max_total_states` cap to 10M, effectively removing the bounding constraint. This ensures all applicable rules are explored at every depth level. Use for small graphs where completeness matters; avoid on large graphs.
+
+### `multi_edge_count` in stats
+`MemoryStats.multi_edge_count` reports the number of true hyperedges (edges where `len(source_ids) > 1` or `len(target_ids) > 1`). Pairwise edges (singleton source and target) are excluded.
 
 ### Graph diff captures are point-in-time
 `GraphDiffer.capture()` snapshots the full node/edge state. Diffs are computed against these snapshots, not against the live graph. Multiple versions can be captured and compared pairwise.
@@ -597,7 +603,7 @@ The following are already optimized — maintain them when making changes:
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1348 tests must pass.
+2. Run the full test suite after changes. All 1354 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -731,7 +737,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1348
+- **Tests**: 1354
 - **Coverage**: 95%
 - **Pyright**: 0 errors
 - **Examples**: 41 (21 Hyper3: 3 basic, 6 intermediate, 6 advanced, 6 domain; 20 comparison)

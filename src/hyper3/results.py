@@ -131,6 +131,7 @@ class MemoryStats(_SimpleResultBase):
     overlay_edges: int = 0
     rulial: dict[str, Any] = field(default_factory=dict)
     meta_cognitive: MetaCognitiveStats = field(default_factory=MetaCognitiveStats)
+    multi_edge_count: int = 0
 
 
 @dataclass

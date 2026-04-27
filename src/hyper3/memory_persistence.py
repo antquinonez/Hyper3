@@ -211,6 +211,10 @@ class PersistenceMixin(_MemoryBase):
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
         meta_raw = self._meta.analyze()
+        multi_edge_count = sum(
+            1 for e in self._graph.edges
+            if len(e.source_ids) > 1 or len(e.target_ids) > 1
+        )
         return MemoryStats(
             nodes=self._graph.node_count,
             edges=self._graph.edge_count,
@@ -240,4 +244,5 @@ class PersistenceMixin(_MemoryBase):
                 metamorphoses=meta_raw.get("metamorphoses", 0),
                 transcendental_yield=meta_raw.get("transcendental_yield", 0.0),
             ),
+            multi_edge_count=multi_edge_count,
         )
