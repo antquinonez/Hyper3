@@ -122,3 +122,63 @@ class SelfEvolutionEngine:
             "node_count": self._graph.node_count,
             "edge_count": self._graph.edge_count,
         }
+
+    def evolve_with_feedback(
+        self,
+        *,
+        fitness_trend: str = "stable",
+        reinforced_nodes: set[str] | None = None,
+        suppressed_nodes: set[str] | None = None,
+        decay_factor: float = 0.95,
+        boost: float = 1.1,
+    ) -> dict[str, Any]:
+        """Run an evolution cycle that adapts based on operational feedback.
+
+        When ``fitness_trend`` is ``"declining"``, the decay factor is reduced
+        (less aggressive decay) and prune thresholds are tightened. Reinforced
+        nodes receive a weight boost. Suppressed nodes are pruned aggressively.
+
+        Args:
+            fitness_trend: One of ``"improving"``, ``"stable"``, or ``"declining"``.
+            reinforced_nodes: Node IDs to reinforce after decay.
+            suppressed_nodes: Node IDs to force-prune regardless of thresholds.
+            decay_factor: Base decay multiplier, adjusted by trend.
+            boost: Weight multiplier for reinforced nodes.
+
+        Returns:
+            Summary dict with the same keys as :meth:`evolve`, plus
+            ``reinforced`` and ``suppressed`` counts.
+        """
+        if fitness_trend == "declining":
+            decay_factor = min(decay_factor + 0.03, 0.99)
+
+        decayed = self.decay_weights(decay_factor)
+        pruned = self.prune_dead_nodes()
+        merged = self.merge_equivalences()
+
+        reinforced_count = 0
+        if reinforced_nodes:
+            for nid in reinforced_nodes:
+                node = self._graph.get_node(nid)
+                if node:
+                    self.reinforce(nid, boost)
+                    reinforced_count += 1
+
+        suppressed_count = 0
+        if suppressed_nodes:
+            for nid in suppressed_nodes:
+                if self._graph.get_node(nid):
+                    self._graph.remove_node(nid)
+                    suppressed_count += 1
+                    self._metrics.total_prunes += 1
+
+        self._metrics.total_refinements += 1
+        return {
+            "decayed": decayed,
+            "pruned": len(pruned),
+            "merged": len(merged),
+            "reinforced": reinforced_count,
+            "suppressed": suppressed_count,
+            "node_count": self._graph.node_count,
+            "edge_count": self._graph.edge_count,
+        }

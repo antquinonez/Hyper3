@@ -257,12 +257,64 @@ class CoreMixin(_MemoryBase):
         if hasattr(self, '_causal_engine') and self._causal_engine:
             causal_report = self._causal_engine.enforce()
         self._log.record("evolve", report=report, causal=causal_report)
+
+        node_count = self._graph.node_count
+        edge_count = self._graph.edge_count
+        total = node_count + edge_count
+        fitness = 1.0 - (report.get("pruned", 0) / max(total, 1)) * 0.1
+        if hasattr(self, '_feedback') and self._feedback is not None:
+            self._feedback.record_evolution_outcome(fitness)
+
         return EvolveResult(
             decayed=report.get("decayed", 0),
             pruned=report.get("pruned", 0),
             merged=report.get("merged", 0),
-            node_count=report.get("node_count", 0),
-            edge_count=report.get("edge_count", 0),
+            reinforced=report.get("reinforced", 0),
+            suppressed=report.get("suppressed", 0),
+            node_count=node_count,
+            edge_count=edge_count,
+            causal=causal_report,
+        )
+
+    def evolve_with_feedback(self) -> EvolveResult:
+        """Run an evolution cycle adapted by operational feedback.
+
+        Uses :class:`OperationFeedback` fitness trend, reinforced nodes, and
+        suppressed nodes to adjust evolution behavior. Records fitness outcome
+        back to the feedback system and runs causal enforcement if a causal
+        engine is attached.
+
+        Returns:
+            EvolveResult with the evolution summary.
+        """
+        trend = self._feedback.get_fitness_trend()
+        reinforced = self._feedback.get_reinforced_nodes()
+        suppressed = self._feedback.get_suppressed_nodes()
+        report = self._evolution.evolve_with_feedback(
+            fitness_trend=trend,
+            reinforced_nodes=reinforced if reinforced else None,
+            suppressed_nodes=suppressed if suppressed else None,
+        )
+        self._cache.evict_expired()
+        causal_report: dict[str, Any] = {}
+        if hasattr(self, '_causal_engine') and self._causal_engine:
+            causal_report = self._causal_engine.enforce()
+        self._log.record("evolve_with_feedback", report=report, causal=causal_report)
+
+        node_count = self._graph.node_count
+        edge_count = self._graph.edge_count
+        total = node_count + edge_count
+        fitness = 1.0 - (report.get("pruned", 0) / max(total, 1)) * 0.1
+        self._feedback.record_evolution_outcome(fitness)
+
+        return EvolveResult(
+            decayed=report.get("decayed", 0),
+            pruned=report.get("pruned", 0),
+            merged=report.get("merged", 0),
+            reinforced=report.get("reinforced", 0),
+            suppressed=report.get("suppressed", 0),
+            node_count=node_count,
+            edge_count=edge_count,
             causal=causal_report,
         )
 
@@ -286,7 +338,10 @@ class CoreMixin(_MemoryBase):
         """Increment the operation counter and trigger evolution if the interval is reached."""
         self._operation_count += 1
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
-            self.evolve()
+            if hasattr(self, '_feedback') and self._feedback is not None:
+                result = self.evolve_with_feedback()
+            else:
+                self.evolve()
             if hasattr(self, '_meta') and self._meta:
                 self._meta.auto_metamorphosis()
 

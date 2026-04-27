@@ -47,6 +47,7 @@ Advanced Examples (`advanced/`)
 | 10 | `10_multiway_lateral_insights.py` | Alternative hypothesis exploration (81 nodes) | multiway DAG, branch analysis, convergence detection, lateral insights |
 | 11 | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes) | honest quantum formalism, Bayesian comparison, entropy as uncertainty measure |
 | 12 | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes) | rule effectiveness, basis learning, frame learning, meta-cognitive introspection |
+| 13 | `13_self_evolving_cognition.py` | Self-evolving cognitive system | feedback-driven evolution, metamorphosis validation, cross-operation feedback, bias profile, causal merge insights |
 
 Domain Examples (`domain/`)
 ----------------------------
@@ -58,6 +59,7 @@ Domain Examples (`domain/`)
 | `fraud_detection_intelligence.py` | Financial Fraud | 119 | Suspicious clusters, circular money flows, funnel accounts, ring leader ID |
 | `medical_diagnosis.py` | Clinical Medicine | 94 | Backward chaining, belief revision, uncertainty propagation, structural patterns |
 | `financial_risk_network.py` | Financial Risk | 76 | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
+| `infrastructure_self_healing.py` | Infrastructure Monitoring | 130+ | Feedback-driven evolution, suppression of stale nodes, cross-operation correlation, bias profile, metamorphosis validation |
 
 Additional Demos
 ----------------

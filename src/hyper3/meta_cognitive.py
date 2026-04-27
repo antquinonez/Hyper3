@@ -11,6 +11,7 @@ from hyper3.evolution import EvolutionMetrics, SelfEvolutionEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.multiway_rulial import RulialSpace
+from hyper3.graph_diff import GraphDiffer
 
 
 @dataclass
@@ -66,6 +67,7 @@ class MetaCognitiveLayer:
         self._metamorphosis_history: list[MetamorphosisPlan] = []
         self._rulial: RulialSpace | None = None
         self._rules: list[Rule] | None = None
+        self._differ: GraphDiffer | None = None
 
     def set_rulial(self, rulial: RulialSpace) -> None:
         """Attach a rulial space for transcendental-yield tracking."""
@@ -78,6 +80,10 @@ class MetaCognitiveLayer:
     def attach_rulial(self, rulial: RulialSpace) -> None:
         """Attach a rulial space (alias for :meth:`set_rulial`)."""
         self._rulial = rulial
+
+    def set_differ(self, differ: GraphDiffer) -> None:
+        """Attach a graph differ for validated metamorphosis with rollback."""
+        self._differ = differ
 
     def _compute_fitness(self, graph: Hypergraph, evolution_metrics: EvolutionMetrics, log: EventLog) -> float:
         """Compute architectural fitness as the geometric mean of health factors.
@@ -408,6 +414,66 @@ class MetaCognitiveLayer:
                 results[action_type] = "unknown_action"
         return results
 
+    def execute_metamorphosis_validated(
+        self,
+        plan: MetamorphosisPlan,
+        *,
+        fitness_tolerance: float = 0.0,
+    ) -> dict[str, Any]:
+        """Execute a metamorphosis plan with pre-snapshot, validation, and rollback.
+
+        If a :class:`GraphDiffer` is attached via :meth:`set_differ`, the method
+        captures a graph version before execution, runs all plan actions, then
+        validates the outcome by re-assessing fitness. If fitness did not improve
+        by at least ``fitness_tolerance``, the graph is rolled back to the
+        pre-snapshot.
+
+        Args:
+            plan: The metamorphosis plan to execute.
+            fitness_tolerance: Minimum fitness improvement required to accept
+                the metamorphosis. If 0 (default), any non-degrading change is
+                accepted.
+
+        Returns:
+            A dict with ``results``, ``validated`` (bool), ``rolled_back`` (bool),
+            ``fitness_before``, ``fitness_after``, and optional ``delta``.
+        """
+        pre_version = None
+        fitness_before = self._compute_fitness(
+            self._graph, self._evolution.metrics, self._log,
+        )
+
+        if self._differ is not None:
+            pre_version = self._differ.capture()
+
+        results = self.execute_metamorphosis(plan)
+
+        fitness_after = self._compute_fitness(
+            self._graph, self._evolution.metrics, self._log,
+        )
+
+        improvement = fitness_after - fitness_before
+        acceptable = improvement >= fitness_tolerance
+
+        rolled_back = False
+        delta = None
+        if not acceptable and pre_version is not None and self._differ is not None:
+            delta = self._differ.rollback_to_version(pre_version.version_id)
+            rolled_back = True
+            fitness_after = self._compute_fitness(
+                self._graph, self._evolution.metrics, self._log,
+            )
+
+        return {
+            "results": results,
+            "validated": self._differ is not None,
+            "rolled_back": rolled_back,
+            "fitness_before": fitness_before,
+            "fitness_after": fitness_after,
+            "improvement": improvement if not rolled_back else fitness_after - fitness_before,
+            "delta": delta,
+        }
+
     def _adjust_evolution(self) -> dict[str, Any]:
         """Relax decay and merge thresholds when fitness is critically low."""
         decay = self._evolution._decay_threshold
@@ -604,7 +670,11 @@ class MetaCognitiveLayer:
         return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
     def auto_metamorphosis(self) -> dict[str, Any]:
-        """Check fitness and automatically trigger a metamorphosis if below threshold.
+        """Check fitness and automatically trigger a validated metamorphosis if below threshold.
+
+        When a :class:`GraphDiffer` is attached, the metamorphosis is executed
+        with validation and automatic rollback on failure. Otherwise, falls back
+        to the unvalidated path.
 
         Returns:
             The results of the executed plan, or a dict with the current
@@ -617,6 +687,8 @@ class MetaCognitiveLayer:
             if triggers:
                 plan = self.propose_metamorphosis(triggers)
                 if plan is not None:
+                    if self._differ is not None:
+                        return self.execute_metamorphosis_validated(plan)
                     return self.execute_metamorphosis(plan)
         return {"fitness": fitness, "actions_taken": 0}
 

@@ -231,3 +231,58 @@ class OperationFeedback:
         if total == 0:
             return 0.5
         return total_accepted / total
+
+    def cross_operation_summary(self) -> dict[str, Any]:
+        """Compute aggregate metrics across all operation types.
+
+        Returns:
+            Dict with per-operation metrics, overall health score, and
+            cross-operation correlations.
+        """
+        collapse_acc = self.collapse_accuracy()
+        retrieval_prec = self.retrieval_precision()
+        inference_acc = self.inference_acceptance_rate()
+        trend = self.get_fitness_trend()
+
+        health = (collapse_acc + retrieval_prec + inference_acc) / 3.0
+
+        type_counts: dict[str, int] = {}
+        for signal in self._signals:
+            base_type = signal.signal_type.split("_")[0]
+            type_counts[base_type] = type_counts.get(base_type, 0) + 1
+
+        positive_by_node: dict[str, int] = {}
+        total_by_node: dict[str, int] = {}
+        for signal in self._signals:
+            if signal.node_id:
+                total_by_node[signal.node_id] = total_by_node.get(signal.node_id, 0) + 1
+                if signal.outcome:
+                    positive_by_node[signal.node_id] = positive_by_node.get(signal.node_id, 0) + 1
+
+        multi_signal_nodes = {
+            nid for nid, count in total_by_node.items() if count >= 3
+        }
+        correlated_nodes: dict[str, dict[str, Any]] = {}
+        for nid in multi_signal_nodes:
+            pos = positive_by_node.get(nid, 0)
+            total = total_by_node[nid]
+            correlated_nodes[nid] = {
+                "positive_rate": pos / total,
+                "signal_count": total,
+                "signal_types": list({
+                    s.signal_type.split("_")[0]
+                    for s in self._signals
+                    if s.node_id == nid
+                }),
+            }
+
+        return {
+            "collapse_accuracy": collapse_acc,
+            "retrieval_precision": retrieval_prec,
+            "inference_acceptance_rate": inference_acc,
+            "fitness_trend": trend,
+            "overall_health": health,
+            "signal_type_distribution": type_counts,
+            "total_signals": len(self._signals),
+            "correlated_nodes": correlated_nodes,
+        }

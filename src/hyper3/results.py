@@ -88,6 +88,8 @@ class EvolveResult(_SimpleResultBase):
     decayed: int = 0
     pruned: int = 0
     merged: int = 0
+    reinforced: int = 0
+    suppressed: int = 0
     node_count: int = 0
     edge_count: int = 0
     causal: dict[str, Any] = field(default_factory=dict)

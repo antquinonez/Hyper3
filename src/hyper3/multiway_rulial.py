@@ -291,6 +291,76 @@ class RulialSpace:
             return 0.5
         return eff[rule_name]["retention_rate"]
 
+    def compute_bias_profile(self) -> dict[str, Any]:
+        """Analyze the system's computational biases from rule effectiveness data.
+
+        Produces a profile showing which rules are over- or under-used relative
+        to their effectiveness, the system's dominant reasoning style, and
+        temporal shifts in computational behavior from position history.
+
+        Returns:
+            Dict with ``dominant_rules``, ``underused_rules``, ``reasoning_style``,
+            ``position_trajectory``, and ``bias_score``.
+        """
+        effectiveness = self.get_rule_effectiveness()
+        if not effectiveness:
+            return {
+                "dominant_rules": [],
+                "underused_rules": [],
+                "reasoning_style": "unknown",
+                "position_trajectory": "no_data",
+                "bias_score": 0.0,
+            }
+
+        sorted_by_eff = sorted(
+            effectiveness.items(),
+            key=lambda x: x[1]["effectiveness"],
+            reverse=True,
+        )
+
+        total_apps = sum(e["applications"] for _, e in sorted_by_eff)
+        avg_effectiveness = sum(e["effectiveness"] for _, e in sorted_by_eff) / len(sorted_by_eff)
+
+        dominant = [
+            name for name, stats in sorted_by_eff[:3]
+            if stats["effectiveness"] > avg_effectiveness
+        ]
+
+        underused = [
+            name for name, stats in sorted_by_eff
+            if stats["effectiveness"] > avg_effectiveness
+            and stats["applications"] < (total_apps / len(sorted_by_eff))
+        ]
+
+        if dominant:
+            style = "focused"
+        elif len(sorted_by_eff) > 5:
+            style = "exploratory"
+        else:
+            style = "balanced"
+
+        trajectory = "stable"
+        if len(self._position_history) >= 3:
+            recent = self._position_history[-3:]
+            densities = [p.computational_density for p in recent]
+            if densities[-1] > densities[0] + 0.1:
+                trajectory = "expanding"
+            elif densities[-1] < densities[0] - 0.1:
+                trajectory = "contracting"
+
+        max_share = max(e["applications"] / max(total_apps, 1) for _, e in sorted_by_eff)
+        bias_score = max_share
+
+        return {
+            "dominant_rules": dominant,
+            "underused_rules": underused,
+            "reasoning_style": style,
+            "position_trajectory": trajectory,
+            "bias_score": bias_score,
+            "average_effectiveness": avg_effectiveness,
+            "rule_count": len(sorted_by_eff),
+        }
+
     @property
     def rule_outcomes(self) -> dict[str, dict[str, int]]:
         """Return a deep copy of per-rule outcome counters."""

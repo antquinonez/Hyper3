@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import networkx as nx
@@ -22,11 +22,22 @@ from hyper3.quantum import (
 
 
 @dataclass
+class MergeInsight:
+    state_id: str
+    unique_nodes: list[str] = field(default_factory=list)
+    unique_edges: list[str] = field(default_factory=list)
+    rule_applied: str = ""
+    node_count: int = 0
+    edge_count: int = 0
+
+
+@dataclass
 class CausalInvariant:
     state_a_id: str
     state_b_id: str
     similarity: float
     merged_into: str
+    insights: list[MergeInsight] = field(default_factory=list)
 
 
 class CausalInvarianceEngine:
@@ -215,6 +226,19 @@ class CausalInvarianceEngine:
         pairs.sort(key=lambda p: p[2], reverse=True)
         return pairs
 
+    def _extract_insight(self, state: MultiwayState, other_node_ids: frozenset[str], other_edge_ids: set[str]) -> MergeInsight:
+        """Extract the unique contributions of a state relative to its merge partner."""
+        unique_nodes = [nid for nid in state.active_node_ids if nid not in other_node_ids]
+        unique_edges = [eid for eid in state.produced_edge_ids if eid not in other_edge_ids]
+        return MergeInsight(
+            state_id=state.id,
+            unique_nodes=unique_nodes,
+            unique_edges=unique_edges,
+            rule_applied=state.rule_applied or "",
+            node_count=len(state.active_node_ids),
+            edge_count=len(state.produced_edge_ids),
+        )
+
     def merge_invariant_states(self) -> list[CausalInvariant]:
         """Merge pairs of similar leaf states into unified states.
 
@@ -230,6 +254,12 @@ class CausalInvarianceEngine:
             state_b = self._multiway.get_state(state_b_id)
             if not state_a or not state_b:
                 continue
+            insight_a = self._extract_insight(
+                state_a, state_b.active_node_ids, set(state_b.produced_edge_ids),
+            )
+            insight_b = self._extract_insight(
+                state_b, state_a.active_node_ids, set(state_a.produced_edge_ids),
+            )
             merged_nodes = state_a.active_node_ids | state_b.active_node_ids
             merged_edges = list(set(state_a.produced_edge_ids + state_b.produced_edge_ids))
             rules_used: list[str] = []
@@ -254,6 +284,7 @@ class CausalInvarianceEngine:
                 state_b_id=state_b_id,
                 similarity=similarity,
                 merged_into=merged_state.id,
+                insights=[insight_a, insight_b],
             )
             self._invariants.append(invariant)
             self._consumed_states.add(state_a_id)

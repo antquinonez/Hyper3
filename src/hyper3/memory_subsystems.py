@@ -23,6 +23,7 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, CognitiveStateInfo, GraphHealthInfo, EvolutionHealthInfo, DiscoveryHealthInfo
+from hyper3.feedback import OperationFeedback
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
 from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult, ConfidenceScore, ConfidenceChain
@@ -219,6 +220,20 @@ class SubsystemMixin(_MemoryBase):
     def feedback(self) -> FeedbackStore:
         """The raw feedback store for retrieval relevance judgments."""
         return self._retrieval.feedback
+
+    @property
+    def operation_feedback(self) -> OperationFeedback:
+        """The operational feedback tracker for collapse, inference, and evolution outcomes."""
+        return self._feedback
+
+    def feedback_summary(self) -> dict[str, Any]:
+        """Compute a cross-operation feedback summary with correlations.
+
+        Returns:
+            Dict with per-operation metrics, overall health score, fitness
+            trend, and nodes that appear across multiple operation types.
+        """
+        return self._feedback.cross_operation_summary()
 
     @property
     def retrieval(self) -> RetrievalEngine:
@@ -519,6 +534,18 @@ class SubsystemMixin(_MemoryBase):
             self._rulial = RulialSpace(self._graph)
         return self._rulial
 
+    def compute_bias_profile(self) -> dict[str, Any]:
+        """Analyze the system's computational biases from rule effectiveness data.
+
+        Requires reasoning operations to have been run (so rule outcomes are
+        recorded). Returns an empty profile if no rule data is available.
+
+        Returns:
+            Dict with dominant_rules, underused_rules, reasoning_style,
+            position_trajectory, and bias_score.
+        """
+        return self.rulial.compute_bias_profile()
+
     @property
     def transfinite(self) -> TransfiniteReasoner:
         """The transfinite reasoner for self-referential and boundary analysis."""
@@ -584,6 +611,33 @@ class SubsystemMixin(_MemoryBase):
     def propose_metamorphosis(self, triggers: list[MetamorphosisTrigger] | None = None) -> MetamorphosisPlan | None:
         """Propose a metamorphosis plan from the given or auto-detected triggers."""
         return self._meta.propose_metamorphosis(triggers)
+
+    def execute_metamorphosis_validated(
+        self,
+        plan: MetamorphosisPlan,
+        *,
+        fitness_tolerance: float = 0.0,
+    ) -> dict[str, Any]:
+        """Execute a metamorphosis plan with snapshot, validation, and rollback.
+
+        Requires a graph differ (created automatically on first capture_version
+        call). If no differ is available, falls back to unvalidated execution.
+
+        Args:
+            plan: The metamorphosis plan to execute.
+            fitness_tolerance: Minimum fitness improvement required to accept
+                the metamorphosis. If 0, any non-degrading change is accepted.
+
+        Returns:
+            Dict with results, validated, rolled_back, fitness_before,
+            fitness_after, and optional delta.
+        """
+        if self._graph_differ is None:
+            self._graph_differ = GraphDiffer(self._graph)
+            self._meta.set_differ(self._graph_differ)
+        return self._meta.execute_metamorphosis_validated(
+            plan, fitness_tolerance=fitness_tolerance,
+        )
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
         """Analyze a concept from a specific computational frame perspective."""
@@ -1104,6 +1158,7 @@ class SubsystemMixin(_MemoryBase):
         """
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
+            self._meta.set_differ(self._graph_differ)
         version = self._graph_differ.capture()
         return {
             "version_id": version.version_id,

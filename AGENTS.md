@@ -430,6 +430,21 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 ### Graph diff captures are point-in-time
 `GraphDiffer.capture()` snapshots the full node/edge state. Diffs are computed against these snapshots, not against the live graph. Multiple versions can be captured and compared pairwise.
 
+### Feedback-driven evolution adapts to trends
+`evolve_with_feedback()` checks the fitness trend from `OperationFeedback`. On declining trends, it intensifies decay (1.5x) and pruning (0.75x threshold), reinforces top-3 positively-reinforced nodes, and force-prunes suppressed nodes. On stable/improving trends, it uses standard parameters. The facade `evolve_with_feedback()` returns `EvolveResult` with `reinforced` and `suppressed` counts.
+
+### Validated metamorphosis requires a GraphDiffer
+`execute_metamorphosis_validated()` captures a pre-version, executes the metamorphosis plan, then compares fitness. If fitness degrades below `fitness_tolerance`, it rolls back to the pre-version. Without a `GraphDiffer` wired to the meta layer, it falls back to unvalidated execution. Call `capture_version()` first to auto-wire the differ.
+
+### Cross-operation feedback identifies correlated nodes
+`feedback_summary()` (facade for `OperationFeedback.cross_operation_summary()`) computes aggregate health across collapse/retrieval/inference/evolution operations and identifies nodes that appear in signals across multiple operation types, reporting their positive rate and signal type distribution.
+
+### Bias profile reveals reasoning tendencies
+`compute_bias_profile()` returns a dict with `reasoning_style` (focused/exploratory/balanced/unknown), `bias_score`, `dominant_rules`, `underused_rules`, `position_trajectory` (exploring/exploiting/stable), and `average_effectiveness`. Requires rule effectiveness data from prior reasoning sessions; returns early with "unknown" style when no data exists.
+
+### Causal merge insights capture unique contributions
+When `CausalInvarianceEngine` merges convergent multiway states, it computes `MergeInsight` for each merge partner listing nodes and edges unique to that state. These insights are attached to the `CausalInvariant.insights` list, preserving provenance of what each branch contributed before merging.
+
 ## API Ergonomic Principles
 
 These principles govern the design of public-facing `CognitiveMemory` method signatures and return types. All existing public methods conform to these principles. Apply them when adding new methods or refactoring existing ones.
@@ -558,7 +573,7 @@ The following are already optimized — maintain them when making changes:
 - **temporal.py** — `TemporalReasoner` with full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, constraint checking, and edge-level temporal consistency.
 - **enrichment.py** — `LLMEnricher` extracts entities/relations from text. `RegexExtractor` is the zero-dependency fallback. Pluggable `LLMProvider` ABC for real language models.
 - **embedding_graph.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
-- **feedback.py** — `OperationFeedback` tracks collapse, retrieval, inference, and evolution outcomes with accuracy/precision/acceptance metrics and fitness trend detection. `FeedbackSignal` dataclass for individual outcome records.
+- **feedback.py** — `OperationFeedback` tracks collapse, retrieval, inference, and evolution outcomes with accuracy/precision/acceptance metrics and fitness trend detection. `cross_operation_summary()` computes aggregate health and identifies correlated nodes across operation types. `FeedbackSignal` dataclass for individual outcome records.
 
 ## New Modules (Round 3 Additions — Gap Fill)
 
@@ -716,4 +731,4 @@ Current project metrics (update after changes):
 - **Tests**: 1348
 - **Coverage**: 95%
 - **Pyright**: 0 errors
-- **Examples**: 19 (3 basic, 6 intermediate, 5 advanced, 5 domain)
+- **Examples**: 21 (3 basic, 6 intermediate, 6 advanced, 6 domain)
