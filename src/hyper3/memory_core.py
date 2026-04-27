@@ -125,8 +125,8 @@ class CoreMixin(_MemoryBase):
 
     def relate(
         self,
-        source_concept: str,
-        target_concept: str,
+        source: str,
+        target: str,
         *,
         label: str = "",
         bidirectional: bool = False,
@@ -135,8 +135,8 @@ class CoreMixin(_MemoryBase):
         """Create a directed edge between two concept nodes.
 
         Args:
-            source_concept: Label of the source node.
-            target_concept: Label of the target node.
+            source: Label of the source node.
+            target: Label of the target node.
             label: Edge label describing the relationship.
             bidirectional: If True, also create the reverse edge.
             edge_data: Arbitrary payload to attach to the edge.
@@ -148,16 +148,16 @@ class CoreMixin(_MemoryBase):
             NodeNotFoundError: If either node is not found.
             ConstraintViolationError: If a boundary constraint rejects the edge.
         """
-        source = self._find_node(source_concept)
-        target = self._find_node(target_concept)
-        if not source:
-            raise NodeNotFoundError(source_concept)
-        if not target:
-            raise NodeNotFoundError(target_concept)
+        src_node = self._find_node(source)
+        tgt_node = self._find_node(target)
+        if not src_node:
+            raise NodeNotFoundError(source)
+        if not tgt_node:
+            raise NodeNotFoundError(target)
 
         edge = Hyperedge(
-            source_ids=frozenset({source.id}),
-            target_ids=frozenset({target.id}),
+            source_ids=frozenset({src_node.id}),
+            target_ids=frozenset({tgt_node.id}),
             label=label,
             data=edge_data,
         )
@@ -167,8 +167,8 @@ class CoreMixin(_MemoryBase):
             if violations:
                 self._log.record(
                     "relate_rejected",
-                    source=source_concept,
-                    target=target_concept,
+                    source=source,
+                    target=target,
                     label=label,
                     violations=violations,
                 )
@@ -178,8 +178,8 @@ class CoreMixin(_MemoryBase):
 
         if bidirectional:
             rev = Hyperedge(
-                source_ids=frozenset({target.id}),
-                target_ids=frozenset({source.id}),
+                source_ids=frozenset({tgt_node.id}),
+                target_ids=frozenset({src_node.id}),
                 label=label,
                 data=edge_data,
             )
@@ -189,8 +189,8 @@ class CoreMixin(_MemoryBase):
                     self._graph.remove_edge(edge.id)
                     self._log.record(
                         "relate_rejected",
-                        source=target_concept,
-                        target=source_concept,
+                        source=target,
+                        target=source,
                         label=label,
                         violations=rev_violations,
                     )
@@ -199,8 +199,8 @@ class CoreMixin(_MemoryBase):
 
         self._log.record(
             "relate",
-            source=source_concept,
-            target=target_concept,
+            source=source,
+            target=target,
             label=label,
             bidirectional=bidirectional,
         )

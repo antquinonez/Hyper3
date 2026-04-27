@@ -42,7 +42,7 @@ class TestAbstractionBasic:
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         result = mem.expand_summary("AB")
         assert result is not None
-        assert result["summary_removed"] is True
+        assert result.summary_removed is True
 
     def test_expand_nonexistent(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)
@@ -58,7 +58,7 @@ class TestAbstractionBasic:
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         summaries = mem.list_summaries()
         assert len(summaries) >= 1
-        assert summaries[0]["summary_label"] == "AB"
+        assert summaries[0].summary_label == "AB"
 
     def test_list_summaries_empty(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)

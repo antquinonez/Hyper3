@@ -146,6 +146,147 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 ### Graph diff captures are point-in-time
 `GraphDiffer.capture()` snapshots the full node/edge state. Diffs are computed against these snapshots, not against the live graph. Multiple versions can be captured and compared pairwise.
 
+## API Ergonomic Principles
+
+These principles govern the design of public-facing `CognitiveMemory` method signatures and return types. Apply them when adding new methods or refactoring existing ones.
+
+### EP-1: Labels in, labels out
+
+Public methods accept concept labels (strings) as input and return concept labels in output. Node IDs are an internal implementation detail. The only exception is the `graph` property, which exposes the raw `Hypergraph` for advanced use.
+
+Bad:
+```python
+def find_paths(source_concept: str, target_concept: str) -> list[list[str]]:  # returns IDs
+```
+
+Good:
+```python
+def find_paths(source: str, target: str) -> list[list[str]]:  # returns labels
+```
+
+Do not maintain parallel `_labels` variants of methods. If the underlying engine returns IDs, translate to labels inside the facade method before returning.
+
+### EP-2: One name for "a node label" parameter
+
+Use `concept` for single-label parameters. Use `source` and `target` for ordered pairs. Use `concepts` for collections. Do not introduce `source_concept`, `concept_a`, `source_label`, `target_concept`, or `label` as parameter names when they mean "a node label string".
+
+| Arity | Parameter name(s) |
+|-------|-------------------|
+| 1 | `concept: str` |
+| 2 (ordered) | `source: str, target: str` |
+| N | `concepts: set[str]` or `concepts: list[str]` |
+
+Context-specific names (e.g., `observed_concept`, `target_concept`, `seed_concepts`) are acceptable when they add meaningful semantics that `concept` alone cannot convey.
+
+### EP-3: Return typed dataclasses, not dicts
+
+Public methods return dedicated result dataclasses. Do not unpack internal dataclasses into `dict[str, Any]` at the facade boundary — return the typed object directly, or define a new result dataclass if the internal type is not suitable for public use.
+
+Bad:
+```python
+def detect_contradictions(self) -> list[dict[str, Any]]:
+    return [{"edge_a_label": c.edge_a_label, ...} for c in contradictions]
+```
+
+Good:
+```python
+def detect_contradictions(self) -> list[Contradiction]:
+    return contradictions
+```
+
+This applies to all methods currently returning `dict[str, Any]` or `list[dict[str, Any]]`.
+
+### EP-4: No `Any` in return types
+
+Every public method must have a concrete return type annotation. Replace bare `Any` returns with the actual type. If the return type is genuinely dynamic, use a union or a tagged result dataclass.
+
+### EP-5: Consistent missing-node behavior
+
+When a concept label does not resolve to a node, methods should follow one of two patterns based on the operation's semantics:
+
+- **Query/read operations** (`recall`, `find_paths`, `find_similar`, `explain`, `prove`): return an empty result (`[]`, `None`, or a result object with `achievable=False`). Do not raise.
+- **Write/mutation operations** (`relate`, `entangle`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
+
+Document the behavior in the docstring.
+
+### EP-6: Keyword-only parameters for options
+
+Positional parameters are for required identity arguments (the concept, the target). All optional parameters (tuning knobs, limits, flags) must be keyword-only (placed after `*` in the signature).
+
+Bad:
+```python
+def recall(concept: str, max_depth: int = 3, max_nodes: int = 50):
+```
+
+Good:
+```python
+def recall(concept: str, *, max_depth: int = 3, max_nodes: int = 50):
+```
+
+### EP-7: Mutation return convention
+
+Methods that mutate the graph return a typed result summarizing what changed (edges added, nodes affected, etc.). Void returns (`None`) are acceptable only for internal bookkeeping methods (cache, logging). Methods that create a single entity (`store`, `relate`) may return the created object directly.
+
+### EP-8: Facade methods delegate, don't rewrap
+
+Facade methods on `CognitiveMemory` should call the underlying engine and return its result objects directly. Avoid unpacking an engine's typed result into a dict and then wrapping it in another dataclass — return the engine's result as-is, or re-export its type.
+
+## Ergonomic Migration Status
+
+The EP principles above were introduced retroactively. This section tracks which methods have been migrated and which remain.
+
+### EP-1 (labels in, labels out) — Complete
+
+The 6 analytics base methods now return labels by default. The `_labels` variants (`find_paths_labels`, `shortest_path_labels`, `degree_centrality_labels`, `betweenness_centrality_labels`, `connected_components_labels`, `detect_cycles_labels`) are kept as backward-compat aliases that delegate to the base methods. Do not add new `_labels` variants.
+
+### EP-2 (parameter naming) — Complete
+
+All facade methods now use `concept` (arity 1), `source`/`target` (arity 2), or `concepts`/`seed_concepts` (arity N). The old names (`source_concept`, `target_concept`, `concept_a`, `concept_b`, `source_label`, `target_label`, `target_concept`) have been removed from facade signatures. Internal engine methods may still use descriptive names for clarity.
+
+### EP-3 (typed dataclass returns) — Partial
+
+Methods that now return typed dataclasses directly:
+- `detect_contradictions()` → `list[Contradiction]`
+- `check_consistency()` → `list[Contradiction]`
+- `compute_confidence()` → `ConfidenceScore | None`
+- `flag_low_confidence()` → `list[ConfidenceScore]`
+- `trace_confidence_chain()` → `ConfidenceChain | None`
+- `hebbian_reinforce_pair()` → `HebbianUpdate | None`
+- `expand_summary()` → `ExpandResult | None`
+- `list_summaries()` → `list[AbstractionMapping]`
+- `version_history()` → `GraphHistoryResult`
+
+Methods still returning `dict[str, Any]` (need migration):
+- `derive()` → `list[dict[str, Any]]` (needs `DerivationInfo` dataclass)
+- `pattern_match()` → `list[dict[str, Any]]` (needs `PatternMatchInfo` dataclass)
+- `subgraph()` → `dict[str, Any]` (needs `SubgraphResult` dataclass)
+- `introspect()` → `dict[str, Any]`
+- `temporal_query()` → `list[dict]`
+- `import_json()` → `dict[str, Any]`
+- `import_edgelist()` → `dict[str, Any]`
+- `collapse_entangled()` → `dict[str, str]` (ID-keyed; use `collapse_entangled_labels()` for labels)
+
+### EP-4 (no `Any` in returns) — Pending
+
+Five methods still return bare `Any`:
+- `check_metamorphosis()` → `list[Any]`
+- `propose_metamorphosis()` → `Any`
+- `analyze_in_frame()` → `Any`
+- `multi_frame_analysis()` → `Any`
+- `select_optimal_frame()` → `Any`
+
+### EP-5 (consistent missing-node behavior) — Current state
+
+- `relate()` raises `NodeNotFoundError` (correct per convention)
+- Query methods (`recall`, `find_paths`, `find_similar`, `activate`, `explain`, `prove`, `derive`) return empty/None (correct per convention)
+- `stimulate()` silently returns `None` for missing nodes (should it warn?)
+
+### EP-6 (keyword-only options) — Partial
+
+Methods already migrated to keyword-only: `explain`, `retract_inference`, `hebbian_reinforce_pair`, `flag_low_confidence`, `trace_confidence_chain`, `detect_cycles`, `collapse_subgraph`, `detect_communities`, `match_structural_pattern`, `match_chains`.
+
+Methods still with positional optional params: `hebbian_decay_unused(threshold_access_count)`, `temporal_query(relation, max_gap)`, `match_diamonds(edge_label, max_matches)`, `match_fan_out(edge_label, min_fan, max_results)`.
+
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.

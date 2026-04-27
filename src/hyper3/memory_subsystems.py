@@ -25,8 +25,7 @@ from hyper3.memory_base import _MemoryBase
 from hyper3.results import TrainResult
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
-from hyper3.hebbian import HebbianLearner, HebbianConfig, HebbianResult
-from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult
+from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult, ConfidenceScore, ConfidenceChain
 from hyper3.structural_match import (
     StructuralPatternEngine,
     PatternTemplate,
@@ -34,10 +33,11 @@ from hyper3.structural_match import (
     PatternEdge,
     StructuralMatchResult,
 )
-from hyper3.belief_revision import BeliefRevisionEngine, RevisionResult
-from hyper3.abstraction import AbstractionNavigator, AbstractionSummary
+from hyper3.belief_revision import BeliefRevisionEngine, Contradiction, RevisionResult
+from hyper3.abstraction import AbstractionNavigator, AbstractionSummary, AbstractionMapping, ExpandResult
 from hyper3.community import CommunityDetector, CommunityResult
-from hyper3.graph_diff import GraphDiffer, GraphDelta
+from hyper3.graph_diff import GraphDiffer, GraphDelta, GraphHistoryResult
+from hyper3.hebbian import HebbianLearner, HebbianConfig, HebbianResult, HebbianUpdate
 
 
 class SubsystemMixin(_MemoryBase):
@@ -377,19 +377,19 @@ class SubsystemMixin(_MemoryBase):
         )
         return results
 
-    def explain(self, concept_a: str, concept_b: str, edge_label: str = "") -> Explanation | None:
+    def explain(self, source: str, target: str, *, edge_label: str = "") -> Explanation | None:
         """Produce a recursive explanation for the edge between two concepts.
 
         Args:
-            concept_a: Label of the source node.
-            concept_b: Label of the target node.
+            source: Label of the source node.
+            target: Label of the target node.
             edge_label: If set, only explain edges with this label.
 
         Returns:
             An Explanation object, or None if no matching edge is found.
         """
-        node_a = self._find_node(concept_a)
-        node_b = self._find_node(concept_b)
+        node_a = self._find_node(source)
+        node_b = self._find_node(target)
         if not node_a or not node_b:
             return None
         for edge in self._graph.edges:
@@ -398,19 +398,19 @@ class SubsystemMixin(_MemoryBase):
                 return self._provenance.explain(edge.id, graph=self._graph)
         return None
 
-    def retract_inference(self, concept_a: str, concept_b: str, edge_label: str = "") -> list[str]:
+    def retract_inference(self, source: str, target: str, *, edge_label: str = "") -> list[str]:
         """Retract inferred edges between two concepts, cascading to dependent conclusions.
 
         Args:
-            concept_a: Label of the source node.
-            concept_b: Label of the target node.
+            source: Label of the source node.
+            target: Label of the target node.
             edge_label: If set, only retract edges with this label.
 
         Returns:
             List of retracted edge IDs.
         """
-        node_a = self._find_node(concept_a)
-        node_b = self._find_node(concept_b)
+        node_a = self._find_node(source)
+        node_b = self._find_node(target)
         if not node_a or not node_b:
             return []
         retracted: list[str] = []
@@ -422,7 +422,7 @@ class SubsystemMixin(_MemoryBase):
                 for eid in ids:
                     self._graph.remove_edge(eid)
                     retracted.append(eid)
-        self._log.record("retract", source=concept_a, target=concept_b, retracted=len(retracted))
+        self._log.record("retract", source=source, target=target, retracted=len(retracted))
         return retracted
 
     @property
@@ -614,19 +614,19 @@ class SubsystemMixin(_MemoryBase):
 
     def prove(
         self,
-        target_concept: str,
+        concept: str,
         *,
         known_facts: set[str] | None = None,
         edge_label: str | None = None,
         max_depth: int = 5,
     ) -> BackwardChainResult:
-        """Attempt to prove a target concept via backward chaining from known facts.
+        """Attempt to prove a concept via backward chaining from known facts.
 
         Works backwards from the goal through inference rules to determine
         what premises are needed and which are already satisfied.
 
         Args:
-            target_concept: Label of the node to prove.
+            concept: Label of the node to prove.
             known_facts: Labels of nodes already established as true.
             edge_label: If set, only consider derivation chains using this edge label.
             max_depth: Maximum backward chaining depth.
@@ -637,7 +637,11 @@ class SubsystemMixin(_MemoryBase):
         if self._backward_chain is None:
             self._backward_chain = BackwardChainEngine(
                 self._graph, self._rules, max_depth=max_depth,
+
             )
+        return self._backward_chain.prove(
+            concept, known_facts=known_facts, edge_label=edge_label,
+        )
         return self._backward_chain.prove(
             target_concept, known_facts=known_facts, edge_label=edge_label,
         )
@@ -685,29 +689,21 @@ class SubsystemMixin(_MemoryBase):
         return result
 
     def hebbian_reinforce_pair(
-        self, source_label: str, target_label: str, strength: float = 1.0,
-    ) -> dict[str, Any] | None:
+        self, source: str, target: str, *, strength: float = 1.0,
+    ) -> HebbianUpdate | None:
         """Manually reinforce the connection between two concepts.
 
         Args:
-            source_label: Label of the source node.
-            target_label: Label of the target node.
+            source: Label of the source node.
+            target: Label of the target node.
             strength: Reinforcement strength multiplier.
 
         Returns:
-            Dict with old/new weight info, or None if no connecting edge.
+            HebbianUpdate with old/new weight info, or None if no connecting edge.
         """
         if self._hebbian is None:
             self._hebbian = HebbianLearner(self._graph, self._activation)
-        update = self._hebbian.reinforce_pair(source_label, target_label, strength)
-        if update:
-            return {
-                "edge_id": update.edge_id,
-                "old_weight": update.old_weight,
-                "new_weight": update.new_weight,
-                "co_activation": update.co_activation,
-            }
-        return None
+        return self._hebbian.reinforce_pair(source, target, strength)
 
     def hebbian_decay_unused(self, threshold_access_count: int = 0) -> int:
         """Decay edges whose endpoints have low access counts.
@@ -740,31 +736,18 @@ class SubsystemMixin(_MemoryBase):
             self._hebbian = HebbianLearner(self._graph, self._activation)
         return self._hebbian.get_strongest_associations(concept, top_k)
 
-    def compute_confidence(self, concept: str) -> dict[str, Any] | None:
+    def compute_confidence(self, concept: str) -> ConfidenceScore | None:
         """Compute the inference confidence for a concept node.
-
-        Returns None for non-existent nodes, a confidence of 1.0 for
-        directly observed nodes, and a decaying confidence for inferred nodes
-        based on their provenance depth.
 
         Args:
             concept: Label of the node to evaluate.
 
         Returns:
-            Dict with confidence, depth, source, and contributing edges.
+            ConfidenceScore with confidence, depth, source, and contributing edges.
         """
         if self._uncertainty_engine is None:
             self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
-        score = self._uncertainty_engine.compute_confidence(concept)
-        if score:
-            return {
-                "node_label": score.node_label,
-                "confidence": score.confidence,
-                "depth": score.depth,
-                "source": score.source,
-                "contributing_edges": score.contributing_edges,
-            }
-        return None
+        return self._uncertainty_engine.compute_confidence(concept)
 
     def compute_all_confidences(self) -> UncertaintyResult:
         """Compute inference confidence for every node in the graph.
@@ -776,31 +759,22 @@ class SubsystemMixin(_MemoryBase):
             self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
         return self._uncertainty_engine.compute_all_confidences()
 
-    def flag_low_confidence(self, threshold: float = 0.3) -> list[dict[str, Any]]:
+    def flag_low_confidence(self, *, threshold: float = 0.3) -> list[ConfidenceScore]:
         """Flag nodes whose inference confidence falls below a threshold.
 
         Args:
             threshold: Minimum confidence to be considered reliable.
 
         Returns:
-            List of dicts with node_label, confidence, depth, and source.
+            List of ConfidenceScore objects below the threshold.
         """
         if self._uncertainty_engine is None:
             self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
-        scores = self._uncertainty_engine.flag_low_confidence(threshold)
-        return [
-            {
-                "node_label": s.node_label,
-                "confidence": s.confidence,
-                "depth": s.depth,
-                "source": s.source,
-            }
-            for s in scores
-        ]
+        return self._uncertainty_engine.flag_low_confidence(threshold)
 
     def trace_confidence_chain(
-        self, source: str, target: str, max_depth: int = 10,
-    ) -> dict[str, Any] | None:
+        self, source: str, target: str, *, max_depth: int = 10,
+    ) -> ConfidenceChain | None:
         """Trace the highest-confidence inference chain between two concepts.
 
         Args:
@@ -809,19 +783,11 @@ class SubsystemMixin(_MemoryBase):
             max_depth: Maximum chain length to explore.
 
         Returns:
-            Dict with chain depth, confidence, edges, and rule names, or None.
+            ConfidenceChain with depth, confidence, edges, and rule names, or None.
         """
         if self._uncertainty_engine is None:
             self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
-        chain = self._uncertainty_engine.trace_chain(source, target, max_depth)
-        if chain:
-            return {
-                "chain_depth": chain.chain_depth,
-                "chain_confidence": chain.chain_confidence,
-                "edges": chain.edges,
-                "rule_names": chain.rule_names,
-            }
-        return None
+        return self._uncertainty_engine.trace_chain(source, target, max_depth)
 
     def match_structural_pattern(
         self,
@@ -966,28 +932,15 @@ class SubsystemMixin(_MemoryBase):
             })
         return results
 
-    def detect_contradictions(self) -> list[dict[str, Any]]:
+    def detect_contradictions(self) -> list[Contradiction]:
         """Detect contradictory edges in the graph using negation mapping.
 
         Returns:
-            List of contradiction dicts with edge IDs, labels, and severity.
+            List of Contradiction objects with edge IDs, labels, and severity.
         """
         if self._belief_revision is None:
             self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
-        contradictions = self._belief_revision.detect_contradictions()
-        return [
-            {
-                "edge_a_id": c.edge_a_id,
-                "edge_b_id": c.edge_b_id,
-                "edge_a_label": c.edge_a_label,
-                "edge_b_label": c.edge_b_label,
-                "source": c.source_label,
-                "target": c.target_label,
-                "type": c.contradiction_type,
-                "severity": c.severity,
-            }
-            for c in contradictions
-        ]
+        return self._belief_revision.detect_contradictions()
 
     def revise_beliefs(self, strategy: str = "higher_confidence") -> RevisionResult:
         """Detect and resolve contradictions in the graph.
@@ -1010,29 +963,20 @@ class SubsystemMixin(_MemoryBase):
         return result
 
     def check_consistency(
-        self, source_label: str, target_label: str,
-    ) -> list[dict[str, Any]]:
+        self, source: str, target: str,
+    ) -> list[Contradiction]:
         """Check for contradictions between two specific concepts.
 
         Args:
-            source_label: Label of the source node.
-            target_label: Label of the target node.
+            source: Label of the source node.
+            target: Label of the target node.
 
         Returns:
-            List of contradiction dicts between the two concepts.
+            List of Contradiction objects between the two concepts.
         """
         if self._belief_revision is None:
             self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
-        contradictions = self._belief_revision.check_consistency(source_label, target_label)
-        return [
-            {
-                "edge_a_label": c.edge_a_label,
-                "edge_b_label": c.edge_b_label,
-                "type": c.contradiction_type,
-                "severity": c.severity,
-            }
-            for c in contradictions
-        ]
+        return self._belief_revision.check_consistency(source, target)
 
     def collapse_subgraph(
         self,
@@ -1067,42 +1011,28 @@ class SubsystemMixin(_MemoryBase):
             layer=layer_enum,
         )
 
-    def expand_summary(self, summary_label: str) -> dict[str, Any] | None:
+    def expand_summary(self, summary_label: str) -> ExpandResult | None:
         """Expand a previously collapsed summary node back into its constituents.
 
         Args:
             summary_label: Label of the summary node to expand.
 
         Returns:
-            Dict with expanded_nodes and expanded_edges counts, or None.
+            ExpandResult with expanded_nodes and expanded_edges, or None.
         """
         if self._abstraction_nav is None:
             self._abstraction_nav = AbstractionNavigator(self._graph)
-        result = self._abstraction_nav.expand_node(summary_label)
-        if result:
-            return {
-                "expanded_nodes": result.expanded_nodes,
-                "expanded_edges": result.expanded_edges,
-                "summary_removed": result.summary_removed,
-            }
-        return None
+        return self._abstraction_nav.expand_node(summary_label)
 
-    def list_summaries(self) -> list[dict[str, Any]]:
+    def list_summaries(self) -> list[AbstractionMapping]:
         """List all summary nodes and their collapsed constituents.
 
         Returns:
-            List of dicts with summary_label, detail_labels, and layer.
+            List of AbstractionMapping objects.
         """
         if self._abstraction_nav is None:
             self._abstraction_nav = AbstractionNavigator(self._graph)
-        return [
-            {
-                "summary_label": m.summary_label,
-                "detail_labels": m.detail_labels,
-                "layer": m.layer.value,
-            }
-            for m in self._abstraction_nav.list_summaries()
-        ]
+        return self._abstraction_nav.list_summaries()
 
     def detect_communities(
         self,
@@ -1178,27 +1108,15 @@ class SubsystemMixin(_MemoryBase):
             self._graph_differ = GraphDiffer(self._graph)
         return self._graph_differ.diff_between_versions(v1, v2)
 
-    def version_history(self) -> dict[str, Any]:
+    def version_history(self) -> GraphHistoryResult:
         """Return the full version history.
 
         Returns:
-            Dict with versions list, total_versions, and current_version.
+            GraphHistoryResult with versions list, total_versions, and current_version.
         """
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
-        h = self._graph_differ.history
-        return {
-            "total_versions": h.total_versions,
-            "current_version": h.current_version,
-            "versions": [
-                {
-                    "version_id": v.version_id,
-                    "node_count": v.node_count,
-                    "edge_count": v.edge_count,
-                }
-                for v in h.versions
-            ],
-        }
+        return self._graph_differ.history
 
     @property
     def backward_chain(self) -> BackwardChainEngine | None:

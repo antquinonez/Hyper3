@@ -30,7 +30,7 @@ class TestHebbianBasic:
         mem.relate("A", "B", label="connected")
         result = mem.hebbian_reinforce_pair("A", "B", strength=2.0)
         assert result is not None
-        assert result["new_weight"] > result["old_weight"]
+        assert result.new_weight > result.old_weight
 
     def test_reinforce_pair_nonexistent(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)

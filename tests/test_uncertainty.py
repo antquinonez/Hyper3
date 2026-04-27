@@ -12,8 +12,8 @@ class TestUncertaintyBasic:
         mem.store("A", data={"val": 1})
         result = mem.compute_confidence("A")
         assert result is not None
-        assert result["confidence"] == 1.0
-        assert result["source"] == "observed"
+        assert result.confidence == 1.0
+        assert result.source == "observed"
 
     def test_compute_confidence_nonexistent(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)
@@ -49,8 +49,8 @@ class TestUncertaintyBasic:
         mem.relate("A", "B", label="implies")
         result = mem.trace_confidence_chain("A", "B")
         if result:
-            assert "chain_confidence" in result
-            assert "chain_depth" in result
+            assert result.chain_confidence > 0
+            assert result.chain_depth >= 1
 
 
 class TestUncertaintyEngine:

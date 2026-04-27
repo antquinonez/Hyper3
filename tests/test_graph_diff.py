@@ -86,9 +86,9 @@ class TestGraphDiffBasic:
         mem.store("B")
         mem.capture_version()
         history = mem.version_history()
-        assert history["total_versions"] == 2
-        assert history["current_version"] == 1
-        assert len(history["versions"]) == 2
+        assert history.total_versions == 2
+        assert history.current_version == 1
+        assert len(history.versions) == 2
 
     def test_differ_property(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)

@@ -313,7 +313,7 @@ def main() -> None:
     summaries = mem.list_summaries()
     print(f"  Active summary nodes: {len(summaries)}")
     for s in summaries:
-        print(f"    {s['summary_label']}: {', '.join(s['detail_labels'])}")
+        print(f"    {s.summary_label}: {', '.join(s.detail_labels)}")
     print()
 
     us_result = mem.detect_communities(method="weighted_label_propagation", seed=42)

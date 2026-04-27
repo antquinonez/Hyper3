@@ -286,8 +286,8 @@ def main() -> None:
     contradictions = mem.detect_contradictions()
     print(f"  Clinical contradictions detected: {len(contradictions)}")
     for c in contradictions[:5]:
-        print(f"    {c['source']} -> {c['target']}: "
-              f"{c['edge_a_label']} vs {c['edge_b_label']} (severity={c['severity']:.2f})")
+        print(f"    {c.source_label} -> {c.target_label}: "
+              f"{c.edge_a_label} vs {c.edge_b_label} (severity={c.severity:.2f})")
     print()
 
     revision = mem.revise_beliefs(strategy="higher_weight")
@@ -308,13 +308,13 @@ def main() -> None:
     low_conf = mem.flag_low_confidence(threshold=0.5)
     print(f"  Nodes below confidence 0.5 ({len(low_conf)}):")
     for entry in low_conf[:8]:
-        print(f"    {entry['node_label']:<30} conf={entry['confidence']:.3f}  depth={entry['depth']}")
+        print(f"    {entry.node_label:<30} conf={entry.confidence:.3f}  depth={entry.depth}")
     print()
 
     for dx in ["pneumonia", "pulmonary_embolism", "lung_cancer"]:
         conf = mem.compute_confidence(dx)
         if conf:
-            print(f"  {dx:<28} confidence={conf['confidence']:.3f}  source={conf['source']}")
+            print(f"  {dx:<28} confidence={conf.confidence:.3f}  source={conf.source}")
     print()
 
     print("=" * 70)

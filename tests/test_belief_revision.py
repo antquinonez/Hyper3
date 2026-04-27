@@ -23,7 +23,7 @@ class TestBeliefRevisionBasic:
         mem.relate("A", "B", label="opposes")
         contradictions = mem.detect_contradictions()
         assert len(contradictions) >= 1
-        assert contradictions[0]["type"] == "negation"
+        assert contradictions[0].contradiction_type == "negation"
 
     def test_revise_removes_contradiction(self) -> None:
         mem = CognitiveMemory(evolve_interval=0)

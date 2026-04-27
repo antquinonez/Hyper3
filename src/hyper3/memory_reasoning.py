@@ -497,17 +497,17 @@ class ReasoningMixin(_MemoryBase):
         }
         return result
 
-    def derive(self, target_concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
-        """Find derivation paths to a target concept using inference rules.
+    def derive(self, concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
+        """Find derivation paths to a concept using inference rules.
 
         Args:
-            target_concept: Label of the node to derive.
+            concept: Label of the node to derive.
             rules: Rules to check; defaults to ``self._rules``.
 
         Returns:
             List of dicts with rule name, bindings, and context for each derivation.
         """
-        target = self._find_node(target_concept)
+        target = self._find_node(concept)
         if not target:
             return []
         active_rules = rules or self._rules

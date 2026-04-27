@@ -105,7 +105,7 @@ class _MemoryBase:
     def store(self, concept: str, data: Any = None, **kwargs: Any) -> Hypernode:
         """Store a concept node in the hypergraph."""
         ...
-    def relate(self, source_concept: str, target_concept: str, **kwargs: Any) -> Any:
+    def relate(self, source: str, target: str, **kwargs: Any) -> Any:
         """Create a directed edge between two concept nodes.
 
         Raises NodeNotFoundError or ConstraintViolationError on failure.
