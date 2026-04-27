@@ -35,6 +35,7 @@ Intermediate Examples (`intermediate/`)
 | 06 | `06_graph_analytics.py` | Network attack surface analysis (128 nodes) | centrality, cycles, components, cross-zone violations, composite risk scoring |
 | 07 | `07_text_enrichment.py` | Security report extraction (16 reports) | ingest, regex extraction, custom LLMProvider, honest limitation assessment |
 | 12 | `12_advanced_rules.py` | Infrastructure pattern discovery (125 nodes) | CausalInferenceRule, GeneralizationRule, AnalogicalReasoningRule, auto-discovery |
+| 13 | `13_structural_patterns_and_communities.py` | Technology ecosystem analysis (76 nodes) | chain/diamond/fan-out detection, community detection, cross-analysis |
 
 Advanced Examples (`advanced/`)
 -------------------------------
@@ -55,6 +56,8 @@ Domain Examples (`domain/`)
 | `supply_chain_resilience.py` | Supply Chain Risk | 126 | Risk cascade paths, single-source dependencies, diversification priorities |
 | `code_dependency_analysis.py` | Software Architecture | 125 | Blast radius, circular deps, outdated packages, test coverage gaps |
 | `fraud_detection_intelligence.py` | Financial Fraud | 119 | Suspicious clusters, circular money flows, funnel accounts, ring leader ID |
+| `medical_diagnosis.py` | Clinical Medicine | 94 | Backward chaining, belief revision, uncertainty propagation, structural patterns |
+| `financial_risk_network.py` | Financial Risk | 76 | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
 
 Additional Demos
 ----------------

@@ -28,6 +28,14 @@ from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
 from hyper3.feedback import OperationFeedback
 from hyper3.constraints import BoundaryNavigator
+from hyper3.backward_chain import BackwardChainEngine
+from hyper3.hebbian import HebbianLearner
+from hyper3.uncertainty import UncertaintyEngine
+from hyper3.structural_match import StructuralPatternEngine
+from hyper3.belief_revision import BeliefRevisionEngine
+from hyper3.abstraction import AbstractionNavigator
+from hyper3.community import CommunityDetector
+from hyper3.graph_diff import GraphDiffer
 from hyper3.memory_core import CoreMixin
 from hyper3.memory_reasoning import ReasoningMixin
 from hyper3.memory_quantum import QuantumMixin
@@ -103,3 +111,11 @@ class CognitiveMemory(
         self._overlay: HypergraphOverlay | None = None
         self._feedback = OperationFeedback(self._graph)
         self._boundary_navigator: BoundaryNavigator | None = None
+        self._backward_chain: BackwardChainEngine | None = None
+        self._hebbian: HebbianLearner | None = None
+        self._uncertainty_engine: UncertaintyEngine | None = None
+        self._structural_matcher: StructuralPatternEngine | None = None
+        self._belief_revision: BeliefRevisionEngine | None = None
+        self._abstraction_nav: AbstractionNavigator | None = None
+        self._community_detector: CommunityDetector | None = None
+        self._graph_differ: GraphDiffer | None = None

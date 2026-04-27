@@ -28,6 +28,14 @@ from hyper3.provenance import ProvenanceTracker
 from hyper3.enrichment import LLMEnricher
 from hyper3.feedback import OperationFeedback
 from hyper3.constraints import BoundaryNavigator
+from hyper3.backward_chain import BackwardChainEngine
+from hyper3.hebbian import HebbianLearner
+from hyper3.uncertainty import UncertaintyEngine
+from hyper3.structural_match import StructuralPatternEngine
+from hyper3.belief_revision import BeliefRevisionEngine
+from hyper3.abstraction import AbstractionNavigator
+from hyper3.community import CommunityDetector
+from hyper3.graph_diff import GraphDiffer
 from hyper3.results import (
     CommitResult,
     ConsensusReasonResult,
@@ -76,6 +84,14 @@ class _MemoryBase:
     _overlay: HypergraphOverlay | None
     _feedback: OperationFeedback
     _boundary_navigator: BoundaryNavigator | None
+    _backward_chain: BackwardChainEngine | None
+    _hebbian: HebbianLearner | None
+    _uncertainty_engine: UncertaintyEngine | None
+    _structural_matcher: StructuralPatternEngine | None
+    _belief_revision: BeliefRevisionEngine | None
+    _abstraction_nav: AbstractionNavigator | None
+    _community_detector: CommunityDetector | None
+    _graph_differ: GraphDiffer | None
 
     def _find_node(self, label: str) -> Hypernode | None:
         """Look up a node by label, checking cache, label index, and aliases."""

@@ -178,16 +178,70 @@ from hyper3.validation import (
     ValidationReport,
 )
 from hyper3.results import (
+    BackwardChainResult,
     CommitResult,
+    CommunityResult,
     ConsensusReasonResult,
     DiscoverResult,
     EvolveResult,
     EvolutionStats,
     ExpansionInfo,
+    GraphDeltaResult,
+    HebbianResult,
     IterativeReasonResult,
     MemoryStats,
     MetaCognitiveStats,
     ReasonResult,
+    RevisionResult,
     RollbackResult,
     TrainResult,
+)
+from hyper3.backward_chain import (
+    BackwardChainEngine,
+    BackwardChainResult as _BackwardChainResult,
+    ProofStep,
+    ProofTree,
+)
+from hyper3.hebbian import (
+    HebbianConfig,
+    HebbianLearner,
+    HebbianUpdate,
+)
+from hyper3.uncertainty import (
+    ConfidenceChain,
+    ConfidenceScore,
+    UncertaintyEngine,
+    UncertaintyResult,
+)
+from hyper3.structural_match import (
+    PatternEdge,
+    PatternNode,
+    PatternTemplate,
+    StructuralMatch,
+    StructuralMatchResult,
+    StructuralPatternEngine,
+)
+from hyper3.belief_revision import (
+    BeliefRevisionEngine,
+    Contradiction,
+    RevisionAction,
+    RevisionPlan,
+)
+from hyper3.abstraction import (
+    AbstractionMapping,
+    AbstractionNavigator,
+    AbstractionSummary,
+)
+from hyper3.community import (
+    Community,
+    CommunityDetector,
+    CommunityResult as _CommunityResult,
+)
+from hyper3.graph_diff import (
+    EdgeDelta,
+    GraphDelta,
+    GraphDiffer,
+    GraphHistoryResult,
+    GraphVersion,
+    NodeDelta,
 )

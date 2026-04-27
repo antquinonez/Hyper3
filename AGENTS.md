@@ -131,6 +131,21 @@ After unitary evolution, amplitudes can be complex numbers. Code that consumes a
 ### `select_optimal_frame_learned` uses shifted Thompson sampling
 Frame selection shifts complexity by +1.0 to avoid zero-base issues, then applies Thompson sampling: `score = (complexity + 1.0) * (1.0 - bonus * 0.6)`. Frames with no recorded outcomes are not eligible for the bonus. The bonus is sampled from `Beta(successes+1, failures+1)`.
 
+### Belief revision uses a negation map
+`BeliefRevisionEngine` has a built-in `NEGATION_MAP` with pairs like `supports`/`opposes`, `causes`/`prevents`, `enables`/`blocks`. Custom negation pairs can be added via the `custom_negations` constructor parameter. Two edges between the same nodes with negated labels are flagged as contradictions.
+
+### Subsystem lazy initialization
+The new subsystems (backward chain, Hebbian, uncertainty, structural match, belief revision, abstraction, community detection, graph diff) are lazily initialized on first use via their `CognitiveMemory` methods. They can also be accessed via properties (e.g., `mem.hebbian`, `mem.backward_chain`) after first use. Direct constructor access is available for testing individual engines.
+
+### Hebbian learning requires activation state
+`hebbian_reinforce()` uses the current `SpreadingActivation` state to find co-activated node pairs. Call `stimulate()` + `spread_activation()` before `hebbian_reinforce()` to have non-trivial results. Without prior activation, the result will be empty.
+
+### Community detection is non-deterministic
+Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible results in tests. The `connected_components` method is deterministic.
+
+### Graph diff captures are point-in-time
+`GraphDiffer.capture()` snapshots the full node/edge state. Diffs are computed against these snapshots, not against the live graph. Multiple versions can be captured and compared pairwise.
+
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
@@ -186,10 +201,21 @@ The following are already optimized — maintain them when making changes:
 - **capabilities.py** — `CapabilityLevel` enum (BASIC/ENHANCED/ADVANCED) for staged implementation. `detect_capability_level()` inspects graph/engine state. `require_capability()` decorator gates functions.
 - **constraints.py** — `ConstraintCheck` ABC for boundary constraints. `BoundaryNavigator` checks and navigates constraints. Built-in: `NoSelfLoopConstraint`, `WeightInflationConstraint`, `ProvenanceDepthConstraint`.
 
+## New Modules (Round 4 — Essential Cognitive Capabilities)
+
+- **backward_chain.py** — `BackwardChainEngine` provides goal-directed reasoning via backward chaining from a target concept through inference rules. `prove()` returns `BackwardChainResult` with proof tree, missing premises, and alternative plans. `prove_batch()` accumulates proven facts across multiple targets.
+- **hebbian.py** — `HebbianLearner` implements co-activation learning: nodes activated together have their connecting edges strengthened. Integrates with `SpreadingActivation`. `HebbianConfig` controls learning rate, decay, and thresholds. `reinforce_from_activation()` runs a full Hebbian cycle from current activation state.
+- **uncertainty.py** — `UncertaintyEngine` propagates confidence through inference chains using provenance depth. `compute_confidence()` scores individual nodes (1.0 for observed, decaying for inferred). Supports geometric, minimum, and average combination strategies. `trace_chain()` finds the highest-confidence path between two nodes.
+- **structural_match.py** — `StructuralPatternEngine` provides subgraph pattern matching beyond label-based filtering. `PatternTemplate` defines role-based node/edge templates. `match_chain()` finds linear chains, `match_diamond()` finds convergence patterns, `match_fan_out()` finds hub nodes, `match_pattern()` matches arbitrary templates with data-type and label-pattern constraints.
+- **belief_revision.py** — `BeliefRevisionEngine` detects and resolves contradictory edges. Built-in negation map (`supports`/`opposes`, `causes`/`prevents`, etc.) with custom extension. Resolution strategies: `higher_confidence`, `higher_weight`, `observed_over_inferred`, `newer`. `revise()` cascades retraction to dependent inferences.
+- **abstraction.py** — `AbstractionNavigator` collapses subgraphs into summary nodes and expands them back. `collapse_subgraph()` removes internal edges, rewires external connections to the summary node. `expand_node()` restores original structure. `AbstractionMapping` tracks the collapse/expand relationship.
+- **community.py** — `CommunityDetector` identifies communities (clusters) in the main hypergraph. Label propagation (unweighted and weighted) and connected-components methods. Returns `CommunityResult` with per-community membership, internal/external edge counts, modularity, and coverage.
+- **graph_diff.py** — `GraphDiffer` captures graph versions and computes deltas. `capture()` snapshots node/edge state. `diff_from_version()` and `diff_between_versions()` produce `GraphDelta` with added/removed/modified nodes and edges. `rollback_to_version()` restores a prior state.
+
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1235 tests must pass.
+2. Run the full test suite after changes. All 1348 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -284,6 +310,14 @@ src/hyper3/          Source code (flat, no sub-packages)
   validation.py      ValidationEngine with A/B comparison
   capabilities.py    CapabilityLevel enum + detection + require_capability
   constraints.py     ConstraintCheck ABC + BoundaryNavigator
+  backward_chain.py  BackwardChainEngine for goal-directed reasoning
+  hebbian.py         HebbianLearner for co-activation learning
+  uncertainty.py     UncertaintyEngine for confidence propagation
+  structural_match.py StructuralPatternEngine for subgraph matching
+  belief_revision.py BeliefRevisionEngine for contradiction resolution
+  abstraction.py     AbstractionNavigator for hierarchical collapse/expand
+  community.py       CommunityDetector for graph clustering
+  graph_diff.py      GraphDiffer for versioned evolution tracking
   visualization.py   Optional matplotlib plotting
   __init__.py        Public API re-exports
 tests/               Test files (test_<module>.py naming)
@@ -312,7 +346,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 7. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1235
+- **Tests**: 1348
 - **Coverage**: 95%
 - **Pyright**: 0 errors
-- **Examples**: 16 (3 basic, 5 intermediate, 5 advanced, 3 domain)
+- **Examples**: 19 (3 basic, 6 intermediate, 5 advanced, 5 domain)

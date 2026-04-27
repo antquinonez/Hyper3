@@ -24,6 +24,20 @@ from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import TrainResult
 from hyper3.validation import ValidationReport
+from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
+from hyper3.hebbian import HebbianLearner, HebbianConfig, HebbianResult
+from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult
+from hyper3.structural_match import (
+    StructuralPatternEngine,
+    PatternTemplate,
+    PatternNode,
+    PatternEdge,
+    StructuralMatchResult,
+)
+from hyper3.belief_revision import BeliefRevisionEngine, RevisionResult
+from hyper3.abstraction import AbstractionNavigator, AbstractionSummary
+from hyper3.community import CommunityDetector, CommunityResult
+from hyper3.graph_diff import GraphDiffer, GraphDelta
 
 
 class SubsystemMixin(_MemoryBase):
@@ -597,3 +611,631 @@ class SubsystemMixin(_MemoryBase):
         """Detect the current capability level of this memory instance."""
         from hyper3.capabilities import detect_capability_level
         return detect_capability_level(self)
+
+    def prove(
+        self,
+        target_concept: str,
+        *,
+        known_facts: set[str] | None = None,
+        edge_label: str | None = None,
+        max_depth: int = 5,
+    ) -> BackwardChainResult:
+        """Attempt to prove a target concept via backward chaining from known facts.
+
+        Works backwards from the goal through inference rules to determine
+        what premises are needed and which are already satisfied.
+
+        Args:
+            target_concept: Label of the node to prove.
+            known_facts: Labels of nodes already established as true.
+            edge_label: If set, only consider derivation chains using this edge label.
+            max_depth: Maximum backward chaining depth.
+
+        Returns:
+            BackwardChainResult with achievability, missing premises, and proof tree.
+        """
+        if self._backward_chain is None:
+            self._backward_chain = BackwardChainEngine(
+                self._graph, self._rules, max_depth=max_depth,
+            )
+        return self._backward_chain.prove(
+            target_concept, known_facts=known_facts, edge_label=edge_label,
+        )
+
+    def prove_batch(
+        self,
+        target_concepts: list[str],
+        *,
+        known_facts: set[str] | None = None,
+        edge_label: str | None = None,
+    ) -> list[BackwardChainResult]:
+        """Prove multiple targets in sequence, accumulating proven facts.
+
+        Args:
+            target_concepts: Ordered list of concept labels to prove.
+            known_facts: Initial set of established labels.
+            edge_label: If set, constrain derivation chains to this edge label.
+
+        Returns:
+            List of BackwardChainResult objects, one per target.
+        """
+        if self._backward_chain is None:
+            self._backward_chain = BackwardChainEngine(self._graph, self._rules)
+        return self._backward_chain.prove_batch(
+            target_concepts, known_facts=known_facts, edge_label=edge_label,
+        )
+
+    def hebbian_reinforce(self) -> HebbianResult:
+        """Strengthen edges between co-activated nodes using Hebbian learning.
+
+        Uses current spreading activation state to identify co-activated node
+        pairs and strengthens connecting edges proportionally.
+
+        Returns:
+            HebbianResult with counts of strengthened and weakened edges.
+        """
+        if self._hebbian is None:
+            self._hebbian = HebbianLearner(self._graph, self._activation)
+        result = self._hebbian.reinforce_from_activation()
+        self._log.record(
+            "hebbian_reinforce",
+            strengthened=result.edges_strengthened,
+            weakened=result.edges_weakened,
+        )
+        return result
+
+    def hebbian_reinforce_pair(
+        self, source_label: str, target_label: str, strength: float = 1.0,
+    ) -> dict[str, Any] | None:
+        """Manually reinforce the connection between two concepts.
+
+        Args:
+            source_label: Label of the source node.
+            target_label: Label of the target node.
+            strength: Reinforcement strength multiplier.
+
+        Returns:
+            Dict with old/new weight info, or None if no connecting edge.
+        """
+        if self._hebbian is None:
+            self._hebbian = HebbianLearner(self._graph, self._activation)
+        update = self._hebbian.reinforce_pair(source_label, target_label, strength)
+        if update:
+            return {
+                "edge_id": update.edge_id,
+                "old_weight": update.old_weight,
+                "new_weight": update.new_weight,
+                "co_activation": update.co_activation,
+            }
+        return None
+
+    def hebbian_decay_unused(self, threshold_access_count: int = 0) -> int:
+        """Decay edges whose endpoints have low access counts.
+
+        Args:
+            threshold_access_count: Edges connected only to nodes at or below
+                this access count are decayed.
+
+        Returns:
+            Number of edges decayed.
+        """
+        if self._hebbian is None:
+            self._hebbian = HebbianLearner(self._graph, self._activation)
+        updates = self._hebbian.decay_unused(threshold_access_count)
+        return len(updates)
+
+    def strongest_associations(
+        self, concept: str, top_k: int = 10,
+    ) -> list[tuple[str, float]]:
+        """Return the strongest Hebbian associations from a concept.
+
+        Args:
+            concept: Label of the query node.
+            top_k: Maximum number of results.
+
+        Returns:
+            List of (label, weight) tuples sorted by descending weight.
+        """
+        if self._hebbian is None:
+            self._hebbian = HebbianLearner(self._graph, self._activation)
+        return self._hebbian.get_strongest_associations(concept, top_k)
+
+    def compute_confidence(self, concept: str) -> dict[str, Any] | None:
+        """Compute the inference confidence for a concept node.
+
+        Returns None for non-existent nodes, a confidence of 1.0 for
+        directly observed nodes, and a decaying confidence for inferred nodes
+        based on their provenance depth.
+
+        Args:
+            concept: Label of the node to evaluate.
+
+        Returns:
+            Dict with confidence, depth, source, and contributing edges.
+        """
+        if self._uncertainty_engine is None:
+            self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
+        score = self._uncertainty_engine.compute_confidence(concept)
+        if score:
+            return {
+                "node_label": score.node_label,
+                "confidence": score.confidence,
+                "depth": score.depth,
+                "source": score.source,
+                "contributing_edges": score.contributing_edges,
+            }
+        return None
+
+    def compute_all_confidences(self) -> UncertaintyResult:
+        """Compute inference confidence for every node in the graph.
+
+        Returns:
+            UncertaintyResult with all node scores and aggregate statistics.
+        """
+        if self._uncertainty_engine is None:
+            self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
+        return self._uncertainty_engine.compute_all_confidences()
+
+    def flag_low_confidence(self, threshold: float = 0.3) -> list[dict[str, Any]]:
+        """Flag nodes whose inference confidence falls below a threshold.
+
+        Args:
+            threshold: Minimum confidence to be considered reliable.
+
+        Returns:
+            List of dicts with node_label, confidence, depth, and source.
+        """
+        if self._uncertainty_engine is None:
+            self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
+        scores = self._uncertainty_engine.flag_low_confidence(threshold)
+        return [
+            {
+                "node_label": s.node_label,
+                "confidence": s.confidence,
+                "depth": s.depth,
+                "source": s.source,
+            }
+            for s in scores
+        ]
+
+    def trace_confidence_chain(
+        self, source: str, target: str, max_depth: int = 10,
+    ) -> dict[str, Any] | None:
+        """Trace the highest-confidence inference chain between two concepts.
+
+        Args:
+            source: Label of the start node.
+            target: Label of the end node.
+            max_depth: Maximum chain length to explore.
+
+        Returns:
+            Dict with chain depth, confidence, edges, and rule names, or None.
+        """
+        if self._uncertainty_engine is None:
+            self._uncertainty_engine = UncertaintyEngine(self._graph, self._provenance)
+        chain = self._uncertainty_engine.trace_chain(source, target, max_depth)
+        if chain:
+            return {
+                "chain_depth": chain.chain_depth,
+                "chain_confidence": chain.chain_confidence,
+                "edges": chain.edges,
+                "rule_names": chain.rule_names,
+            }
+        return None
+
+    def match_structural_pattern(
+        self,
+        *,
+        pattern_name: str = "custom",
+        nodes: list[dict[str, Any]] | None = None,
+        edges: list[dict[str, Any]] | None = None,
+        max_matches: int = 100,
+    ) -> StructuralMatchResult:
+        """Match a structural pattern template against the graph.
+
+        Args:
+            pattern_name: Name for the pattern.
+            nodes: List of dicts with keys ``role``, ``data_type``, ``label_pattern``, ``constraints``.
+            edges: List of dicts with keys ``source_role``, ``target_role``, ``label``, ``min_weight``.
+            max_matches: Maximum number of matches to return.
+
+        Returns:
+            StructuralMatchResult with all matched instances.
+        """
+        if self._structural_matcher is None:
+            self._structural_matcher = StructuralPatternEngine(self._graph)
+
+        p_nodes = [
+            PatternNode(
+                role=n.get("role", ""),
+                data_type=n.get("data_type"),
+                label_pattern=n.get("label_pattern"),
+                constraints=n.get("constraints", {}),
+            )
+            for n in (nodes or [])
+        ]
+        p_edges = [
+            PatternEdge(
+                source_role=e.get("source_role", ""),
+                target_role=e.get("target_role", ""),
+                label=e.get("label"),
+                min_weight=e.get("min_weight", 0.0),
+            )
+            for e in (edges or [])
+        ]
+
+        template = PatternTemplate(
+            name=pattern_name, nodes=p_nodes, edges=p_edges,
+        )
+        return self._structural_matcher.match_pattern(template, max_matches=max_matches)
+
+    def match_chains(
+        self,
+        *,
+        edge_label: str | None = None,
+        min_length: int = 2,
+        max_length: int = 5,
+        max_chains: int = 50,
+    ) -> list[list[str]]:
+        """Find chain patterns (linear sequences) in the graph.
+
+        Args:
+            edge_label: If set, only follow edges with this label.
+            min_length: Minimum chain length in edges.
+            max_length: Maximum chain length in edges.
+            max_chains: Maximum number of chains to return.
+
+        Returns:
+            List of chains, each a list of node labels.
+        """
+        if self._structural_matcher is None:
+            self._structural_matcher = StructuralPatternEngine(self._graph)
+        chains = self._structural_matcher.match_chain(
+            edge_label=edge_label,
+            min_length=min_length,
+            max_length=max_length,
+            max_chains=max_chains,
+        )
+        labeled_chains: list[list[str]] = []
+        for chain in chains:
+            labeled: list[str] = []
+            for nid in chain:
+                node = self._graph.get_node(nid)
+                labeled.append(node.label if node else nid[:8])
+            labeled_chains.append(labeled)
+        return labeled_chains
+
+    def match_diamonds(
+        self, edge_label: str | None = None, max_matches: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Find diamond patterns (A->C, B->C, A and B share common upstream).
+
+        Args:
+            edge_label: If set, only consider edges with this label.
+            max_matches: Maximum number of diamond patterns to return.
+
+        Returns:
+            List of dicts with source_a, source_b, converge labels and score.
+        """
+        if self._structural_matcher is None:
+            self._structural_matcher = StructuralPatternEngine(self._graph)
+        matches = self._structural_matcher.match_diamond(
+            edge_label=edge_label, max_matches=max_matches,
+        )
+        results: list[dict[str, Any]] = []
+        for m in matches:
+            entry: dict[str, Any] = {"score": m.score}
+            for role, nid in m.bindings.items():
+                node = self._graph.get_node(nid)
+                entry[role] = node.label if node else nid[:8]
+            results.append(entry)
+        return results
+
+    def match_fan_out(
+        self,
+        edge_label: str | None = None,
+        min_fan: int = 3,
+        max_results: int = 50,
+    ) -> list[dict[str, Any]]:
+        """Find nodes with high fan-out (many outgoing connections).
+
+        Args:
+            edge_label: If set, only count edges with this label.
+            min_fan: Minimum number of outgoing connections to report.
+            max_results: Maximum number of results.
+
+        Returns:
+            List of dicts with node label and target labels.
+        """
+        if self._structural_matcher is None:
+            self._structural_matcher = StructuralPatternEngine(self._graph)
+        fans = self._structural_matcher.match_fan_out(
+            edge_label=edge_label, min_fan=min_fan, max_results=max_results,
+        )
+        results: list[dict[str, Any]] = []
+        for nid, target_ids in fans:
+            node = self._graph.get_node(nid)
+            tgt_labels: list[str] = []
+            for tid in target_ids:
+                tn = self._graph.get_node(tid)
+                tgt_labels.append(tn.label if tn else tid[:8])
+            results.append({
+                "node": node.label if node else nid[:8],
+                "fan_out": len(target_ids),
+                "targets": tgt_labels,
+            })
+        return results
+
+    def detect_contradictions(self) -> list[dict[str, Any]]:
+        """Detect contradictory edges in the graph using negation mapping.
+
+        Returns:
+            List of contradiction dicts with edge IDs, labels, and severity.
+        """
+        if self._belief_revision is None:
+            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+        contradictions = self._belief_revision.detect_contradictions()
+        return [
+            {
+                "edge_a_id": c.edge_a_id,
+                "edge_b_id": c.edge_b_id,
+                "edge_a_label": c.edge_a_label,
+                "edge_b_label": c.edge_b_label,
+                "source": c.source_label,
+                "target": c.target_label,
+                "type": c.contradiction_type,
+                "severity": c.severity,
+            }
+            for c in contradictions
+        ]
+
+    def revise_beliefs(self, strategy: str = "higher_confidence") -> RevisionResult:
+        """Detect and resolve contradictions in the graph.
+
+        Args:
+            strategy: Resolution strategy. One of ``higher_confidence``,
+                ``higher_weight``, ``observed_over_inferred``, ``newer``.
+
+        Returns:
+            RevisionResult with counts of contradictions found and edges revised.
+        """
+        if self._belief_revision is None:
+            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+        result = self._belief_revision.revise(strategy=strategy)
+        self._log.record(
+            "revise_beliefs",
+            contradictions=result.contradictions_detected,
+            edges_removed=result.edges_removed_count,
+        )
+        return result
+
+    def check_consistency(
+        self, source_label: str, target_label: str,
+    ) -> list[dict[str, Any]]:
+        """Check for contradictions between two specific concepts.
+
+        Args:
+            source_label: Label of the source node.
+            target_label: Label of the target node.
+
+        Returns:
+            List of contradiction dicts between the two concepts.
+        """
+        if self._belief_revision is None:
+            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+        contradictions = self._belief_revision.check_consistency(source_label, target_label)
+        return [
+            {
+                "edge_a_label": c.edge_a_label,
+                "edge_b_label": c.edge_b_label,
+                "type": c.contradiction_type,
+                "severity": c.severity,
+            }
+            for c in contradictions
+        ]
+
+    def collapse_subgraph(
+        self,
+        node_labels: set[str],
+        *,
+        summary_label: str | None = None,
+        summary_data: Any = None,
+        layer: str = "summary",
+    ) -> AbstractionSummary | None:
+        """Collapse a set of nodes into a single summary node.
+
+        External connections are rewired to the summary node. Internal edges
+        are removed. The mapping is stored for later expansion.
+
+        Args:
+            node_labels: Labels of nodes to collapse.
+            summary_label: Label for the new summary node.
+            summary_data: Optional data payload for the summary node.
+            layer: Abstraction layer string (``detail``, ``intermediate``, ``summary``).
+
+        Returns:
+            AbstractionSummary, or None if no valid nodes found.
+        """
+        from hyper3.kernel import AbstractionLayer
+        if self._abstraction_nav is None:
+            self._abstraction_nav = AbstractionNavigator(self._graph)
+        layer_enum = AbstractionLayer(layer)
+        return self._abstraction_nav.collapse_subgraph(
+            node_labels,
+            summary_label=summary_label,
+            summary_data=summary_data,
+            layer=layer_enum,
+        )
+
+    def expand_summary(self, summary_label: str) -> dict[str, Any] | None:
+        """Expand a previously collapsed summary node back into its constituents.
+
+        Args:
+            summary_label: Label of the summary node to expand.
+
+        Returns:
+            Dict with expanded_nodes and expanded_edges counts, or None.
+        """
+        if self._abstraction_nav is None:
+            self._abstraction_nav = AbstractionNavigator(self._graph)
+        result = self._abstraction_nav.expand_node(summary_label)
+        if result:
+            return {
+                "expanded_nodes": result.expanded_nodes,
+                "expanded_edges": result.expanded_edges,
+                "summary_removed": result.summary_removed,
+            }
+        return None
+
+    def list_summaries(self) -> list[dict[str, Any]]:
+        """List all summary nodes and their collapsed constituents.
+
+        Returns:
+            List of dicts with summary_label, detail_labels, and layer.
+        """
+        if self._abstraction_nav is None:
+            self._abstraction_nav = AbstractionNavigator(self._graph)
+        return [
+            {
+                "summary_label": m.summary_label,
+                "detail_labels": m.detail_labels,
+                "layer": m.layer.value,
+            }
+            for m in self._abstraction_nav.list_summaries()
+        ]
+
+    def detect_communities(
+        self,
+        *,
+        method: str = "label_propagation",
+        edge_label: str | None = None,
+        seed: int = 42,
+    ) -> CommunityResult:
+        """Detect communities (clusters) in the graph.
+
+        Args:
+            method: Detection method. ``label_propagation`` (default) or
+                ``weighted_label_propagation`` or ``connected_components``.
+            edge_label: If set, only consider edges with this label.
+            seed: Random seed for reproducibility.
+
+        Returns:
+            CommunityResult with communities, modularity, and coverage.
+        """
+        if self._community_detector is None:
+            self._community_detector = CommunityDetector(self._graph)
+
+        if method == "weighted_label_propagation":
+            return self._community_detector.detect_weighted_label_propagation(
+                seed=seed, edge_label=edge_label,
+            )
+        elif method == "connected_components":
+            return self._community_detector.detect_connected_components()
+        else:
+            return self._community_detector.detect_label_propagation(
+                seed=seed, edge_label=edge_label,
+            )
+
+    def capture_version(self) -> dict[str, int]:
+        """Capture the current graph state as a named version for later diffing.
+
+        Returns:
+            Dict with version_id, node_count, and edge_count.
+        """
+        if self._graph_differ is None:
+            self._graph_differ = GraphDiffer(self._graph)
+        version = self._graph_differ.capture()
+        return {
+            "version_id": version.version_id,
+            "node_count": version.node_count,
+            "edge_count": version.edge_count,
+        }
+
+    def diff_from_version(self, version_id: int) -> GraphDelta | None:
+        """Compute the diff between a captured version and the current state.
+
+        Args:
+            version_id: The version to compare against.
+
+        Returns:
+            GraphDelta with all changes, or None if version not found.
+        """
+        if self._graph_differ is None:
+            self._graph_differ = GraphDiffer(self._graph)
+        return self._graph_differ.diff_from_version(version_id)
+
+    def diff_between_versions(self, v1: int, v2: int) -> GraphDelta | None:
+        """Compute the diff between two captured versions.
+
+        Args:
+            v1: First version ID.
+            v2: Second version ID.
+
+        Returns:
+            GraphDelta with all changes, or None if either version not found.
+        """
+        if self._graph_differ is None:
+            self._graph_differ = GraphDiffer(self._graph)
+        return self._graph_differ.diff_between_versions(v1, v2)
+
+    def version_history(self) -> dict[str, Any]:
+        """Return the full version history.
+
+        Returns:
+            Dict with versions list, total_versions, and current_version.
+        """
+        if self._graph_differ is None:
+            self._graph_differ = GraphDiffer(self._graph)
+        h = self._graph_differ.history
+        return {
+            "total_versions": h.total_versions,
+            "current_version": h.current_version,
+            "versions": [
+                {
+                    "version_id": v.version_id,
+                    "node_count": v.node_count,
+                    "edge_count": v.edge_count,
+                }
+                for v in h.versions
+            ],
+        }
+
+    @property
+    def backward_chain(self) -> BackwardChainEngine | None:
+        """The backward chaining engine, or None if not yet initialized."""
+        return self._backward_chain
+
+    @property
+    def hebbian(self) -> HebbianLearner | None:
+        """The Hebbian learning engine, or None if not yet initialized."""
+        return self._hebbian
+
+    @property
+    def uncertainty(self) -> UncertaintyEngine | None:
+        """The uncertainty engine, or None if not yet initialized."""
+        return self._uncertainty_engine
+
+    @property
+    def structural_matcher(self) -> StructuralPatternEngine | None:
+        """The structural pattern matcher, or None if not yet initialized."""
+        return self._structural_matcher
+
+    @property
+    def belief_reviser(self) -> BeliefRevisionEngine | None:
+        """The belief revision engine, or None if not yet initialized."""
+        return self._belief_revision
+
+    @property
+    def abstraction(self) -> AbstractionNavigator | None:
+        """The abstraction navigator, or None if not yet initialized."""
+        return self._abstraction_nav
+
+    @property
+    def communities(self) -> CommunityDetector | None:
+        """The community detector, or None if not yet initialized."""
+        return self._community_detector
+
+    @property
+    def differ(self) -> GraphDiffer | None:
+        """The graph differ, or None if not yet initialized."""
+        return self._graph_differ

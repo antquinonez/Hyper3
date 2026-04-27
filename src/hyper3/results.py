@@ -156,3 +156,52 @@ class CommitResult(_SimpleResultBase):
 class RollbackResult(_SimpleResultBase):
     rolled_back_nodes: int = 0
     rolled_back_edges: int = 0
+
+
+@dataclass
+class BackwardChainResult(_ResultBase):
+    goal_id: str = ""
+    goal_label: str = ""
+    achievable: bool = False
+    total_premises_needed: int = 0
+    satisfied_premises: int = 0
+    missing_premises: list = field(default_factory=list)
+    confidence: float = 0.0
+
+
+@dataclass
+class HebbianResult(_SimpleResultBase):
+    edges_strengthened: int = 0
+    edges_weakened: int = 0
+    total_co_activations: int = 0
+    avg_weight_change: float = 0.0
+
+
+@dataclass
+class RevisionResult(_SimpleResultBase):
+    contradictions_detected: int = 0
+    edges_revised: int = 0
+    edges_removed_count: int = 0
+    edges_kept_count: int = 0
+
+
+@dataclass
+class CommunityResult(_SimpleResultBase):
+    community_count: int = 0
+    modularity: float = 0.0
+    coverage: float = 0.0
+    largest_community_size: int = 0
+    avg_community_size: float = 0.0
+
+
+@dataclass
+class GraphDeltaResult(_SimpleResultBase):
+    total_changes: int = 0
+    node_count_before: int = 0
+    node_count_after: int = 0
+    edge_count_before: int = 0
+    edge_count_after: int = 0
+    nodes_added: int = 0
+    nodes_removed: int = 0
+    edges_added: int = 0
+    edges_removed: int = 0
