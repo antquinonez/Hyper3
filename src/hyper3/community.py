@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class Community:
+class Community(_SimpleResultBase):
     community_id: int
     member_ids: list[str] = field(default_factory=list)
     member_labels: list[str] = field(default_factory=list)
@@ -19,7 +20,7 @@ class Community:
 
 
 @dataclass
-class CommunityResult:
+class CommunityResult(_SimpleResultBase):
     communities: list[Community] = field(default_factory=list)
     community_count: int = 0
     modularity: float = 0.0

@@ -5,10 +5,11 @@ from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.provenance import ProvenanceTracker
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class Contradiction:
+class Contradiction(_SimpleResultBase):
     edge_a_id: str
     edge_b_id: str
     edge_a_label: str
@@ -20,7 +21,7 @@ class Contradiction:
 
 
 @dataclass
-class RevisionAction:
+class RevisionAction(_SimpleResultBase):
     action_type: str
     edge_id: str
     reason: str
@@ -29,7 +30,7 @@ class RevisionAction:
 
 
 @dataclass
-class RevisionPlan:
+class RevisionPlan(_SimpleResultBase):
     contradictions_found: list[Contradiction] = field(default_factory=list)
     actions: list[RevisionAction] = field(default_factory=list)
     edges_removed: list[str] = field(default_factory=list)
@@ -38,7 +39,7 @@ class RevisionPlan:
 
 
 @dataclass
-class RevisionResult:
+class RevisionResult(_SimpleResultBase):
     plan: RevisionPlan = field(default_factory=RevisionPlan)
     contradictions_detected: int = 0
     edges_revised: int = 0

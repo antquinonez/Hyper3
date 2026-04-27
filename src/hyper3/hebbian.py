@@ -4,11 +4,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import _SimpleResultBase
 from hyper3.retrieval_activation import SpreadingActivation
 
 
 @dataclass
-class HebbianConfig:
+class HebbianConfig(_SimpleResultBase):
     learning_rate: float = 0.1
     decay_rate: float = 0.01
     activation_threshold: float = 0.3
@@ -18,7 +19,7 @@ class HebbianConfig:
 
 
 @dataclass
-class HebbianUpdate:
+class HebbianUpdate(_SimpleResultBase):
     source_id: str
     target_id: str
     edge_id: str
@@ -28,7 +29,7 @@ class HebbianUpdate:
 
 
 @dataclass
-class HebbianResult:
+class HebbianResult(_SimpleResultBase):
     updates: list[HebbianUpdate] = field(default_factory=list)
     edges_strengthened: int = 0
     edges_weakened: int = 0

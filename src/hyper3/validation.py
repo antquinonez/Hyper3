@@ -8,9 +8,11 @@ if TYPE_CHECKING:
     from hyper3.memory import CognitiveMemory
     from hyper3.rules import Rule
 
+from hyper3.results import _SimpleResultBase
+
 
 @dataclass
-class ReasoningSummary:
+class ReasoningSummary(_SimpleResultBase):
     nodes_produced: set[str] = field(default_factory=set)
     edges_produced: set[str] = field(default_factory=set)
     avg_confidence: float = 0.0
@@ -19,7 +21,7 @@ class ReasoningSummary:
 
 
 @dataclass
-class AgreementMetrics:
+class AgreementMetrics(_SimpleResultBase):
     node_jaccard: float = 0.0
     edge_jaccard: float = 0.0
     consistency: float = 0.0
@@ -29,7 +31,7 @@ class AgreementMetrics:
 
 
 @dataclass
-class ValidationReport:
+class ValidationReport(_SimpleResultBase):
     simple_results: ReasoningSummary = field(default_factory=ReasoningSummary)
     enhanced_results: ReasoningSummary = field(default_factory=ReasoningSummary)
     agreement: AgreementMetrics = field(default_factory=AgreementMetrics)

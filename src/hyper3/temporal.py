@@ -5,6 +5,7 @@ from enum import Enum
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import _SimpleResultBase
 
 
 class AllenRelation(Enum):
@@ -113,7 +114,7 @@ class TimeInterval:
 
 
 @dataclass
-class TemporalEvent:
+class TemporalEvent(_SimpleResultBase):
     event_id: str
     label: str
     interval: TimeInterval
@@ -121,7 +122,7 @@ class TemporalEvent:
 
 
 @dataclass
-class TemporalConstraint:
+class TemporalConstraint(_SimpleResultBase):
     event_a_id: str
     event_b_id: str
     relation: AllenRelation
@@ -129,7 +130,6 @@ class TemporalConstraint:
 
     @property
     def inverse(self) -> TemporalConstraint:
-        """Return the constraint with swapped events and the inverse relation."""
         return TemporalConstraint(
             event_a_id=self.event_b_id,
             event_b_id=self.event_a_id,

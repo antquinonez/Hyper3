@@ -4,12 +4,9 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
-class _ResultBase:
+class _SimpleResultBase:
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        setattr(self, key, value)
 
     def __contains__(self, key: str) -> bool:
         if not hasattr(self, key) or key.startswith('_'):
@@ -24,18 +21,11 @@ class _ResultBase:
             return default
         return getattr(self, key, default)
 
+    def keys(self) -> list[str]:
+        return [k for k in getattr(self, '__dataclass_fields__', {}) if not k.startswith('_')]
 
-class _SimpleResultBase:
-    def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    def __contains__(self, key: str) -> bool:
-        return hasattr(self, key) and not key.startswith('_')
-
-    def get(self, key: str, default: Any = None) -> Any:
-        if not hasattr(self, key) or key.startswith('_'):
-            return default
-        return getattr(self, key, default)
+    def items(self) -> list[tuple[str, Any]]:
+        return [(k, getattr(self, k)) for k in self.keys()]
 
 
 @dataclass
@@ -49,7 +39,7 @@ class ExpansionInfo(_SimpleResultBase):
 
 
 @dataclass
-class ReasonResult(_ResultBase):
+class ReasonResult(_SimpleResultBase):
     expansion: ExpansionInfo | None = None
     causal_invariance: dict[str, Any] | None = None
     branchial: dict[str, Any] | None = None
@@ -64,7 +54,7 @@ class ReasonResult(_ResultBase):
 
 
 @dataclass
-class IterativeReasonResult(_ResultBase):
+class IterativeReasonResult(_SimpleResultBase):
     iterations: int = 0
     total_edges_produced: int = 0
     iteration_details: list[ReasonResult] = field(default_factory=list)
@@ -73,7 +63,7 @@ class IterativeReasonResult(_ResultBase):
 
 
 @dataclass
-class ConsensusReasonResult(_ResultBase):
+class ConsensusReasonResult(_SimpleResultBase):
     invariant_nodes: int = 0
     invariant_edges: int = 0
     confidence: float = 0.0
@@ -142,7 +132,7 @@ class DiscoverResult(_SimpleResultBase):
 
 
 @dataclass
-class TrainResult(_ResultBase):
+class TrainResult(_SimpleResultBase):
     trained: bool = False
     weights: dict[str, float] = field(default_factory=dict)
     samples: int = 0
@@ -159,55 +149,6 @@ class CommitResult(_SimpleResultBase):
 class RollbackResult(_SimpleResultBase):
     rolled_back_nodes: int = 0
     rolled_back_edges: int = 0
-
-
-@dataclass
-class BackwardChainResult(_ResultBase):
-    goal_id: str = ""
-    goal_label: str = ""
-    achievable: bool = False
-    total_premises_needed: int = 0
-    satisfied_premises: int = 0
-    missing_premises: list = field(default_factory=list)
-    confidence: float = 0.0
-
-
-@dataclass
-class HebbianResult(_SimpleResultBase):
-    edges_strengthened: int = 0
-    edges_weakened: int = 0
-    total_co_activations: int = 0
-    avg_weight_change: float = 0.0
-
-
-@dataclass
-class RevisionResult(_SimpleResultBase):
-    contradictions_detected: int = 0
-    edges_revised: int = 0
-    edges_removed_count: int = 0
-    edges_kept_count: int = 0
-
-
-@dataclass
-class CommunityResult(_SimpleResultBase):
-    community_count: int = 0
-    modularity: float = 0.0
-    coverage: float = 0.0
-    largest_community_size: int = 0
-    avg_community_size: float = 0.0
-
-
-@dataclass
-class GraphDeltaResult(_SimpleResultBase):
-    total_changes: int = 0
-    node_count_before: int = 0
-    node_count_after: int = 0
-    edge_count_before: int = 0
-    edge_count_after: int = 0
-    nodes_added: int = 0
-    nodes_removed: int = 0
-    edges_added: int = 0
-    edges_removed: int = 0
 
 
 @dataclass

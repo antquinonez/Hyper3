@@ -10,10 +10,11 @@ from hyper3.kernel import (
     Hypernode,
     Metadata,
 )
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class AbstractionMapping:
+class AbstractionMapping(_SimpleResultBase):
     summary_node_id: str
     summary_label: str
     detail_node_ids: list[str]
@@ -22,7 +23,7 @@ class AbstractionMapping:
 
 
 @dataclass
-class AbstractionSummary:
+class AbstractionSummary(_SimpleResultBase):
     summary_node: Hypernode
     mapping: AbstractionMapping
     edges_collapsed: int
@@ -31,7 +32,7 @@ class AbstractionSummary:
 
 
 @dataclass
-class ExpandResult:
+class ExpandResult(_SimpleResultBase):
     expanded_nodes: list[str] = field(default_factory=list)
     expanded_edges: list[str] = field(default_factory=list)
     summary_removed: bool = False

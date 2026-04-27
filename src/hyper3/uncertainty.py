@@ -5,10 +5,11 @@ from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.provenance import ProvenanceTracker
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class ConfidenceScore:
+class ConfidenceScore(_SimpleResultBase):
     node_id: str
     node_label: str
     confidence: float
@@ -18,7 +19,7 @@ class ConfidenceScore:
 
 
 @dataclass
-class ConfidenceChain:
+class ConfidenceChain(_SimpleResultBase):
     start_id: str
     end_id: str
     chain_depth: int
@@ -28,7 +29,7 @@ class ConfidenceChain:
 
 
 @dataclass
-class UncertaintyResult:
+class UncertaintyResult(_SimpleResultBase):
     node_scores: list[ConfidenceScore] = field(default_factory=list)
     chains: list[ConfidenceChain] = field(default_factory=list)
     avg_confidence: float = 0.0

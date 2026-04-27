@@ -4,11 +4,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import _SimpleResultBase
 from hyper3.rules import Rule, RuleMatch
 
 
 @dataclass
-class ProofStep:
+class ProofStep(_SimpleResultBase):
     rule_name: str
     target_id: str
     required_premises: list[str]
@@ -17,7 +18,7 @@ class ProofStep:
 
 
 @dataclass
-class ProofTree:
+class ProofTree(_SimpleResultBase):
     goal_id: str
     goal_label: str
     achieved: bool = False
@@ -28,9 +29,9 @@ class ProofTree:
 
 
 @dataclass
-class BackwardChainResult:
-    goal_id: str
-    goal_label: str
+class BackwardChainResult(_SimpleResultBase):
+    goal_id: str = ""
+    goal_label: str = ""
     achievable: bool = False
     proof_tree: ProofTree | None = None
     total_premises_needed: int = 0

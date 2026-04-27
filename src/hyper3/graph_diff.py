@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class NodeDelta:
+class NodeDelta(_SimpleResultBase):
     node_id: str
     node_label: str
     change_type: str
@@ -19,7 +20,7 @@ class NodeDelta:
 
 
 @dataclass
-class EdgeDelta:
+class EdgeDelta(_SimpleResultBase):
     edge_id: str
     change_type: str
     old_label: str = ""
@@ -31,7 +32,7 @@ class EdgeDelta:
 
 
 @dataclass
-class GraphDelta:
+class GraphDelta(_SimpleResultBase):
     nodes_added: list[NodeDelta] = field(default_factory=list)
     nodes_removed: list[NodeDelta] = field(default_factory=list)
     nodes_modified: list[NodeDelta] = field(default_factory=list)
@@ -46,7 +47,7 @@ class GraphDelta:
 
 
 @dataclass
-class GraphVersion:
+class GraphVersion(_SimpleResultBase):
     version_id: int
     timestamp: float
     node_count: int
@@ -55,7 +56,7 @@ class GraphVersion:
 
 
 @dataclass
-class GraphHistoryResult:
+class GraphHistoryResult(_SimpleResultBase):
     versions: list[GraphVersion] = field(default_factory=list)
     total_versions: int = 0
     current_version: int = 0

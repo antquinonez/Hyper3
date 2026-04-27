@@ -4,10 +4,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph, Hyperedge
+from hyper3.results import _SimpleResultBase
 
 
 @dataclass
-class PatternNode:
+class PatternNode(_SimpleResultBase):
     role: str
     data_type: str | None = None
     label_pattern: str | None = None
@@ -15,7 +16,7 @@ class PatternNode:
 
 
 @dataclass
-class PatternEdge:
+class PatternEdge(_SimpleResultBase):
     source_role: str
     target_role: str
     label: str | None = None
@@ -23,7 +24,7 @@ class PatternEdge:
 
 
 @dataclass
-class PatternTemplate:
+class PatternTemplate(_SimpleResultBase):
     name: str
     nodes: list[PatternNode] = field(default_factory=list)
     edges: list[PatternEdge] = field(default_factory=list)
@@ -31,7 +32,7 @@ class PatternTemplate:
 
 
 @dataclass
-class StructuralMatch:
+class StructuralMatch(_SimpleResultBase):
     pattern_name: str
     bindings: dict[str, str]
     matched_edges: list[str] = field(default_factory=list)
@@ -40,7 +41,7 @@ class StructuralMatch:
 
 
 @dataclass
-class StructuralMatchResult:
+class StructuralMatchResult(_SimpleResultBase):
     pattern_name: str
     matches: list[StructuralMatch] = field(default_factory=list)
     total_match_count: int = 0

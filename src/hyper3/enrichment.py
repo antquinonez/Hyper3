@@ -9,8 +9,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 
+from hyper3.results import _SimpleResultBase
+
+
 @dataclass
-class ExtractedEntity:
+class ExtractedEntity(_SimpleResultBase):
     label: str
     entity_type: str = ""
     data: dict[str, Any] = field(default_factory=dict)
@@ -18,7 +21,7 @@ class ExtractedEntity:
 
 
 @dataclass
-class ExtractedRelation:
+class ExtractedRelation(_SimpleResultBase):
     source_label: str
     target_label: str
     relation_label: str
@@ -27,7 +30,7 @@ class ExtractedRelation:
 
 
 @dataclass
-class ExtractionResult:
+class ExtractionResult(_SimpleResultBase):
     entities: list[ExtractedEntity] = field(default_factory=list)
     relations: list[ExtractedRelation] = field(default_factory=list)
     raw_text: str = ""

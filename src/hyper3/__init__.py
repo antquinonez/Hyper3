@@ -178,10 +178,8 @@ from hyper3.validation import (
     ValidationReport,
 )
 from hyper3.results import (
-    BackwardChainResult,
     BiasProfileResult,
     CommitResult,
-    CommunityResult,
     ConsensusReasonResult,
     CorrelatedNodeInfo,
     DerivationInfo,
@@ -190,8 +188,6 @@ from hyper3.results import (
     EvolutionStats,
     ExpansionInfo,
     FeedbackSummaryResult,
-    GraphDeltaResult,
-    HebbianResult,
     ImportResult,
     IntrospectionReport,
     IterativeReasonResult,
@@ -199,7 +195,6 @@ from hyper3.results import (
     MetaCognitiveStats,
     PatternMatchInfo,
     ReasonResult,
-    RevisionResult,
     RollbackResult,
     SubgraphEdge,
     SubgraphNode,
@@ -209,13 +204,14 @@ from hyper3.results import (
 )
 from hyper3.backward_chain import (
     BackwardChainEngine,
-    BackwardChainResult as _BackwardChainResult,
+    BackwardChainResult,
     ProofStep,
     ProofTree,
 )
 from hyper3.hebbian import (
     HebbianConfig,
     HebbianLearner,
+    HebbianResult,
     HebbianUpdate,
 )
 from hyper3.uncertainty import (
@@ -237,6 +233,7 @@ from hyper3.belief_revision import (
     Contradiction,
     RevisionAction,
     RevisionPlan,
+    RevisionResult,
 )
 from hyper3.abstraction import (
     AbstractionMapping,
@@ -246,7 +243,7 @@ from hyper3.abstraction import (
 from hyper3.community import (
     Community,
     CommunityDetector,
-    CommunityResult as _CommunityResult,
+    CommunityResult,
 )
 from hyper3.graph_diff import (
     EdgeDelta,
