@@ -197,7 +197,7 @@ def _build_kb(G: nx.DiGraph, node_data: dict[str, dict], embeddings: dict[str, n
         "alert_ddos_spike", "alert_unauthorized_access",
         "alert_privilege_escalation", "alert_phishing_click",
         "alert_vulnerability_scan", "alert_config_drift",
-        "alert_anomalous_traffic",
+        "alert_anomalous_traffic", "malware_detected_proxy",
     ]
     incident_logs = [
         "syslog", "windows_event_log", "apache_access_log",

@@ -11,21 +11,21 @@ import networkx as nx
 from collections import defaultdict
 
 COMPANIES = {
-    "acme_cloud": {"type": "company", "sector": "cloud"},
-    "nexa_ai": {"type": "company", "sector": "ai"},
-    "volt_data": {"type": "company", "sector": "data"},
-    "pulse_security": {"type": "company", "sector": "security"},
-    "orbit_iot": {"type": "company", "sector": "iot"},
-    "zenith_fintech": {"type": "company", "sector": "fintech"},
-    "nova_biotech": {"type": "company", "sector": "biotech"},
-    "sigma_chips": {"type": "company", "sector": "semiconductor"},
-    "aurora_energy": {"type": "company", "sector": "energy"},
-    "helix_health": {"type": "company", "sector": "healthtech"},
-    "quantum_lab": {"type": "company", "sector": "quantum"},
-    "terra_logistics": {"type": "company", "sector": "logistics"},
-    "cipher_blockchain": {"type": "company", "sector": "blockchain"},
-    "neural_edge": {"type": "company", "sector": "edge_computing"},
-    "stellar_education": {"type": "company", "sector": "edtech"},
+    "acme_cloud": {"type": "company", "sector": "cloud", "employees": 5000, "region": "US"},
+    "nexa_ai": {"type": "company", "sector": "ai", "employees": 800, "region": "US"},
+    "volt_data": {"type": "company", "sector": "data", "employees": 1200, "region": "EU"},
+    "pulse_security": {"type": "company", "sector": "security", "employees": 600, "region": "US"},
+    "orbit_iot": {"type": "company", "sector": "iot", "employees": 300, "region": "APAC"},
+    "zenith_fintech": {"type": "company", "sector": "fintech", "employees": 2000, "region": "US"},
+    "nova_biotech": {"type": "company", "sector": "biotech", "employees": 1500, "region": "EU"},
+    "sigma_chips": {"type": "company", "sector": "semiconductor", "employees": 8000, "region": "US"},
+    "aurora_energy": {"type": "company", "sector": "energy", "employees": 3000, "region": "EU"},
+    "helix_health": {"type": "company", "sector": "healthtech", "employees": 900, "region": "US"},
+    "quantum_lab": {"type": "company", "sector": "quantum", "employees": 200, "region": "US"},
+    "terra_logistics": {"type": "company", "sector": "logistics", "employees": 4000, "region": "APAC"},
+    "cipher_blockchain": {"type": "company", "sector": "blockchain", "employees": 400, "region": "US"},
+    "neural_edge": {"type": "company", "sector": "edge_computing", "employees": 350, "region": "EU"},
+    "stellar_education": {"type": "company", "sector": "edtech", "employees": 700, "region": "US"},
 }
 
 PRODUCTS = {
@@ -292,43 +292,102 @@ def main() -> None:
     print("=" * 70)
     print("NetworkX: Structural Patterns & Communities")
     print("=" * 70)
+    print()
+
+    print("=" * 70)
+    print("SECTION 1: Building Technology Ecosystem Graph")
+    print("=" * 70)
     print(f"  Nodes: {G.number_of_nodes()}")
     print(f"  Edges: {G.number_of_edges()}")
     print()
 
-    print("SECTION 2: Chain Detection")
+    print("=" * 70)
+    print("SECTION 2: Chain Detection - Technology Dependency Chains")
+    print("=" * 70)
+
+    dev_chains = find_chains(G, "develops", min_length=1, max_length=3, max_chains=20)
+    print(f"  'develops' chains found: {len(dev_chains)}")
+    for chain in dev_chains[:5]:
+        print(f"    {' -> '.join(chain)}")
+    print()
+
     use_chains = find_chains(G, "uses", min_length=2, max_length=4, max_chains=10)
     print(f"  'uses' chains (length >= 2): {len(use_chains)}")
     for chain in use_chains[:5]:
         print(f"    {' -> '.join(chain)}")
     print()
 
-    print("SECTION 3: Fan-Out Analysis")
+    print("=" * 70)
+    print("SECTION 3: Fan-Out Analysis - Technology Hubs")
+    print("=" * 70)
+
     fan_outs = find_fan_out(G, "uses", min_fan=3)
     print(f"  Companies using 3+ technologies:")
     for node, targets in fan_outs[:10]:
         print(f"    {node:<20} fan_out={len(targets)}  targets={targets}")
     print()
 
-    print("SECTION 4: Diamond Detection")
+    partner_fans = find_fan_out(G, "partners_with", min_fan=2)
+    print(f"  Companies with 2+ partnerships:")
+    for node, targets in partner_fans[:10]:
+        print(f"    {node:<20} partners={targets}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 4: Diamond Detection - Convergence Patterns")
+    print("=" * 70)
     diamonds = find_diamonds(G, "uses", max_matches=10)
     print(f"  Technology convergence diamonds: {len(diamonds)}")
     for d in diamonds[:5]:
         print(f"    {d['source_a']} + {d['source_b']} -> {d['converge']} (score={d['score']})")
     print()
 
-    print("SECTION 5: Community Detection")
+    print("=" * 70)
+    print("SECTION 5: Community Detection - Natural Clusters")
+    print("=" * 70)
     U = G.to_undirected()
     communities, modularity = detect_communities(U, seed=42)
     print(f"  Communities: {len(communities)}")
     print(f"  Modularity:  {modularity:.3f}")
-    for comm in communities[:6]:
+    print()
+    for comm in communities[:8]:
         types: dict[str, int] = {}
         for lbl in comm:
             nd = G.nodes[lbl]
             t = nd.get("type", "unknown")
             types[t] = types.get(t, 0) + 1
-        print(f"    {len(comm)} nodes: {types} — {', '.join(list(comm)[:5])}...")
+        members_preview = ", ".join(list(comm)[:5])
+        if len(comm) > 5:
+            members_preview += "..."
+        print(f"    {len(comm)} nodes: {types} — {members_preview}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 6: Cross-Analysis - Communities + Patterns")
+    print("=" * 70)
+
+    largest = max(communities, key=len)
+    print(f"  Largest community ({len(largest)} nodes):")
+    members_preview = ", ".join(list(largest)[:8])
+    print(f"    Members: {members_preview}...")
+
+    cross_community_edges = 0
+    for u, v in G.edges():
+        if (u in largest) != (v in largest):
+            cross_community_edges += 1
+    print(f"    Cross-community connections: {cross_community_edges}")
+    print()
+
+    print("=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
+    print(f"  Patterns: {len(use_chains)} dependency chains, {len(fan_outs)} hubs, {len(diamonds)} diamonds")
+    print(f"  Communities: {len(communities)} (modularity={modularity:.3f})")
+    print()
+    print("  Key insight: structural patterns reveal technology dependency")
+    print("  chains and convergence points, while community detection finds")
+    print("  natural technology clusters that cross company boundaries.")
     print()
 
 

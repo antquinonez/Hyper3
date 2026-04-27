@@ -734,4 +734,4 @@ Current project metrics (update after changes):
 - **Tests**: 1348
 - **Coverage**: 95%
 - **Pyright**: 0 errors
-- **Examples**: 21 (3 basic, 6 intermediate, 6 advanced, 6 domain)
+- **Examples**: 41 (21 Hyper3: 3 basic, 6 intermediate, 6 advanced, 6 domain; 20 comparison)

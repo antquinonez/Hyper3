@@ -27,9 +27,20 @@ def build_graph() -> nx.DiGraph:
         "hsbc": {"category": "counterparty", "type": "bank", "credit_rating": "A+", "region": "EU"},
         "nomura": {"category": "counterparty", "type": "bank", "credit_rating": "A-", "region": "APAC"},
         "icbc": {"category": "counterparty", "type": "bank", "credit_rating": "A", "region": "APAC"},
+        "bnpparibas": {"category": "counterparty", "type": "bank", "credit_rating": "A+", "region": "EU"},
+        "credit_suisse": {"category": "counterparty", "type": "bank", "credit_rating": "BBB", "region": "EU"},
+        "ubs": {"category": "counterparty", "type": "bank", "credit_rating": "A", "region": "EU"},
+        "mizuho": {"category": "counterparty", "type": "bank", "credit_rating": "A", "region": "APAC"},
+        "smfg": {"category": "counterparty", "type": "bank", "credit_rating": "A", "region": "APAC"},
+        "ccb": {"category": "counterparty", "type": "bank", "credit_rating": "A", "region": "APAC"},
+        "hdfc_bank": {"category": "counterparty", "type": "bank", "credit_rating": "BBB+", "region": "APAC"},
+        "state_bank_india": {"category": "counterparty", "type": "bank", "credit_rating": "BBB-", "region": "APAC"},
         "blackrock": {"category": "counterparty", "type": "asset_manager", "credit_rating": "AA", "region": "US"},
+        "vanguard": {"category": "counterparty", "type": "asset_manager", "credit_rating": "AA", "region": "US"},
         "bridgewater": {"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR", "region": "US"},
         "citadel": {"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR", "region": "US"},
+        "apollo": {"category": "counterparty", "type": "pe_fund", "credit_rating": "NR", "region": "US"},
+        "kk": {"category": "counterparty", "type": "pe_fund", "credit_rating": "NR", "region": "US"},
     }
 
     instruments = {
@@ -49,6 +60,9 @@ def build_graph() -> nx.DiGraph:
         "cdx_ig": {"category": "instrument", "type": "cds_index", "currency": "USD"},
         "itraxx_europe": {"category": "instrument", "type": "cds_index", "currency": "EUR"},
         "vix_futures": {"category": "instrument", "type": "volatility", "currency": "USD"},
+        "japan_jgb_10y": {"category": "instrument", "type": "bond", "duration": 10, "currency": "JPY"},
+        "eur_gbp_fx": {"category": "instrument", "type": "fx", "currency": "EUR/GBP"},
+        "eth_futures": {"category": "instrument", "type": "crypto", "currency": "USD"},
         "sofr_ois": {"category": "instrument", "type": "rates_swap", "currency": "USD"},
         "eonia_ois": {"category": "instrument", "type": "rates_swap", "currency": "EUR"},
     }
@@ -67,6 +81,13 @@ def build_graph() -> nx.DiGraph:
         "volatility_risk": {"category": "risk_factor", "type": "market"},
         "recession_risk": {"category": "risk_factor", "type": "macro"},
         "geopolitical_risk": {"category": "risk_factor", "type": "macro"},
+        "model_risk": {"category": "risk_factor", "type": "operational"},
+        "correlation_risk": {"category": "risk_factor", "type": "model"},
+        "sovereign_risk": {"category": "risk_factor", "type": "credit"},
+        "basis_risk": {"category": "risk_factor", "type": "model"},
+        "inflation_risk": {"category": "risk_factor", "type": "macro"},
+        "regulatory_risk": {"category": "risk_factor", "type": "compliance"},
+        "cyber_risk": {"category": "risk_factor", "type": "operational"},
     }
 
     regulators = {
@@ -75,6 +96,11 @@ def build_graph() -> nx.DiGraph:
         "fed": {"category": "regulator", "jurisdiction": "US"},
         "ecb": {"category": "regulator", "jurisdiction": "EU"},
         "bis": {"category": "regulator", "jurisdiction": "Global"},
+        "esma": {"category": "regulator", "jurisdiction": "EU"},
+        "boa": {"category": "regulator", "jurisdiction": "UK"},
+        "fca": {"category": "regulator", "jurisdiction": "UK"},
+        "mas": {"category": "regulator", "jurisdiction": "APAC"},
+        "fsa_japan": {"category": "regulator", "jurisdiction": "APAC"},
     }
 
     all_nodes = {**counterparties, **instruments, **risk_factors, **regulators}
@@ -90,12 +116,20 @@ def build_graph() -> nx.DiGraph:
         ("morgan_stanley", "usd_eur_fx", 5.0),
         ("deutsche_bank", "german_bund_10y", 7.0), ("deutsche_bank", "itraxx_europe", 5.0),
         ("deutsche_bank", "usd_eur_fx", 8.0), ("deutsche_bank", "eonia_ois", 4.0),
-        ("barclays", "uk_gilt_10y", 5.0), ("barclays", "euro_stoxx_futures", 4.0),
+        ("barclays", "uk_gilt_10y", 5.0),         ("barclays", "euro_stoxx_futures", 4.0),
+        ("barclays", "eur_gbp_fx", 6.0),
         ("hsbc", "usd_eur_fx", 6.0), ("hsbc", "usd_jpy_fx", 5.0),
+        ("hsbc", "eur_gbp_fx", 4.0),
         ("nomura", "nikkei_futures", 7.0), ("nomura", "usd_jpy_fx", 5.0),
+        ("nomura", "japan_jgb_10y", 4.0),
+        ("credit_suisse", "cdx_ig", 4.0),
+        ("credit_suisse", "itraxx_europe", 3.0),
+        ("ubs", "euro_stoxx_futures", 5.0),
+        ("ubs", "vix_futures", 3.0),
         ("icbc", "usd_eur_fx", 3.0), ("icbc", "copper_futures", 4.0),
         ("blackrock", "sp500_futures", 9.0), ("blackrock", "us_treasury_10y", 8.0),
         ("blackrock", "gold_futures", 3.0),
+        ("vanguard", "sp500_futures", 7.0), ("vanguard", "us_treasury_2y", 6.0),
         ("bridgewater", "usd_eur_fx", 8.0), ("bridgewater", "gold_futures", 5.0),
         ("bridgewater", "crude_oil_futures", 4.0),
         ("citadel", "vix_futures", 7.0), ("citadel", "sp500_futures", 6.0),
@@ -107,9 +141,10 @@ def build_graph() -> nx.DiGraph:
     risk_edges = [
         ("us_treasury_10y", "interest_rate_risk"), ("us_treasury_2y", "interest_rate_risk"),
         ("german_bund_10y", "interest_rate_risk"), ("uk_gilt_10y", "interest_rate_risk"),
+        ("japan_jgb_10y", "interest_rate_risk"),
         ("sp500_futures", "equity_risk"), ("euro_stoxx_futures", "equity_risk"),
         ("nikkei_futures", "equity_risk"),
-        ("usd_eur_fx", "fx_risk"), ("usd_jpy_fx", "fx_risk"),
+        ("usd_eur_fx", "fx_risk"), ("usd_jpy_fx", "fx_risk"), ("eur_gbp_fx", "fx_risk"),
         ("gold_futures", "commodity_risk"), ("crude_oil_futures", "commodity_risk"),
         ("copper_futures", "commodity_risk"),
         ("cdx_ig", "credit_spread_risk"), ("itraxx_europe", "credit_spread_risk"),
@@ -124,20 +159,30 @@ def build_graph() -> nx.DiGraph:
     amplification = [
         ("interest_rate_risk", "credit_spread_risk"),
         ("equity_risk", "volatility_risk"), ("volatility_risk", "tail_risk"),
-        ("fx_risk", "concentration_risk"),
+        ("fx_risk", "correlation_risk"),
+        ("counterparty_default_risk", "settlement_risk"),
+        ("liquidity_risk", "concentration_risk"),
         ("recession_risk", "counterparty_default_risk"),
         ("recession_risk", "equity_risk"),
         ("geopolitical_risk", "fx_risk"), ("geopolitical_risk", "commodity_risk"),
+        ("sovereign_risk", "credit_spread_risk"),
+        ("inflation_risk", "interest_rate_risk"),
+        ("cyber_risk", "settlement_risk"),
+        ("model_risk", "basis_risk"),
     ]
     for src, tgt in amplification:
         G.add_edge(src, tgt, label="amplifies", weight=1.0)
 
     regulatory = [
         ("sec", "goldman_sachs"), ("sec", "jp_morgan"), ("sec", "morgan_stanley"),
-        ("cftc", "goldman_sachs"), ("cftc", "citadel"),
-        ("fed", "jp_morgan"), ("fed", "bank_of_america"),
-        ("ecb", "deutsche_bank"), ("ecb", "hsbc"),
-        ("bis", "goldman_sachs"), ("bis", "deutsche_bank"),
+        ("sec", "citigroup"), ("sec", "blackrock"), ("sec", "vanguard"),
+        ("cftc", "goldman_sachs"), ("cftc", "citadel"), ("cftc", "bridgewater"),
+        ("fed", "jp_morgan"), ("fed", "bank_of_america"), ("fed", "citigroup"),
+        ("ecb", "deutsche_bank"), ("ecb", "bnpparibas"), ("ecb", "hsbc"),
+        ("esma", "barclays"), ("esma", "credit_suisse"), ("esma", "ubs"),
+        ("boa", "barclays"), ("fca", "hsbc"),
+        ("mas", "icbc"), ("fsa_japan", "nomura"), ("fsa_japan", "mizuho"),
+        ("bis", "goldman_sachs"), ("bis", "deutsche_bank"), ("bis", "nomura"),
     ]
     for reg, cp in regulatory:
         G.add_edge(reg, cp, label="regulates", weight=1.0)
@@ -172,21 +217,30 @@ def collapse_subgraph(G: nx.DiGraph, node_labels: set[str], summary_label: str) 
     if not valid:
         return None
 
-    G.add_node(summary_label, category="summary", collapsed=list(valid))
+    saved_node_data = {n: dict(G.nodes[n]) for n in valid}
 
-    external_edges: list[tuple[str, str, str, float]] = []
-    internal_count = 0
+    internal_edges = []
+    external_edges = []
     for u, v, data in list(G.edges(data=True)):
         label = data.get("label", "")
         weight = data.get("weight", 1.0)
         u_in = u in valid
         v_in = v in valid
         if u_in and v_in:
-            internal_count += 1
+            internal_edges.append((u, v, label, weight))
         elif u_in:
-            external_edges.append((summary_label, v, label, weight))
+            external_edges.append((summary_label, v, label, weight, u))
         elif v_in:
-            external_edges.append((u, summary_label, label, weight))
+            external_edges.append((u, summary_label, label, weight, v))
+
+    G.add_node(summary_label, category="summary", collapsed=list(valid),
+               saved_node_data=saved_node_data,
+               saved_internal_edges=internal_edges,
+               saved_external_edges=external_edges)
+
+    for src, tgt, label, weight, orig in external_edges:
+        if G.has_node(src) and G.has_node(tgt):
+            G.add_edge(src, tgt, label=label, weight=weight)
 
     for u, v, data in list(G.edges(data=True)):
         if u in valid or v in valid:
@@ -194,15 +248,61 @@ def collapse_subgraph(G: nx.DiGraph, node_labels: set[str], summary_label: str) 
     for n in valid:
         G.remove_node(n)
 
-    for src, tgt, label, weight in external_edges:
-        if G.has_node(src) and G.has_node(tgt):
-            G.add_edge(src, tgt, label=label, weight=weight)
-
     return {
         "collapsed": valid,
-        "internal_edges": internal_count,
+        "internal_edges": len(internal_edges),
         "external_connections": len(external_edges),
     }
+
+
+def expand_summary(G: nx.DiGraph, summary_label: str) -> None:
+    if summary_label not in G:
+        return
+    nd = G.nodes[summary_label]
+    collapsed = nd.get("collapsed", [])
+    saved_node_data = nd.get("saved_node_data", {})
+    internal = nd.get("saved_internal_edges", [])
+    external = nd.get("saved_external_edges", [])
+
+    G.remove_node(summary_label)
+
+    for n in collapsed:
+        G.add_node(n, **saved_node_data.get(n, {}))
+
+    for u, v, label, weight in internal:
+        G.add_edge(u, v, label=label, weight=weight)
+
+    for src, tgt, label, weight, orig in external:
+        if src == summary_label:
+            if G.has_node(orig) and G.has_node(tgt):
+                src = orig
+            else:
+                continue
+        elif tgt == summary_label:
+            if G.has_node(src) and G.has_node(orig):
+                tgt = orig
+            else:
+                continue
+        else:
+            if not (G.has_node(src) and G.has_node(tgt)):
+                continue
+        G.add_edge(src, tgt, label=label, weight=weight)
+
+
+def spreading_activation(G: nx.DiGraph, seeds: dict[str, float], decay: float = 0.7, max_depth: int = 3) -> set[str]:
+    activation: dict[str, float] = dict(seeds)
+    frontier = list(seeds.keys())
+    for _ in range(max_depth):
+        next_frontier = []
+        for node in frontier:
+            energy = activation[node] * decay
+            for nb in list(G.successors(node)) + list(G.predecessors(node)):
+                if nb not in activation or activation[nb] < energy:
+                    activation[nb] = max(activation.get(nb, 0.0), energy)
+                if nb not in activation or activation[nb] == energy:
+                    next_frontier.append(nb)
+        frontier = next_frontier
+    return {n for n, e in activation.items() if e >= 0.1}
 
 
 def hebbian_reinforce(G: nx.DiGraph, activated: set[str], learning_rate: float = 0.1, decay: float = 0.01) -> dict:
@@ -263,11 +363,11 @@ def main() -> None:
 
     G.add_node("archegos_capital", category="counterparty", type="hedge_fund", credit_rating="NR")
     G.add_edge("archegos_capital", "sp500_futures", label="holds", weight=5.0)
-    G.add_edge("archegos_capital", "vix_futures", label="holds", weight=8.0)
+    G.add_edge("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
     G.add_edge("archegos_capital", "sec", label="regulated_by", weight=1.0)
-    G.add_edge("credit_suisse", "archegos_capital", label="prime_broker_for", weight=3.0)
     if "credit_suisse" not in G:
         G.add_node("credit_suisse", category="counterparty", type="bank")
+    G.add_edge("credit_suisse", "archegos_capital", label="prime_broker_for", weight=3.0)
 
     snap_v1 = graph_snapshot(G)
     diff = graph_diff(snap_v0, snap_v1)
@@ -287,8 +387,23 @@ def main() -> None:
         print(f"    External connections: {result['external_connections']}")
     print()
 
+    U_abs = G.to_undirected()
+    random.seed(42)
+    abs_communities = list(nx.community.label_propagation_communities(U_abs))
+    print(f"  Communities after abstraction: {len(abs_communities)}")
+    print()
+
+    expand_summary(G, "us_banking_sector")
+    print("  Expanded 'us_banking_sector' back to individual banks")
+    U_exp = G.to_undirected()
+    random.seed(42)
+    exp_communities = list(nx.community.label_propagation_communities(U_exp))
+    print(f"  Communities after expansion: {len(exp_communities)}")
+    print()
+
     print("SECTION 5: Hebbian Learning")
-    activated = {"recession_risk", "equity_risk", "volatility_risk", "counterparty_default_risk"}
+    seeds = {"recession_risk": 2.0, "equity_risk": 1.5, "volatility_risk": 1.0}
+    activated = spreading_activation(G, seeds)
     h_result = hebbian_reinforce(G, activated)
     print(f"  Edges strengthened: {h_result['strengthened']}")
     print(f"  Edges weakened: {h_result['weakened']}")
