@@ -5,6 +5,7 @@ from typing import Any
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule
 from hyper3.memory_base import _MemoryBase
+from hyper3.results import PatternMatchInfo, SubgraphNode, SubgraphEdge, SubgraphResult
 
 
 class AnalyticsMixin(_MemoryBase):
@@ -50,7 +51,7 @@ class AnalyticsMixin(_MemoryBase):
         edge_label: str | None = None,
         source_label: str | None = None,
         target_label: str | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PatternMatchInfo]:
         """Match edges against a pattern defined by optional label filters.
 
         Args:
@@ -59,14 +60,13 @@ class AnalyticsMixin(_MemoryBase):
             target_label: Filter by target node label.
 
         Returns:
-            List of dicts describing each matching edge with id, label,
-            source/target labels, and bindings.
+            List of PatternMatchInfo for each matching edge.
         """
         matches = self._graph.pattern_match(
             edge_label=edge_label, source_label=source_label,
             target_label=target_label,
         )
-        results: list[dict[str, Any]] = []
+        results: list[PatternMatchInfo] = []
         for edge, bindings in matches:
             src_labels: list[str] = []
             for sid in edge.source_ids:
@@ -78,23 +78,23 @@ class AnalyticsMixin(_MemoryBase):
                 node = self._graph.get_node(tid)
                 if node:
                     tgt_labels.append(node.label)
-            results.append({
-                "edge_id": edge.id,
-                "label": edge.label,
-                "source_labels": src_labels,
-                "target_labels": tgt_labels,
-                "bindings": bindings,
-            })
+            results.append(PatternMatchInfo(
+                edge_id=edge.id,
+                label=edge.label,
+                source_labels=src_labels,
+                target_labels=tgt_labels,
+                bindings=bindings,
+            ))
         return results
 
-    def subgraph(self, concepts: set[str]) -> dict[str, Any]:
+    def subgraph(self, concepts: set[str]) -> SubgraphResult:
         """Extract an induced subgraph for the given concept labels.
 
-        Returns a dict with:
-          - ``nodes``: list of ``{id, label}`` dicts for each node in the subgraph
-          - ``edges``: list of ``{id, label, source_labels, target_labels, weight}`` dicts
-          - ``node_count``: number of nodes
-          - ``edge_count``: number of edges
+        Args:
+            concepts: Labels of nodes to include.
+
+        Returns:
+            SubgraphResult with nodes, edges, and counts.
         """
         node_ids: set[str] = set()
         for label in concepts:
@@ -102,21 +102,21 @@ class AnalyticsMixin(_MemoryBase):
             if node:
                 node_ids.add(node.id)
         sg = self._graph.subgraph(node_ids)
-        return {
-            "nodes": [{"id": n.id, "label": n.label} for n in sg.nodes],
-            "edges": [
-                {
-                    "id": e.id,
-                    "label": e.label,
-                    "source_labels": [n.label for sid in e.source_ids if (n := sg.get_node(sid))],
-                    "target_labels": [n.label for tid in e.target_ids if (n := sg.get_node(tid))],
-                    "weight": e.weight,
-                }
+        return SubgraphResult(
+            nodes=[SubgraphNode(id=n.id, label=n.label) for n in sg.nodes],
+            edges=[
+                SubgraphEdge(
+                    id=e.id,
+                    label=e.label,
+                    source_labels=[n.label for sid in e.source_ids if (n := sg.get_node(sid))],
+                    target_labels=[n.label for tid in e.target_ids if (n := sg.get_node(tid))],
+                    weight=e.weight,
+                )
                 for e in sg.edges
             ],
-            "node_count": sg.node_count,
-            "edge_count": sg.edge_count,
-        }
+            node_count=sg.node_count,
+            edge_count=sg.edge_count,
+        )
 
     def degree_centrality(self) -> dict[str, float]:
         """Compute degree centrality for all nodes, keyed by node label."""

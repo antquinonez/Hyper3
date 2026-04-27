@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.results import ImportResult
 from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
 from hyper3.equivalence import EquivalenceEngine
@@ -42,7 +43,7 @@ class PersistenceMixin(_MemoryBase):
         self._serializer.export_json(self._graph, path)
         self._log.record("export_json", path=path)
 
-    def import_json(self, path: str) -> dict[str, Any]:
+    def import_json(self, path: str) -> ImportResult:
         """Import graph data from a JSON file, merging into the live graph.
 
         Nodes are added only if their ID is not already present.  Edges are
@@ -55,8 +56,7 @@ class PersistenceMixin(_MemoryBase):
             path: Path to the JSON file produced by :meth:`export_json`.
 
         Returns:
-            Dict with ``"nodes"`` and ``"edges"`` counts from the
-            deserialized graph.
+            ImportResult with node and edge counts.
         """
         imported = self._serializer.import_json(path)
         for node in imported.nodes:
@@ -69,7 +69,7 @@ class PersistenceMixin(_MemoryBase):
             except (ValueError, TypeError, KeyError):
                 pass
         self._log.record("import_json", path=path, nodes=imported.node_count, edges=imported.edge_count)
-        return {"nodes": imported.node_count, "edges": imported.edge_count}
+        return ImportResult(nodes=imported.node_count, edges=imported.edge_count)
 
     def export_edgelist(self, path: str) -> None:
         """Export the graph as an edge list file.
@@ -80,14 +80,14 @@ class PersistenceMixin(_MemoryBase):
         self._serializer.export_edgelist(self._graph, path)
         self._log.record("export_edgelist", path=path)
 
-    def import_edgelist(self, path: str) -> dict[str, Any]:
+    def import_edgelist(self, path: str) -> ImportResult:
         """Import edges from an edge list file, skipping invalid entries.
 
         Args:
             path: Path to the edge list file.
 
         Returns:
-            Dict with the count of imported edges.
+            ImportResult with the count of imported edges.
         """
         imported = self._serializer.import_edgelist(path)
         for edge in imported.edges:
@@ -96,7 +96,7 @@ class PersistenceMixin(_MemoryBase):
             except Exception:
                 pass
         self._log.record("import_edgelist", path=path, edges=imported.edge_count)
-        return {"edges": imported.edge_count}
+        return ImportResult(edges=imported.edge_count)
 
     def save(self, path: str, *, include_rules: bool = True) -> None:
         """Save the graph, event log, and optionally rules to a file.

@@ -15,6 +15,7 @@ from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     CommitResult,
     ConsensusReasonResult,
+    DerivationInfo,
     DiscoverResult,
     ExpansionInfo,
     IterativeReasonResult,
@@ -497,7 +498,7 @@ class ReasoningMixin(_MemoryBase):
         }
         return result
 
-    def derive(self, concept: str, rules: list[Rule] | None = None) -> list[dict[str, Any]]:
+    def derive(self, concept: str, rules: list[Rule] | None = None) -> list[DerivationInfo]:
         """Find derivation paths to a concept using inference rules.
 
         Args:
@@ -505,21 +506,21 @@ class ReasoningMixin(_MemoryBase):
             rules: Rules to check; defaults to ``self._rules``.
 
         Returns:
-            List of dicts with rule name, bindings, and context for each derivation.
+            List of DerivationInfo with rule name, bindings, and context.
         """
         target = self._find_node(concept)
         if not target:
             return []
         active_rules = rules or self._rules
-        results: list[dict[str, Any]] = []
+        results: list[DerivationInfo] = []
         for rule in active_rules:
             derivations = rule.find_derivation(target.id, self._graph)
             for d in derivations:
-                results.append({
-                    "rule": rule.name,
-                    "bindings": {k: self._node_label(v) for k, v in d.bindings.items()},
-                    "context": d.context,
-                })
+                results.append(DerivationInfo(
+                    rule=rule.name,
+                    bindings={k: self._node_label(v) for k, v in d.bindings.items()},
+                    context=d.context,
+                ))
         return results
 
     def add_rules(self, *rules: Rule) -> None:

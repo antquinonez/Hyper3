@@ -179,7 +179,7 @@ def main():
     # (Note: the exact retractable edges depend on what was inferred)
     retracted = []
     for edge, src_label, tgt_label in inferred_edges[:1]:
-        retracted_ids = mem.retract_inference(src_label, tgt_label, edge.label)
+        retracted_ids = mem.retract_inference(src_label, tgt_label, edge_label=edge.label)
         retracted.extend(retracted_ids)
         print(f"\n  Retracted: {src_label} --[{edge.label}]--> {tgt_label}")
         print(f"  Cascading removals: {len(retracted_ids)}")

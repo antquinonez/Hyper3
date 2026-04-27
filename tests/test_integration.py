@@ -155,13 +155,13 @@ class TestIntegrationFullPipeline:
         assert len(insights) >= 1
 
         introspection = mem.introspect()
-        assert introspection["cognitive_state"]["fitness"] > 0.0
+        assert introspection.cognitive_state.fitness > 0.0
 
         mem.add_rules(TransitiveRule(edge_label="chain"))
         mem.reason({"concept_0", "concept_5"}, max_depth=3, max_total_states=15)
 
         introspection2 = mem.introspect()
-        assert introspection2["cognitive_state"]["fitness"] > 0.0
+        assert introspection2.cognitive_state.fitness > 0.0
 
     def test_rule_discovery_and_application_pipeline(self):
         mem = CognitiveMemory(evolve_interval=0)

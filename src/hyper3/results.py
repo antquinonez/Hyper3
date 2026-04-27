@@ -205,3 +205,95 @@ class GraphDeltaResult(_SimpleResultBase):
     nodes_removed: int = 0
     edges_added: int = 0
     edges_removed: int = 0
+
+
+@dataclass
+class DerivationInfo(_SimpleResultBase):
+    rule: str = ""
+    bindings: dict[str, str] = field(default_factory=dict)
+    context: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class PatternMatchInfo(_SimpleResultBase):
+    edge_id: str = ""
+    label: str = ""
+    source_labels: list[str] = field(default_factory=list)
+    target_labels: list[str] = field(default_factory=list)
+    bindings: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
+class SubgraphNode(_SimpleResultBase):
+    id: str = ""
+    label: str = ""
+
+
+@dataclass
+class SubgraphEdge(_SimpleResultBase):
+    id: str = ""
+    label: str = ""
+    source_labels: list[str] = field(default_factory=list)
+    target_labels: list[str] = field(default_factory=list)
+    weight: float = 1.0
+
+
+@dataclass
+class SubgraphResult(_SimpleResultBase):
+    nodes: list[SubgraphNode] = field(default_factory=list)
+    edges: list[SubgraphEdge] = field(default_factory=list)
+    node_count: int = 0
+    edge_count: int = 0
+
+
+@dataclass
+class TemporalMatch(_SimpleResultBase):
+    label: str = ""
+    start: float = 0.0
+    end: float = 0.0
+    gap: float | None = None
+
+
+@dataclass
+class ImportResult(_SimpleResultBase):
+    nodes: int = 0
+    edges: int = 0
+
+
+@dataclass
+class CognitiveStateInfo(_SimpleResultBase):
+    fitness: float = 0.0
+    mode: str = ""
+    meta_level: int = 0
+    transcendental_yield: int = 0
+
+
+@dataclass
+class GraphHealthInfo(_SimpleResultBase):
+    nodes: int = 0
+    edges: int = 0
+    avg_degree: float = 0.0
+
+
+@dataclass
+class EvolutionHealthInfo(_SimpleResultBase):
+    merges: int = 0
+    prunes: int = 0
+    refinements: int = 0
+
+
+@dataclass
+class DiscoveryHealthInfo(_SimpleResultBase):
+    patterns: int = 0
+    active_rules: int = 0
+
+
+@dataclass
+class IntrospectionReport(_SimpleResultBase):
+    cognitive_state: CognitiveStateInfo = field(default_factory=CognitiveStateInfo)
+    graph_health: GraphHealthInfo = field(default_factory=GraphHealthInfo)
+    evolution_health: EvolutionHealthInfo = field(default_factory=EvolutionHealthInfo)
+    discovery_health: DiscoveryHealthInfo = field(default_factory=DiscoveryHealthInfo)
+    rulial_health: dict[str, Any] | None = None
+    anti_patterns: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)

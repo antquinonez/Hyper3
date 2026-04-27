@@ -238,7 +238,7 @@ class TestDeriveFacade:
         mem.add_rules(TransitiveRule(edge_label="next"))
         results = mem.derive("c")
         assert len(results) > 0
-        assert any(r["rule"].startswith("transitive") for r in results)
+        assert any(r.rule.startswith("transitive") for r in results)
 
     def test_derive_unknown_concept(self):
         mem = CognitiveMemory(evolve_interval=0)

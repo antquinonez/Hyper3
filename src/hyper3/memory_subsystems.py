@@ -17,12 +17,12 @@ from hyper3.multiway_rulial import RulialSpace
 from hyper3.multiway_causal import CausalInvarianceEngine
 from hyper3.quantum import QuantumCognitiveLayer
 from hyper3.transfinite import TransfiniteReasoner
-from hyper3.relativity import ComputationalRelativity
-from hyper3.meta_cognitive import MetaCognitiveLayer
+from hyper3.relativity import ComputationalRelativity, FrameAnalysis
+from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, MetamorphosisPlan
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult
+from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, CognitiveStateInfo, GraphHealthInfo, EvolutionHealthInfo, DiscoveryHealthInfo
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
 from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult, ConfidenceScore, ConfidenceChain
@@ -242,39 +242,39 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("temporal_event", label=label, start=start, end=end)
         return event
 
-    def temporal_query(self, label: str, *, relation: str = "overlapping", max_gap: float = 1.0) -> list[dict]:
+    def temporal_query(self, concept: str, *, relation: str = "overlapping", max_gap: float = 1.0) -> list[TemporalMatch]:
         """Query temporal events by their relationship to a reference event.
 
         Args:
-            label: Label of the reference event.
+            concept: Label of the reference event.
             relation: Allen interval relation (``"before"``, ``"after"``,
                 ``"overlapping"``, ``"containing"``, ``"proximity"``).
             max_gap: Maximum gap for proximity queries.
 
         Returns:
-            List of dicts with matching event labels, start/end times, and
-            optional gap.
+            List of TemporalMatch with matching event labels, start/end times,
+            and optional gap.
         """
-        event = self._temporal.get_event(label)
+        event = self._temporal.get_event(concept)
         if not event:
             return []
         if relation == "before":
-            events = self._temporal.find_before(label)
+            events = self._temporal.find_before(concept)
         elif relation == "after":
-            events = self._temporal.find_after(label)
+            events = self._temporal.find_after(concept)
         elif relation == "overlapping":
-            events = self._temporal.find_overlapping(label)
+            events = self._temporal.find_overlapping(concept)
         elif relation == "containing":
-            events = self._temporal.find_containing(label)
+            events = self._temporal.find_containing(concept)
         elif relation == "proximity":
-            pairs = self._temporal.temporal_proximity(label, max_gap=max_gap)
+            pairs = self._temporal.temporal_proximity(concept, max_gap=max_gap)
             return [
-                {"label": e.label, "start": e.interval.start, "end": e.interval.end, "gap": gap}
+                TemporalMatch(label=e.label, start=e.interval.start, end=e.interval.end, gap=gap)
                 for e, gap in pairs
             ]
         else:
-            events = self._temporal.find_overlapping(label)
-        return [{"label": e.label, "start": e.interval.start, "end": e.interval.end} for e in events]
+            events = self._temporal.find_overlapping(concept)
+        return [TemporalMatch(label=e.label, start=e.interval.start, end=e.interval.end) for e in events]
 
     def causal_chain(self, labels: list[str]) -> list[str]:
         """Return labels sorted into causal order based on temporal constraints."""
@@ -544,27 +544,56 @@ class SubsystemMixin(_MemoryBase):
         """The raw LRU cache with TTL and optional Markov prefetching."""
         return self._cache
 
-    def introspect(self) -> dict[str, Any]:
+    def introspect(self) -> IntrospectionReport:
         """Return a meta-cognitive introspection report for the current state."""
-        return self._meta.introspect(self._rules)
+        raw = self._meta.introspect(self._rules)
+        cs = raw.get("cognitive_state", {})
+        gh = raw.get("graph_health", {})
+        eh = raw.get("evolution_health", {})
+        dh = raw.get("discovery_health", {})
+        return IntrospectionReport(
+            cognitive_state=CognitiveStateInfo(
+                fitness=cs.get("fitness", 0.0),
+                mode=cs.get("mode", ""),
+                meta_level=cs.get("meta_level", 0),
+                transcendental_yield=cs.get("transcendental_yield", 0),
+            ),
+            graph_health=GraphHealthInfo(
+                nodes=gh.get("nodes", 0),
+                edges=gh.get("edges", 0),
+                avg_degree=gh.get("avg_degree", 0.0),
+            ),
+            evolution_health=EvolutionHealthInfo(
+                merges=eh.get("merges", 0),
+                prunes=eh.get("prunes", 0),
+                refinements=eh.get("refinements", 0),
+            ),
+            discovery_health=DiscoveryHealthInfo(
+                patterns=dh.get("patterns", 0),
+                active_rules=dh.get("active_rules", 0),
+            ),
+            rulial_health=raw.get("rulial_health"),
+            anti_patterns=raw.get("anti_patterns", []),
+            recommendations=raw.get("recommendations", []),
+        )
 
-    def check_metamorphosis(self) -> list[Any]:
+    def check_metamorphosis(self) -> list[MetamorphosisTrigger]:
         """Check whether any metamorphosis triggers fire (fitness, efficiency, staleness)."""
         return self._meta.check_metamorphosis_triggers()
 
-    def propose_metamorphosis(self, triggers: list[Any] | None = None) -> Any:
+    def propose_metamorphosis(self, triggers: list[MetamorphosisTrigger] | None = None) -> MetamorphosisPlan | None:
         """Propose a metamorphosis plan from the given or auto-detected triggers."""
         return self._meta.propose_metamorphosis(triggers)
 
-    def analyze_in_frame(self, concept: str, frame_name: str) -> Any:
+    def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
         """Analyze a concept from a specific computational frame perspective."""
         return self._relativity.analyze_in_frame(concept, frame_name)
 
-    def multi_frame_analysis(self, concept: str) -> Any:
+    def multi_frame_analysis(self, concept: str) -> dict[str, FrameAnalysis]:
         """Analyze a concept across all computational frames."""
         return self._relativity.multi_frame_analysis(concept)
 
-    def select_optimal_frame(self, concept: str) -> Any:
+    def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
         """Select the best computational frame for reasoning about a concept."""
         return self._relativity.select_optimal_frame(concept)
 
@@ -705,7 +734,7 @@ class SubsystemMixin(_MemoryBase):
             self._hebbian = HebbianLearner(self._graph, self._activation)
         return self._hebbian.reinforce_pair(source, target, strength)
 
-    def hebbian_decay_unused(self, threshold_access_count: int = 0) -> int:
+    def hebbian_decay_unused(self, *, threshold_access_count: int = 0) -> int:
         """Decay edges whose endpoints have low access counts.
 
         Args:
@@ -872,7 +901,7 @@ class SubsystemMixin(_MemoryBase):
         return labeled_chains
 
     def match_diamonds(
-        self, edge_label: str | None = None, max_matches: int = 50,
+        self, *, edge_label: str | None = None, max_matches: int = 50,
     ) -> list[dict[str, Any]]:
         """Find diamond patterns (A->C, B->C, A and B share common upstream).
 
@@ -899,6 +928,7 @@ class SubsystemMixin(_MemoryBase):
 
     def match_fan_out(
         self,
+        *,
         edge_label: str | None = None,
         min_fan: int = 3,
         max_results: int = 50,

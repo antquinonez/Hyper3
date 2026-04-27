@@ -328,7 +328,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("lunch", 11.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("meeting", relation="overlapping")
-        labels = {r["label"] for r in results}
+        labels = {r.label for r in results}
         assert "lunch" in labels
         assert "dinner" not in labels
 
@@ -338,7 +338,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("lunch", 12.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("lunch", relation="before")
-        labels = {r["label"] for r in results}
+        labels = {r.label for r in results}
         assert "breakfast" in labels
         assert "dinner" not in labels
 
@@ -348,7 +348,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("lunch", 12.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("lunch", relation="after")
-        labels = {r["label"] for r in results}
+        labels = {r.label for r in results}
         assert "dinner" in labels
         assert "breakfast" not in labels
 
@@ -357,7 +357,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("breakfast", 7.0, 8.0)
         mem.add_temporal_event("lunch", 12.0, 13.0)
         results = mem.temporal_query("breakfast", relation="proximity", max_gap=5.0)
-        labels = {r["label"] for r in results}
+        labels = {r.label for r in results}
         assert "lunch" in labels
 
     def test_temporal_query_nonexistent(self):
@@ -406,7 +406,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("day", 0.0, 24.0)
         mem.add_temporal_event("meeting", 10.0, 11.0)
         results = mem.temporal_query("meeting", relation="containing")
-        labels = {r["label"] for r in results}
+        labels = {r.label for r in results}
         assert "day" in labels
 
     def test_detect_causal_chains_max_chains(self):

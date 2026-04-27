@@ -311,10 +311,10 @@ cs = introspection["cognitive_state"]
 gh = introspection["graph_health"]
 dh = introspection["discovery_health"]
 
-print(f"Architectural fitness: {cs['fitness']:.1%}")
-print(f"Reasoning mode: {cs['mode']}")
-print(f"Graph health: {gh['nodes']} nodes, {gh['edges']} edges, avg_degree={gh['avg_degree']:.2f}")
-print(f"Discovery: {dh['patterns']} patterns, {dh['active_rules']} active rules")
+print(f"Architectural fitness: {cs.fitness:.1%}")
+print(f"Reasoning mode: {cs.mode}")
+print(f"Graph health: {gh.nodes} nodes, {gh.edges} edges, avg_degree={gh.avg_degree:.2f}")
+print(f"Discovery: {dh.patterns} patterns, {dh.active_rules} active rules")
 
 if "recommendations" in introspection:
     print("Recommendations:")

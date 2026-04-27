@@ -180,13 +180,13 @@ print("\n[8] Meta-cognitive introspection...")
 
 introspection = mem.introspect()
 cs = introspection["cognitive_state"]
-print(f"   Architectural fitness: {cs['fitness']:.3f}")
-print(f"   Reasoning mode: {cs['mode']}")
-print(f"   Meta-computational level: {cs['meta_level']}")
-print(f"   Transcendental yield: {cs['transcendental_yield']}")
+print(f"   Architectural fitness: {cs.fitness:.3f}")
+print(f"   Reasoning mode: {cs.mode}")
+print(f"   Meta-computational level: {cs.meta_level}")
+print(f"   Transcendental yield: {cs.transcendental_yield}")
 
 gh = introspection["graph_health"]
-print(f"   Graph: {gh['nodes']} nodes, {gh['edges']} edges, avg_degree={gh['avg_degree']:.3f}")
+print(f"   Graph: {gh.nodes} nodes, {gh.edges} edges, avg_degree={gh.avg_degree:.3f}")
 
 if "recommendations" in introspection:
     print(f"   Recommendations:")
@@ -210,10 +210,12 @@ print("  FINAL STATS")
 print("=" * 72)
 
 stats = mem.stats()
-for k, v in stats.items():
-    if isinstance(v, dict):
-        print(f"  {k}:")
-        for sk, sv in v.items():
-            print(f"    {sk}: {sv}")
-    else:
-        print(f"  {k}: {v}")
+print(f"  Nodes: {stats.nodes}")
+print(f"  Edges: {stats.edges}")
+print(f"  Log size: {stats.log_size}")
+print(f"  Cache size: {stats.cache_size}")
+print(f"  Operations: {stats.operations}")
+print(f"  Multiway states: {stats.multiway_states}")
+print(f"  Quantum active: {stats.quantum_active}")
+print(f"  Components: {stats.components}")
+print(f"  Active rules: {stats.active_rules}")

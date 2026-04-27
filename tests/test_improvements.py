@@ -539,7 +539,7 @@ class TestMemoryPathQueries:
         mem.relate("a", "b", label="connects")
         matches = mem.pattern_match(edge_label="connects")
         assert len(matches) == 1
-        assert matches[0]["label"] == "connects"
+        assert matches[0].label == "connects"
 
     def test_find_paths_no_match(self):
         mem = CognitiveMemory(evolve_interval=0)
