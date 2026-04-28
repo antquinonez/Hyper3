@@ -186,7 +186,7 @@ class ReasoningMixin(_MemoryBase):
         if not seed_ids:
             return ConsensusReasonResult(error="no seed nodes found")
 
-        detector = InvariantDetector(self._relativity)
+        detector = InvariantDetector(self._perspective)
         inv_set = detector.find_invariants(seed_ids, self._graph)
         detector.mark_invariants(inv_set, self._graph)
 
@@ -469,16 +469,16 @@ class ReasoningMixin(_MemoryBase):
             algorithm, information loss, and preserved properties.
         """
         seed_ids = self._resolve_seeds(seed_concepts)
-        features = self._relativity.extract_problem_features(list(seed_ids))
+        features = self._perspective.extract_problem_features(list(seed_ids))
 
         all_seed_labels = list(seed_concepts)
         best_transform = None
         for concept in all_seed_labels:
-            transformed = self._relativity.transform_config(concept, "classical", frame_name)
+            transformed = self._perspective.transform_config(concept, "classical", frame_name)
             if best_transform is None or transformed.information_loss < best_transform.information_loss:
                 best_transform = transformed
         if best_transform is None:
-            best_transform = self._relativity.transform_config("", "classical", frame_name)
+            best_transform = self._perspective.transform_config("", "classical", frame_name)
         transformed = best_transform
         max_depth = transformed.max_depth
         max_states = transformed.max_total_states
@@ -499,8 +499,8 @@ class ReasoningMixin(_MemoryBase):
             new_edges = result.expansion.edges_produced if result.expansion else 0
             success = new_edges > 0
 
-        self._relativity.record_frame_outcome(frame_name, success)
-        self._relativity.record_problem_outcome(features, frame_name, success)
+        self._perspective.record_frame_outcome(frame_name, success)
+        self._perspective.record_problem_outcome(features, frame_name, success)
         result.frame_config = {
             "algorithm": transformed.algorithm,
             "information_loss": transformed.information_loss,

@@ -5,7 +5,7 @@ Bench 0: Performance Microbenchmarks
 Latency measurements for core Hyper3 operations: label lookup, neighbor
 enumeration, multiway leaves, rule matching, graph isomorphism, lazy
 expansion, prefetching, multi-scale branchial analysis, Thompson sampling
-basis/frame learning, and transfinite reasoning.
+basis/frame learning, and structural anomaly detection.
 
 Run:
     .venv/bin/python benchmarks/bench_00_microbenchmarks.py
@@ -316,7 +316,7 @@ def bench_partial_proof():
 
     start = time.perf_counter()
     for i in range(10):
-        tr.reason_at_level(f"concept_{i}", {"self_reference": 0.5})
+        tr.reason_at_level(f"concept_{i}", {"cyclic_structure": 0.5})
     elapsed = time.perf_counter() - start
     print(f"reason_at_level (10 concepts): {elapsed*1000:.1f}ms ({elapsed/10*1e3:.1f}ms/call)")
 

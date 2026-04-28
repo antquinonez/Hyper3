@@ -13,9 +13,9 @@ src/hyper3/
 ├── multiway.py          MultiwayEngine, MultiwayGraph, MultiwayState
 ├── causal.py            CausalInvarianceEngine, QuantumCognitiveLayer (basis learning, adaptive coherence)
 ├── branchial.py         BranchialSpace (distance metrics, clustering, simultaneity groups, multi-scale analysis)
-├── rulial.py            RulialSpace (computational density, meta-patterns, transcendental insights, per-rule effectiveness)
-├── transfinite.py       TransfiniteReasoner (boundary detection, decidability assessment, partial proof generation)
-├── relativity.py        ComputationalRelativity (multi-frame analysis, frame effectiveness learning)
+├── rulial.py            RulialSpace (computational density, meta-patterns, high-level insights, per-rule effectiveness)
+├── structural_anomaly.py StructuralAnomalyDetector (boundary detection, decidability assessment, exploration reports)
+├── multi_perspective.py MultiPerspectiveAnalyzer (multi-frame analysis, frame effectiveness learning)
 ├── meta_cognitive.py    MetaCognitiveLayer (introspection, metamorphosis triggers)
 ├── persistence.py       Serializer (JSON save/load)
 ├── discovery.py         RuleDiscoveryEngine (automatic pattern detection)
@@ -173,7 +173,7 @@ Nodes (`Hypernode`) represent concepts with labels, data, metadata (temporal tag
 
 ### Rulial Space
 
-`RulialSpace` maps the computational universe of the system itself — tracking which rules have been applied, their frequency distributions, and the computational density of different regions. Produces meta-patterns and transcendental insights about the system's own reasoning.
+`RulialSpace` maps the computational universe of the system itself — tracking which rules have been applied, their frequency distributions, and the computational density of different regions. Produces meta-patterns and high-level insights about the system's own reasoning.
 
 ### Self-Evolution
 

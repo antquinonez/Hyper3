@@ -52,7 +52,7 @@ class TestMetaCognitiveDeep:
         for name in ["t1", "t2", "t3", "t4", "t5"]:
             rulial.record_rule_application(name)
         rulial.find_meta_patterns()
-        rulial.generate_transcendental_insights()
+        rulial.generate_high_level_insights()
         layer.attach_rulial(rulial)
         state = layer.assess_state()
         assert state.transcendental_yield > 0

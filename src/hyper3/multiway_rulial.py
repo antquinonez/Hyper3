@@ -57,9 +57,6 @@ class HighLevelInsight:
     timestamp: float = 0.0
 
 
-TranscendentalInsight = HighLevelInsight
-
-
 class RulialSpace:
     def __init__(self, graph: Hypergraph, multiway: MultiwayEngine | None = None) -> None:
         """Initialize the rulial space.
@@ -73,7 +70,7 @@ class RulialSpace:
         self._position = RulialPosition(timestamp=time.time())
         self._position_history: list[RulialPosition] = []
         self._meta_patterns: list[MetaComputationalPattern] = []
-        self._insights: list[TranscendentalInsight] = []
+        self._insights: list[HighLevelInsight] = []
         self._explored_rules: dict[str, int] = {}
         self._total_applications: int = 0
         self._rule_outcomes: dict[str, dict[str, int]] = {}
@@ -619,10 +616,6 @@ class RulialSpace:
 
         return self._insights
 
-    def generate_transcendental_insights(self) -> list[HighLevelInsight]:
-        """Backward-compatible alias for generate_high_level_insights."""
-        return self.generate_high_level_insights()
-
     @property
     def position(self) -> RulialPosition:
         """Return the current rulial position."""
@@ -639,7 +632,7 @@ class RulialSpace:
         return dict(self._explored_rules)
 
     @property
-    def insights(self) -> list[TranscendentalInsight]:
+    def insights(self) -> list[HighLevelInsight]:
         """Return a copy of the generated insights."""
         return list(self._insights)
 
@@ -716,6 +709,6 @@ class RulialSpace:
             total_applications=self._total_applications,
             rule_effectiveness=self.get_rule_effectiveness(),
             meta_patterns=len(self._meta_patterns),
-            transcendental_insights=len(self._insights),
+            high_level_insights=len(self._insights),
             position_history_length=len(self._position_history),
         )

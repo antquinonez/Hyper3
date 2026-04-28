@@ -109,8 +109,8 @@ print(f"   Meta-patterns found: {len(patterns)}")
 for p in patterns[:3]:
     print(f"     [{p.pattern_type}] {p.description}")
 
-insights = rulial.generate_transcendental_insights()
-print(f"   Transcendental insights: {len(insights)}")
+insights = rulial.generate_high_level_insights()
+print(f"   High-level insights: {len(insights)}")
 for ins in insights[:3]:
     print(f"     ({ins.confidence:.2f}) {ins.principle}")
 

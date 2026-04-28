@@ -109,15 +109,15 @@ class TestCognitiveSnapshotRoundTrip:
 
     def test_relativity_frame_outcomes_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        mem._relativity._frame_outcomes["classical"] = {"successes": 5, "failures": 2}
-        mem._relativity._frame_outcomes["quantum"] = {"successes": 3, "failures": 1}
+        mem._perspective._frame_outcomes["classical"] = {"successes": 5, "failures": 2}
+        mem._perspective._frame_outcomes["quantum"] = {"successes": 3, "failures": 1}
         mem.save_cognitive_state(str(tmp_path_fixture))
 
         mem2 = CognitiveMemory(evolve_interval=0)
         mem2.load_cognitive_state(str(tmp_path_fixture))
 
-        assert mem2._relativity._frame_outcomes["classical"]["successes"] == 5
-        assert mem2._relativity._frame_outcomes["quantum"]["failures"] == 1
+        assert mem2._perspective._frame_outcomes["classical"]["successes"] == 5
+        assert mem2._perspective._frame_outcomes["quantum"]["failures"] == 1
 
     def test_meta_cognitive_state_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
@@ -314,7 +314,7 @@ class TestCognitiveSnapshotDict:
             rulial=mem._rulial,
             provenance=mem._provenance,
             retrieval=mem._retrieval,
-            relativity=mem._relativity,
+            perspective=mem._perspective,
             meta=mem._meta,
             cache=mem._cache,
             feedback=mem._feedback,

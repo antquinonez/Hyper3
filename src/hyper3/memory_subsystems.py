@@ -548,17 +548,12 @@ class SubsystemMixin(_MemoryBase):
     @property
     def structural_anomaly(self) -> StructuralAnomalyDetector:
         """The structural anomaly detector for cyclic, contradictory, and high-centrality analysis."""
-        return self._transfinite
+        return self._anomaly_detector
 
     @property
-    def transfinite(self) -> StructuralAnomalyDetector:
-        """Backward-compatible alias for structural_anomaly."""
-        return self._transfinite
-
-    @property
-    def relativity(self) -> MultiPerspectiveAnalyzer:
+    def perspective(self) -> MultiPerspectiveAnalyzer:
         """The multi-perspective analyzer for multi-frame analysis."""
-        return self._relativity
+        return self._perspective
 
     @property
     def meta(self) -> MetaCognitiveLayer:
@@ -616,15 +611,15 @@ class SubsystemMixin(_MemoryBase):
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
         """Analyze a concept from a specific computational frame perspective."""
-        return self._relativity.analyze_in_frame(concept, frame_name)
+        return self._perspective.analyze_in_frame(concept, frame_name)
 
     def multi_frame_analysis(self, concept: str) -> dict[str, FrameAnalysis]:
         """Analyze a concept across all computational frames."""
-        return self._relativity.multi_frame_analysis(concept)
+        return self._perspective.multi_frame_analysis(concept)
 
     def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
         """Select the best computational frame for reasoning about a concept."""
-        return self._relativity.select_optimal_frame(concept)
+        return self._perspective.select_optimal_frame(concept)
 
     @property
     def enricher(self) -> LLMEnricher:
@@ -699,9 +694,6 @@ class SubsystemMixin(_MemoryBase):
             )
         return self._backward_chain.prove(
             concept, known_facts=known_facts, edge_label=edge_label,
-        )
-        return self._backward_chain.prove(
-            target_concept, known_facts=known_facts, edge_label=edge_label,
         )
 
     def prove_batch(

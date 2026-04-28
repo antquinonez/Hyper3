@@ -114,19 +114,19 @@ class RulialAnalysis(_SimpleResultBase):
     total_applications: int = 0
     rule_effectiveness: dict[str, dict[str, float]] = field(default_factory=dict)
     meta_patterns: int = 0
-    transcendental_insights: int = 0
+    high_level_insights: int = 0
     position_history_length: int = 0
 
 
 @dataclass
-class RelativityAnalysis(_SimpleResultBase):
+class PerspectiveAnalysis(_SimpleResultBase):
     available_frames: list[str] = field(default_factory=list)
     transformations_computed: int = 0
     frame_effectiveness: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
-class TransfiniteAnalysis(_SimpleResultBase):
+class AnomalyAnalysis(_SimpleResultBase):
     mapped_regions: int = 0
     decidable: int = 0
     boundary: int = 0

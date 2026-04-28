@@ -6,7 +6,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from hyper3.results import RelativityAnalysis
+from hyper3.results import PerspectiveAnalysis
 import numpy as np
 
 from hyper3.kernel import Hypergraph, Hypernode, Modality
@@ -102,14 +102,14 @@ class StructuralMetrics:
 
 
 class InvariantDetector:
-    def __init__(self, relativity: MultiPerspectiveAnalyzer) -> None:
-        """Bind the detector to a parent relativity engine.
+    def __init__(self, perspective: MultiPerspectiveAnalyzer) -> None:
+        """Bind the detector to a parent multi-perspective analyzer.
 
         Args:
-            relativity: The :class:`MultiPerspectiveAnalyzer` instance whose
+            perspective: The :class:`MultiPerspectiveAnalyzer` instance whose
                 frames are used for invariant detection.
         """
-        self._relativity = relativity
+        self._perspective = perspective
 
     def find_invariants(
         self,
@@ -133,14 +133,14 @@ class InvariantDetector:
         """
         frame_reachability: dict[str, set[str]] = {}
         frame_edges: dict[str, set[str]] = {}
-        all_frames = list(self._relativity._frames.keys())
+        all_frames = list(self._perspective._frames.keys())
         for frame_name in all_frames:
             max_depth = 3
             min_weight = 0.0
             if seed_ids:
                 concept_node = graph.get_node(seed_ids[0])
                 concept = concept_node.label if concept_node else ""
-                analysis = self._relativity.analyze_in_frame(concept, frame_name)
+                analysis = self._perspective.analyze_in_frame(concept, frame_name)
                 params = analysis.parameters or {}
                 max_depth = int(params.get("max_depth", 3))
                 if frame_name == "probabilistic":
@@ -241,7 +241,7 @@ FRAME_TEMPLATES: dict[str, ComputationalFrame] = {
 
 class MultiPerspectiveAnalyzer:
     def __init__(self, graph: Hypergraph) -> None:
-        """Initialize the relativity engine with a hypergraph.
+        """Initialize the multi-perspective analyzer with a hypergraph.
 
         Args:
             graph: The hypergraph to analyse across computational frames.
@@ -986,9 +986,9 @@ class MultiPerspectiveAnalyzer:
             best_name = min(analyses, key=lambda n: analyses[n].complexity)
         return best_name, analyses[best_name]
 
-    def analyze(self) -> RelativityAnalysis:
+    def analyze(self) -> PerspectiveAnalysis:
         """Return a typed summary of available frames, transformation count, and effectiveness."""
-        return RelativityAnalysis(
+        return PerspectiveAnalysis(
             available_frames=list(self._frames.keys()),
             transformations_computed=len(self._transformations),
             frame_effectiveness=self.get_frame_effectiveness(),
@@ -1275,18 +1275,3 @@ class MultiPerspectiveAnalyzer:
         )
 
 
-ComputationalRelativity = MultiPerspectiveAnalyzer
-FrameMetrics = StructuralMetrics
-
-
-def _install_backward_compat_methods() -> None:
-    for old, new in [
-        ("compute_curvature", "compute_local_clustering"),
-        ("compute_frame_dragging", "compute_perspective_overlap"),
-        ("compute_redshift", "compute_information_dissipation"),
-        ("compute_frame_metrics", "compute_structural_metrics"),
-    ]:
-        if not hasattr(MultiPerspectiveAnalyzer, old):
-            setattr(MultiPerspectiveAnalyzer, old, getattr(MultiPerspectiveAnalyzer, new))
-
-_install_backward_compat_methods()

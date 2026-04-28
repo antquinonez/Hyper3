@@ -4,7 +4,7 @@ import pytest
 from hyper3 import (
     AbductiveRule,
     CognitiveMemory,
-    ComputationalRelativity,
+    MultiPerspectiveAnalyzer,
     GeneralizationRule,
     InverseRule,
     MeasurementBasis,
@@ -112,7 +112,7 @@ class TestIntegrationFullPipeline:
         statuses = {r.status for r in regions}
         assert "decidable" in statuses
 
-        result = mem.reason_transfinite("simple_concept")
+        result = mem.detect_structural_anomalies("simple_concept")
         assert result.decidability_status in {"decidable", "boundary_proximity", "undecidable"}
 
     def test_multi_frame_analysis_pipeline(self):
@@ -151,7 +151,7 @@ class TestIntegrationFullPipeline:
         patterns = rulial.find_meta_patterns()
         assert len(patterns) >= 1
 
-        insights = rulial.generate_transcendental_insights()
+        insights = rulial.generate_high_level_insights()
         assert len(insights) >= 1
 
         introspection = mem.introspect()

@@ -14,7 +14,7 @@ from hyper3.cache import LazyCache
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 from hyper3.memory import CognitiveMemory
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
-from hyper3.relativity import ComputationalRelativity
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.rules import (
     AnalogicalReasoningRule,
@@ -22,7 +22,7 @@ from hyper3.rules import (
     ContextualSubstitutionRule,
     RuleMatch,
 )
-from hyper3.transfinite import PartialProof, TransfiniteReasoner
+from hyper3.structural_anomaly import ExplorationReport, StructuralAnomalyDetector
 
 
 class TestGraphIsomorphismForCausalInvariance:
@@ -527,7 +527,7 @@ class TestFrameEffectivenessLearning:
     def test_record_frame_outcome(self):
         g = Hypergraph()
         g.add_node(Hypernode(label="test"))
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         cr.record_frame_outcome("classical", True)
         cr.record_frame_outcome("classical", False)
         cr.record_frame_outcome("quantum", True)
@@ -549,7 +549,7 @@ class TestFrameEffectivenessLearning:
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="r2"))
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="r3"))
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({d.id}), label="r4"))
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         for _ in range(20):
             cr.record_frame_outcome("quantum", True)
             cr.record_frame_outcome("classical", False)
@@ -564,15 +564,15 @@ class TestFrameEffectivenessLearning:
 
     def test_analyze_includes_effectiveness(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         cr.record_frame_outcome("classical", True)
         analysis = cr.analyze()
         assert "frame_effectiveness" in analysis
 
 
-class TestPartialProofGeneration:
+class TestExplorationReportGeneration:
     def test_partial_proof_dataclass(self):
-        pp = PartialProof(
+        pp = ExplorationReport(
             concept="test",
             expanded_nodes=["a", "b"],
             total_branches_estimated=10,
@@ -590,8 +590,8 @@ class TestPartialProofGeneration:
         for lbl in "BCDE":
             n = g.get_node_by_label(lbl)
             g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({n.id}), label="rel"))
-        tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("A", {"self_reference": 0.1, "diagonalization": 0.1, "undecidable": 0.1})
+        tr = StructuralAnomalyDetector(g)
+        result = tr.reason_at_level("A", {"cyclic_structure": 0.1, "contradiction": 0.1, "structural_anomaly": 0.1})
         partial_results = result.partial_results
         transfinite_results = [r for r in partial_results if r.get("status") == "transfinite"]
         if not transfinite_results:
@@ -610,8 +610,8 @@ class TestPartialProofGeneration:
         for lbl in "BCD":
             n = g.get_node_by_label(lbl)
             g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({n.id}), label="rel"))
-        tr = TransfiniteReasoner(g)
-        result = tr.reason_at_level("A", {"self_reference": 0.6, "universal_quantification": 0.6})
+        tr = StructuralAnomalyDetector(g)
+        result = tr.reason_at_level("A", {"cyclic_structure": 0.6, "high_centrality": 0.6})
         boundary_results = [r for r in result.partial_results if r.get("status") == "boundary_proximity"]
         if not boundary_results:
             assert result.decidability_status in ("boundary_proximity", "undecidable", "decidable")

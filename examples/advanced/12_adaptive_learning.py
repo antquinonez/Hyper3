@@ -363,7 +363,7 @@ def main() -> None:
     print("SECTION 4: Frame Effectiveness Learning")
     print("=" * 70)
 
-    analyzer = mem.relativity
+    analyzer = mem.perspective
 
     frame_training = [
         ("classical", True), ("classical", True), ("classical", False),

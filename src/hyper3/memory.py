@@ -97,8 +97,8 @@ class CognitiveMemory(
         self._serializer = Serializer()
         self._branchial: BranchialSpace | None = None
         self._rulial: RulialSpace | None = None
-        self._transfinite = StructuralAnomalyDetector(self._graph)
-        self._relativity = MultiPerspectiveAnalyzer(self._graph)
+        self._anomaly_detector = StructuralAnomalyDetector(self._graph)
+        self._perspective = MultiPerspectiveAnalyzer(self._graph)
         self._meta = MetaCognitiveLayer(
             self._graph, self._evolution, self._log, self._discovery,
         )

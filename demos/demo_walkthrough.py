@@ -243,7 +243,7 @@ for question, expected in questions:
         print(f"    Alternatives: {result.alternative_formulations[:2]}")
     print()
 
-# ─── STEP 7: Computational relativity ────────────────────────────────
+# ─── STEP 7: Multi-frame analysis ────────────────────────────────
 print("━" * 72)
 print("STEP 7: Multi-frame analysis — same problem, different lenses")
 print("━" * 72)
@@ -289,8 +289,8 @@ for p in patterns:
     print(f"  [{p.pattern_type}] {p.description}")
 print()
 
-insights = rulial.generate_transcendental_insights()
-print("Transcendental insights (meta-knowledge):")
+insights = rulial.generate_high_level_insights()
+print("High-level insights (meta-knowledge):")
 for ins in insights:
     print(f"  ({ins.confidence:.0%}) {ins.principle}")
 print()

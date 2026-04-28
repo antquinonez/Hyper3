@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
-from hyper3.results import TransfiniteAnalysis
+from hyper3.results import AnomalyAnalysis
 
 
 class BoundaryIndicator:
@@ -22,48 +22,11 @@ class BoundaryIndicator:
         high_centrality: float = 0.0,
         contradiction_risk: float = 0.0,
         structural_anomaly_score: float = 0.0,
-        *,
-        self_reference: float | None = None,
-        universal_quantification: float | None = None,
-        diagonalization_risk: float | None = None,
-        known_undecidable_similarity: float | None = None,
     ) -> None:
-        self.cyclic_structure = self_reference if self_reference is not None else cyclic_structure
-        self.high_centrality = universal_quantification if universal_quantification is not None else high_centrality
-        self.contradiction_risk = diagonalization_risk if diagonalization_risk is not None else contradiction_risk
-        self.structural_anomaly_score = known_undecidable_similarity if known_undecidable_similarity is not None else structural_anomaly_score
-
-    @property
-    def self_reference(self) -> float:
-        return self.cyclic_structure
-
-    @self_reference.setter
-    def self_reference(self, value: float) -> None:
-        self.cyclic_structure = value
-
-    @property
-    def universal_quantification(self) -> float:
-        return self.high_centrality
-
-    @universal_quantification.setter
-    def universal_quantification(self, value: float) -> None:
-        self.high_centrality = value
-
-    @property
-    def diagonalization_risk(self) -> float:
-        return self.contradiction_risk
-
-    @diagonalization_risk.setter
-    def diagonalization_risk(self, value: float) -> None:
-        self.contradiction_risk = value
-
-    @property
-    def known_undecidable_similarity(self) -> float:
-        return self.structural_anomaly_score
-
-    @known_undecidable_similarity.setter
-    def known_undecidable_similarity(self, value: float) -> None:
-        self.structural_anomaly_score = value
+        self.cyclic_structure = cyclic_structure
+        self.high_centrality = high_centrality
+        self.contradiction_risk = contradiction_risk
+        self.structural_anomaly_score = structural_anomaly_score
 
     @property
     def boundary_score(self) -> float:
@@ -205,7 +168,7 @@ class StructuralAnomalyDetector:
         """
         node = self._find_concept_node(concept)
         if not node:
-            return self._context_boost(context, "self_reference", 0.0)
+            return self._context_boost(context, "cyclic_structure", 0.0)
         for edge in self._graph.edges_for(node.id):
             if node.id in edge.target_ids and node.id in edge.source_ids:
                 return 0.9
@@ -219,9 +182,9 @@ class StructuralAnomalyDetector:
         if concept in neighbors:
             return 0.4
         base = 0.0
-        if context and context.get("self_reference"):
+        if context and context.get("cyclic_structure"):
             base = 0.3
-        return self._context_boost(context, "self_reference", base)
+        return self._context_boost(context, "cyclic_structure", base)
 
     def _scc_cycle_check(self, node_id: str) -> float:
         """Return 0.7 if the node is in a strongly connected component of size > 1."""
@@ -268,10 +231,10 @@ class StructuralAnomalyDetector:
         """
         node = self._find_concept_node(concept)
         if not node:
-            return self._context_boost(context, "universal_quantification", 0.0)
+            return self._context_boost(context, "high_centrality", 0.0)
         total = self._graph.node_count
         if total <= 1:
-            return self._context_boost(context, "universal_quantification", 0.0)
+            return self._context_boost(context, "high_centrality", 0.0)
         degree = len(self._graph.edges_for(node.id))
         connectivity = degree / (total - 1)
         centrality = self._eigenvector_centrality_local(node.id, total)
@@ -279,7 +242,7 @@ class StructuralAnomalyDetector:
         if score >= 0.7:
             return min(score, 1.0)
         base = score * 0.5
-        return self._context_boost(context, "universal_quantification", base)
+        return self._context_boost(context, "high_centrality", base)
 
     def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
         """Compute eigenvector centrality for a single node, falling back to degree ratio."""
@@ -307,7 +270,7 @@ class StructuralAnomalyDetector:
         """
         node = self._find_concept_node(concept)
         if not node:
-            return self._context_boost(context, "diagonalization", 0.0)
+            return self._context_boost(context, "contradiction", 0.0)
         edge_labels: set[str] = set()
         for edge in self._graph.edges_for(node.id):
             edge_labels.add(edge.label)
@@ -322,7 +285,7 @@ class StructuralAnomalyDetector:
         base = 0.0
         if context and context.get("contradictory"):
             base = 0.3
-        return self._context_boost(context, "diagonalization", base)
+        return self._context_boost(context, "contradiction", base)
 
     def _learned_opposition_score(self, node_id: str, labels: list[str]) -> float:
         """Detect opposition between labels via near-disjoint source node sets."""
@@ -376,7 +339,7 @@ class StructuralAnomalyDetector:
         """
         node = self._find_concept_node(concept)
         if not node:
-            return self._context_boost(context, "undecidable", 0.0)
+            return self._context_boost(context, "structural_anomaly", 0.0)
         outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
         incoming = [e for e in self._graph.edges_for(node.id) if node.id in e.target_ids]
         if not outgoing and incoming:
@@ -389,7 +352,7 @@ class StructuralAnomalyDetector:
             for pattern in ANOMALY_PATTERNS:
                 if context.get(pattern["type"]):
                     base = max(base, 0.5)
-        return self._context_boost(context, "undecidable", base)
+        return self._context_boost(context, "structural_anomaly", base)
 
     def reason_at_level(
         self,
@@ -828,13 +791,13 @@ class StructuralAnomalyDetector:
         """Return all past analysis results."""
         return list(self._reasoning_history)
 
-    def analyze(self) -> TransfiniteAnalysis:
+    def analyze(self) -> AnomalyAnalysis:
         """Summarize mapped regions and analysis history counts."""
         total = len(self._boundary_regions)
         decidable = sum(1 for r in self._boundary_regions if r.status == "decidable")
         boundary = sum(1 for r in self._boundary_regions if r.status == "boundary")
         undecidable = sum(1 for r in self._boundary_regions if r.status == "undecidable")
-        return TransfiniteAnalysis(
+        return AnomalyAnalysis(
             mapped_regions=total,
             decidable=decidable,
             boundary=boundary,
@@ -843,24 +806,3 @@ class StructuralAnomalyDetector:
         )
 
 
-TransfiniteReasoner = StructuralAnomalyDetector
-TransfiniteResult = AnomalyDetectionResult
-PartialProof = ExplorationReport
-UNDECIDABLE_PATTERNS = ANOMALY_PATTERNS
-
-
-def _install_backward_compat_methods() -> None:
-    for old, new in [
-        ("_detect_self_reference", "_detect_cycles"),
-        ("_detect_universal_quantification", "_detect_high_centrality"),
-        ("_assess_diagonalization", "_detect_label_contradictions"),
-        ("_compare_to_known", "_compute_structural_risk"),
-        ("_transfinite_approach", "_anomaly_aware_approach"),
-        ("_build_partial_proof", "_build_exploration_report"),
-        ("_scc_self_reference", "_scc_cycle_check"),
-        ("_meta_mathematical_analysis", "_structural_analysis"),
-    ]:
-        if not hasattr(StructuralAnomalyDetector, old):
-            setattr(StructuralAnomalyDetector, old, getattr(StructuralAnomalyDetector, new))
-
-_install_backward_compat_methods()

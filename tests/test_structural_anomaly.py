@@ -5,8 +5,8 @@ from hyper3 import (
     Hyperedge,
     Hypergraph,
     Hypernode,
-    TransfiniteReasoner,
-    TransfiniteResult,
+    StructuralAnomalyDetector,
+    AnomalyDetectionResult,
 )
 
 
@@ -22,46 +22,46 @@ def _build_graph():
 
 class TestBoundaryIndicator:
     def test_decidable(self):
-        bi = BoundaryIndicator(self_reference=0.0, universal_quantification=0.0)
+        bi = BoundaryIndicator(cyclic_structure=0.0, high_centrality=0.0)
         assert bi.is_decidable
         assert not bi.is_boundary
         assert bi.boundary_score < 0.3
 
     def test_boundary(self):
-        bi = BoundaryIndicator(self_reference=0.4, universal_quantification=0.5)
+        bi = BoundaryIndicator(cyclic_structure=0.4, high_centrality=0.5)
         assert bi.boundary_score >= 0.27
 
     def test_undecidable(self):
-        bi = BoundaryIndicator(self_reference=0.9, universal_quantification=0.9, diagonalization_risk=0.8)
+        bi = BoundaryIndicator(cyclic_structure=0.9, high_centrality=0.9, contradiction_risk=0.8)
         assert not bi.is_decidable
         assert bi.boundary_score > 0.5
 
 
-class TestTransfiniteReasoner:
+class TestStructuralAnomalyDetector:
     def test_decidable_concept(self):
         g = _build_graph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("cat")
         assert result.decidability_status == "decidable"
         assert result.reasoning_level == 1
         assert len(result.partial_results) > 0
 
-    def test_self_referential_concept(self):
+    def test_cyclic_concept(self):
         g = _build_graph()
         g.add_node(Hypernode(id="sr", label="self-referential paradox"))
         g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("self-referential paradox")
-        assert indicator.self_reference >= 0.3
+        assert indicator.cyclic_structure >= 0.3
 
-    def test_universal_quantification(self):
+    def test_high_centrality(self):
         g = _build_graph()
         g.add_node(Hypernode(id="hub", label="universal hub"))
         for label in ["cat", "dog", "mammal", "animal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({label}), label="connects"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("universal hub")
-        assert indicator.universal_quantification > 0.3
+        assert indicator.high_centrality > 0.3
 
     def test_boundary_proximity_reasoning(self):
         g = _build_graph()
@@ -69,18 +69,18 @@ class TestTransfiniteReasoner:
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
         for label in ["cat", "dog", "mammal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
         assert result.boundary_score > 0.3
         if result.decidability_status == "boundary_proximity":
             assert len(result.boundary_warnings) > 0
 
-    def test_transfinite_approach(self):
+    def test_anomaly_aware_approach(self):
         g = _build_graph()
         g.add_node(Hypernode(id="undec", label="undecidable node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("undecidable node")
         assert result.boundary_score > 0.0
 
@@ -90,7 +90,7 @@ class TestTransfiniteReasoner:
         g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
         for label in ["cat", "dog"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         regions = tr.map_boundaries(["cat", "cycle node"])
         assert len(regions) == 2
         statuses = {r.status for r in regions}
@@ -98,7 +98,7 @@ class TestTransfiniteReasoner:
 
     def test_reasoning_history(self):
         g = _build_graph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         tr.reason_at_level("cat")
         tr.reason_at_level("dog")
         assert len(tr.reasoning_history) == 2
@@ -107,14 +107,14 @@ class TestTransfiniteReasoner:
         g = _build_graph()
         g.add_node(Hypernode(id="sr", label="cycle node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         tr.map_boundaries(["cat", "cycle node"])
         report = tr.analyze()
         assert report["mapped_regions"] == 2
 
     def test_concept_not_found(self):
         g = Hypergraph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("nonexistent")
         assert len(result.partial_results) > 0
         assert result.partial_results[0]["status"] == "concept_not_found"
@@ -125,7 +125,7 @@ class TestTransfiniteReasoner:
         g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({"paradox"}), label="ref"))
         for label in ["cat", "dog"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("paradox node")
         if result.decidability_status != "decidable":
             assert len(result.alternative_formulations) > 0
@@ -136,63 +136,63 @@ class TestTransfiniteReasoner:
         g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({"paradox"}), label="ref"))
         for label in ["cat", "dog", "mammal", "animal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("paradox node", max_level=2)
         assert result.reasoning_level <= 2
 
 
-class TestTransfiniteDeepCoverage:
-    def test_self_reference_with_self_loop(self):
+class TestStructuralAnomalyDeepCoverage:
+    def test_cyclic_structure_with_self_loop(self):
         g = _build_graph()
         g.add_node(Hypernode(id="thing", label="thing"))
         g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({"thing"}), label="ref"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("thing")
-        assert indicator.self_reference > 0.0
+        assert indicator.cyclic_structure > 0.0
 
-    def test_self_reference_concept_in_neighbors(self):
+    def test_cyclic_structure_concept_in_neighbors(self):
         g = _build_graph()
         g.add_node(Hypernode(id="self", label="self"))
         g.add_edge(Hyperedge(source_ids=frozenset({"self"}), target_ids=frozenset({"self"}), label="ref"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("self")
-        assert indicator.self_reference > 0.0
+        assert indicator.cyclic_structure > 0.0
 
-    def test_universal_quantification_high_connectivity(self):
+    def test_high_centrality_high_connectivity(self):
         g = _build_graph()
         g.add_node(Hypernode(id="thing", label="thing"))
         for label in ["cat", "dog", "mammal", "animal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({label}), label="connects"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("thing")
-        assert indicator.universal_quantification > 0.0
+        assert indicator.high_centrality > 0.0
 
-    def test_diagonalization_contradictory_edges(self):
+    def test_contradiction_contradictory_edges(self):
         g = _build_graph()
         g.add_node(Hypernode(id="diag", label="diagonalization node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"cat"}), label="is"))
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="is_not"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("diagonalization node")
-        assert indicator.diagonalization_risk > 0.0
+        assert indicator.contradiction_risk > 0.0
 
-    def test_diagonalization_multiple_contradictory_pairs(self):
+    def test_contradiction_multiple_contradictory_pairs(self):
         g = _build_graph()
         g.add_node(Hypernode(id="diag", label="contradictory"))
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"cat"}), label="causes"))
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="prevents"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("contradictory")
-        assert indicator.diagonalization_risk > 0.0
+        assert indicator.contradiction_risk > 0.0
 
-    def test_compare_to_known_terminal_node(self):
+    def test_structural_risk_terminal_node(self):
         g = _build_graph()
         g.add_node(Hypernode(id="sink", label="sink node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"cat"}), target_ids=frozenset({"sink"}), label="to_sink"))
         g.add_edge(Hyperedge(source_ids=frozenset({"dog"}), target_ids=frozenset({"sink"}), label="to_sink"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("sink node")
-        assert indicator.known_undecidable_similarity > 0.0
+        assert indicator.structural_anomaly_score > 0.0
 
     def test_boundary_aware_reasoning_with_node(self):
         g = _build_graph()
@@ -200,17 +200,17 @@ class TestTransfiniteDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
         for label in ["cat", "dog", "mammal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
         if result.decidability_status == "boundary_proximity":
             assert len(result.partial_results) > 0
 
-    def test_transfinite_approach_generates_insights(self):
+    def test_anomaly_aware_approach_generates_insights(self):
         g = _build_graph()
         g.add_node(Hypernode(id="undec", label="undecidable node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("undecidable node")
         if result.decidability_status == "undecidable":
             assert len(result.structural_insights) > 0
@@ -223,7 +223,7 @@ class TestTransfiniteDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({"dog"}), label="is_not"))
         for label in ["mammal", "animal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("all boundary")
         if result.decidability_status != "decidable":
             assert len(result.boundary_warnings) >= 1
@@ -234,26 +234,26 @@ class TestTransfiniteDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"bp"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"cat"}), label="rel"))
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"dog"}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("reformulate node")
         if result.decidability_status != "decidable":
             has_related = any("Related decidable" in f for f in result.alternative_formulations)
             assert has_related
 
-    def test_meta_mathematical_analysis(self):
+    def test_structural_analysis(self):
         g = _build_graph()
         g.add_node(Hypernode(id="meta", label="meta node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({"meta"}), label="ref"))
         for label in ["cat", "dog"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({label}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("meta node")
         if result.decidability_status == "undecidable":
-            assert any("Godel" in s or "diagonalization" in s.lower() or "Boundary score" in s for s in result.structural_insights)
+            assert any("structural anomaly" in s.lower() or "Boundary score" in s or "Cyclic" in s for s in result.structural_insights)
 
     def test_boundary_regions_property(self):
         g = _build_graph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         tr.map_boundaries(["cat", "dog"])
         regions = tr.boundary_regions
         assert len(regions) == 2
@@ -263,13 +263,13 @@ class TestTransfiniteDeepCoverage:
         g.add_node(Hypernode(id="sa", label="boundary-ish"))
         g.add_edge(Hyperedge(source_ids=frozenset({"sa"}), target_ids=frozenset({"sa"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"sa"}), target_ids=frozenset({"cat"}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary-ish")
         assert result.reasoning_level >= 1
 
     def test_standard_reasoning_found_concept(self):
         g = _build_graph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("cat")
         assert result.decidability_status == "decidable"
         assert result.partial_results[0]["status"] == "decidable"
@@ -282,9 +282,9 @@ class TestTransfiniteDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="e"))
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="e"))
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"a"}), label="e"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("a")
-        assert indicator.self_reference >= 0.8
+        assert indicator.cyclic_structure >= 0.8
 
     def test_hub_node_detection(self):
         g = _build_graph()
@@ -292,24 +292,24 @@ class TestTransfiniteDeepCoverage:
         for label in ["cat", "dog", "mammal", "animal"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({label}), label="rel"))
             g.add_edge(Hyperedge(source_ids=frozenset({label}), target_ids=frozenset({"hub"}), label="back"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_decidability("hub")
-        assert indicator.known_undecidable_similarity > 0.0
+        assert indicator.structural_anomaly_score > 0.0
 
     def test_structural_features_in_standard_reasoning(self):
         g = _build_graph()
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("cat")
         assert "structural_features" in result.partial_results[0]
         assert result.partial_results[0]["structural_features"]["degree"] == 1
         assert not result.partial_results[0]["structural_features"]["is_isolated"]
 
-    def test_extended_neighborhood_in_transfinite(self):
+    def test_extended_neighborhood_in_anomaly_aware(self):
         g = _build_graph()
         g.add_node(Hypernode(id="undec", label="undecidable node"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"undec"}), label="ref"))
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
-        tr = TransfiniteReasoner(g)
+        tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("undecidable node")
         if result.decidability_status == "undecidable":
             transfinite_entries = [r for r in result.partial_results if r.get("status") == "transfinite"]

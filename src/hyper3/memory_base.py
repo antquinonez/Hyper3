@@ -72,8 +72,8 @@ class _MemoryBase:
     _serializer: Serializer
     _branchial: BranchialSpace | None
     _rulial: RulialSpace | None
-    _transfinite: StructuralAnomalyDetector
-    _relativity: MultiPerspectiveAnalyzer
+    _anomaly_detector: StructuralAnomalyDetector
+    _perspective: MultiPerspectiveAnalyzer
     _meta: MetaCognitiveLayer
     _embedding_engine: EmbeddingEngine | None
     _activation: SpreadingActivation

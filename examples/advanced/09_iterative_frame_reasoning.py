@@ -470,7 +470,7 @@ def find_invariants_and_disagreements(
         if node:
             seed_ids.add(node.id)
 
-    detector = InvariantDetector(mem.relativity)
+    detector = InvariantDetector(mem.perspective)
     inv = detector.find_invariants(list(seed_ids), mem.graph)
 
     inv_labels = set()

@@ -111,7 +111,7 @@ class TestCognitiveMemoryNewFeatures:
         mem.store("cat")
         mem.store("dog")
         mem.relate("cat", "dog", label="chases")
-        result = mem.reason_transfinite("cat")
+        result = mem.detect_structural_anomalies("cat")
         assert result.decidability_status in {"decidable", "boundary_proximity", "undecidable"}
 
     def test_map_boundaries(self):
@@ -189,11 +189,11 @@ class TestCognitiveMemoryNewFeatures:
 
     def test_transfinite_property(self):
         mem = CognitiveMemory()
-        assert mem.transfinite is not None
+        assert mem.structural_anomaly is not None
 
     def test_relativity_property(self):
         mem = CognitiveMemory()
-        assert mem.relativity is not None
+        assert mem.perspective is not None
 
     def test_meta_property(self):
         mem = CognitiveMemory()

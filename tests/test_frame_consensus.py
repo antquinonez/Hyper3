@@ -1,7 +1,7 @@
 from hyper3.memory import CognitiveMemory
 from hyper3.rules import TransitiveRule
 from hyper3.kernel import Hyperedge
-from hyper3.relativity import ConsensusResult, DisagreementRegion
+from hyper3.multi_perspective import ConsensusResult, DisagreementRegion
 
 
 def _make_mem():
@@ -32,7 +32,7 @@ class TestComputeConsensus:
     def test_intersection_strategy(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id], strategy="intersection")
+        result = mem._perspective.compute_consensus([c.id], strategy="intersection")
         assert isinstance(result, ConsensusResult)
         assert result.strategy_used == "intersection"
         assert c.id in result.agreed_nodes
@@ -40,46 +40,46 @@ class TestComputeConsensus:
     def test_union_strategy(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id], strategy="union")
+        result = mem._perspective.compute_consensus([c.id], strategy="union")
         assert len(result.agreed_nodes) >= len(
-            mem._relativity.compute_consensus([c.id], strategy="intersection").agreed_nodes
+            mem._perspective.compute_consensus([c.id], strategy="intersection").agreed_nodes
         )
 
     def test_majority_strategy(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id], strategy="majority")
+        result = mem._perspective.compute_consensus([c.id], strategy="majority")
         assert isinstance(result.agreed_nodes, set)
 
     def test_weighted_strategy(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        mem._relativity.record_frame_outcome("classical", True)
-        mem._relativity.record_frame_outcome("quantum", False)
-        result = mem._relativity.compute_consensus([c.id], strategy="weighted")
+        mem._perspective.record_frame_outcome("classical", True)
+        mem._perspective.record_frame_outcome("quantum", False)
+        result = mem._perspective.compute_consensus([c.id], strategy="weighted")
         assert isinstance(result.agreed_nodes, set)
 
     def test_confidence_is_ratio(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id])
+        result = mem._perspective.compute_consensus([c.id])
         assert 0.0 <= result.confidence <= 1.0
 
     def test_disagreement_regions_populated(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id])
+        result = mem._perspective.compute_consensus([c.id])
         assert isinstance(result.disagreement_regions, list)
 
     def test_frame_results_populated(self):
         mem = _make_mem()
         c = mem.graph.get_node_by_label("core")
-        result = mem._relativity.compute_consensus([c.id])
+        result = mem._perspective.compute_consensus([c.id])
         assert len(result.frame_results) == 4
 
     def test_empty_seeds(self):
         mem = _make_mem()
-        result = mem._relativity.compute_consensus([])
+        result = mem._perspective.compute_consensus([])
         assert result.agreed_nodes == set()
 
 
@@ -91,7 +91,7 @@ class TestResolveDisagreement:
             "classical": {"a", "b"},
             "quantum": {"a", "b"},
         }
-        result = mem._relativity.resolve_disagreement(reachability, "intersection")
+        result = mem._perspective.resolve_disagreement(reachability, "intersection")
         assert result == {"a", "b"}
 
     def test_partial_disagreement_intersection(self):
@@ -100,7 +100,7 @@ class TestResolveDisagreement:
             "classical": {"a", "b", "c"},
             "quantum": {"a", "b"},
         }
-        result = mem._relativity.resolve_disagreement(reachability, "intersection")
+        result = mem._perspective.resolve_disagreement(reachability, "intersection")
         assert result == {"a", "b"}
 
     def test_partial_disagreement_union(self):
@@ -109,7 +109,7 @@ class TestResolveDisagreement:
             "classical": {"a", "b", "c"},
             "quantum": {"a", "b"},
         }
-        result = mem._relativity.resolve_disagreement(reachability, "union")
+        result = mem._perspective.resolve_disagreement(reachability, "union")
         assert result == {"a", "b", "c"}
 
     def test_majority_with_4_frames(self):
@@ -120,5 +120,5 @@ class TestResolveDisagreement:
             "hypergraph": {"a", "b"},
             "probabilistic": {"a"},
         }
-        result = mem._relativity.resolve_disagreement(reachability, "majority")
+        result = mem._perspective.resolve_disagreement(reachability, "majority")
         assert "a" in result

@@ -1,6 +1,6 @@
 from hyper3.memory import CognitiveMemory
 from hyper3.kernel import Hyperedge
-from hyper3.transfinite import Axiom, AxiomSet, PartialProof
+from hyper3.structural_anomaly import Axiom, AxiomSet, ExplorationReport
 
 
 def _make_cyclic_mem():
@@ -58,45 +58,45 @@ class TestChernoffBounds:
 
     def test_bounds_contain_observed(self):
         mem = _make_cyclic_mem()
-        lower, upper = mem._transfinite._chernoff_bounds(0.5, 100, delta=0.05)
+        lower, upper = mem._anomaly_detector._chernoff_bounds(0.5, 100, delta=0.05)
         assert lower <= 0.5 <= upper
 
     def test_bounds_tighter_with_more_samples(self):
         mem = _make_cyclic_mem()
-        lo1, hi1 = mem._transfinite._chernoff_bounds(0.5, 10)
-        lo2, hi2 = mem._transfinite._chernoff_bounds(0.5, 1000)
+        lo1, hi1 = mem._anomaly_detector._chernoff_bounds(0.5, 10)
+        lo2, hi2 = mem._anomaly_detector._chernoff_bounds(0.5, 1000)
         assert (hi2 - lo2) < (hi1 - lo1)
 
     def test_zero_samples_returns_full_range(self):
         mem = _make_cyclic_mem()
-        lo, hi = mem._transfinite._chernoff_bounds(0.5, 0)
+        lo, hi = mem._anomaly_detector._chernoff_bounds(0.5, 0)
         assert lo == 0.0
         assert hi == 1.0
 
 
-class TestBuildPartialProof:
+class TestBuildExplorationReport:
 
     def test_builds_proof_from_graph(self):
         mem = _make_cyclic_mem()
-        pp = mem._transfinite._build_partial_proof("A")
+        pp = mem._anomaly_detector._build_exploration_report("A")
         assert pp.concept == "A"
         assert len(pp.expanded_nodes) > 0
         assert pp.coverage > 0
 
     def test_chernoff_bounds_in_proof(self):
         mem = _make_cyclic_mem()
-        pp = mem._transfinite._build_partial_proof("A")
+        pp = mem._anomaly_detector._build_exploration_report("A")
         assert pp.coverage_lower > 0 or pp.branches_explored == 0
         assert pp.coverage_upper >= pp.coverage_lower
 
     def test_branch_coverage(self):
         mem = _make_cyclic_mem()
-        pp = mem._transfinite._build_partial_proof("A")
+        pp = mem._anomaly_detector._build_exploration_report("A")
         assert isinstance(pp.branch_coverage, dict)
 
     def test_nonexistent_concept(self):
         mem = _make_cyclic_mem()
-        pp = mem._transfinite._build_partial_proof("ZZZ")
+        pp = mem._anomaly_detector._build_exploration_report("ZZZ")
         assert pp.concept == "ZZZ"
         assert pp.expanded_nodes == []
 
@@ -105,14 +105,14 @@ class TestExtendProof:
 
     def test_coverage_increases_with_axiom(self):
         mem = _make_cyclic_mem()
-        pp = mem._transfinite._build_partial_proof("A")
+        pp = mem._anomaly_detector._build_exploration_report("A")
         ax = Axiom(
             name="bridge_1",
             description="Assume reachability to D",
             assumption="A -> D directly",
             coverage_gain=0.2,
         )
-        extended = mem._transfinite.extend_proof(pp, ax)
+        extended = mem._anomaly_detector.extend_proof(pp, ax)
         assert "bridge_1" in extended.axioms_used.axioms
 
     def test_axiom_dependent_nodes_tracked(self):
@@ -123,10 +123,10 @@ class TestExtendProof:
             target_ids=frozenset({mem.graph.get_node_by_label("E").id}),
             label="bridge",
         ))
-        pp = mem._transfinite._build_partial_proof("A")
+        pp = mem._anomaly_detector._build_exploration_report("A")
         initial_count = len(pp.expanded_nodes)
         ax = Axiom(name="ext", description="extend", assumption="A->E", coverage_gain=0.1)
-        extended = mem._transfinite.extend_proof(pp, ax)
+        extended = mem._anomaly_detector.extend_proof(pp, ax)
         assert len(extended.axioms_used.axioms) == 1
 
 
@@ -134,29 +134,29 @@ class TestComposeProofs:
 
     def test_compose_merges_nodes(self):
         mem = _make_cyclic_mem()
-        pp_a = mem._transfinite._build_partial_proof("A")
-        pp_b = mem._transfinite._build_partial_proof("B")
-        composed = mem._transfinite.compose_proofs(pp_a, pp_b)
+        pp_a = mem._anomaly_detector._build_exploration_report("A")
+        pp_b = mem._anomaly_detector._build_exploration_report("B")
+        composed = mem._anomaly_detector.compose_proofs(pp_a, pp_b)
         assert "A+B" == composed.concept
         assert composed.total_branches_estimated == pp_a.total_branches_estimated + pp_b.total_branches_estimated
 
     def test_compose_merges_axioms(self):
         mem = _make_cyclic_mem()
-        pp_a = mem._transfinite._build_partial_proof("A")
-        pp_b = mem._transfinite._build_partial_proof("B")
+        pp_a = mem._anomaly_detector._build_exploration_report("A")
+        pp_b = mem._anomaly_detector._build_exploration_report("B")
         ax1 = Axiom(name="ax1", description="a", assumption="x")
         ax2 = Axiom(name="ax2", description="b", assumption="y")
         pp_a.axioms_used.add(ax1)
         pp_b.axioms_used.add(ax2)
-        composed = mem._transfinite.compose_proofs(pp_a, pp_b)
+        composed = mem._anomaly_detector.compose_proofs(pp_a, pp_b)
         assert "ax1" in composed.axioms_used.axioms
         assert "ax2" in composed.axioms_used.axioms
 
     def test_compose_chernoff_bounds(self):
         mem = _make_cyclic_mem()
-        pp_a = mem._transfinite._build_partial_proof("A")
-        pp_b = mem._transfinite._build_partial_proof("B")
-        composed = mem._transfinite.compose_proofs(pp_a, pp_b)
+        pp_a = mem._anomaly_detector._build_exploration_report("A")
+        pp_b = mem._anomaly_detector._build_exploration_report("B")
+        composed = mem._anomaly_detector.compose_proofs(pp_a, pp_b)
         assert composed.coverage_lower <= composed.coverage_upper
 
 
@@ -174,7 +174,7 @@ class TestSuggestAxioms:
             source_ids=frozenset({x.id}), target_ids=frozenset({y.id}),
             label="link",
         ))
-        suggestions = mem._transfinite.suggest_axioms("X")
+        suggestions = mem._anomaly_detector.suggest_axioms("X")
         assert len(suggestions) > 0
         assert any("Z" in a.assumption for a in suggestions)
 
@@ -183,10 +183,10 @@ class TestSuggestAxioms:
         mem.store("root")
         for i in range(10):
             mem.store(f"isolated_{i}")
-        suggestions = mem._transfinite.suggest_axioms("root", top_k=3)
+        suggestions = mem._anomaly_detector.suggest_axioms("root", top_k=3)
         assert len(suggestions) <= 3
 
     def test_no_suggestions_for_nonexistent(self):
         mem = _make_cyclic_mem()
-        suggestions = mem._transfinite.suggest_axioms("NONEXISTENT")
+        suggestions = mem._anomaly_detector.suggest_axioms("NONEXISTENT")
         assert suggestions == []

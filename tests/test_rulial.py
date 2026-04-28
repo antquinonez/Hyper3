@@ -7,7 +7,7 @@ from hyper3 import (
     Modality,
     RulialPosition,
     RulialSpace,
-    TranscendentalInsight,
+    HighLevelInsight,
     TransitiveRule,
     MultiwayEngine,
 )
@@ -75,7 +75,7 @@ class TestRulialSpace:
         types = {p.pattern_type for p in patterns}
         assert "recurring_relation" in types
 
-    def test_generate_transcendental_insights(self):
+    def test_generate_high_level_insights(self):
         g = _build_graph()
         rs = RulialSpace(g)
         rs.record_rule_application("transitive")
@@ -83,11 +83,11 @@ class TestRulialSpace:
         rs.record_rule_application("generalization")
         rs.update_position()
         rs.find_meta_patterns()
-        insights = rs.generate_transcendental_insights()
+        insights = rs.generate_high_level_insights()
         assert isinstance(insights, list)
         assert len(insights) >= 1
         for insight in insights:
-            assert isinstance(insight, TranscendentalInsight)
+            assert isinstance(insight, HighLevelInsight)
             assert insight.principle
             assert insight.confidence >= 0.0
 

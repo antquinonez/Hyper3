@@ -26,7 +26,7 @@ from hyper3.multiway_rulial import (
     MetaComputationalPattern,
     RulialPosition,
     RulialSpace,
-    TranscendentalInsight,
+    HighLevelInsight,
 )
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
 from hyper3.retrieval_engine import FeedbackRecord, FeedbackStore, LearningToRank, RetrievalEngine
@@ -130,7 +130,7 @@ def capture_snapshot(
     rulial: RulialSpace | None,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
-    relativity: MultiPerspectiveAnalyzer,
+    perspective: MultiPerspectiveAnalyzer,
     meta: MetaCognitiveLayer,
     cache: LazyCache,
     feedback: OperationFeedback | None = None,
@@ -144,7 +144,7 @@ def capture_snapshot(
         rulial: Optional rulial space whose position, history, and patterns to capture.
         provenance: Provenance tracker whose records to capture.
         retrieval: Retrieval engine whose feedback and LTR weights to capture.
-        relativity: Computational relativity whose frame outcomes to capture.
+        perspective: Computational perspective whose frame outcomes to capture.
         meta: Meta-cognitive layer whose state and history to capture.
         cache: LazyCache whose live items to capture.
         feedback: Optional operation feedback tracker whose signals and stats to capture.
@@ -292,7 +292,7 @@ def capture_snapshot(
     if hasattr(retrieval, "_ltr") and retrieval._ltr is not None:
         snap.retrieval_ltr_weights = dict(retrieval._ltr.weights)
 
-    snap.frame_outcomes = {k: dict(v) for k, v in relativity._frame_outcomes.items()}
+    snap.frame_outcomes = {k: dict(v) for k, v in perspective._frame_outcomes.items()}
     snap.basis_stats = {k: dict(v) for k, v in quantum._basis_stats.items()}
 
     state = meta._state
@@ -353,7 +353,7 @@ def restore_snapshot(
     quantum: QuantumCognitiveLayer,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
-    relativity: MultiPerspectiveAnalyzer,
+    perspective: MultiPerspectiveAnalyzer,
     meta: MetaCognitiveLayer,
     cache: LazyCache,
     rules: list[Rule],
@@ -367,7 +367,7 @@ def restore_snapshot(
 
     Clears and repopulates quantum states/entanglements, multiway DAG,
     branchial coordinates, rulial position/history, provenance records,
-    retrieval feedback/LTR weights, relativity frame outcomes, and
+    retrieval feedback/LTR weights, perspective frame outcomes, and
     meta-cognitive state.
 
     Cache items are restored with their **original remaining TTL** by
@@ -383,7 +383,7 @@ def restore_snapshot(
         quantum: Quantum cognitive layer to repopulate.
         provenance: Provenance tracker to repopulate.
         retrieval: Retrieval engine whose feedback/LTR state to restore.
-        relativity: Computational relativity whose frame outcomes to
+        perspective: Computational perspective whose frame outcomes to
             restore.
         meta: Meta-cognitive layer whose state to restore.
         cache: LazyCache whose items to restore with correct TTL.
@@ -523,7 +523,7 @@ def restore_snapshot(
                 significance=pat_data.get("significance", 0.0),
             ))
         for ins_data in snapshot.rulial_insights:
-            rs._insights.append(TranscendentalInsight(
+            rs._insights.append(HighLevelInsight(
                 id=ins_data["id"],
                 principle=ins_data.get("principle", ""),
                 domain=ins_data.get("domain", "meta"),
@@ -565,7 +565,7 @@ def restore_snapshot(
         for k, v in snapshot.retrieval_ltr_weights.items():
             retrieval._ltr._weights[k] = v
 
-    relativity._frame_outcomes = {k: dict(v) for k, v in snapshot.frame_outcomes.items()}
+    perspective._frame_outcomes = {k: dict(v) for k, v in snapshot.frame_outcomes.items()}
 
     meta_state = snapshot.meta_cognitive_state
     meta._state = CognitiveStateModel(

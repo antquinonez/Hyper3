@@ -143,8 +143,8 @@ class PersistenceMixin(_MemoryBase):
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._branchial = None
         self._rulial = None
-        self._transfinite = StructuralAnomalyDetector(self._graph)
-        self._relativity = MultiPerspectiveAnalyzer(self._graph)
+        self._anomaly_detector = StructuralAnomalyDetector(self._graph)
+        self._perspective = MultiPerspectiveAnalyzer(self._graph)
         self._meta = MetaCognitiveLayer(
             self._graph, self._evolution, self._log, self._discovery,
         )
@@ -174,7 +174,7 @@ class PersistenceMixin(_MemoryBase):
             rulial=self._rulial,
             provenance=self._provenance,
             retrieval=self._retrieval,
-            relativity=self._relativity,
+            perspective=self._perspective,
             meta=self._meta,
             cache=self._cache,
             feedback=self._feedback,
@@ -195,7 +195,7 @@ class PersistenceMixin(_MemoryBase):
             quantum=self._quantum,
             provenance=self._provenance,
             retrieval=self._retrieval,
-            relativity=self._relativity,
+            perspective=self._perspective,
             meta=self._meta,
             cache=self._cache,
             rules=self._rules,

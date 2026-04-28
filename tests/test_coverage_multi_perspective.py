@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import math
 
-from hyper3.relativity import (
+from hyper3.multi_perspective import (
     ComputationalFrame,
-    ComputationalRelativity,
+    MultiPerspectiveAnalyzer,
     FrameAnalysis,
 )
 from hyper3.kernel import Hypergraph, Hypernode, Hyperedge, Metadata, Modality
@@ -15,7 +15,7 @@ class TestCustomFrameLegacyPath:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="custom", frame_type="classical", metrics={"x": 0.5})
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom")
@@ -35,7 +35,7 @@ class TestCustomFrameLegacyPath:
             label="connects",
         )
         g.add_edge(e)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="custom2", frame_type="classical", metrics={"x": 0.5})
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom2")
@@ -48,7 +48,7 @@ class TestCustomFrameLegacyPath:
         for i in range(20):
             g.add_node(Hypernode(label=f"n{i}"))
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="custom_low", frame_type="classical")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom_low")
@@ -60,7 +60,7 @@ class TestInformationPreserved:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("x", "classical", "quantum")
         assert 0.0 <= t.information_preserved <= 1.0
 
@@ -68,7 +68,7 @@ class TestInformationPreserved:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("x", "classical", "classical")
         assert t.information_preserved == 1.0
 
@@ -76,7 +76,7 @@ class TestInformationPreserved:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("x", "classical", "hypergraph")
         assert t.information_preserved >= 0.0
 
@@ -86,7 +86,7 @@ class TestFrameStrengthsWeaknesses:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "classical")
         assert "deterministic" in result.strengths
         assert "state_explosion" in result.weaknesses
@@ -99,7 +99,7 @@ class TestFrameStrengthsWeaknesses:
         g.add_node(b)
         e = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="connects")
         g.add_edge(e)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "classical")
         assert "high_complexity" in result.weaknesses
 
@@ -113,7 +113,7 @@ class TestFrameStrengthsWeaknesses:
         e2 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="y")
         g.add_edge(e1)
         g.add_edge(e2)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "quantum")
         assert "multi_hypothesis" in result.strengths
         assert "multi_source_targets_detected" in result.strengths
@@ -130,7 +130,7 @@ class TestFrameStrengthsWeaknesses:
         e2 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="x")
         g.add_edge(e1)
         g.add_edge(e2)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "hypergraph")
         assert "multi_arity" in result.strengths
         assert "multi_modal_structure" in result.strengths
@@ -148,7 +148,7 @@ class TestFrameStrengthsWeaknesses:
                 label="x",
             )
             g.add_edge(e)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "probabilistic")
         assert "weighted_sampling" in result.strengths
         assert "sufficient_sample_size" in result.strengths
@@ -163,7 +163,7 @@ class TestComputeComplexityFrameTypes:
         g.add_node(b)
         e = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="x")
         g.add_edge(e)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="test_q", frame_type="quantum")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_q")
@@ -173,7 +173,7 @@ class TestComputeComplexityFrameTypes:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="test_hg", frame_type="hypergraph")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_hg")
@@ -183,7 +183,7 @@ class TestComputeComplexityFrameTypes:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="test_prob", frame_type="probabilistic")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_prob")
@@ -193,7 +193,7 @@ class TestComputeComplexityFrameTypes:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="test_unknown", frame_type="neural")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_unknown")
@@ -208,7 +208,7 @@ class TestDeriveApproachLevels:
         for i in range(5):
             n = Hypernode(label=f"n{i}")
             g.add_node(n)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="test_local", frame_type="classical")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_local")
@@ -223,7 +223,7 @@ class TestDeriveApproachLevels:
 class TestFramesProperty:
     def test_frames_returns_all_frames(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         frames = cr.frames
         assert "classical" in frames
         assert "quantum" in frames
@@ -234,14 +234,14 @@ class TestFramesProperty:
 class TestTransformationsProperty:
     def test_transformations_empty_initially(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         assert cr.transformations == []
 
     def test_transformations_populated_after_transform(self):
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         cr.transform_between_frames("x", "classical", "quantum")
         assert len(cr.transformations) == 1
 
@@ -251,7 +251,7 @@ class TestAnalyzeUnknownFrame:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("x", "nonexistent_frame")
         assert result.frame_name == "nonexistent_frame"
         assert result.complexity == float("inf")
@@ -261,7 +261,7 @@ class TestAnalyzeUnknownFrame:
 class TestNodeNotFound:
     def test_analyze_missing_node(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze_in_frame("missing", "classical")
         assert result.complexity == float("inf")
         assert result.solution_approach == "node_not_found"
@@ -272,7 +272,7 @@ class TestMultiFrameAnalysis:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         results = cr.multi_frame_analysis("x")
         assert "classical" in results
         assert "quantum" in results
@@ -285,7 +285,7 @@ class TestSelectOptimalFrame:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         name, analysis = cr.select_optimal_frame("x")
         assert name in cr.frames
         assert analysis.frame_name == name
@@ -294,14 +294,14 @@ class TestSelectOptimalFrame:
 class TestGetFrame:
     def test_get_existing_frame(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         f = cr.get_frame("classical")
         assert f is not None
         assert f.name == "classical"
 
     def test_get_missing_frame(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         assert cr.get_frame("nonexistent") is None
 
 
@@ -318,7 +318,7 @@ class TestComputationalFrameComplexity:
 class TestAnalyzeMethod:
     def test_analyze_returns_dict(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         result = cr.analyze()
         assert "available_frames" in result
         assert "transformations_computed" in result
@@ -330,7 +330,7 @@ class TestFindNodeAndCountNeighbors:
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         assert cr._find_node("x") is not None
         assert cr._find_node("missing") is None
 
@@ -342,5 +342,5 @@ class TestFindNodeAndCountNeighbors:
         g.add_node(b)
         e = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="x")
         g.add_edge(e)
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         assert cr._count_neighbors(a.id) == 1

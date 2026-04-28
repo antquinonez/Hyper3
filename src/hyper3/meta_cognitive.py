@@ -628,11 +628,11 @@ class MetaCognitiveLayer:
         return {"promoted": True, "pattern_type": best.pattern_type, "rule_name": new_rule.name}
 
     def _update_rulial_position(self) -> dict[str, Any]:
-        """Refresh the rulial position and generate new transcendental insights."""
+        """Refresh the rulial position and generate new high-level insights."""
         if not self._rulial:
             return {"updated": False, "reason": "no rulial"}
         pos = self._rulial.update_position(self._rules or [])
-        insights = self._rulial.generate_transcendental_insights()
+        insights = self._rulial.generate_high_level_insights()
         return {
             "updated": True,
             "density": pos.computational_density,

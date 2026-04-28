@@ -111,19 +111,19 @@ class TestGraphAnalytics:
         assert g.node_degree(nodes[5].id) == 0
 
 
-class TestTransfiniteStructural:
+class TestStructuralAnomaly:
     def test_self_loop_detection(self):
         g = Hypergraph()
         a = Hypernode(label="self_ref")
         g.add_node(a)
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({a.id}), label="self"))
-        from hyper3.transfinite import TransfiniteReasoner
-        reasoner = TransfiniteReasoner(g)
+        from hyper3.structural_anomaly import StructuralAnomalyDetector
+        reasoner = StructuralAnomalyDetector(g)
         boundaries = reasoner.map_boundaries(["self_ref"])
         assert len(boundaries) == 1
         assert boundaries[0].description == "self_ref"
         assert boundaries[0].indicator is not None
-        assert boundaries[0].indicator.self_reference > 0.0
+        assert boundaries[0].indicator.cyclic_structure > 0.0
 
     def test_cycle_detection_structural(self):
         g = Hypergraph()
@@ -134,8 +134,8 @@ class TestTransfiniteStructural:
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="next"))
         g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="next"))
         g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id}), label="next"))
-        from hyper3.transfinite import TransfiniteReasoner
-        reasoner = TransfiniteReasoner(g)
+        from hyper3.structural_anomaly import StructuralAnomalyDetector
+        reasoner = StructuralAnomalyDetector(g)
         result = reasoner.reason_at_level("a")
         assert result.reasoning_level >= 1
 
@@ -145,8 +145,8 @@ class TestTransfiniteStructural:
         g.add_node(a)
         g.add_node(b)
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="to"))
-        from hyper3.transfinite import TransfiniteReasoner, BoundaryRegion
-        reasoner = TransfiniteReasoner(g)
+        from hyper3.structural_anomaly import StructuralAnomalyDetector, BoundaryRegion
+        reasoner = StructuralAnomalyDetector(g)
         boundaries = reasoner.map_boundaries(["sink"])
         assert len(boundaries) > 0
         assert boundaries[0].description == "sink"

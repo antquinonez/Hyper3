@@ -131,7 +131,7 @@ class TestReasonWithFrameTransform:
 
     def test_transform_config_on_relativity(self):
         mem = _make_mem()
-        cfg = mem._relativity.transform_config("a", "classical", "quantum")
+        cfg = mem._perspective.transform_config("a", "classical", "quantum")
         assert cfg.algorithm == "superposition"
         assert cfg.information_loss == 0.0
 

@@ -1,7 +1,7 @@
 import pytest
 from hyper3 import (
     ComputationalFrame,
-    ComputationalRelativity,
+    MultiPerspectiveAnalyzer,
     FrameAnalysis,
     FrameTransformation,
     Hyperedge,
@@ -29,10 +29,10 @@ class TestComputationalFrame:
         assert abs(f.complexity() - 0.4) < 0.01
 
 
-class TestComputationalRelativity:
+class TestMultiPerspectiveAnalyzer:
     def test_builtin_frames(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         assert "classical" in cr.frames
         assert "quantum" in cr.frames
         assert "hypergraph" in cr.frames
@@ -40,14 +40,14 @@ class TestComputationalRelativity:
 
     def test_add_custom_frame(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         custom = ComputationalFrame(name="custom", frame_type="neural", metrics={"training_convergence": 0.5})
         cr.add_frame(custom)
         assert cr.get_frame("custom") is not None
 
     def test_analyze_in_frame(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         analysis = cr.analyze_in_frame("concept_a", "classical")
         assert isinstance(analysis, FrameAnalysis)
         assert analysis.complexity >= 0.0
@@ -55,7 +55,7 @@ class TestComputationalRelativity:
 
     def test_multi_frame_analysis(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         results = cr.multi_frame_analysis("concept_a")
         assert len(results) == 4
         for name, analysis in results.items():
@@ -64,14 +64,14 @@ class TestComputationalRelativity:
 
     def test_select_optimal_frame(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         name, analysis = cr.select_optimal_frame("concept_a")
         assert name in cr.frames
         assert isinstance(analysis, FrameAnalysis)
 
     def test_transform_between_frames(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("concept_a", "classical", "quantum")
         assert isinstance(t, FrameTransformation)
         assert t.source_frame == "classical"
@@ -80,19 +80,19 @@ class TestComputationalRelativity:
 
     def test_unknown_frame(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         analysis = cr.analyze_in_frame("concept_a", "nonexistent")
         assert analysis.complexity == float("inf")
 
     def test_concept_not_found(self):
         g = Hypergraph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         analysis = cr.analyze_in_frame("nonexistent", "classical")
         assert analysis.complexity == float("inf")
 
     def test_analyze(self):
         g = _build_graph()
-        cr = ComputationalRelativity(g)
+        cr = MultiPerspectiveAnalyzer(g)
         report = cr.analyze()
         assert "available_frames" in report
         assert "transformations_computed" in report

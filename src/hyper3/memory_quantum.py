@@ -228,15 +228,11 @@ class QuantumMixin(_MemoryBase):
         Returns:
             An AnomalyDetectionResult with boundary detection and exploration info.
         """
-        return self._transfinite.reason_at_level(concept, context, max_level=max_level)
-
-    def reason_transfinite(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> AnomalyDetectionResult:
-        """Backward-compatible alias for detect_structural_anomalies."""
-        return self.detect_structural_anomalies(concept, context=context, max_level=max_level)
+        return self._anomaly_detector.reason_at_level(concept, context, max_level=max_level)
 
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         """Map structural anomaly boundaries (cyclic, high-centrality, contradictory regions) for concepts."""
-        result = self._transfinite.map_boundaries(concepts)
+        result = self._anomaly_detector.map_boundaries(concepts)
         self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)
         return result
 

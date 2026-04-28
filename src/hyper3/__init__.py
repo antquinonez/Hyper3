@@ -78,7 +78,6 @@ from hyper3.multiway_rulial import (
     MetaComputationalPattern,
     RulialPosition,
     RulialSpace,
-    TranscendentalInsight,
 )
 from hyper3.structural_anomaly import (
     AnomalyDetectionResult,
@@ -90,9 +89,6 @@ from hyper3.structural_anomaly import (
     StructuralAnomalyDetector,
 )
 
-TransfiniteReasoner = StructuralAnomalyDetector
-TransfiniteResult = AnomalyDetectionResult
-PartialProof = ExplorationReport
 from hyper3.frame_transform import (
     FrameTransformer,
     TransformedConfig,
@@ -110,8 +106,6 @@ from hyper3.multi_perspective import (
     StructuralMetrics,
 )
 
-ComputationalRelativity = MultiPerspectiveAnalyzer
-FrameMetrics = StructuralMetrics
 from hyper3.meta_cognitive import (
     CognitiveStateModel,
     MetaCognitiveLayer,
@@ -208,7 +202,8 @@ from hyper3.results import (
     MetamorphosisResult,
     PatternMatchInfo,
     ReasonResult,
-    RelativityAnalysis,
+    AnomalyAnalysis,
+    PerspectiveAnalysis,
     RollbackResult,
     RuleNeighborhoodResult,
     RulialAnalysis,
@@ -219,7 +214,6 @@ from hyper3.results import (
     TemporalInconsistency,
     TemporalMatch,
     TrainResult,
-    TransfiniteAnalysis,
 )
 from hyper3.backward_chain import (
     BackwardChainEngine,
