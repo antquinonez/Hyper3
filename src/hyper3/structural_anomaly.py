@@ -45,8 +45,10 @@ class BoundaryIndicator:
 
     @property
     def is_decidable(self) -> bool:
-        """Return True if the boundary score is below the 0.3 decidable threshold."""
+        """Return True if the boundary score is below the 0.3 threshold."""
         return self.boundary_score < 0.3
+
+    is_low_risk = is_decidable
 
 
 @dataclass
@@ -60,13 +62,17 @@ class BoundaryRegion:
 
 @dataclass
 class AnomalyDetectionResult:
-    decidability_status: str = "unknown"
+    anomaly_status: str = "unknown"
     boundary_score: float = 0.0
     partial_results: list[dict[str, Any]] = field(default_factory=list)
     alternative_formulations: list[str] = field(default_factory=list)
     structural_insights: list[str] = field(default_factory=list)
     boundary_warnings: list[str] = field(default_factory=list)
     reasoning_level: int = 1
+
+    @property
+    def decidability_status(self) -> str:
+        return self.anomaly_status
 
 
 @dataclass
@@ -91,10 +97,10 @@ class AxiomSet:
 
 
 ANOMALY_PATTERNS: list[dict[str, Any]] = [
-    {"type": "halting_problem", "indicators": {"cyclic_structure": 0.9, "contradiction_risk": 0.8}},
-    {"type": "godel_incompleteness", "indicators": {"cyclic_structure": 0.95, "high_centrality": 0.7}},
-    {"type": "russell_paradox", "indicators": {"cyclic_structure": 0.9, "high_centrality": 0.9}},
-    {"type": "continuum_hypothesis", "indicators": {"high_centrality": 0.8}},
+    {"type": "terminating_cycle", "indicators": {"cyclic_structure": 0.9, "contradiction_risk": 0.8}},
+    {"type": "self_referential_cycle", "indicators": {"cyclic_structure": 0.95, "high_centrality": 0.7}},
+    {"type": "membership_paradox", "indicators": {"cyclic_structure": 0.9, "high_centrality": 0.9}},
+    {"type": "inaccessible_structure", "indicators": {"high_centrality": 0.8}},
 ]
 
 
@@ -126,7 +132,7 @@ class StructuralAnomalyDetector:
 
         Detects structural anomalies in the graph — cycles, high centrality,
         contradictory edge labels, and unusual connectivity patterns — and
-        classifies concepts along a decidable / boundary / anomalous spectrum.
+        classifies concepts along a low_risk / boundary / anomalous spectrum.
 
         Args:
             graph: The hypergraph to analyze for structural anomalies.
@@ -137,7 +143,7 @@ class StructuralAnomalyDetector:
         self._boundary_cache: dict[str, tuple[float, BoundaryIndicator]] = {}
         self._boundary_cache_ttl: float = 300.0
 
-    def assess_decidability(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
+    def assess_anomaly(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
         """Evaluate structural anomaly indicators for a concept.
 
         Scores four dimensions: cyclic structure, high centrality,
@@ -158,6 +164,8 @@ class StructuralAnomalyDetector:
         indicator.contradiction_risk = self._detect_label_contradictions(concept, context)
         indicator.structural_anomaly_score = self._compute_structural_risk(concept, context)
         return indicator
+
+    assess_decidability = assess_anomaly
 
     def _detect_cycles(self, concept: str, context: dict[str, Any] | None) -> float:
         """Score the degree of cyclic structure in the concept's graph neighborhood.
@@ -371,7 +379,7 @@ class StructuralAnomalyDetector:
         Returns:
             An AnomalyDetectionResult with status and exploration results.
         """
-        indicator = self.assess_decidability(concept, context)
+        indicator = self.assess_anomaly(concept, context)
         level = self._dispatch_level(indicator)
         if level > max_level:
             level = max_level
@@ -382,15 +390,15 @@ class StructuralAnomalyDetector:
         )
 
         if indicator.is_decidable:
-            result.decidability_status = "decidable"
+            result.anomaly_status = "low_risk"
             result.partial_results = self._standard_reasoning(concept, context)
         elif indicator.is_boundary:
-            result.decidability_status = "boundary_proximity"
+            result.anomaly_status = "boundary"
             result.partial_results = self._boundary_aware_reasoning(concept, context, indicator)
             result.boundary_warnings = self._generate_warnings(indicator)
             result.alternative_formulations = self._reformulate(concept, context)
         else:
-            result.decidability_status = "undecidable"
+            result.anomaly_status = "anomalous"
             result.partial_results = self._anomaly_aware_approach(concept, context, indicator)
             result.boundary_warnings = self._generate_warnings(indicator)
             result.alternative_formulations = self._reformulate(concept, context)
@@ -418,7 +426,7 @@ class StructuralAnomalyDetector:
         neighbors = self._get_neighbor_labels(node.id)
         degree = len(self._graph.edges_for(node.id))
         results.append({
-            "status": "decidable",
+            "status": "low_risk",
             "concept": concept,
             "connections": neighbors[:10],
             "confidence": 1.0 - min(1.0, len(neighbors) / 100.0),
@@ -456,7 +464,7 @@ class StructuralAnomalyDetector:
             if indicator.contradiction_risk > 0.5:
                 assumption_dependent.append("Contradictory patterns require consistency assumptions")
         results.append({
-            "status": "boundary_proximity",
+            "status": "boundary",
             "boundary_score": indicator.boundary_score,
             "conservative_extension": True,
             "structural_conclusions": structural_conclusions,
@@ -486,9 +494,9 @@ class StructuralAnomalyDetector:
             "branch_coverage": report.branch_coverage,
         }
         results.append({
-            "status": "transfinite",
+            "status": "anomalous",
             "boundary_score": indicator.boundary_score,
-            "approach": "partial_result_generation",
+            "approach": "exploration_based_analysis",
             "extended_neighborhood": report.expanded_nodes[:10],
             "partial_proof": report_dict,
             "exploration_report": report_dict,
@@ -517,7 +525,7 @@ class StructuralAnomalyDetector:
         if node:
             neighbors = self._get_neighbor_labels(node.id)
             for neighbor in neighbors[:3]:
-                formulations.append(f"Related decidable problem: '{neighbor}'")
+                formulations.append(f"Related low-risk problem: '{neighbor}'")
         return formulations
 
     def _structural_analysis(self, concept: str, indicator: BoundaryIndicator) -> list[str]:
@@ -744,7 +752,7 @@ class StructuralAnomalyDetector:
                 if now - cached_time < self._boundary_cache_ttl:
                     results[concept] = cached_indicator
                     continue
-            indicator = self.assess_decidability(concept)
+            indicator = self.assess_anomaly(concept)
             self._boundary_cache[concept] = (now, indicator)
             results[concept] = indicator
         return results
@@ -771,8 +779,8 @@ class StructuralAnomalyDetector:
         """
         self._boundary_regions.clear()
         for concept in concepts:
-            indicator = self.assess_decidability(concept)
-            status = "decidable" if indicator.is_decidable else ("boundary" if indicator.is_boundary else "undecidable")
+            indicator = self.assess_anomaly(concept)
+            status = "low_risk" if indicator.is_decidable else ("boundary" if indicator.is_boundary else "anomalous")
             self._boundary_regions.append(BoundaryRegion(
                 description=concept,
                 boundary_score=indicator.boundary_score,
@@ -794,14 +802,14 @@ class StructuralAnomalyDetector:
     def analyze(self) -> AnomalyAnalysis:
         """Summarize mapped regions and analysis history counts."""
         total = len(self._boundary_regions)
-        decidable = sum(1 for r in self._boundary_regions if r.status == "decidable")
+        decidable = sum(1 for r in self._boundary_regions if r.status == "low_risk")
         boundary = sum(1 for r in self._boundary_regions if r.status == "boundary")
-        undecidable = sum(1 for r in self._boundary_regions if r.status == "undecidable")
+        anomalous = sum(1 for r in self._boundary_regions if r.status == "anomalous")
         return AnomalyAnalysis(
             mapped_regions=total,
-            decidable=decidable,
+            low_risk=decidable,
             boundary=boundary,
-            undecidable=undecidable,
+            anomalous=anomalous,
             reasoning_history=len(self._reasoning_history),
         )
 

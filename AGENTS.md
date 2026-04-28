@@ -253,14 +253,14 @@ insights = mem.lateral_insights(
 
 ### DP-13: Structural Anomaly Detection at Formal Boundaries
 
-The system detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a decidable/boundary/anomalous spectrum. The `StructuralAnomalyDetector` uses heuristic graph analysis to identify concepts that warrant deeper analysis, returning `ExplorationReport` dataclasses with coverage bounds.
+The system detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. The `StructuralAnomalyDetector` uses heuristic graph analysis to identify concepts that warrant deeper analysis, returning `ExplorationReport` dataclasses with coverage bounds.
 
 **Why**: The v2-1 spec's "Transfinite Reasoning Capability" (Figure 5) describes boundary detection. The implementation uses heuristic graph metrics (cycle detection, centrality, label contradiction) rather than formal decidability proofs.
 
 **Pattern**:
 ```python
 result = mem.detect_structural_anomalies("A")
-if result.decidability_status == "undecidable":
+if result.anomaly_status == "anomalous":
     print(f"Structural anomaly detected, score={result.boundary_score:.2f}")
 ```
 
@@ -344,7 +344,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `QuantumEntanglement`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
 - **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
 - **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, high-level insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
-- **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a decidable/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
+- **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
 - **multi_perspective.py** — `MultiPerspectiveAnalyzer` provides multi-perspective analysis (classical/quantum/hypergraph/probabilistic perspectives) with perspective effectiveness learning via Thompson sampling.
 - **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `IntrospectionReport`, `analyze()` returns typed `MetaCognitiveStats`.
 - **memory.py** — `CognitiveMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.

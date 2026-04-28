@@ -122,16 +122,16 @@ class TestCognitiveSnapshotRoundTrip:
     def test_meta_cognitive_state_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
         mem._meta._state.architectural_fitness = 0.75
-        mem._meta._state.transcendental_yield = 12
-        mem._meta._state.reasoning_mode = "transfinite"
+        mem._meta._state.rulial_insight_count = 12
+        mem._meta._state.reasoning_mode = "rich"
         mem.save_cognitive_state(str(tmp_path_fixture))
 
         mem2 = CognitiveMemory(evolve_interval=0)
         mem2.load_cognitive_state(str(tmp_path_fixture))
 
         assert mem2._meta._state.architectural_fitness == 0.75
-        assert mem2._meta._state.transcendental_yield == 12
-        assert mem2._meta._state.reasoning_mode == "transfinite"
+        assert mem2._meta._state.rulial_insight_count == 12
+        assert mem2._meta._state.reasoning_mode == "rich"
 
     def test_cache_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)

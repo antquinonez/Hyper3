@@ -101,7 +101,7 @@ class TestIntegrationFullPipeline:
         assert collapsed is not None
         assert qs.collapsed
 
-    def test_transfinite_boundary_mapping(self):
+    def test_anomaly_boundary_mapping(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("simple_concept")
         mem.store("self-referential structure")
@@ -110,10 +110,10 @@ class TestIntegrationFullPipeline:
         regions = mem.map_boundaries(["simple_concept", "self-referential structure", "all universal statements"])
         assert len(regions) == 3
         statuses = {r.status for r in regions}
-        assert "decidable" in statuses
+        assert "low_risk" in statuses
 
         result = mem.detect_structural_anomalies("simple_concept")
-        assert result.decidability_status in {"decidable", "boundary_proximity", "undecidable"}
+        assert result.decidability_status in {"low_risk", "boundary", "anomalous"}
 
     def test_multi_frame_analysis_pipeline(self):
         mem = CognitiveMemory(evolve_interval=0)

@@ -60,7 +60,7 @@ def main() -> None:
     # --- Degree Centrality ---
     print_header("Degree Centrality")
     with Timer() as t_h3:
-        h3_dc = mem.degree_centrality_labels()
+        h3_dc = mem.degree_centrality()
     with Timer() as t_nx:
         nx_dc = nx.degree_centrality(nx_graph)
 
@@ -75,7 +75,7 @@ def main() -> None:
     # --- Betweenness Centrality ---
     print_header("Betweenness Centrality")
     with Timer() as t_h3:
-        h3_bc = mem.betweenness_centrality_labels()
+        h3_bc = mem.betweenness_centrality()
     with Timer() as t_nx:
         nx_bc = nx.betweenness_centrality(nx_graph)
 
@@ -102,7 +102,7 @@ def main() -> None:
 
     for src, tgt in test_pairs:
         with Timer() as t_h3:
-            h3_path = mem.shortest_path_labels(src, tgt)
+            h3_path = mem.shortest_path(src, tgt)
         with Timer() as t_nx:
             try:
                 nx_path = nx.shortest_path(nx_graph, src, tgt)
@@ -133,7 +133,7 @@ def main() -> None:
     print(f"  Hyper3: {h3_has_cycle} ({t_h3.elapsed*1000:.1f}ms)  |  networkx: {nx_has_cycle} ({t_nx.elapsed*1000:.1f}ms)")
 
     with Timer() as t_h3:
-        h3_cycles = mem.detect_cycles_labels(max_cycles=10)
+        h3_cycles = mem.detect_cycles(max_cycles=10)
     with Timer() as t_nx:
         nx_cycles = list(nx.simple_cycles(nx_graph))
 
@@ -147,7 +147,7 @@ def main() -> None:
     print_header("Connected Components (undirected)")
     nx_undirected = nx_graph.to_undirected()
     with Timer() as t_h3:
-        h3_comps = mem.connected_components_labels()
+        h3_comps = mem.connected_components()
     with Timer() as t_nx:
         nx_comps = list(nx.connected_components(nx_undirected))
 
@@ -165,9 +165,9 @@ def main() -> None:
     ergo_rows = [
         ["Build graph", "3 lines", "5+ lines", "store/relate vs add_node/add_edge loop"],
         ["Degree centrality", "1 line", "1 line + label mapping", "labels built-in vs nx node IDs"],
-        ["Shortest path by label", "1 line", "3+ lines", "shortest_path_labels vs label->id mapping"],
+        ["Shortest path by label", "1 line", "3+ lines", "shortest_path vs label->id mapping"],
         ["Cycle detection", "1 line", "1 line", "has_cycle vs is_dag"],
-        ["Find all paths", "1 line", "3+ lines", "find_paths_labels vs label mapping + all_simple_paths"],
+        ["Find all paths", "1 line", "3+ lines", "find_paths vs label mapping + all_simple_paths"],
         ["Pattern match", "1 line", "5+ lines", "pattern_match(edge_label=X) vs filter edges"],
     ]
     print_comparison_table(ergo_headers, ergo_rows)

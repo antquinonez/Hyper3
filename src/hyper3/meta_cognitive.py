@@ -27,7 +27,7 @@ from hyper3.results import (
 class CognitiveStateModel:
     architectural_fitness: float = 1.0
     computational_efficiency: dict[str, float] = field(default_factory=dict)
-    transcendental_yield: int = 0
+    rulial_insight_count: int = 0
     boundary_navigation_success: float = 0.0
     reasoning_mode: str = "standard"
     meta_computational_level: int = 0
@@ -79,7 +79,7 @@ class MetaCognitiveLayer:
         self._differ: GraphDiffer | None = None
 
     def set_rulial(self, rulial: RulialSpace) -> None:
-        """Attach a rulial space for transcendental-yield tracking."""
+        """Attach a rulial space for insight-count tracking."""
         self._rulial = rulial
 
     def set_rules(self, rules: list[Rule]) -> None:
@@ -140,7 +140,7 @@ class MetaCognitiveLayer:
         """Evaluate the current cognitive state of the system.
 
         Computes architectural fitness, computational efficiency rates,
-        transcendental yield, and boundary-navigation success.  When
+        rulial insight count, and boundary-navigation success.  When
         ``rules`` is provided, the count of active rules is recorded in
         ``computational_efficiency["active_rules"]`` so callers can
         distinguish externally-supplied rule sets from the default set.
@@ -170,7 +170,7 @@ class MetaCognitiveLayer:
             state.computational_efficiency["active_rules"] = len(active_rules)
 
         if self._rulial:
-            state.transcendental_yield = len(self._rulial.insights)
+            state.rulial_insight_count = len(self._rulial.insights)
 
         events = self._log.query()
         reasoning_count = sum(1 for e in events if e.get("event_type") == "reason")
@@ -190,7 +190,7 @@ class MetaCognitiveLayer:
             rulial_pos = self._rulial.position
             if rulial_pos.computational_density > 0.5:
                 state.meta_computational_level = 2
-            if state.transcendental_yield > 3:
+            if state.rulial_insight_count > 3:
                 state.meta_computational_level = 3
 
         self._state = state
@@ -218,7 +218,7 @@ class MetaCognitiveLayer:
                 fitness=state.architectural_fitness,
                 mode=state.reasoning_mode,
                 meta_level=state.meta_computational_level,
-                transcendental_yield=state.transcendental_yield,
+                rulial_insight_count=state.rulial_insight_count,
             ),
             graph_health=GraphHealthInfo(
                 nodes=self._graph.node_count,
@@ -733,5 +733,5 @@ class MetaCognitiveLayer:
             meta_level=self._state.meta_computational_level,
             introspections=len(self._introspection_log),
             metamorphoses=len(self._metamorphosis_history),
-            transcendental_yield=self._state.transcendental_yield,
+            rulial_insight_count=self._state.rulial_insight_count,
         )

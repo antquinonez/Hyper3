@@ -257,7 +257,7 @@ class TestMetaCognitiveProperties:
         assert "meta_level" in analysis
         assert "introspections" in analysis
         assert "metamorphoses" in analysis
-        assert "transcendental_yield" in analysis
+        assert "rulial_insight_count" in analysis
 
     def test_reasoning_mode_setting(self):
         mem = CognitiveMemory(evolve_interval=0)

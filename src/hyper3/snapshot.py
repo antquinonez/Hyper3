@@ -299,7 +299,7 @@ def capture_snapshot(
     snap.meta_cognitive_state = {
         "architectural_fitness": state.architectural_fitness,
         "computational_efficiency": state.computational_efficiency,
-        "transcendental_yield": state.transcendental_yield,
+        "rulial_insight_count": state.rulial_insight_count,
         "boundary_navigation_success": state.boundary_navigation_success,
         "reasoning_mode": state.reasoning_mode,
         "meta_computational_level": state.meta_computational_level,
@@ -571,7 +571,7 @@ def restore_snapshot(
     meta._state = CognitiveStateModel(
         architectural_fitness=meta_state.get("architectural_fitness", 1.0),
         computational_efficiency=meta_state.get("computational_efficiency", {}),
-        transcendental_yield=meta_state.get("transcendental_yield", 0),
+        rulial_insight_count=meta_state.get("rulial_insight_count", meta_state.get("transcendental_yield", 0)),
         boundary_navigation_success=meta_state.get("boundary_navigation_success", 0.0),
         reasoning_mode=meta_state.get("reasoning_mode", "standard"),
         meta_computational_level=meta_state.get("meta_computational_level", 0),

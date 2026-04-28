@@ -106,13 +106,13 @@ class TestCognitiveMemoryNewFeatures:
         mem = CognitiveMemory()
         assert mem.rulial is not None
 
-    def test_transfinite_reasoning(self):
+    def test_structural_anomaly_detection(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.relate("cat", "dog", label="chases")
         result = mem.detect_structural_anomalies("cat")
-        assert result.decidability_status in {"decidable", "boundary_proximity", "undecidable"}
+        assert result.decidability_status in {"low_risk", "boundary", "anomalous"}
 
     def test_map_boundaries(self):
         mem = CognitiveMemory(evolve_interval=0)
@@ -187,7 +187,7 @@ class TestCognitiveMemoryNewFeatures:
         assert hasattr(stats, "rulial")
         assert "meta_cognitive" in stats
 
-    def test_transfinite_property(self):
+    def test_structural_anomaly_property(self):
         mem = CognitiveMemory()
         assert mem.structural_anomaly is not None
 

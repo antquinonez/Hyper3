@@ -582,7 +582,7 @@ class TestExplorationReportGeneration:
         assert pp.coverage_pct == pytest.approx(30.0)
         assert pp.bounds == {}
 
-    def test_transfinite_produces_partial_proof(self):
+    def test_anomalous_produces_exploration_report(self):
         g = Hypergraph()
         for lbl in "ABCDE":
             g.add_node(Hypernode(label=lbl))
@@ -593,12 +593,12 @@ class TestExplorationReportGeneration:
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("A", {"cyclic_structure": 0.1, "contradiction": 0.1, "structural_anomaly": 0.1})
         partial_results = result.partial_results
-        transfinite_results = [r for r in partial_results if r.get("status") == "transfinite"]
-        if not transfinite_results:
-            assert result.decidability_status in ("boundary_proximity", "undecidable")
+        anomalous_results = [r for r in partial_results if r.get("status") == "anomalous"]
+        if not anomalous_results:
+            assert result.decidability_status in ("boundary", "anomalous")
             return
-        assert "partial_proof" in transfinite_results[0]
-        pp = transfinite_results[0]["partial_proof"]
+        assert "partial_proof" in anomalous_results[0]
+        pp = anomalous_results[0]["partial_proof"]
         assert "coverage_pct" in pp
         assert "branches_explored" in pp
 
@@ -612,9 +612,9 @@ class TestExplorationReportGeneration:
             g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({n.id}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("A", {"cyclic_structure": 0.6, "high_centrality": 0.6})
-        boundary_results = [r for r in result.partial_results if r.get("status") == "boundary_proximity"]
+        boundary_results = [r for r in result.partial_results if r.get("status") == "boundary"]
         if not boundary_results:
-            assert result.decidability_status in ("boundary_proximity", "undecidable", "decidable")
+            assert result.decidability_status in ("boundary", "anomalous", "low_risk")
             return
         br = boundary_results[0]
         assert "structural_conclusions" in br

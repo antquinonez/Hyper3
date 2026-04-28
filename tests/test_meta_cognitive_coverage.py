@@ -55,7 +55,7 @@ class TestMetaCognitiveDeep:
         rulial.generate_high_level_insights()
         layer.attach_rulial(rulial)
         state = layer.assess_state()
-        assert state.transcendental_yield > 0
+        assert state.rulial_insight_count > 0
 
     def test_introspect_with_recommendations(self):
         g = Hypergraph()

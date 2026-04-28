@@ -96,9 +96,21 @@ class ConsensusResult:
 
 @dataclass
 class StructuralMetrics:
-    curvature: float = 0.0
-    frame_dragging: float = 0.0
-    redshift: float = 0.0
+    local_clustering: float = 0.0
+    perspective_overlap: float = 0.0
+    information_dissipation: float = 0.0
+
+    @property
+    def curvature(self) -> float:
+        return self.local_clustering
+
+    @property
+    def frame_dragging(self) -> float:
+        return self.perspective_overlap
+
+    @property
+    def redshift(self) -> float:
+        return self.information_dissipation
 
 
 class InvariantDetector:
@@ -1269,9 +1281,9 @@ class MultiPerspectiveAnalyzer:
             perspective overlap), and classical information dissipation.
         """
         return StructuralMetrics(
-            curvature=self.compute_local_clustering(seed_ids),
-            frame_dragging=self.compute_perspective_overlap(seed_ids, "classical", "quantum"),
-            redshift=self.compute_information_dissipation(seed_ids, "classical"),
+            local_clustering=self.compute_local_clustering(seed_ids),
+            perspective_overlap=self.compute_perspective_overlap(seed_ids, "classical", "quantum"),
+            information_dissipation=self.compute_information_dissipation(seed_ids, "classical"),
         )
 
 

@@ -128,9 +128,9 @@ class PerspectiveAnalysis(_SimpleResultBase):
 @dataclass
 class AnomalyAnalysis(_SimpleResultBase):
     mapped_regions: int = 0
-    decidable: int = 0
+    low_risk: int = 0
     boundary: int = 0
-    undecidable: int = 0
+    anomalous: int = 0
     reasoning_history: int = 0
 
 
@@ -199,7 +199,7 @@ class MetaCognitiveStats(_SimpleResultBase):
     meta_level: int = 0
     introspections: int = 0
     metamorphoses: int = 0
-    transcendental_yield: float = 0.0
+    rulial_insight_count: float = 0.0
 
 
 @dataclass
@@ -309,7 +309,7 @@ class CognitiveStateInfo(_SimpleResultBase):
     fitness: float = 0.0
     mode: str = ""
     meta_level: int = 0
-    transcendental_yield: int = 0
+    rulial_insight_count: int = 0
 
 
 @dataclass

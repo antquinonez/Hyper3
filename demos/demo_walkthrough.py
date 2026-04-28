@@ -221,14 +221,14 @@ print("━" * 72)
 print("STEP 6: Boundary detection — when is a question answerable?")
 print("━" * 72)
 print("""
-Some diagnostic questions are straightforward (decidable).
-Others approach undecidability — like "is this car's design fundamentally flawed?"
+Some diagnostic questions are straightforward (low risk).
+Others approach boundary or anomalous territory — like "is this car's design fundamentally flawed?"
 The system detects this and adapts its reasoning strategy.
 """)
 
 questions = [
-    ("is the battery dead?",                       "decidable"),
-    ("what is the root cause of failure?",         "decidable"),
+    ("is the battery dead?",                       "low_risk"),
+    ("what is the root cause of failure?",         "low_risk"),
     ("is the car's electrical system self-aware?", "boundary"),
 ]
 
@@ -361,7 +361,7 @@ print("""
 4. QUANTUM DIAGNOSIS    → It held multiple failure hypotheses in superposition
 5. ENTANGLEMENT         → Battery failure constrained related components
 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive)
-7. BOUNDARY DETECTION   → It knew which questions were answerable vs undecidable
+7. BOUNDARY DETECTION   → It knew which questions were answerable vs anomalous
 8. MULTI-FRAME ANALYSIS → It analyzed the same problem from 4 different perspectives
 9. RULIAL MAPPING       → It tracked its own position in computational space
 10. META-COGNITION      → It evaluated its own health and recommended improvements

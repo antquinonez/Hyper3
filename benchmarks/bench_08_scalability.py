@@ -96,7 +96,7 @@ def main() -> None:
         nx_sp = t_nx.elapsed
 
         with Timer() as t_h3:
-            h3_path = mem.shortest_path_labels(test_pair[0], test_pair[1])
+            h3_path = mem.shortest_path(test_pair[0], test_pair[1])
         h3_sp = t_h3.elapsed
 
         # --- Betweenness Centrality ---
@@ -105,7 +105,7 @@ def main() -> None:
         nx_bc_t = t_nx.elapsed
 
         with Timer() as t_h3:
-            h3_bc = mem.betweenness_centrality_labels()
+            h3_bc = mem.betweenness_centrality()
         h3_bc_t = t_h3.elapsed
 
         # --- BFS Traversal ---

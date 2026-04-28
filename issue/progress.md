@@ -34,7 +34,7 @@
 - [x] `BoundaryIndicator` supports both old field names (`self_reference`, etc.) and new names (`cyclic_structure`, etc.) via properties and `__init__` kwargs
 - [x] `StructuralAnomalyDetector` has backward-compat method aliases (`_detect_self_reference`, etc.)
 - [x] `transfinite.py` shim re-exports all old names
-- [x] Status strings remain `"undecidable"` / `"transfinite"` for backward compat
+- [x] Status strings updated to `"low_risk"` / `"boundary"` / `"anomalous"` (backward-compat property `decidability_status` preserved)
 
 ---
 

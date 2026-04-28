@@ -184,7 +184,7 @@ cs = introspection.cognitive_state
 print(f"   Architectural fitness: {cs.fitness:.3f}")
 print(f"   Reasoning mode: {cs.mode}")
 print(f"   Meta-computational level: {cs.meta_level}")
-print(f"   Transcendental yield: {cs.transcendental_yield}")
+print(f"   Rulial insight count: {cs.rulial_insight_count}")
 
 gh = introspection.graph_health
 print(f"   Graph: {gh.nodes} nodes, {gh.edges} edges, avg_degree={gh.avg_degree:.3f}")

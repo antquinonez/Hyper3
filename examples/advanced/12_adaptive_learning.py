@@ -424,7 +424,7 @@ def main() -> None:
     print(f"    Fitness:            {cognitive_state.get('fitness', 0.0):.3f}")
     print(f"    Reasoning mode:     {cognitive_state.get('mode', 'unknown')}")
     print(f"    Meta-computational:  level {cognitive_state.get('meta_level', 0)}")
-    print(f"    Transcendental yield: {cognitive_state.get('transcendental_yield', 0)}")
+    print(f"    Rulial insight count: {cognitive_state.get('rulial_insight_count', cognitive_state.get('transcendental_yield', 0))}")
 
     print("\n  Graph Health:")
     print(f"    Nodes:      {graph_health.get('nodes', 0)}")
