@@ -405,8 +405,11 @@ If `reason(use_overlay=True)` is called while an overlay already exists (from a 
 ### `Interpretation.amplitude` is `float | complex`
 After unitary evolution, amplitudes can be complex numbers. Code that consumes amplitudes should use `abs()` for magnitude comparisons. `probability` property already uses `abs()`.
 
+### `superpose()` context field is opt-in
+`use_context_field` defaults to `False`. The raw Born rule is applied to the provided amplitudes. Pass `use_context_field=True` to evolve the superposition using spreading activation values and structural prominence -- this biases the distribution toward well-connected nodes but changes the probabilities from what the raw amplitudes would produce.
+
 ### `EquivalenceEngine` uses combined similarity
-`find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting.
+`find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting. Nodes with empty neighborhoods get structural similarity 0.0 (no evidence of equivalence), not 1.0.
 
 ### `collapse_with_basis` records effectiveness outcomes
 `collapse_with_basis()` calls `record_basis_outcome(basis, success)` automatically: `True` when a valid basis produces a collapse result, `False` when the basis is not found or collapse returns None. Do not double-record outcomes in calling code.
@@ -551,7 +554,7 @@ These are known violations of the EP/DP principles that remain for backward comp
 - **`load()` resets thresholds**: `CognitiveMemory.load()` restores graph structure but constructor args (like `merge_threshold`) are set at construction time, not from the saved file. Tests must pass matching constructor args to the loading instance.
 - **Fitness never drops below 0.9**: The architectural fitness formula in `MetaCognitiveLayer` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
 - **Multiway expansion needs chains**: `TransitiveRule` only matches when there is a two-hop chain (A→B, B→C). Starting from a root node with no outgoing edges produces zero matches.
-- **EquivalenceEngine structural similarity**: Two nodes with no edges are structurally identical (score 1.0). Two nodes with no overlapping neighbors get structural score 0.0. The combined score can still exceed threshold via data similarity alone.
+- **EquivalenceEngine structural similarity**: Two nodes with no edges get structural score 0.0 (no evidence of equivalence). Two nodes with no overlapping neighbors also get structural score 0.0. Data similarity alone can still exceed the threshold if all shared dict keys have matching values. Provide discriminative data (unique names, IDs) to prevent false merges.
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Quantum decoherence is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
 - **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.causal_invariance`), use attribute access with explicit `if ci:` guards instead of `.get()`.

@@ -1,36 +1,25 @@
 """
-Full-Chain Threat Intelligence Analysis
-========================================
-
-This example demonstrates every major capability of the Hyper3 cognitive
-kernel applied to a realistic threat intelligence scenario. A single script
-builds a 140+ node CTI graph and then applies six different analytical
-approaches to answer the questions a SOC analyst needs answered at 2 AM.
-
-Sections:
-  1. Build the threat intelligence knowledge graph
-  2. Rule-based reasoning -- discover indirect attack chains
-  3. Spreading activation -- alert triage and impact scoring
-  4. Quantum superposition -- competing attribution hypotheses
-  5. Self-evolution -- decay stale IOCs, reinforce active threats
-  6. Pattern matching and centrality -- who is most dangerous?
+NetworkX-only equivalent of Hyper3's threat_intel_full_chain.py
+================================================================
+Implements all six analytical capabilities using only NetworkX and NumPy:
+  1. Build the knowledge graph
+  2. Rule-based inference (inverse + abductive)
+  3. Spreading activation for alert triage
+  4. Born-rule collapse for attribution ranking
+  5. Self-evolution (decay, prune, merge)
+  6. Centrality and pattern matching
 
 Run with:
-    .venv/bin/python examples/domain/threat_intel_full_chain.py
+    .venv/bin/python examples/comparison/nx_threat_intel_full_chain.py
 """
 
 from __future__ import annotations
 
+import random
 from collections import Counter
 
-from hyper3 import CognitiveMemory
-from hyper3.rules import (
-    TransitiveRule,
-    InverseRule,
-    AbductiveRule,
-)
-from hyper3.kernel import Modality
-
+import networkx as nx
+import numpy as np
 
 THREAT_ACTORS = [
     {"label": "APT28", "data": {"sophistication": "high", "origin": "Russia", "type": "threat_actor"}},
@@ -120,7 +109,7 @@ TTPS = [
     {"label": "T1053_Scheduled_Task", "data": {"tactic": "Persistence", "type": "TTP"}},
 ]
 
-RELATIONSHIPS = {
+RELATIONSHIPS: dict[str, list[tuple[str, str]]] = {
     "uses": [
         ("APT28", "Cobalt_Strike"), ("APT28", "Mimikatz"), ("APT28", "PlugX"),
         ("APT29", "SUNBURST"), ("APT29", "Mimikatz"),
@@ -225,98 +214,234 @@ STALE_IOC = [
 ]
 
 
-def section(n, title):
+def section(n: int, title: str) -> None:
     print()
     print("=" * 70)
     print(f"SECTION {n}: {title}")
     print("=" * 70)
 
 
-def main():
-    mem = CognitiveMemory(evolve_interval=0)
+def apply_inverse_rule(G: nx.DiGraph, edge_label: str, inverse_label: str) -> int:
+    added = 0
+    for u, v, data in list(G.edges(data=True)):
+        if data.get("label") == edge_label:
+            if not G.has_edge(v, u) or G[v][u].get("label") != inverse_label:
+                G.add_edge(v, u, label=inverse_label, weight=1.0, inferred=True)
+                added += 1
+    return added
+
+
+def apply_abductive_rule(G: nx.DiGraph, effect_label: str, cause_label: str) -> int:
+    added = 0
+    for u, v, data in list(G.edges(data=True)):
+        if data.get("label") == effect_label:
+            cause_node = f"hypothesis:{u}"
+            if not G.has_node(cause_node):
+                G.add_node(cause_node, **{"type": "hypothesis", "source": u})
+            if not G.has_edge(cause_node, v) or G[cause_node][v].get("label") != cause_label:
+                G.add_edge(cause_node, v, label=cause_label, weight=1.0, inferred=True)
+                added += 1
+    return added
+
+
+def spreading_activation(
+    G: nx.DiGraph,
+    seed: str,
+    energy: float = 1.0,
+    decay: float = 0.5,
+    iterations: int = 4,
+) -> list[dict]:
+    activation: dict[str, float] = {seed: energy}
+    depth: dict[str, int] = {seed: 0}
+    frontier = [seed]
+
+    for _ in range(iterations):
+        next_frontier: list[str] = []
+        for node in frontier:
+            current_energy = activation[node] * decay
+            d = depth[node] + 1
+            for nb in list(G.successors(node)) + list(G.predecessors(node)):
+                propagated = current_energy
+                if nb in activation:
+                    activation[nb] = max(activation[nb], propagated)
+                    if nb not in depth or d < depth[nb]:
+                        depth[nb] = d
+                else:
+                    activation[nb] = propagated
+                    depth[nb] = d
+                    next_frontier.append(nb)
+        frontier = next_frontier
+
+    results = []
+    for node, act in activation.items():
+        if node == seed:
+            continue
+        results.append({"label": node, "activation": act, "depth": depth.get(node, 0)})
+    results.sort(key=lambda x: -x["activation"])
+    return results
+
+
+def born_rule_collapse(
+    labels: list[str],
+    amplitudes: list[float],
+    n_trials: int = 1,
+    context: dict[str, float] | None = None,
+) -> str | None:
+    amps = np.array(amplitudes, dtype=float)
+    if context:
+        ctx = np.ones(len(labels))
+        for i, label in enumerate(labels):
+            if label in context:
+                ctx[i] = context[label]
+        amps = amps * ctx
+    probs = np.abs(amps) ** 2
+    total = probs.sum()
+    if total == 0:
+        return None
+    probs = probs / total
+    indices = np.random.choice(len(labels), size=n_trials, p=probs)
+    return labels[indices[0]] if n_trials == 1 else Counter(labels[i] for i in indices)
+
+
+def evolve_graph(
+    G: nx.DiGraph,
+    decay_factor: float = 0.85,
+    prune_threshold: float = 0.1,
+) -> dict:
+    decayed = 0
+    for node in G.nodes():
+        old_w = G.nodes[node].get("_weight", 1.0)
+        new_w = old_w * decay_factor
+        G.nodes[node]["_weight"] = new_w
+        if old_w > prune_threshold >= new_w:
+            decayed += 1
+
+    to_prune = [
+        n for n in G.nodes()
+        if G.nodes[n].get("_weight", 1.0) <= prune_threshold
+        and G.nodes[n].get("_access_count", 0) <= 0
+    ]
+    for n in to_prune:
+        G.remove_node(n)
+
+    node_list = list(G.nodes())
+    merged = 0
+    i = 0
+    while i < len(node_list):
+        ni = node_list[i]
+        if ni not in G:
+            i += 1
+            continue
+        j = i + 1
+        while j < len(node_list):
+            nj = node_list[j]
+            if nj not in G:
+                j += 1
+                continue
+            di = dict(G.nodes[ni])
+            dj = dict(G.nodes[nj])
+            ti = di.get("type", "")
+            tj = dj.get("type", "")
+            if ti and tj and ti == tj:
+                si = di.get("sophistication", "")
+                sj = dj.get("sophistication", "")
+                if si and sj and si == sj:
+                    succ_i = set(G.successors(ni))
+                    succ_j = set(G.successors(nj))
+                    if len(succ_i & succ_j) >= 2:
+                        for _, v, data in list(G.out_edges(nj, data=True)):
+                            if not G.has_edge(ni, v):
+                                G.add_edge(ni, v, **data)
+                        for u, _, data in list(G.in_edges(nj, data=True)):
+                            if not G.has_edge(u, ni):
+                                G.add_edge(u, ni, **data)
+                        G.remove_node(nj)
+                        merged += 1
+                        node_list.remove(nj)
+                        continue
+            j += 1
+        i += 1
+
+    return {
+        "decayed": decayed,
+        "pruned": len(to_prune),
+        "merged": merged,
+        "node_count": G.number_of_nodes(),
+        "edge_count": G.number_of_edges(),
+    }
+
+
+def edges_by_label(G: nx.DiGraph, src: str, label: str) -> list[str]:
+    return [v for _, v, d in G.out_edges(src, data=True) if d.get("label") == label]
+
+
+def degree_centrality(G: nx.DiGraph) -> dict[str, float]:
+    n = G.number_of_nodes()
+    if n <= 1:
+        return {node: 0.0 for node in G.nodes()}
+    return {node: (G.in_degree(node) + G.out_degree(node)) / (2 * (n - 1)) for node in G.nodes()}
+
+
+def main() -> None:
+    G = nx.DiGraph()
 
     section(1, "Building the Threat Intelligence Knowledge Graph")
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        G.add_node(actor["label"], **actor["data"], _weight=1.0, _access_count=1)
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        G.add_node(cve["label"], **cve["data"], _weight=1.0, _access_count=1)
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        G.add_node(mw["label"], **mw["data"], _weight=1.0, _access_count=1)
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        G.add_node(ttp["label"], **ttp["data"], _weight=1.0, _access_count=1)
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        G.add_node(infra["label"], **infra["data"], _weight=1.0, _access_count=1)
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        G.add_node(ind["label"], **ind["data"], _weight=1.0, _access_count=1)
     for ioc in STALE_IOC:
-        mem.store(ioc["label"], data=ioc["data"], modalities={Modality.SENSORY})
-        n = mem.graph.get_node_by_label(ioc["label"])
-        if n:
-            n.weight = 0.05
+        G.add_node(ioc["label"], **ioc["data"], _weight=0.05, _access_count=0)
 
-    edge_count = 0
     for rel_label, pairs in RELATIONSHIPS.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
-            edge_count += 1
+            G.add_edge(src, tgt, label=rel_label, weight=1.0)
 
-    print(f"  Nodes:  {mem.graph.node_count}")
-    print(f"  Edges:  {mem.graph.edge_count}")
     actor_set = {a["label"] for a in THREAT_ACTORS}
     cve_set = {c["label"] for c in CVES}
     mw_set = {m["label"] for m in MALWARE}
+
+    print(f"  Nodes:  {G.number_of_nodes()}")
+    print(f"  Edges:  {G.number_of_edges()}")
     print(f"  Threat actors: {len(actor_set)}  CVEs: {len(cve_set)}  Malware: {len(mw_set)}")
 
     section(2, "Rule-Based Reasoning -- Discovering Hidden Relationships")
 
     print("  InverseRule: for every APT-[exploits]->CVE, create CVE-[exploited_by]->APT.")
-    print("  This enables reverse lookups: 'who exploits this vulnerability?'")
     print("  AbductiveRule: if APT targets sector S, hypothesize about causation.")
     print()
 
-    pre_edges = mem.graph.edge_count
+    pre_edges = G.number_of_edges()
 
-    mem.add_rules(
-        InverseRule(edge_label="exploits", inverse_label="exploited_by"),
-        InverseRule(edge_label="targets", inverse_label="targeted_by"),
-        InverseRule(edge_label="uses", inverse_label="used_by"),
-        InverseRule(edge_label="communicates_with", inverse_label="communicates_with"),
-        AbductiveRule(effect_label="targets", cause_label="suspected_attacker"),
-    )
+    inv_exploits = apply_inverse_rule(G, "exploits", "exploited_by")
+    inv_targets = apply_inverse_rule(G, "targets", "targeted_by")
+    inv_uses = apply_inverse_rule(G, "uses", "used_by")
+    inv_comms = apply_inverse_rule(G, "communicates_with", "communicates_with")
+    abd_targets = apply_abductive_rule(G, "targets", "suspected_attacker")
 
-    result = mem.reason(
-        seed_concepts={"APT28", "APT29", "Lazarus", "Volt_Typhoon", "FIN7",
-                        "CVE-2023-44228", "Cobalt_Strike", "GOV", "FIN"},
-        max_depth=3,
-        auto_commit=True,
-    )
-
-    new_edges = mem.graph.edge_count - pre_edges
-
-    print(f"  States explored:    {result.expansion.states_created}")
-    print(f"  Rules applied:      {result.expansion.rules_applied}")
-    print(f"  New edges total:    {new_edges}")
+    new_edges = G.number_of_edges() - pre_edges
+    print(f"  Inverse edges added:  {inv_exploits} (exploited_by) + {inv_targets} (targeted_by) + {inv_uses} (used_by) + {inv_comms} (communicates_with)")
+    print(f"  Abductive hypotheses: {abd_targets}")
+    print(f"  New edges total:      {new_edges}")
     print()
 
-    inferred_labels = {"exploited_by", "targeted_by", "used_by", "suspected_attacker",
-                       "communicates_with"}
-    inferred_count = 0
-    exploited_by_examples: list[str] = []
-    suspected_examples: list[str] = []
-    for edge in mem.graph.edges:
-        if edge.label in inferred_labels:
-            inferred_count += 1
-            src_node = mem.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
-            tgt_node = mem.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
-            src_lbl = src_node.label if src_node else "?"
-            tgt_lbl = tgt_node.label if tgt_node else "?"
-            if edge.label == "exploited_by" and len(exploited_by_examples) < 5:
-                exploited_by_examples.append(f"    {src_lbl} --[exploited_by]--> {tgt_lbl}")
-            elif edge.label == "suspected_attacker" and len(suspected_examples) < 5:
-                suspected_examples.append(f"    {src_lbl} --[suspected_attacker]--> {tgt_lbl}")
+    exploited_by_examples = []
+    suspected_examples = []
+    for u, v, data in G.edges(data=True):
+        if data.get("label") == "exploited_by" and len(exploited_by_examples) < 3:
+            exploited_by_examples.append(f"    {u} --[exploited_by]--> {v}")
+        elif data.get("label") == "suspected_attacker" and len(suspected_examples) < 5:
+            suspected_examples.append(f"    {u} --[suspected_attacker]--> {v}")
 
-    print(f"  Inferred edges by rules ({inferred_count} total):")
     if exploited_by_examples:
         print(f"    Reverse lookup edges (exploited_by):")
         for ex in exploited_by_examples:
@@ -328,58 +453,56 @@ def main():
 
     section(3, "Spreading Activation -- Alert Triage and Impact Scoring")
 
-    print("  Scenario: SOC receives alert that CVE-2023-44228 is being")
-    print("  exploited in the wild. Which threat actors and sectors light up?")
+    print("  Scenario: CVE-2023-44228 is being exploited in the wild.")
+    print("  Which threat actors and sectors light up?")
     print()
 
-    mem.stimulate("CVE-2023-44228", energy=1.0)
-    activated = mem.spread_activation(iterations=4)
+    activated = spreading_activation(G, "CVE-2023-44228", energy=1.0, decay=0.5, iterations=4)
 
-    activated_actors = [r for r in activated if r.label in actor_set and r.label != "CVE-2023-44228"]
-    activated_sectors = [r for r in activated if r.label in {i["label"] for i in INDUSTRIES}]
-    activated_cves = [r for r in activated if r.label in cve_set and r.label != "CVE-2023-44228"]
+    activated_actors = [r for r in activated if r["label"] in actor_set]
+    activated_sectors = [r for r in activated if r["label"] in {i["label"] for i in INDUSTRIES}]
+    activated_cves = [r for r in activated if r["label"] in cve_set]
 
     print(f"  Total activated nodes: {len(activated)}")
     print()
     print(f"  Activated threat actors ({len(activated_actors)}):")
     for r in activated_actors[:8]:
-        print(f"    {r.label:22s}  energy={r.activation:.3f}  depth={r.depth}")
+        print(f"    {r['label']:22s}  energy={r['activation']:.3f}  depth={r['depth']}")
     print()
     print(f"  Affected sectors ({len(activated_sectors)}):")
     for r in activated_sectors:
-        print(f"    {r.label:22s}  energy={r.activation:.3f}")
+        print(f"    {r['label']:22s}  energy={r['activation']:.3f}")
     print()
     print(f"  Related CVEs ({len(activated_cves)}):")
     for r in activated_cves[:5]:
-        print(f"    {r.label:22s}  energy={r.activation:.3f}  depth={r.depth}")
+        print(f"    {r['label']:22s}  energy={r['activation']:.3f}  depth={r['depth']}")
 
     section(4, "Quantum Superposition -- Competing Attribution Hypotheses")
 
-    print("  Scenario: an intrusion is detected. Three APT groups are suspects.")
-    print("  CTI intel provides prior weights. The system collapses to the")
-    print("  most likely attribution via Born-rule sampling.")
+    print("  Scenario: an intrusion is detected. Four APT groups are suspects.")
+    print("  Born-rule collapse from prior amplitudes.")
     print()
 
     suspects = ["APT28", "APT29", "Lazarus", "Volt_Typhoon"]
     prior_amplitudes = [0.7, 0.5, 0.4, 0.3]
 
-    qs = mem.superpose(suspects, amplitudes=prior_amplitudes)
-    print(f"  Prior distribution (raw Born rule, use_context_field=False):")
-    for interp in qs.interpretations:
-        node = mem.graph.get_node(interp.node_id)
-        label = node.label if node else interp.node_id
-        print(f"    {label:22s}  probability={interp.probability:.4f}")
+    amps = np.array(prior_amplitudes)
+    probs = np.abs(amps) ** 2
+    probs = probs / probs.sum()
+
+    print(f"  Prior distribution (from CTI reporting):")
+    for label, p in zip(suspects, probs):
+        print(f"    {label:22s}  probability={p:.4f}")
 
     print()
     print("  Running 1000 collapse trials to verify distribution...")
+
+    np.random.seed(None)
     counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_trial = mem.superpose(suspects, amplitudes=prior_amplitudes)
-        ans = mem.collapse(qs_trial)
-        if ans:
-            node = mem.graph.get_node(ans.node_id)
-            if node:
-                counts[node.label] += 1
+        result = born_rule_collapse(suspects, prior_amplitudes)
+        if result:
+            counts[result] += 1
 
     print()
     print("  Collapse frequency over 1000 trials:")
@@ -393,12 +516,9 @@ def main():
     print(f"  Context-weighted collapse (evidence favors APT28: {ctx_weights}):")
     ctx_counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_ctx = mem.superpose(suspects, amplitudes=prior_amplitudes)
-        ans_ctx = mem.collapse(qs_ctx, context=ctx_weights)
-        if ans_ctx:
-            node = mem.graph.get_node(ans_ctx.node_id)
-            if node:
-                ctx_counts[node.label] += 1
+        result = born_rule_collapse(suspects, prior_amplitudes, context=ctx_weights)
+        if result:
+            ctx_counts[result] += 1
 
     for label in suspects:
         c = ctx_counts.get(label, 0)
@@ -407,44 +527,35 @@ def main():
 
     section(5, "Self-Evolution -- Decay Stale IOCs, Reinforce Active Threats")
 
-    print("  The graph tracks which nodes are accessed. Evolution decays")
-    print("  weights on unused edges, prunes below-threshold nodes, and")
-    print("  reinforces frequently-accessed paths.")
+    print("  Evolution decays weights, prunes low-weight/low-access nodes,")
+    print("  and merges structurally similar nodes.")
     print()
-
-    for _ in range(5):
-        mem.recall("APT28", max_depth=2, max_nodes=20)
-        mem.recall("Lazarus", max_depth=2, max_nodes=20)
-        mem.recall("CVE-2023-44228", max_depth=2, max_nodes=20)
-
-    pre_nodes = mem.graph.node_count
-    pre_edges_evolve = mem.graph.edge_count
-    stale_labels = {ioc["label"] for ioc in STALE_IOC}
 
     stale_labels = {ioc["label"] for ioc in STALE_IOC}
     for label in stale_labels:
-        node = mem.graph.get_node_by_label(label)
-        if node:
-            node.access_count = 0
+        if G.has_node(label):
+            G.nodes[label]["_access_count"] = 0
+
+    pre_nodes = G.number_of_nodes()
+    pre_edges_evolve = G.number_of_edges()
 
     print(f"  Before evolution: {pre_nodes} nodes, {pre_edges_evolve} edges")
     print(f"  Stale IOCs (weight ~0.05): {', '.join(sorted(stale_labels))}")
     print()
 
-    evo = mem.evolve()
+    evo = evolve_graph(G)
 
     print(f"  After evolution:")
-    print(f"    Edges decayed:    {evo.decayed}")
-    print(f"    Nodes pruned:     {evo.pruned}")
-    print(f"    Nodes merged:     {evo.merged}")
-    print(f"    Nodes reinforced: {evo.reinforced}")
-    print(f"    Graph size now:   {evo.node_count} nodes, {evo.edge_count} edges")
+    print(f"    Edges decayed:    {evo['decayed']}")
+    print(f"    Nodes pruned:     {evo['pruned']}")
+    print(f"    Nodes merged:     {evo['merged']}")
+    print(f"    Graph size now:   {evo['node_count']} nodes, {evo['edge_count']} edges")
 
     surviving_stale = []
     for label in sorted(stale_labels):
-        node = mem.graph.get_node_by_label(label)
-        if node:
-            surviving_stale.append(f"{label} (weight={node.weight:.3f})")
+        if G.has_node(label):
+            w = G.nodes[label].get("_weight", 0)
+            surviving_stale.append(f"{label} (weight={w:.3f})")
     if surviving_stale:
         print(f"    Stale IOCs surviving: {surviving_stale}")
     else:
@@ -452,12 +563,10 @@ def main():
 
     section(6, "Pattern Matching and Centrality -- Who Is Most Dangerous?")
 
-    print("  Degree centrality on the relationship graph (not just the")
-    print("  vulnerability database). A node's danger is proportional to")
-    print("  how many attack paths pass through it.")
+    print("  Degree centrality on the relationship graph.")
     print()
 
-    centrality = mem.degree_centrality()
+    centrality = degree_centrality(G)
     top_actors = sorted(
         [(k, v) for k, v in centrality.items() if k in actor_set],
         key=lambda x: x[1],
@@ -466,9 +575,9 @@ def main():
 
     print("  Top 5 most connected threat actors:")
     for rank, (label, score) in enumerate(top_actors, 1):
-        exploits = mem.pattern_match(source_label=label, edge_label="exploits")
-        targets = mem.pattern_match(source_label=label, edge_label="targets")
-        uses = mem.pattern_match(source_label=label, edge_label="uses")
+        exploits = edges_by_label(G, label, "exploits")
+        targets = edges_by_label(G, label, "targets")
+        uses = edges_by_label(G, label, "uses")
         print(f"    {rank}. {label:22s} centrality={score:.4f}  "
               f"exploits={len(exploits)}  targets={len(targets)}  uses={len(uses)}")
 
@@ -480,46 +589,43 @@ def main():
     print()
     print("  Top 5 most connected CVEs:")
     for rank, (cve_label, score) in enumerate(top_cves, 1):
-        node = mem.graph.get_node_by_label(cve_label)
-        product = node.data.get("product", "?") if node and isinstance(node.data, dict) else "?"
-        cvss = node.data.get("cvss", "?") if node and isinstance(node.data, dict) else "?"
+        nd = G.nodes[cve_label]
+        product = nd.get("product", "?")
+        cvss = nd.get("cvss", "?")
         print(f"    {rank}. {cve_label:22s} centrality={score:.4f}  "
               f"CVSS={cvss}  product={product}")
 
-    apt28_subgraph = set()
-    for edge_list in [
-        mem.pattern_match(source_label="APT28", edge_label="exploits"),
-        mem.pattern_match(source_label="APT28", edge_label="targets"),
-        mem.pattern_match(source_label="APT28", edge_label="uses"),
-        mem.pattern_match(source_label="APT28", edge_label="uses_tactic"),
+    apt28_neighbors = set()
+    for edge_list_fn in [
+        lambda: edges_by_label(G, "APT28", "exploits"),
+        lambda: edges_by_label(G, "APT28", "targets"),
+        lambda: edges_by_label(G, "APT28", "uses"),
+        lambda: edges_by_label(G, "APT28", "uses_tactic"),
     ]:
-        for e in edge_list:
-            apt28_subgraph.update(e.source_labels)
-            apt28_subgraph.update(e.target_labels)
-    sg = mem.subgraph(apt28_subgraph)
+        for nb in edge_list_fn():
+            apt28_neighbors.add(nb)
+    apt28_neighbors.add("APT28")
+    sg = G.subgraph(apt28_neighbors & set(G.nodes()))
     print()
-    print(f"  APT28 full profile subgraph: {sg.node_count} nodes, {sg.edge_count} edges")
+    print(f"  APT28 full profile subgraph: {sg.number_of_nodes()} nodes, {sg.number_of_edges()} edges")
 
     print()
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
-    print(f"  Nodes:                {stats.nodes}")
-    print(f"  Edges:                {stats.edges}")
+    print(f"  Nodes:                {G.number_of_nodes()}")
+    print(f"  Edges:                {G.number_of_edges()}")
     print(f"  Inferred by rules:    {new_edges}")
-    print(f"  Stale IOCs pruned:    {evo.pruned}")
-    print(f"  Event log entries:    {stats.log_size}")
+    print(f"  Stale IOCs pruned:    {evo['pruned']}")
     print()
-    print("  What happened in this script:")
-    print("    1. Built a 73-node CTI hypergraph with labeled relationships")
-    print(f"    2. Applied inference rules, discovered {new_edges} new relationship edges")
-    print("    3. Used spreading activation to triage a Log4j exploitation alert")
-    print("    4. Ranked attribution hypotheses via quantum Born-rule collapse")
-    print(f"    5. Evolved the graph: pruned {evo.pruned} stale IOCs, merged {evo.merged} equivalent nodes")
-    print("    6. Identified the most dangerous actors and CVEs by centrality")
+    print("  Lines of code written for this script:")
+    print("    Rule engine (inverse + abductive):  ~35 lines")
+    print("    Spreading activation:               ~20 lines")
+    print("    Born-rule collapse:                  ~15 lines")
+    print("    Self-evolution (decay+prune+merge):  ~40 lines")
+    print("    Total custom logic:                 ~110 lines")
     print()
-    print("  Zero API calls. Zero LLM. Zero cloud. Three pip dependencies.")
+    print("  NetworkX + NumPy only. No Hyper3 dependency.")
 
 
 if __name__ == "__main__":

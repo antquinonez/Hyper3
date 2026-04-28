@@ -70,7 +70,7 @@ class EquivalenceEngine:
             neighbors_b.update(edge.target_ids | edge.source_ids)
         neighbors_b.discard(node_b.id)
         if not neighbors_a and not neighbors_b:
-            return 1.0
+            return 0.0
         if not neighbors_a or not neighbors_b:
             return 0.0
         overlap = len(neighbors_a & neighbors_b)

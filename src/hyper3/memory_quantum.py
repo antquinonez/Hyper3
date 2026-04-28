@@ -25,7 +25,7 @@ class QuantumMixin(_MemoryBase):
         concepts: list[str],
         *,
         amplitudes: list[float] | None = None,
-        use_context_field: bool = True,
+        use_context_field: bool = False,
     ) -> QuantumState:
         """Create a quantum superposition over the given concepts.
 
@@ -36,6 +36,9 @@ class QuantumMixin(_MemoryBase):
             concepts: Labels of the nodes to superpose.
             amplitudes: Optional amplitude list; uniform if not provided.
             use_context_field: If True, evolve the state using activation context.
+                This biases the probability distribution toward structurally
+                prominent nodes (higher degree, more connections). Default is
+                False, which applies the raw Born rule to the provided amplitudes.
 
         Returns:
             The created QuantumState.

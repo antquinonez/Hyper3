@@ -72,3 +72,17 @@ The project root contains additional demo scripts:
 - `demo_multiway.py` - Low-level multiway engine demo
 - `demo_discovery.py` - Rule discovery engine demo
 - `demo_feedback.py` - Retrieval feedback and LTR demo
+
+Comparison Examples (`comparison/`)
+------------------------------------
+
+NetworkX-only equivalents of Hyper3 examples, implementing the same
+analytical capabilities using raw networkx + numpy. Each `nx_*` script
+mirrors a corresponding Hyper3 domain or advanced example.
+
+| File | Equivalent Hyper3 Example | Key Differences |
+|------|--------------------------|-----------------|
+| `nx_threat_intel_full_chain.py` | `domain/threat_intel_full_chain.py` | Custom rule engine, spreading activation, Born-rule collapse, self-evolution (~110 LOC) |
+| `nx_financial_risk.py` | `domain/financial_risk_network.py` | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
+| `nx_medical_diagnosis.py` | `domain/medical_diagnosis.py` | Backward chaining, belief revision, uncertainty propagation |
+| `nx_structural_patterns.py` | `advanced/13_structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection |
