@@ -21,9 +21,9 @@ def _build_graph():
 
 
 class TestBoundaryIndicator:
-    def test_decidable(self):
+    def test_low_risk(self):
         bi = BoundaryIndicator(cyclic_structure=0.0, high_centrality=0.0)
-        assert bi.is_decidable
+        assert bi.is_low_risk
         assert not bi.is_boundary
         assert bi.boundary_score < 0.3
 
@@ -33,7 +33,7 @@ class TestBoundaryIndicator:
 
     def test_anomalous(self):
         bi = BoundaryIndicator(cyclic_structure=0.9, high_centrality=0.9, contradiction_risk=0.8)
-        assert not bi.is_decidable
+        assert not bi.is_low_risk
         assert bi.boundary_score > 0.5
 
 
@@ -42,7 +42,7 @@ class TestStructuralAnomalyDetector:
         g = _build_graph()
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("cat")
-        assert result.decidability_status == "low_risk"
+        assert result.anomaly_status == "low_risk"
         assert result.reasoning_level == 1
         assert len(result.partial_results) > 0
 
@@ -72,7 +72,7 @@ class TestStructuralAnomalyDetector:
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
         assert result.boundary_score > 0.3
-        if result.decidability_status == "boundary":
+        if result.anomaly_status == "boundary":
             assert len(result.boundary_warnings) > 0
 
     def test_anomaly_aware_approach(self):
@@ -127,7 +127,7 @@ class TestStructuralAnomalyDetector:
             g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("paradox node")
-        if result.decidability_status != "low_risk":
+        if result.anomaly_status != "low_risk":
             assert len(result.alternative_formulations) > 0
 
     def test_max_level_cap(self):
@@ -202,7 +202,7 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
-        if result.decidability_status == "boundary":
+        if result.anomaly_status == "boundary":
             assert len(result.partial_results) > 0
 
     def test_anomaly_aware_approach_generates_insights(self):
@@ -212,7 +212,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("anomalous node")
-        if result.decidability_status == "anomalous":
+        if result.anomaly_status == "anomalous":
             assert len(result.structural_insights) > 0
 
     def test_generate_warnings_all_categories(self):
@@ -225,7 +225,7 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("all boundary")
-        if result.decidability_status != "low_risk":
+        if result.anomaly_status != "low_risk":
             assert len(result.boundary_warnings) >= 1
 
     def test_reformulate_with_neighbors(self):
@@ -236,7 +236,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"dog"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("reformulate node")
-        if result.decidability_status != "low_risk":
+        if result.anomaly_status != "low_risk":
             has_related = any("Related low-risk" in f for f in result.alternative_formulations)
             assert has_related
 
@@ -248,7 +248,7 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("meta node")
-        if result.decidability_status == "anomalous":
+        if result.anomaly_status == "anomalous":
             assert any("structural anomaly" in s.lower() or "Boundary score" in s or "Cyclic" in s for s in result.structural_insights)
 
     def test_boundary_regions_property(self):
@@ -271,7 +271,7 @@ class TestStructuralAnomalyDeepCoverage:
         g = _build_graph()
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("cat")
-        assert result.decidability_status == "low_risk"
+        assert result.anomaly_status == "low_risk"
         assert result.partial_results[0]["status"] == "low_risk"
         assert "mammal" in result.partial_results[0]["connections"]
 
@@ -311,7 +311,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("anomalous node")
-        if result.decidability_status == "anomalous":
+        if result.anomaly_status == "anomalous":
             anomalous_entries = [r for r in result.partial_results if r.get("status") == "anomalous"]
             if anomalous_entries:
                 assert "extended_neighborhood" in anomalous_entries[0]

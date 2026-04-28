@@ -10,12 +10,12 @@ Hyper3 is a self-evolving hypergraph cognitive kernel library. It is a pure-Pyth
 
 ## Inspirational Foundation
 
-A primary goal of this project is to produce a working analogic implementation of the architecture described in the documents under `inspiration_analogic_resources/`:
+The architecture is inspired by two theoretical frameworks:
 
 - **Hypergraph-Ruliad Integration Framework** — Dynamic hypergraph instantiation, infinite-dimensional traversal, Ruliad-based multiway expansion with equivalence merging, observer-centric adaptive filtering, lazy evaluation, continuous structural self-evolution, and removal of token-count dependence.
 - **Rulial-Enhanced Hypergraph Cognitive Architecture v2-1** — Multiway causal invariance, branchial space navigation, rulial consciousness, computational relativity, transfinite reasoning, quantum cognitive effects, and automated rule space exploration.
 
-Every module in `src/hyper3/` maps to a concept from these specifications. When adding features or evaluating design decisions, consult the inspiration documents to ensure the implementation remains a faithful analog of the described architecture. The principles below codify the design patterns that bridge the specifications to the code.
+Every module in `src/hyper3/` maps to a concept from these specifications. The principles below codify the design patterns that bridge the theoretical specifications to the code, implemented as structural heuristics where formal mathematics is not feasible.
 
 ## Design Principles
 
@@ -629,11 +629,12 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 | Computational relativity | Multi-perspective parameter selection (4 scalar complexity estimators) | `multi_perspective.py` | Heuristic |
 | Ollivier-Ricci curvature | Local clustering coefficient (triangle density) | `multi_perspective.py` | Heuristic |
 | Frame dragging | Perspective overlap via Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
-| Gravitational redshift | Information dissipation via product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
+| Gravitational redshift | Frame information loss via product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
 | Transcendental insights | High-level insights from pattern detection | `multiway_rulial.py` | Heuristic |
 | Quantum entanglement | Concept correlation via classical correlation matrix lookup | `quantum.py` | Classical (Born-rule collapse is rigorous; entanglement is correlation lookup, not tensor product) |
 | Quantum superposition | Born rule collapse with complex amplitudes | `quantum.py` | Rigorous |
 | Von Neumann entropy | Density matrix eigenvalue entropy | `quantum.py` | Rigorous |
+| Von Neumann entropy (multi_perspective) | Normalized Shannon entropy over edge target distribution | `multi_perspective.py` | Heuristic (misleading method name `_von_neumann_entropy` renamed to `_normalized_shannon_entropy`) |
 | Partial trace | Tensor contraction over subsystems | `quantum.py` | Rigorous |
 | Unitary evolution | Matrix multiplication with renormalization | `quantum.py` | Rigorous |
 | Computational density | Graph activity density (avg_degree * 0.25 + rule_diversity * 0.75) | `multiway_rulial.py` | Weighted composite metric |
@@ -646,6 +647,9 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 | Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
 | Branchial entanglement | Branchial correlation via Dice coefficient of shared active nodes | `multiway_branchial.py` | Structural metric |
 | Hypergraph | Directed multigraph with n-ary edge storage, pairwise expansion for algorithms | `kernel.py` | Structural (new hypergraph primitives added: incidence matrix, Laplacian, directed edge accessors) |
+| Decoherence / coherence_time | Timeout-based exponential amplitude decay | `quantum.py` | Loose analog (not environmental decoherence T1/T2) |
+| MeasurementBasis | Named dimension weights + Thompson sampling for selection | `quantum.py` | Loose analog (not a Hermitian operator; feature weighting profile) |
+| Interference | Standard formula comparing \|sum(amps)\|^2 vs sum(\|amp\|^2) | `quantum.py` | Rigorous |
 
 ## Making Changes
 

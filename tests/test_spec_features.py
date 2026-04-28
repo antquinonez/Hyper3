@@ -572,15 +572,15 @@ class TestFrameEffectivenessLearning:
 
 class TestExplorationReportGeneration:
     def test_partial_proof_dataclass(self):
-        pp = ExplorationReport(
+        report = ExplorationReport(
             concept="test",
             expanded_nodes=["a", "b"],
             total_branches_estimated=10,
             branches_explored=3,
             coverage=0.3,
         )
-        assert pp.coverage_pct == pytest.approx(30.0)
-        assert pp.bounds == {}
+        assert report.coverage_pct == pytest.approx(30.0)
+        assert report.bounds == {}
 
     def test_anomalous_produces_exploration_report(self):
         g = Hypergraph()
@@ -597,10 +597,10 @@ class TestExplorationReportGeneration:
         if not anomalous_results:
             assert result.decidability_status in ("boundary", "anomalous")
             return
-        assert "partial_proof" in anomalous_results[0]
-        pp = anomalous_results[0]["partial_proof"]
-        assert "coverage_pct" in pp
-        assert "branches_explored" in pp
+        assert "exploration_report" in anomalous_results[0]
+        report = anomalous_results[0]["exploration_report"]
+        assert "coverage_pct" in report
+        assert "branches_explored" in report
 
     def test_boundary_aware_distinguishes_conclusions(self):
         g = Hypergraph()

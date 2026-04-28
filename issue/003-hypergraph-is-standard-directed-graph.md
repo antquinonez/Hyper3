@@ -2,7 +2,7 @@
 
 **Severity**: High
 **Module**: `kernel.py` (712 lines), all downstream consumers
-**Status**: Open
+**Status**: Closed (Option A implemented: hypergraph primitives added, honest naming retained)
 
 ## Problem
 

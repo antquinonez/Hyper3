@@ -129,7 +129,7 @@ class TestReasonWithFrameTransform:
         r_quantum = mem.reason_with_frame({"a", "b", "c"}, frame_name="quantum")
         assert r_classical["frame_config"]["algorithm"] != r_quantum["frame_config"]["algorithm"]
 
-    def test_transform_config_on_relativity(self):
+    def test_transform_config_on_perspective(self):
         mem = _make_mem()
         cfg = mem._perspective.transform_config("a", "classical", "quantum")
         assert cfg.algorithm == "superposition"

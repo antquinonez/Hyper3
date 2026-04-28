@@ -115,6 +115,24 @@
 - [x] Updated all demos and examples (4 files)
 - [x] Updated AGENTS.md Terminology Mapping table with all new renames
 
+### Phase 3: Remaining terminology cleanup (this pass)
+- [x] `structural_anomaly.py`: Swapped `is_decidable`/`is_low_risk` — `is_low_risk` is now primary, `is_decidable` backward-compat alias
+- [x] `structural_anomaly.py`: `decidability_status` → backward-compat alias for `anomaly_status`
+- [x] `structural_anomaly.py`: Removed duplicate `"partial_proof"` dict key (was alongside identical `"exploration_report"`)
+- [x] `structural_anomaly.py`: `Axiom` → `ExplorationAssumption`, `AxiomSet` → `AssumptionSet` (backward-compat aliases kept)
+- [x] `structural_anomaly.py`: `extend_proof` → `extend_exploration`, `compose_proofs` → `compose_explorations` (backward-compat aliases kept)
+- [x] `structural_anomaly.py`: `suggest_axioms` → `suggest_assumptions` (backward-compat alias kept)
+- [x] `structural_anomaly.py`: Updated `ANOMALY_PATTERNS` type names: `self_referential_cycle` → `cyclic_hub`, `membership_paradox` → `cyclic_high_centrality`, `inaccessible_structure` → `high_connectivity_orphan`
+- [x] `structural_anomaly.py`: Updated `ExplorationReport` fields: `axioms_used` → `assumptions_used` (property alias kept), `axiom_dependent_nodes` → `assumption_dependent_nodes` (property alias kept)
+- [x] `multi_perspective.py`: `_von_neumann_entropy` → `_normalized_shannon_entropy`
+- [x] `multi_perspective.py`: `curvature` variable → `composite`
+- [x] `multi_perspective.py`: `information_dissipation` → `frame_information_loss` (field + method + docstrings)
+- [x] `multi_perspective.py`: `StructuralMetrics.information_dissipation` → `frame_information_loss`
+- [x] `memory_reasoning.py`: Fixed "relativity engine" → "multi-perspective analyzer" in docstring
+- [x] `__init__.py`: Added `ExplorationAssumption`, `AssumptionSet` exports
+- [x] Updated AGENTS.md Terminology Mapping table: added `Decoherence / coherence_time`, `MeasurementBasis`, `Interference`, `Von Neumann entropy (multi_perspective)` entries
+- [x] Updated all test files: `test_conservative_extension.py`, `test_frame_metrics.py`, `test_spec_features.py`, `test_branchial_coverage.py`, `test_branchial.py`, `test_structural_anomaly.py`, `test_integration.py`, `test_meta_cognitive.py`, `test_snapshot.py`, `test_frame_transform.py`
+
 ---
 
 ## Documentation Updates

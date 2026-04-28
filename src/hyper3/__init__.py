@@ -80,10 +80,12 @@ from hyper3.multiway_rulial import (
 )
 from hyper3.structural_anomaly import (
     AnomalyDetectionResult,
+    AssumptionSet,
     Axiom,
     AxiomSet,
     BoundaryIndicator,
     BoundaryRegion,
+    ExplorationAssumption,
     ExplorationReport,
     StructuralAnomalyDetector,
 )

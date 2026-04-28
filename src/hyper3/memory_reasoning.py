@@ -456,7 +456,7 @@ class ReasoningMixin(_MemoryBase):
         ``max_total_states`` are passed to :meth:`reason`.
 
         After reasoning completes, the outcome (success/failure) is recorded
-        with the relativity engine for both the frame and the problem
+        with the multi-perspective analyzer for both the frame and the problem
         features, enabling future frame recommendations via Thompson sampling.
 
         Args:

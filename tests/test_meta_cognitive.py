@@ -112,7 +112,7 @@ class TestCognitiveMemoryNewFeatures:
         mem.store("dog")
         mem.relate("cat", "dog", label="chases")
         result = mem.detect_structural_anomalies("cat")
-        assert result.decidability_status in {"low_risk", "boundary", "anomalous"}
+        assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
 
     def test_map_boundaries(self):
         mem = CognitiveMemory(evolve_interval=0)

@@ -151,12 +151,12 @@ class TestBranchialSpaceDeep:
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "b"}, [rule], max_depth=2, max_total_states=20)
         bs = BranchialSpace(g, mw.multiway)
-        entanglements = bs.detect_correlations(min_correlation=0.1)
-        assert isinstance(entanglements, list)
-        for ent in entanglements:
-            assert isinstance(ent, BranchialCorrelation)
-            assert ent.correlation > 0.0
-            assert len(ent.shared_concept_ids) > 0
+        correlations = bs.detect_correlations(min_correlation=0.1)
+        assert isinstance(correlations, list)
+        for corr in correlations:
+            assert isinstance(corr, BranchialCorrelation)
+            assert corr.correlation > 0.0
+            assert len(corr.shared_concept_ids) > 0
 
     def test_find_neighbors_returns_sorted(self):
         g, mw = _build_branching()
@@ -402,13 +402,13 @@ class TestBranchialDeepCoverage:
     def test_detect_correlations_with_constraint_map(self):
         g, mw = _build_manual()
         bs = BranchialSpace(g, mw)
-        entanglements = bs.detect_correlations(min_correlation=0.1)
-        assert len(entanglements) > 0
-        for ent in entanglements:
-            assert ent.correlation > 0.0
-            assert len(ent.shared_concept_ids) > 0
-            if ent.constraint_map:
-                for key in ent.constraint_map:
+        correlations = bs.detect_correlations(min_correlation=0.1)
+        assert len(correlations) > 0
+        for corr in correlations:
+            assert corr.correlation > 0.0
+            assert len(corr.shared_concept_ids) > 0
+            if corr.constraint_map:
+                for key in corr.constraint_map:
                     assert key.startswith("state_a:") or key.startswith("state_b:")
 
     def test_find_neighbors_auto_assign(self):
@@ -543,5 +543,5 @@ class TestBranchialDeepCoverage:
         mw.add_state(l1)
         mw.add_state(l2)
         bs = BranchialSpace(g, mw)
-        entanglements = bs.detect_correlations(min_correlation=0.1)
-        assert isinstance(entanglements, list)
+        correlations = bs.detect_correlations(min_correlation=0.1)
+        assert isinstance(correlations, list)

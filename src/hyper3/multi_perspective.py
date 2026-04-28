@@ -98,7 +98,11 @@ class ConsensusResult:
 class StructuralMetrics:
     local_clustering: float = 0.0
     perspective_overlap: float = 0.0
-    information_dissipation: float = 0.0
+    frame_information_loss: float = 0.0
+
+    @property
+    def information_dissipation(self) -> float:
+        return self.frame_information_loss
 
 
 class InvariantDetector:
@@ -574,7 +578,7 @@ class MultiPerspectiveAnalyzer:
 
     def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
         """Analyse a node under the quantum (superposition) frame."""
-        complexity = self._von_neumann_entropy(node)
+        complexity = self._normalized_shannon_entropy(node)
         approach = "superposition_sampling"
         recommended_depth = 3
         recommended_states = min(neighbor_count * 2, 50)
@@ -600,7 +604,7 @@ class MultiPerspectiveAnalyzer:
             weaknesses=assessment.get("weaknesses", []),
         )
 
-    def _von_neumann_entropy(self, node: Hypernode) -> float:
+    def _normalized_shannon_entropy(self, node: Hypernode) -> float:
         """Compute normalised Shannon entropy over the node's edge target distribution."""
         edges = self._graph.edges_for(node.id)
         if not edges:
@@ -1167,8 +1171,8 @@ class MultiPerspectiveAnalyzer:
                     triangle_count += 1
         max_triangles = len(neighbor_list) * (len(neighbor_list) - 1) / 2
         clustering = triangle_count / max(max_triangles, 1)
-        curvature = 2.0 * clustering + min(avg_degree, 10.0) * 0.05
-        return max(0.0, min(1.0, curvature))
+        composite = 2.0 * clustering + min(avg_degree, 10.0) * 0.05
+        return max(0.0, min(1.0, composite))
 
     def compute_perspective_overlap(self, seed_ids: list[str], from_frame: str, to_frame: str) -> float:
         """Measure overlap between two perspective-parameterized traversals.
@@ -1237,8 +1241,8 @@ class MultiPerspectiveAnalyzer:
         overlap = len(from_reachable & to_reachable)
         return overlap / max(len(from_reachable), 1)
 
-    def compute_information_dissipation(self, seed_ids: list[str], frame: str) -> float:
-        """Estimate information dissipation when viewing from a given perspective.
+    def compute_frame_information_loss(self, seed_ids: list[str], frame: str) -> float:
+        """Estimate information loss when viewing from a given perspective.
 
         Combines the frame's complexity score with the information loss
         computed by transforming from classical to the target frame.
@@ -1248,7 +1252,7 @@ class MultiPerspectiveAnalyzer:
             frame: Target computational frame name.
 
         Returns:
-            Float in [0, 1] representing information dissipation.
+            Float in [0, 1] representing frame information loss.
         """
         if not seed_ids:
             return 0.0
@@ -1259,19 +1263,21 @@ class MultiPerspectiveAnalyzer:
         return max(0.0, min(1.0, analysis.complexity * transformed.information_loss + analysis.complexity * 0.5))
 
     def compute_structural_metrics(self, seed_ids: list[str]) -> StructuralMetrics:
-        """Compute local clustering, perspective overlap, and information dissipation for the seed nodes.
+        """Compute local clustering, perspective overlap, and frame information loss for the seed nodes.
 
         Args:
             seed_ids: Node IDs to compute metrics around.
 
         Returns:
             A :class:`StructuralMetrics` with clustering (classical-to-quantum
-            perspective overlap), and classical information dissipation.
+            perspective overlap), and classical frame information loss.
         """
         return StructuralMetrics(
             local_clustering=self.compute_local_clustering(seed_ids),
             perspective_overlap=self.compute_perspective_overlap(seed_ids, "classical", "quantum"),
-            information_dissipation=self.compute_information_dissipation(seed_ids, "classical"),
+            frame_information_loss=self.compute_frame_information_loss(seed_ids, "classical"),
         )
+
+    compute_information_dissipation = compute_frame_information_loss
 
 

@@ -2,7 +2,7 @@
 
 **Severity**: High
 **Module**: `relativity.py` (1275 lines), `frame_transform.py`
-**Status**: Open
+**Status**: Closed (all renames applied, backward-compat aliases maintained)
 
 ## Problem
 

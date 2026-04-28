@@ -2,7 +2,7 @@
 
 **Severity**: High
 **Module**: `transfinite.py` (765 lines)
-**Status**: Open
+**Status**: Closed (all renames applied, backward-compat aliases maintained)
 
 ## Problem
 

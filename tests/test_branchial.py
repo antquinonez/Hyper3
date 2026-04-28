@@ -115,8 +115,8 @@ class TestBranchialSpace:
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "c"}, [rule], max_depth=2, max_total_states=20)
         bs = BranchialSpace(g, mw.multiway)
-        entanglements = bs.detect_correlations()
-        assert isinstance(entanglements, list)
+        correlations = bs.detect_correlations()
+        assert isinstance(correlations, list)
 
     def test_find_neighbors(self):
         g, mw = _build_branching_multiway()

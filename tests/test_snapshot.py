@@ -107,7 +107,7 @@ class TestCognitiveSnapshotRoundTrip:
         assert mem2._retrieval._feedback.size == 2
         assert mem2._retrieval._feedback.relevant_labels_for("alpha") == {"alpha"}
 
-    def test_relativity_frame_outcomes_preserved(self, mem, tmp_path_fixture):
+    def test_perspective_frame_outcomes_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
         mem._perspective._frame_outcomes["classical"] = {"successes": 5, "failures": 2}
         mem._perspective._frame_outcomes["quantum"] = {"successes": 3, "failures": 1}

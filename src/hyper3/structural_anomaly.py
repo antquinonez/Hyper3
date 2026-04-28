@@ -44,11 +44,11 @@ class BoundaryIndicator:
         return self.boundary_score > 0.5
 
     @property
-    def is_decidable(self) -> bool:
+    def is_low_risk(self) -> bool:
         """Return True if the boundary score is below the 0.3 threshold."""
         return self.boundary_score < 0.3
 
-    is_low_risk = is_decidable
+    is_decidable = is_low_risk
 
 
 @dataclass
@@ -71,12 +71,14 @@ class AnomalyDetectionResult:
     reasoning_level: int = 1
 
     @property
-    def decidability_status(self) -> str:
+    def anomaly_status_alias(self) -> str:
         return self.anomaly_status
+
+    decidability_status = anomaly_status_alias
 
 
 @dataclass
-class Axiom:
+class ExplorationAssumption:
     name: str
     description: str
     assumption: str
@@ -84,23 +86,33 @@ class Axiom:
     source_edge_id: str = ""
 
 
+Axiom = ExplorationAssumption
+
+
 @dataclass
-class AxiomSet:
-    axioms: dict[str, Axiom] = field(default_factory=dict)
+class AssumptionSet:
+    assumptions: dict[str, ExplorationAssumption] = field(default_factory=dict)
     provenance: dict[str, str] = field(default_factory=dict)
 
-    def add(self, axiom: Axiom) -> None:
-        """Add an axiom to the set and record its provenance if available."""
-        self.axioms[axiom.name] = axiom
-        if axiom.source_edge_id:
-            self.provenance[axiom.name] = axiom.source_edge_id
+    def add(self, assumption: ExplorationAssumption) -> None:
+        """Add an assumption to the set and record its provenance if available."""
+        self.assumptions[assumption.name] = assumption
+        if assumption.source_edge_id:
+            self.provenance[assumption.name] = assumption.source_edge_id
+
+    @property
+    def axioms(self) -> dict[str, ExplorationAssumption]:
+        return self.assumptions
+
+
+AxiomSet = AssumptionSet
 
 
 ANOMALY_PATTERNS: list[dict[str, Any]] = [
     {"type": "terminating_cycle", "indicators": {"cyclic_structure": 0.9, "contradiction_risk": 0.8}},
-    {"type": "self_referential_cycle", "indicators": {"cyclic_structure": 0.95, "high_centrality": 0.7}},
-    {"type": "membership_paradox", "indicators": {"cyclic_structure": 0.9, "high_centrality": 0.9}},
-    {"type": "inaccessible_structure", "indicators": {"high_centrality": 0.8}},
+    {"type": "cyclic_hub", "indicators": {"cyclic_structure": 0.95, "high_centrality": 0.7}},
+    {"type": "cyclic_high_centrality", "indicators": {"cyclic_structure": 0.9, "high_centrality": 0.9}},
+    {"type": "high_connectivity_orphan", "indicators": {"high_centrality": 0.8}},
 ]
 
 
@@ -112,11 +124,19 @@ class ExplorationReport:
     branches_explored: int = 0
     coverage: float = 0.0
     bounds: dict[str, Any] = field(default_factory=dict)
-    axioms_used: AxiomSet = field(default_factory=AxiomSet)
+    assumptions_used: AssumptionSet = field(default_factory=AssumptionSet)
     coverage_lower: float = 0.0
     coverage_upper: float = 0.0
     branch_coverage: dict[str, float] = field(default_factory=dict)
-    axiom_dependent_nodes: list[str] = field(default_factory=list)
+    assumption_dependent_nodes: list[str] = field(default_factory=list)
+
+    @property
+    def axioms_used(self) -> AssumptionSet:
+        return self.assumptions_used
+
+    @property
+    def axiom_dependent_nodes(self) -> list[str]:
+        return self.assumption_dependent_nodes
 
     @property
     def coverage_pct(self) -> float:
@@ -389,7 +409,7 @@ class StructuralAnomalyDetector:
             reasoning_level=level,
         )
 
-        if indicator.is_decidable:
+        if indicator.is_low_risk:
             result.anomaly_status = "low_risk"
             result.partial_results = self._standard_reasoning(concept, context)
         elif indicator.is_boundary:
@@ -497,7 +517,6 @@ class StructuralAnomalyDetector:
             "boundary_score": indicator.boundary_score,
             "approach": "exploration_based_analysis",
             "extended_neighborhood": report.expanded_nodes[:10],
-            "partial_proof": report_dict,
             "exploration_report": report_dict,
         })
         return results
@@ -612,102 +631,106 @@ class StructuralAnomalyDetector:
             branch_coverage=branch_cov,
         )
 
-    def extend_proof(self, proof: ExplorationReport, axiom: Axiom) -> ExplorationReport:
-        """Extend an exploration report by assuming an additional axiom.
+    def extend_exploration(self, report: ExplorationReport, assumption: ExplorationAssumption) -> ExplorationReport:
+        """Extend an exploration report by assuming an additional edge.
 
         Args:
-            proof: The existing exploration report.
-            axiom: The axiom to add.
+            report: The existing exploration report.
+            assumption: The assumption to add.
 
         Returns:
             A new ExplorationReport with updated coverage and bounds.
         """
-        new_axioms = AxiomSet()
-        for name, ax in proof.axioms_used.axioms.items():
-            new_axioms.add(ax)
-        new_axioms.add(axiom)
-        node = self._find_concept_node(proof.concept)
-        axiom_nodes: list[str] = []
+        new_assumptions = AssumptionSet()
+        for name, ax in report.assumptions_used.assumptions.items():
+            new_assumptions.add(ax)
+        new_assumptions.add(assumption)
+        node = self._find_concept_node(report.concept)
+        assumption_nodes: list[str] = []
         if node:
             for edge in self._graph.edges:
                 for src in edge.source_ids:
                     if src == node.id:
                         for tgt in edge.target_ids:
                             tgt_node = self._graph.get_node(tgt)
-                            if tgt_node and tgt_node.label not in proof.expanded_nodes:
-                                axiom_nodes.append(tgt_node.label)
-        combined_expanded = list(dict.fromkeys(proof.expanded_nodes + axiom_nodes))
-        new_branches = proof.branches_explored + len(axiom_nodes)
-        new_total = proof.total_branches_estimated + len(axiom_nodes)
+                            if tgt_node and tgt_node.label not in report.expanded_nodes:
+                                assumption_nodes.append(tgt_node.label)
+        combined_expanded = list(dict.fromkeys(report.expanded_nodes + assumption_nodes))
+        new_branches = report.branches_explored + len(assumption_nodes)
+        new_total = report.total_branches_estimated + len(assumption_nodes)
         coverage = min((new_branches / new_total * 100.0), 100.0) if new_total > 0 else 0.0
         rate = coverage / 100.0
         lower, upper = self._chernoff_bounds(rate, max(new_branches, 1))
         lower_pct = min(lower * 100.0, coverage)
         upper_pct = min(upper * 100.0, 100.0)
         return ExplorationReport(
-            concept=proof.concept,
+            concept=report.concept,
             expanded_nodes=combined_expanded[:20],
             total_branches_estimated=new_total,
             branches_explored=new_branches,
             coverage=coverage,
             bounds={"lower": lower_pct, "upper": upper_pct},
-            axioms_used=new_axioms,
+            assumptions_used=new_assumptions,
             coverage_lower=lower_pct,
             coverage_upper=upper_pct,
-            branch_coverage=dict(proof.branch_coverage),
-            axiom_dependent_nodes=list(set(proof.axiom_dependent_nodes + axiom_nodes)),
+            branch_coverage=dict(report.branch_coverage),
+            assumption_dependent_nodes=list(set(report.assumption_dependent_nodes + assumption_nodes)),
         )
 
-    def compose_proofs(self, proof_a: ExplorationReport, proof_b: ExplorationReport) -> ExplorationReport:
+    extend_proof = extend_exploration
+
+    def compose_explorations(self, report_a: ExplorationReport, report_b: ExplorationReport) -> ExplorationReport:
         """Merge two exploration reports into a combined report.
 
         Args:
-            proof_a: First exploration report.
-            proof_b: Second exploration report.
+            report_a: First exploration report.
+            report_b: Second exploration report.
 
         Returns:
             A new ExplorationReport covering the union of both inputs.
         """
-        merged_nodes = list(dict.fromkeys(proof_a.expanded_nodes + proof_b.expanded_nodes))
-        merged_total = proof_a.total_branches_estimated + proof_b.total_branches_estimated
-        merged_explored = proof_a.branches_explored + proof_b.branches_explored
+        merged_nodes = list(dict.fromkeys(report_a.expanded_nodes + report_b.expanded_nodes))
+        merged_total = report_a.total_branches_estimated + report_b.total_branches_estimated
+        merged_explored = report_a.branches_explored + report_b.branches_explored
         coverage = min((merged_explored / merged_total * 100.0), 100.0) if merged_total > 0 else 0.0
         rate = coverage / 100.0
         lower, upper = self._chernoff_bounds(rate, max(merged_explored, 1))
         lower_pct = min(lower * 100.0, coverage)
         upper_pct = min(upper * 100.0, 100.0)
-        merged_axioms = AxiomSet()
-        for name, axiom in proof_a.axioms_used.axioms.items():
-            merged_axioms.add(axiom)
-        for name, axiom in proof_b.axioms_used.axioms.items():
-            merged_axioms.add(axiom)
-        merged_branch_cov = dict(proof_a.branch_coverage)
-        for label, cov in proof_b.branch_coverage.items():
+        merged_assumptions = AssumptionSet()
+        for name, asm in report_a.assumptions_used.assumptions.items():
+            merged_assumptions.add(asm)
+        for name, asm in report_b.assumptions_used.assumptions.items():
+            merged_assumptions.add(asm)
+        merged_branch_cov = dict(report_a.branch_coverage)
+        for label, cov in report_b.branch_coverage.items():
             merged_branch_cov[label] = merged_branch_cov.get(label, 0.0) + cov
-        dependent = list(set(proof_a.axiom_dependent_nodes + proof_b.axiom_dependent_nodes))
+        dependent = list(set(report_a.assumption_dependent_nodes + report_b.assumption_dependent_nodes))
         return ExplorationReport(
-            concept=f"{proof_a.concept}+{proof_b.concept}",
+            concept=f"{report_a.concept}+{report_b.concept}",
             expanded_nodes=merged_nodes[:30],
             total_branches_estimated=merged_total,
             branches_explored=merged_explored,
             coverage=coverage,
             bounds={"lower": lower_pct, "upper": upper_pct},
-            axioms_used=merged_axioms,
+            assumptions_used=merged_assumptions,
             coverage_lower=lower_pct,
             coverage_upper=upper_pct,
             branch_coverage=merged_branch_cov,
-            axiom_dependent_nodes=dependent,
+            assumption_dependent_nodes=dependent,
         )
 
-    def suggest_axioms(self, concept: str, top_k: int = 5) -> list[Axiom]:
-        """Suggest bridging axioms that expand coverage to unreachable nodes.
+    compose_proofs = compose_explorations
+
+    def suggest_assumptions(self, concept: str, top_k: int = 5) -> list[ExplorationAssumption]:
+        """Suggest bridging assumptions that expand coverage to unreachable nodes.
 
         Args:
-            concept: The concept to suggest axioms for.
-            top_k: Maximum number of axioms to return.
+            concept: The concept to suggest assumptions for.
+            top_k: Maximum number of assumptions to return.
 
         Returns:
-            Axioms sorted by estimated coverage gain, descending.
+            Assumptions sorted by estimated coverage gain, descending.
         """
         node = self._find_concept_node(concept)
         if not node:
@@ -717,22 +740,24 @@ class StructuralAnomalyDetector:
             reachable.update(edge.target_ids)
         all_nodes = {n.id for n in self._graph.nodes}
         frontier = all_nodes - reachable - {node.id}
-        candidates: list[tuple[float, Axiom]] = []
+        candidates: list[tuple[float, ExplorationAssumption]] = []
         for nid in frontier:
             target = self._graph.get_node(nid)
             if not target:
                 continue
             bridging_edges = self._graph.edges_for(nid)
             gain = len(bridging_edges) / max(self._graph.node_count, 1)
-            axiom = Axiom(
+            asm = ExplorationAssumption(
                 name=f"bridge_{nid[:8]}",
                 description=f"Assume reachability to {target.label}",
                 assumption=f"{concept} -> {target.label}",
                 coverage_gain=gain,
             )
-            candidates.append((gain, axiom))
+            candidates.append((gain, asm))
         candidates.sort(key=lambda x: x[0], reverse=True)
         return [a for _, a in candidates[:top_k]]
+
+    suggest_axioms = suggest_assumptions
 
     def precompute_boundaries(self, concepts: list[str]) -> dict[str, BoundaryIndicator]:
         """Batch-compute and cache boundary indicators for a list of concepts.
@@ -779,7 +804,7 @@ class StructuralAnomalyDetector:
         self._boundary_regions.clear()
         for concept in concepts:
             indicator = self.assess_anomaly(concept)
-            status = "low_risk" if indicator.is_decidable else ("boundary" if indicator.is_boundary else "anomalous")
+            status = "low_risk" if indicator.is_low_risk else ("boundary" if indicator.is_boundary else "anomalous")
             self._boundary_regions.append(BoundaryRegion(
                 description=concept,
                 boundary_score=indicator.boundary_score,
@@ -801,12 +826,12 @@ class StructuralAnomalyDetector:
     def analyze(self) -> AnomalyAnalysis:
         """Summarize mapped regions and analysis history counts."""
         total = len(self._boundary_regions)
-        decidable = sum(1 for r in self._boundary_regions if r.status == "low_risk")
+        low_risk = sum(1 for r in self._boundary_regions if r.status == "low_risk")
         boundary = sum(1 for r in self._boundary_regions if r.status == "boundary")
         anomalous = sum(1 for r in self._boundary_regions if r.status == "anomalous")
         return AnomalyAnalysis(
             mapped_regions=total,
-            low_risk=decidable,
+            low_risk=low_risk,
             boundary=boundary,
             anomalous=anomalous,
             reasoning_history=len(self._reasoning_history),

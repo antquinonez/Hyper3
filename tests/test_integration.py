@@ -113,7 +113,7 @@ class TestIntegrationFullPipeline:
         assert "low_risk" in statuses
 
         result = mem.detect_structural_anomalies("simple_concept")
-        assert result.decidability_status in {"low_risk", "boundary", "anomalous"}
+        assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
 
     def test_multi_frame_analysis_pipeline(self):
         mem = CognitiveMemory(evolve_interval=0)
