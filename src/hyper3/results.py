@@ -98,17 +98,17 @@ class EvolveResult(_SimpleResultBase):
 class BranchialAnalysis(_SimpleResultBase):
     states_mapped: int = 0
     clusters: int = 0
-    entanglements: int = 0
+    correlations: int = 0
     simultaneity_groups: int = 0
     avg_cluster_size: float = 0.0
-    avg_entanglement_correlation: float = 0.0
+    avg_correlation_strength: float = 0.0
     multi_scale_available: bool = True
 
 
 @dataclass
 class RulialAnalysis(_SimpleResultBase):
-    computational_density: float = 0.0
-    causal_complexity: float = 0.0
+    graph_activity_density: float = 0.0
+    structural_complexity: float = 0.0
     spectral_entropy: float = 0.0
     rule_diversity: int = 0
     total_applications: int = 0
@@ -160,7 +160,7 @@ class LateralInferenceInsight(_SimpleResultBase):
 class RuleNeighborhoodResult(_SimpleResultBase):
     explored_rules: list[str] = field(default_factory=list)
     rule_diversity: int = 0
-    computational_density: float = 0.0
+    graph_activity_density: float = 0.0
     coverage: float = 0.0
     unexplored: list[str] = field(default_factory=list)
     error: str | None = None

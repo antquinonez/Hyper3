@@ -188,7 +188,7 @@ class MetaCognitiveLayer:
 
         if self._rulial:
             rulial_pos = self._rulial.position
-            if rulial_pos.computational_density > 0.5:
+            if rulial_pos.graph_activity_density > 0.5:
                 state.meta_computational_level = 2
             if state.rulial_insight_count > 3:
                 state.meta_computational_level = 3
@@ -635,7 +635,7 @@ class MetaCognitiveLayer:
         insights = self._rulial.generate_high_level_insights()
         return {
             "updated": True,
-            "density": pos.computational_density,
+            "density": pos.graph_activity_density,
             "insights_generated": len(insights),
         }
 

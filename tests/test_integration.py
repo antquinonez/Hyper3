@@ -84,7 +84,7 @@ class TestIntegrationFullPipeline:
 
         qs = mem.superpose(["battery_weak", "alternator_bad", "starter_bad"])
 
-        ent = mem.entangle(
+        ent = mem.correlate(
             ["battery_weak", "battery_dead"],
             ["starter_bad"],
             {("battery_weak", "starter_bad"): 0.9, ("battery_dead", "starter_bad"): 0.95},
@@ -145,8 +145,8 @@ class TestIntegrationFullPipeline:
         rulial.record_rule_application("inverse")
         rulial.record_rule_application("generalization")
         pos = rulial.update_position()
-        assert pos.computational_density > 0.0
-        assert pos.causal_graph_complexity > 0.0
+        assert pos.graph_activity_density > 0.0
+        assert pos.structural_complexity > 0.0
 
         patterns = rulial.find_meta_patterns()
         assert len(patterns) >= 1
@@ -250,12 +250,12 @@ class TestIntegrationFullPipeline:
             result = mem.collapse_with_basis(qs2, basis_name)
             assert result is not None
 
-    def test_entangle_with_label_vs_id(self):
+    def test_correlate_with_label_vs_id(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.store("pet")
-        ent = mem.entangle(
+        ent = mem.correlate(
             ["cat", "dog"],
             ["pet"],
             {("cat", "pet"): 0.9, ("dog", "pet"): 0.8},

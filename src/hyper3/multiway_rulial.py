@@ -18,16 +18,16 @@ from hyper3.multiway import MultiwayEngine, MultiwayGraph
 
 @dataclass
 class RulialPosition:
-    computational_density: float = 0.0
+    graph_activity_density: float = 0.0
     rule_application_frequency: dict[str, float] = field(default_factory=dict)
-    causal_graph_complexity: float = 0.0
+    structural_complexity: float = 0.0
     branchial_coordinates: list[float] = field(default_factory=list)
     timestamp: float = 0.0
 
     def distance_to(self, other: RulialPosition) -> float:
         """Compute Euclidean distance across density, complexity, and rule-frequency dimensions."""
-        density_diff = (self.computational_density - other.computational_density) ** 2
-        complexity_diff = (self.causal_graph_complexity - other.causal_graph_complexity) ** 2
+        density_diff = (self.graph_activity_density - other.graph_activity_density) ** 2
+        complexity_diff = (self.structural_complexity - other.structural_complexity) ** 2
         freq_diff = 0.0
         all_rules = set(self.rule_application_frequency) | set(other.rule_application_frequency)
         for rule in all_rules:
@@ -85,9 +85,9 @@ class RulialSpace:
             The updated RulialPosition.
         """
         pos = RulialPosition(timestamp=time.time())
-        pos.computational_density = self._compute_density()
+        pos.graph_activity_density = self._compute_density()
         pos.rule_application_frequency = self._compute_rule_frequencies()
-        pos.causal_graph_complexity = self._compute_complexity()
+        pos.structural_complexity = self._compute_complexity()
         if self._multiway:
             pos.branchial_coordinates = self._compute_branchial_coords()
         self._position_history.append(self._position)
@@ -95,7 +95,7 @@ class RulialSpace:
         return pos
 
     def _compute_density(self) -> float:
-        """Compute computational density from average degree and rule diversity."""
+        """Compute graph activity density from average degree and rule diversity."""
         n_nodes = self._graph.node_count
         n_edges = self._graph.edge_count
         if n_nodes == 0:
@@ -114,7 +114,7 @@ class RulialSpace:
         }
 
     def _compute_complexity(self) -> float:
-        """Compute causal graph complexity as the mean of spectral entropy and motif diversity."""
+        """Compute structural complexity as the mean of spectral entropy and motif diversity."""
         n_nodes = self._graph.node_count
         if n_nodes < 2:
             return 0.0
@@ -338,7 +338,7 @@ class RulialSpace:
         trajectory = "stable"
         if len(self._position_history) >= 3:
             recent = self._position_history[-3:]
-            densities = [p.computational_density for p in recent]
+            densities = [p.graph_activity_density for p in recent]
             if densities[-1] > densities[0] + 0.1:
                 trajectory = "expanding"
             elif densities[-1] < densities[0] - 0.1:
@@ -383,7 +383,7 @@ class RulialSpace:
         return RuleNeighborhoodResult(
             explored_rules=list(self._explored_rules.keys()),
             rule_diversity=diversity,
-            computational_density=density,
+            graph_activity_density=density,
             coverage=coverage,
             unexplored=[r.name for r in rules if r.name not in self._explored_rules],
         )
@@ -573,8 +573,8 @@ class RulialSpace:
                 timestamp=time.time(),
             ))
 
-        density = self._position.computational_density
-        complexity = self._position.causal_graph_complexity
+        density = self._position.graph_activity_density
+        complexity = self._position.structural_complexity
         if density > 0.5 and complexity > 0.5:
             self._insights.append(HighLevelInsight(
                 principle=f"High density ({density:.2f}) and complexity ({complexity:.2f}) suggest rich structural organization",
@@ -702,8 +702,8 @@ class RulialSpace:
     def analyze(self) -> RulialAnalysis:
         """Return a summary of the rulial space state."""
         return RulialAnalysis(
-            computational_density=self._position.computational_density,
-            causal_complexity=self._position.causal_graph_complexity,
+            graph_activity_density=self._position.graph_activity_density,
+            structural_complexity=self._position.structural_complexity,
             spectral_entropy=self._compute_spectral_entropy(),
             rule_diversity=len(self._explored_rules),
             total_applications=self._total_applications,

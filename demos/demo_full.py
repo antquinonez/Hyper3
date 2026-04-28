@@ -3,7 +3,7 @@ Demo: Full hyper3 cognitive architecture with all subsystems.
 
 Branchial Space | Rulial Space | Transfinite Reasoning
 Computational Relativity | Meta-Cognitive Introspection
-Quantum Entanglement | Interference | Measurement Bases
+Quantum Correlation | Interference | Measurement Bases
 
 Run with: .venv/bin/python demos/demo_full.py
 """
@@ -89,10 +89,10 @@ if mem.branchial:
     report = mem.branchial.analyze()
     print(f"   States mapped: {report.states_mapped}")
     print(f"   Simultaneity groups: {report.simultaneity_groups}")
-    entanglements = mem.branchial.detect_entanglements()
-    print(f"   Branchial entanglements: {len(entanglements)}")
-    for ent in entanglements[:3]:
-        print(f"     correlation={ent.correlation:.2f}, shared={len(ent.shared_concept_ids)}")
+    correlations = mem.branchial.detect_correlations()
+    print(f"   Branchial correlations: {len(correlations)}")
+    for corr in correlations[:3]:
+        print(f"     correlation={corr.correlation:.2f}, shared={len(corr.shared_concept_ids)}")
 
 # --- 4. Rulial Space ---
 print("\n[4] Rulial space exploration...")
@@ -101,8 +101,8 @@ rulial = mem.rulial
 rulial.record_rule_application("transitive")
 rulial.record_rule_application("inverse")
 pos = rulial.update_position()
-print(f"   Computational density: {pos.computational_density:.3f}")
-print(f"   Causal graph complexity: {pos.causal_graph_complexity:.3f}")
+print(f"   Graph activity density: {pos.graph_activity_density:.3f}")
+print(f"   Structural complexity: {pos.structural_complexity:.3f}")
 
 patterns = rulial.find_meta_patterns()
 print(f"   Meta-patterns found: {len(patterns)}")
@@ -132,17 +132,17 @@ for ip in interference:
 result_basis = mem.collapse_with_basis(qs, "pragmatic")
 print(f"   Collapse (pragmatic basis): {result_basis.node_id if result_basis else 'none'}")
 
-# Entanglement
-ent = mem.entangle(
+# Correlation
+ent = mem.correlate(
     ["spark", "battery"],
     ["electricity", "starter_motor"],
     {("spark", "electricity"): 0.9, ("battery", "starter_motor"): 0.85},
 )
-print(f"   Entanglement created: strength={ent.strength:.2f}")
+print(f"   Correlation created: strength={ent.strength:.2f}")
 
 qs2 = mem.superpose(["spark", "battery"])
-preds = mem.collapse_entangled(qs2, "spark")
-print(f"   Entangled predictions from 'spark': {preds}")
+preds = mem.collapse_correlated(qs2, "spark")
+print(f"   Correlated predictions from 'spark': {preds}")
 
 # --- 6. Structural Anomaly Detection ---
 print("\n[6] Structural anomaly detection...")

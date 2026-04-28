@@ -59,8 +59,8 @@ class CollapseError(Hyper3Error):
     """Raised when a quantum state collapse fails."""
 
 
-class EntanglementError(Hyper3Error):
-    """Raised when a quantum entanglement operation fails."""
+class CorrelationError(Hyper3Error):
+    """Raised when a concept correlation operation fails."""
 
 
 class RuleApplicationError(Hyper3Error):

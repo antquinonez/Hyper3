@@ -8,7 +8,7 @@ from hyper3 import (
     Interpretation,
     MeasurementBasis,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
+    ConceptCorrelation,
     QuantumState,
 )
 
@@ -20,22 +20,22 @@ def _build_graph():
     return g
 
 
-class TestQuantumEntanglement:
-    def test_create_entanglement(self):
+class TestConceptCorrelation:
+    def test_create_correlation(self):
         g = _build_graph()
         ql = QuantumCognitiveLayer(g)
-        ent = ql.create_entanglement(
+        ent = ql.create_correlation(
             ["cat", "dog"],
             ["bird", "fish"],
             {("cat", "bird"): 0.8, ("dog", "fish"): -0.6},
         )
-        assert isinstance(ent, QuantumEntanglement)
+        assert isinstance(ent, ConceptCorrelation)
         assert ent.strength > 0
         assert "cat" in ent.group_a_node_ids
         assert "fish" in ent.group_b_node_ids
 
-    def test_entanglement_predict(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): 0.9},
@@ -44,8 +44,8 @@ class TestQuantumEntanglement:
         assert "b" in preds
         assert preds["b"] == "pet"
 
-    def test_entanglement_negative_correlation(self):
-        ent = QuantumEntanglement(
+    def test_correlation_negative_correlation(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): -0.9},
@@ -126,14 +126,14 @@ class TestCollapseTriggers:
         assert len(decoherence) == 0
 
 
-class TestCollapseEntangled:
-    def test_collapse_entangled(self):
+class TestCollapseCorrelated:
+    def test_collapse_correlated(self):
         g = _build_graph()
         ql = QuantumCognitiveLayer(g)
         qs = ql.create_superposition(["cat", "dog"])
-        ent = ql.create_entanglement(
+        ent = ql.create_correlation(
             ["cat", "dog"], ["bird", "fish"],
             {("cat", "bird"): 0.9, ("dog", "fish"): 0.8},
         )
-        preds = ql.collapse_entangled(qs.id, "cat")
+        preds = ql.collapse_correlated(qs.id, "cat")
         assert isinstance(preds, dict)

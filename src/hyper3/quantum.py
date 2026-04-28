@@ -12,7 +12,7 @@ from hyper3.kernel import Hypergraph
 
 
 @dataclass
-class QuantumEntanglement:
+class ConceptCorrelation:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     group_a_node_ids: frozenset[str] = frozenset()
     group_b_node_ids: frozenset[str] = frozenset()
@@ -20,7 +20,7 @@ class QuantumEntanglement:
     strength: float = 0.0
 
     def predict(self, observed_node_id: str, observed_value: str) -> dict[str, str]:
-        """Predict values for entangled partners given an observation.
+        """Predict values for correlated partners given an observation.
 
         For each correlation entry involving the observed node, returns the
         partner node mapped to the observed value (positive correlation) or
@@ -107,7 +107,7 @@ class QuantumState:
     collapsed_to: str | None = None
     coherence_time: float = 30.0
     base_coherence_time: float = 30.0
-    entanglement_ids: list[str] = field(default_factory=list)
+    correlation_ids: list[str] = field(default_factory=list)
 
     def add_interpretation(self, node_id: str, amplitude: float | complex, **meta: Any) -> None:
         """Append a new interpretation to the superposition.
@@ -231,7 +231,7 @@ class QuantumCognitiveLayer:
         """
         self._graph = graph
         self._states: dict[str, QuantumState] = {}
-        self._entanglements: dict[str, QuantumEntanglement] = {}
+        self._correlations: dict[str, ConceptCorrelation] = {}
         self._bases: dict[str, MeasurementBasis] = dict(BUILTIN_BASES)
         self._basis_stats: dict[str, dict[str, int]] = {}
 
@@ -558,53 +558,53 @@ class QuantumCognitiveLayer:
             ))
         return patterns
 
-    def create_entanglement(
+    def create_correlation(
         self,
         group_a: list[str],
         group_b: list[str],
         correlations: dict[tuple[str, str], float],
-    ) -> QuantumEntanglement:
-        """Register an entanglement between two groups of nodes.
+    ) -> ConceptCorrelation:
+        """Register a correlation between two groups of nodes.
 
         After creation, any non-collapsed quantum state whose interpretations
-        reference nodes in either group is linked to the new entanglement.
+        reference nodes in either group is linked to the new correlation.
 
         Args:
-            group_a: Node IDs in the first entangled group.
-            group_b: Node IDs in the second entangled group.
+            group_a: Node IDs in the first correlated group.
+            group_b: Node IDs in the second correlated group.
             correlations: Pairwise correlation entries mapping
                 ``(node_a_id, node_b_id)`` to a correlation value.
 
         Returns:
-            The newly created ``QuantumEntanglement``.
+            The newly created ``ConceptCorrelation``.
         """
         correlation_matrix = dict(correlations)
         total_strength = sum(abs(v) for v in correlation_matrix.values())
         avg_strength = total_strength / max(len(correlation_matrix), 1)
-        ent = QuantumEntanglement(
+        corr = ConceptCorrelation(
             group_a_node_ids=frozenset(group_a),
             group_b_node_ids=frozenset(group_b),
             correlation_matrix=correlation_matrix,
             strength=avg_strength,
         )
-        self._entanglements[ent.id] = ent
+        self._correlations[corr.id] = corr
         for qs in self._states.values():
             if not qs.collapsed:
-                has_a = any(i.node_id in ent.group_a_node_ids for i in qs.interpretations)
-                has_b = any(i.node_id in ent.group_b_node_ids for i in qs.interpretations)
+                has_a = any(i.node_id in corr.group_a_node_ids for i in qs.interpretations)
+                has_b = any(i.node_id in corr.group_b_node_ids for i in qs.interpretations)
                 if has_a or has_b:
-                    qs.entanglement_ids.append(ent.id)
-        return ent
+                    qs.correlation_ids.append(corr.id)
+        return corr
 
-    def collapse_entangled(self, qs_id: str, observed_node_id: str) -> dict[str, str]:
-        """Collapse a state with bias toward one node and propagate via entanglement.
+    def collapse_correlated(self, qs_id: str, observed_node_id: str) -> dict[str, str]:
+        """Collapse a state with bias toward one node and propagate via correlation.
 
         Args:
             qs_id: ID of the ``QuantumState`` to collapse.
             observed_node_id: Node ID whose observation triggers the collapse.
 
         Returns:
-            Mapping of entangled partner node IDs to their predicted values.
+            Mapping of correlated partner node IDs to their predicted values.
         """
         qs = self._states.get(qs_id)
         if not qs:
@@ -613,13 +613,13 @@ class QuantumCognitiveLayer:
         if not result:
             return {}
         predictions: dict[str, str] = {}
-        for eid in qs.entanglement_ids:
-            ent = self._entanglements.get(eid)
-            if not ent:
+        for cid in qs.correlation_ids:
+            corr = self._correlations.get(cid)
+            if not corr:
                 continue
             node = self._graph.get_node(observed_node_id)
             label = node.label if node else observed_node_id
-            preds = ent.predict(observed_node_id, label)
+            preds = corr.predict(observed_node_id, label)
             predictions.update(preds)
         return predictions
 
@@ -736,9 +736,9 @@ class QuantumCognitiveLayer:
         """Retrieve a quantum state by ID."""
         return self._states.get(qs_id)
 
-    def get_entanglement(self, ent_id: str) -> QuantumEntanglement | None:
-        """Retrieve an entanglement by ID."""
-        return self._entanglements.get(ent_id)
+    def get_correlation(self, corr_id: str) -> ConceptCorrelation | None:
+        """Retrieve a concept correlation by ID."""
+        return self._correlations.get(corr_id)
 
     def add_basis(self, basis: MeasurementBasis) -> None:
         """Register or replace a measurement basis."""
@@ -802,9 +802,9 @@ class QuantumCognitiveLayer:
         return [qs for qs in self._states.values() if qs.collapsed]
 
     @property
-    def entanglements(self) -> list[QuantumEntanglement]:
-        """Return all registered entanglements."""
-        return list(self._entanglements.values())
+    def correlations(self) -> list[ConceptCorrelation]:
+        """Return all registered concept correlations."""
+        return list(self._correlations.values())
 
     @property
     def bases(self) -> dict[str, MeasurementBasis]:

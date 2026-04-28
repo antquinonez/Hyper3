@@ -3,7 +3,7 @@ from hyper3 import (
     BranchialCluster,
     BranchialCoordinates,
     BranchialDistanceMetrics,
-    BranchialEntanglement,
+    BranchialCorrelation,
     BranchialSpace,
     Hyperedge,
     Hypergraph,
@@ -105,7 +105,7 @@ class TestBranchialSpace:
             assert isinstance(c, BranchialCluster)
             assert c.size >= 0
 
-    def test_detect_entanglements(self):
+    def test_detect_correlations(self):
         g = Hypergraph()
         for label in ["a", "b", "c", "d"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -115,7 +115,7 @@ class TestBranchialSpace:
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "c"}, [rule], max_depth=2, max_total_states=20)
         bs = BranchialSpace(g, mw.multiway)
-        entanglements = bs.detect_entanglements()
+        entanglements = bs.detect_correlations()
         assert isinstance(entanglements, list)
 
     def test_find_neighbors(self):
@@ -144,7 +144,7 @@ class TestBranchialSpace:
         report = bs.analyze()
         assert "states_mapped" in report
         assert "clusters" in report
-        assert "entanglements" in report
+        assert "correlations" in report
 
     def test_empty_graph(self):
         g = Hypergraph()

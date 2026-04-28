@@ -7,7 +7,7 @@ from hyper3.exceptions import (
     StateNotFoundError,
     QuantumStateNotFoundError,
     CollapseError,
-    EntanglementError,
+    CorrelationError,
     RuleApplicationError,
     SerializationError,
     TemporalConstraintError,
@@ -55,8 +55,8 @@ class TestExceptionHierarchy:
         e = CollapseError("test")
         assert isinstance(e, Hyper3Error)
 
-    def test_entanglement_error(self):
-        assert issubclass(EntanglementError, Hyper3Error)
+    def test_correlation_error(self):
+        assert issubclass(CorrelationError, Hyper3Error)
 
     def test_rule_application_error(self):
         assert issubclass(RuleApplicationError, Hyper3Error)

@@ -9,7 +9,7 @@ probability operations.
 What each operation actually is:
   - Superposition = weighted probability distribution (numpy array)
   - Collapse = np.random.choice with weights
-  - Entanglement = correlation matrix lookup
+  - Correlation = correlation matrix lookup
   - Interference = constructive/destructive amplitude comparison
   - Density matrix / Von Neumann entropy = scipy.linalg
 
@@ -221,9 +221,9 @@ def section_3_collapse(hypotheses: list[str]) -> None:
     print()
 
 
-def section_4_entanglement() -> None:
+def section_4_correlation() -> None:
     print("=" * 70)
-    print("SECTION 4: Entanglement = Correlation Matrix Lookup")
+    print("SECTION 4: Correlation = Correlation Matrix Lookup")
     print("=" * 70)
     print()
     print("  What it actually does: stores a dict of pairwise correlations")
@@ -247,7 +247,7 @@ def section_4_entanglement() -> None:
     for (a, b), corr in correlations.items():
         print(f"    {a:25s} <-> {b:30s}: {corr:+.2f}")
 
-    print(f"\n  Entangled prediction (observe certificate_expiry):")
+    print(f"\n  Correlated prediction (observe certificate_expiry):")
     observed = "certificate_expiry"
     for b_node in group_b:
         corr = correlations.get((observed, b_node), 0.0)
@@ -366,19 +366,19 @@ def section_7_bayesian_comparison() -> None:
     print()
     print("  1. Superposition = prior distribution over hypotheses")
     print("  2. Collapse with context = sampling from posterior (context = likelihood)")
-    print("  3. Entanglement = structured prior over correlated hypotheses")
+    print("  3. Correlation = structured prior over correlated hypotheses")
     print("  4. Interference = Bayes factor aggregation (agreeing/diverging evidence)")
     print("  5. Von Neumann entropy = for mixed states, equals Shannon entropy")
     print()
     print("  This reimplementation uses:")
     print("    - np.ones() / sqrt(n) for uniform superposition")
     print("    - np.random.choice(p=weights) for collapse")
-    print("    - dict[tuple, float] for entanglement correlations")
+    print("    - dict[tuple, float] for correlations")
     print("    - float arithmetic for interference")
     print("    - scipy.linalg.eigvalsh + log2 for von Neumann entropy")
     print()
     print("  Advantages of the quantum-style API:")
-    print("    - Natural syntax for correlated hypotheses (entanglement)")
+    print("    - Natural syntax for correlated hypotheses (correlation)")
     print("    - Built-in uncertainty quantification (entropy)")
     print("    - Density matrix gives a full covariance-like state descriptor")
     print()
@@ -396,7 +396,7 @@ def main():
     hypotheses = section_1_build_graph()
     section_2_superposition(hypotheses)
     section_3_collapse(hypotheses)
-    section_4_entanglement()
+    section_4_correlation()
     section_5_interference()
     section_6_entropy(hypotheses)
     section_7_bayesian_comparison()
@@ -406,7 +406,7 @@ def main():
     print("=" * 70)
     print("  1. Superposition = numpy array of weights (prior distribution)")
     print("  2. Collapse = np.random.choice(p=weights) (weighted sampling)")
-    print("  3. Entanglement = dict of pairwise correlations (lookup table)")
+    print("  3. Correlation = dict of pairwise correlations (lookup table)")
     print("  4. Interference = float arithmetic on signed amplitudes")
     print("  5. Entropy = scipy.linalg.eigvalsh (meaningful for mixed states)")
     print("  6. For this use case, quantum formalism ~= Bayesian inference")

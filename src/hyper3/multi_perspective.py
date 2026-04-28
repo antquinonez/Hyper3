@@ -100,18 +100,6 @@ class StructuralMetrics:
     perspective_overlap: float = 0.0
     information_dissipation: float = 0.0
 
-    @property
-    def curvature(self) -> float:
-        return self.local_clustering
-
-    @property
-    def frame_dragging(self) -> float:
-        return self.perspective_overlap
-
-    @property
-    def redshift(self) -> float:
-        return self.information_dissipation
-
 
 class InvariantDetector:
     def __init__(self, perspective: MultiPerspectiveAnalyzer) -> None:
@@ -234,7 +222,7 @@ FRAME_TEMPLATES: dict[str, ComputationalFrame] = {
         name="quantum",
         frame_type="quantum",
         metrics={"query_complexity": 0.0, "superposition_utilization": 0.0},
-        constraints={"superposition": True, "entanglement": True},
+        constraints={"superposition": True, "correlation": True},
     ),
     "hypergraph": ComputationalFrame(
         name="hypergraph",

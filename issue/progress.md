@@ -83,6 +83,7 @@
 
 ## Issue 004: Cross-cutting terminology cleanup
 
+### Phase 1: High-severity renames (completed previously)
 - [x] `multiway_rulial.py`: `TranscendentalInsight` → `HighLevelInsight` (with backward-compat alias)
 - [x] `multiway_rulial.py`: `generate_transcendental_insights` → `generate_high_level_insights` (with backward-compat alias)
 - [x] `memory_quantum.py`: `reason_transfinite` → `detect_structural_anomalies` (with backward-compat alias)
@@ -90,6 +91,29 @@
 - [x] `memory_subsystems.py`: `transfinite` property → `structural_anomaly` property (with backward-compat alias)
 - [x] `__init__.py`: Added `HighLevelInsight` export alongside `TranscendentalInsight`
 - [x] Updated docstrings for renamed methods in structural_anomaly.py
+
+### Phase 2: Medium-severity renames (this pass)
+- [x] `RulialPosition.computational_density` → `graph_activity_density`
+- [x] `RulialPosition.causal_graph_complexity` → `structural_complexity`
+- [x] `RulialAnalysis.computational_density` → `graph_activity_density`
+- [x] `RulialAnalysis.causal_complexity` → `structural_complexity`
+- [x] `RuleNeighborhoodResult.computational_density` → `graph_activity_density`
+- [x] Removed `conservative_extension` (always True) from structural_anomaly.py boundary results
+- [x] Removed `StructuralMetrics.curvature` / `frame_dragging` / `redshift` backward-compat properties
+- [x] `QuantumEntanglement` → `ConceptCorrelation` across all files
+- [x] `BranchialEntanglement` → `BranchialCorrelation` across all files
+- [x] `EntanglementError` → `CorrelationError`
+- [x] `entangle()` → `correlate()` in CognitiveMemory
+- [x] `collapse_entangled()` → `collapse_correlated()`
+- [x] `create_entanglement()` → `create_correlation()`
+- [x] `detect_entanglements()` → `detect_correlations()`
+- [x] `entanglement_ids` → `correlation_ids` on QuantumState
+- [x] `entanglements` property → `correlations` (both quantum and branchial)
+- [x] Updated `BranchialAnalysis.entanglements` → `correlations`, `avg_entanglement_correlation` → `avg_correlation_strength`
+- [x] Updated snapshot serialization: `quantum_entanglements` → `quantum_correlations`
+- [x] Updated all test files (9 test files, 82 references)
+- [x] Updated all demos and examples (4 files)
+- [x] Updated AGENTS.md Terminology Mapping table with all new renames
 
 ---
 

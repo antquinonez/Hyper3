@@ -466,7 +466,6 @@ class StructuralAnomalyDetector:
         results.append({
             "status": "boundary",
             "boundary_score": indicator.boundary_score,
-            "conservative_extension": True,
             "structural_conclusions": structural_conclusions,
             "assumption_dependent": assumption_dependent,
         })

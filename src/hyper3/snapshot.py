@@ -12,7 +12,7 @@ from hyper3.cache import LazyCache
 from hyper3.quantum import (
     Interpretation,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
+    ConceptCorrelation,
     QuantumState,
 )
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
@@ -44,7 +44,7 @@ class CognitiveSnapshot:
     saved_at: float = 0.0
 
     quantum_states: list[dict[str, Any]] = field(default_factory=list)
-    quantum_entanglements: list[dict[str, Any]] = field(default_factory=list)
+    quantum_correlations: list[dict[str, Any]] = field(default_factory=list)
     quantum_basis_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     multiway_states: list[dict[str, Any]] = field(default_factory=list)
@@ -138,7 +138,7 @@ def capture_snapshot(
     """Capture the full state of all subsystems into an immutable snapshot.
 
     Args:
-        quantum: Quantum cognitive layer whose states and entanglements to capture.
+        quantum: Quantum cognitive layer whose states and correlations to capture.
         multiway_engine: Optional multiway engine whose DAG to capture.
         branchial: Optional branchial space whose coordinates and clusters to capture.
         rulial: Optional rulial space whose position, history, and patterns to capture.
@@ -170,16 +170,16 @@ def capture_snapshot(
             "collapsed_to": qs.collapsed_to,
             "coherence_time": qs.coherence_time,
             "base_coherence_time": qs.base_coherence_time,
-            "entanglement_ids": qs.entanglement_ids,
+            "correlation_ids": qs.correlation_ids,
         })
 
-    for ent in quantum._entanglements.values():
-        snap.quantum_entanglements.append({
-            "id": ent.id,
-            "group_a_node_ids": sorted(ent.group_a_node_ids),
-            "group_b_node_ids": sorted(ent.group_b_node_ids),
-            "correlation_matrix": [[k[0], k[1], v] for k, v in ent.correlation_matrix.items()],
-            "strength": ent.strength,
+    for corr in quantum._correlations.values():
+        snap.quantum_correlations.append({
+            "id": corr.id,
+            "group_a_node_ids": sorted(corr.group_a_node_ids),
+            "group_b_node_ids": sorted(corr.group_b_node_ids),
+            "correlation_matrix": [[k[0], k[1], v] for k, v in corr.correlation_matrix.items()],
+            "strength": corr.strength,
         })
 
     snap.quantum_basis_stats = dict(quantum._basis_stats)
@@ -230,17 +230,17 @@ def capture_snapshot(
     if rulial is not None:
         pos = rulial._position
         snap.rulial_position = {
-            "computational_density": pos.computational_density,
+            "graph_activity_density": pos.graph_activity_density,
             "rule_application_frequency": pos.rule_application_frequency,
-            "causal_graph_complexity": pos.causal_graph_complexity,
+            "structural_complexity": pos.structural_complexity,
             "branchial_coordinates": pos.branchial_coordinates,
             "timestamp": pos.timestamp,
         }
         for hist_pos in rulial._position_history:
             snap.rulial_position_history.append({
-                "computational_density": hist_pos.computational_density,
+                "graph_activity_density": hist_pos.graph_activity_density,
                 "rule_application_frequency": hist_pos.rule_application_frequency,
-                "causal_graph_complexity": hist_pos.causal_graph_complexity,
+                "structural_complexity": hist_pos.structural_complexity,
                 "branchial_coordinates": hist_pos.branchial_coordinates,
                 "timestamp": hist_pos.timestamp,
             })
@@ -365,7 +365,7 @@ def restore_snapshot(
 ]:
     """Rebuild all subsystems from a previously captured snapshot.
 
-    Clears and repopulates quantum states/entanglements, multiway DAG,
+    Clears and repopulates quantum states/correlations, multiway DAG,
     branchial coordinates, rulial position/history, provenance records,
     retrieval feedback/LTR weights, perspective frame outcomes, and
     meta-cognitive state.
@@ -395,7 +395,7 @@ def restore_snapshot(
         ``None`` if the snapshot contained no data for that subsystem.
     """
     quantum._states.clear()
-    quantum._entanglements.clear()
+    quantum._correlations.clear()
     quantum._basis_stats.clear()
 
     for state_data in snapshot.quantum_states:
@@ -415,23 +415,23 @@ def restore_snapshot(
             collapsed_to=state_data.get("collapsed_to"),
             coherence_time=state_data.get("coherence_time", 30.0),
             base_coherence_time=state_data.get("base_coherence_time", 30.0),
-            entanglement_ids=state_data.get("entanglement_ids", []),
+            correlation_ids=state_data.get("correlation_ids", state_data.get("entanglement_ids", [])),
         )
         quantum._states[qs.id] = qs
 
-    for ent_data in snapshot.quantum_entanglements:
+    for ent_data in snapshot.quantum_correlations:
         corr_matrix = {}
         for item in ent_data.get("correlation_matrix", []):
             if isinstance(item, (list, tuple)) and len(item) >= 3:
                 corr_matrix[(item[0], item[1])] = item[2]
-        ent = QuantumEntanglement(
+        corr = ConceptCorrelation(
             id=ent_data["id"],
             group_a_node_ids=frozenset(ent_data.get("group_a_node_ids", [])),
             group_b_node_ids=frozenset(ent_data.get("group_b_node_ids", [])),
             correlation_matrix=corr_matrix,
             strength=ent_data.get("strength", 0.0),
         )
-        quantum._entanglements[ent.id] = ent
+        quantum._correlations[corr.id] = corr
 
     quantum._basis_stats.update(snapshot.quantum_basis_stats)
 
@@ -497,17 +497,17 @@ def restore_snapshot(
         rs = RulialSpace(graph, multiway_engine)
         pos_data = snapshot.rulial_position
         rs._position = RulialPosition(
-            computational_density=pos_data.get("computational_density", 0.0),
+            graph_activity_density=pos_data.get("graph_activity_density", pos_data.get("computational_density", 0.0)),
             rule_application_frequency=pos_data.get("rule_application_frequency", {}),
-            causal_graph_complexity=pos_data.get("causal_graph_complexity", 0.0),
+            structural_complexity=pos_data.get("structural_complexity", pos_data.get("causal_graph_complexity", 0.0)),
             branchial_coordinates=pos_data.get("branchial_coordinates", []),
             timestamp=pos_data.get("timestamp", 0.0),
         )
         for hist_data in snapshot.rulial_position_history:
             rs._position_history.append(RulialPosition(
-                computational_density=hist_data.get("computational_density", 0.0),
+                graph_activity_density=hist_data.get("graph_activity_density", hist_data.get("computational_density", 0.0)),
                 rule_application_frequency=hist_data.get("rule_application_frequency", {}),
-                causal_graph_complexity=hist_data.get("causal_graph_complexity", 0.0),
+                structural_complexity=hist_data.get("structural_complexity", hist_data.get("causal_graph_complexity", 0.0)),
                 branchial_coordinates=hist_data.get("branchial_coordinates", []),
                 timestamp=hist_data.get("timestamp", 0.0),
             ))

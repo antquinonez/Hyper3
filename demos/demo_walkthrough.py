@@ -171,9 +171,9 @@ print(f"  |fuel_pump⟩ amplitude=0.3  probability={0.3**2:.2f}")
 print(f"  |spark_plug⟩ amplitude=0.25 probability={0.25**2:.2f}")
 print()
 
-# Entanglement: if battery is dead, starter_motor and ignition_coil are also dead
-print("Entanglement: battery failure constrains other components")
-ent = mem.entangle(
+# Correlation: if battery is dead, starter_motor and ignition_coil are also dead
+print("Correlation: battery failure constrains other components")
+ent = mem.correlate(
     ["battery"],
     ["starter_motor", "ignition_coil"],
     {("battery", "starter_motor"): 0.95, ("battery", "ignition_coil"): 0.9},
@@ -276,9 +276,9 @@ and generates 'transcendental insights' — meta-knowledge about its own pattern
 
 rulial = mem.rulial
 pos = rulial.update_position()
-print(f"Computational density: {pos.computational_density:.3f}")
+print(f"Graph activity density: {pos.graph_activity_density:.3f}")
 print(f"  (how richly interconnected the knowledge graph is)")
-print(f"Causal complexity: {pos.causal_graph_complexity:.3f}")
+print(f"Structural complexity: {pos.structural_complexity:.3f}")
 print(f"  (how complex the causal structure has become)")
 print(f"Rules explored: {len(rulial.explored_rules)}")
 print()
@@ -359,7 +359,7 @@ print("""
 2. RULE DISCOVERY       → The system found transitive patterns automatically
 3. MULTIWAY REASONING   → It explored ALL causal paths simultaneously
 4. QUANTUM DIAGNOSIS    → It held multiple failure hypotheses in superposition
-5. ENTANGLEMENT         → Battery failure constrained related components
+5. CORRELATION         → Battery failure constrained related components
 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive)
 7. BOUNDARY DETECTION   → It knew which questions were answerable vs anomalous
 8. MULTI-FRAME ANALYSIS → It analyzed the same problem from 4 different perspectives

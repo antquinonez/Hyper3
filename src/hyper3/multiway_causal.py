@@ -13,11 +13,11 @@ from hyper3.results import CausalEnforceReport
 from hyper3.quantum import (
     BUILTIN_BASES,
     CollapseTrigger,
+    ConceptCorrelation,
     InterferencePattern,
     Interpretation,
     MeasurementBasis,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
     QuantumState,
 )
 

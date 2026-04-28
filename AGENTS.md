@@ -178,12 +178,12 @@ The `MultiwayEngine` applies all registered rules to the current graph state, br
 
 Ambiguous or multi-faceted concepts are represented as quantum superpositions with multiple interpretations, each having a complex amplitude. Contextual triggers cause collapse to a single interpretation via the Born rule.
 
-**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `QuantumCognitiveLayer.create_superposition()` creates states with amplitude-weighted interpretations; `collapse()` samples from `|amplitude|^2`; `create_entanglement()` correlates interpretation collapse between nodes.
+**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `QuantumCognitiveLayer.create_superposition()` creates states with amplitude-weighted interpretations; `collapse()` samples from `|amplitude|^2`; `create_correlation()` correlates interpretation collapse between nodes.
 
 **Pattern**:
 ```python
 mem.superpose("bank", interpretations=["financial", "river_edge", "billiards"])
-mem.entangle("bank", "water", correlation={"financial": -0.8, "river_edge": 0.9, "billiards": -0.3})
+mem.correlate("bank", "water", correlation={"financial": -0.8, "river_edge": 0.9, "billiards": -0.3})
 result = mem.collapse("bank")  # probabilistic, context-dependent
 ```
 
@@ -341,7 +341,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **rules.py** — `Rule` ABC with 8 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
 - **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
 - **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. Returns typed `CausalEnforceReport`.
-- **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/entanglement/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `QuantumEntanglement`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
+- **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/correlation/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `ConceptCorrelation`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
 - **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
 - **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, high-level insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
 - **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
@@ -351,7 +351,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **memory_base.py** — `_MemoryBase` declares shared type annotations for all memory mixins.
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label.
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences.
-- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, structural anomaly detection.
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, correlate, lateral_insights, structural anomaly detection.
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants.
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats.
 - **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, multi-perspective analysis, discovery.
@@ -383,9 +383,9 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 
 ### Event log uses `"event_type"` key
 `EventLog.record()` stores the event type under the key `"event_type"`, not `"type"`.
+### `correlate()` remaps labels to IDs
 
-### `entangle()` remaps labels to IDs
-The `CognitiveMemory.entangle()` method takes labels but internally remaps correlation dict keys from labels to node IDs before passing to `QuantumCognitiveLayer.create_entanglement()`. Tests where `node.id == node.label` mask this.
+The `CognitiveMemory.correlate()` method takes labels but internally remaps correlation dict keys from labels to node IDs before passing to `QuantumCognitiveLayer.create_correlation()`. Tests where `node.id == node.label` mask this.
 
 ### No comments in code
 Do not add comments unless explicitly asked.
@@ -515,7 +515,7 @@ Every public method must have a concrete return type annotation. Replace bare `A
 When a concept label does not resolve to a node, methods should follow one of two patterns based on the operation's semantics:
 
 - **Query/read operations** (`recall`, `find_paths`, `find_similar`, `explain`, `prove`): return an empty result (`[]`, `None`, or a result object with `achievable=False`). Do not raise.
-- **Write/mutation operations** (`relate`, `entangle`, `stimulate`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
+- **Write/mutation operations** (`relate`, `correlate`, `stimulate`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
 
 Document the behavior in the docstring.
 
@@ -581,7 +581,7 @@ The following are already optimized — maintain them when making changes:
 - **memory_base.py** — `_MemoryBase` shared type annotations for memory mixins
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences
-- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, entangle, lateral_insights, structural anomaly detection
+- **memory_quantum.py** — `QuantumMixin`: superpose, collapse, correlate, lateral_insights, structural anomaly detection
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats
 - **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, multi-perspective analysis, discovery
@@ -628,18 +628,23 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 | Partial proofs | 2-hop BFS neighborhood exploration with Chernoff bounds | `structural_anomaly.py` | Heuristic (Chernoff bounds are rigorous, but the "proof" is a coverage count) |
 | Computational relativity | Multi-perspective parameter selection (4 scalar complexity estimators) | `multi_perspective.py` | Heuristic |
 | Ollivier-Ricci curvature | Local clustering coefficient (triangle density) | `multi_perspective.py` | Heuristic |
-| Frame dragging | Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
-| Gravitational redshift | Product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
-| Transcendental insights | String templates from pattern detection | `multiway_rulial.py` | Heuristic |
+| Frame dragging | Perspective overlap via Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
+| Gravitational redshift | Information dissipation via product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
+| Transcendental insights | High-level insights from pattern detection | `multiway_rulial.py` | Heuristic |
+| Quantum entanglement | Concept correlation via classical correlation matrix lookup | `quantum.py` | Classical (Born-rule collapse is rigorous; entanglement is correlation lookup, not tensor product) |
 | Quantum superposition | Born rule collapse with complex amplitudes | `quantum.py` | Rigorous |
 | Von Neumann entropy | Density matrix eigenvalue entropy | `quantum.py` | Rigorous |
 | Partial trace | Tensor contraction over subsystems | `quantum.py` | Rigorous |
 | Unitary evolution | Matrix multiplication with renormalization | `quantum.py` | Rigorous |
+| Computational density | Graph activity density (avg_degree * 0.25 + rule_diversity * 0.75) | `multiway_rulial.py` | Weighted composite metric |
+| Causal graph complexity | Structural complexity (mean of spectral entropy and motif diversity) | `multiway_rulial.py` | Composite metric |
+| Conservative extension | Removed (was always `True`, not proof-theoretic) | `structural_anomaly.py` | N/A |
 | Spectral entropy | SVD of adjacency matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
 | Kolmogorov complexity | zlib compression ratio | `multi_perspective.py` | Approximation (well-known technique) |
 | Thompson sampling | Beta distribution sampling for frame/basis selection | `multi_perspective.py`, `quantum.py` | Rigorous |
 | Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
 | Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
+| Branchial entanglement | Branchial correlation via Dice coefficient of shared active nodes | `multiway_branchial.py` | Structural metric |
 | Hypergraph | Directed multigraph with n-ary edge storage, pairwise expansion for algorithms | `kernel.py` | Structural (new hypergraph primitives added: incidence matrix, Laplacian, directed edge accessors) |
 
 ## Making Changes
@@ -722,7 +727,7 @@ src/hyper3/          Source code (flat, no sub-packages)
   memory_base.py     _MemoryBase shared type annotations
   memory_core.py     CoreMixin: store, recall, relate, query, evolve
   memory_reasoning.py ReasoningMixin: reason, derive, commit/rollback
-  memory_quantum.py  QuantumMixin: superpose, collapse, entangle
+  memory_quantum.py  QuantumMixin: superpose, collapse, correlate
   memory_analytics.py AnalyticsMixin: paths, centrality, cycles
   memory_persistence.py PersistenceMixin: save/load, import/export
   memory_subsystems.py SubsystemMixin: temporal, enrichment, etc.

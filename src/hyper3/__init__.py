@@ -2,8 +2,7 @@ from hyper3.exceptions import (
     CollapseError,
     ConstraintViolationError,
     EdgeNotFoundError,
-    EntanglementError,
-    Hyper3Error,
+    CorrelationError,    Hyper3Error,
     InferenceError,
     NodeNotFoundError,
     QuantumStateNotFoundError,
@@ -57,7 +56,7 @@ from hyper3.quantum import (
     MeasurementBasis,
     PotentialFieldConfig,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
+    ConceptCorrelation,
     QuantumState,
 )
 from hyper3.persistence import Serializer
@@ -67,7 +66,7 @@ from hyper3.multiway_branchial import (
     BranchialCluster,
     BranchialCoordinates,
     BranchialDistanceMetrics,
-    BranchialEntanglement,
+    BranchialCorrelation,
     BranchialSpace,
     MultiScaleAnalysis,
     ScaleLevel,

@@ -50,7 +50,7 @@ class BranchialCluster:
 
 
 @dataclass
-class BranchialEntanglement:
+class BranchialCorrelation:
     state_a_id: str
     state_b_id: str
     correlation: float
@@ -124,7 +124,7 @@ class BranchialSpace:
         self._embedding_engine = embedding_engine
         self._coordinates: dict[str, BranchialCoordinates] = {}
         self._clusters: list[BranchialCluster] = []
-        self._entanglements: list[BranchialEntanglement] = []
+        self._correlations: list[BranchialCorrelation] = []
         self._simultaneity_groups: list[SimultaneityGroup] = []
         self._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics] = {}
         self._state_embeddings: dict[str, np.ndarray] = {}
@@ -383,16 +383,16 @@ class BranchialSpace:
             self._clusters.append(cluster)
         return self._clusters
 
-    def detect_entanglements(self, min_correlation: float = 0.3) -> list[BranchialEntanglement]:
+    def detect_correlations(self, min_correlation: float = 0.3) -> list[BranchialCorrelation]:
         """Find leaf state pairs with shared active nodes above a correlation threshold.
 
         Args:
-            min_correlation: Minimum Dice coefficient for entanglement.
+            min_correlation: Minimum Dice coefficient for correlation.
 
         Returns:
-            List of BranchialEntanglement with constraint maps.
+            List of BranchialCorrelation with constraint maps.
         """
-        self._entanglements.clear()
+        self._correlations.clear()
         leaves = self._multiway.get_leaves()
         for i in range(len(leaves)):
             for j in range(i + 1, len(leaves)):
@@ -425,15 +425,15 @@ class BranchialSpace:
                                         if tn:
                                             constraint_map[f"state_b:{node.label}"] = tn.label
 
-                    ent = BranchialEntanglement(
+                    corr = BranchialCorrelation(
                         state_a_id=a.id,
                         state_b_id=b.id,
                         correlation=correlation,
                         shared_concept_ids=shared,
                         constraint_map=constraint_map,
                     )
-                    self._entanglements.append(ent)
-        return self._entanglements
+                    self._correlations.append(corr)
+        return self._correlations
 
     def find_neighbors(self, state_id: str, max_distance: float = 2.0) -> list[tuple[str, float]]:
         """Find states within a coordinate distance radius.
@@ -847,9 +847,9 @@ class BranchialSpace:
         return list(self._clusters)
 
     @property
-    def entanglements(self) -> list[BranchialEntanglement]:
-        """Return a copy of the detected entanglements."""
-        return list(self._entanglements)
+    def correlations(self) -> list[BranchialCorrelation]:
+        """Return a copy of the detected correlations."""
+        return list(self._correlations)
 
     @property
     def simultaneity_groups(self) -> list[SimultaneityGroup]:
@@ -954,11 +954,11 @@ class BranchialSpace:
         return BranchialAnalysis(
             states_mapped=len(self._coordinates),
             clusters=len(self._clusters),
-            entanglements=len(self._entanglements),
+            correlations=len(self._correlations),
             simultaneity_groups=len(self._simultaneity_groups),
             avg_cluster_size=sum(c.size for c in self._clusters) / max(len(self._clusters), 1),
-            avg_entanglement_correlation=(
-                sum(e.correlation for e in self._entanglements) / max(len(self._entanglements), 1)
+            avg_correlation_strength=(
+                sum(c.correlation for c in self._correlations) / max(len(self._correlations), 1)
             ),
             multi_scale_available=True,
         )

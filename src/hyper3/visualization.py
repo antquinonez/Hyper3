@@ -132,7 +132,7 @@ def plot_branchial_space(
     *,
     figsize: tuple[float, float] = (12, 8),
     show_clusters: bool = True,
-    show_entanglements: bool = True,
+    show_correlations: bool = True,
     title: str = "Branchial Space",
 ) -> Figure:
     """Plot multiway states in branchial coordinate space.
@@ -141,7 +141,7 @@ def plot_branchial_space(
         branchial: The BranchialSpace to visualize.
         figsize: Matplotlib figure size in inches.
         show_clusters: Color-code states by cluster membership.
-        show_entanglements: Draw dashed lines between entangled states.
+        show_correlations: Draw dashed lines between correlated states.
         title: Plot title.
 
     Returns:
@@ -192,13 +192,13 @@ def plot_branchial_space(
     else:
         ax.scatter(xs, ys, s=120, c="#4477AA", edgecolors="#333333", linewidths=1.0, zorder=3)
 
-    entanglements = branchial.entanglements
-    if show_entanglements and entanglements:
-        for ent in entanglements:
-            a_pos = positions.get(ent.state_a_id)
-            b_pos = positions.get(ent.state_b_id)
+    correlations = branchial.correlations
+    if show_correlations and correlations:
+        for corr in correlations:
+            a_pos = positions.get(corr.state_a_id)
+            b_pos = positions.get(corr.state_b_id)
             if a_pos and b_pos:
-                alpha = min(ent.correlation, 1.0) * 0.6 + 0.1
+                alpha = min(corr.correlation, 1.0) * 0.6 + 0.1
                 ax.plot(
                     [a_pos[0], b_pos[0]],
                     [a_pos[1], b_pos[1]],

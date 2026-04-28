@@ -14,7 +14,7 @@ from hyper3 import (
     Modality,
     MultiwayEngine,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
+    ConceptCorrelation,
     QuantumState,
     TransitiveRule,
 )
@@ -133,11 +133,11 @@ class TestQuantumLayerDeep:
         result = ql.collapse_with_basis("nonexistent", "linguistic")
         assert result is None
 
-    def test_get_entanglement(self):
+    def test_get_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         ql = QuantumCognitiveLayer(g)
-        assert ql.get_entanglement("nonexistent") is None
+        assert ql.get_correlation("nonexistent") is None
 
     def test_get_basis(self):
         g = Hypergraph()
@@ -150,8 +150,8 @@ class TestQuantumLayerDeep:
         ql = QuantumCognitiveLayer(g)
         ql.evolve_amplitudes("nonexistent", {"a": 2.0})
 
-    def test_entanglement_predict_no_match(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict_no_match(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): 0.9},
@@ -159,8 +159,8 @@ class TestQuantumLayerDeep:
         preds = ent.predict("nonexistent", "value")
         assert preds == {}
 
-    def test_entanglement_predict_zero_correlation(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict_zero_correlation(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): 0.0},
@@ -199,10 +199,10 @@ class TestQuantumLayerDeep:
         patterns = ql.compute_interference(qs.id)
         assert patterns == []
 
-    def test_collapse_entangled_missing(self):
+    def test_collapse_correlated_missing(self):
         g = Hypergraph()
         ql = QuantumCognitiveLayer(g)
-        result = ql.collapse_entangled("nonexistent", "a")
+        result = ql.collapse_correlated("nonexistent", "a")
         assert result == {}
 
     def test_collapse_triggers_already_collapsed(self):
@@ -326,8 +326,8 @@ class TestQuantumLayerDeep:
             assert l0.id not in (inv.state_a_id, inv.state_b_id)
             assert l2.id not in (inv.state_a_id, inv.state_b_id)
 
-    def test_entanglement_predict_node_b_match(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict_node_b_match(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): 0.8},
@@ -336,8 +336,8 @@ class TestQuantumLayerDeep:
         assert "a" in preds
         assert preds["a"] == "value_a"
 
-    def test_entanglement_predict_negative_correlation(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict_negative_correlation(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): -0.5},
@@ -371,28 +371,28 @@ class TestQuantumLayerDeep:
         it = next(t for t in triggers if t.trigger_type == "interference_maxima")
         assert it.details["amplitude"] > 0.7
 
-    def test_collapse_entangled_empty_interpretations(self):
+    def test_collapse_correlated_empty_interpretations(self):
         g = Hypergraph()
         ql = QuantumCognitiveLayer(g)
         qs = QuantumState()
         ql._states[qs.id] = qs
-        result = ql.collapse_entangled(qs.id, "a")
+        result = ql.collapse_correlated(qs.id, "a")
         assert result == {}
 
-    def test_collapse_entangled_fake_entanglement(self):
+    def test_collapse_correlated_fake_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         ql = QuantumCognitiveLayer(g)
         qs = ql.create_superposition(["a"])
-        qs.entanglement_ids.append("fake_ent_id")
-        result = ql.collapse_entangled(qs.id, "a")
+        qs.correlation_ids.append("fake_ent_id")
+        result = ql.collapse_correlated(qs.id, "a")
         assert isinstance(result, dict)
 
-    def test_entanglements_property(self):
+    def test_correlations_property(self):
         g = Hypergraph()
         ql = QuantumCognitiveLayer(g)
-        ql.create_entanglement(["a"], ["b"], {("a", "b"): 0.5})
-        ents = ql.entanglements
+        ql.create_correlation(["a"], ["b"], {("a", "b"): 0.5})
+        ents = ql.correlations
         assert len(ents) == 1
 
     def test_merge_consumed_second_pair(self):
@@ -434,8 +434,8 @@ class TestQuantumLayerDeep:
         for inv in merged:
             assert inv.state_a_id != l0.id
 
-    def test_entanglement_predict_node_a_match(self):
-        ent = QuantumEntanglement(
+    def test_correlation_predict_node_a_match(self):
+        ent = ConceptCorrelation(
             group_a_node_ids=frozenset({"a"}),
             group_b_node_ids=frozenset({"b"}),
             correlation_matrix={("a", "b"): 0.8},
@@ -465,23 +465,23 @@ class TestQuantumLayerDeep:
         types = [t.trigger_type for t in triggers]
         assert "single_interpretation" in types
 
-    def test_create_entanglement_links_active_states(self):
+    def test_create_correlation_links_active_states(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
         ql = QuantumCognitiveLayer(g)
         qs = ql.create_superposition(["a", "b"])
-        ent = ql.create_entanglement(["a"], ["b"], {("a", "b"): 0.8})
-        assert ent.id in qs.entanglement_ids
+        ent = ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
+        assert ent.id in qs.correlation_ids
 
-    def test_collapse_entangled_with_predictions(self):
+    def test_collapse_correlated_with_predictions(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a", label="a"))
         g.add_node(Hypernode(id="b", label="b"))
         ql = QuantumCognitiveLayer(g)
         qs = ql.create_superposition(["a", "b"])
-        ql.create_entanglement(["a"], ["b"], {("a", "b"): 0.8})
-        result = ql.collapse_entangled(qs.id, "a")
+        ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
+        result = ql.collapse_correlated(qs.id, "a")
         assert isinstance(result, dict)
 
     def test_add_basis_and_bases_property(self):

@@ -15,13 +15,13 @@ def _make_mem():
     return mem
 
 
-class TestComputeCurvature:
+class TestComputeLocalClustering:
 
     def test_nonzero_for_asymmetric_graph(self):
         mem = _make_mem()
         a = mem.graph.get_node_by_label("a")
-        curvature = mem._perspective.compute_local_clustering([a.id])
-        assert curvature >= 0.0
+        clustering = mem._perspective.compute_local_clustering([a.id])
+        assert clustering >= 0.0
 
     def test_empty_seeds(self):
         mem = _make_mem()
@@ -31,11 +31,11 @@ class TestComputeCurvature:
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("x")
         x = mem.graph.get_node_by_label("x")
-        curvature = mem._perspective.compute_local_clustering([x.id])
-        assert curvature >= 0.0
+        clustering = mem._perspective.compute_local_clustering([x.id])
+        assert clustering >= 0.0
 
 
-class TestComputeFrameDragging:
+class TestComputePerspectiveOverlap:
 
     def test_self_dragging_is_one(self):
         mem = _make_mem()
@@ -54,7 +54,7 @@ class TestComputeFrameDragging:
         assert mem._perspective.compute_perspective_overlap([], "classical", "quantum") == 0.0
 
 
-class TestComputeRedshift:
+class TestComputeInformationDissipation:
 
     def test_classical_redshift(self):
         mem = _make_mem()
@@ -80,6 +80,6 @@ class TestComputeStructuralMetrics:
         a = mem.graph.get_node_by_label("a")
         metrics = mem._perspective.compute_structural_metrics([a.id])
         assert isinstance(metrics, StructuralMetrics)
-        assert metrics.curvature >= 0.0
-        assert 0.0 <= metrics.frame_dragging <= 1.0
-        assert 0.0 <= metrics.redshift <= 1.0
+        assert metrics.local_clustering >= 0.0
+        assert 0.0 <= metrics.perspective_overlap <= 1.0
+        assert 0.0 <= metrics.information_dissipation <= 1.0

@@ -2,7 +2,7 @@ from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.event_log import EventLog
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialEntanglement
+from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialCorrelation
 from hyper3.quantum import QuantumCognitiveLayer, QuantumState
 from hyper3.visualization import (
     plot_branchial_space,
@@ -119,7 +119,7 @@ class TestPlotBranchialSpace:
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_with_entanglements(self):
+    def test_with_correlations(self):
         g = Hypergraph()
         for label in ["a", "b", "c", "d"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -130,8 +130,8 @@ class TestPlotBranchialSpace:
         mw.expand({"a"}, [TransitiveRule(edge_label="rel")], max_depth=2, max_total_states=30)
         bs = BranchialSpace(g, mw.multiway)
         bs.assign_coordinates()
-        bs.detect_entanglements(min_correlation=0.1)
-        fig = plot_branchial_space(bs, show_entanglements=True)
+        bs.detect_correlations(min_correlation=0.1)
+        fig = plot_branchial_space(bs, show_correlations=True)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
@@ -276,14 +276,14 @@ class TestPlotBranchialDeep:
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_entanglements_with_positions(self):
+    def test_correlations_with_positions(self):
         g = Hypergraph()
         mw = MultiwayEngine(g)
         bs = BranchialSpace(g, mw.multiway)
         bs._coordinates["s1"] = BranchialCoordinates(state_id="s1", position=[1.0, 2.0], depth=1)
         bs._coordinates["s2"] = BranchialCoordinates(state_id="s2", position=[3.0, 4.0], depth=1)
-        bs._entanglements.append(BranchialEntanglement(state_a_id="s1", state_b_id="s2", correlation=0.8))
-        fig = plot_branchial_space(bs, show_entanglements=True)
+        bs._correlations.append(BranchialCorrelation(state_a_id="s1", state_b_id="s2", correlation=0.8))
+        fig = plot_branchial_space(bs, show_correlations=True)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)

@@ -3,7 +3,7 @@ from hyper3 import (
     BranchialCluster,
     BranchialCoordinates,
     BranchialDistanceMetrics,
-    BranchialEntanglement,
+    BranchialCorrelation,
     BranchialSpace,
     Hyperedge,
     Hypergraph,
@@ -141,7 +141,7 @@ class TestBranchialSpaceDeep:
             assert c.size >= 0
             assert c.centroid is not None
 
-    def test_detect_entanglements_with_shared(self):
+    def test_detect_correlations_with_shared(self):
         g = Hypergraph()
         for label in ["a", "b", "c", "d", "shared"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -151,10 +151,10 @@ class TestBranchialSpaceDeep:
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "b"}, [rule], max_depth=2, max_total_states=20)
         bs = BranchialSpace(g, mw.multiway)
-        entanglements = bs.detect_entanglements(min_correlation=0.1)
+        entanglements = bs.detect_correlations(min_correlation=0.1)
         assert isinstance(entanglements, list)
         for ent in entanglements:
-            assert isinstance(ent, BranchialEntanglement)
+            assert isinstance(ent, BranchialCorrelation)
             assert ent.correlation > 0.0
             assert len(ent.shared_concept_ids) > 0
 
@@ -198,7 +198,7 @@ class TestBranchialSpaceDeep:
         bs.assign_coordinates()
         assert isinstance(bs.coordinates, dict)
         assert isinstance(bs.clusters, list)
-        assert isinstance(bs.entanglements, list)
+        assert isinstance(bs.correlations, list)
         assert isinstance(bs.simultaneity_groups, list)
 
     def test_distances_with_missing_states(self):
@@ -399,10 +399,10 @@ class TestBranchialDeepCoverage:
         clusters = bs.cluster_states(n_clusters=2)
         assert isinstance(clusters, list)
 
-    def test_detect_entanglements_with_constraint_map(self):
+    def test_detect_correlations_with_constraint_map(self):
         g, mw = _build_manual()
         bs = BranchialSpace(g, mw)
-        entanglements = bs.detect_entanglements(min_correlation=0.1)
+        entanglements = bs.detect_correlations(min_correlation=0.1)
         assert len(entanglements) > 0
         for ent in entanglements:
             assert ent.correlation > 0.0
@@ -492,15 +492,15 @@ class TestBranchialDeepCoverage:
         bs = BranchialSpace(g, mw)
         bs.assign_coordinates()
         bs.cluster_states(n_clusters=2)
-        bs.detect_entanglements(min_correlation=0.1)
+        bs.detect_correlations(min_correlation=0.1)
         bs.build_simultaneity_groups()
         analysis = bs.analyze()
         assert analysis["states_mapped"] > 0
         assert analysis["clusters"] > 0
-        assert analysis["entanglements"] > 0
+        assert analysis["correlations"] > 0
         assert analysis["simultaneity_groups"] > 0
         assert analysis["avg_cluster_size"] >= 0.0
-        assert analysis["avg_entanglement_correlation"] >= 0.0
+        assert analysis["avg_correlation_strength"] >= 0.0
 
     def test_conceptual_both_empty_active(self):
         g = Hypergraph()
@@ -531,7 +531,7 @@ class TestBranchialDeepCoverage:
         assert isinstance(result, float)
         assert result >= 0.0
 
-    def test_detect_entanglements_no_shared_nodes(self):
+    def test_detect_correlations_no_shared_nodes(self):
         g = Hypergraph()
         for label in ["x", "y", "p", "q"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -543,5 +543,5 @@ class TestBranchialDeepCoverage:
         mw.add_state(l1)
         mw.add_state(l2)
         bs = BranchialSpace(g, mw)
-        entanglements = bs.detect_entanglements(min_correlation=0.1)
+        entanglements = bs.detect_correlations(min_correlation=0.1)
         assert isinstance(entanglements, list)

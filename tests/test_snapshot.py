@@ -170,10 +170,10 @@ class TestCognitiveSnapshotRoundTrip:
         assert mem2._quantum._basis_stats["linguistic"]["successes"] == 2
         assert mem2._quantum._basis_stats["linguistic"]["selections"] == 3
 
-    def test_quantum_entanglement_preserved(self, mem, tmp_path_fixture):
+    def test_quantum_correlation_preserved(self, mem, tmp_path_fixture):
         a, b, c = _populate_memory(mem)
         mem.superpose(["alpha", "beta"])
-        ent = mem._quantum.create_entanglement(
+        ent = mem._quantum.create_correlation(
             [a.id], [b.id, c.id],
             {(a.id, b.id): 0.8, (a.id, c.id): -0.3},
         )
@@ -184,7 +184,7 @@ class TestCognitiveSnapshotRoundTrip:
             mem2._graph.add_node(node)
         mem2.load_cognitive_state(str(tmp_path_fixture))
 
-        ents = mem2._quantum.entanglements
+        ents = mem2._quantum.correlations
         assert len(ents) == 1
         assert ents[0].strength == ent.strength
 
@@ -260,7 +260,7 @@ class TestCognitiveSnapshotWithReasoning:
 
         assert mem._rulial is not None
         mem._rulial.update_position(rules=mem._rules)
-        pre_density = mem._rulial._position.computational_density
+        pre_density = mem._rulial._position.graph_activity_density
 
         mem.save_cognitive_state(str(tmp_path_fixture))
 
@@ -273,7 +273,7 @@ class TestCognitiveSnapshotWithReasoning:
         mem2.load_cognitive_state(str(tmp_path_fixture))
 
         assert mem2._rulial is not None
-        assert abs(mem2._rulial._position.computational_density - pre_density) < 1e-10
+        assert abs(mem2._rulial._position.graph_activity_density - pre_density) < 1e-10
 
 
 class TestCognitiveSnapshotComplexAmplitudes:

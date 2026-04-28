@@ -11,7 +11,7 @@ from hyper3.quantum import (
     Interpretation,
     MeasurementBasis,
     QuantumCognitiveLayer,
-    QuantumEntanglement,
+    ConceptCorrelation,
     QuantumState,
 )
 from hyper3.structural_anomaly import BoundaryRegion, AnomalyDetectionResult
@@ -126,8 +126,8 @@ class QuantumMixin(_MemoryBase):
         self._log.record("compute_interference", state_id=qs.id)
         return result
 
-    def entangle(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> QuantumEntanglement:
-        """Create an entanglement between two groups of concept nodes.
+    def correlate(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> ConceptCorrelation:
+        """Create a correlation between two groups of concept nodes.
 
         Correlation keys use concept labels, which are internally remapped
         to node IDs.
@@ -138,7 +138,7 @@ class QuantumMixin(_MemoryBase):
             correlations: Dict mapping (label_a, label_b) pairs to correlation strengths.
 
         Returns:
-            The created QuantumEntanglement.
+            The created ConceptCorrelation.
         Raises:
             NodeNotFoundError: If any concept label in group_a or group_b does
                 not resolve to an existing node.
@@ -165,15 +165,15 @@ class QuantumMixin(_MemoryBase):
             id_a = label_to_id.get(key_a, key_a)
             id_b = label_to_id.get(key_b, key_b)
             id_correlations[(id_a, id_b)] = corr
-        ent = self._quantum.create_entanglement(node_ids_a, node_ids_b, id_correlations)
-        self._log.record("entangle", group_a=group_a, group_b=group_b, entanglement_id=ent.id)
-        return ent
+        result = self._quantum.create_correlation(node_ids_a, node_ids_b, id_correlations)
+        self._log.record("correlate", group_a=group_a, group_b=group_b, correlation_id=result.id)
+        return result
 
-    def collapse_entangled(self, qs: QuantumState, concept: str) -> dict[str, str]:
-        """Collapse an entangled state by observing one concept, returning all results.
+    def collapse_correlated(self, qs: QuantumState, concept: str) -> dict[str, str]:
+        """Collapse a correlated state by observing one concept, returning all results.
 
         Args:
-            qs: The entangled quantum state.
+            qs: The correlated quantum state.
             concept: Label of the node to observe.
 
         Returns:
@@ -182,7 +182,7 @@ class QuantumMixin(_MemoryBase):
         node = self._find_node(concept)
         if not node:
             return {}
-        raw = self._quantum.collapse_entangled(qs.id, node.id)
+        raw = self._quantum.collapse_correlated(qs.id, node.id)
         labeled: dict[str, str] = {}
         for node_id, predicted_id in raw.items():
             label = self._node_label(node_id)

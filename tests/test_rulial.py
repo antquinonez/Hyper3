@@ -29,12 +29,12 @@ def _build_graph():
 
 class TestRulialPosition:
     def test_distance_to_self(self):
-        p = RulialPosition(computational_density=0.5, causal_graph_complexity=0.3)
+        p = RulialPosition(graph_activity_density=0.5, structural_complexity=0.3)
         assert p.distance_to(p) == 0.0
 
     def test_distance_to_different(self):
-        p1 = RulialPosition(computational_density=0.5, causal_graph_complexity=0.3)
-        p2 = RulialPosition(computational_density=0.8, causal_graph_complexity=0.6)
+        p1 = RulialPosition(graph_activity_density=0.5, structural_complexity=0.3)
+        p2 = RulialPosition(graph_activity_density=0.8, structural_complexity=0.6)
         assert p1.distance_to(p2) > 0.0
 
 
@@ -44,8 +44,8 @@ class TestRulialSpace:
         rs = RulialSpace(g)
         pos = rs.update_position()
         assert isinstance(pos, RulialPosition)
-        assert pos.computational_density >= 0.0
-        assert pos.causal_graph_complexity >= 0.0
+        assert pos.graph_activity_density >= 0.0
+        assert pos.structural_complexity >= 0.0
 
     def test_record_rule_application(self):
         g = _build_graph()
@@ -96,7 +96,7 @@ class TestRulialSpace:
         rs = RulialSpace(g)
         rs.update_position()
         report = rs.analyze()
-        assert "computational_density" in report
+        assert "graph_activity_density" in report
         assert "rule_diversity" in report
         assert "meta_patterns" in report
 

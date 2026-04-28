@@ -11,7 +11,7 @@ entropy) from quantum mechanics to manage competing hypotheses.
 What each "quantum" operation actually does:
   - Superposition: holds multiple candidate hypotheses with weights
   - Collapse: weighted random selection (Born rule = sample proportional to weight^2)
-  - Entanglement: records pairwise correlations between hypotheses
+  - Correlation: records pairwise correlations between hypotheses
   - Interference: detects reinforcing vs conflicting evidence patterns
   - Density matrix / Von Neumann entropy: measures how uncertain the system is
 
@@ -389,9 +389,9 @@ def section_3_collapse(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     print()
 
 
-def section_4_entanglement(mem: CognitiveMemory, hypotheses: list[str]) -> None:
+def section_4_correlation(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
-    print("SECTION 4: Entanglement = Correlated Hypotheses")
+    print("SECTION 4: Correlation = Correlated Hypotheses")
     print("=" * 70)
     print()
     print("  What it actually does: stores a correlation matrix between two")
@@ -402,7 +402,7 @@ def section_4_entanglement(mem: CognitiveMemory, hypotheses: list[str]) -> None:
 
     qs = mem.superpose(concepts=hypotheses, use_context_field=False)
 
-    ent = mem.entangle(
+    ent = mem.correlate(
         group_a=["certificate_expiry", "dns_resolution_failure"],
         group_b=["memory_leak_api", "db_connection_pool_exhaustion"],
         correlations={
@@ -412,7 +412,7 @@ def section_4_entanglement(mem: CognitiveMemory, hypotheses: list[str]) -> None:
             ("dns_resolution_failure", "db_connection_pool_exhaustion"): 0.6,
         },
     )
-    print(f"  Entanglement created: {ent.id[:12]}...")
+    print(f"  Correlation created: {ent.id[:12]}...")
     print(f"  Group A (network/security): certificate_expiry, dns_resolution_failure")
     print(f"  Group B (application/database): memory_leak_api, db_connection_pool_exhaustion")
     print(f"\n  Correlations (positive = co-occur, negative = mutually exclusive):")
@@ -421,15 +421,15 @@ def section_4_entanglement(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     print(f"    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
     print(f"    dns_failure  <-> memory_leak:        +0.15 (weak)")
 
-    cascaded = mem.collapse_entangled(qs, "certificate_expiry")
-    print(f"\n  Entangled collapse (observe certificate_expiry):")
+    cascaded = mem.collapse_correlated(qs, "certificate_expiry")
+    print(f"\n  Correlated collapse (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
             node = mem.graph.get_node(partner_id)
             label = node.label if node else partner_id[:12]
             print(f"    {label}: prediction={prediction}")
     else:
-        print("    (no entangled predictions -- state not linked to entanglement)")
+        print("    (no correlated predictions -- state not linked to correlation)")
     print()
 
 
@@ -553,12 +553,12 @@ def section_7_bayesian_comparison() -> None:
     print()
     print("  1. Superposition = prior distribution over hypotheses")
     print("  2. Collapse with context = sampling from posterior (context = likelihood)")
-    print("  3. Entanglement = structured prior over correlated hypotheses")
+    print("  3. Correlation = structured prior over correlated hypotheses")
     print("  4. Interference = Bayes factor aggregation (agreeing/diverging evidence)")
     print("  5. Von Neumann entropy = for mixed states, equals Shannon entropy")
     print()
     print("  Advantages of the quantum-style API:")
-    print("    - Natural syntax for correlated hypotheses (entanglement)")
+    print("    - Natural syntax for correlated hypotheses (correlation)")
     print("    - Built-in uncertainty quantification (entropy)")
     print("    - Density matrix gives a full covariance-like state descriptor")
     print()
@@ -581,7 +581,7 @@ def main():
     hypotheses = section_1_build_graph(mem)
     section_2_superposition(mem, hypotheses)
     section_3_collapse(mem, hypotheses)
-    section_4_entanglement(mem, hypotheses)
+    section_4_correlation(mem, hypotheses)
     section_5_interference(mem)
     section_6_entropy(mem, hypotheses)
     section_7_bayesian_comparison()
@@ -591,7 +591,7 @@ def main():
     print("=" * 70)
     print("  1. Superposition = prior distribution over hypotheses (weighted or uniform)")
     print("  2. Collapse = weighted random sampling (Born rule = p ~ weight^2)")
-    print("  3. Entanglement = pairwise correlation lookup between hypothesis groups")
+    print("  3. Correlation = pairwise correlation lookup between hypothesis groups")
     print("  4. Interference = detects agreeing vs conflicting evidence sources")
     print("  5. Entropy = meaningful for mixed states; 0 for pure states (a caveat)")
     print("  6. For this use case, quantum formalism ~= Bayesian inference with APIs")

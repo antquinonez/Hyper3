@@ -142,13 +142,13 @@ class TestCognitiveMemoryNewFeatures:
         assert "cognitive_state" in result
         assert "graph_health" in result
 
-    def test_quantum_entanglement(self):
+    def test_quantum_correlation(self):
         mem = CognitiveMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.store("pet")
         mem.store("wild")
-        ent = mem.entangle(
+        ent = mem.correlate(
             ["cat", "dog"],
             ["pet", "wild"],
             {("cat", "pet"): 0.9, ("dog", "wild"): 0.8},
