@@ -156,7 +156,7 @@ test_concepts = [
 for concept in test_concepts:
     result = mem.detect_structural_anomalies(concept)
     print(f"   '{concept}':")
-    print(f"     status={result.decidability_status}, score={result.boundary_score:.3f}, level={result.reasoning_level}")
+    print(f"     status={result.anomaly_status}, score={result.boundary_score:.3f}, level={result.reasoning_level}")
     if result.boundary_warnings:
         for w in result.boundary_warnings:
             print(f"     WARNING: {w}")
@@ -217,6 +217,6 @@ print(f"  Log size: {stats.log_size}")
 print(f"  Cache size: {stats.cache_size}")
 print(f"  Operations: {stats.operations}")
 print(f"  Multiway states: {stats.multiway_states}")
-print(f"  Quantum active: {stats.quantum_active}")
+print(f"  Quantum active: {stats.belief_active}")
 print(f"  Components: {stats.components}")
 print(f"  Active rules: {stats.active_rules}")

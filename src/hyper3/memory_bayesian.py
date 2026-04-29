@@ -61,8 +61,9 @@ class BayesianMixin(_MemoryBase):
             return None
         if self._bayesian is None:
             self._bayesian = BayesianLayer(self._graph)
-        result_id = self._bayesian.map_estimate(node.id)
-        if result_id is None:
+        try:
+            result_id = self._bayesian.map_estimate(node.id)
+        except (ValueError, KeyError):
             return None
         return self._node_label(result_id)
 

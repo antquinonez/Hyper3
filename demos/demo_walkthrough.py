@@ -235,7 +235,7 @@ questions = [
 for question, expected in questions:
     result = mem.detect_structural_anomalies(question)
     print(f"  Q: {question}")
-    print(f"    Status: {result.decidability_status}  |  Level: {result.reasoning_level}  |  Score: {result.boundary_score:.3f}")
+    print(f"    Status: {result.anomaly_status}  |  Level: {result.reasoning_level}  |  Score: {result.boundary_score:.3f}")
     if result.boundary_warnings:
         for w in result.boundary_warnings:
             print(f"    ⚠ {w}")

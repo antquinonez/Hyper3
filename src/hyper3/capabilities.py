@@ -125,7 +125,11 @@ def _probe_retrieval(memory: object) -> bool:
         feedback = getattr(retrieval, "_feedback", None)
         if feedback is None:
             return False
-        return getattr(feedback, "size", lambda: 0)() > 0
+        size_val = getattr(feedback, "size", 0)
+        if callable(size_val):
+            sz = size_val()
+            return int(sz) > 0  # type: ignore[arg-type]
+        return int(size_val) > 0  # type: ignore[arg-type]
     except Exception:
         return False
 

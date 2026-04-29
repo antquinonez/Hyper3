@@ -109,8 +109,10 @@ def parse_advisories(raw: list[dict[str, Any]]) -> list[AdvisoryRecord]:
                 "ecosystem": pkg.get("ecosystem", ""),
             })
             first_patched = vuln.get("first_patched_version", {})
-            if first_patched and first_patched.get("identifier"):
+            if first_patched and isinstance(first_patched, dict) and first_patched.get("identifier"):
                 patched.append(first_patched["identifier"])
+            elif first_patched and isinstance(first_patched, str):
+                patched.append(first_patched)
 
         if ghsa_id and packages:
             records.append(AdvisoryRecord(
