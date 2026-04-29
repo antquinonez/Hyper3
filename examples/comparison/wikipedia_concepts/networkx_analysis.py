@@ -17,8 +17,8 @@ Comparison with Hyper3:
     pattern matching, and structural anomaly detection
   - Hyper3 provides built-in structural anomaly detection with boundary
     scores (cycles, centrality, contradictions) vs. manual heuristics here
-  - Hyper3's community detection uses label propagation with modularity
-    tracking; NetworkX uses greedy modularity optimization
+  - Both pipelines use label propagation for community detection; Hyper3
+    adds modularity, coverage, and edge metrics
   - Hyper3 stores metadata, provenance, and evolution state natively;
     NetworkX requires ad-hoc attribute dicts
   - Hyper3's spreading activation integrates with retrieval and Hebbian
@@ -180,6 +180,7 @@ def spreading_activation(
     frontier = list(seeds)
     for _ in range(max_depth):
         next_frontier: list[str] = []
+        seen_frontier: set[str] = set()
         for node in frontier:
             if node not in G:
                 continue
@@ -188,7 +189,9 @@ def spreading_activation(
                 new_energy = activation.get(nb, 0.0) + energy
                 if new_energy > threshold:
                     activation[nb] = new_energy
-                    next_frontier.append(nb)
+                    if nb not in seen_frontier:
+                        next_frontier.append(nb)
+                        seen_frontier.add(nb)
         frontier = next_frontier
 
     results = [(n, e) for n, e in activation.items() if e >= threshold]
@@ -212,7 +215,8 @@ def detect_structural_anomalies(
 
         cycles_with = 0
         try:
-            for cycle in nx.simple_cycles(G):
+            ego = nx.ego_graph(G, concept, radius=2)
+            for cycle in nx.simple_cycles(ego):
                 if concept in cycle:
                     cycles_with += 1
                     if cycles_with >= 5:
@@ -264,12 +268,18 @@ def analyze_betweenness(G: nx.DiGraph, top_n: int = 15, k: int | None = None) ->
     return ranked
 
 
+def analyze_degree_centrality(G: nx.DiGraph, top_n: int = 15) -> list[tuple[str, float]]:
+    dc = nx.degree_centrality(G)
+    ranked = sorted(dc.items(), key=lambda x: x[1], reverse=True)[:top_n]
+    return ranked
+
+
 def analyze_communities(G: nx.DiGraph) -> tuple[list[set[str]], float]:
     U = G.to_undirected()
     try:
-        communities = list(nx.community.greedy_modularity_communities(U))
-    except Exception:
         communities = list(nx.community.label_propagation_communities(U))
+    except Exception:
+        communities = [set(U.nodes())]
     modularity = nx.community.modularity(U, communities) if communities else 0.0
     return communities, modularity
 
@@ -298,6 +308,7 @@ def print_report(
     G: nx.DiGraph,
     pagerank: list[tuple[str, float]],
     betweenness: list[tuple[str, float]],
+    degree_central: list[tuple[str, float]],
     anomalies: list[dict[str, Any]],
     hubs: list[dict[str, Any]],
     activation: list[tuple[str, float]],
@@ -332,7 +343,16 @@ def print_report(
     print()
 
     print("=" * 70)
-    print("SECTION 3: Structural Anomaly Detection (Manual Heuristics)")
+    print("SECTION 3: Degree Centrality — Highly Connected Concepts")
+    print("=" * 70)
+    print(f"  {'Concept':<47} {'DegCent':>10}")
+    print(f"  {'-'*47} {'-'*10}")
+    for concept, score in degree_central[:15]:
+        print(f"  {concept[:47]:<47} {score:>10.6f}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 4: Structural Anomaly Detection (Manual Heuristics)")
     print("=" * 70)
     if anomalies:
         print(f"  {'Concept':<42} {'InDeg':>6} {'Z':>7} {'Cyc':>4} {'Status':<12} {'Score':>6}")
@@ -351,7 +371,7 @@ def print_report(
     print()
 
     print("=" * 70)
-    print("SECTION 4: Hub Concepts (Most Linked-To)")
+    print("SECTION 5: Hub Concepts (Most Linked-To)")
     print("=" * 70)
     if hubs:
         print(f"  {'Concept':<42} {'In':>5} {'Out':>5} {'Seed':>5}")
@@ -366,7 +386,7 @@ def print_report(
     print()
 
     print("=" * 70)
-    print("SECTION 5: Spreading Activation Clusters")
+    print("SECTION 6: Spreading Activation Clusters")
     print("=" * 70)
     if activation:
         print(f"  {'Concept':<47} {'Activation':>10}")
@@ -376,7 +396,7 @@ def print_report(
     print()
 
     print("=" * 70)
-    print("SECTION 6: Community Detection — ML Sub-Topics")
+    print("SECTION 7: Community Detection — ML Sub-Topics")
     print("=" * 70)
     print(f"  Communities: {len(communities)}")
     print(f"  Modularity:  {modularity:.3f}")
@@ -397,7 +417,8 @@ def print_report(
     print("=" * 70)
     print("  NetworkX approach:")
     print("    + PageRank and betweenness centrality are built-in algorithms")
-    print("    + Greedy modularity communities produce well-separated clusters")
+    print("    + Degree centrality is trivially computed from in/out degrees")
+    print("    - Label propagation communities can be non-deterministic")
     print("    - Structural anomaly detection must be hand-coded from heuristics")
     print("    - Spreading activation requires custom BFS implementation")
     print("    - No native concept of evolution, provenance, or self-adaptation")
@@ -409,13 +430,13 @@ def print_report(
     print("    + Community detection with modularity, coverage, and edge metrics")
     print("    + Self-evolving graph with decay, prune, merge, and reinforce")
     print("    + Typed result dataclasses with dict-like access")
-    print("    - Lacks PageRank / betweenness centrality as first-class methods")
-    print("    - Community detection uses label propagation (less deterministic)")
+    print("    + PageRank and betweenness centrality as first-class methods")
+    print("    + Degree centrality via degree_centrality() with top_k support")
     print()
-    print("  Key insight: NetworkX excels at standard graph algorithms (PageRank,")
-    print("  betweenness) but requires significant custom code for cognitive")
-    print("  analysis. Hyper3 provides integrated cognitive primitives at the cost")
-    print("  of some classical graph algorithm coverage.")
+    print("  Key insight: Both libraries offer PageRank, betweenness, and degree")
+    print("  centrality. NetworkX excels at standard graph algorithms but requires")
+    print("  significant custom code for cognitive analysis. Hyper3 provides")
+    print("  integrated cognitive primitives alongside classical graph metrics.")
     print()
 
     print("=" * 70)
@@ -461,7 +482,12 @@ def main() -> None:
     print(f"  Top bridge: {betweenness[0][0]} (score={betweenness[0][1]:.6f})")
     print()
 
-    print("SECTION 6: Detecting structural anomalies...")
+    print("SECTION 6: Computing degree centrality...")
+    degree_central = analyze_degree_centrality(G)
+    print(f"  Top degree: {degree_central[0][0]} (score={degree_central[0][1]:.6f})")
+    print()
+
+    print("SECTION 7: Detecting structural anomalies...")
     in_deg = dict(G.in_degree())
     top_concepts = sorted(in_deg, key=in_deg.get, reverse=True)[:15]
     anomalies = detect_structural_anomalies(G, top_concepts)
@@ -469,13 +495,13 @@ def main() -> None:
     print(f"  Anomalous/boundary concepts: {anomalous_count}/{len(anomalies)}")
     print()
 
-    print("SECTION 7: Identifying hub concepts...")
+    print("SECTION 8: Identifying hub concepts...")
     seed_articles = set(link_map.keys())
     hubs = analyze_hubs(G, seed_articles)
     print(f"  Top hub: {hubs[0]['concept']} (incoming={hubs[0]['incoming_links']})")
     print()
 
-    print("SECTION 8: Running spreading activation...")
+    print("SECTION 9: Running spreading activation...")
     activation_seeds = [
         "Artificial intelligence",
         "Neural network",
@@ -488,7 +514,7 @@ def main() -> None:
     print(f"  Activated concepts: {len(activation)}")
     print()
 
-    print("SECTION 9: Detecting communities...")
+    print("SECTION 10: Detecting communities...")
     communities, modularity = analyze_communities(G)
     large_comms = [c for c in communities if len(c) >= 3]
     print(f"  Communities: {len(communities)} ({len(large_comms)} with 3+ members)")
@@ -496,7 +522,7 @@ def main() -> None:
     print()
 
     print_report(
-        G, pagerank, betweenness, anomalies, hubs,
+        G, pagerank, betweenness, degree_central, anomalies, hubs,
         activation, communities, modularity,
     )
 

@@ -257,10 +257,7 @@ def analyze_blast_radius(
             if node in visited:
                 continue
             visited.add(node)
-            for _, neighbor in G.out_edges(node):
-                if neighbor not in visited:
-                    queue.append(neighbor)
-            for neighbor, _ in G.in_edges(adv_label) if node == adv_label else []:
+            for neighbor in list(G.successors(node)) + list(G.predecessors(node)):
                 if neighbor not in visited:
                     queue.append(neighbor)
 
@@ -272,11 +269,13 @@ def analyze_blast_radius(
 
 
 def analyze_chokepoints(G: nx.DiGraph) -> dict[str, float]:
-    undirected = G.to_undirected()
-    centrality = nx.betweenness_centrality(undirected, normalized=True)
+    centrality = nx.betweenness_centrality(G, normalized=True)
     filtered = {k: v for k, v in centrality.items() if v > 0}
     sorted_c = sorted(filtered.items(), key=lambda x: -x[1])[:15]
-    print(f"[chokepoint] Top: {sorted_c[0][0] if sorted_c else 'N/A'} ({sorted_c[0][1]:.4f if sorted_c else 0})")
+    if sorted_c:
+        print(f"[chokepoint] Top: {sorted_c[0][0]} ({sorted_c[0][1]:.4f})")
+    else:
+        print("[chokepoint] Top: N/A (0)")
     return dict(sorted_c)
 
 

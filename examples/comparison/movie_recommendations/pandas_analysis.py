@@ -182,25 +182,7 @@ def genre_similarity(
 
 
 def find_communities(G: nx.Graph) -> list[set]:
-    movie_nodes = {n for n, d in G.nodes(data=True) if d.get("bipartite") == "movie"}
-    person_nodes = set(G.nodes) - movie_nodes
-    communities = []
-    visited = set()
-    for node in G.nodes:
-        if node in visited:
-            continue
-        community = set()
-        stack = [node]
-        while stack:
-            current = stack.pop()
-            if current in visited:
-                continue
-            visited.add(current)
-            community.add(current)
-            for neighbor in G.neighbors(current):
-                if neighbor not in visited:
-                    stack.append(neighbor)
-        communities.append(community)
+    communities = list(nx.community.label_propagation_communities(G))
     communities.sort(key=len, reverse=True)
     return communities
 
@@ -318,7 +300,7 @@ def main():
     print("=" * 70)
 
     communities = find_communities(G)
-    print(f"Found {len(communities)} connected components")
+    print(f"Found {len(communities)} communities")
     for i, comm in enumerate(communities[:5]):
         comm_movies = [n for n in comm if G.nodes[n].get("bipartite") == "movie"]
         comm_persons = [n for n in comm if G.nodes[n].get("bipartite") == "person"]
@@ -342,7 +324,7 @@ Pandas + NetworkX approach:
   - Collaborative filtering via Jaccard similarity on shared cast/crew
   - Genre cosine similarity via one-hot encoding and scipy
   - Bipartite graph with manual neighbor traversal for recommendations
-  - Connected components as community proxy (no modularity optimization)
+  - Community detection via label propagation (with modularity)
   - Betweenness centrality via nx.betweenness_centrality()
 
 Hyper3 approach (see pipeline.py):
