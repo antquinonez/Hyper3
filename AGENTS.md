@@ -465,6 +465,30 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 ### Causal merge insights capture unique contributions
 When `StateConvergenceEngine` merges convergent multiway states, it computes `MergeInsight` for each merge partner listing nodes and edges unique to that state. These insights are attached to the `ConvergenceRecord.insights` list, preserving provenance of what each branch contributed before merging.
 
+### `has_node()` and `__contains__` for existence checks
+`mem.has_node(concept)` returns `bool`. `concept in mem` also works via `__contains__`. Do not use the private `_find_node()` method in user code or example scripts.
+
+### `ensure()` for idempotent graph construction
+`mem.ensure(concept, data=..., update=False)` creates a node only if absent. Unlike `store()`, it does not reinforce the node or trigger evolution. Use during graph construction to avoid spurious reinforcement of frequently-referenced nodes. Pass `update=True` to merge new data into an existing node's data dict.
+
+### `relate()` accepts `weight` parameter
+`mem.relate(source, target, label=..., weight=5.0)` sets edge importance. Default is 1.0. The weight propagates to networkx algorithms (centrality, shortest path). Bidirectional edges both receive the same weight.
+
+### `neighbors()` for directed neighbor queries
+`mem.neighbors(concept, edge_label=..., direction="out"|"in"|"any")` returns labels of neighboring nodes. Filters by edge label and direction. Returns `[]` for missing concepts.
+
+### `query_nodes()` for data-attribute filtering
+`mem.query_nodes(type="movie")` or `mem.query_nodes(data={"ecosystem": "pypi"})` returns concept labels matching data attributes. The `type` parameter is shorthand for `data={"type": value}`. Supports `labels` set filter and `limit`.
+
+### `describe()` for graph summary
+`mem.describe()` returns `GraphDescription` with node type distribution, edge label distribution, degree statistics (min/max/mean/median), isolated node count, component count, and density.
+
+### `pagerank()` for PageRank centrality
+`mem.pagerank(alpha=0.85, top_k=10)` computes PageRank. Uses raw edge weights as transition probabilities (not inverted — PageRank treats higher weight as stronger endorsement). Supports `weighted` flag and `top_k`.
+
+### `top_k` on centrality methods
+`degree_centrality(top_k=10)` and `betweenness_centrality(top_k=10)` return only the top-N entries. `top_k=None` returns all (default, backward compatible). The standalone `top_k()` utility in `results.py` sorts any score dict.
+
 ## API Ergonomic Principles
 
 These principles govern the design of public-facing method signatures and return types across **all** modules — engine classes, utility classes, result dataclasses, and facades. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
@@ -797,7 +821,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1354
+- **Tests**: 1459
 - **Coverage**: 95%
 - **Pyright**: 0 errors
-- **Examples**: 41 (21 Hyper3: 3 basic, 6 intermediate, 6 advanced, 6 domain; 20 comparison)
+- **Examples**: 51 (26 Hyper3: 3 basic, 6 intermediate, 6 advanced, 7 domain, 5 project pipelines; 20 comparison + 5 project comparisons)
