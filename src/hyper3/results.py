@@ -383,3 +383,22 @@ class TuningResult(_SimpleResultBase):
     improvement: float = 0.0
     actions_taken: int = 0
     delta: Any = None
+
+
+@dataclass
+class GraphDescription(_SimpleResultBase):
+    node_count: int = 0
+    edge_count: int = 0
+    node_types: dict[str, int] = field(default_factory=dict)
+    edge_labels: dict[str, int] = field(default_factory=dict)
+    degree_min: int = 0
+    degree_max: int = 0
+    degree_mean: float = 0.0
+    degree_median: float = 0.0
+    isolated_nodes: int = 0
+    components: int = 0
+    density: float = 0.0
+
+
+def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
+    return sorted(scores.items(), key=lambda x: -x[1])[:k]

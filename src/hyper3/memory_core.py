@@ -123,6 +123,100 @@ class CoreMixin(_MemoryBase):
         self._log.record("recall", concept=concept, result_count=len(result))
         return result
 
+    def has_node(self, concept: str) -> bool:
+        """Check whether a node with the given label exists.
+
+        Args:
+            concept: Label to check.
+
+        Returns:
+            True if a matching node exists, False otherwise.
+        """
+        return self._find_node(concept) is not None
+
+    def ensure(
+        self,
+        concept: str,
+        *,
+        data: Any = None,
+        modalities: set[Modality] | None = None,
+        abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
+        tags: dict[str, Any] | None = None,
+        update: bool = False,
+    ) -> Hypernode:
+        """Ensure a concept node exists, creating it only if absent.
+
+        Unlike :meth:`store`, this does not reinforce the node or trigger
+        evolution. Use during graph construction to avoid spurious
+        reinforcement of frequently-referenced nodes.
+
+        Args:
+            concept: Human-readable label for the node.
+            data: Arbitrary payload to attach to the node.
+            modalities: Set of modality tags for the node metadata.
+            abstraction: Abstraction layer classification.
+            tags: Additional custom metadata key-value pairs.
+            update: If True and the node exists, merge *data* into the
+                existing node's data dict. If False, existing data is
+                left unchanged.
+
+        Returns:
+            The existing or newly created Hypernode.
+        """
+        existing = self._graph.get_node_by_label(concept)
+        if existing is not None:
+            if update and data and isinstance(data, dict) and isinstance(existing.data, dict):
+                existing.data.update(data)
+            return existing
+        meta = Metadata(
+            modality_tags=modalities or set(),
+            abstraction_layer=abstraction,
+            custom=tags or {},
+        )
+        node = Hypernode(label=concept, data=data, metadata=meta, created_at=time.time())
+        node.touch(time.time())
+        self._graph.add_node(node)
+        return node
+
+    def neighbors(
+        self,
+        concept: str,
+        *,
+        edge_label: str | None = None,
+        direction: str = "any",
+    ) -> list[str]:
+        """Return labels of neighboring nodes, optionally filtered.
+
+        Args:
+            concept: Label of the node.
+            edge_label: Only traverse edges with this label. None = all.
+            direction: ``"out"`` for successors, ``"in"`` for predecessors,
+                ``"any"`` for both.
+
+        Returns:
+            List of neighbor labels. Empty if the concept is not found.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return []
+        nbr_ids: set[str] = set()
+        for edge in self._graph.edges_for(node.id):
+            if edge_label is not None and edge.label != edge_label:
+                continue
+            node_in_source = node.id in edge.source_ids
+            node_in_target = node.id in edge.target_ids
+            if direction == "out" and node_in_source:
+                nbr_ids.update(edge.target_ids)
+            elif direction == "in" and node_in_target:
+                nbr_ids.update(edge.source_ids)
+            elif direction == "any":
+                if node_in_source:
+                    nbr_ids.update(edge.target_ids)
+                if node_in_target:
+                    nbr_ids.update(edge.source_ids)
+        nbr_ids.discard(node.id)
+        return [self._node_label(nid) for nid in nbr_ids]
+
     def relate(
         self,
         source: str,
@@ -131,6 +225,7 @@ class CoreMixin(_MemoryBase):
         label: str = "",
         bidirectional: bool = False,
         edge_data: Any = None,
+        weight: float = 1.0,
     ) -> Hyperedge:
         """Create a directed edge between two concept nodes.
 
@@ -140,6 +235,7 @@ class CoreMixin(_MemoryBase):
             label: Edge label describing the relationship.
             bidirectional: If True, also create the reverse edge.
             edge_data: Arbitrary payload to attach to the edge.
+            weight: Edge importance weight (higher = more important).
 
         Returns:
             The created Hyperedge.
@@ -160,6 +256,7 @@ class CoreMixin(_MemoryBase):
             target_ids=frozenset({tgt_node.id}),
             label=label,
             data=edge_data,
+            weight=weight,
         )
 
         if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
@@ -182,6 +279,7 @@ class CoreMixin(_MemoryBase):
                 target_ids=frozenset({src_node.id}),
                 label=label,
                 data=edge_data,
+                weight=weight,
             )
             if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
                 rev_violations = self._boundary_navigator.validate_edge(rev, self._graph)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
-from hyper3.kernel import Hypergraph
+from hyper3.kernel import Hypergraph, Hypernode, Metadata
 from hyper3.results import ImportResult
 from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
@@ -33,6 +34,71 @@ from hyper3.results import EvolutionStats, MemoryStats
 
 
 class PersistenceMixin(_MemoryBase):
+
+    def load_records(
+        self,
+        nodes: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+    ) -> ImportResult:
+        """Batch load nodes and edges from record lists.
+
+        Each node dict requires a ``label`` key and optionally ``data``,
+        ``tags``, ``weight``.  Each edge dict requires ``source`` and
+        ``target`` keys (both node labels) and optionally ``label``,
+        ``edge_data``, ``weight``.
+
+        Nodes are created via direct ``Hypernode`` construction (no
+        reinforcement or evolution).  Edges that reference missing nodes are
+        silently skipped.
+
+        Args:
+            nodes: List of node record dicts.
+            edges: List of edge record dicts.
+
+        Returns:
+            ImportResult with node and edge counts.
+        """
+        nodes_added = 0
+        edges_added = 0
+        for rec in nodes:
+            label = rec.get("label") or rec.get("name")
+            if not label:
+                continue
+            existing = self._graph.get_node_by_label(label)
+            if existing is not None:
+                if rec.get("data") and isinstance(rec["data"], dict) and isinstance(existing.data, dict):
+                    existing.data.update(rec["data"])
+                if rec.get("weight") is not None:
+                    existing.weight = float(rec["weight"])
+            else:
+                node = Hypernode(
+                    label=label,
+                    data=rec.get("data"),
+                    metadata=Metadata(custom=rec.get("tags") or {}),
+                )
+                node.touch(time.time())
+                self._graph.add_node(node)
+                if rec.get("weight") is not None:
+                    node.weight = float(rec["weight"])
+            nodes_added += 1
+        for rec in edges:
+            src = rec.get("source") or rec.get("from")
+            tgt = rec.get("target") or rec.get("to")
+            if not src or not tgt:
+                continue
+            src_node = self._find_node(str(src))
+            tgt_node = self._find_node(str(tgt))
+            if not src_node or not tgt_node:
+                continue
+            edge = self.relate(
+                str(src), str(tgt),
+                label=rec.get("label", rec.get("relation", "")),
+                edge_data=rec.get("edge_data"),
+                weight=float(rec["weight"]) if rec.get("weight") is not None else 1.0,
+            )
+            edges_added += 1
+        self._log.record("load_records", nodes=nodes_added, edges=edges_added)
+        return ImportResult(nodes=nodes_added, edges=edges_added)
 
     def export_json(self, path: str) -> None:
         """Export the graph to a JSON file.

@@ -52,6 +52,10 @@ class HypergraphMemory(
     PersistenceMixin,
     SubsystemMixin,
 ):
+    def __contains__(self, concept: object) -> bool:
+        if not isinstance(concept, str):
+            return False
+        return self.has_node(concept)
     def __init__(
         self,
         *,

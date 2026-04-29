@@ -1,11 +1,21 @@
 from __future__ import annotations
 
+from statistics import median
 from typing import Any
+
+import networkx as nx
 
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import PatternMatchInfo, SubgraphNode, SubgraphEdge, SubgraphResult
+from hyper3.results import (
+    GraphDescription,
+    PatternMatchInfo,
+    SubgraphNode,
+    SubgraphEdge,
+    SubgraphResult,
+    top_k as _top_k,
+)
 
 
 class AnalyticsMixin(_MemoryBase):
@@ -114,13 +124,159 @@ class AnalyticsMixin(_MemoryBase):
             edge_count=sg.edge_count,
         )
 
-    def degree_centrality(self) -> dict[str, float]:
-        """Compute degree centrality for all nodes, keyed by node label."""
-        return {self._node_label(nid): score for nid, score in self._graph.degree_centrality().items()}
+    def degree_centrality(self, *, top_k: int | None = None) -> dict[str, float]:
+        """Compute degree centrality for all nodes, keyed by node label.
 
-    def betweenness_centrality(self) -> dict[str, float]:
-        """Compute betweenness centrality for all nodes, keyed by node label."""
-        return {self._node_label(nid): score for nid, score in self._graph.betweenness_centrality().items()}
+        Args:
+            top_k: If set, return only the top-k highest-scoring nodes.
+
+        Returns:
+            Dict of concept labels to centrality scores.
+        """
+        scores = {self._node_label(nid): score for nid, score in self._graph.degree_centrality().items()}
+        if top_k is not None:
+            return dict(_top_k(scores, top_k))
+        return scores
+
+    def betweenness_centrality(self, *, top_k: int | None = None) -> dict[str, float]:
+        """Compute betweenness centrality for all nodes, keyed by node label.
+
+        Args:
+            top_k: If set, return only the top-k highest-scoring nodes.
+
+        Returns:
+            Dict of concept labels to centrality scores.
+        """
+        scores = {self._node_label(nid): score for nid, score in self._graph.betweenness_centrality().items()}
+        if top_k is not None:
+            return dict(_top_k(scores, top_k))
+        return scores
+
+    def pagerank(
+        self,
+        *,
+        alpha: float = 0.85,
+        max_iter: int = 100,
+        tol: float = 1e-06,
+        weighted: bool = True,
+        top_k: int | None = None,
+    ) -> dict[str, float]:
+        """Compute PageRank for all nodes, keyed by node label.
+
+        Args:
+            alpha: Damping factor (default 0.85).
+            max_iter: Maximum number of iterations.
+            tol: Convergence tolerance.
+            weighted: If True, use edge weights as transition probabilities.
+            top_k: If set, return only the top-k highest-scoring nodes.
+
+        Returns:
+            Dict of concept labels to PageRank scores.
+        """
+        G = self._graph.to_networkx()
+        if not weighted:
+            for u, v in G.edges():
+                G[u][v]["weight"] = 1.0
+        try:
+            pr = nx.pagerank(G, alpha=alpha, max_iter=max_iter, tol=tol, weight="weight" if weighted else None)
+        except nx.PowerIterationFailedConvergence:
+            try:
+                pr = nx.pagerank(G, alpha=alpha, max_iter=max_iter * 2, tol=tol * 10, weight="weight" if weighted else None)
+            except nx.PowerIterationFailedConvergence:
+                pr = nx.pagerank(G, alpha=max(0.5, alpha * 0.9), max_iter=max_iter * 4, tol=tol * 100, weight=None)
+        scores = {self._node_label(nid): score for nid, score in pr.items()}
+        if top_k is not None:
+            return dict(_top_k(scores, top_k))
+        return scores
+
+    def query_nodes(
+        self,
+        *,
+        type: str | None = None,
+        data: dict[str, Any] | None = None,
+        labels: set[str] | None = None,
+        limit: int | None = None,
+    ) -> list[str]:
+        """Find nodes matching data attribute filters.
+
+        Args:
+            type: Shorthand for ``data={{"type": value}}``.
+            data: Dict of key-value pairs that must all be present in
+                ``node.data``.
+            labels: If set, only consider these concept labels.
+            limit: Maximum number of results. None = all matches.
+
+        Returns:
+            List of matching concept labels.
+        """
+        filter_data: dict[str, Any] = {}
+        if type is not None:
+            filter_data["type"] = type
+        if data is not None:
+            filter_data.update(data)
+
+        label_set = labels
+
+        results: list[str] = []
+        for node in self._graph.nodes:
+            if label_set is not None and node.label not in label_set:
+                continue
+            if filter_data:
+                if not isinstance(node.data, dict):
+                    continue
+                if not all(node.data.get(k) == v for k, v in filter_data.items()):
+                    continue
+            results.append(node.label)
+            if limit is not None and len(results) >= limit:
+                break
+        return results
+
+    def describe(self) -> GraphDescription:
+        """Compute a structural summary of the graph.
+
+        Returns:
+            GraphDescription with node/edge counts, type distributions,
+            degree statistics, component count, and density.
+        """
+        node_types: dict[str, int] = {}
+        for node in self._graph.nodes:
+            if isinstance(node.data, dict):
+                t = node.data.get("type") or node.data.get("kind") or "(untyped)"
+            else:
+                t = "(untyped)"
+            node_types[t] = node_types.get(t, 0) + 1
+
+        edge_labels: dict[str, int] = {}
+        for edge in self._graph.edges:
+            lbl = edge.label or "(unlabeled)"
+            edge_labels[lbl] = edge_labels.get(lbl, 0) + 1
+
+        degrees = [len(self._graph.edges_for(nid)) for nid in self._graph._nodes]
+        nc = self._graph.node_count
+        ec = self._graph.edge_count
+
+        deg_min = min(degrees) if degrees else 0
+        deg_max = max(degrees) if degrees else 0
+        deg_mean = sum(degrees) / len(degrees) if degrees else 0.0
+        deg_median = float(median(degrees)) if degrees else 0.0
+        isolated = sum(1 for d in degrees if d == 0)
+
+        components = len(self._graph.connected_components())
+        density = ec / (nc * (nc - 1)) if nc > 1 else 0.0
+
+        return GraphDescription(
+            node_count=nc,
+            edge_count=ec,
+            node_types=node_types,
+            edge_labels=edge_labels,
+            degree_min=deg_min,
+            degree_max=deg_max,
+            degree_mean=deg_mean,
+            degree_median=deg_median,
+            isolated_nodes=isolated,
+            components=components,
+            density=density,
+        )
 
     def connected_components(self) -> list[set[str]]:
         """Find all connected components, returned as sets of node labels."""

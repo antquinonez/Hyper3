@@ -181,6 +181,7 @@ from hyper3.validation import (
 from hyper3.results import (
     BiasProfileResult,
     BranchialAnalysis,
+    GraphDescription,
     MergeReport,
     CommitResult,
     ConsensusReasonResult,
@@ -213,6 +214,7 @@ from hyper3.results import (
     TemporalInconsistency,
     TemporalMatch,
     TrainResult,
+    top_k,
 )
 from hyper3.backward_chain import (
     BackwardChainEngine,
