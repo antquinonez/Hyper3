@@ -110,6 +110,9 @@ class TransitiveRule(Rule):
         Args:
             edge_label: Only match edges with this label. ``None`` matches all.
             new_label: Label for inferred edges. Defaults to ``"inferred"``.
+                Set to the same value as ``edge_label`` to enable multi-hop
+                chaining (e.g. ``TransitiveRule(edge_label="causes",
+                new_label="causes")``).
         """
         self._edge_label = edge_label
         self._new_label = new_label

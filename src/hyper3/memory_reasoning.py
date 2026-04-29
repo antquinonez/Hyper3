@@ -257,8 +257,9 @@ class ReasoningMixin(_MemoryBase):
 
         assert self._multiway_engine is not None
         effective_max_states = max_total_states if not exhaustive else 10_000_000
+        all_node_ids = {n.id for n in self._graph.nodes}
         report = self._multiway_engine.expand(
-            seed_ids, active_rules, max_depth=max_depth, max_total_states=effective_max_states,
+            all_node_ids, active_rules, max_depth=max_depth, max_total_states=effective_max_states,
             overlay=self._overlay if use_overlay else None,
             confidence_decay=confidence_decay,
         )

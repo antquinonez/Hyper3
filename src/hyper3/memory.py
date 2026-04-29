@@ -55,6 +55,7 @@ class HypergraphMemory(
     def __init__(
         self,
         *,
+        rules: list[Rule] | None = None,
         cache_max_size: int = 2048,
         cache_ttl: float = 600.0,
         merge_threshold: float = 0.8,
@@ -65,6 +66,8 @@ class HypergraphMemory(
         """Initialize the hypergraph memory with all subsystems.
 
         Args:
+            rules: Initial inference rules for reasoning. Can also be added
+                later via :meth:`add_rules`.
             cache_max_size: Maximum number of entries in the LRU cache.
             cache_ttl: Time-to-live in seconds for cache entries.
             merge_threshold: Similarity threshold for node merging and equivalence detection.
@@ -92,7 +95,7 @@ class HypergraphMemory(
         self._multiway_engine: MultiwayEngine | None = None
         self._convergence_engine: StateConvergenceEngine | None = None
         self._quantum = QuantumInterpretationLayer(self._graph)
-        self._rules: list[Rule] = []
+        self._rules: list[Rule] = list(rules) if rules else []
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._serializer = Serializer()
         self._branchial: BranchialSpace | None = None

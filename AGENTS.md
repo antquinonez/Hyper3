@@ -154,7 +154,7 @@ These three calls create hypernodes with data payloads and a hyperedge with a se
 
 Reasoning is driven by rules that find matching patterns in the graph and produce new edges. Rules are pure queries (side-effect-free `find_matches()`) that the multiway engine applies to produce expansions. The engine explores all possible rule applications simultaneously, creating a multiway graph of computational states.
 
-**Why**: This is the direct analog of the spec's "Ruliad-based Multiway Expansion" (Figure 3) and "Explicit Rule Templates" (Appendix B). The spec defines rule categories: deductive inference, contextual substitution, temporal/causal rewrites, abductive reasoning, analogical reasoning, equivalence merging. Hyper3 implements these as the `Rule` ABC with concrete subclasses (`TransitiveRule`, `SymmetricRule`, `InverseRule`, `CompositionRule`, etc.).
+**Why**: This is the direct analog of the spec's "Ruliad-based Multiway Expansion" (Figure 3) and "Explicit Rule Templates" (Appendix B). The spec defines rule categories: deductive inference, contextual substitution, temporal/causal rewrites, abductive reasoning, analogical reasoning, equivalence merging. Hyper3 implements these as the `Rule` ABC with concrete subclasses (`TransitiveRule`, `InverseRule`, `GeneralizationRule`, `AbductiveRule`, `ContextualSubstitutionRule`, `PropertyPropagationRule`, `HubInferenceRule`, `StructuralProjectionRule`).
 
 **Pattern**:
 ```python
@@ -377,6 +377,15 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 
 ### `evolve_interval=0` disables auto-evolution
 `HypergraphMemory(evolve_interval=0)` prevents the memory from running decay/prune/merge cycles automatically after operations. Most tests use this to keep behavior deterministic. Production usage should set a positive interval.
+
+### `rules` constructor parameter
+`HypergraphMemory(rules=[...])` accepts an initial list of inference rules at construction. Rules can also be added later via `add_rules()`. Both approaches are equivalent.
+
+### `reason()` uses all graph nodes for pattern matching
+`reason()` passes all graph node IDs (not just seed concepts) as active nodes to the multiway expansion engine. This allows rules like `TransitiveRule` to find chains through intermediate nodes that are not part of the seed set. Seeds determine which nodes trigger the expansion; all nodes participate in pattern matching.
+
+### Multi-hop chaining requires `new_label` to match `edge_label`
+By default, `TransitiveRule` labels inferred edges `"inferred"`. Since the rule only matches edges with the specified `edge_label`, inferred edges are invisible to subsequent depth levels. For multi-hop chaining, set `new_label` to the same value as `edge_label`: `TransitiveRule(edge_label="causes", new_label="causes")`.
 
 ### Born rule collapse is probabilistic
 `collapse()` samples from the probability distribution defined by `|amplitude|^2`. Tests asserting exact collapse results must either use statistical approaches (run N trials, check distribution) or create single-interpretation states.
