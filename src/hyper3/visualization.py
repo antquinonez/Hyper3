@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from hyper3.multiway_branchial import BranchialSpace
-    from hyper3.quantum import QuantumInterpretationLayer
+    from hyper3.belief import BeliefLayer
     from hyper3.kernel import Hypergraph
 
 
@@ -217,8 +217,8 @@ def plot_branchial_space(
     return fig
 
 
-def plot_quantum_state(
-    quantum: QuantumInterpretationLayer,
+def plot_belief_state(
+    belief: BeliefLayer,
     qs_id: str,
     *,
     figsize: tuple[float, float] = (10, 6),
@@ -227,11 +227,11 @@ def plot_quantum_state(
     graph: Hypergraph | None = None,
     title: str | None = None,
 ) -> Figure:
-    """Plot amplitudes and/or Born-rule probabilities for a quantum state.
+    """Plot amplitudes and/or Born-rule probabilities for a belief state.
 
     Args:
-        quantum: The quantum interpretation layer holding the state.
-        qs_id: ID of the quantum state to visualize.
+        belief: The belief layer holding the state.
+        qs_id: ID of the belief state to visualize.
         figsize: Matplotlib figure size in inches.
         show_probabilities: Draw the probability bar chart.
         show_amplitudes: Draw the amplitude bar chart.
@@ -243,15 +243,15 @@ def plot_quantum_state(
     """
     plt = _import_pyplot()
 
-    qs = quantum.get_state(qs_id)
-    if not qs or not qs.interpretations:
+    qs = belief.get_state(qs_id)
+    if not qs or not qs.outcomes:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.text(0.5, 0.5, "No interpretations found", ha="center", va="center")
-        ax.set_title(title or "Quantum State")
+        ax.text(0.5, 0.5, "No outcomes found", ha="center", va="center")
+        ax.set_title(title or "Belief State")
         return fig
 
     labels = []
-    for interp in qs.interpretations:
+    for interp in qs.outcomes:
         if graph:
             node = graph.get_node(interp.node_id)
             label = node.label if node else interp.node_id[:8]
@@ -267,7 +267,7 @@ def plot_quantum_state(
     idx = 0
     if show_amplitudes:
         ax = axes[idx]
-        amplitudes = [i.amplitude for i in qs.interpretations]
+        amplitudes = [i.amplitude for i in qs.outcomes]
         colors = ["#4477AA" if (a.real if isinstance(a, complex) else a) >= 0 else "#cc4444" for a in amplitudes]
         bars = ax.bar(range(n), amplitudes, color=colors, edgecolor="#333333", linewidth=0.5)
         ax.set_xticks(range(n))
@@ -280,7 +280,7 @@ def plot_quantum_state(
 
     if show_probabilities:
         ax = axes[idx]
-        probs = [i.probability for i in qs.interpretations]
+        probs = [i.probability for i in qs.outcomes]
         bars = ax.bar(range(n), probs, color="#44aa77", edgecolor="#333333", linewidth=0.5)
         ax.set_xticks(range(n))
         ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
@@ -288,24 +288,24 @@ def plot_quantum_state(
         ax.set_title("Born Rule Probabilities")
         ax.grid(True, alpha=0.2, axis="y")
 
-    fig.suptitle(title or f"Quantum State ({'collapsed' if qs.collapsed else 'superposition'})")
+    fig.suptitle(title or f"Belief State ({'resolved' if qs.resolved else 'distribution'})")
     fig.tight_layout()
     return fig
 
 
-def plot_quantum_interference(
-    quantum: QuantumInterpretationLayer,
+def plot_evidence_interaction(
+    belief: BeliefLayer,
     qs_id: str,
     *,
     figsize: tuple[float, float] = (10, 5),
     graph: Hypergraph | None = None,
-    title: str = "Interference Pattern",
+    title: str = "Evidence Interaction",
 ) -> Figure:
-    """Plot constructive and destructive interference values for a quantum state.
+    """Plot constructive and destructive evidence interaction values for a belief state.
 
     Args:
-        quantum: The quantum interpretation layer holding the state.
-        qs_id: ID of the quantum state.
+        belief: The belief layer holding the state.
+        qs_id: ID of the belief state.
         figsize: Matplotlib figure size in inches.
         graph: Optional hypergraph for resolving node labels.
         title: Plot title.
@@ -315,7 +315,7 @@ def plot_quantum_interference(
     """
     plt = _import_pyplot()
 
-    interference = quantum.compute_interference(qs_id)
+    interference = belief.compute_interactions(qs_id)
     if not interference:
         fig, ax = plt.subplots(figsize=figsize)
         ax.text(0.5, 0.5, "No interference detected", ha="center", va="center")

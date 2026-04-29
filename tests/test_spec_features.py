@@ -9,7 +9,7 @@ import pytest
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.multiway_branchial import BranchialSpace, MultiScaleAnalysis, ScaleLevel
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.quantum import MeasurementBasis, QuantumInterpretationLayer
+from hyper3.belief import SamplingProfile, BeliefLayer
 from hyper3.cache import LazyCache
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 from hyper3.memory import HypergraphMemory
@@ -296,27 +296,27 @@ class TestPerRuleEffectivenessTracking:
         assert "test_rule" in analysis["rule_effectiveness"]
 
 
-class TestMeasurementBasisLearning:
-    def test_record_basis_outcome(self):
+class TestSamplingProfileLearning:
+    def test_record_profile_outcome(self):
         g = Hypergraph()
-        qcl = QuantumInterpretationLayer(g)
+        qcl = BeliefLayer(g)
         qcl.record_basis_outcome("linguistic", True)
         qcl.record_basis_outcome("linguistic", True)
         qcl.record_basis_outcome("linguistic", False)
         eff = qcl.basis_effectiveness
         assert eff["linguistic"] == pytest.approx(2.0 / 3.0)
 
-    def test_get_effective_basis_returns_valid(self):
+    def test_get_effective_profile_returns_valid(self):
         g = Hypergraph()
-        qcl = QuantumInterpretationLayer(g)
-        basis = qcl.get_effective_basis()
-        assert basis in qcl.bases
+        qcl = BeliefLayer(g)
+        profile = qcl.get_effective_basis()
+        assert profile in qcl.bases
 
     def test_effective_bias_favors_successful(self):
         g = Hypergraph()
         n1 = Hypernode(label="test1")
         g.add_node(n1)
-        qcl = QuantumInterpretationLayer(g)
+        qcl = BeliefLayer(g)
         for _ in range(50):
             qcl.record_basis_outcome("temporal", True)
         for _ in range(50):
@@ -330,27 +330,27 @@ class TestMeasurementBasisLearning:
 
 class TestAdaptiveCoherenceTime:
     def test_adapt_scales_with_interpretations(self):
-        from hyper3.quantum import QuantumState
-        qs = QuantumState(created_at=time.time())
-        qs.add_interpretation("n1", 0.5)
-        qs.add_interpretation("n2", 0.5)
+        from hyper3.belief import BeliefState
+        qs = BeliefState(created_at=time.time())
+        qs.add_outcome("n1", 0.5)
+        qs.add_outcome("n2", 0.5)
         qs.normalize()
         qs.adapt_coherence(2)
         assert qs.coherence_time > qs.base_coherence_time
 
     def test_urgency_shortens_coherence(self):
-        from hyper3.quantum import QuantumState
-        qs = QuantumState(created_at=time.time())
+        from hyper3.belief import BeliefState
+        qs = BeliefState(created_at=time.time())
         qs.adapt_coherence(1, urgency=10.0)
         assert qs.coherence_time < qs.base_coherence_time
 
-    def test_create_superposition_adapts(self):
+    def test_create_distribution_adapts(self):
         g = Hypergraph()
         for lbl in "ABCD":
             g.add_node(Hypernode(label=lbl))
-        qcl = QuantumInterpretationLayer(g)
+        qcl = BeliefLayer(g)
         ids = [g.get_node_by_label(lbl).id for lbl in "ABCD"]
-        qs = qcl.create_superposition(ids)
+        qs = qcl.create_distribution(ids)
         assert qs.coherence_time != qs.base_coherence_time
 
 

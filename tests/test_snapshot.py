@@ -50,10 +50,10 @@ class TestSystemSnapshotRoundTrip:
         assert mem2._graph.node_count == 3
         assert mem2._graph.edge_count == 2
 
-    def test_quantum_states_preserved(self, mem, tmp_path_fixture):
+    def test_belief_states_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        qs = mem.superpose(["alpha", "beta", "gamma"])
-        assert not qs.collapsed
+        qs = mem.create_distribution(["alpha", "beta", "gamma"])
+        assert not qs.resolved
         mem.save_state(str(tmp_path_fixture))
 
         mem2 = HypergraphMemory(evolve_interval=0)
@@ -61,16 +61,16 @@ class TestSystemSnapshotRoundTrip:
             mem2._graph.add_node(node)
         mem2.load_state(str(tmp_path_fixture))
 
-        assert len(mem2._quantum._states) == 1
-        restored_qs = list(mem2._quantum._states.values())[0]
-        assert not restored_qs.collapsed
-        assert len(restored_qs.interpretations) == 3
+        assert len(mem2._belief._states) == 1
+        restored_qs = list(mem2._belief._states.values())[0]
+        assert not restored_qs.resolved
+        assert len(restored_qs.outcomes) == 3
 
-    def test_quantum_collapsed_state_preserved(self, mem, tmp_path_fixture):
+    def test_belief_resolved_state_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        qs = mem.superpose(["alpha", "beta"])
-        qs.collapse()
-        assert qs.collapsed
+        qs = mem.create_distribution(["alpha", "beta"])
+        qs.sample()
+        assert qs.resolved
         mem.save_state(str(tmp_path_fixture))
 
         mem2 = HypergraphMemory(evolve_interval=0)
@@ -78,9 +78,9 @@ class TestSystemSnapshotRoundTrip:
             mem2._graph.add_node(node)
         mem2.load_state(str(tmp_path_fixture))
 
-        restored_qs = list(mem2._quantum._states.values())[0]
-        assert restored_qs.collapsed
-        assert restored_qs.collapsed_to is not None
+        restored_qs = list(mem2._belief._states.values())[0]
+        assert restored_qs.resolved
+        assert restored_qs.resolved_to is not None
 
     def test_provenance_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
@@ -157,23 +157,23 @@ class TestSystemSnapshotRoundTrip:
         assert mem2._feedback.collapse_accuracy() == 1.0
         assert mem2._feedback.get_fitness_trend() == "insufficient_data"
 
-    def test_quantum_basis_stats_preserved(self, mem, tmp_path_fixture):
+    def test_belief_profile_stats_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        mem._quantum.record_basis_outcome("linguistic", True)
-        mem._quantum.record_basis_outcome("linguistic", True)
-        mem._quantum.record_basis_outcome("linguistic", False)
+        mem._belief.record_basis_outcome("linguistic", True)
+        mem._belief.record_basis_outcome("linguistic", True)
+        mem._belief.record_basis_outcome("linguistic", False)
         mem.save_state(str(tmp_path_fixture))
 
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load_state(str(tmp_path_fixture))
 
-        assert mem2._quantum._basis_stats["linguistic"]["successes"] == 2
-        assert mem2._quantum._basis_stats["linguistic"]["selections"] == 3
+        assert mem2._belief._basis_stats["linguistic"]["successes"] == 2
+        assert mem2._belief._basis_stats["linguistic"]["selections"] == 3
 
-    def test_quantum_correlation_preserved(self, mem, tmp_path_fixture):
+    def test_belief_correlation_preserved(self, mem, tmp_path_fixture):
         a, b, c = _populate_memory(mem)
-        mem.superpose(["alpha", "beta"])
-        ent = mem._quantum.create_correlation(
+        mem.create_distribution(["alpha", "beta"])
+        ent = mem._belief.create_correlation(
             [a.id], [b.id, c.id],
             {(a.id, b.id): 0.8, (a.id, c.id): -0.3},
         )
@@ -184,7 +184,7 @@ class TestSystemSnapshotRoundTrip:
             mem2._graph.add_node(node)
         mem2.load_state(str(tmp_path_fixture))
 
-        ents = mem2._quantum.correlations
+        ents = mem2._belief.correlations
         assert len(ents) == 1
         assert ents[0].strength == ent.strength
 
@@ -214,7 +214,7 @@ class TestSystemSnapshotPartial:
         data = {"version": 1, "saved_at": 12345.0}
         snap = SystemSnapshot.from_dict(data)
         assert snap.version == 1
-        assert len(snap.quantum_states) == 0
+        assert len(snap.belief_states) == 0
         assert len(snap.provenance_records) == 0
 
     def test_empty_subsystems_round_trip(self, tmp_path_fixture):
@@ -225,7 +225,7 @@ class TestSystemSnapshotPartial:
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.store("only_node")
         mem2.load_state(str(tmp_path_fixture))
-        assert len(mem2._quantum._states) == 0
+        assert len(mem2._belief._states) == 0
         assert mem2._provenance.record_count == 0
         assert mem2._feedback.signal_count == 0
 
@@ -237,7 +237,7 @@ class TestSystemSnapshotWithReasoning:
         mem.reason(["alpha"], rules=[TransitiveRule()])
         mem.commit_inferences()
 
-        pre_quantum_count = len(mem._quantum._states)
+        pre_belief_count = len(mem._belief._states)
         pre_provenance = mem._provenance.record_count
 
         mem.save_state(str(tmp_path_fixture))
@@ -250,7 +250,7 @@ class TestSystemSnapshotWithReasoning:
         mem2._rules = [TransitiveRule()]
         mem2.load_state(str(tmp_path_fixture))
 
-        assert len(mem2._quantum._states) == pre_quantum_count
+        assert len(mem2._belief._states) == pre_belief_count
         assert mem2._provenance.record_count == pre_provenance
 
     def test_rulial_after_reasoning(self, mem, tmp_path_fixture):
@@ -280,12 +280,12 @@ class TestSystemSnapshotComplexAmplitudes:
 
     def test_complex_amplitude_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        qs = mem.superpose(["alpha", "beta"])
+        qs = mem.create_distribution(["alpha", "beta"])
         import numpy as np
         H = np.array([[1, 1], [1, -1]], dtype=complex) / np.sqrt(2)
-        mem._quantum.evolve_unitary(qs.id, H)
+        mem._belief.evolve_unitary(qs.id, H)
 
-        pre_amps = [i.amplitude for i in qs.interpretations]
+        pre_amps = [i.amplitude for i in qs.outcomes]
         assert any(isinstance(a, complex) for a in pre_amps)
 
         mem.save_state(str(tmp_path_fixture))
@@ -295,8 +295,8 @@ class TestSystemSnapshotComplexAmplitudes:
             mem2._graph.add_node(node)
         mem2.load_state(str(tmp_path_fixture))
 
-        restored_qs = list(mem2._quantum._states.values())[0]
-        for orig, restored in zip(pre_amps, restored_qs.interpretations):
+        restored_qs = list(mem2._belief._states.values())[0]
+        for orig, restored in zip(pre_amps, restored_qs.outcomes):
             assert abs(abs(orig) - abs(restored.amplitude)) < 1e-10
 
 
@@ -304,11 +304,11 @@ class TestSystemSnapshotDict:
 
     def test_to_dict_and_from_dict(self, mem):
         _populate_memory(mem)
-        qs = mem.superpose(["alpha", "beta"])
+        qs = mem.create_distribution(["alpha", "beta"])
         mem._provenance.record_inference("e1", "rule1")
 
         snap = capture_snapshot(
-            quantum=mem._quantum,
+            belief=mem._belief,
             multiway_engine=mem._multiway_engine,
             branchial=mem._branchial,
             rulial=mem._rulial,
@@ -323,5 +323,5 @@ class TestSystemSnapshotDict:
         d = snap.to_dict()
         snap2 = SystemSnapshot.from_dict(d)
         assert snap2.version == snap.version
-        assert len(snap2.quantum_states) == len(snap.quantum_states)
+        assert len(snap2.belief_states) == len(snap.belief_states)
         assert len(snap2.provenance_records) == len(snap.provenance_records)

@@ -70,13 +70,13 @@ def _probe_provenance(memory: object) -> bool:
         return False
 
 
-def _probe_quantum(memory: object) -> bool:
-    """Return ``True`` when quantum states have been created."""
-    quantum = getattr(memory, "_quantum", None)
-    if quantum is None:
+def _probe_belief(memory: object) -> bool:
+    """Return ``True`` when belief states have been created."""
+    belief = getattr(memory, "_belief", None)
+    if belief is None:
         return False
     try:
-        states = getattr(quantum, "_states", {})
+        states = getattr(belief, "_states", {})
         return len(states) > 0
     except Exception:
         return False
@@ -137,7 +137,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
         "rules": _probe_rules,
         "multiway": _probe_multiway,
         "provenance": _probe_provenance,
-        "quantum": _probe_quantum,
+        "belief": _probe_belief,
         "branchial": _probe_branchial,
         "rulial": _probe_rulial,
         "embedding": _probe_embedding,
@@ -167,21 +167,21 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
             scores["graph_density"] = 0.0
 
         try:
-            quantum = getattr(memory, "_quantum", None)
-            if quantum is not None:
-                states = getattr(quantum, "_states", {})
+            belief = getattr(memory, "_belief", None)
+            if belief is not None:
+                states = getattr(belief, "_states", {})
                 active = sum(
                     1 for s in states.values()
-                    if not getattr(s, "collapsed", True)
+                    if not getattr(s, "resolved", True)
                 )
-                scores["quantum_active_ratio"] = active / max(len(states), 1)
+                scores["belief_active_ratio"] = active / max(len(states), 1)
             else:
-                scores["quantum_active_ratio"] = 0.0
+                scores["belief_active_ratio"] = 0.0
         except Exception:
-            scores["quantum_active_ratio"] = 0.0
+            scores["belief_active_ratio"] = 0.0
     else:
         scores["graph_density"] = 0.0
-        scores["quantum_active_ratio"] = 0.0
+        scores["belief_active_ratio"] = 0.0
 
     return scores
 
@@ -207,7 +207,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
 
     advanced = (
         scores.get("provenance", 0)
-        + scores.get("quantum", 0)
+        + scores.get("belief", 0)
         + scores.get("branchial", 0)
         + scores.get("rulial", 0)
     )

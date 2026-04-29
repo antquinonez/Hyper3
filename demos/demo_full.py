@@ -117,19 +117,19 @@ for ins in insights[:3]:
 # --- 5. Quantum Enhanced ---
 print("\n[5] Quantum cognitive effects...")
 
-qs = mem.superpose(["spark", "battery", "fuel_flow"], amplitudes=[0.6, 0.5, 0.4])
-print(f"   Superposition: {qs.superposition_count} interpretations")
+qs = mem.create_distribution(["spark", "battery", "fuel_flow"], amplitudes=[0.6, 0.5, 0.4])
+print(f"   Superposition: {qs.outcome_count} interpretations")
 
-triggers = mem.detect_collapse_triggers(qs)
+triggers = mem.detect_sampling_triggers(qs)
 print(f"   Collapse triggers: {[t.trigger_type for t in triggers]}")
 
-interference = mem.compute_interference(qs)
+interference = mem.compute_interactions(qs)
 print(f"   Interference patterns: {len(interference)}")
 for ip in interference:
     kind = "constructive" if ip.is_constructive else "destructive" if ip.is_destructive else "neutral"
     print(f"     [{kind}] net={ip.net_amplitude:.3f}")
 
-result_basis = mem.collapse_with_basis(qs, "pragmatic")
+result_basis = mem.sample_with_profile(qs, "pragmatic")
 print(f"   Collapse (pragmatic basis): {result_basis.node_id if result_basis else 'none'}")
 
 # Correlation
@@ -140,8 +140,8 @@ ent = mem.correlate(
 )
 print(f"   Correlation created: strength={ent.strength:.2f}")
 
-qs2 = mem.superpose(["spark", "battery"])
-preds = mem.collapse_correlated(qs2, "spark")
+qs2 = mem.create_distribution(["spark", "battery"])
+preds = mem.sample_correlated(qs2, "spark")
 print(f"   Correlated predictions from 'spark': {preds}")
 
 # --- 6. Structural Anomaly Detection ---

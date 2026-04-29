@@ -34,7 +34,7 @@ class TestDetectCapabilityLevel:
         level = detect_capability_level(mem)
         assert level in (CapabilityLevel.STANDARD, CapabilityLevel.ENHANCED, CapabilityLevel.FULL)
 
-    def test_enhanced_with_active_quantum(self):
+    def test_enhanced_with_active_belief(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
@@ -43,7 +43,7 @@ class TestDetectCapabilityLevel:
         from hyper3.multiway import MultiwayEngine
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"x"}, mem._rules, max_depth=1)
-        mem.superpose(["x", "y"])
+        mem.create_distribution(["x", "y"])
         from hyper3.multiway_branchial import BranchialSpace
         mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
         mem._branchial.assign_coordinates()

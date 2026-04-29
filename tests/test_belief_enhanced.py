@@ -1,15 +1,15 @@
 import pytest
 from hyper3 import (
-    CollapseTrigger,
+    SamplingTrigger,
     Hyperedge,
     Hypergraph,
     Hypernode,
-    InterferencePattern,
-    Interpretation,
-    MeasurementBasis,
-    QuantumInterpretationLayer,
+    EvidenceInteraction,
+    Outcome,
+    SamplingProfile,
+    BeliefLayer,
     ConceptCorrelation,
-    QuantumState,
+    BeliefState,
 )
 
 
@@ -23,7 +23,7 @@ def _build_graph():
 class TestConceptCorrelation:
     def test_create_correlation(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         ent = ql.create_correlation(
             ["cat", "dog"],
             ["bird", "fish"],
@@ -55,28 +55,28 @@ class TestConceptCorrelation:
 
 
 class TestInterference:
-    def test_compute_interference(self):
+    def test_compute_interactions(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["cat", "dog", "bird"], [0.7, -0.5, 0.3])
-        patterns = ql.compute_interference(qs.id)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["cat", "dog", "bird"], [0.7, -0.5, 0.3])
+        patterns = ql.compute_interactions(qs.id)
         assert isinstance(patterns, list)
 
-    def test_interference_pattern_properties(self):
-        p = InterferencePattern(node_id="n1", constructive=0.8, destructive=0.0, net_amplitude=0.8)
+    def test_evidence_interaction_properties(self):
+        p = EvidenceInteraction(node_id="n1", constructive=0.8, destructive=0.0, net_amplitude=0.8)
         assert p.is_constructive
         assert not p.is_destructive
 
     def test_destructive_interference(self):
-        p = InterferencePattern(node_id="n1", constructive=0.0, destructive=-0.5, net_amplitude=-0.5)
+        p = EvidenceInteraction(node_id="n1", constructive=0.0, destructive=-0.5, net_amplitude=-0.5)
         assert p.is_destructive
         assert not p.is_constructive
 
 
-class TestMeasurementBasis:
+class TestSamplingProfile:
     def test_builtin_bases(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         assert "linguistic" in ql.bases
         assert "temporal" in ql.bases
         assert "emotional" in ql.bases
@@ -84,56 +84,56 @@ class TestMeasurementBasis:
 
     def test_add_custom_basis(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        custom = MeasurementBasis(name="custom", dimensions=["x", "y"], weights={"x": 0.6, "y": 0.4})
+        ql = BeliefLayer(g)
+        custom = SamplingProfile(name="custom", dimensions=["x", "y"], weights={"x": 0.6, "y": 0.4})
         ql.add_basis(custom)
         assert ql.get_basis("custom") is not None
         assert custom.weight_for("x") == 0.6
         assert custom.weight_for("z") == 0.5
 
-    def test_collapse_with_basis(self):
+    def test_sample_with_profile(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["cat", "dog", "bird"])
-        result = ql.collapse_with_basis(qs.id, "linguistic")
-        assert isinstance(result, Interpretation)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["cat", "dog", "bird"])
+        result = ql.sample_with_profile(qs.id, "linguistic")
+        assert isinstance(result, Outcome)
         assert result.node_id in {"cat", "dog", "bird"}
 
 
-class TestCollapseTriggers:
-    def test_decoherence_trigger(self):
+class TestSamplingTriggers:
+    def test_staleness_trigger(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState(created_at=0.0, coherence_time=0.001)
-        qs.add_interpretation("cat", 0.7)
+        ql = BeliefLayer(g)
+        qs = BeliefState(created_at=0.0, coherence_time=0.001)
+        qs.add_outcome("cat", 0.7)
         ql._states[qs.id] = qs
-        triggers = ql.detect_collapse_triggers(qs.id)
-        assert any(t.trigger_type == "decoherence_timeout" for t in triggers)
+        triggers = ql.detect_sampling_triggers(qs.id)
+        assert any(t.trigger_type == "staleness_timeout" for t in triggers)
 
-    def test_single_interpretation_trigger(self):
+    def test_single_outcome_trigger(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["cat"])
-        triggers = ql.detect_collapse_triggers(qs.id)
-        assert any(t.trigger_type == "single_interpretation" for t in triggers)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["cat"])
+        triggers = ql.detect_sampling_triggers(qs.id)
+        assert any(t.trigger_type == "single_outcome" for t in triggers)
 
     def test_no_triggers_for_fresh_state(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["cat", "dog", "bird"])
-        triggers = ql.detect_collapse_triggers(qs.id)
-        decoherence = [t for t in triggers if t.trigger_type == "decoherence_timeout"]
-        assert len(decoherence) == 0
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["cat", "dog", "bird"])
+        triggers = ql.detect_sampling_triggers(qs.id)
+        staleness = [t for t in triggers if t.trigger_type == "staleness_timeout"]
+        assert len(staleness) == 0
 
 
-class TestCollapseCorrelated:
-    def test_collapse_correlated(self):
+class TestSampleCorrelated:
+    def test_sample_correlated(self):
         g = _build_graph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["cat", "dog"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["cat", "dog"])
         ent = ql.create_correlation(
             ["cat", "dog"], ["bird", "fish"],
             {("cat", "bird"): 0.9, ("dog", "fish"): 0.8},
         )
-        preds = ql.collapse_correlated(qs.id, "cat")
+        preds = ql.sample_correlated(qs.id, "cat")
         assert isinstance(preds, dict)

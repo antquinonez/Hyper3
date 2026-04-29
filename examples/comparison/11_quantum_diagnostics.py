@@ -2,8 +2,8 @@
 Managing Competing Hypotheses Under Uncertainty (Standard Library Reimplementation)
 ====================================================================================
 
-Reimplements Hyper3's quantum diagnostics example using numpy and scipy.
-This is an honest comparison: the "quantum" operations reduce to simple
+Reimplements Hyper3's belief layer diagnostics example using numpy and scipy.
+This is an honest comparison: the belief layer operations reduce to simple
 probability operations.
 
 What each operation actually is:
@@ -377,7 +377,7 @@ def section_7_bayesian_comparison() -> None:
     print("    - float arithmetic for interference")
     print("    - scipy.linalg.eigvalsh + log2 for von Neumann entropy")
     print()
-    print("  Advantages of the quantum-style API:")
+    print("  Advantages of the belief layer API:")
     print("    - Natural syntax for correlated hypotheses (correlation)")
     print("    - Built-in uncertainty quantification (entropy)")
     print("    - Density matrix gives a full covariance-like state descriptor")
@@ -387,7 +387,7 @@ def section_7_bayesian_comparison() -> None:
     print("    - No actual quantum speedup (this runs on classical hardware)")
     print("    - Von Neumann entropy is 0 for pure states, which is counterintuitive")
     print()
-    print("  Bottom line: the quantum API is a convenience layer over classical")
+    print("  Bottom line: the belief layer API is a convenience layer over classical")
     print("  probability. For simple prior-posterior updates, plain numpy is clearer.")
     print()
 
@@ -409,7 +409,7 @@ def main():
     print("  3. Correlation = dict of pairwise correlations (lookup table)")
     print("  4. Interference = float arithmetic on signed amplitudes")
     print("  5. Entropy = scipy.linalg.eigvalsh (meaningful for mixed states)")
-    print("  6. For this use case, quantum formalism ~= Bayesian inference")
+    print("  6. For this use case, belief layer ~= Bayesian inference")
     print("  7. This reimplementation: ~200 lines of numpy/scipy vs ~600 Hyper3")
     print()
 

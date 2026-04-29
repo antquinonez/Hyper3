@@ -142,7 +142,7 @@ class TestHypergraphMemoryNewFeatures:
         assert "system_health" in result
         assert "graph_health" in result
 
-    def test_quantum_correlation(self):
+    def test_belief_correlation(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
@@ -155,29 +155,29 @@ class TestHypergraphMemoryNewFeatures:
         )
         assert ent.strength > 0
 
-    def test_collapse_with_basis(self):
+    def test_sample_with_profile(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.store("bird")
-        qs = mem.superpose(["cat", "dog", "bird"])
-        result = mem.collapse_with_basis(qs, "linguistic")
+        qs = mem.create_distribution(["cat", "dog", "bird"])
+        result = mem.sample_with_profile(qs, "linguistic")
         assert result is not None
 
-    def test_collapse_triggers(self):
+    def test_sampling_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
-        qs = mem.superpose(["cat", "dog"])
-        triggers = mem.detect_collapse_triggers(qs)
+        qs = mem.create_distribution(["cat", "dog"])
+        triggers = mem.detect_sampling_triggers(qs)
         assert isinstance(triggers, list)
 
-    def test_interference(self):
+    def test_interactions(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
-        qs = mem.superpose(["cat", "dog"])
-        patterns = mem.compute_interference(qs)
+        qs = mem.create_distribution(["cat", "dog"])
+        patterns = mem.compute_interactions(qs)
         assert isinstance(patterns, list)
 
     def test_stats_includes_rulial_and_meta(self):

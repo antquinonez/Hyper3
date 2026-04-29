@@ -3,19 +3,19 @@ from hyper3 import (
     StateConvergenceEngine,
     ConvergenceRecord,
     HypergraphMemory,
-    CollapseTrigger,
+    SamplingTrigger,
     Hyperedge,
     Hypergraph,
     Hypernode,
-    InterferencePattern,
-    Interpretation,
-    MeasurementBasis,
+    EvidenceInteraction,
+    Outcome,
+    SamplingProfile,
     Metadata,
     Modality,
     MultiwayEngine,
-    QuantumInterpretationLayer,
+    BeliefLayer,
     ConceptCorrelation,
-    QuantumState,
+    BeliefState,
     TransitiveRule,
 )
 
@@ -79,75 +79,75 @@ class TestCausalInvarianceDeep:
         assert isinstance(report["reduction"], int)
 
 
-class TestQuantumCollapseDeep:
-    def test_collapse_born_rule_distribution(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.9)
-        qs.add_interpretation("b", 0.1)
+class TestBeliefSampleDeep:
+    def test_sample_born_rule_distribution(self):
+        qs = BeliefState()
+        qs.add_outcome("a", 0.9)
+        qs.add_outcome("b", 0.1)
         counts = {"a": 0, "b": 0}
         for _ in range(500):
-            qs2 = QuantumState()
-            qs2.add_interpretation("a", 0.9)
-            qs2.add_interpretation("b", 0.1)
-            result = qs2.collapse()
+            qs2 = BeliefState()
+            qs2.add_outcome("a", 0.9)
+            qs2.add_outcome("b", 0.1)
+            result = qs2.sample()
             counts[result.node_id] += 1
         assert counts["a"] > counts["b"]
         assert counts["a"] > 200
 
-    def test_collapse_single_interpretation(self):
-        qs = QuantumState()
-        qs.add_interpretation("only", 1.0)
-        result = qs.collapse()
+    def test_sample_single_outcome(self):
+        qs = BeliefState()
+        qs.add_outcome("only", 1.0)
+        result = qs.sample()
         assert result.node_id == "only"
 
-    def test_collapse_zero_total(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.0)
-        qs.add_interpretation("b", 0.0)
-        result = qs.collapse()
+    def test_sample_zero_total(self):
+        qs = BeliefState()
+        qs.add_outcome("a", 0.0)
+        qs.add_outcome("b", 0.0)
+        result = qs.sample()
         assert result is not None
 
     def test_probability_uses_abs(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", -0.5)
-        assert abs(qs.interpretations[0].probability - 0.25) < 0.01
+        qs = BeliefState()
+        qs.add_outcome("a", -0.5)
+        assert abs(qs.outcomes[0].probability - 0.25) < 0.01
 
-    def test_quantum_state_age_and_decoherence(self):
-        qs = QuantumState(created_at=0.0, coherence_time=0.001)
-        assert qs.is_decoherent
+    def test_belief_state_age_and_staleness(self):
+        qs = BeliefState(created_at=0.0, coherence_time=0.001)
+        assert qs.is_stale
         assert qs.age > 0.0
 
 
-class TestQuantumLayerDeep:
-    def test_collapse_with_basis_missing_basis(self):
+class TestBeliefLayerDeep:
+    def test_sample_with_profile_missing_profile(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a"])
-        result = ql.collapse_with_basis(qs.id, "nonexistent_basis")
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a"])
+        result = ql.sample_with_profile(qs.id, "nonexistent_profile")
         assert result is not None
 
-    def test_collapse_with_basis_empty_state(self):
+    def test_sample_with_profile_empty_state(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        result = ql.collapse_with_basis("nonexistent", "linguistic")
+        ql = BeliefLayer(g)
+        result = ql.sample_with_profile("nonexistent", "linguistic")
         assert result is None
 
     def test_get_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         assert ql.get_correlation("nonexistent") is None
 
     def test_get_basis(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         assert ql.get_basis("linguistic") is not None
         assert ql.get_basis("nonexistent") is None
 
     def test_evolve_amplitudes_missing(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         ql.evolve_amplitudes("nonexistent", {"a": 2.0})
 
     def test_correlation_predict_no_match(self):
@@ -170,63 +170,63 @@ class TestQuantumLayerDeep:
 
     def test_interference_constructive(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.5)
-        qs.add_interpretation("a", 0.3)
+        ql = BeliefLayer(g)
+        qs = BeliefState()
+        qs.add_outcome("a", 0.5)
+        qs.add_outcome("a", 0.3)
         ql._states[qs.id] = qs
-        patterns = ql.compute_interference(qs.id)
+        patterns = ql.compute_interactions(qs.id)
         assert len(patterns) == 1
         assert patterns[0].is_constructive
         assert not patterns[0].is_destructive
 
     def test_interference_destructive(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.5)
-        qs.add_interpretation("a", -0.3)
+        ql = BeliefLayer(g)
+        qs = BeliefState()
+        qs.add_outcome("a", 0.5)
+        qs.add_outcome("a", -0.3)
         ql._states[qs.id] = qs
-        patterns = ql.compute_interference(qs.id)
+        patterns = ql.compute_interactions(qs.id)
         assert len(patterns) == 1
         assert patterns[0].is_destructive
         assert not patterns[0].is_constructive
 
-    def test_interference_single_interpretation(self):
+    def test_interference_single_outcome(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a"])
-        patterns = ql.compute_interference(qs.id)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a"])
+        patterns = ql.compute_interactions(qs.id)
         assert patterns == []
 
-    def test_collapse_correlated_missing(self):
+    def test_sample_correlated_missing(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        result = ql.collapse_correlated("nonexistent", "a")
+        ql = BeliefLayer(g)
+        result = ql.sample_correlated("nonexistent", "a")
         assert result == {}
 
-    def test_collapse_triggers_already_collapsed(self):
+    def test_sample_triggers_already_resolved(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a"])
-        qs.collapsed = True
-        triggers = ql.detect_collapse_triggers(qs.id)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a"])
+        qs.resolved = True
+        triggers = ql.detect_sampling_triggers(qs.id)
         assert triggers == []
 
-    def test_collapse_triggers_dominant(self):
+    def test_sample_triggers_dominant(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState(created_at=0.0, coherence_time=0.0)
-        qs.add_interpretation("a", 0.95)
-        qs.add_interpretation("b", 0.01)
+        ql = BeliefLayer(g)
+        qs = BeliefState(created_at=0.0, coherence_time=0.0)
+        qs.add_outcome("a", 0.95)
+        qs.add_outcome("b", 0.01)
         ql._states[qs.id] = qs
-        triggers = ql.detect_collapse_triggers(qs.id)
+        triggers = ql.detect_sampling_triggers(qs.id)
         types = [t.trigger_type for t in triggers]
-        assert "decoherence_timeout" in types
+        assert "staleness_timeout" in types
 
-    def test_measurement_basis_default_weight(self):
-        basis = MeasurementBasis(name="test", dimensions=["x"])
-        assert basis.weight_for("y") == 1.0
+    def test_sampling_profile_default_weight(self):
+        profile = SamplingProfile(name="test", dimensions=["x"])
+        assert profile.weight_for("y") == 1.0
 
     def test_find_invariants_empty_node_ids(self):
         from hyper3.multiway import MultiwayGraph, MultiwayState
@@ -345,52 +345,52 @@ class TestQuantumLayerDeep:
         preds = ent.predict("b", "value_a")
         assert preds["a"] == "opposite"
 
-    def test_collapse_nonexistent_state(self):
+    def test_sample_nonexistent_state(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        assert ql.collapse("nonexistent_id") is None
+        ql = BeliefLayer(g)
+        assert ql.sample("nonexistent_id") is None
 
-    def test_collapse_with_basis_missing_node(self):
+    def test_sample_with_profile_missing_node(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["ghost_node"])
-        result = ql.collapse_with_basis(qs.id, "linguistic")
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["ghost_node"])
+        result = ql.sample_with_profile(qs.id, "linguistic")
         assert result is not None
 
-    def test_detect_collapse_triggers_interference_maxima(self):
+    def test_detect_sampling_triggers_interference_maxima(self):
         import time as _time
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState(created_at=_time.time())
-        qs.add_interpretation("a", 0.6)
-        qs.add_interpretation("a", 0.5)
+        ql = BeliefLayer(g)
+        qs = BeliefState(created_at=_time.time())
+        qs.add_outcome("a", 0.6)
+        qs.add_outcome("a", 0.5)
         ql._states[qs.id] = qs
-        triggers = ql.detect_collapse_triggers(qs.id)
+        triggers = ql.detect_sampling_triggers(qs.id)
         types = [t.trigger_type for t in triggers]
         assert "interference_maxima" in types
         it = next(t for t in triggers if t.trigger_type == "interference_maxima")
         assert it.details["amplitude"] > 0.7
 
-    def test_collapse_correlated_empty_interpretations(self):
+    def test_sample_correlated_empty_outcomes(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState()
+        ql = BeliefLayer(g)
+        qs = BeliefState()
         ql._states[qs.id] = qs
-        result = ql.collapse_correlated(qs.id, "a")
+        result = ql.sample_correlated(qs.id, "a")
         assert result == {}
 
-    def test_collapse_correlated_fake_correlation(self):
+    def test_sample_correlated_fake_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a"])
         qs.correlation_ids.append("fake_ent_id")
-        result = ql.collapse_correlated(qs.id, "a")
+        result = ql.sample_correlated(qs.id, "a")
         assert isinstance(result, dict)
 
     def test_correlations_property(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         ql.create_correlation(["a"], ["b"], {("a", "b"): 0.5})
         ents = ql.correlations
         assert len(ents) == 1
@@ -444,60 +444,60 @@ class TestQuantumLayerDeep:
         assert "b" in preds
         assert preds["b"] == "value_a"
 
-    def test_collapse_with_basis_node_with_metadata(self):
+    def test_sample_with_profile_node_with_metadata(self):
         g = Hypergraph()
         node = Hypernode(id="a", label="a")
         node.metadata.custom = {"semantic": 0.8, "syntactic": 0.5, "pragmatic": 0.3}
         g.add_node(node)
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a"])
-        result = ql.collapse_with_basis(qs.id, "linguistic")
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a"])
+        result = ql.sample_with_profile(qs.id, "linguistic")
         assert result is not None
 
-    def test_detect_collapse_triggers_single_interpretation(self):
+    def test_detect_sampling_triggers_single_outcome(self):
         import time as _time
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState(created_at=_time.time())
-        qs.add_interpretation("a", 1.0)
+        ql = BeliefLayer(g)
+        qs = BeliefState(created_at=_time.time())
+        qs.add_outcome("a", 1.0)
         ql._states[qs.id] = qs
-        triggers = ql.detect_collapse_triggers(qs.id)
+        triggers = ql.detect_sampling_triggers(qs.id)
         types = [t.trigger_type for t in triggers]
-        assert "single_interpretation" in types
+        assert "single_outcome" in types
 
     def test_create_correlation_links_active_states(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
         ent = ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
         assert ent.id in qs.correlation_ids
 
-    def test_collapse_correlated_with_predictions(self):
+    def test_sample_correlated_with_predictions(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a", label="a"))
         g.add_node(Hypernode(id="b", label="b"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
         ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
-        result = ql.collapse_correlated(qs.id, "a")
+        result = ql.sample_correlated(qs.id, "a")
         assert isinstance(result, dict)
 
     def test_add_basis_and_bases_property(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        basis = MeasurementBasis(name="custom_test", dimensions=["d1"], weights={"d1": 1.0})
-        ql.add_basis(basis)
+        ql = BeliefLayer(g)
+        profile = SamplingProfile(name="custom_test", dimensions=["d1"], weights={"d1": 1.0})
+        ql.add_basis(profile)
         assert ql.get_basis("custom_test") is not None
         all_bases = ql.bases
         assert "custom_test" in all_bases
 
-    def test_collapse_with_basis_negative_metadata_no_crash(self):
+    def test_sample_with_profile_negative_metadata_no_crash(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="n1", metadata=Metadata(custom={"semantic": -2.0})))
         g.add_node(Hypernode(id="n2", metadata=Metadata(custom={"semantic": 1.0})))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["n1", "n2"])
-        result = ql.collapse_with_basis(qs.id, "linguistic")
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["n1", "n2"])
+        result = ql.sample_with_profile(qs.id, "linguistic")
         assert result is not None

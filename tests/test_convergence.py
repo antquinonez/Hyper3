@@ -6,13 +6,13 @@ from hyper3 import (
     Hypergraph,
     Hypernode,
     Hyperedge,
-    Interpretation,
+    Outcome,
     MultiwayEngine,
     MultiwayGraph,
     MultiwayState,
     NodeNotFoundError,
-    QuantumInterpretationLayer,
-    QuantumState,
+    BeliefLayer,
+    BeliefState,
     TransitiveRule,
     InverseRule,
     HypergraphMemory,
@@ -77,113 +77,113 @@ class TestStateConvergenceEngine:
         assert "states_after" in report
 
 
-class TestQuantumState:
+class TestBeliefState:
     def test_create(self):
-        qs = QuantumState()
-        assert not qs.collapsed
-        assert qs.superposition_count == 0
+        qs = BeliefState()
+        assert not qs.resolved
+        assert qs.outcome_count == 0
 
-    def test_add_interpretation(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.7)
-        qs.add_interpretation("b", 0.3)
-        assert qs.superposition_count == 2
+    def test_add_outcome(self):
+        qs = BeliefState()
+        qs.add_outcome("a", 0.7)
+        qs.add_outcome("b", 0.3)
+        assert qs.outcome_count == 2
 
     def test_normalize(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 3.0)
-        qs.add_interpretation("b", 4.0)
+        qs = BeliefState()
+        qs.add_outcome("a", 3.0)
+        qs.add_outcome("b", 4.0)
         qs.normalize()
-        total_prob = sum(i.probability for i in qs.interpretations)
+        total_prob = sum(i.probability for i in qs.outcomes)
         assert abs(total_prob - 1.0) < 0.01
 
-    def test_collapse(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.9)
-        qs.add_interpretation("b", 0.1)
-        selected = qs.collapse()
+    def test_sample(self):
+        qs = BeliefState()
+        qs.add_outcome("a", 0.9)
+        qs.add_outcome("b", 0.1)
+        selected = qs.sample()
         assert selected is not None
-        assert qs.collapsed
-        assert qs.collapsed_to is not None
+        assert qs.resolved
+        assert qs.resolved_to is not None
 
-    def test_collapse_with_context(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.5)
-        qs.add_interpretation("b", 0.5)
+    def test_sample_with_context(self):
+        qs = BeliefState()
+        qs.add_outcome("a", 0.5)
+        qs.add_outcome("b", 0.5)
         counts = {"a": 0, "b": 0}
         for _ in range(200):
-            qs2 = QuantumState()
-            qs2.add_interpretation("a", 0.5)
-            qs2.add_interpretation("b", 0.5)
-            result = qs2.collapse(context_weights={"b": 10.0})
+            qs2 = BeliefState()
+            qs2.add_outcome("a", 0.5)
+            qs2.add_outcome("b", 0.5)
+            result = qs2.sample(context_weights={"b": 10.0})
             counts[result.node_id] += 1
         assert counts["b"] > counts["a"]
 
-    def test_collapse_empty(self):
-        qs = QuantumState()
-        assert qs.collapse() is None
+    def test_sample_empty(self):
+        qs = BeliefState()
+        assert qs.sample() is None
 
     def test_probability(self):
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.6)
-        qs.add_interpretation("b", 0.8)
+        qs = BeliefState()
+        qs.add_outcome("a", 0.6)
+        qs.add_outcome("b", 0.8)
         qs.normalize()
-        total = sum(i.probability for i in qs.interpretations)
+        total = sum(i.probability for i in qs.outcomes)
         assert abs(total - 1.0) < 0.01
 
 
-class TestQuantumInterpretationLayer:
-    def test_create_superposition(self):
+class TestBeliefLayer:
+    def test_create_distribution(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
-        assert qs.superposition_count == 2
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
+        assert qs.outcome_count == 2
 
     def test_create_from_labels(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="concept_x"))
         g.add_node(Hypernode(id="y", label="concept_y"))
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         qs = ql.create_from_labels(["concept_x", "concept_y"])
-        assert qs.superposition_count == 2
+        assert qs.outcome_count == 2
 
-    def test_collapse_state(self):
+    def test_sample_state(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
-        result = ql.collapse(qs.id)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
+        result = ql.sample(qs.id)
         assert result is not None
-        assert qs.collapsed
+        assert qs.resolved
 
     def test_evolve_amplitudes(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
         ql.evolve_amplitudes(qs.id, {"a": 5.0, "b": 0.1})
-        for interp in qs.interpretations:
-            if interp.node_id == "a":
-                assert interp.amplitude > 0.5
+        for outcome in qs.outcomes:
+            if outcome.node_id == "a":
+                assert outcome.amplitude > 0.5
 
-    def test_active_and_collapsed(self):
+    def test_active_and_resolved(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumInterpretationLayer(g)
-        qs1 = ql.create_superposition(["a"])
-        qs2 = ql.create_superposition(["a"])
-        assert len(ql.active_superpositions) == 2
-        ql.collapse(qs1.id)
-        assert len(ql.active_superpositions) == 1
-        assert len(ql.collapsed_states) == 1
+        ql = BeliefLayer(g)
+        qs1 = ql.create_distribution(["a"])
+        qs2 = ql.create_distribution(["a"])
+        assert len(ql.active_distributions) == 2
+        ql.sample(qs1.id)
+        assert len(ql.active_distributions) == 1
+        assert len(ql.resolved_states) == 1
 
     def test_get_state(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
+        ql = BeliefLayer(g)
         assert ql.get_state("nonexistent") is None
 
 
@@ -212,21 +212,21 @@ class TestHypergraphMemoryIntegration:
         result = mem.reason({"nonexistent"})
         assert "error" in result
 
-    def test_superpose_and_collapse(self):
+    def test_create_distribution_and_sample(self):
         mem = HypergraphMemory()
         mem.store("cat")
         mem.store("bank_river")
         mem.store("bank_finance")
-        qs = mem.superpose(["cat", "bank_river", "bank_finance"])
-        assert qs.superposition_count == 3
-        result = mem.collapse(qs, context={"bank_finance": 5.0})
+        qs = mem.create_distribution(["cat", "bank_river", "bank_finance"])
+        assert qs.outcome_count == 3
+        result = mem.sample(qs, context={"bank_finance": 5.0})
         assert result is not None
-        assert qs.collapsed
+        assert qs.resolved
 
-    def test_superpose_empty(self):
+    def test_create_distribution_empty(self):
         mem = HypergraphMemory()
         with pytest.raises(NodeNotFoundError):
-            mem.superpose(["nonexistent"])
+            mem.create_distribution(["nonexistent"])
 
     def test_lateral_insights(self):
         mem = HypergraphMemory()
@@ -250,8 +250,8 @@ class TestHypergraphMemoryIntegration:
         mem.relate("a", "b")
         stats = mem.stats()
         assert "multiway_states" in stats
-        assert "quantum_active" in stats
-        assert "quantum_collapsed" in stats
+        assert "belief_active" in stats
+        assert "belief_resolved" in stats
 
     def test_multiway_property(self):
         mem = HypergraphMemory()
@@ -263,9 +263,9 @@ class TestHypergraphMemoryIntegration:
         mem.reason({"a", "b"})
         assert mem.multiway is not None
 
-    def test_quantum_property(self):
+    def test_belief_property(self):
         mem = HypergraphMemory()
-        assert mem.quantum is not None
+        assert mem.belief is not None
 
     def test_full_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -281,9 +281,9 @@ class TestHypergraphMemoryIntegration:
         )
         result = mem.reason({"rain", "clouds", "wet_ground", "flooding", "umbrella"}, max_depth=3)
         assert result["expansion"]["rules_applied"] > 0
-        qs = mem.superpose(["rain", "clouds", "umbrella"])
-        assert qs.superposition_count == 3
-        selected = mem.collapse(qs)
+        qs = mem.create_distribution(["rain", "clouds", "umbrella"])
+        assert qs.outcome_count == 3
+        selected = mem.sample(qs)
         assert selected is not None
         mem.evolve()
         stats = mem.stats()

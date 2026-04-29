@@ -10,7 +10,7 @@ from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.quantum import QuantumInterpretationLayer
+from hyper3.belief import BeliefLayer
 from hyper3.multiway import MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
@@ -66,7 +66,7 @@ class _MemoryBase:
     _operation_count: int
     _multiway_engine: MultiwayEngine | None
     _convergence_engine: StateConvergenceEngine | None
-    _quantum: QuantumInterpretationLayer
+    _belief: BeliefLayer
     _rules: list[Rule]
     _discovery: RuleDiscoveryEngine
     _serializer: Serializer

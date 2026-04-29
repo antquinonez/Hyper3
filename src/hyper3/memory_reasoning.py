@@ -9,7 +9,7 @@ from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
 from hyper3.provenance import ProvenanceTracker
-from hyper3.quantum import QuantumState
+from hyper3.belief import BeliefState
 from hyper3.multi_perspective import RobustReachabilityDetector
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
@@ -125,7 +125,7 @@ class ReasoningMixin(_MemoryBase):
         convergence_report: MergeReport | None,
         branchial_report: BranchialAnalysis | None,
         rulial_report: RulialAnalysis | None,
-        auto_superpositions: list[QuantumState],
+        auto_distributions: list[BeliefState],
     ) -> ReasonResult:
         """Assemble the final ReasonResult from expansion and post-expansion reports."""
         self._log.record(
@@ -160,10 +160,10 @@ class ReasoningMixin(_MemoryBase):
                 self._overlay.commit()
                 self._overlay = None
                 self._track_rule_effectiveness()
-        if auto_superpositions:
-            result.auto_superpositions = [
-                {"state_id": qs.id, "interpretations": qs.superposition_count}
-                for qs in auto_superpositions
+        if auto_distributions:
+            result.auto_distributions = [
+                {"state_id": qs.id, "outcome_count": qs.outcome_count}
+                for qs in auto_distributions
             ]
         return result
 
@@ -274,13 +274,13 @@ class ReasoningMixin(_MemoryBase):
             active_rules, enforce_convergence,
         )
 
-        auto_superpositions: list[QuantumState] = []
+        auto_distributions: list[BeliefState] = []
         if use_overlay and self._overlay:
-            auto_superpositions = self._auto_superpose_inferences()
+            auto_distributions = self._auto_create_inference_distributions()
 
         return self._build_reason_result(
             report, seed_concepts, use_overlay, auto_commit,
-            convergence_report, branchial_report, rulial_report, auto_superpositions,
+            convergence_report, branchial_report, rulial_report, auto_distributions,
         )
 
     def commit_inferences(self) -> CommitResult:
@@ -563,8 +563,8 @@ class ReasoningMixin(_MemoryBase):
             analysis=self._discovery.analyze(),
         )
 
-    def _auto_superpose_inferences(self) -> list[QuantumState]:
-        """Create quantum superpositions for overlay edges sharing a common target."""
+    def _auto_create_inference_distributions(self) -> list[BeliefState]:
+        """Create belief distributions for overlay edges sharing a common target."""
         if not self._overlay:
             return []
         target_groups: dict[str, list[tuple[str, float]]] = {}
@@ -576,13 +576,13 @@ class ReasoningMixin(_MemoryBase):
                 conf = self._overlay.get_confidence(eid)
                 source = next(iter(edge.source_ids))
                 target_groups.setdefault(tid, []).append((source, conf))
-        states: list[QuantumState] = []
+        states: list[BeliefState] = []
         for target_id, sources in target_groups.items():
             if len(sources) < 2:
                 continue
             node_ids = [s for s, _ in sources]
             amplitudes = [c ** 0.5 for _, c in sources]
-            qs = self._quantum.create_superposition(node_ids, amplitudes)
+            qs = self._belief.create_distribution(node_ids, amplitudes)
             states.append(qs)
         return states
 

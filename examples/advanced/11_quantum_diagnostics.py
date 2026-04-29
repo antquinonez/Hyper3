@@ -3,16 +3,16 @@ Managing Competing Hypotheses Under Uncertainty
 ================================================
 
 This example models a production outage investigation using Hyper3's
-probabilistic hypothesis management layer. Despite the "quantum" naming,
-this is NOT real quantum computing -- it is a weighted random sampling
-framework that borrows mathematical formalism (amplitudes, density matrices,
-entropy) from quantum mechanics to manage competing hypotheses.
+probabilistic hypothesis management layer (the belief layer). This is NOT
+real quantum computing -- it is a weighted random sampling framework that
+borrows mathematical formalism (amplitudes, density matrices, entropy) from
+quantum mechanics to manage competing hypotheses.
 
-What each "quantum" operation actually does:
-  - Superposition: holds multiple candidate hypotheses with weights
-  - Collapse: weighted random selection (Born rule = sample proportional to weight^2)
+What each belief layer operation actually does:
+  - Distribution: holds multiple candidate hypotheses with weights
+  - Sample: weighted random selection (Born rule = sample proportional to weight^2)
   - Correlation: records pairwise correlations between hypotheses
-  - Interference: detects reinforcing vs conflicting evidence patterns
+  - Interactions: detects reinforcing vs conflicting evidence patterns
   - Density matrix / Von Neumann entropy: measures how uncertain the system is
 
 Use case: A production service goes down. Multiple root causes are plausible.
@@ -313,9 +313,9 @@ def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
     return hypotheses
 
 
-def section_2_superposition(mem: HypergraphMemory, hypotheses: list[str]) -> None:
+def section_2_distribution(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
-    print("SECTION 2: Superposition = Maintaining Competing Hypotheses")
+    print("SECTION 2: Distribution = Maintaining Competing Hypotheses")
     print("=" * 70)
     print()
     print("  What it actually does: assigns weights to candidate hypotheses,")
@@ -324,19 +324,19 @@ def section_2_superposition(mem: HypergraphMemory, hypotheses: list[str]) -> Non
     print("  Spreading activation may shift weights based on graph connectivity.")
     print()
 
-    qs = mem.superpose(concepts=hypotheses)
-    print(f"  Superposition of {qs.superposition_count} hypotheses:")
-    for interp in qs.interpretations:
+    qs = mem.create_distribution(concepts=hypotheses)
+    print(f"  Distribution of {qs.outcome_count} hypotheses:")
+    for interp in qs.outcomes:
         print(f"    {interp.label:40s} amp={interp.amplitude:.4f}  prob={interp.probability:.4f}")
-    total = sum(i.probability for i in qs.interpretations)
+    total = sum(i.probability for i in qs.outcomes)
     print(f"\n  Total probability: {total:.4f}")
     print()
     return qs
 
 
-def section_3_collapse(mem: HypergraphMemory, hypotheses: list[str]) -> None:
+def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
-    print("SECTION 3: Collapse = Evidence-Driven Hypothesis Selection")
+    print("SECTION 3: Sample = Evidence-Driven Hypothesis Selection")
     print("=" * 70)
     print()
     print("  What it actually does: multiplies each hypothesis probability by a")
@@ -363,18 +363,18 @@ def section_3_collapse(mem: HypergraphMemory, hypotheses: list[str]) -> None:
 
     context_weights = evidence_weights_by_label
 
-    print("\n  Running collapse 1000 times to check distribution...")
+    print("\n  Running sample 1000 times to check distribution...")
     counts: dict[str, int] = {h: 0 for h in hypotheses}
     n_trials = 1000
     for _ in range(n_trials):
-        qs_trial = mem.superpose(concepts=hypotheses, amplitudes=None, use_context_field=False)
-        answer = mem.collapse(qs_trial, context=context_weights)
+        qs_trial = mem.create_distribution(concepts=hypotheses, amplitudes=None, use_context_field=False)
+        answer = mem.sample(qs_trial, context=context_weights)
         if answer:
             node = mem.graph.get_node(answer.node_id)
             label = node.label if node else answer.node_id
             counts[label] = counts.get(label, 0) + 1
 
-    print(f"\n  Collapse frequency over {n_trials} trials:")
+    print(f"\n  Sample frequency over {n_trials} trials:")
     for label in sorted(counts, key=counts.get, reverse=True):
         bar = "#" * (counts[label] // 10)
         print(f"    {label:40s} {counts[label]:4d} ({counts[label]/n_trials:.1%}) {bar}")
@@ -384,8 +384,8 @@ def section_3_collapse(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     for label in sorted(set(simple_counts), key=lambda l: -np.sum(simple_counts == l)):
         c = int(np.sum(simple_counts == label))
         print(f"    {label:40s} {c:4d} ({c/n_trials:.1%})")
-    print("\n  --> Distributions match. Collapse = weighted sampling, nothing magical.")
-    print("  Note: collapse() now accepts node labels as context keys directly.")
+    print("\n  --> Distributions match. Sample = weighted sampling, nothing magical.")
+    print("  Note: sample() now accepts node labels as context keys directly.")
     print()
 
 
@@ -400,7 +400,7 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("  table -- not physical quantum entanglement.")
     print()
 
-    qs = mem.superpose(concepts=hypotheses, use_context_field=False)
+    qs = mem.create_distribution(concepts=hypotheses, use_context_field=False)
 
     ent = mem.correlate(
         group_a=["certificate_expiry", "dns_resolution_failure"],
@@ -421,8 +421,8 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
     print(f"    dns_failure  <-> memory_leak:        +0.15 (weak)")
 
-    cascaded = mem.collapse_correlated(qs, "certificate_expiry")
-    print(f"\n  Correlated collapse (observe certificate_expiry):")
+    cascaded = mem.sample_correlated(qs, "certificate_expiry")
+    print(f"\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
             node = mem.graph.get_node(partner_id)
@@ -444,28 +444,28 @@ def section_5_interference(mem: HypergraphMemory) -> None:
     print("  It compares |sum(amps)|^2 vs sum(|amp|^2) -- standard wave math.")
     print()
 
-    qs_constructive = mem.superpose(
+    qs_constructive = mem.create_distribution(
         concepts=["certificate_expiry", "certificate_expiry"],
         amplitudes=[0.7, 0.5],
         use_context_field=False,
     )
     print("  Constructive case: two evidence sources both support certificate_expiry")
     print("    amplitudes: [+0.70, +0.50]")
-    patterns_c = mem.compute_interference(qs_constructive)
+    patterns_c = mem.compute_interactions(qs_constructive)
     for p in patterns_c:
         node = mem.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
 
-    qs_destructive = mem.superpose(
+    qs_destructive = mem.create_distribution(
         concepts=["dns_resolution_failure", "dns_resolution_failure"],
         amplitudes=[0.7, -0.5],
         use_context_field=False,
     )
     print("\n  Destructive case: one source supports DNS failure, another contradicts")
     print("    amplitudes: [+0.70, -0.50]")
-    patterns_d = mem.compute_interference(qs_destructive)
+    patterns_d = mem.compute_interactions(qs_destructive)
     for p in patterns_d:
         node = mem.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
@@ -500,7 +500,7 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     ]
     for vec, weight in basis_confident:
         rho_mixed_confident += weight * np.outer(vec, vec.conj())
-    entropy_confident = mem.quantum.von_neumann_entropy(rho_mixed_confident)
+    entropy_confident = mem.belief.von_neumann_entropy(rho_mixed_confident)
     print(f"  Mixed state (one hypothesis dominates at 90%):")
     print(f"    Weights: 0.90, 0.08, 0.02")
     print(f"    Entropy: {entropy_confident:.6f} bits (low = confident)")
@@ -513,27 +513,27 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     ]
     for vec, weight in basis_moderate:
         rho_mixed_moderate += weight * np.outer(vec, vec.conj())
-    entropy_moderate = mem.quantum.von_neumann_entropy(rho_mixed_moderate)
+    entropy_moderate = mem.belief.von_neumann_entropy(rho_mixed_moderate)
     print(f"\n  Mixed state (moderate uncertainty):")
     print(f"    Weights: 0.60, 0.30, 0.10")
     print(f"    Entropy: {entropy_moderate:.6f} bits")
 
     rho_max = np.eye(4, dtype=complex) / 4
-    entropy_max = mem.quantum.von_neumann_entropy(rho_max)
+    entropy_max = mem.belief.von_neumann_entropy(rho_max)
     print(f"\n  Maximally uncertain (4 hypotheses, equal weight):")
     print(f"    Entropy: {entropy_max:.6f} bits = log2(4) = {np.log2(4):.6f}")
 
     print("\n  Quick check: pure state entropy (should be 0)")
-    qs_pure = mem.superpose(
+    qs_pure = mem.create_distribution(
         concepts=hypotheses[:3],
         amplitudes=[0.6, 0.3, 0.1],
         use_context_field=False,
     )
-    rho_pure = mem.quantum.compute_density_matrix(qs_pure.id)
+    rho_pure = mem.belief.compute_density_matrix(qs_pure.id)
     if rho_pure is not None:
-        entropy_pure = mem.quantum.von_neumann_entropy(rho_pure)
+        entropy_pure = mem.belief.von_neumann_entropy(rho_pure)
         print(f"    Pure state entropy: {entropy_pure:.10f} bits (effectively 0)")
-        print(f"    Shannon entropy of probs: {-sum(i.probability * np.log2(max(i.probability, 1e-15)) for i in qs_pure.interpretations):.6f} bits")
+        print(f"    Shannon entropy of probs: {-sum(i.probability * np.log2(max(i.probability, 1e-15)) for i in qs_pure.outcomes):.6f} bits")
         print(f"    --> These differ! Pure state entropy=0, Shannon>0. They are NOT the same.")
 
     print()
@@ -551,13 +551,13 @@ def section_7_bayesian_comparison() -> None:
     print("  The quantum formalism in Hyper3 is mathematically equivalent to")
     print("  Bayesian hypothesis ranking for this use case:")
     print()
-    print("  1. Superposition = prior distribution over hypotheses")
-    print("  2. Collapse with context = sampling from posterior (context = likelihood)")
+    print("  1. Distribution = prior distribution over hypotheses")
+    print("  2. Sample with context = sampling from posterior (context = likelihood)")
     print("  3. Correlation = structured prior over correlated hypotheses")
     print("  4. Interference = Bayes factor aggregation (agreeing/diverging evidence)")
     print("  5. Von Neumann entropy = for mixed states, equals Shannon entropy")
     print()
-    print("  Advantages of the quantum-style API:")
+    print("  Advantages of the belief layer API:")
     print("    - Natural syntax for correlated hypotheses (correlation)")
     print("    - Built-in uncertainty quantification (entropy)")
     print("    - Density matrix gives a full covariance-like state descriptor")
@@ -579,8 +579,8 @@ def main():
     mem = HypergraphMemory(evolve_interval=0)
 
     hypotheses = section_1_build_graph(mem)
-    section_2_superposition(mem, hypotheses)
-    section_3_collapse(mem, hypotheses)
+    section_2_distribution(mem, hypotheses)
+    section_3_sample(mem, hypotheses)
     section_4_correlation(mem, hypotheses)
     section_5_interference(mem)
     section_6_entropy(mem, hypotheses)
@@ -589,13 +589,13 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print("  1. Superposition = prior distribution over hypotheses (weighted or uniform)")
-    print("  2. Collapse = weighted random sampling (Born rule = p ~ weight^2)")
+    print("  1. Distribution = prior distribution over hypotheses (weighted or uniform)")
+    print("  2. Sample = weighted random sampling (Born rule = p ~ weight^2)")
     print("  3. Correlation = pairwise correlation lookup between hypothesis groups")
     print("  4. Interference = detects agreeing vs conflicting evidence sources")
     print("  5. Entropy = meaningful for mixed states; 0 for pure states (a caveat)")
-    print("  6. For this use case, quantum formalism ~= Bayesian inference with APIs")
-    print("  7. Be honest about what it is: classical probability with quantum notation")
+    print("  6. For this use case, belief layer ~= Bayesian inference with APIs")
+    print("  7. Be honest about what it is: classical probability with quantum-inspired notation")
     print()
 
 

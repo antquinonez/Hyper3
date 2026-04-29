@@ -10,15 +10,15 @@ import numpy as np
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
 from hyper3.results import MergeReport
-from hyper3.quantum import (
-    BUILTIN_BASES,
-    CollapseTrigger,
+from hyper3.belief import (
+    BUILTIN_PROFILES,
+    SamplingTrigger,
     ConceptCorrelation,
-    InterferencePattern,
-    Interpretation,
-    MeasurementBasis,
-    QuantumInterpretationLayer,
-    QuantumState,
+    EvidenceInteraction,
+    Outcome,
+    SamplingProfile,
+    BeliefLayer,
+    BeliefState,
 )
 
 

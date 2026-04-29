@@ -10,7 +10,7 @@ from hyper3.cache import LazyCache
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
 from hyper3.evolution import GraphMaintenanceEngine
-from hyper3.quantum import QuantumInterpretationLayer
+from hyper3.belief import BeliefLayer
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
@@ -205,7 +205,7 @@ class PersistenceMixin(_MemoryBase):
         self._equivalence = EquivalenceEngine(self._graph, threshold=self._merge_threshold)
         self._multiway_engine = None
         self._convergence_engine = None
-        self._quantum = QuantumInterpretationLayer(self._graph)
+        self._belief = BeliefLayer(self._graph)
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._branchial = None
         self._rulial = None
@@ -234,7 +234,7 @@ class PersistenceMixin(_MemoryBase):
             path: Destination file path.
         """
         snapshot = capture_snapshot(
-            quantum=self._quantum,
+            belief=self._belief,
             multiway_engine=self._multiway_engine,
             branchial=self._branchial,
             rulial=self._rulial,
@@ -258,7 +258,7 @@ class PersistenceMixin(_MemoryBase):
         multiway_engine, branchial, rulial = restore_snapshot(
             snapshot=snapshot,
             graph=self._graph,
-            quantum=self._quantum,
+            belief=self._belief,
             provenance=self._provenance,
             retrieval=self._retrieval,
             perspective=self._perspective,
@@ -288,8 +288,8 @@ class PersistenceMixin(_MemoryBase):
             cache_size=self._cache.size,
             operations=self._operation_count,
             multiway_states=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
-            quantum_active=len(self._quantum.active_superpositions),
-            quantum_collapsed=len(self._quantum.collapsed_states),
+            belief_active=len(self._belief.active_distributions),
+            belief_resolved=len(self._belief.resolved_states),
             evolution=EvolutionStats(
                 merges=self._evolution.metrics.total_merges,
                 prunes=self._evolution.metrics.total_prunes,

@@ -161,11 +161,11 @@ Instead of guessing, we hold ALL THREE as a quantum superposition.
 Each has an amplitude (confidence weight).
 """)
 
-qs = mem.superpose(
+qs = mem.create_distribution(
     ["battery", "fuel_pump", "spark_plug"],
-    amplitudes=[0.6, 0.3, 0.25],  # battery is most suspected
+    amplitudes=[0.6, 0.3, 0.25],
 )
-print(f"Superposition: {qs.superposition_count} hypotheses held simultaneously")
+print(f"Superposition: {qs.outcome_count} hypotheses held simultaneously")
 print(f"  |battery⟩   amplitude=0.6  probability={0.6**2:.2f}")
 print(f"  |fuel_pump⟩ amplitude=0.3  probability={0.3**2:.2f}")
 print(f"  |spark_plug⟩ amplitude=0.25 probability={0.25**2:.2f}")
@@ -184,7 +184,7 @@ print()
 
 # Now we get new evidence: "headlights are dim" → battery confirmed weak
 print("New evidence arrives: 'headlights are dim' → battery is weak")
-answer = mem.collapse(qs, context={"battery": 3.0})
+answer = mem.sample(qs, context={"battery": 3.0})
 collapsed_node = mem.graph.get_node(answer.node_id)
 collapsed_label = collapsed_node.label if collapsed_node else answer.node_id
 print(f"Collapsed to: {collapsed_label} (amplitude={answer.amplitude:.3f})")
@@ -200,11 +200,11 @@ Multiple evidence sources can interfere:
 - Destructive: conflicting evidence cancels out
 """)
 
-qs2 = mem.superpose(
+qs2 = mem.create_distribution(
     ["battery", "fuel_pump", "spark_plug", "alternator", "timing_belt"],
     amplitudes=[0.7, -0.3, 0.4, -0.5, 0.2],
 )
-patterns = mem.compute_interference(qs2)
+patterns = mem.compute_interactions(qs2)
 print("Interference analysis:")
 for p in patterns:
     kind = "CONSTRUCTIVE ▲" if p.is_constructive else "DESTRUCTIVE ▼" if p.is_destructive else "neutral"

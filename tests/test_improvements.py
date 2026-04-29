@@ -611,8 +611,8 @@ class TestStandardFormatIO:
             os.unlink(path)
 
 
-class TestAutoSuperposition:
-    def test_auto_superposition_creates_quantum_states(self):
+class TestAutoDistribution:
+    def test_auto_distribution_creates_belief_states(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
@@ -624,9 +624,9 @@ class TestAutoSuperposition:
         assert result["expansion"]["rules_applied"] > 0
         assert mem.overlay is not None
         if len(mem.overlay.overlay_edge_ids) >= 2:
-            sp_list = result.get("auto_superpositions", [])
+            sp_list = result.get("auto_distributions", [])
             assert len(sp_list) > 0
-            assert sp_list[0]["interpretations"] >= 2
+            assert sp_list[0]["outcome_count"] >= 2
         mem.rollback_inferences()
 
 

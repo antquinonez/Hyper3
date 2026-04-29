@@ -15,7 +15,7 @@ from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.quantum import QuantumInterpretationLayer
+from hyper3.belief import BeliefLayer
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer, PresetAnalysis
 from hyper3.system_monitor import SystemMonitor, TuningTrigger, TuningPlan
@@ -517,9 +517,9 @@ class SubsystemMixin(_MemoryBase):
         return self._multiway_engine
 
     @property
-    def quantum(self) -> QuantumInterpretationLayer:
-        """The quantum interpretation layer for superposition and collapse."""
-        return self._quantum
+    def belief(self) -> BeliefLayer:
+        """The belief layer for distribution and resolution."""
+        return self._belief
 
     @property
     def branchial(self) -> BranchialSpace | None:

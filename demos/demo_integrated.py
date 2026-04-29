@@ -114,10 +114,10 @@ def main():
     print("5. QUANTUM COGNITIVE SUPERPOSITION")
     print("=" * 70)
 
-    qs = mem.superpose(["flood", "crop_damage", "infrastructure_damage"])
+    qs = mem.create_distribution(["flood", "crop_damage", "infrastructure_damage"])
     print(f"\n  Superposition of: flood, crop_damage, infrastructure_damage")
-    print(f"  Interpretations: {qs.superposition_count}")
-    for interp in qs.interpretations:
+    print(f"  Interpretations: {qs.outcome_count}")
+    for interp in qs.outcomes:
         node = mem.graph.get_node(interp.node_id)
         label = node.label if node else "?"
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
@@ -128,13 +128,13 @@ def main():
     print("6. EVOLVING AMPLITUDES WITH CONTEXT")
     print("=" * 70)
 
-    mem.quantum.evolve_amplitudes(qs.id, {
-        qs.interpretations[0].node_id: 0.3,
-        qs.interpretations[1].node_id: 2.0,
-        qs.interpretations[2].node_id: 1.5,
+    mem.belief.evolve_amplitudes(qs.id, {
+        qs.outcomes[0].node_id: 0.3,
+        qs.outcomes[1].node_id: 2.0,
+        qs.outcomes[2].node_id: 1.5,
     })
     print("\n  After boosting crop_damage and infrastructure_damage:")
-    for interp in qs.interpretations:
+    for interp in qs.outcomes:
         node = mem.graph.get_node(interp.node_id)
         label = node.label if node else "?"
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
@@ -145,7 +145,7 @@ def main():
     print("7. OBSERVER MEASUREMENT: COLLAPSE TO DEFINITE STATE")
     print("=" * 70)
 
-    selected = mem.collapse(qs)
+    selected = mem.sample(qs)
     node = mem.graph.get_node(selected.node_id)
     label = node.label if node else selected.node_id
     print(f"\n  Collapsed to: {label}")

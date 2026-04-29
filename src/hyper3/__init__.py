@@ -2,10 +2,11 @@ from hyper3.exceptions import (
     CollapseError,
     ConstraintViolationError,
     EdgeNotFoundError,
-    CorrelationError,    Hyper3Error,
+    CorrelationError,
+    Hyper3Error,
     InferenceError,
     NodeNotFoundError,
-    QuantumStateNotFoundError,
+    BeliefStateNotFoundError,
     RuleApplicationError,
     SerializationError,
     StateNotFoundError,
@@ -49,15 +50,21 @@ from hyper3.multiway_causal import (
     StateConvergenceEngine,
     ConvergenceRecord,
 )
-from hyper3.quantum import (
-    CollapseTrigger,
-    Interpretation,
-    InterferencePattern,
-    MeasurementBasis,
+from hyper3.belief import (
+    SamplingTrigger,
+    Outcome,
+    EvidenceInteraction,
+    SamplingProfile,
     PotentialFieldConfig,
-    QuantumInterpretationLayer,
+    BeliefLayer,
     ConceptCorrelation,
-    QuantumState,
+    BeliefState,
+)
+from hyper3.bayesian import (
+    BayesianLayer,
+    CategoricalDistribution,
+    Evidence as BayesianEvidence,
+    UpdateResult as BayesianUpdateResult,
 )
 from hyper3.persistence import Serializer
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine

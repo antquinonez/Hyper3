@@ -304,7 +304,7 @@ def main() -> None:
     print("SECTION 3: Measurement Basis Learning (Thompson Sampling)")
     print("=" * 70)
 
-    quantum = mem.quantum
+    quantum = mem.belief
 
     training_outcomes = [
         ("pragmatic", True), ("pragmatic", True), ("pragmatic", True),
@@ -340,23 +340,23 @@ def main() -> None:
         (["payment-service-01", "payment-service-02", "database-layer"], "dependency-trace"),
     ]
 
-    print(f"\n  Collapse results by basis for different problem types:")
+    print(f"\n  Sample results by basis for different problem types:")
     for concepts, problem_type in problem_sets:
-        qs = mem.superpose(concepts)
+        qs = mem.create_distribution(concepts)
         if qs is None:
             continue
         print(f"\n    Problem: {problem_type}")
         for basis_name in ["pragmatic", "temporal", "linguistic"]:
-            qs_fresh = mem.superpose(concepts)
+            qs_fresh = mem.create_distribution(concepts)
             if qs_fresh is None:
                 continue
-            result = mem.collapse_with_basis(qs_fresh, basis_name)
+            result = mem.sample_with_profile(qs_fresh, basis_name)
             if result:
                 node = mem.graph.get_node(result.node_id)
                 label = node.label if node else result.node_id
                 print(f"      {basis_name:12s} -> {label}")
             else:
-                print(f"      {basis_name:12s} -> no collapse")
+                print(f"      {basis_name:12s} -> no sample")
     print()
 
     print("=" * 70)

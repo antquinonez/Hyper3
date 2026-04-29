@@ -11,7 +11,7 @@ Sections:
   1. Build the threat intelligence knowledge graph
   2. Rule-based reasoning -- discover indirect attack chains
   3. Spreading activation -- alert triage and impact scoring
-  4. Quantum superposition -- competing attribution hypotheses
+  4. Belief layer -- competing attribution hypotheses
   5. Self-evolution -- decay stale IOCs, reinforce active threats
   6. Pattern matching and centrality -- who is most dangerous?
 
@@ -353,36 +353,36 @@ def main():
     for r in activated_cves[:5]:
         print(f"    {r.label:22s}  energy={r.activation:.3f}  depth={r.depth}")
 
-    section(4, "Quantum Superposition -- Competing Attribution Hypotheses")
+    section(4, "Belief Layer -- Competing Attribution Hypotheses")
 
     print("  Scenario: an intrusion is detected. Three APT groups are suspects.")
-    print("  CTI intel provides prior weights. The system collapses to the")
+    print("  CTI intel provides prior weights. The system samples the")
     print("  most likely attribution via Born-rule sampling.")
     print()
 
     suspects = ["APT28", "APT29", "Lazarus", "Volt_Typhoon"]
     prior_amplitudes = [0.7, 0.5, 0.4, 0.3]
 
-    qs = mem.superpose(suspects, amplitudes=prior_amplitudes)
+    qs = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
     print(f"  Prior distribution (raw Born rule, use_context_field=False):")
-    for interp in qs.interpretations:
+    for interp in qs.outcomes:
         node = mem.graph.get_node(interp.node_id)
         label = node.label if node else interp.node_id
         print(f"    {label:22s}  probability={interp.probability:.4f}")
 
     print()
-    print("  Running 1000 collapse trials to verify distribution...")
+    print("  Running 1000 sample trials to verify distribution...")
     counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_trial = mem.superpose(suspects, amplitudes=prior_amplitudes)
-        ans = mem.collapse(qs_trial)
+        qs_trial = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
+        ans = mem.sample(qs_trial)
         if ans:
             node = mem.graph.get_node(ans.node_id)
             if node:
                 counts[node.label] += 1
 
     print()
-    print("  Collapse frequency over 1000 trials:")
+    print("  Sample frequency over 1000 trials:")
     for label in suspects:
         c = counts.get(label, 0)
         bar = "#" * (c // 10)
@@ -390,11 +390,11 @@ def main():
 
     print()
     ctx_weights = {"APT28": 3.0, "Lazarus": 0.5}
-    print(f"  Context-weighted collapse (evidence favors APT28: {ctx_weights}):")
+    print(f"  Context-weighted sample (evidence favors APT28: {ctx_weights}):")
     ctx_counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_ctx = mem.superpose(suspects, amplitudes=prior_amplitudes)
-        ans_ctx = mem.collapse(qs_ctx, context=ctx_weights)
+        qs_ctx = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
+        ans_ctx = mem.sample(qs_ctx, context=ctx_weights)
         if ans_ctx:
             node = mem.graph.get_node(ans_ctx.node_id)
             if node:
@@ -507,7 +507,7 @@ def main():
     print("    1. Built a 73-node CTI hypergraph with labeled relationships")
     print(f"    2. Applied inference rules, discovered {new_edges} new relationship edges")
     print("    3. Used spreading activation to triage a Log4j exploitation alert")
-    print("    4. Ranked attribution hypotheses via quantum Born-rule collapse")
+    print("    4. Ranked attribution hypotheses via belief layer Born-rule sampling")
     print(f"    5. Evolved the graph: pruned {evo.pruned} stale IOCs, merged {evo.merged} equivalent nodes")
     print("    6. Identified the most dangerous actors and CVEs by centrality")
     print()

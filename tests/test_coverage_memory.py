@@ -374,13 +374,13 @@ class TestLoadWithoutRules:
         os.rmdir(tmpdir)
 
 
-class TestAutoSuperposeInferences:
-    def test_auto_superpose_with_no_overlay(self):
+class TestAutoCreateInferenceDistributions:
+    def test_auto_create_with_no_overlay(self):
         mem = HypergraphMemory(evolve_interval=0)
-        result = mem._auto_superpose_inferences()
+        result = mem._auto_create_inference_distributions()
         assert result == []
 
-    def test_auto_superpose_with_overlay(self):
+    def test_auto_create_with_overlay(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
@@ -389,8 +389,8 @@ class TestAutoSuperposeInferences:
         mem.relate("b", "c", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason({"a"}, max_depth=2, auto_commit=False)
-        if "auto_superpositions" in result:
-            assert isinstance(result["auto_superpositions"], list)
+        if "auto_distributions" in result:
+            assert isinstance(result["auto_distributions"], list)
 
 
 class TestFindNodeWithAlias:

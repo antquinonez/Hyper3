@@ -42,17 +42,17 @@ class StateNotFoundError(Hyper3Error):
         super().__init__(f"State not found: {state_id}")
 
 
-class QuantumStateNotFoundError(Hyper3Error):
-    """Raised when a referenced quantum state does not exist."""
+class BeliefStateNotFoundError(Hyper3Error):
+    """Raised when a referenced belief state does not exist."""
 
     def __init__(self, qs_id: str) -> None:
-        """Initialize with the missing quantum state ID.
+        """Initialize with the missing belief state ID.
 
         Args:
             qs_id: The ID that was not found.
         """
         self.qs_id = qs_id
-        super().__init__(f"Quantum state not found: {qs_id}")
+        super().__init__(f"Belief state not found: {qs_id}")
 
 
 class CollapseError(Hyper3Error):

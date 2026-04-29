@@ -10,7 +10,7 @@ from hyper3.traversal import ObserverSlice, TraversalEngine
 from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.quantum import QuantumInterpretationLayer
+from hyper3.belief import BeliefLayer
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
@@ -38,7 +38,8 @@ from hyper3.community import CommunityDetector
 from hyper3.graph_diff import GraphDiffer
 from hyper3.memory_core import CoreMixin
 from hyper3.memory_reasoning import ReasoningMixin
-from hyper3.memory_quantum import QuantumMixin
+from hyper3.memory_belief import BeliefMixin
+from hyper3.memory_bayesian import BayesianMixin
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_persistence import PersistenceMixin
 from hyper3.memory_subsystems import SubsystemMixin
@@ -47,7 +48,8 @@ from hyper3.memory_subsystems import SubsystemMixin
 class HypergraphMemory(
     CoreMixin,
     ReasoningMixin,
-    QuantumMixin,
+    BeliefMixin,
+    BayesianMixin,
     AnalyticsMixin,
     PersistenceMixin,
     SubsystemMixin,
@@ -98,7 +100,7 @@ class HypergraphMemory(
         self._operation_count = 0
         self._multiway_engine: MultiwayEngine | None = None
         self._convergence_engine: StateConvergenceEngine | None = None
-        self._quantum = QuantumInterpretationLayer(self._graph)
+        self._belief = BeliefLayer(self._graph)
         self._rules: list[Rule] = list(rules) if rules else []
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._serializer = Serializer()

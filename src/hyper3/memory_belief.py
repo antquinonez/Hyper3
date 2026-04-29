@@ -5,35 +5,35 @@ from typing import Any
 
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.exceptions import NodeNotFoundError
-from hyper3.quantum import (
-    CollapseTrigger,
-    InterferencePattern,
-    Interpretation,
-    MeasurementBasis,
-    QuantumInterpretationLayer,
+from hyper3.belief import (
+    SamplingTrigger,
+    EvidenceInteraction,
+    Outcome,
+    SamplingProfile,
+    BeliefLayer,
     ConceptCorrelation,
-    QuantumState,
+    BeliefState,
 )
 from hyper3.structural_anomaly import BoundaryRegion, AnomalyDetectionResult
 from hyper3.memory_base import _MemoryBase
 
 
-class QuantumMixin(_MemoryBase):
+class BeliefMixin(_MemoryBase):
 
-    def superpose(
+    def create_distribution(
         self,
         concepts: list[str],
         *,
         amplitudes: list[float] | None = None,
         use_context_field: bool = False,
-    ) -> QuantumState:
-        """Create a quantum superposition over the given concepts.
+    ) -> BeliefState:
+        """Create a belief distribution over the given concepts.
 
-        Resolves concept labels to node IDs, creates the superposition, and
+        Resolves concept labels to node IDs, creates the distribution, and
         optionally evolves it in the context of spreading activation values.
 
         Args:
-            concepts: Labels of the nodes to superpose.
+            concepts: Labels of the nodes to include in the distribution.
             amplitudes: Optional amplitude list; uniform if not provided.
             use_context_field: If True, evolve the state using activation context.
                 This biases the probability distribution toward structurally
@@ -41,7 +41,7 @@ class QuantumMixin(_MemoryBase):
                 False, which applies the raw Born rule to the provided amplitudes.
 
         Returns:
-            The created QuantumState.
+            The created BeliefState.
 
         Raises:
             NodeNotFoundError: If none of the provided concepts exist in the graph.
@@ -55,10 +55,10 @@ class QuantumMixin(_MemoryBase):
             else:
                 missing.append(concept)
         if missing:
-            self._log.record("superpose_missing", missing=missing, requested=len(concepts))
+            self._log.record("create_distribution_missing", missing=missing, requested=len(concepts))
         if not node_ids:
             raise NodeNotFoundError(concepts[0] if concepts else "")
-        qs = self._quantum.create_superposition(node_ids, amplitudes)
+        qs = self._belief.create_distribution(node_ids, amplitudes)
         if use_context_field and len(node_ids) > 1:
             activation_values: dict[str, float] = {}
             if hasattr(self, '_activation'):
@@ -68,21 +68,21 @@ class QuantumMixin(_MemoryBase):
                 for nid in node_ids:
                     activation_values[nid] = spread.get(nid, 0.0)
                 self._activation.clear()
-            self._quantum.evolve_in_context(qs.id, activation_values)
-        self._log.record("superpose", concepts=concepts, state_id=qs.id, interpretations=qs.superposition_count)
+            self._belief.evolve_in_context(qs.id, activation_values)
+        self._log.record("create_distribution", concepts=concepts, state_id=qs.id, outcomes=qs.outcome_count)
         return qs
 
-    def collapse(self, qs: QuantumState, *, context: dict[str, float] | None = None) -> Interpretation | None:
-        """Collapse a quantum superposition to a single interpretation via Born rule sampling.
+    def sample(self, qs: BeliefState, *, context: dict[str, float] | None = None) -> Outcome | None:
+        """Sample a belief distribution to a single outcome via Born rule sampling.
 
         Args:
-            qs: The quantum state to collapse.
-            context: Optional context weights influencing collapse probabilities.
+            qs: The belief state to sample.
+            context: Optional context weights influencing sampling probabilities.
                 Keys may be node labels **or** node IDs. Labels are automatically
                 resolved to IDs before applying weights.
 
         Returns:
-            The selected Interpretation, or None if collapse fails.
+            The selected Outcome, or None if sampling fails.
         """
         id_context: dict[str, float] | None = None
         if context:
@@ -90,40 +90,40 @@ class QuantumMixin(_MemoryBase):
             for key, value in context.items():
                 node = self._find_node(key)
                 id_context[node.id if node else key] = value
-        result = qs.collapse(id_context)
+        result = qs.sample(id_context)
         if result:
             node = self._graph.get_node(result.node_id)
             label = node.label if node else result.node_id
-            self._log.record("collapse", state_id=qs.id, selected=label)
+            self._log.record("sample", state_id=qs.id, selected=label)
         return result
 
-    def collapse_with_basis(self, qs: QuantumState, basis_name: str) -> Interpretation | None:
-        """Collapse a quantum state using a named measurement basis.
+    def sample_with_profile(self, qs: BeliefState, basis_name: str) -> Outcome | None:
+        """Sample a belief state using a named sampling profile.
 
         Records effectiveness outcomes automatically.
 
         Args:
-            qs: The quantum state to collapse.
-            basis_name: Name of the measurement basis to use.
+            qs: The belief state to sample.
+            basis_name: Name of the sampling profile to use.
 
         Returns:
-            The selected Interpretation, or None if the basis is not found.
+            The selected Outcome, or None if the profile is not found.
         """
-        result = self._quantum.collapse_with_basis(qs.id, basis_name)
+        result = self._belief.sample_with_profile(qs.id, basis_name)
         if result:
             node = self._graph.get_node(result.node_id)
             label = node.label if node else result.node_id
-            self._log.record("collapse_basis", state_id=qs.id, selected=label, basis=basis_name)
+            self._log.record("sample_profile", state_id=qs.id, selected=label, profile=basis_name)
         return result
 
-    def detect_collapse_triggers(self, qs: QuantumState) -> list[CollapseTrigger]:
-        """Detect automatic collapse triggers for a quantum state."""
-        return self._quantum.detect_collapse_triggers(qs.id)
+    def detect_sampling_triggers(self, qs: BeliefState) -> list[SamplingTrigger]:
+        """Detect automatic sampling triggers for a belief state."""
+        return self._belief.detect_sampling_triggers(qs.id)
 
-    def compute_interference(self, qs: QuantumState) -> list[InterferencePattern]:
-        """Compute the interference pattern for a quantum superposition state."""
-        result = self._quantum.compute_interference(qs.id)
-        self._log.record("compute_interference", state_id=qs.id)
+    def compute_interactions(self, qs: BeliefState) -> list[EvidenceInteraction]:
+        """Compute the evidence interaction pattern for a belief distribution state."""
+        result = self._belief.compute_interactions(qs.id)
+        self._log.record("compute_interactions", state_id=qs.id)
         return result
 
     def correlate(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> ConceptCorrelation:
@@ -165,15 +165,15 @@ class QuantumMixin(_MemoryBase):
             id_a = label_to_id.get(key_a, key_a)
             id_b = label_to_id.get(key_b, key_b)
             id_correlations[(id_a, id_b)] = corr
-        result = self._quantum.create_correlation(node_ids_a, node_ids_b, id_correlations)
+        result = self._belief.create_correlation(node_ids_a, node_ids_b, id_correlations)
         self._log.record("correlate", group_a=group_a, group_b=group_b, correlation_id=result.id)
         return result
 
-    def collapse_correlated(self, qs: QuantumState, concept: str) -> dict[str, str]:
-        """Collapse a correlated state by observing one concept, returning all results.
+    def sample_correlated(self, qs: BeliefState, concept: str) -> dict[str, str]:
+        """Sample a correlated state by observing one concept, returning all results.
 
         Args:
-            qs: The correlated quantum state.
+            qs: The correlated belief state.
             concept: Label of the node to observe.
 
         Returns:
@@ -182,7 +182,7 @@ class QuantumMixin(_MemoryBase):
         node = self._find_node(concept)
         if not node:
             return {}
-        raw = self._quantum.collapse_correlated(qs.id, node.id)
+        raw = self._belief.sample_correlated(qs.id, node.id)
         labeled: dict[str, str] = {}
         for node_id, predicted_id in raw.items():
             label = self._node_label(node_id)

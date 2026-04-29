@@ -9,11 +9,11 @@ from typing import Any
 from hyper3.kernel import Hypergraph
 from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
-from hyper3.quantum import (
-    Interpretation,
-    QuantumInterpretationLayer,
+from hyper3.belief import (
+    Outcome,
+    BeliefLayer,
     ConceptCorrelation,
-    QuantumState,
+    BeliefState,
 )
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
 from hyper3.multiway_branchial import (
@@ -43,9 +43,9 @@ class SystemSnapshot:
     version: int = SNAPSHOT_VERSION
     saved_at: float = 0.0
 
-    quantum_states: list[dict[str, Any]] = field(default_factory=list)
-    quantum_correlations: list[dict[str, Any]] = field(default_factory=list)
-    quantum_basis_stats: dict[str, dict[str, int]] = field(default_factory=dict)
+    belief_states: list[dict[str, Any]] = field(default_factory=list)
+    belief_correlations: list[dict[str, Any]] = field(default_factory=list)
+    belief_basis_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
     multiway_states: list[dict[str, Any]] = field(default_factory=list)
     multiway_root_id: str | None = None
@@ -97,10 +97,18 @@ class SystemSnapshot:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> SystemSnapshot:
         """Reconstruct a SystemSnapshot from a serialized dict."""
+        legacy_map = {
+            "quantum_states": "belief_states",
+            "quantum_correlations": "belief_correlations",
+            "quantum_basis_stats": "belief_basis_stats",
+        }
+        remapped = {}
+        for k, v in data.items():
+            remapped[legacy_map.get(k, k)] = v
         kwargs: dict[str, Any] = {}
         for f in cls.__dataclass_fields__:
-            if f in data:
-                val = data[f]
+            if f in remapped:
+                val = remapped[f]
                 if f == "cache_items":
                     val = [(item[0], item[1], item[2]) for item in val if isinstance(item, (list, tuple)) and len(item) >= 3]
                 kwargs[f] = val
@@ -124,7 +132,7 @@ def _deserialize_amplitude(data: Any) -> float | complex:
 
 
 def capture_snapshot(
-    quantum: QuantumInterpretationLayer,
+    belief: BeliefLayer,
     multiway_engine: MultiwayEngine | None,
     branchial: BranchialSpace | None,
     rulial: RulialSpace | None,
@@ -138,7 +146,7 @@ def capture_snapshot(
     """Capture the full state of all subsystems into an immutable snapshot.
 
     Args:
-        quantum: Quantum interpretation layer whose states and correlations to capture.
+        belief: Belief layer whose states and correlations to capture.
         multiway_engine: Optional multiway engine whose DAG to capture.
         branchial: Optional branchial space whose coordinates and clusters to capture.
         rulial: Optional rulial space whose position, history, and patterns to capture.
@@ -153,28 +161,28 @@ def capture_snapshot(
         A :class:`SystemSnapshot` containing serialized copies of all subsystem state.
     """
     snap = SystemSnapshot(saved_at=time.time())
-    for qs in quantum._states.values():
+    for qs in belief._states.values():
         interps = []
-        for interp in qs.interpretations:
+        for interp in qs.outcomes:
             interps.append({
                 "node_id": interp.node_id,
                 "amplitude": _serialize_amplitude(interp.amplitude),
                 "metadata": interp.metadata,
                 "label": interp.label,
             })
-        snap.quantum_states.append({
+        snap.belief_states.append({
             "id": qs.id,
-            "interpretations": interps,
+            "outcomes": interps,
             "created_at": qs.created_at,
-            "collapsed": qs.collapsed,
-            "collapsed_to": qs.collapsed_to,
+            "resolved": qs.resolved,
+            "resolved_to": qs.resolved_to,
             "coherence_time": qs.coherence_time,
             "base_coherence_time": qs.base_coherence_time,
             "correlation_ids": qs.correlation_ids,
         })
 
-    for corr in quantum._correlations.values():
-        snap.quantum_correlations.append({
+    for corr in belief._correlations.values():
+        snap.belief_correlations.append({
             "id": corr.id,
             "group_a_node_ids": sorted(corr.group_a_node_ids),
             "group_b_node_ids": sorted(corr.group_b_node_ids),
@@ -182,7 +190,7 @@ def capture_snapshot(
             "strength": corr.strength,
         })
 
-    snap.quantum_basis_stats = dict(quantum._basis_stats)
+    snap.belief_basis_stats = dict(belief._basis_stats)
 
     if multiway_engine is not None:
         mw = multiway_engine.multiway
@@ -293,7 +301,7 @@ def capture_snapshot(
         snap.retrieval_ltr_weights = dict(retrieval._ltr.weights)
 
     snap.frame_outcomes = {k: dict(v) for k, v in perspective._frame_outcomes.items()}
-    snap.basis_stats = {k: dict(v) for k, v in quantum._basis_stats.items()}
+    snap.basis_stats = {k: dict(v) for k, v in belief._basis_stats.items()}
 
     state = meta._state
     snap.monitor_state = {
@@ -350,7 +358,7 @@ def capture_snapshot(
 def restore_snapshot(
     snapshot: SystemSnapshot,
     graph: Hypergraph,
-    quantum: QuantumInterpretationLayer,
+    belief: BeliefLayer,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
     perspective: MultiPerspectiveAnalyzer,
@@ -365,7 +373,7 @@ def restore_snapshot(
 ]:
     """Rebuild all subsystems from a previously captured snapshot.
 
-    Clears and repopulates quantum states/correlations, multiway DAG,
+    Clears and repopulates belief states/correlations, multiway DAG,
     branchial coordinates, rulial position/history, provenance records,
     retrieval feedback/LTR weights, perspective frame outcomes, and
     system monitor state.
@@ -380,7 +388,7 @@ def restore_snapshot(
         snapshot: The snapshot to restore from.
         graph: Live hypergraph (unchanged — graph structure must be
             restored separately).
-        quantum: Quantum interpretation layer to repopulate.
+        belief: Belief layer to repopulate.
         provenance: Provenance tracker to repopulate.
         retrieval: Retrieval engine whose feedback/LTR state to restore.
         perspective: Computational perspective whose frame outcomes to
@@ -394,32 +402,32 @@ def restore_snapshot(
         Tuple of ``(multiway_engine, branchial, rulial)`` — each may be
         ``None`` if the snapshot contained no data for that subsystem.
     """
-    quantum._states.clear()
-    quantum._correlations.clear()
-    quantum._basis_stats.clear()
+    belief._states.clear()
+    belief._correlations.clear()
+    belief._basis_stats.clear()
 
-    for state_data in snapshot.quantum_states:
+    for state_data in snapshot.belief_states:
         interps = []
-        for idata in state_data["interpretations"]:
-            interps.append(Interpretation(
+        for idata in state_data.get("outcomes", state_data.get("interpretations", [])):
+            interps.append(Outcome(
                 node_id=idata["node_id"],
                 amplitude=_deserialize_amplitude(idata["amplitude"]),
                 metadata=idata.get("metadata", {}),
                 label=idata.get("label", ""),
             ))
-        qs = QuantumState(
+        qs = BeliefState(
             id=state_data["id"],
-            interpretations=interps,
+            outcomes=interps,
             created_at=state_data.get("created_at", 0.0),
-            collapsed=state_data.get("collapsed", False),
-            collapsed_to=state_data.get("collapsed_to"),
+            resolved=state_data.get("resolved", state_data.get("collapsed", False)),
+            resolved_to=state_data.get("resolved_to", state_data.get("collapsed_to")),
             coherence_time=state_data.get("coherence_time", 30.0),
             base_coherence_time=state_data.get("base_coherence_time", 30.0),
             correlation_ids=state_data.get("correlation_ids", []),
         )
-        quantum._states[qs.id] = qs
+        belief._states[qs.id] = qs
 
-    for ent_data in snapshot.quantum_correlations:
+    for ent_data in snapshot.belief_correlations:
         corr_matrix = {}
         for item in ent_data.get("correlation_matrix", []):
             if isinstance(item, (list, tuple)) and len(item) >= 3:
@@ -431,9 +439,9 @@ def restore_snapshot(
             correlation_matrix=corr_matrix,
             strength=ent_data.get("strength", 0.0),
         )
-        quantum._correlations[corr.id] = corr
+        belief._correlations[corr.id] = corr
 
-    quantum._basis_stats.update(snapshot.quantum_basis_stats)
+    belief._basis_stats.update(snapshot.belief_basis_stats)
 
     multiway_engine: MultiwayEngine | None = None
     if snapshot.multiway_states:

@@ -364,27 +364,27 @@ class TestUseContextField:
         mem.relate("hub", "spoke2", label="connects")
         mem.relate("hub", "spoke3", label="connects")
         mem.relate("spoke1", "spoke2", label="connects")
-        qs = mem.superpose(
+        qs = mem.create_distribution(
             ["hub", "spoke1", "spoke2", "spoke3"],
             use_context_field=True,
         )
-        assert qs.superposition_count == 4
+        assert qs.outcome_count == 4
 
     def test_context_field_changes_probabilities(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["connected", "isolated_a", "isolated_b"]:
             mem.store(label)
         mem.relate("connected", "isolated_a", label="e")
-        qs_no_ctx = mem.superpose(
+        qs_no_ctx = mem.create_distribution(
             ["connected", "isolated_a", "isolated_b"],
             use_context_field=False,
         )
-        probs_plain = [abs(i.amplitude) ** 2 for i in qs_no_ctx.interpretations]
-        qs_ctx = mem.superpose(
+        probs_plain = [abs(i.amplitude) ** 2 for i in qs_no_ctx.outcomes]
+        qs_ctx = mem.create_distribution(
             ["connected", "isolated_a", "isolated_b"],
             use_context_field=True,
         )
-        probs_ctx = [abs(i.amplitude) ** 2 for i in qs_ctx.interpretations]
+        probs_ctx = [abs(i.amplitude) ** 2 for i in qs_ctx.outcomes]
         total_plain = sum(probs_plain)
         total_ctx = sum(probs_ctx)
         assert total_plain > 0
@@ -393,8 +393,8 @@ class TestUseContextField:
     def test_single_concept_context_field_no_effect(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("only")
-        qs = mem.superpose(["only"], use_context_field=True)
-        assert qs.superposition_count == 1
+        qs = mem.create_distribution(["only"], use_context_field=True)
+        assert qs.outcome_count == 1
 
 
 class TestBeliefRevisionNewerStrategy:
@@ -511,32 +511,32 @@ class TestStimulateNodeNotFoundError:
         mem.stimulate("a", energy=2.0)
 
 
-class TestCollapseContextLabelRemapping:
+class TestSampleContextLabelRemapping:
     def test_context_with_labels(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.store("bird")
-        qs = mem.superpose(["cat", "dog", "bird"])
-        result = mem.collapse(qs, context={"dog": 10.0})
+        qs = mem.create_distribution(["cat", "dog", "bird"])
+        result = mem.sample(qs, context={"dog": 10.0})
         assert result is not None
 
     def test_context_with_mixed_labels_and_ids(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
-        qs = mem.superpose(["x", "y"])
+        qs = mem.create_distribution(["x", "y"])
         x_node = mem.graph.get_node_by_label("x")
         assert x_node is not None
-        result = mem.collapse(qs, context={"x": 5.0, x_node.id: 5.0})
+        result = mem.sample(qs, context={"x": 5.0, x_node.id: 5.0})
         assert result is not None
 
     def test_context_with_nonexistent_label_passes_through(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
-        qs = mem.superpose(["a", "b"])
-        result = mem.collapse(qs, context={"nonexistent_key": 5.0})
+        qs = mem.create_distribution(["a", "b"])
+        result = mem.sample(qs, context={"nonexistent_key": 5.0})
         assert result is not None
 
 

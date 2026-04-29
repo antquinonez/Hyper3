@@ -7,7 +7,7 @@ from hyper3 import (
     MultiPerspectiveAnalyzer,
     GeneralizationRule,
     InverseRule,
-    MeasurementBasis,
+    SamplingProfile,
     Modality,
     PropertyPropagationRule,
     TransitiveRule,
@@ -38,12 +38,12 @@ class TestIntegrationFullPipeline:
 
         mem.auto_discover_and_apply()
 
-        qs = mem.superpose(["battery", "fuel", "ignition"])
-        assert qs.superposition_count == 3
+        qs = mem.create_distribution(["battery", "fuel", "ignition"])
+        assert qs.outcome_count == 3
 
-        interpretation = mem.collapse(qs, context={"battery": 2.0})
+        interpretation = mem.sample(qs, context={"battery": 2.0})
         assert interpretation is not None
-        assert qs.collapsed
+        assert qs.resolved
 
         mem.evolve()
         stats = mem.stats()
@@ -77,12 +77,12 @@ class TestIntegrationFullPipeline:
             mem2.add_rules(TransitiveRule(edge_label="rel"))
             assert mem2.graph.edge_count > edges_after_session1
 
-    def test_quantum_diagnostic_pipeline(self):
+    def test_belief_diagnostic_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for name in ["battery_weak", "battery_dead", "alternator_bad", "starter_bad"]:
             mem.store(name)
 
-        qs = mem.superpose(["battery_weak", "alternator_bad", "starter_bad"])
+        qs = mem.create_distribution(["battery_weak", "alternator_bad", "starter_bad"])
 
         ent = mem.correlate(
             ["battery_weak", "battery_dead"],
@@ -91,15 +91,15 @@ class TestIntegrationFullPipeline:
         )
         assert ent.strength > 0
 
-        triggers = mem.detect_collapse_triggers(qs)
+        triggers = mem.detect_sampling_triggers(qs)
         assert isinstance(triggers, list)
 
-        patterns = mem.compute_interference(qs)
+        patterns = mem.compute_interactions(qs)
         assert isinstance(patterns, list)
 
-        collapsed = mem.collapse_with_basis(qs, "pragmatic")
+        collapsed = mem.sample_with_profile(qs, "pragmatic")
         assert collapsed is not None
-        assert qs.collapsed
+        assert qs.resolved
 
     def test_anomaly_boundary_mapping(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -129,9 +129,9 @@ class TestIntegrationFullPipeline:
         for name, analysis in analyses.items():
             assert analysis.solution_approach != ""
 
-        custom = MeasurementBasis(name="diagnostic", dimensions=["severity", "frequency"])
-        mem.quantum.add_basis(custom)
-        assert mem.quantum.get_basis("diagnostic") is not None
+        custom = SamplingProfile(name="diagnostic", dimensions=["severity", "frequency"])
+        mem.belief.add_basis(custom)
+        assert mem.belief.get_basis("diagnostic") is not None
 
     def test_rulial_monitor_stats_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -240,14 +240,14 @@ class TestIntegrationFullPipeline:
             assert mem2._merge_threshold == 0.5
             assert mem2._decay_threshold == 0.01
 
-    def test_all_quantum_bases_work(self):
+    def test_all_belief_profiles_work(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["cat", "dog", "bird"]:
             mem.store(label, tags={"semantic": 0.5, "recency": 1.0, "valence": 0.3})
-        qs = mem.superpose(["cat", "dog", "bird"])
-        for basis_name in ["linguistic", "temporal", "emotional", "pragmatic"]:
-            qs2 = mem.superpose(["cat", "dog", "bird"])
-            result = mem.collapse_with_basis(qs2, basis_name)
+        qs = mem.create_distribution(["cat", "dog", "bird"])
+        for profile_name in ["linguistic", "temporal", "emotional", "pragmatic"]:
+            qs2 = mem.create_distribution(["cat", "dog", "bird"])
+            result = mem.sample_with_profile(qs2, profile_name)
             assert result is not None
 
     def test_correlate_with_label_vs_id(self):

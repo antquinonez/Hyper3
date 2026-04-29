@@ -48,7 +48,7 @@ class ReasonResult(_SimpleResultBase):
     multiway_leaves: int = 0
     overlay: dict[str, int] | None = None
     confidence: dict[str, float] | None = None
-    auto_superpositions: list[dict[str, Any]] | None = None
+    auto_distributions: list[dict[str, Any]] | None = None
     frame_config: dict[str, Any] | None = None
     error: str | None = None
     states_created: int = 0
@@ -210,8 +210,8 @@ class MemoryStats(_SimpleResultBase):
     cache_size: int = 0
     operations: int = 0
     multiway_states: int = 0
-    quantum_active: int = 0
-    quantum_collapsed: int = 0
+    belief_active: int = 0
+    belief_resolved: int = 0
     evolution: EvolutionStats = field(default_factory=EvolutionStats)
     discovered_patterns: int = 0
     cycles: bool = False

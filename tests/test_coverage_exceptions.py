@@ -5,7 +5,7 @@ from hyper3.exceptions import (
     NodeNotFoundError,
     EdgeNotFoundError,
     StateNotFoundError,
-    QuantumStateNotFoundError,
+    BeliefStateNotFoundError,
     CollapseError,
     CorrelationError,
     RuleApplicationError,
@@ -44,8 +44,8 @@ class TestExceptionHierarchy:
         assert "state123" in str(e)
         assert isinstance(e, Hyper3Error)
 
-    def test_quantum_state_not_found_error(self):
-        e = QuantumStateNotFoundError("qs123")
+    def test_belief_state_not_found_error(self):
+        e = BeliefStateNotFoundError("qs123")
         assert e.qs_id == "qs123"
         assert "qs123" in str(e)
         assert isinstance(e, Hyper3Error)

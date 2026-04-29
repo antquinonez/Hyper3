@@ -3,13 +3,13 @@ from hyper3.event_log import EventLog
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialCorrelation
-from hyper3.quantum import QuantumInterpretationLayer, QuantumState
+from hyper3.belief import BeliefLayer, BeliefState
 from hyper3.visualization import (
     plot_branchial_space,
     plot_evolution_history,
     plot_hypergraph,
-    plot_quantum_interference,
-    plot_quantum_state,
+    plot_belief_state,
+    plot_evidence_interaction,
 )
 
 import matplotlib
@@ -137,26 +137,26 @@ class TestPlotBranchialSpace:
         plt.close(fig)
 
 
-class TestPlotQuantumState:
-    def test_superposition(self):
+class TestPlotBeliefState:
+    def test_distribution(self):
         g = Hypergraph()
         for label in ["x", "y", "z"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["x", "y", "z"])
-        fig = plot_quantum_state(ql, qs.id, graph=g)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["x", "y", "z"])
+        fig = plot_belief_state(ql, qs.id, graph=g)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_collapsed(self):
+    def test_resolved(self):
         g = Hypergraph()
         for label in ["x", "y"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["x", "y"])
-        ql.collapse(qs.id)
-        fig = plot_quantum_state(ql, qs.id, graph=g)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["x", "y"])
+        ql.sample(qs.id)
+        fig = plot_belief_state(ql, qs.id, graph=g)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
@@ -165,42 +165,42 @@ class TestPlotQuantumState:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
-        fig = plot_quantum_state(ql, qs.id, show_amplitudes=False, show_probabilities=True)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
+        fig = plot_belief_state(ql, qs.id, show_amplitudes=False, show_probabilities=True)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
 
     def test_empty_state(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        fig = plot_quantum_state(ql, "nonexistent")
+        ql = BeliefLayer(g)
+        fig = plot_belief_state(ql, "nonexistent")
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
 
 
-class TestPlotQuantumInterference:
-    def test_with_interference(self):
+class TestPlotEvidenceInteraction:
+    def test_with_interactions(self):
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["a", "b"])
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b"])
         ql.evolve_amplitudes(qs.id, {"a": 1.5})
-        ql.compute_interference(qs.id)
-        fig = plot_quantum_interference(ql, qs.id, graph=g)
+        ql.compute_interactions(qs.id)
+        fig = plot_evidence_interaction(ql, qs.id, graph=g)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_no_interference(self):
+    def test_no_interactions(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="x"))
-        ql = QuantumInterpretationLayer(g)
-        qs = ql.create_superposition(["x"])
-        fig = plot_quantum_interference(ql, qs.id)
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["x"])
+        fig = plot_evidence_interaction(ql, qs.id)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
@@ -289,29 +289,29 @@ class TestPlotBranchialDeep:
         plt.close(fig)
 
 
-class TestPlotQuantumInterferenceDeep:
-    def test_with_actual_interference(self):
+class TestPlotEvidenceInteractionDeep:
+    def test_with_actual_interactions(self):
         g = Hypergraph()
         for label in ["a"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState()
-        qs.add_interpretation("a", 0.6)
-        qs.add_interpretation("a", 0.5)
+        ql = BeliefLayer(g)
+        qs = BeliefState()
+        qs.add_outcome("a", 0.6)
+        qs.add_outcome("a", 0.5)
         ql._states[qs.id] = qs
-        fig = plot_quantum_interference(ql, qs.id, graph=g)
+        fig = plot_evidence_interaction(ql, qs.id, graph=g)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)
 
-    def test_interference_no_graph(self):
+    def test_interactions_no_graph(self):
         g = Hypergraph()
-        ql = QuantumInterpretationLayer(g)
-        qs = QuantumState()
-        qs.add_interpretation("x", 0.4)
-        qs.add_interpretation("x", -0.3)
+        ql = BeliefLayer(g)
+        qs = BeliefState()
+        qs.add_outcome("x", 0.4)
+        qs.add_outcome("x", -0.3)
         ql._states[qs.id] = qs
-        fig = plot_quantum_interference(ql, qs.id)
+        fig = plot_evidence_interaction(ql, qs.id)
         assert fig is not None
         import matplotlib.pyplot as plt
         plt.close(fig)

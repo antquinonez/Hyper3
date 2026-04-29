@@ -261,12 +261,12 @@ def bench_multi_scale_branchial(n_states=50):
 
 
 def bench_basis_learning(n_outcomes=500):
-    from hyper3.quantum import QuantumInterpretationLayer
+    from hyper3.belief import BeliefLayer
 
     g = Hypergraph()
     for i in range(10):
         g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
-    qcl = QuantumInterpretationLayer(g)
+    qcl = BeliefLayer(g)
 
     bases = ["pragmatic", "linguistic", "temporal", "emotional"]
     for i in range(n_outcomes):

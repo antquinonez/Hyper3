@@ -1,7 +1,5 @@
 """
 Wikipedia Concept Knowledge Graph Pipeline (Prefect 2.x + Hyper3)
-import os
-os.environ.setdefault("PREFECT_LOGGING_TO_API_WHEN_MISSING_FLOW", "ignore")
 =================================================================
 
 A production-grade data pipeline that fetches articles from the Wikipedia API,
@@ -18,6 +16,7 @@ Pipeline stages:
   6. Spreading activation to discover related concept clusters
   7. Degree centrality ranking
   8. Community detection to find ML sub-topics
+  9. Concept bridge detection (betweenness centrality)
 
 Requirements:
   pip install "hyper3[dev]" prefect requests
@@ -49,6 +48,252 @@ WIKI_API = "https://en.wikipedia.org/w/api.php"
 CATEGORY = "Category:Machine_learning"
 MAX_ARTICLES = 50
 REQUEST_TIMEOUT = 30
+
+
+OFFLINE_CONCEPTS: dict[str, list[str]] = {
+    "Artificial intelligence": [
+        "Machine learning", "Neural network", "Natural language processing",
+        "Computer vision", "Knowledge representation", "Expert system",
+        "Search algorithm", "Reinforcement learning", "Cognitive science",
+    ],
+    "Machine learning": [
+        "Artificial intelligence", "Deep learning", "Supervised learning",
+        "Unsupervised learning", "Reinforcement learning", "Neural network",
+        "Decision tree", "Support vector machine", "Feature learning",
+        "Cross-validation (statistics)", "Gradient descent", "Bayesian inference",
+        "Dimensionality reduction",
+    ],
+    "Deep learning": [
+        "Machine learning", "Artificial neural network",
+        "Convolutional neural network", "Recurrent neural network",
+        "Transformer (deep learning architecture)", "Backpropagation",
+        "Gradient descent", "Stochastic gradient descent",
+        "Generative adversarial network", "Autoencoder",
+        "Natural language processing", "Computer vision",
+    ],
+    "Neural network": [
+        "Artificial intelligence", "Machine learning", "Deep learning",
+        "Artificial neural network", "Backpropagation", "Activation function",
+        "Perceptron", "Gradient descent", "Convolutional neural network",
+        "Recurrent neural network",
+    ],
+    "Artificial neural network": [
+        "Neural network", "Deep learning", "Perceptron", "Backpropagation",
+        "Activation function", "Convolutional neural network",
+        "Recurrent neural network", "Gradient descent", "Loss function",
+    ],
+    "Convolutional neural network": [
+        "Deep learning", "Artificial neural network", "Computer vision",
+        "Image recognition", "Feature extraction", "Pooling layer",
+        "Transfer learning",
+    ],
+    "Recurrent neural network": [
+        "Deep learning", "Artificial neural network",
+        "Long short-term memory", "Natural language processing",
+        "Time series", "Sequence prediction",
+    ],
+    "Transformer (deep learning architecture)": [
+        "Deep learning", "Attention mechanism",
+        "Natural language processing", "Self-attention",
+        "Generative pre-trained transformer", "BERT (language model)",
+        "Large language model",
+    ],
+    "Generative adversarial network": [
+        "Deep learning", "Generative model", "Neural network",
+        "Image synthesis", "Unsupervised learning",
+    ],
+    "Autoencoder": [
+        "Deep learning", "Artificial neural network",
+        "Dimensionality reduction", "Generative model",
+        "Representation learning", "Anomaly detection",
+    ],
+    "Long short-term memory": [
+        "Recurrent neural network", "Deep learning",
+        "Sequence prediction", "Natural language processing",
+        "Time series",
+    ],
+    "Attention mechanism": [
+        "Transformer (deep learning architecture)", "Deep learning",
+        "Natural language processing", "Machine translation",
+        "Self-attention",
+    ],
+    "Natural language processing": [
+        "Artificial intelligence", "Machine learning", "Deep learning",
+        "Transformer (deep learning architecture)", "Sentiment analysis",
+        "Machine translation", "Named-entity recognition",
+        "Word embedding", "Text mining",
+    ],
+    "Computer vision": [
+        "Artificial intelligence", "Machine learning", "Deep learning",
+        "Convolutional neural network", "Image recognition",
+        "Object detection", "Image segmentation", "Feature extraction",
+    ],
+    "Reinforcement learning": [
+        "Machine learning", "Artificial intelligence", "Q-learning",
+        "Markov decision process", "Policy gradient", "Reward function",
+        "Multi-agent system",
+    ],
+    "Supervised learning": [
+        "Machine learning", "Classification", "Regression",
+        "Decision tree", "Support vector machine", "Random forest",
+        "Training set", "Cross-validation (statistics)",
+    ],
+    "Unsupervised learning": [
+        "Machine learning", "Clustering", "Dimensionality reduction",
+        "K-means clustering", "Principal component analysis",
+        "Hierarchical clustering", "Generative model",
+    ],
+    "Semi-supervised learning": [
+        "Machine learning", "Supervised learning",
+        "Unsupervised learning", "Pseudo-labeling",
+    ],
+    "Support vector machine": [
+        "Machine learning", "Supervised learning", "Classification",
+        "Kernel method", "Regularization (mathematics)",
+    ],
+    "Decision tree": [
+        "Machine learning", "Supervised learning", "Classification",
+        "Random forest", "Gradient boosting", "Information gain",
+    ],
+    "Random forest": [
+        "Machine learning", "Decision tree", "Ensemble learning",
+        "Bagging", "Classification", "Regression",
+    ],
+    "Gradient boosting": [
+        "Machine learning", "Decision tree", "Ensemble learning",
+        "Loss function", "Boosting (machine learning)",
+    ],
+    "K-means clustering": [
+        "Unsupervised learning", "Machine learning", "Clustering",
+        "Centroid", "Iterative algorithm",
+    ],
+    "Principal component analysis": [
+        "Dimensionality reduction", "Machine learning",
+        "Unsupervised learning", "Eigenvector", "Feature extraction",
+    ],
+    "Generative model": [
+        "Machine learning", "Deep learning",
+        "Generative adversarial network", "Probabilistic model",
+    ],
+    "Discriminative model": [
+        "Machine learning", "Supervised learning", "Classification",
+        "Logistic regression", "Support vector machine",
+    ],
+    "Bayesian inference": [
+        "Machine learning", "Bayes' theorem", "Prior probability",
+        "Posterior probability", "Markov chain Monte Carlo",
+        "Statistical inference",
+    ],
+    "Gradient descent": [
+        "Optimization (mathematics)", "Machine learning",
+        "Stochastic gradient descent", "Loss function",
+        "Learning rate", "Backpropagation",
+    ],
+    "Stochastic gradient descent": [
+        "Gradient descent", "Machine learning",
+        "Optimization (mathematics)", "Adam optimizer",
+    ],
+    "Backpropagation": [
+        "Neural network", "Deep learning", "Gradient descent",
+        "Chain rule", "Loss function",
+    ],
+    "Loss function": [
+        "Machine learning", "Optimization (mathematics)",
+        "Gradient descent", "Mean squared error",
+        "Cross-entropy loss", "Regularization (mathematics)",
+    ],
+    "Overfitting": [
+        "Machine learning", "Regularization (mathematics)",
+        "Cross-validation (statistics)", "Bias-variance tradeoff",
+        "Training set",
+    ],
+    "Regularization (mathematics)": [
+        "Machine learning", "Overfitting", "Lasso (statistics)",
+        "Ridge regression", "Loss function",
+    ],
+    "Transfer learning": [
+        "Machine learning", "Deep learning",
+        "Convolutional neural network", "Pre-training",
+        "Domain adaptation",
+    ],
+    "Word embedding": [
+        "Natural language processing", "Word2vec",
+        "GloVe (machine learning)", "Semantic similarity",
+        "Representation learning",
+    ],
+    "Word2vec": [
+        "Natural language processing", "Word embedding",
+        "Neural network", "Representation learning",
+    ],
+    "BERT (language model)": [
+        "Transformer (deep learning architecture)",
+        "Natural language processing", "Pre-training",
+        "Masked language model", "Transfer learning",
+    ],
+    "Generative pre-trained transformer": [
+        "Transformer (deep learning architecture)",
+        "Large language model", "Natural language processing",
+        "Attention mechanism", "Autoregressive model",
+    ],
+    "Large language model": [
+        "Transformer (deep learning architecture)",
+        "Generative pre-trained transformer",
+        "Natural language processing", "Prompt engineering",
+        "Few-shot learning", "Artificial intelligence",
+    ],
+    "Object detection": [
+        "Computer vision", "Deep learning",
+        "Convolutional neural network", "Image recognition",
+    ],
+    "Image segmentation": [
+        "Computer vision", "Deep learning",
+        "Convolutional neural network", "Semantic segmentation",
+        "Image recognition",
+    ],
+    "Q-learning": [
+        "Reinforcement learning", "Machine learning",
+        "Markov decision process", "Temporal difference learning",
+        "Bellman equation",
+    ],
+    "Markov decision process": [
+        "Reinforcement learning", "Probability",
+        "Dynamic programming", "Markov chain",
+    ],
+    "Feature extraction": [
+        "Machine learning", "Dimensionality reduction",
+        "Computer vision", "Convolutional neural network",
+        "Principal component analysis", "Representation learning",
+    ],
+    "Dimensionality reduction": [
+        "Machine learning", "Principal component analysis",
+        "Unsupervised learning", "Feature extraction",
+    ],
+    "Ensemble learning": [
+        "Machine learning", "Random forest", "Gradient boosting",
+        "Bagging", "Boosting (machine learning)",
+    ],
+    "Knowledge graph": [
+        "Knowledge representation", "Semantic web",
+        "Ontology (information science)", "Natural language processing",
+    ],
+    "Optimization (mathematics)": [
+        "Gradient descent", "Loss function",
+        "Convex optimization", "Stochastic gradient descent",
+        "Machine learning",
+    ],
+    "Bias-variance tradeoff": [
+        "Machine learning", "Overfitting", "Supervised learning",
+        "Model selection",
+    ],
+    "Cross-validation (statistics)": [
+        "Machine learning", "Supervised learning", "Overfitting",
+        "Training set", "Hyperparameter optimization",
+    ],
+    "Hyperparameter optimization": [
+        "Machine learning", "Cross-validation (statistics)",
+        "Grid search", "Bayesian optimization", "Model selection",
+    ],
+}
 
 
 def _session() -> requests.Session:
@@ -155,6 +400,29 @@ def fetch_page_links(
 
     logger.info("Fetched links for %d articles", len(link_map))
     return link_map
+
+
+def build_graph_from_offline(
+    mem: HypergraphMemory,
+    concepts_data: dict[str, list[str]],
+) -> None:
+    logger = logging.getLogger(__name__)
+    all_titles = set(concepts_data.keys())
+    for links in concepts_data.values():
+        all_titles.update(links)
+
+    for title in all_titles:
+        mem.ensure(title, data={"source": "offline"})
+
+    edge_count = 0
+    for source, targets in concepts_data.items():
+        for target in targets:
+            if mem.has_node(source) and mem.has_node(target):
+                mem.relate(source, target, label="links_to")
+                edge_count += 1
+
+    s = mem.stats()
+    logger.info("Graph built from offline data: %d nodes, %d edges", s.nodes, s.edges)
 
 
 @task
@@ -336,6 +604,38 @@ def analyze_communities(mem: HypergraphMemory, min_size: int = 3) -> list[dict[s
     return communities
 
 
+@task
+def analyze_bridge_concepts(mem: HypergraphMemory, top_n: int = 15) -> list[dict[str, Any]]:
+    logger = logging.getLogger(__name__)
+    betweenness = mem.betweenness_centrality(top_k=top_n)
+    ranked = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)
+
+    bridges: list[dict[str, Any]] = []
+    for concept, score in ranked:
+        node_obj = mem.graph.get_node_by_label(concept)
+        neighbors = []
+        if node_obj:
+            neighbor_ids = mem.graph.neighbors(node_obj.id)
+            for nid in neighbor_ids:
+                n = mem.graph.get_node(nid)
+                if n:
+                    neighbors.append(n.label)
+        bridges.append({
+            "concept": concept,
+            "betweenness": score,
+            "neighbors": neighbors[:8],
+        })
+
+    logger.info("Bridge concepts (betweenness centrality, top %d):", top_n)
+    for b in bridges:
+        logger.info(
+            "  %-42s betweenness=%.6f",
+            b["concept"][:42], b["betweenness"],
+        )
+
+    return bridges
+
+
 def print_report(
     stats: Any,
     anomalies: list[dict[str, Any]],
@@ -343,6 +643,7 @@ def print_report(
     activation: list[dict[str, Any]],
     centrality: dict[str, float],
     communities: list[dict[str, Any]],
+    bridges: list[dict[str, Any]],
 ) -> None:
     print()
     print("=" * 70)
@@ -358,8 +659,8 @@ def print_report(
     print("SECTION 1: Structural Anomaly Detection (Top-Linked Articles)")
     print("=" * 70)
     if anomalies:
-        print(f"  {'Concept':<42} {'Central.':>8} {'Status':<12} {'Score':>6} {'Expl.':>6}")
-        print(f"  {'-'*42} {'-'*8} {'-'*12} {'-'*6} {'-'*6}")
+        print(f"  {'Concept':<42} {'Central.':>8} {'Status':<12} {'Score':>6}")
+        print(f"  {'-'*42} {'-'*8} {'-'*12} {'-'*6}")
         for a in anomalies:
             print(
                 f"  {a['concept'][:42]:<42} "
@@ -430,6 +731,25 @@ def print_report(
     print()
 
     print("=" * 70)
+    print("SECTION 6: Concept Bridge Detection (Betweenness Centrality)")
+    print("=" * 70)
+    if bridges:
+        print(f"  {'Concept':<42} {'Betweenness':>12} {'Neighbors':<20}")
+        print(f"  {'-'*42} {'-'*12} {'-'*20}")
+        for b in bridges:
+            neighbors_str = ", ".join(b["neighbors"][:5])
+            if len(b["neighbors"]) > 5:
+                neighbors_str += "..."
+            print(
+                f"  {b['concept'][:42]:<42} "
+                f"{b['betweenness']:>12.6f} "
+                f"{neighbors_str}"
+            )
+    else:
+        print("  No bridge results.")
+    print()
+
+    print("=" * 70)
     print("PIPELINE COMPLETE")
     print("=" * 70)
 
@@ -464,8 +784,9 @@ def wiki_concept_graph(
     activation = analyze_spreading_activation(mem)
     centrality = analyze_centrality(mem)
     communities = analyze_communities(mem, min_size=3)
+    bridges = analyze_bridge_concepts(mem, top_n=15)
 
-    print_report(stats, anomalies, hubs, activation, centrality, communities)
+    print_report(stats, anomalies, hubs, activation, centrality, communities, bridges)
 
     return {
         "status": "success",
@@ -475,32 +796,24 @@ def wiki_concept_graph(
         "hubs_found": len(hubs),
         "activated_concepts": len(activation),
         "communities_found": len(communities),
+        "bridge_concepts": len(bridges),
     }
 
 
-def main(
-    category: str = "Category:Machine_learning",
-    max_articles: int = 15,
-    rate_limit_delay: float = 0.5,
-) -> None:
-    members = fetch_category_members.fn(category=category, limit=max_articles)
-    if not members:
-        print("No category members found.")
-        return
-    link_map = fetch_page_links.fn(members, rate_limit_delay=rate_limit_delay)
-    if not link_map:
-        print("No page links fetched.")
-        return
-    mem = build_graph.fn(link_map)
+def main() -> None:
+    mem = HypergraphMemory(evolve_interval=0)
+    build_graph_from_offline(mem, OFFLINE_CONCEPTS)
     desc = mem.describe()
     print(f"\n  Node types: {desc.node_types}")
     stats = mem.stats()
+
     anomalies = analyze_anomalies.fn(mem)
-    hubs = analyze_pattern_matching.fn(mem, link_map)
+    hubs = analyze_pattern_matching.fn(mem, OFFLINE_CONCEPTS)
     activation = analyze_spreading_activation.fn(mem)
     centrality = analyze_centrality.fn(mem)
     communities = analyze_communities.fn(mem, min_size=3)
-    print_report(stats, anomalies, hubs, activation, centrality, communities)
+    bridges = analyze_bridge_concepts.fn(mem, top_n=15)
+    print_report(stats, anomalies, hubs, activation, centrality, communities, bridges)
 
 
 if __name__ == "__main__":
