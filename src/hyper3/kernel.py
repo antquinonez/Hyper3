@@ -9,6 +9,12 @@ from typing import Any
 import networkx as nx
 
 from hyper3.exceptions import NodeNotFoundError
+from hyper3.results import (
+    HyperedgeSimilarityResult,
+    SPersistenceLevel,
+    SPersistenceResult,
+    SpectralEmbeddingResult,
+)
 
 
 class Modality(Enum):
@@ -191,7 +197,9 @@ class Hypergraph:
     def add_edge(self, edge: Hyperedge) -> Hyperedge:
         """Add an edge to the graph if not already present.
 
-        All source and target nodes must already exist in the graph.
+        Accepts edges with any cardinality: pairwise (1:1 source:target)
+        or true hyperedges (n:m source:target).  All referenced nodes
+        must already exist.
 
         Args:
             edge: The hyperedge to add.
@@ -527,66 +535,254 @@ class Hypergraph:
             result[nid] = degree / (n - 1)
         return result
 
-    def betweenness_centrality(self) -> dict[str, float]:
-        """Compute betweenness centrality using inverted weights as costs.
+    def betweenness_centrality(self, *, max_samples: int | None = None) -> dict[str, float]:
+        """Compute betweenness centrality using Brandes' algorithm.
+
+        Runs single-source BFS from every node (or a sampled subset),
+        accumulating dependency scores.  Hyperedges are traversed as
+        single hops.
+
+        Args:
+            max_samples: If set, approximate using this many random
+                source nodes instead of all nodes.
 
         Returns:
             Dict mapping node ID to its betweenness centrality score.
         """
-        G = self._to_networkx_inverted_weights()
-        if G.number_of_nodes() == 0:
+        if not self._nodes:
             return {}
-        return dict(nx.betweenness_centrality(G, weight="cost"))
+        node_ids = list(self._nodes.keys())
+        n = len(node_ids)
+        centrality: dict[str, float] = {nid: 0.0 for nid in node_ids}
 
-    def connected_components(self) -> list[set[str]]:
-        """Find weakly connected components.
+        sources: list[str]
+        if max_samples is not None and max_samples < n:
+            import random as _rng
+            sources = _rng.sample(node_ids, min(max_samples, n))
+        else:
+            sources = node_ids
+
+        for s in sources:
+            pred: dict[str, list[str]] = {}
+            dist: dict[str, float] = {nid: -1.0 for nid in node_ids}
+            sigma: dict[str, float] = {nid: 0.0 for nid in node_ids}
+            dist[s] = 0.0
+            sigma[s] = 1.0
+            stack: list[str] = []
+            queue: list[str] = [s]
+
+            while queue:
+                v = queue.pop(0)
+                stack.append(v)
+                for edge in self.outgoing_edges(v):
+                    for w in edge.target_ids:
+                        if dist[w] < 0:
+                            queue.append(w)
+                            dist[w] = dist[v] + 1
+                        if dist[w] == dist[v] + 1:
+                            sigma[w] += sigma[v]
+                            pred.setdefault(w, []).append(v)
+
+            delta: dict[str, float] = {nid: 0.0 for nid in node_ids}
+            while stack:
+                w = stack.pop()
+                for v in pred.get(w, []):
+                    delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w])
+                if w != s:
+                    centrality[w] += delta[w]
+
+        scale = 1.0 / len(sources) if sources else 1.0
+        return {nid: c * scale for nid, c in centrality.items()}
+
+    def connected_components(self, *, s: int = 1) -> list[set[str]]:
+        """Find connected components using hyperedge-native union-find.
+
+        Two nodes are in the same component if they share a hyperedge
+        (or, for ``s > 1``, if they are connected through a chain of
+        hyperedges with pairwise overlap >= ``s``).
+
+        Args:
+            s: Minimum vertex overlap between consecutive hyperedges
+                required for connectivity.  ``s=1`` (default) treats
+                any shared vertex as a connection, matching standard
+                weakly-connected components on pairwise graphs.
 
         Returns:
             List of sets, each containing the node IDs of one component.
         """
-        G = self.to_networkx()
-        if G.number_of_nodes() == 0:
+        if not self._nodes:
             return []
-        return [set(c) for c in nx.weakly_connected_components(G)]
+
+        if s <= 1:
+            return self._connected_components_basic()
+
+        return self._connected_components_s(s)
+
+    def _connected_components_basic(self) -> list[set[str]]:
+        """Fast union-find: two nodes are connected if they share a hyperedge."""
+        parent: dict[str, str] = {nid: nid for nid in self._nodes}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        for edge in self._edges.values():
+            all_ids = list(edge.source_ids | edge.target_ids)
+            for i in range(1, len(all_ids)):
+                union(all_ids[0], all_ids[i])
+
+        components: dict[str, set[str]] = {}
+        for nid in self._nodes:
+            root = find(nid)
+            components.setdefault(root, set()).add(nid)
+        return list(components.values())
+
+    def _connected_components_s(self, s: int) -> list[set[str]]:
+        """s-connected components: build s-line graph on hyperedges, then find components."""
+        edge_list = list(self._edges.values())
+        if not edge_list:
+            return [set(self._nodes.keys())] if self._nodes else []
+
+        edge_node_sets = [e.source_ids | e.target_ids for e in edge_list]
+        m = len(edge_list)
+
+        edge_parent = list(range(m))
+
+        def find(x: int) -> int:
+            while edge_parent[x] != x:
+                edge_parent[x] = edge_parent[edge_parent[x]]
+                x = edge_parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                edge_parent[ra] = rb
+
+        for i in range(m):
+            for j in range(i + 1, m):
+                if len(edge_node_sets[i] & edge_node_sets[j]) >= s:
+                    union(i, j)
+
+        edge_components: dict[int, set[int]] = {}
+        for i in range(m):
+            root = find(i)
+            edge_components.setdefault(root, set()).add(i)
+
+        node_components: list[set[str]] = []
+        for comp_edge_indices in edge_components.values():
+            node_set: set[str] = set()
+            for idx in comp_edge_indices:
+                node_set.update(edge_node_sets[idx])
+            node_components.append(node_set)
+
+        covered: set[str] = set()
+        for comp in node_components:
+            covered.update(comp)
+        isolated = set(self._nodes.keys()) - covered
+        for nid in isolated:
+            node_components.append({nid})
+
+        return node_components
 
     def has_cycle(self) -> bool:
         """Check whether the graph contains at least one directed cycle.
 
+        Uses hypergraph-native DFS on outgoing edges without converting
+        to a pairwise representation.
+
         Returns:
             True if a cycle exists, False otherwise.
         """
-        G = self.to_networkx()
-        if G.number_of_nodes() == 0:
+        if not self._nodes:
             return False
-        try:
-            nx.find_cycle(G)
-            return True
-        except nx.NetworkXNoCycle:
+
+        WHITE, GRAY, BLACK = 0, 1, 2
+        color: dict[str, int] = {nid: WHITE for nid in self._nodes}
+
+        def dfs(u: str) -> bool:
+            color[u] = GRAY
+            for edge in self.outgoing_edges(u):
+                for v in edge.target_ids:
+                    if color[v] == GRAY:
+                        return True
+                    if color[v] == WHITE and dfs(v):
+                        return True
+            color[u] = BLACK
             return False
+
+        for nid in self._nodes:
+            if color[nid] == WHITE:
+                if dfs(nid):
+                    return True
+        return False
 
     def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
-        """Find directed cycles in the graph using networkx.
+        """Find directed cycles using hypergraph-native DFS.
 
         Returns up to ``max_cycles`` simple cycles as lists of node IDs.
-        Catches ``NetworkXError`` and ``ValueError`` (e.g. for
-        self-loop-only graphs) and returns whatever cycles were found
-        before the error.
+
+        Args:
+            max_cycles: Maximum number of cycles to return.
+
+        Returns:
+            List of cycles, each a list of node IDs forming a loop.
         """
-        G = self.to_networkx()
-        if G.number_of_nodes() == 0:
+        if not self._nodes:
             return []
+
         cycles: list[list[str]] = []
-        try:
-            for cycle in nx.simple_cycles(G):
-                cycles.append(cycle)
+        visited_global: set[str] = set()
+
+        def dfs(
+            node: str,
+            path: list[str],
+            path_set: set[str],
+        ) -> None:
+            if len(cycles) >= max_cycles:
+                return
+            for edge in self.outgoing_edges(node):
+                for tgt in edge.target_ids:
+                    if tgt in path_set:
+                        idx = path.index(tgt)
+                        cycles.append(path[idx:] + [tgt])
+                        if len(cycles) >= max_cycles:
+                            return
+                    elif tgt not in visited_global:
+                        path.append(tgt)
+                        path_set.add(tgt)
+                        dfs(tgt, path, path_set)
+                        path.pop()
+                        path_set.discard(tgt)
+
+        for nid in list(self._nodes.keys()):
+            if nid not in visited_global:
+                dfs(nid, [nid], {nid})
+                visited_global.add(nid)
                 if len(cycles) >= max_cycles:
                     break
-        except (nx.NetworkXError, ValueError):
-            pass
+
         return cycles
 
-    def shortest_path(self, source_id: str, target_id: str, weighted: bool = True) -> list[str] | None:
+    def shortest_path(
+        self,
+        source_id: str,
+        target_id: str,
+        *,
+        weighted: bool = True,
+    ) -> list[str] | None:
         """Find the shortest path between two nodes.
+
+        Uses hypergraph-native Dijkstra (weighted) or BFS (unweighted).
+        Traverses hyperedges as single hops: an edge connecting
+        {A, B} -> {C, D} lets A and B both reach C and D in one step.
 
         Args:
             source_id: ID of the starting node.
@@ -598,20 +794,382 @@ class Hypergraph:
             List of node IDs forming the shortest path, or None if no
             path exists.
         """
+        if source_id not in self._nodes or target_id not in self._nodes:
+            return None
+        if source_id == target_id:
+            return [source_id]
+
         if weighted:
-            G = self._to_networkx_inverted_weights()
-            weight_attr = "cost"
-        else:
-            G = self.to_networkx()
-            weight_attr = None
-        if source_id not in G or target_id not in G:
-            return None
+            return self._dijkstra_hypergraph(source_id, target_id)
+        return self._bfs_shortest_path(source_id, target_id)
+
+    def _bfs_shortest_path(self, source: str, target: str) -> list[str] | None:
+        """BFS shortest path treating hyperedges as single hops."""
+        visited: set[str] = {source}
+        parent: dict[str, str] = {}
+        queue: list[str] = [source]
+        while queue:
+            current = queue.pop(0)
+            if current == target:
+                path = [target]
+                while path[-1] != source:
+                    path.append(parent[path[-1]])
+                path.reverse()
+                return path
+            for edge in self.outgoing_edges(current):
+                for tgt in edge.target_ids:
+                    if tgt not in visited:
+                        visited.add(tgt)
+                        parent[tgt] = current
+                        queue.append(tgt)
+        return None
+
+    def _dijkstra_hypergraph(self, source: str, target: str) -> list[str] | None:
+        """Dijkstra shortest path treating hyperedges as single hops with cost = 1/weight."""
+        import heapq
+
+        dist: dict[str, float] = {source: 0.0}
+        parent: dict[str, str] = {}
+        heap: list[tuple[float, str]] = [(0.0, source)]
+        visited: set[str] = set()
+
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u in visited:
+                continue
+            visited.add(u)
+            if u == target:
+                path = [target]
+                while path[-1] != source:
+                    path.append(parent[path[-1]])
+                path.reverse()
+                return path
+            for edge in self.outgoing_edges(u):
+                cost = 1.0 / max(edge.weight, 1e-9)
+                for v in edge.target_ids:
+                    new_dist = d + cost
+                    if v not in dist or new_dist < dist[v]:
+                        dist[v] = new_dist
+                        parent[v] = u
+                        heapq.heappush(heap, (new_dist, v))
+        return None
+
+    def pagerank(self, *, alpha: float = 0.85, max_iterations: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute PageRank using the hypergraph transition matrix.
+
+        Uses the incidence-based formula:
+            P = D_v^{-1} H W D_e^{-1} H^T
+
+        This degrades to standard PageRank when all edges are pairwise.
+
+        Args:
+            alpha: Damping factor (teleportation probability).
+            max_iterations: Maximum power-iteration steps.
+            tol: Convergence tolerance on L1 norm change.
+
+        Returns:
+            Dict mapping node ID to its PageRank score.
+        """
+        if not self._nodes:
+            return {}
+        if not self._edges:
+            n = len(self._nodes)
+            return {nid: 1.0 / n for nid in self._nodes}
+
+        node_ids = [n.id for n in self._nodes.values()]
+        node_idx = {nid: i for i, nid in enumerate(node_ids)}
+        n = len(node_ids)
+
+        vertex_degree = [0.0] * n
+        outgoing: list[list[tuple[int, float]]] = [[] for _ in range(n)]
+
+        for edge in self._edges.values():
+            src_list = [node_idx[s] for s in edge.source_ids if s in node_idx]
+            tgt_list = [node_idx[t] for t in edge.target_ids if t in node_idx]
+            edge_card = len(src_list) + len(tgt_list)
+            if edge_card == 0:
+                continue
+            w = edge.weight / edge_card
+            for si in src_list:
+                vertex_degree[si] += edge.weight
+                for ti in tgt_list:
+                    outgoing[si].append((ti, w))
+
+        pr = [1.0 / n] * n
+        for _ in range(max_iterations):
+            new_pr = [alpha / n] * n
+            for i in range(n):
+                if vertex_degree[i] == 0:
+                    continue
+                contrib = (1 - alpha) * pr[i] / vertex_degree[i]
+                for ti, w in outgoing[i]:
+                    new_pr[ti] += contrib * w
+            total = sum(new_pr)
+            if total > 0:
+                new_pr = [v / total for v in new_pr]
+            diff = sum(abs(new_pr[i] - pr[i]) for i in range(n))
+            pr = new_pr
+            if diff < tol:
+                break
+
+        return {nid: pr[i] for i, nid in enumerate(node_ids)}
+
+    def spectral_embedding(self, *, dimensions: int = 8) -> SpectralEmbeddingResult:
+        """Compute spectral embeddings from the normalized hypergraph Laplacian.
+
+        Returns the bottom-``dimensions`` eigenvectors of:
+            L_norm = I - D_v^{-1/2} H W D_e^{-1} H^T D_v^{-1/2}
+
+        Args:
+            dimensions: Number of embedding dimensions (eigenvectors).
+
+        Returns:
+            SpectralEmbeddingResult with embeddings, node IDs, and eigenvalues.
+        """
+        import numpy as np
+
+        if not self._nodes or not self._edges:
+            n = len(self._nodes)
+            node_ids = [nd.id for nd in self._nodes.values()]
+            return SpectralEmbeddingResult(
+                node_ids=node_ids,
+                embeddings=np.zeros((n, min(dimensions, max(n, 1)))),
+                eigenvalues=np.zeros(max(dimensions, 1)),
+                dimensions=dimensions,
+            )
+
+        H, node_list, edge_list = self.incidence_matrix_unsigned()
+        node_ids = node_list
+        n = len(node_ids)
+        k = min(dimensions, n - 1)
+        if k <= 0:
+            return SpectralEmbeddingResult(
+                node_ids=node_ids,
+                embeddings=np.zeros((n, 1)),
+                eigenvalues=np.zeros(1),
+                dimensions=dimensions,
+            )
+
+        m = len(edge_list)
+        W = np.zeros(m)
+        for j, edge in enumerate(self._edges.values()):
+            W[j] = edge.weight
+
+        D_e = np.array([
+            len(self._edges[eid].source_ids) + len(self._edges[eid].target_ids)
+            if eid in self._edges else 1.0
+            for eid in edge_list
+        ], dtype=float)
+        D_e_inv = np.where(D_e > 0, 1.0 / D_e, 0.0)
+
+        D_v = H @ W
+        D_v_inv_sqrt = np.where(D_v > 0, 1.0 / np.sqrt(D_v), 0.0)
+
+        import scipy.sparse as sp
+        import scipy.sparse.linalg as sla
+
+        H_sp = sp.csr_matrix(H)
+        W_sp = sp.diags(W)
+        De_inv_sp = sp.diags(D_e_inv)
+        Dv_inv_sqrt_sp = sp.diags(D_v_inv_sqrt)
+
+        M = Dv_inv_sqrt_sp @ H_sp @ W_sp @ De_inv_sp @ H_sp.T @ Dv_inv_sqrt_sp
+
         try:
-            if weight_attr:
-                return nx.dijkstra_path(G, source_id, target_id, weight=weight_attr)
-            return nx.shortest_path(G, source_id, target_id)
-        except nx.NetworkXNoPath:
-            return None
+            eigenvalues, eigenvectors = sla.eigsh(M, k=k, which='LM')
+            idx = np.argsort(-eigenvalues)
+            eigenvalues = eigenvalues[idx]
+            eigenvectors = eigenvectors[:, idx]
+        except Exception:
+            eigenvalues = np.zeros(k)
+            eigenvectors = np.zeros((n, k))
+
+        return SpectralEmbeddingResult(
+            node_ids=node_ids,
+            embeddings=eigenvectors,
+            eigenvalues=eigenvalues,
+            dimensions=dimensions,
+        )
+
+    def incidence_matrix_unsigned(self) -> tuple[Any, list[str], list[str]]:
+        """Return the unsigned incidence matrix H (all entries positive).
+
+        H[i, j] = 1 if node i participates in edge j (source or target).
+
+        Returns:
+            Tuple of (H, node_ids, edge_ids).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        edge_list = [e.id for e in self._edges.values()]
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+        H = np.zeros((len(node_list), len(edge_list)))
+        for j, edge in enumerate(self._edges.values()):
+            for nid in edge.node_ids:
+                if nid in node_idx:
+                    H[node_idx[nid], j] = 1.0
+        return H, node_list, edge_list
+
+    def s_connected_components(self, s: int = 1) -> list[set[str]]:
+        """Compute s-connected components on the hyperedge overlap graph.
+
+        Two hyperedges are s-adjacent if they share at least ``s`` vertices.
+        Components are the connected groups of hyperedges under this
+        relation, projected back to their constituent vertex sets.
+
+        Args:
+            s: Minimum vertex overlap for adjacency.
+
+        Returns:
+            List of sets of node IDs.
+        """
+        return self._connected_components_s(s)
+
+    def s_persistence(self, *, max_s: int | None = None) -> SPersistenceResult:
+        """Compute the s-persistence filtration of s-connected components.
+
+        Iterates ``s`` from 1 upward, computing s-connected components
+        at each level.  Components split as ``s`` increases, revealing
+        multi-resolution structure.
+
+        Args:
+            max_s: Maximum s value to compute.  Defaults to the maximum
+                pairwise overlap between any two hyperedges.
+
+        Returns:
+            SPersistenceResult with list of SPersistenceLevel entries.
+        """
+        edge_list = list(self._edges.values())
+        if not edge_list:
+            if self._nodes:
+                return SPersistenceResult(
+                    levels=[SPersistenceLevel(s=1, components=[frozenset(self._nodes.keys())], num_components=1, largest_component_size=len(self._nodes))],
+                    max_s=1,
+                    total_edges=0,
+                )
+            return SPersistenceResult()
+
+        edge_node_sets = [e.source_ids | e.target_ids for e in edge_list]
+        m = len(edge_list)
+
+        overlaps: dict[tuple[int, int], int] = {}
+        max_overlap = 0
+        for i in range(m):
+            for j in range(i + 1, m):
+                ov = len(edge_node_sets[i] & edge_node_sets[j])
+                if ov > 0:
+                    overlaps[(i, j)] = ov
+                    max_overlap = max(max_overlap, ov)
+
+        effective_max = max_s if max_s is not None else max_overlap
+        if effective_max < 1:
+            effective_max = 1
+
+        levels: list[SPersistenceLevel] = []
+        for s_val in range(1, effective_max + 1):
+            edge_parent = list(range(m))
+
+            def find(x: int) -> int:
+                while edge_parent[x] != x:
+                    edge_parent[x] = edge_parent[edge_parent[x]]
+                    x = edge_parent[x]
+                return x
+
+            def union(a: int, b: int) -> None:
+                ra, rb = find(a), find(b)
+                if ra != rb:
+                    edge_parent[ra] = rb
+
+            for (i, j), ov in overlaps.items():
+                if ov >= s_val:
+                    union(i, j)
+
+            edge_components: dict[int, set[int]] = {}
+            for i in range(m):
+                root = find(i)
+                edge_components.setdefault(root, set()).add(i)
+
+            node_components: list[frozenset[str]] = []
+            for comp_indices in edge_components.values():
+                node_set: set[str] = set()
+                for idx in comp_indices:
+                    node_set.update(edge_node_sets[idx])
+                node_components.append(frozenset(node_set))
+
+            covered: set[str] = set()
+            for comp in node_components:
+                covered.update(comp)
+            isolated = set(self._nodes.keys()) - covered
+            for nid in isolated:
+                node_components.append(frozenset({nid}))
+
+            levels.append(SPersistenceLevel(
+                s=s_val,
+                components=node_components,
+                num_components=len(node_components),
+                largest_component_size=max(len(c) for c in node_components) if node_components else 0,
+            ))
+
+        return SPersistenceResult(
+            levels=levels,
+            max_s=effective_max,
+            total_edges=len(edge_list),
+        )
+
+    def hyperedge_similarity(
+        self,
+        edge_id: str,
+        *,
+        metric: str = "jaccard",
+        top_k: int | None = None,
+    ) -> HyperedgeSimilarityResult:
+        """Find hyperedges similar to a query hyperedge by node-set overlap.
+
+        Args:
+            edge_id: ID of the query hyperedge.
+            metric: Similarity metric: ``"jaccard"``, ``"sorensen_dice"``,
+                or ``"overlap_coefficient"``.
+            top_k: If set, return only the top-k most similar edges.
+
+        Returns:
+            HyperedgeSimilarityResult with sorted similar edges.
+        """
+        query = self._edges.get(edge_id)
+        if not query:
+            return HyperedgeSimilarityResult(query_edge_id=edge_id, metric=metric)
+        query_nodes = query.source_ids | query.target_ids
+        if not query_nodes:
+            return HyperedgeSimilarityResult(query_edge_id=edge_id, metric=metric)
+
+        scores: list[tuple[str, float]] = []
+        for eid, edge in self._edges.items():
+            if eid == edge_id:
+                continue
+            edge_nodes = edge.source_ids | edge.target_ids
+            if not edge_nodes:
+                continue
+            intersection = len(query_nodes & edge_nodes)
+            if intersection == 0:
+                continue
+            if metric == "jaccard":
+                score = intersection / len(query_nodes | edge_nodes)
+            elif metric == "sorensen_dice":
+                score = 2.0 * intersection / (len(query_nodes) + len(edge_nodes))
+            elif metric == "overlap_coefficient":
+                score = intersection / min(len(query_nodes), len(edge_nodes))
+            else:
+                score = intersection / len(query_nodes | edge_nodes)
+            scores.append((eid, score))
+
+        scores.sort(key=lambda x: -x[1])
+        if top_k is not None:
+            scores = scores[:top_k]
+        return HyperedgeSimilarityResult(
+            query_edge_id=edge_id,
+            similar_edges=scores,
+            metric=metric,
+        )
 
     def node_degree(self, node_id: str) -> int:
         """Return the number of edges connected to a node.
@@ -828,6 +1386,53 @@ class Hypergraph:
         D_v = np.diag(H @ W @ np.ones(m))
         L = D_v - H @ W @ D_e_inv @ H.T
         return L
+
+    def star(self, node_id: str) -> list[Hyperedge]:
+        """Return all edges incident to a node.
+
+        Public alias for :meth:`edges_for`. Named after the ``star(v)``
+        operator in hypergraph theory: the set of hyperedges containing
+        vertex ``v``.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges incident to the node.
+        """
+        return self.edges_for(node_id)
+
+    def hyperedge_neighbors(self, node_id: str) -> dict[str, list[Hyperedge]]:
+        """Return co-participating nodes grouped by shared hyperedges.
+
+        For each neighbor that shares at least one hyperedge with
+        ``node_id``, returns the list of shared hyperedges.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            Dict mapping neighbor node ID to the list of hyperedges
+            shared between that neighbor and ``node_id``.
+        """
+        result: dict[str, list[Hyperedge]] = {}
+        for edge in self.edges_for(node_id):
+            for nid in edge.node_ids:
+                if nid == node_id:
+                    continue
+                result.setdefault(nid, []).append(edge)
+        return result
+
+    def hyperedge_cocoverage(self, node_id: str) -> dict[str, int]:
+        """Return the number of shared hyperedges for each neighbor.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            Dict mapping neighbor node ID to the count of shared hyperedges.
+        """
+        return {nid: len(edges) for nid, edges in self.hyperedge_neighbors(node_id).items()}
 
     @property
     def node_count(self) -> int:

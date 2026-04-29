@@ -175,6 +175,7 @@ def anomaly_analysis(mem: HypergraphMemory, papers: list[ArxivPaper]) -> list[di
         det = mem.detect_structural_anomalies(
             paper.arxiv_id,
             context={"high_centrality": True, "structural_anomaly": True},
+            max_level=2,
         )
         if det.anomaly_status in ("boundary", "anomalous"):
             results.append({

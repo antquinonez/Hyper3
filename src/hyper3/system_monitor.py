@@ -546,11 +546,12 @@ class SystemMonitor:
             sources = list(edge.source_ids)
             if not sources:
                 continue
-            source_node = self._graph.get_node(sources[0])
-            if not source_node:
+            source_nodes = [self._graph.get_node(sid) for sid in sources]
+            if not any(source_nodes):
                 continue
-            if source_node.access_count > 2:
-                boost = min(0.1 * (1.0 + 0.05 * source_node.access_count), 0.5)
+            max_access = max(n.access_count for n in source_nodes if n)
+            if max_access > 2:
+                boost = min(0.1 * (1.0 + 0.05 * max_access), 0.5)
                 edge.weight = min(edge.weight * (1.0 + boost), 100.0)
                 reinforced += 1
             neighbors: list[float] = []

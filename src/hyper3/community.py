@@ -142,13 +142,18 @@ class CommunityDetector:
         self, edge_label: str | None,
     ) -> dict[str, list[tuple[str, float]]]:
         neighbor_map: dict[str, list[tuple[str, float]]] = {}
-        for edge in self._graph.edges:
-            if edge_label and edge.label != edge_label:
-                continue
-            for src in edge.source_ids:
+        for node in self._graph.nodes:
+            node_id = node.id
+            for edge in self._graph.outgoing_edges(node_id):
+                if edge_label and edge.label != edge_label:
+                    continue
                 for tgt in edge.target_ids:
-                    neighbor_map.setdefault(src, []).append((tgt, edge.weight))
-                    neighbor_map.setdefault(tgt, []).append((src, edge.weight))
+                    neighbor_map.setdefault(node_id, []).append((tgt, edge.weight))
+            for edge in self._graph.incoming_edges(node_id):
+                if edge_label and edge.label != edge_label:
+                    continue
+                for src in edge.source_ids:
+                    neighbor_map.setdefault(node_id, []).append((src, edge.weight))
         return neighbor_map
 
     def _build_result(

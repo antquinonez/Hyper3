@@ -91,15 +91,13 @@ class ContradictionResolver:
         contradictions: list[Contradiction] = []
         seen_pairs: set[frozenset[str]] = set()
 
-        edge_pairs_by_endpoints: dict[tuple[str, str, frozenset[str], frozenset[str]], list[Any]] = {}
+        edge_pairs_by_endpoints: dict[tuple[frozenset[str], frozenset[str]], list[Any]] = {}
 
         for edge in self._graph.edges:
-            for src in edge.source_ids:
-                for tgt in edge.target_ids:
-                    key = (src, tgt, edge.source_ids, edge.target_ids)
-                    edge_pairs_by_endpoints.setdefault(key, []).append(edge)
+            key = (edge.source_ids, edge.target_ids)
+            edge_pairs_by_endpoints.setdefault(key, []).append(edge)
 
-        for (src, tgt, src_ids, tgt_ids), edges in edge_pairs_by_endpoints.items():
+        for (src_ids, tgt_ids), edges in edge_pairs_by_endpoints.items():
             for i in range(len(edges)):
                 for j in range(i + 1, len(edges)):
                     a, b = edges[i], edges[j]
@@ -110,16 +108,18 @@ class ContradictionResolver:
                         if pair_key in seen_pairs:
                             continue
                         seen_pairs.add(pair_key)
-                        src_node = self._graph.get_node(src)
-                        tgt_node = self._graph.get_node(tgt)
+                        repr_src = sorted(src_ids)[0]
+                        repr_tgt = sorted(tgt_ids)[0]
+                        src_node = self._graph.get_node(repr_src)
+                        tgt_node = self._graph.get_node(repr_tgt)
                         severity = self._compute_severity(a, b)
                         contradictions.append(Contradiction(
                             edge_a_id=a.id,
                             edge_b_id=b.id,
                             edge_a_label=a.label,
                             edge_b_label=b.label,
-                            source_label=src_node.label if src_node else src[:8],
-                            target_label=tgt_node.label if tgt_node else tgt[:8],
+                            source_label=src_node.label if src_node else repr_src[:8],
+                            target_label=tgt_node.label if tgt_node else repr_tgt[:8],
                             contradiction_type="negation",
                             severity=severity,
                         ))

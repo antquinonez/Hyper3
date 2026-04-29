@@ -400,5 +400,42 @@ class GraphDescription(_SimpleResultBase):
     density: float = 0.0
 
 
+@dataclass
+class SPersistenceLevel(_SimpleResultBase):
+    s: int = 1
+    components: list[frozenset[str]] = field(default_factory=list)
+    num_components: int = 0
+    largest_component_size: int = 0
+
+
+@dataclass
+class SPersistenceResult(_SimpleResultBase):
+    levels: list[SPersistenceLevel] = field(default_factory=list)
+    max_s: int = 1
+    total_edges: int = 0
+
+
+@dataclass
+class HyperedgeSimilarityResult(_SimpleResultBase):
+    query_edge_id: str = ""
+    similar_edges: list[tuple[str, float]] = field(default_factory=list)
+    metric: str = "jaccard"
+
+
+@dataclass
+class HypergraphCutResult(_SimpleResultBase):
+    partitions: list[frozenset[str]] = field(default_factory=list)
+    cut_value: float = 0.0
+    normalized_cut_value: float = 0.0
+
+
+@dataclass
+class SpectralEmbeddingResult(_SimpleResultBase):
+    node_ids: list[str] = field(default_factory=list)
+    embeddings: Any = None
+    eigenvalues: Any = None
+    dimensions: int = 0
+
+
 def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
     return sorted(scores.items(), key=lambda x: -x[1])[:k]

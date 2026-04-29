@@ -138,6 +138,12 @@ class StructuralAnomalyDetector:
         self._reasoning_history: list[AnomalyDetectionResult] = []
         self._boundary_cache: dict[str, tuple[float, BoundaryIndicator]] = {}
         self._boundary_cache_ttl: float = 300.0
+        self._cached_centrality: dict[str, float] | None = None
+        self._cached_scc: dict[str, list[str]] | None = None
+        self._cache_graph_ver: int = 0
+
+    def _graph_version(self) -> int:
+        return self._graph.node_count * 10000 + self._graph.edge_count
 
     def assess_anomaly(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
         """Evaluate structural anomaly indicators for a concept.
@@ -176,7 +182,8 @@ class StructuralAnomalyDetector:
             if node.id in edge.target_ids and node.id in edge.source_ids:
                 return 0.9
         visited: set[str] = set()
-        if self._dfs_cycle_check(node.id, node.id, visited, max_depth=10):
+        budget = [5000]
+        if self._dfs_cycle_check(node.id, node.id, visited, max_depth=10, budget=budget):
             return 0.8
         scc_score = self._scc_cycle_check(node.id)
         if scc_score > 0:
@@ -191,36 +198,72 @@ class StructuralAnomalyDetector:
 
     def _scc_cycle_check(self, node_id: str) -> float:
         """Return 0.7 if the node is in a strongly connected component of size > 1."""
-        try:
-            import networkx as nx
-            G = nx.DiGraph()
-            for node in self._graph.nodes:
-                G.add_node(node.id)
-            for edge in self._graph.edges:
-                for src in edge.source_ids:
-                    for tgt in edge.target_ids:
-                        G.add_edge(src, tgt)
-            sccs = list(nx.strongly_connected_components(G))
-            for scc in sccs:
-                if node_id in scc and len(scc) > 1:
-                    return 0.7
-        except (ImportError, Exception):
-            pass
-        return 0.0
+        if self._cached_scc is not None and self._cache_graph_ver == self._graph_version():
+            return 0.7 if node_id in self._cached_scc and len(self._cached_scc[node_id]) > 1 else 0.0
 
-    def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int) -> bool:
+        adj: dict[str, list[str]] = {}
+        for node in self._graph.nodes:
+            targets: list[str] = []
+            for edge in self._graph.outgoing_edges(node.id):
+                targets.extend(edge.target_ids)
+            adj[node.id] = targets
+        index_counter = [0]
+        stack: list[str] = []
+        on_stack: set[str] = set()
+        indices: dict[str, int] = {}
+        lowlinks: dict[str, int] = {}
+        scc_map: dict[str, list[str]] = {}
+
+        def _strongconnect(v: str) -> None:
+            indices[v] = index_counter[0]
+            lowlinks[v] = index_counter[0]
+            index_counter[0] += 1
+            stack.append(v)
+            on_stack.add(v)
+            for w in adj.get(v, []):
+                if w not in indices:
+                    _strongconnect(w)
+                    lowlinks[v] = min(lowlinks[v], lowlinks[w])
+                elif w in on_stack:
+                    lowlinks[v] = min(lowlinks[v], indices[w])
+            if lowlinks[v] == indices[v]:
+                component: list[str] = []
+                while True:
+                    w = stack.pop()
+                    on_stack.discard(w)
+                    component.append(w)
+                    if w == v:
+                        break
+                for w in component:
+                    scc_map[w] = component
+
+        for n in adj:
+            if n not in indices:
+                _strongconnect(n)
+
+        self._cached_scc = scc_map
+        self._cache_graph_ver = self._graph_version()
+        return 0.7 if node_id in scc_map and len(scc_map[node_id]) > 1 else 0.0
+
+    def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None = None) -> bool:
         """Check whether a directed path exists from current back to start within max_depth."""
         if max_depth <= 0:
+            return False
+        if budget is not None and budget[0] <= 0:
             return False
         for edge in self._graph.edges_for(current):
             if current not in edge.source_ids:
                 continue
             for tgt in edge.target_ids:
+                if budget is not None:
+                    budget[0] -= 1
+                    if budget[0] <= 0:
+                        return False
                 if tgt == start:
                     return True
                 if tgt not in visited:
                     visited.add(tgt)
-                    if self._dfs_cycle_check(start, tgt, visited, max_depth - 1):
+                    if self._dfs_cycle_check(start, tgt, visited, max_depth - 1, budget):
                         return True
                     visited.discard(tgt)
         return False
@@ -248,21 +291,45 @@ class StructuralAnomalyDetector:
         return self._context_boost(context, "high_centrality", base)
 
     def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
-        """Compute eigenvector centrality for a single node, falling back to degree ratio."""
-        try:
-            import networkx as nx
-            G = nx.DiGraph()
-            for node in self._graph.nodes:
-                G.add_node(node.id)
-            for edge in self._graph.edges:
-                for src in edge.source_ids:
-                    for tgt in edge.target_ids:
-                        G.add_edge(src, tgt)
-            centrality = nx.eigenvector_centrality_numpy(G, max_iter=50)
-            return centrality.get(node_id, 0.0)
-        except (ImportError, Exception):
-            degree = len(self._graph.edges_for(node_id))
-            return degree / max(total - 1, 1) if total > 1 else 0.0
+        """Compute eigenvector centrality for a single node via power iteration.
+
+        Operates on the full graph adjacency for correctness but caches
+        the result so repeated calls during a batch of anomaly checks
+        reuse the same computation.
+        """
+        if total <= 1:
+            return 0.0
+        if self._cached_centrality is not None and self._cache_graph_ver == self._graph_version():
+            return self._cached_centrality.get(node_id, 0.0)
+
+        all_ids = [n.id for n in self._graph.nodes]
+        id_idx = {nid: i for i, nid in enumerate(all_ids)}
+        n = len(all_ids)
+        adj: dict[str, list[str]] = {}
+        for node in self._graph.nodes:
+            targets: list[str] = []
+            for edge in self._graph.outgoing_edges(node.id):
+                targets.extend(edge.target_ids)
+            adj[node.id] = targets
+        x = [1.0 / n] * n
+        for _ in range(50):
+            x_new = [0.0] * n
+            for src_id, targets in adj.items():
+                si = id_idx.get(src_id)
+                if si is None:
+                    continue
+                for tgt_id in targets:
+                    ti = id_idx.get(tgt_id)
+                    if ti is not None:
+                        x_new[ti] += x[si]
+            norm = math.sqrt(sum(v * v for v in x_new))
+            if norm < 1e-12:
+                break
+            x = [v / norm for v in x_new]
+
+        self._cached_centrality = {nid: x[i] for i, nid in enumerate(all_ids)}
+        self._cache_graph_ver = self._graph_version()
+        return self._cached_centrality.get(node_id, 0.0)
 
     def _detect_label_contradictions(self, concept: str, context: dict[str, Any] | None) -> float:
         """Score contradiction risk from contradictory edge labels or learned opposition.

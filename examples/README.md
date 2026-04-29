@@ -48,6 +48,7 @@ Advanced Examples (`advanced/`)
 | 11 | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes) | honest quantum formalism, Bayesian comparison, entropy as uncertainty measure |
 | 12 | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes) | rule effectiveness, basis learning, frame learning, meta-cognitive introspection |
 | 13 | `13_self_evolving_cognition.py` | Self-evolving cognitive system | feedback-driven evolution, metamorphosis validation, cross-operation feedback, bias profile, causal merge insights |
+| 14 | `14_hypergraph_native.py` | Protein interaction network with complexes (35 nodes) | n-ary hyperedges, s-persistence, spectral embedding, hyperedge similarity, gated diffusion (AND/OR/majority) |
 
 Domain Examples (`domain/`)
 ----------------------------

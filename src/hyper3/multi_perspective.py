@@ -654,31 +654,35 @@ class MultiPerspectiveAnalyzer:
         )
 
     def _spectral_gap_complexity(self, node: Hypernode) -> float:
-        """Estimate structural complexity from the spectral gap of the local adjacency matrix."""
         edges = self._graph.edges_for(node.id)
         if not edges:
             return 0.0
-        targets: set[str] = set()
+        local_node_ids: set[str] = {node.id}
         for edge in edges:
-            targets.update(edge.target_ids)
-        targets.discard(node.id)
-        if not targets:
+            local_node_ids.update(edge.source_ids)
+            local_node_ids.update(edge.target_ids)
+        if len(local_node_ids) < 2:
             return 0.0
-        n = len(targets) + 1
-        local_nodes = [node.id] + list(targets)
-        idx = {nid: i for i, nid in enumerate(local_nodes)}
-        adj = np.zeros((n, n))
-        for edge in edges:
-            for src in edge.source_ids:
-                for tgt in edge.target_ids:
-                    if src in idx and tgt in idx:
-                        adj[idx[src], idx[tgt]] += edge.weight
-        degree = adj.sum(axis=1)
-        eigenvalues = np.linalg.eigvalsh(adj)
+        local_edge_list = list(edges)
+        node_idx = {nid: i for i, nid in enumerate(local_node_ids)}
+        num_nodes = len(local_node_ids)
+        num_edges = len(local_edge_list)
+        H = np.zeros((num_nodes, num_edges))
+        W = np.zeros((num_edges, num_edges))
+        for j, edge in enumerate(local_edge_list):
+            W[j, j] = edge.weight
+            for nid in edge.node_ids:
+                if nid in node_idx:
+                    H[node_idx[nid], j] = 1.0
+        degree_e = H.sum(axis=0)
+        with np.errstate(divide="ignore"):
+            D_e_inv = np.diag(np.where(degree_e > 0, 1.0 / degree_e, 0.0))
+        M = H @ W @ D_e_inv @ H.T
+        eigenvalues = np.linalg.eigvalsh(M)
         if len(eigenvalues) < 2:
             return 0.0
         sorted_evals = np.sort(np.abs(eigenvalues))[::-1]
-        spectral_gap = sorted_evals[0] - sorted_evals[1] if len(sorted_evals) >= 2 else 0.0
+        spectral_gap = sorted_evals[0] - sorted_evals[1]
         max_eval = max(abs(sorted_evals[0]), 1e-10)
         return float(min(spectral_gap / max_eval, 1.0))
 

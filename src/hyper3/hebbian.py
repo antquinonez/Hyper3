@@ -164,16 +164,16 @@ class HebbianLearner:
                     edge.weight - self._config.decay_rate,
                     self._config.min_edge_weight,
                 )
-                src_id = next(iter(edge.source_ids), "")
-                tgt_id = next(iter(edge.target_ids), "")
-                updates.append(HebbianUpdate(
-                    source_id=src_id,
-                    target_id=tgt_id,
-                    edge_id=edge.id,
-                    old_weight=old_weight,
-                    new_weight=edge.weight,
-                    co_activation=0.0,
-                ))
+                for src_id in edge.source_ids or ("",):
+                    for tgt_id in edge.target_ids or ("",):
+                        updates.append(HebbianUpdate(
+                            source_id=src_id,
+                            target_id=tgt_id,
+                            edge_id=edge.id,
+                            old_weight=old_weight,
+                            new_weight=edge.weight,
+                            co_activation=0.0,
+                        ))
         return updates
 
     def get_strongest_associations(self, node_label: str, top_k: int = 10) -> list[tuple[str, float]]:

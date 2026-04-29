@@ -1209,3 +1209,101 @@ class SubsystemMixin(_MemoryBase):
     def differ(self) -> GraphDiffer | None:
         """The graph differ, or None if not yet initialized."""
         return self._graph_differ
+
+    def s_persistence(self, *, max_s: int | None = None):
+        """Compute the s-persistence filtration of s-connected components.
+
+        Returns multi-resolution structure: components split as the
+        overlap threshold ``s`` increases.
+
+        Args:
+            max_s: Maximum overlap threshold.  Defaults to the maximum
+                pairwise overlap between any two hyperedges.
+
+        Returns:
+            SPersistenceResult with list of SPersistenceLevel entries.
+        """
+        return self._graph.s_persistence(max_s=max_s)
+
+    def hyperedge_similarity(
+        self,
+        concept: str,
+        *,
+        metric: str = "jaccard",
+        top_k: int | None = None,
+    ) -> list[tuple[str, float]]:
+        """Find hyperedges similar to those containing a concept.
+
+        Args:
+            concept: Label of a concept whose edges to use as queries.
+            metric: ``"jaccard"``, ``"sorensen_dice"``, or
+                ``"overlap_coefficient"``.
+            top_k: Limit results per edge.
+
+        Returns:
+            List of (edge_label_or_id, similarity_score) tuples.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return []
+        results: list[tuple[str, float]] = []
+        seen_edges: set[str] = set()
+        for edge in self._graph.edges_for(node.id):
+            sim_result = self._graph.hyperedge_similarity(edge.id, metric=metric, top_k=top_k)
+            for eid, score in sim_result.similar_edges:
+                if eid not in seen_edges:
+                    seen_edges.add(eid)
+                    similar_edge = self._graph.get_edge(eid)
+                    label = similar_edge.label if similar_edge else eid[:8]
+                    results.append((label, score))
+        results.sort(key=lambda x: -x[1])
+        if top_k is not None:
+            results = results[:top_k]
+        return results
+
+    def spectral_embedding(self, *, dimensions: int = 8) -> dict[str, list[float]]:
+        """Compute spectral embeddings from the normalized hypergraph Laplacian.
+
+        Args:
+            dimensions: Number of embedding dimensions.
+
+        Returns:
+            Dict mapping concept label to embedding vector.
+        """
+        se_result = self._graph.spectral_embedding(dimensions=dimensions)
+        result: dict[str, list[float]] = {}
+        import numpy as np
+        for i, nid in enumerate(se_result.node_ids):
+            node = self._graph.get_node(nid)
+            if node and se_result.embeddings is not None and i < se_result.embeddings.shape[0]:
+                result[node.label] = se_result.embeddings[i].tolist()
+        return result
+
+    def spread_hyperedge(
+        self,
+        concept: str,
+        *,
+        energy: float = 1.0,
+        mode: str = "linear",
+        iterations: int | None = None,
+    ) -> list[ActivationResult]:
+        """Stimulate a concept and spread via hyperedge-native diffusion.
+
+        Args:
+            concept: Label of the seed concept.
+            energy: Initial energy to inject.
+            mode: ``"linear"``, ``"and"``, ``"or"``, or ``"majority"``.
+            iterations: Override for spread iterations.
+
+        Returns:
+            Activated nodes sorted by activation level.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return []
+        if self._activation is None:
+            self._activation = SpreadingActivation(self._graph)
+        self._activation.clear()
+        self._activation.stimulate(node.id, energy)
+        self._activation.spread_hyperedge(mode=mode, iterations=iterations)
+        return self._activation.get_activated()

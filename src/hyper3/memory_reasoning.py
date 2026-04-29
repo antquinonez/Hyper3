@@ -574,8 +574,8 @@ class ReasoningMixin(_MemoryBase):
                 continue
             for tid in edge.target_ids:
                 conf = self._overlay.get_confidence(eid)
-                source = next(iter(edge.source_ids))
-                target_groups.setdefault(tid, []).append((source, conf))
+                for source in edge.source_ids:
+                    target_groups.setdefault(tid, []).append((source, conf))
         states: list[BeliefState] = []
         for target_id, sources in target_groups.items():
             if len(sources) < 2:

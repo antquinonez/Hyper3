@@ -492,6 +492,40 @@ When `StateConvergenceEngine` merges convergent multiway states, it computes `Me
 ### Bayesian belief updating
 `BayesianLayer` performs proper Bayesian prior x likelihood -> posterior updating. `set_prior()` initializes a categorical prior, `update_belief()` applies likelihood to produce a posterior, `get_belief()` returns the current distribution. `map_estimate()` returns the most probable outcome. `bayes_factor()` computes the Bayes factor between two hypotheses. `credible_set()` returns outcomes within a probability mass threshold. `reset_belief()` restores the prior.
 
+### N-ary hyperedge creation via `relate_hyperedge()`
+`mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="joint")` creates true n-ary edges. Unlike `relate()` which creates pairwise (1:1) edges, this connects multiple sources to multiple targets in a single hyperedge. All source and target concepts must already exist as nodes (raises `NodeNotFoundError` otherwise).
+
+### Hyperedge querying via `query_hyperedges()`
+`mem.query_hyperedges(min_source_cardinality=2, containing="gene_a")` filters edges by cardinality and node membership. Returns raw `Hyperedge` objects (which use node IDs internally). Use `min_source_cardinality` and `min_target_cardinality` to find true n-ary edges.
+
+### `hyperedge_neighbors()` for co-participation queries
+`mem.hyperedge_neighbors("concept")` returns a dict mapping neighbor concept labels to lists of shared hyperedges. This is the n-ary counterpart to `neighbors()`, showing which concepts co-occur in the same hyperedges.
+
+### Native hypergraph algorithms
+All graph algorithms in `kernel.py` now use hypergraph-native implementations instead of pairwise NetworkX decomposition:
+- `connected_components()` uses union-find on shared hyperedges. Accepts `s` parameter for s-connected components (minimum vertex overlap threshold).
+- `shortest_path()` uses Dijkstra/BFS treating hyperedges as single hops. An edge {A,B}->{C,D} lets A and B both reach C and D in one step.
+- `betweenness_centrality()` uses hypergraph-native s-path enumeration. Accepts `max_samples` for approximate computation.
+- `has_cycle()` and `detect_cycles()` use native DFS on outgoing edges without NetworkX.
+- `pagerank()` uses the incidence-based transition matrix `P = D_v^{-1} H W D_e^{-1} H^T`. Degrades to standard PageRank on pairwise graphs.
+- All algorithms degrade gracefully: when all edges are pairwise, results match standard graph algorithms.
+
+### `s_persistence()` for multi-resolution structure
+`mem.s_persistence(max_s=5)` computes s-connected components for s=1,2,...,max_s. Components split as s increases, revealing multi-resolution hypergraph structure. Returns list of dicts with `s`, `components`, `num_components`, `largest_component_size`.
+
+### Hyperedge diffusion modes
+`mem.spread_hyperedge("concept", mode="and")` supports four gate modes for n-ary edge activation:
+- `"linear"`: standard weighted propagation through all targets.
+- `"and"`: activation flows only if ALL source nodes of the hyperedge are activated.
+- `"or"`: activation flows if ANY source node is activated.
+- `"majority"`: activation flows if >50% of source nodes are activated.
+
+### Spectral embedding from hypergraph Laplacian
+`mem.spectral_embedding(dimensions=8)` computes spectral embeddings from the bottom-k eigenvectors of the normalized hypergraph Laplacian `L = I - D_v^{-1/2} H W D_e^{-1} H^T D_v^{-1/2}`. Returns dict mapping concept labels to embedding vectors.
+
+### Hyperedge similarity search
+`mem.hyperedge_similarity("concept", metric="jaccard")` finds hyperedges similar to those containing a concept by node-set overlap. Metrics: `jaccard`, `sorensen_dice`, `overlap_coefficient`.
+
 ## API Ergonomic Principles
 
 These principles govern the design of public-facing method signatures and return types across **all** modules — engine classes, utility classes, result dataclasses, and facades. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
@@ -684,15 +718,21 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 | Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
 | Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
 | Branchial entanglement | Branchial correlation via Dice coefficient of shared active nodes | `multiway_branchial.py` | Structural metric |
-| Hypergraph | Directed multigraph with n-ary edge storage, pairwise expansion for algorithms | `kernel.py` | Structural (new hypergraph primitives added: incidence matrix, Laplacian, directed edge accessors) |
+| Hypergraph | Directed multigraph with n-ary edge storage, native hypergraph algorithms (union-find components, s-path shortest path, incidence-based PageRank, spectral embedding, s-persistence) | `kernel.py` | Rigorous (incidence matrix, Laplacian, s-connected components, hypergraph PageRank are textbook-correct; degrades to standard graph algorithms on pairwise edges) |
 | Decoherence / coherence_time | Timeout-based exponential amplitude decay | `belief.py` | Loose analog (not environmental decoherence T1/T2) |
 | MeasurementBasis | Named dimension weights + Thompson sampling for selection | `belief.py` | Loose analog (not a Hermitian operator; feature weighting profile) |
 | Interference | Standard formula comparing \|sum(amps)\|^2 vs sum(\|amp\|^2) | `belief.py` | Rigorous |
+| s-connected components | Union-find on hyperedge vertex overlap with threshold s | `kernel.py` | Rigorous (textbook s-walk framework from Aksoy et al.) |
+| s-persistence filtration | Nested sequence of s-connected component structures | `kernel.py` | Rigorous (filtration on s-line graph) |
+| Hypergraph PageRank | Incidence-based transition matrix P = D_v^{-1} H W D_e^{-1} H^T | `kernel.py` | Rigorous (Zhou, Huang, Schoelkopf 2006) |
+| Hypergraph spectral embedding | Bottom-k eigenvectors of normalized hypergraph Laplacian | `kernel.py` | Rigorous |
+| Hyperedge diffusion (AND/OR/majority) | Gate modes on n-ary edge activation flow | `retrieval_activation.py` | Structural heuristic (linear mode is rigorous; gate modes are practical extensions) |
+| Spectral entropy (hypergraph) | SVD of incidence matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
 
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1486 tests must pass.
+2. Run the full test suite after changes. All 1700 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -828,7 +868,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1486
+- **Tests**: 1700
 - **Coverage**: 95%
 - **Pyright**: 0 errors
 - **Examples**: 51 (26 Hyper3: 3 basic, 6 intermediate, 6 advanced, 7 domain, 5 project pipelines; 20 comparison + 5 project comparisons)

@@ -3,8 +3,6 @@ from __future__ import annotations
 from statistics import median
 from typing import Any
 
-import networkx as nx
-
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule
 from hyper3.memory_base import _MemoryBase
@@ -161,7 +159,11 @@ class AnalyticsMixin(_MemoryBase):
         weighted: bool = True,
         top_k: int | None = None,
     ) -> dict[str, float]:
-        """Compute PageRank for all nodes, keyed by node label.
+        """Compute PageRank for all nodes using the hypergraph transition matrix.
+
+        Delegates to :meth:`Hypergraph.pagerank` which uses the
+        incidence-based transition matrix and degrades to standard
+        PageRank when all edges are pairwise.
 
         Args:
             alpha: Damping factor (default 0.85).
@@ -173,17 +175,19 @@ class AnalyticsMixin(_MemoryBase):
         Returns:
             Dict of concept labels to PageRank scores.
         """
-        G = self._graph.to_networkx()
         if not weighted:
-            for u, v in G.edges():
-                G[u][v]["weight"] = 1.0
-        try:
-            pr = nx.pagerank(G, alpha=alpha, max_iter=max_iter, tol=tol, weight="weight" if weighted else None)
-        except nx.PowerIterationFailedConvergence:
+            saved_weights = {e.id: e.weight for e in self._graph.edges}
+            for edge in self._graph.edges:
+                edge.weight = 1.0
             try:
-                pr = nx.pagerank(G, alpha=alpha, max_iter=max_iter * 2, tol=tol * 10, weight="weight" if weighted else None)
-            except nx.PowerIterationFailedConvergence:
-                pr = nx.pagerank(G, alpha=max(0.5, alpha * 0.9), max_iter=max_iter * 4, tol=tol * 100, weight=None)
+                pr = self._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
+            finally:
+                for edge in self._graph.edges:
+                    old_w = saved_weights.get(edge.id)
+                    if old_w is not None:
+                        edge.weight = old_w
+        else:
+            pr = self._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
         scores = {self._node_label(nid): score for nid, score in pr.items()}
         if top_k is not None:
             return dict(_top_k(scores, top_k))

@@ -113,7 +113,7 @@ class ProvenanceDepthConstraint(ConstraintCheck):
         max_upstream = 0
         for src_id in edge.source_ids:
             for upstream in graph.edges_for(src_id):
-                if upstream.target_ids == frozenset({src_id}):
+                if src_id in upstream.target_ids:
                     upstream_depth = self._measure_chain_depth(upstream, graph, visited)
                     max_upstream = max(max_upstream, upstream_depth + 1)
         return max_upstream

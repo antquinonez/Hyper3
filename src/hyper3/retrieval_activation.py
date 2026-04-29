@@ -201,3 +201,88 @@ class SpreadingActivation:
         results = self.get_activated(top_k=top_k * 2)
         results = [r for r in results if r.node_id != seed_node.id]
         return results[:top_k]
+
+    def spread_hyperedge(
+        self,
+        *,
+        mode: str = "linear",
+        iterations: int | None = None,
+    ) -> dict[str, float]:
+        """Spread activation using hypergraph-native diffusion.
+
+        Unlike :meth:`spread` which treats each (source, target) pair
+        independently, this method treats each hyperedge as a unit.
+        Activation flows through a hyperedge only if the edge's gate
+        condition is met, controlled by ``mode``:
+
+        - ``"linear"``: standard weighted propagation through all targets.
+        - ``"and"``: activation flows through a hyperedge only if ALL
+          source nodes of the edge are currently activated.
+        - ``"or"``: activation flows if ANY source node is activated.
+        - ``"majority"``: activation flows if more than half of source
+          nodes are activated.
+
+        Args:
+            mode: Gate mode for n-ary edge activation flow.
+            iterations: Number of diffusion iterations.
+
+        Returns:
+            Dict mapping node ID to activation level.
+        """
+        iters = iterations if iterations is not None else self._config.max_iterations
+        threshold = self._config.min_activation
+
+        for _ in range(iters):
+            if not self._activations:
+                break
+            delta: dict[str, float] = {}
+            delta_depth: dict[str, int] = {}
+
+            for edge in self._graph.edges:
+                if not edge.source_ids or not edge.target_ids:
+                    continue
+                rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
+
+                source_activations = [self._activations.get(sid, 0.0) for sid in edge.source_ids]
+                activated_sources = sum(1 for a in source_activations if a > 0)
+
+                if mode == "and":
+                    if activated_sources < len(edge.source_ids):
+                        continue
+                    gate_energy = sum(source_activations) / len(edge.source_ids)
+                elif mode == "or":
+                    if activated_sources == 0:
+                        continue
+                    gate_energy = max(source_activations)
+                elif mode == "majority":
+                    if activated_sources <= len(edge.source_ids) // 2:
+                        continue
+                    gate_energy = sum(a for a in source_activations if a > 0) / max(activated_sources, 1)
+                else:
+                    gate_energy = sum(source_activations) / len(edge.source_ids)
+
+                spread_energy = gate_energy * rate * self._config.decay_factor
+                per_target = spread_energy / len(edge.target_ids)
+
+                for tid in edge.target_ids:
+                    delta[tid] = delta.get(tid, 0.0) + per_target
+                    for sid in edge.source_ids:
+                        if sid in self._depth_map:
+                            new_depth = self._depth_map[sid] + 1
+                            existing = delta_depth.get(tid)
+                            if existing is None or new_depth < existing:
+                                delta_depth[tid] = new_depth
+                            break
+
+            for nid, energy in delta.items():
+                self._activations[nid] = self._activations.get(nid, 0.0) + energy
+            for nid, depth in delta_depth.items():
+                if nid not in self._depth_map or depth < self._depth_map[nid]:
+                    self._depth_map[nid] = depth
+
+            self._activations = {
+                nid: a for nid, a in self._activations.items()
+                if a >= threshold
+            }
+
+        return dict(self._activations)

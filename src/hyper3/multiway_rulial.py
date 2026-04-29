@@ -120,19 +120,18 @@ class RulialSpace:
         return min(1.0, 0.5 * spectral + 0.5 * motif)
 
     def _compute_spectral_entropy(self) -> float:
-        """Compute normalized spectral entropy from the SVD of the adjacency matrix."""
-        n = self._graph.node_count
-        if n < 2:
+        if not self._graph.edges:
             return 0.0
-        adj = np.zeros((n, n))
-        node_list = list(self._graph.nodes)
-        idx = {node.id: i for i, node in enumerate(node_list)}
-        for edge in self._graph.edges:
-            for src in edge.source_ids:
-                for tgt in edge.target_ids:
-                    if src in idx and tgt in idx:
-                        adj[idx[src], idx[tgt]] += edge.weight
-        singular_values = np.linalg.svd(adj, compute_uv=False)
+
+        H, _node_ids, _edge_ids = self._graph.incidence_matrix_unsigned()
+        if H.size == 0:
+            return 0.0
+
+        try:
+            singular_values = np.linalg.svd(H, compute_uv=False)
+        except Exception:
+            return 0.0
+
         pos_sv = singular_values[singular_values > 1e-10]
         if len(pos_sv) == 0:
             return 0.0

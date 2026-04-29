@@ -217,6 +217,141 @@ class CoreMixin(_MemoryBase):
         nbr_ids.discard(node.id)
         return [self._node_label(nid) for nid in nbr_ids]
 
+    def relate_hyperedge(
+        self,
+        sources: set[str],
+        targets: set[str],
+        *,
+        label: str = "",
+        edge_data: Any = None,
+        weight: float = 1.0,
+    ) -> Hyperedge:
+        """Create a true n-ary hyperedge connecting multiple sources to multiple targets.
+
+        All source and target concepts must already exist as nodes.
+        This is the n-ary counterpart to :meth:`relate` which only
+        creates pairwise (1:1) edges.
+
+        Args:
+            sources: Set of source concept labels.
+            targets: Set of target concept labels.
+            label: Edge label describing the relationship.
+            edge_data: Arbitrary payload to attach to the edge.
+            weight: Edge importance weight (higher = more important).
+
+        Returns:
+            The created Hyperedge.
+
+        Raises:
+            NodeNotFoundError: If any source or target concept is not found.
+        """
+        src_ids: set[str] = set()
+        for s in sources:
+            node = self._find_node(s)
+            if not node:
+                raise NodeNotFoundError(s)
+            src_ids.add(node.id)
+
+        tgt_ids: set[str] = set()
+        for t in targets:
+            node = self._find_node(t)
+            if not node:
+                raise NodeNotFoundError(t)
+            tgt_ids.add(node.id)
+
+        edge = Hyperedge(
+            source_ids=frozenset(src_ids),
+            target_ids=frozenset(tgt_ids),
+            label=label,
+            data=edge_data,
+            weight=weight,
+        )
+
+        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+            violations = self._boundary_navigator.validate_edge(edge, self._graph)
+            if violations:
+                self._log.record(
+                    "relate_hyperedge_rejected",
+                    sources=list(sources),
+                    targets=list(targets),
+                    label=label,
+                    violations=violations,
+                )
+                raise ConstraintViolationError(violations)
+
+        self._graph.add_edge(edge)
+        self._log.record(
+            "relate_hyperedge",
+            sources=list(sources),
+            targets=list(targets),
+            label=label,
+            source_cardinality=len(src_ids),
+            target_cardinality=len(tgt_ids),
+        )
+        self._maybe_evolve()
+        return edge
+
+    def query_hyperedges(
+        self,
+        *,
+        min_source_cardinality: int = 1,
+        min_target_cardinality: int = 1,
+        label: str | None = None,
+        containing: str | None = None,
+    ) -> list[Hyperedge]:
+        """Query hyperedges by cardinality, label, and node membership.
+
+        Args:
+            min_source_cardinality: Minimum number of source nodes.
+            min_target_cardinality: Minimum number of target nodes.
+            label: Filter to edges with this label. None = all.
+            containing: Filter to edges containing this concept label. None = all.
+
+        Returns:
+            List of matching Hyperedges.
+        """
+        containing_id: str | None = None
+        if containing is not None:
+            node = self._find_node(containing)
+            if not node:
+                return []
+            containing_id = node.id
+
+        results: list[Hyperedge] = []
+        for edge in self._graph.edges:
+            if label is not None and edge.label != label:
+                continue
+            if len(edge.source_ids) < min_source_cardinality:
+                continue
+            if len(edge.target_ids) < min_target_cardinality:
+                continue
+            if containing_id is not None and containing_id not in edge.node_ids:
+                continue
+            results.append(edge)
+        return results
+
+    def hyperedge_neighbors(self, concept: str) -> dict[str, list[Hyperedge]]:
+        """Return co-participating concepts grouped by shared hyperedges.
+
+        For each neighbor that shares at least one hyperedge with the
+        given concept, returns the list of shared hyperedges.
+
+        Args:
+            concept: Label of the node.
+
+        Returns:
+            Dict mapping neighbor concept label to the list of shared
+            hyperedges.  Returns an empty dict if the concept is not found.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return {}
+        raw = self._graph.hyperedge_neighbors(node.id)
+        return {
+            self._node_label(nid): edges
+            for nid, edges in raw.items()
+        }
+
     def relate(
         self,
         source: str,
