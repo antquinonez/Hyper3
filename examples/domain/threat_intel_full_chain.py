@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from hyper3 import HypergraphMemory
+from hyper3 import HypergraphMemory, top_k
 from hyper3.rules import (
     TransitiveRule,
     InverseRule,
@@ -458,11 +458,7 @@ def main():
     print()
 
     centrality = mem.degree_centrality()
-    top_actors = sorted(
-        [(k, v) for k, v in centrality.items() if k in actor_set],
-        key=lambda x: x[1],
-        reverse=True,
-    )[:5]
+    top_actors = top_k({k: v for k, v in centrality.items() if k in actor_set}, k=5)
 
     print("  Top 5 most connected threat actors:")
     for rank, (label, score) in enumerate(top_actors, 1):
@@ -472,11 +468,7 @@ def main():
         print(f"    {rank}. {label:22s} centrality={score:.4f}  "
               f"exploits={len(exploits)}  targets={len(targets)}  uses={len(uses)}")
 
-    top_cves = sorted(
-        [(k, v) for k, v in centrality.items() if k in cve_set],
-        key=lambda x: x[1],
-        reverse=True,
-    )[:5]
+    top_cves = top_k({k: v for k, v in centrality.items() if k in cve_set}, k=5)
     print()
     print("  Top 5 most connected CVEs:")
     for rank, (cve_label, score) in enumerate(top_cves, 1):

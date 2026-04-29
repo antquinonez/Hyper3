@@ -218,8 +218,7 @@ def main() -> None:
         mem.store(name, data=data)
 
     for src, tgt, label, weight in EXPOSURES:
-        edge = mem.relate(src, tgt, label=label)
-        edge.weight = weight
+        mem.relate(src, tgt, label=label, weight=weight)
 
     for src, tgt, label in RISK_EXPOSURE_EDGES:
         mem.relate(src, tgt, label=label)
@@ -271,13 +270,11 @@ def main() -> None:
 
     mem.store("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
     mem.relate("archegos_capital", "sp500_futures", label="holds")
-    edge = mem.relate("archegos_capital", "nikkei_futures", label="holds")
-    edge.weight = 10.0
+    mem.relate("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
     mem.relate("archegos_capital", "vix_futures", label="holds")
     mem.relate("archegos_capital", "sec", label="regulated_by")
 
-    node_cs = mem.graph.get_node_by_label("credit_suisse")
-    if node_cs:
+    if mem.has_node("credit_suisse"):
         mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
 
     v1 = mem.capture_version()

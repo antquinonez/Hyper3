@@ -293,13 +293,16 @@ def main() -> None:
     print(f"  Coverage:    {result.coverage:.1%}")
     print()
 
+    type_map: dict[str, str] = {}
+    for t in ("company", "product", "technology", "person", "standard"):
+        for lbl in mem.query_nodes(data={"type": t}):
+            type_map[lbl] = t
+
     for comm in result.communities[:8]:
         types: dict[str, int] = {}
         for lbl in comm.member_labels:
-            node = mem.graph.get_node_by_label(lbl)
-            if node and node.data:
-                t = node.data.get("type", "unknown")
-                types[t] = types.get(t, 0) + 1
+            t = type_map.get(lbl, "unknown")
+            types[t] = types.get(t, 0) + 1
         members_preview = ", ".join(comm.member_labels[:5])
         if comm.size > 5:
             members_preview += "..."

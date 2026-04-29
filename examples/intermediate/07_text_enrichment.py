@@ -264,7 +264,7 @@ def main():
         indicators = extract_technical_indicators(report)
         for category, values in indicators.items():
             for value in values:
-                mem.store(value, data={"type": category, "source": "manual_regex"})
+                mem.ensure(value, data={"type": category, "source": "manual_regex"})
 
         ip_addrs = indicators.get("ip_address", [])
         cves = indicators.get("cve_id", [])

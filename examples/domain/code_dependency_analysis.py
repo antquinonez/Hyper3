@@ -12,7 +12,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule
+from hyper3 import HypergraphMemory, TransitiveRule, top_k
 
 
 def main():
@@ -459,7 +459,7 @@ def main():
     print("  Top 10 critical modules (degree + betweenness):")
     print(f"  {'Module':<35s} {'Degree':>8s} {'Between':>8s} {'Score':>8s}")
     print("  " + "-" * 63)
-    for label, score in sorted(combined.items(), key=lambda x: -x[1])[:10]:
+    for label, score in top_k(combined, k=10):
         d = degree.get(label, 0.0)
         b = betweenness.get(label, 0.0)
         print(f"  {label:<35s} {d:8.3f} {b:8.3f} {score:8.3f}")
@@ -526,10 +526,9 @@ def main():
     print(f"  Multiway states explored: {expansion.get('states_created', 0)}")
     print(f"  Rules applied: {expansion.get('rules_applied', 0)}")
     if new_count > 0:
-        sample = [le for le in mem.graph.labeled_edges if le["label"] == "indirectly_depends_on"][:5]
-        for le in sample:
-            s = le["source_labels"][0] if le["source_labels"] else "?"
-            t = le["target_labels"][0] if le["target_labels"] else "?"
+        for e in mem.pattern_match(edge_label="indirectly_depends_on")[:5]:
+            s = e.source_labels[0] if e.source_labels else "?"
+            t = e.target_labels[0] if e.target_labels else "?"
             print(f"    {s} -> {t}")
     print()
 
@@ -643,7 +642,7 @@ def main():
     print(f"  Low-coverage at-risk modules: {len(at_risk)}")
     print()
 
-    top = sorted(combined.items(), key=lambda x: -x[1])[0]
+    top = top_k(combined, k=1)[0]
     print(f"  Highest-risk module: {top[0]} (criticality={top[1]:.3f})")
     blast = mem.query(top[0], strategy="bfs", max_depth=6, max_nodes=200)
     blast_count = len([n for n in blast if n.label != top[0] and n.data.get("category") != "test"])

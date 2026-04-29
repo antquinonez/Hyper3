@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from hyper3 import HypergraphMemory, Modality
+from hyper3 import HypergraphMemory, Modality, top_k
 
 
 def build_hosts(mem: HypergraphMemory) -> list[str]:
@@ -513,26 +513,20 @@ def compute_risk_scores(
     degree: dict[str, float],
     betweenness: dict[str, float],
 ) -> dict[str, float]:
+    host_labels = set(mem.query_nodes(data={"kind": "host"}))
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
         for lbl in edge.source_labels:
-            node = mem.graph.get_node_by_label(lbl)
-            if node and node.data.get("kind") == "host":
-                vuln_count[node.label] += 1
+            if lbl in host_labels:
+                vuln_count[lbl] += 1
 
+    exploit_vuln_set = set(mem.query_nodes(data={"kind": "vulnerability", "exploit_available": True}))
     exploit_edges = []
     for edge in vuln_edges:
         for lbl in edge.target_labels:
-            node = mem.graph.get_node_by_label(lbl)
-            if node and node.data.get("kind") == "vulnerability":
-                if node.data.get("exploit_available"):
-                    exploit_edges.append(edge)
-
-    host_labels: set[str] = set()
-    for n in mem.graph.nodes:
-        if n.data.get("kind") == "host":
-            host_labels.add(n.label)
+            if lbl in exploit_vuln_set:
+                exploit_edges.append(edge)
 
     scores: dict[str, float] = {}
     for label in host_labels:
@@ -551,9 +545,10 @@ def find_cross_zone_violations(mem: HypergraphMemory) -> list[tuple[str, str, st
     violations: list[tuple[str, str, str, str, str]] = []
     route_edges = mem.pattern_match(edge_label="routes_to")
     seg_zones: dict[str, str] = {}
-    for n in mem.graph.nodes:
-        if n.data.get("kind") == "segment":
-            seg_zones[n.label] = n.data.get("zone", "unknown")
+    for lbl in mem.query_nodes(data={"kind": "segment"}):
+        node = mem.graph.get_node_by_label(lbl)
+        if node:
+            seg_zones[lbl] = node.data.get("zone", "unknown")
 
     zone_rank = {"dmz": 0, "internal": 1, "restricted": 2}
     for edge in route_edges:
@@ -628,7 +623,7 @@ def main():
         lbl: score for lbl, score in degree.items()
         if lbl in set(hosts)
     }
-    top_exposed = sorted(host_degree.items(), key=lambda x: -x[1])[:10]
+    top_exposed = top_k(host_degree, k=10)
     print(f"  {'Host':25s} {'Degree':>8s}  {'Zone':12s}  Crit Patch")
     print(f"  {'-' * 25} {'-' * 8}  {'-' * 12}  ---- -----")
     for label, score in top_exposed:
@@ -647,7 +642,7 @@ def main():
     print("=" * 70)
 
     betweenness = mem.betweenness_centrality()
-    top_choke = sorted(betweenness.items(), key=lambda x: -x[1])[:10]
+    top_choke = top_k(betweenness, k=10)
     print(f"  {'Node':25s} {'Betweenness':>12s}  {'Kind':10s}")
     print(f"  {'-' * 25} {'-' * 12}  {'-' * 10}")
     for label, score in top_choke:
@@ -658,7 +653,7 @@ def main():
 
     print("  Top 5 critical chokepoints (assets whose compromise reaches many systems):")
     host_bw = {lbl: s for lbl, s in betweenness.items() if lbl in set(hosts)}
-    top5_choke = sorted(host_bw.items(), key=lambda x: -x[1])[:5]
+    top5_choke = top_k(host_bw, k=5)
     for i, (label, score) in enumerate(top5_choke, 1):
         node = mem.graph.get_node_by_label(label)
         zone = node.data.get("zone", "?") if node else "?"
@@ -785,15 +780,15 @@ def main():
     print("=" * 70)
 
     risk_scores = compute_risk_scores(mem, degree, betweenness)
-    top_risk = sorted(risk_scores.items(), key=lambda x: -x[1])[:15]
+    top_risk = top_k(risk_scores, k=15)
 
+    host_set = set(mem.query_nodes(data={"kind": "host"}))
     vuln_edges = mem.pattern_match(edge_label="vulnerable_to")
     vuln_count: dict[str, int] = defaultdict(int)
     for edge in vuln_edges:
         for lbl in edge.source_labels:
-            node = mem.graph.get_node_by_label(lbl)
-            if node and node.data.get("kind") == "host":
-                vuln_count[node.label] += 1
+            if lbl in host_set:
+                vuln_count[lbl] += 1
 
     print(f"  {'Host':25s} {'Risk':>7s}  {'Vulns':>5s}  {'Deg':>6s}  {'Btw':>7s}  Zone")
     print(f"  {'-' * 25} {'-' * 7}  {'-' * 5}  {'-' * 6}  {'-' * 7}  {'-' * 12}")
@@ -814,11 +809,10 @@ def main():
     print("=" * 70)
 
     print("  Highest-risk DMZ hosts (attacker entry points):")
-    dmz_hosts = [h for h in hosts if h in set(hosts)]
+    dmz_hosts = mem.query_nodes(data={"kind": "host", "zone": "dmz"})
     dmz_with_vulns = []
     for h in dmz_hosts:
-        node = mem.graph.get_node_by_label(h)
-        if node and node.data.get("zone") == "dmz" and vuln_count.get(h, 0) > 0:
+        if vuln_count.get(h, 0) > 0:
             dmz_with_vulns.append((h, risk_scores.get(h, 0)))
     dmz_with_vulns.sort(key=lambda x: -x[1])
     for label, risk in dmz_with_vulns[:5]:

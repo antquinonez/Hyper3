@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule
+from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
 
 def main():
@@ -443,17 +443,17 @@ def main():
     print("SECTION 3: Direct vs Transitive Dependencies -- The Tip of the Iceberg")
     print("=" * 70)
 
-    db_nodes = [n for n in mem.graph.nodes if n.data.get("type") == "database"]
-    queue_nodes = [n for n in mem.graph.nodes if n.data.get("type") == "queue"]
+    db_labels = mem.query_nodes(data={"type": "database"})
+    queue_labels = mem.query_nodes(data={"type": "queue"})
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
     for le in mem.graph.labeled_edges:
         if le["label"] == "depends_on" and le["source_labels"] and le["target_labels"]:
             direct_dep_map[le["target_labels"][0]].append(le["source_labels"][0])
 
-    for node in db_nodes + queue_nodes:
-        direct = direct_dep_map.get(node.label, [])
-        print(f"  {node.label}: {len(direct)} direct dependents")
+    for label in db_labels + queue_labels:
+        direct = direct_dep_map.get(label, [])
+        print(f"  {label}: {len(direct)} direct dependents")
     print()
     print("  This is only the surface -- transitive chains hide far more.")
     print()
@@ -501,11 +501,11 @@ def main():
 
     print("  Full blast radius of each database and queue:")
     print()
-    for node in db_nodes + queue_nodes:
-        direct = set(direct_dep_map.get(node.label, []))
-        transitive = indirect_reverse.get(node.label, set()) - direct
+    for label in db_labels + queue_labels:
+        direct = set(direct_dep_map.get(label, []))
+        transitive = indirect_reverse.get(label, set()) - direct
         total = direct | transitive
-        print(f"  {node.label}")
+        print(f"  {label}")
         print(f"    Direct dependents:    {len(direct)}")
         print(f"    Transitive dependents: {len(transitive)} (discovered by inference)")
         print(f"    Total blast radius:   {len(total)}")
@@ -520,7 +520,7 @@ def main():
     print("=" * 70)
 
     bc = mem.betweenness_centrality()
-    top_spof = sorted(bc.items(), key=lambda x: x[1], reverse=True)[:15]
+    top_spof = top_k(bc, k=15)
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")
     print(f"  {'----':<5} {'----':<35} {'-----------':<12}")
@@ -555,11 +555,10 @@ def main():
         return best
 
     chains: list[tuple[int, list[str]]] = []
-    for n in mem.graph.nodes:
-        if n.data.get("type") == "microservice":
-            chain = longest_chain(n.label)
-            if len(chain) > 2:
-                chains.append((len(chain), chain))
+    for label in mem.query_nodes(data={"type": "microservice"}):
+        chain = longest_chain(label)
+        if len(chain) > 2:
+            chains.append((len(chain), chain))
     chains.sort(reverse=True)
 
     print(f"  Longest dependency chains (top 5):")

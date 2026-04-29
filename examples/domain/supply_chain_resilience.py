@@ -12,7 +12,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality, top_k
 
 
 def main():
@@ -507,17 +507,14 @@ def main():
     deg = mem.degree_centrality()
     btw = mem.betweenness_centrality()
 
-    sorted_deg = sorted(deg.items(), key=lambda x: -x[1])
-    sorted_btw = sorted(btw.items(), key=lambda x: -x[1])
-
     print("\n  Top 10 by degree centrality (most connected / highest ripple):")
-    for name, score in sorted_deg[:10]:
+    for name, score in top_k(deg, k=10):
         node = mem.graph.get_node_by_label(name)
         cat = node.data.get("category", "?") if node and node.data else "?"
         print(f"    {name:35s} deg={score:.3f}  [{cat}]")
 
     print("\n  Top 10 by betweenness centrality (critical chokepoints):")
-    for name, score in sorted_btw[:10]:
+    for name, score in top_k(btw, k=10):
         node = mem.graph.get_node_by_label(name)
         cat = node.data.get("category", "?") if node and node.data else "?"
         print(f"    {name:35s} btw={score:.3f}  [{cat}]")

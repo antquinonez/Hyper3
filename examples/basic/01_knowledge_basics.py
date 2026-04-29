@@ -18,7 +18,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, Modality
+from hyper3 import HypergraphMemory, Modality, top_k
 
 
 THREAT_ACTORS = [
@@ -473,7 +473,7 @@ def main():
     centrality = mem.degree_centrality()
     cve_set = {c["label"] for c in CVES}
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
-    top_cves = sorted(cve_centrality.items(), key=lambda x: x[1], reverse=True)[:5]
+    top_cves = top_k(cve_centrality, k=5)
 
     print("  Rank  CVE                  Centality  CVSS   Product")
     print("  " + "-" * 60)

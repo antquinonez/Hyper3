@@ -578,15 +578,15 @@ def generate_recommendations(
                   f"(flagged by: {', '.join(perspectives)})")
 
     high_crit = []
-    for node in mem.graph.nodes:
-        if isinstance(node.data, dict):
-            crit = node.data.get("criticality", 0)
-            exposure = node.data.get("exposure", "internal")
-            dtype = node.data.get("type", "")
-            if crit >= 9 and dtype == "service":
-                dep_count = sum(1 for e in mem.graph.edges_for(node.id)
-                                if e.label == "depends_on" and node.id in e.target_ids)
-                high_crit.append((node.label, crit, exposure, dep_count))
+    for label in mem.query_nodes(type="service"):
+        node = mem.graph.get_node_by_label(label)
+        if not node or not isinstance(node.data, dict):
+            continue
+        crit = node.data.get("criticality", 0)
+        exposure = node.data.get("exposure", "internal")
+        if crit >= 9:
+            dep_count = len(mem.neighbors(label, edge_label="depends_on", direction="in"))
+            high_crit.append((label, crit, exposure, dep_count))
 
     if high_crit:
         high_crit.sort(key=lambda x: x[3], reverse=True)
