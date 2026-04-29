@@ -2,10 +2,10 @@
 
 Demonstrates five advanced capabilities:
   1. Feedback-driven evolution — evolve_with_feedback() adapts to operational outcomes
-  2. Metamorphosis validation — execute_metamorphosis_validated() with automatic rollback
+  2. Metamorphosis validation — execute_tuning_validated() with automatic rollback
   3. Cross-operation feedback — feedback_summary() finds correlated patterns
   4. Computational bias profile — compute_bias_profile() reveals reasoning tendencies
-  5. Causal merge insight preservation — CausalInvariant.insights tracks unique contributions
+  5. Causal merge insight preservation — ConvergenceRecord.insights tracks unique contributions
 
 Run:
     .venv/bin/python examples/advanced/13_self_evolving_cognition.py
@@ -13,12 +13,12 @@ Run:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.rules import TransitiveRule, InverseRule
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     def _id(label: str) -> str:
         n = mem.graph.get_node_by_label(label)
@@ -109,13 +109,13 @@ def main() -> None:
         for t in triggers:
             print(f"    {t.trigger_type}: {t.description} (urgency={t.urgency:.2f})")
 
-        plan = mem.propose_metamorphosis(triggers)
+        plan = mem.propose_tuning(triggers)
         if plan:
             print(f"  Plan: {len(plan.actions)} actions, "
                   f"expected improvement={plan.expected_improvement:.2f}, "
                   f"risk={plan.risk_level:.2f}")
 
-            result = mem.execute_metamorphosis_validated(plan)
+            result = mem.execute_tuning_validated(plan)
             print(f"  Validated execution:")
             print(f"    rolled_back={result.rolled_back}")
             print(f"    fitness_before={result.fitness_before:.3f}")
@@ -127,9 +127,9 @@ def main() -> None:
         mem._meta._state.architectural_fitness = 0.3
         triggers = mem.check_metamorphosis()
         if triggers:
-            plan = mem.propose_metamorphosis(triggers)
+            plan = mem.propose_tuning(triggers)
             if plan:
-                result = mem.execute_metamorphosis_validated(plan)
+                result = mem.execute_tuning_validated(plan)
                 print(f"  Forced metamorphosis (fitness was 0.3):")
                 print(f"    rolled_back={result.rolled_back}")
                 print(f"    fitness_before={result.fitness_before:.3f}")
@@ -167,11 +167,11 @@ def main() -> None:
     print("=" * 70)
 
     from hyper3.multiway import MultiwayEngine, MultiwayGraph
-    from hyper3.multiway_causal import CausalInvarianceEngine
+    from hyper3.multiway_causal import StateConvergenceEngine
 
     graph = mem.graph
     mw_graph = MultiwayGraph()
-    causal = CausalInvarianceEngine(graph, mw_graph, threshold=0.5)
+    causal = StateConvergenceEngine(graph, mw_graph, threshold=0.5)
 
     from hyper3.multiway import MultiwayState
     shared_nodes = {"node_a", "node_b"}

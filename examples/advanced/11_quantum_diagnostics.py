@@ -25,10 +25,10 @@ Run with:
 from __future__ import annotations
 
 import numpy as np
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 
 
-def build_incident_graph(mem: CognitiveMemory) -> None:
+def build_incident_graph(mem: HypergraphMemory) -> None:
     root_causes = {
         "db_connection_pool_exhaustion": {
             "category": "infrastructure",
@@ -292,7 +292,7 @@ def build_incident_graph(mem: CognitiveMemory) -> None:
         mem.relate(src, tgt, label="affects_service")
 
 
-def section_1_build_graph(mem: CognitiveMemory) -> list[str]:
+def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
     print("=" * 70)
     print("SECTION 1: Building the Incident Knowledge Graph")
     print("=" * 70)
@@ -313,7 +313,7 @@ def section_1_build_graph(mem: CognitiveMemory) -> list[str]:
     return hypotheses
 
 
-def section_2_superposition(mem: CognitiveMemory, hypotheses: list[str]) -> None:
+def section_2_superposition(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
     print("SECTION 2: Superposition = Maintaining Competing Hypotheses")
     print("=" * 70)
@@ -334,7 +334,7 @@ def section_2_superposition(mem: CognitiveMemory, hypotheses: list[str]) -> None
     return qs
 
 
-def section_3_collapse(mem: CognitiveMemory, hypotheses: list[str]) -> None:
+def section_3_collapse(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
     print("SECTION 3: Collapse = Evidence-Driven Hypothesis Selection")
     print("=" * 70)
@@ -389,7 +389,7 @@ def section_3_collapse(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     print()
 
 
-def section_4_correlation(mem: CognitiveMemory, hypotheses: list[str]) -> None:
+def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
     print("SECTION 4: Correlation = Correlated Hypotheses")
     print("=" * 70)
@@ -433,7 +433,7 @@ def section_4_correlation(mem: CognitiveMemory, hypotheses: list[str]) -> None:
     print()
 
 
-def section_5_interference(mem: CognitiveMemory) -> None:
+def section_5_interference(mem: HypergraphMemory) -> None:
     print("=" * 70)
     print("SECTION 5: Interference = Evidence Reinforcement and Contradiction")
     print("=" * 70)
@@ -477,7 +477,7 @@ def section_5_interference(mem: CognitiveMemory) -> None:
     print()
 
 
-def section_6_entropy(mem: CognitiveMemory, hypotheses: list[str]) -> None:
+def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("=" * 70)
     print("SECTION 6: Density Matrix and Von Neumann Entropy = Uncertainty Measure")
     print("=" * 70)
@@ -576,7 +576,7 @@ def section_7_bayesian_comparison() -> None:
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     hypotheses = section_1_build_graph(mem)
     section_2_superposition(mem, hypotheses)

@@ -20,8 +20,8 @@ from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_causal import CausalInvarianceEngine
-from hyper3.memory import CognitiveMemory
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.memory import HypergraphMemory
 
 
 def bench_label_lookup(n=2000):
@@ -112,7 +112,7 @@ def bench_find_invariants(n_leaves=50, nodes_per_leaf=10):
         )
         mg.add_state(s)
 
-    engine = CausalInvarianceEngine(g, mg, threshold=0.5)
+    engine = StateConvergenceEngine(g, mg, threshold=0.5)
 
     start = time.perf_counter()
     pairs = engine.find_invariants()
@@ -122,7 +122,7 @@ def bench_find_invariants(n_leaves=50, nodes_per_leaf=10):
 
 def bench_graph_isomorphism(n_nodes=50):
     from hyper3.multiway import MultiwayGraph, MultiwayState
-    from hyper3.multiway_causal import CausalInvarianceEngine
+    from hyper3.multiway_causal import StateConvergenceEngine
 
     g = Hypergraph()
     for i in range(n_nodes):
@@ -143,7 +143,7 @@ def bench_graph_isomorphism(n_nodes=50):
     mg.add_state(sa)
     mg.add_state(sb)
 
-    engine = CausalInvarianceEngine(g, mg)
+    engine = StateConvergenceEngine(g, mg)
     start = time.perf_counter()
     for _ in range(10):
         engine.check_graph_isomorphism(sa, sb)
@@ -152,7 +152,7 @@ def bench_graph_isomorphism(n_nodes=50):
 
 
 def bench_analogical_rule(n=30):
-    from hyper3.rules import AnalogicalReasoningRule
+    from hyper3.rules import StructuralProjectionRule
     from hyper3.embedding import EmbeddingEngine
 
     g = Hypergraph()
@@ -163,18 +163,18 @@ def bench_analogical_rule(n=30):
 
     emb = EmbeddingEngine(g)
     emb.precompute_all()
-    rule = AnalogicalReasoningRule(similarity_threshold=0.1)
+    rule = StructuralProjectionRule(similarity_threshold=0.1)
     rule.set_embedding_engine(emb)
 
     active = frozenset(f"n{i}" for i in range(n))
     start = time.perf_counter()
     matches = rule.find_matches(g, active)
     elapsed = time.perf_counter() - start
-    print(f"AnalogicalReasoningRule (n={n}): {elapsed*1000:.1f}ms, {len(matches)} matches")
+    print(f"StructuralProjectionRule (n={n}): {elapsed*1000:.1f}ms, {len(matches)} matches")
 
 
 def bench_causal_inference_rule(n=200):
-    from hyper3.rules import CausalInferenceRule
+    from hyper3.rules import HubInferenceRule
 
     g = Hypergraph()
     for i in range(n):
@@ -183,13 +183,13 @@ def bench_causal_inference_rule(n=200):
         for _ in range(3):
             g.add_edge(Hyperedge(source_ids=frozenset({f"n{i}"}), target_ids=frozenset({f"n{i+1}"}), label="trigger"))
 
-    rule = CausalInferenceRule(min_support=2, confidence_threshold=0.5)
+    rule = HubInferenceRule(min_support=2, confidence_threshold=0.5)
     active = frozenset(f"n{i}" for i in range(n))
 
     start = time.perf_counter()
     matches = rule.find_matches(g, active)
     elapsed = time.perf_counter() - start
-    print(f"CausalInferenceRule (n={n}): {elapsed*1000:.1f}ms, {len(matches)} matches")
+    print(f"HubInferenceRule (n={n}): {elapsed*1000:.1f}ms, {len(matches)} matches")
 
 
 def bench_lazy_expansion(n=50):
@@ -261,12 +261,12 @@ def bench_multi_scale_branchial(n_states=50):
 
 
 def bench_basis_learning(n_outcomes=500):
-    from hyper3.quantum import QuantumCognitiveLayer
+    from hyper3.quantum import QuantumInterpretationLayer
 
     g = Hypergraph()
     for i in range(10):
         g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
-    qcl = QuantumCognitiveLayer(g)
+    qcl = QuantumInterpretationLayer(g)
 
     bases = ["pragmatic", "linguistic", "temporal", "emotional"]
     for i in range(n_outcomes):

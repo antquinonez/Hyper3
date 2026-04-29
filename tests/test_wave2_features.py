@@ -5,7 +5,7 @@ import os
 
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule, InverseRule, Rule, RuleMatch
 
 
@@ -202,7 +202,7 @@ class TestBackwardChaining:
 
 class TestMemoryAnalyticsFacade:
     def test_subgraph_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -212,14 +212,14 @@ class TestMemoryAnalyticsFacade:
         assert result["edge_count"] == 1
 
     def test_has_cycle_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="e")
         assert mem.has_cycle() is False
 
     def test_connected_components_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="e")
@@ -229,7 +229,7 @@ class TestMemoryAnalyticsFacade:
 
 class TestDeriveFacade:
     def test_derive_finds_backward_chain(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -241,14 +241,14 @@ class TestDeriveFacade:
         assert any(r.rule.startswith("transitive") for r in results)
 
     def test_derive_unknown_concept(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         results = mem.derive("nonexistent")
         assert results == []
 
 
 class TestIterativeReasoning:
     def test_reason_iterative_produces_results(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -261,14 +261,14 @@ class TestIterativeReasoning:
         assert result["total_edges_produced"] >= 0
 
     def test_reason_iterative_no_rules(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.reason_iterative({"a"})
         assert "error" in result
 
 
 class TestFrameReasoning:
     def test_reason_with_classical_frame(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -280,7 +280,7 @@ class TestFrameReasoning:
         assert result["expansion"]["rules_applied"] > 0
 
     def test_reason_with_quantum_frame(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="e")
@@ -291,7 +291,7 @@ class TestFrameReasoning:
 
 class TestTemporalConsistency:
     def test_temporal_consistency_check(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="e")
@@ -308,7 +308,7 @@ class TestTemporalConsistency:
 
 class TestShortestPathFacade:
     def test_shortest_path_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -319,7 +319,7 @@ class TestShortestPathFacade:
         assert len(path) == 3
 
     def test_shortest_path_no_path(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("z")
         path = mem.shortest_path("a", "z")

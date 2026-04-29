@@ -15,7 +15,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, AllenRelation
+from hyper3 import HypergraphMemory, AllenRelation
 from hyper3.temporal import TemporalEvent
 
 BASE = 1700000000.0
@@ -186,7 +186,7 @@ def find_critical_path(events: list[TemporalEvent]) -> list[str]:
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Incident Timeline Construction

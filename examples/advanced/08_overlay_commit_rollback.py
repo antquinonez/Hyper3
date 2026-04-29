@@ -18,7 +18,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     TransitiveRule,
     InverseRule,
     Modality,
@@ -319,7 +319,7 @@ SYMPTOMS: list[tuple[str, str]] = [
 ]
 
 
-def build_infrastructure(mem: CognitiveMemory) -> None:
+def build_infrastructure(mem: HypergraphMemory) -> None:
     all_nodes: dict[str, dict] = {}
     all_nodes.update(SERVICES)
     all_nodes.update(DATABASES)
@@ -348,7 +348,7 @@ def build_infrastructure(mem: CognitiveMemory) -> None:
 
 
 def analyze_hypothesis(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     seeds: set[str],
     symptom_ids: set[str],
 ) -> dict:
@@ -442,7 +442,7 @@ def print_hypothesis_report(
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building Microservices Infrastructure Graph")

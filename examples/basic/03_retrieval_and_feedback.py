@@ -19,10 +19,10 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 
 
-def _build_kb(mem: CognitiveMemory) -> None:
+def _build_kb(mem: HypergraphMemory) -> None:
     security_threats = [
         "sql_injection", "xss", "csrf", "rce", "privilege_escalation",
         "buffer_overflow", "mitm", "phishing", "ransomware", "rootkit",
@@ -430,7 +430,7 @@ def _build_kb(mem: CognitiveMemory) -> None:
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Knowledge Base Construction

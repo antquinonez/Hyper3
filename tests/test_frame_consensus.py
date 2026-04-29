@@ -1,11 +1,11 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
 from hyper3.kernel import Hyperedge
 from hyper3.multi_perspective import ConsensusResult, DisagreementRegion
 
 
 def _make_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("core")
     mem.store("mid")
     mem.store("far_a")

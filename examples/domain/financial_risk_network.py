@@ -16,7 +16,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, TransitiveRule, InverseRule
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
 
 
 COUNTERPARTIES = {
@@ -207,7 +207,7 @@ REGULATORY_EDGES: list[tuple[str, str]] = [
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building Financial Risk Network")

@@ -34,7 +34,7 @@ Intermediate Examples (`intermediate/`)
 | 05 | `05_provenance_and_retraction.py` | Evidence chains in threat intel | provenance tracking, explain(), cascading retraction, impact analysis |
 | 06 | `06_graph_analytics.py` | Network attack surface analysis (128 nodes) | centrality, cycles, components, cross-zone violations, composite risk scoring |
 | 07 | `07_text_enrichment.py` | Security report extraction (16 reports) | ingest, regex extraction, custom LLMProvider, honest limitation assessment |
-| 12 | `12_advanced_rules.py` | Infrastructure pattern discovery (125 nodes) | CausalInferenceRule, GeneralizationRule, AnalogicalReasoningRule, auto-discovery |
+| 12 | `12_advanced_rules.py` | Infrastructure pattern discovery (125 nodes) | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
 | 13 | `13_structural_patterns_and_communities.py` | Technology ecosystem analysis (76 nodes) | chain/diamond/fan-out detection, community detection, cross-analysis |
 
 Advanced Examples (`advanced/`)

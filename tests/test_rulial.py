@@ -3,7 +3,7 @@ from hyper3 import (
     Hyperedge,
     Hypergraph,
     Hypernode,
-    MetaComputationalPattern,
+    DetectedPattern,
     Modality,
     RulialPosition,
     RulialSpace,

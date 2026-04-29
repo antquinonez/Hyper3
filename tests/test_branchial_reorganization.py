@@ -1,11 +1,11 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
 from hyper3.kernel import Hyperedge
 from hyper3.multiway import MultiwayState
 
 
 def _setup_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d"]:
         mem.store(label)
     a = mem.graph.get_node_by_label("a")

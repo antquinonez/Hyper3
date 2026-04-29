@@ -486,8 +486,8 @@ class MultiwayEngine:
                     "source_state": state_id,
                     "lateral_state": sibling.id,
                     "rule_used": sibling.rule_applied,
-                    "novel_nodes_in_source": list(new_in_current),
-                    "novel_nodes_in_lateral": list(new_in_sibling),
+                    "novel_in_source": list(new_in_current),
+                    "novel_in_lateral": list(new_in_sibling),
                     "branchial_distance": self._multiway.branchial_distance(state_id, sibling.id),
                 })
         return insights

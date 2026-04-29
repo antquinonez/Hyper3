@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
     from hyper3.multiway_branchial import BranchialSpace
-    from hyper3.quantum import QuantumCognitiveLayer
+    from hyper3.quantum import QuantumInterpretationLayer
     from hyper3.kernel import Hypergraph
 
 
@@ -218,7 +218,7 @@ def plot_branchial_space(
 
 
 def plot_quantum_state(
-    quantum: QuantumCognitiveLayer,
+    quantum: QuantumInterpretationLayer,
     qs_id: str,
     *,
     figsize: tuple[float, float] = (10, 6),
@@ -230,7 +230,7 @@ def plot_quantum_state(
     """Plot amplitudes and/or Born-rule probabilities for a quantum state.
 
     Args:
-        quantum: The quantum cognitive layer holding the state.
+        quantum: The quantum interpretation layer holding the state.
         qs_id: ID of the quantum state to visualize.
         figsize: Matplotlib figure size in inches.
         show_probabilities: Draw the probability bar chart.
@@ -294,7 +294,7 @@ def plot_quantum_state(
 
 
 def plot_quantum_interference(
-    quantum: QuantumCognitiveLayer,
+    quantum: QuantumInterpretationLayer,
     qs_id: str,
     *,
     figsize: tuple[float, float] = (10, 5),
@@ -304,7 +304,7 @@ def plot_quantum_interference(
     """Plot constructive and destructive interference values for a quantum state.
 
     Args:
-        quantum: The quantum cognitive layer holding the state.
+        quantum: The quantum interpretation layer holding the state.
         qs_id: ID of the quantum state.
         figsize: Matplotlib figure size in inches.
         graph: Optional hypergraph for resolving node labels.

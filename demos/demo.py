@@ -4,9 +4,9 @@ Demonstration of hyper3's self-evolving hypergraph cognitive kernel.
 Run with: .venv/bin/python demo.py
 """
 
-from hyper3 import CognitiveMemory, Modality, AbstractionLayer
+from hyper3 import HypergraphMemory, Modality, AbstractionLayer
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 # --- 1. BUILD A KNOWLEDGE GRAPH -----------------------------------------
 print("=" * 60)

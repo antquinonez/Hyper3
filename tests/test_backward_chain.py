@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     TransitiveRule,
     InverseRule,
     AbductiveRule,
@@ -12,20 +12,20 @@ from hyper3 import (
 
 class TestBackwardChainBasic:
     def test_prove_unknown_target(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.prove("nonexistent")
         assert not result.achievable
         assert result.goal_id == ""
 
     def test_prove_known_fact(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A", data={"val": 1})
         result = mem.prove("A", known_facts={"A"})
         assert result.achievable
         assert result.confidence == 1.0
 
     def test_prove_with_transitive_chain(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -37,7 +37,7 @@ class TestBackwardChainBasic:
         assert isinstance(result.missing_premises, list)
 
     def test_prove_batch_accumulates(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -48,7 +48,7 @@ class TestBackwardChainBasic:
         assert len(results) == 2
 
     def test_backward_chain_property(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.backward_chain is None
         mem.prove("anything")
         assert mem.backward_chain is not None
@@ -57,7 +57,7 @@ class TestBackwardChainBasic:
 class TestBackwardChainEngine:
     def test_direct_match(self) -> None:
         from hyper3.backward_chain import BackwardChainEngine
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("X", known_facts={"X"})
@@ -66,7 +66,7 @@ class TestBackwardChainEngine:
 
     def test_unprovable(self) -> None:
         from hyper3.backward_chain import BackwardChainEngine
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("X", known_facts=set())
@@ -74,7 +74,7 @@ class TestBackwardChainEngine:
 
     def test_proof_tree_structure(self) -> None:
         from hyper3.backward_chain import BackwardChainEngine
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="implies")
@@ -85,7 +85,7 @@ class TestBackwardChainEngine:
 
     def test_max_depth_limit(self) -> None:
         from hyper3.backward_chain import BackwardChainEngine
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"N{i}")
             if i > 0:
@@ -98,7 +98,7 @@ class TestBackwardChainEngine:
 
 class TestBackwardChainIntegration:
     def test_with_multiple_rules(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -113,7 +113,7 @@ class TestBackwardChainIntegration:
         assert result is not None
 
     def test_with_abductive_rule(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("symptom_a", data={"type": "symptom"})
         mem.store("symptom_b", data={"type": "symptom"})
         mem.store("root_cause", data={"type": "cause"})

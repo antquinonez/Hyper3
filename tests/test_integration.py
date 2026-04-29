@@ -3,7 +3,7 @@ import tempfile
 import pytest
 from hyper3 import (
     AbductiveRule,
-    CognitiveMemory,
+    HypergraphMemory,
     MultiPerspectiveAnalyzer,
     GeneralizationRule,
     InverseRule,
@@ -16,7 +16,7 @@ from hyper3 import (
 
 class TestIntegrationFullPipeline:
     def test_knowledge_graph_lifecycle(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
 
         for name in ["ignition", "fuel", "combustion", "heat", "rotation", "electricity", "battery"]:
             mem.store(name, modalities={Modality.CONCEPTUAL})
@@ -55,7 +55,7 @@ class TestIntegrationFullPipeline:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "knowledge.json")
 
-            mem = CognitiveMemory(evolve_interval=0)
+            mem = HypergraphMemory(evolve_interval=0)
             for name in ["x", "y", "z"]:
                 mem.store(name)
             mem.relate("x", "y", label="rel")
@@ -66,7 +66,7 @@ class TestIntegrationFullPipeline:
             mem.save(path)
             edges_after_session1 = mem.graph.edge_count
 
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.graph.node_count == 3
             assert mem2.graph.edge_count == edges_after_session1
@@ -78,7 +78,7 @@ class TestIntegrationFullPipeline:
             assert mem2.graph.edge_count > edges_after_session1
 
     def test_quantum_diagnostic_pipeline(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for name in ["battery_weak", "battery_dead", "alternator_bad", "starter_bad"]:
             mem.store(name)
 
@@ -102,7 +102,7 @@ class TestIntegrationFullPipeline:
         assert qs.collapsed
 
     def test_anomaly_boundary_mapping(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("simple_concept")
         mem.store("self-referential structure")
         mem.store("all universal statements")
@@ -116,7 +116,7 @@ class TestIntegrationFullPipeline:
         assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
 
     def test_multi_frame_analysis_pipeline(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("engine", data={"type": "mechanical"})
         mem.relate("engine", "engine", label="self_ref")
 
@@ -133,8 +133,8 @@ class TestIntegrationFullPipeline:
         mem.quantum.add_basis(custom)
         assert mem.quantum.get_basis("diagnostic") is not None
 
-    def test_rulial_meta_cognitive_pipeline(self):
-        mem = CognitiveMemory(evolve_interval=0)
+    def test_rulial_monitor_stats_pipeline(self):
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"concept_{i}")
         for i in range(9):
@@ -155,16 +155,16 @@ class TestIntegrationFullPipeline:
         assert len(insights) >= 1
 
         introspection = mem.introspect()
-        assert introspection.cognitive_state.fitness > 0.0
+        assert introspection.system_health.fitness > 0.0
 
         mem.add_rules(TransitiveRule(edge_label="chain"))
         mem.reason({"concept_0", "concept_5"}, max_depth=3, max_total_states=15)
 
         introspection2 = mem.introspect()
-        assert introspection2.cognitive_state.fitness > 0.0
+        assert introspection2.system_health.fitness > 0.0
 
     def test_rule_discovery_and_application_pipeline(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d", "e"]:
             mem.store(label)
         mem.relate("a", "b", label="next")
@@ -183,7 +183,7 @@ class TestIntegrationFullPipeline:
         assert reason["expansion"]["states_created"] > 0
 
     def test_evolution_decay_and_prune(self):
-        mem = CognitiveMemory(evolve_interval=1, decay_threshold=0.01, decay_factor=0.01)
+        mem = HypergraphMemory(evolve_interval=1, decay_threshold=0.01, decay_factor=0.01)
         for label in ["keep", "drop"]:
             mem.store(label)
         mem.relate("keep", "drop")
@@ -205,7 +205,7 @@ class TestIntegrationFullPipeline:
         assert stats["evolution"]["prunes"] >= 0
 
     def test_branchial_space_after_reasoning(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for label in ["r", "a", "b", "c"]:
             mem.store(label)
         mem.relate("r", "a", label="rel")
@@ -222,7 +222,7 @@ class TestIntegrationFullPipeline:
     def test_persistence_preserves_thresholds(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.json")
-            mem = CognitiveMemory(
+            mem = HypergraphMemory(
                 evolve_interval=0,
                 merge_threshold=0.5,
                 decay_threshold=0.01,
@@ -231,7 +231,7 @@ class TestIntegrationFullPipeline:
             mem.relate("a", "a", label="self")
             mem.save(path)
 
-            mem2 = CognitiveMemory(
+            mem2 = HypergraphMemory(
                 evolve_interval=0,
                 merge_threshold=0.5,
                 decay_threshold=0.01,
@@ -241,7 +241,7 @@ class TestIntegrationFullPipeline:
             assert mem2._decay_threshold == 0.01
 
     def test_all_quantum_bases_work(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for label in ["cat", "dog", "bird"]:
             mem.store(label, tags={"semantic": 0.5, "recency": 1.0, "valence": 0.3})
         qs = mem.superpose(["cat", "dog", "bird"])
@@ -251,7 +251,7 @@ class TestIntegrationFullPipeline:
             assert result is not None
 
     def test_correlate_with_label_vs_id(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.store("pet")

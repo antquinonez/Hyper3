@@ -1,17 +1,17 @@
 import pytest
 from hyper3 import (
-    CognitiveMemory,
-    CognitiveStateModel,
+    HypergraphMemory,
+    SystemHealthModel,
     EventLog,
     Hyperedge,
     Hypergraph,
     Hypernode,
-    MetaCognitiveLayer,
-    MetamorphosisPlan,
-    MetamorphosisTrigger,
+    SystemMonitor,
+    TuningPlan,
+    TuningTrigger,
     Modality,
     RuleDiscoveryEngine,
-    SelfEvolutionEngine,
+    GraphMaintenanceEngine,
     TransitiveRule,
     InverseRule,
 )
@@ -24,46 +24,46 @@ def _build_layer_with_reasoning():
     g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
     g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
     g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
-    evo = SelfEvolutionEngine(g)
+    evo = GraphMaintenanceEngine(g)
     log = EventLog()
     disc = RuleDiscoveryEngine(g)
-    layer = MetaCognitiveLayer(g, evo, log, disc)
+    layer = SystemMonitor(g, evo, log, disc)
     log.record("reason", seeds=["a", "b"])
     log.record("reason", seeds=["c", "d"])
     return layer, g
 
 
-class TestMetaCognitiveDeep:
+class TestMonitorStatsDeep:
     def test_assess_state_detects_reasoning(self):
         layer, _ = _build_layer_with_reasoning()
         state = layer.assess_state()
-        assert state.boundary_navigation_success > 0.0
+        assert state.reasoning_activity_rate > 0.0
 
     def test_assess_state_with_rulial(self):
         g = Hypergraph()
         for label in ["a", "b", "c"]:
             g.add_node(Hypernode(id=label, label=label))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         for name in ["t1", "t2", "t3", "t4", "t5"]:
             rulial.record_rule_application(name)
         rulial.find_meta_patterns()
         rulial.generate_high_level_insights()
-        layer.attach_rulial(rulial)
+        layer.set_rulial(rulial)
         state = layer.assess_state()
         assert state.rulial_insight_count > 0
 
     def test_introspect_with_recommendations(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         result = layer.introspect()
         assert "recommendations" in result
 
@@ -71,12 +71,12 @@ class TestMetaCognitiveDeep:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         layer._state.architectural_fitness = 0.3
-        triggers = layer.check_metamorphosis_triggers()
+        triggers = layer.check_tuning_triggers()
         plateau = [t for t in triggers if t.trigger_type == "performance_plateau"]
         assert len(plateau) >= 1
 
@@ -84,21 +84,21 @@ class TestMetaCognitiveDeep:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         rulial._meta_patterns.append(
-            __import__("hyper3").MetaComputationalPattern(
+            __import__("hyper3").DetectedPattern(
                 pattern_type="recurring_relation",
                 description="test",
                 occurrence_count=6,
             )
         )
-        layer.attach_rulial(rulial)
-        triggers = layer.check_metamorphosis_triggers()
+        layer.set_rulial(rulial)
+        triggers = layer.check_tuning_triggers()
         meta = [t for t in triggers if t.trigger_type == "meta_insight"]
         assert len(meta) >= 1
 
@@ -106,39 +106,39 @@ class TestMetaCognitiveDeep:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         layer._state.architectural_fitness = 0.3
         from hyper3.multiway_rulial import RulialSpace
         rulial = RulialSpace(g)
         rulial._meta_patterns.append(
-            __import__("hyper3").MetaComputationalPattern(
+            __import__("hyper3").DetectedPattern(
                 pattern_type="recurring_relation",
                 description="test",
                 occurrence_count=6,
             )
         )
-        layer.attach_rulial(rulial)
+        layer.set_rulial(rulial)
         for _ in range(5):
             layer._introspection_log.append({"summary": {"anti_patterns": ["test"]}})
-        triggers = layer.check_metamorphosis_triggers()
+        triggers = layer.check_tuning_triggers()
         types = {t.trigger_type for t in triggers}
         assert "performance_plateau" in types
         assert "meta_insight" in types
         assert "cross_domain" in types
 
-    def test_propose_metamorphosis_plan_actions(self):
+    def test_propose_tuning_plan_actions(self):
         layer, _ = _build_layer_with_reasoning()
         triggers = [
-            MetamorphosisTrigger(trigger_type="performance_plateau", description="test", urgency=0.9),
-            MetamorphosisTrigger(trigger_type="novel_problem", description="test", urgency=0.6),
-            MetamorphosisTrigger(trigger_type="meta_insight", description="test", urgency=0.7),
-            MetamorphosisTrigger(trigger_type="cross_domain", description="test", urgency=0.8),
+            TuningTrigger(trigger_type="performance_plateau", description="test", urgency=0.9),
+            TuningTrigger(trigger_type="novel_problem", description="test", urgency=0.6),
+            TuningTrigger(trigger_type="meta_insight", description="test", urgency=0.7),
+            TuningTrigger(trigger_type="cross_domain", description="test", urgency=0.8),
         ]
-        plan = layer.propose_metamorphosis(triggers)
-        assert isinstance(plan, MetamorphosisPlan)
+        plan = layer.propose_tuning(triggers)
+        assert isinstance(plan, TuningPlan)
         assert len(plan.actions) >= 4
         assert plan.expected_improvement > 0.0
         assert plan.risk_level > 0.0
@@ -147,10 +147,10 @@ class TestMetaCognitiveDeep:
         g = Hypergraph()
         for label in ["a", "b", "c"]:
             g.add_node(Hypernode(id=label, label=label))
-        evo = SelfEvolutionEngine(g)
+        evo = GraphMaintenanceEngine(g)
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
-        layer = MetaCognitiveLayer(g, evo, log, disc)
+        layer = SystemMonitor(g, evo, log, disc)
         from hyper3.rules_discovery import DiscoveredRule
         discovered_with_rules = []
         for i in range(5):

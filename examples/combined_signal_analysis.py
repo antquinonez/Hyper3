@@ -13,7 +13,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     EmbeddingProvider,
     Modality,
     TransitiveRule,
@@ -49,7 +49,7 @@ def combined_score(activation: float, similarity: float, alpha: float = 0.5) -> 
     return alpha * activation + (1 - alpha) * similarity
 
 
-def build_medical_kb(mem: CognitiveMemory) -> None:
+def build_medical_kb(mem: HypergraphMemory) -> None:
     conditions = {
         "type 2 diabetes": {
             "category": "metabolic",
@@ -233,7 +233,7 @@ def build_medical_kb(mem: CognitiveMemory) -> None:
 
 
 def run_query(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     concept: str,
     *,
     alpha: float = 0.5,
@@ -302,7 +302,7 @@ def main() -> None:
     print("Loading sentence-transformers model...")
     provider = SentenceTransformerProvider()
 
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.set_embedding_provider(provider)
     build_medical_kb(mem)
 

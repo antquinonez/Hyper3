@@ -7,7 +7,7 @@ centrality computation, path finding, cycle detection, and component
 analysis on a real software dependency graph.
 
 Systems compared:
-  1. Hyper3 (CognitiveMemory API)
+  1. Hyper3 (HypergraphMemory API)
   2. Raw networkx
 
 Metrics:
@@ -29,7 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import networkx as nx
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 from shared import (
     build_dependency_graph,
     build_nx_digraph,
@@ -47,7 +47,7 @@ def main() -> None:
     # Build both representations
     nx_graph, edge_labels = build_nx_digraph(nodes, edges)
 
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     for label, data in nodes:
         mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
     for src, tgt, lbl in edges:

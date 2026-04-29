@@ -12,7 +12,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 
 
 COMPANIES = {
@@ -220,7 +220,7 @@ EDGES: list[tuple[str, str, str, float]] = [
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building Technology Ecosystem Graph")

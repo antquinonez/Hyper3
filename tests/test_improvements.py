@@ -6,7 +6,7 @@ import tempfile
 
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
@@ -103,7 +103,7 @@ def _make_rule_graph():
 
 
 def _setup_memory():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("a")
     mem.store("b")
     mem.store("c")
@@ -436,7 +436,7 @@ class TestRulePersistence:
         assert restored.name == "transitive(foo)"
 
     def test_save_load_with_rules(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="next")
@@ -445,7 +445,7 @@ class TestRulePersistence:
             path = f.name
         try:
             mem.save(path)
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.graph.node_count == 2
             assert len(mem2._rules) == 1
@@ -500,7 +500,7 @@ class TestMemoryOverlayIntegration:
 
 class TestIncrementalExpansion:
     def test_reason_incremental(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -515,14 +515,14 @@ class TestIncrementalExpansion:
         assert "expansion" in inc_result
 
     def test_reason_incremental_no_prior_session(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.reason_incremental({"a"})
         assert "error" in result
 
 
 class TestMemoryPathQueries:
     def test_find_paths_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -533,7 +533,7 @@ class TestMemoryPathQueries:
         assert len(paths[0]) == 3
 
     def test_pattern_match_facade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="connects")
@@ -542,19 +542,19 @@ class TestMemoryPathQueries:
         assert matches[0].label == "connects"
 
     def test_find_paths_no_match(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         paths = mem.find_paths("nonexistent", "also_nonexistent")
         assert paths == []
 
     def test_pattern_match_no_results(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         matches = mem.pattern_match(edge_label="nonexistent")
         assert matches == []
 
 
 class TestStandardFormatIO:
     def test_export_import_json(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y", label="rel")
@@ -566,7 +566,7 @@ class TestStandardFormatIO:
                 data = json.load(f)
             assert "nodes" in data
             assert "edges" in data
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             result = mem2.import_json(path)
             assert result["nodes"] == 2
             assert result["edges"] == 1
@@ -574,7 +574,7 @@ class TestStandardFormatIO:
             os.unlink(path)
 
     def test_export_import_edgelist(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         na = mem.store("a")
         nb = mem.store("b")
         mem.relate("a", "b", label="edge")
@@ -613,7 +613,7 @@ class TestStandardFormatIO:
 
 class TestAutoSuperposition:
     def test_auto_superposition_creates_quantum_states(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -632,7 +632,7 @@ class TestAutoSuperposition:
 
 class TestProvenanceWithOverlay:
     def test_provenance_records_overlay_edges(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -649,7 +649,7 @@ class TestProvenanceWithOverlay:
 
 class TestExhaustiveReasoning:
     def test_exhaustive_explores_more_states(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for ch in "abcdefghij":
             mem.store(ch)
         for i in range(9):
@@ -657,7 +657,7 @@ class TestExhaustiveReasoning:
         mem.add_rules(TransitiveRule(edge_label="next"))
         bounded = mem.reason({"a", "b", "c", "d"}, max_total_states=2)
         bounded_states = bounded.expansion.states_created if bounded.expansion else 0
-        mem2 = CognitiveMemory(evolve_interval=0)
+        mem2 = HypergraphMemory(evolve_interval=0)
         for ch in "abcdefghij":
             mem2.store(ch)
         for i in range(9):
@@ -668,7 +668,7 @@ class TestExhaustiveReasoning:
         assert exhaustive_states >= bounded_states
 
     def test_exhaustive_flag_signature(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         result = mem.reason({"x"}, exhaustive=True)
         assert result.error is None or isinstance(result.error, str)
@@ -676,7 +676,7 @@ class TestExhaustiveReasoning:
 
 class TestMultiEdgeCount:
     def test_multi_edge_count_zero_without_hyperedges(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="pair")
@@ -684,7 +684,7 @@ class TestMultiEdgeCount:
         assert s.multi_edge_count == 0
 
     def test_multi_edge_count_with_hyperedge(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         a = mem.store("a")
         b = mem.store("b")
         c = mem.store("c")

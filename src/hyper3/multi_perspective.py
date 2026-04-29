@@ -35,7 +35,7 @@ class ProblemFeatures:
 
 
 @dataclass
-class ComputationalFrame:
+class AnalysisPreset:
     name: str
     frame_type: str = "classical"
     metrics: dict[str, float] = field(default_factory=dict)
@@ -49,7 +49,7 @@ class ComputationalFrame:
 
 
 @dataclass
-class FrameAnalysis:
+class PresetAnalysis:
     frame_name: str
     complexity: float
     solution_approach: str
@@ -68,7 +68,7 @@ class FrameTransformation:
 
 
 @dataclass
-class InvariantSet:
+class RobustReachabilitySet:
     invariant_nodes: set[str] = field(default_factory=set)
     invariant_edges: set[str] = field(default_factory=set)
     frame_unique: dict[str, set[str]] = field(default_factory=dict)
@@ -88,7 +88,7 @@ class DisagreementRegion:
 class ConsensusResult:
     agreed_nodes: set[str] = field(default_factory=set)
     agreed_edges: set[str] = field(default_factory=set)
-    frame_results: dict[str, FrameAnalysis] = field(default_factory=dict)
+    frame_results: dict[str, PresetAnalysis] = field(default_factory=dict)
     disagreement_regions: list[DisagreementRegion] = field(default_factory=list)
     confidence: float = 0.0
     strategy_used: str = "intersection"
@@ -105,7 +105,7 @@ class StructuralMetrics:
         return self.frame_information_loss
 
 
-class InvariantDetector:
+class RobustReachabilityDetector:
     def __init__(self, perspective: MultiPerspectiveAnalyzer) -> None:
         """Bind the detector to a parent multi-perspective analyzer.
 
@@ -119,7 +119,7 @@ class InvariantDetector:
         self,
         seed_ids: list[str],
         graph: Hypergraph,
-    ) -> InvariantSet:
+    ) -> RobustReachabilitySet:
         """Traverse from seed nodes under every frame and collect shared invariants.
 
         Each frame may impose different depth limits and minimum weight
@@ -131,7 +131,7 @@ class InvariantDetector:
             graph: The hypergraph to traverse.
 
         Returns:
-            An :class:`InvariantSet` containing nodes/edges present in every
+            An :class:`RobustReachabilitySet` containing nodes/edges present in every
             frame's reachable set, per-frame unique extras, and a confidence
             score (fraction of all reachable nodes that are invariant).
         """
@@ -174,7 +174,7 @@ class InvariantDetector:
             frame_edges[frame_name] = edges_used
 
         if not frame_reachability:
-            return InvariantSet(frame_count=0)
+            return RobustReachabilitySet(frame_count=0)
 
         invariant_nodes = set.intersection(*frame_reachability.values())
         invariant_edges = set.intersection(*frame_edges.values())
@@ -187,7 +187,7 @@ class InvariantDetector:
                 frame_unique[fname] = unique
 
         confidence = len(invariant_nodes) / max(len(all_nodes), 1)
-        return InvariantSet(
+        return RobustReachabilitySet(
             invariant_nodes=invariant_nodes,
             invariant_edges=invariant_edges,
             frame_unique=frame_unique,
@@ -195,7 +195,7 @@ class InvariantDetector:
             frame_count=len(all_frames),
         )
 
-    def mark_invariants(self, invariant_set: InvariantSet, graph: Hypergraph) -> None:
+    def mark_invariants(self, invariant_set: RobustReachabilitySet, graph: Hypergraph) -> None:
         """Annotate graph nodes and edges with invariant metadata.
 
         Args:
@@ -215,26 +215,26 @@ class InvariantDetector:
                     break
 
 
-FRAME_TEMPLATES: dict[str, ComputationalFrame] = {
-    "classical": ComputationalFrame(
+FRAME_TEMPLATES: dict[str, AnalysisPreset] = {
+    "classical": AnalysisPreset(
         name="classical",
         frame_type="classical",
         metrics={"time_complexity": 0.0, "space_complexity": 0.0},
         constraints={"deterministic": True},
     ),
-    "quantum": ComputationalFrame(
+    "quantum": AnalysisPreset(
         name="quantum",
         frame_type="quantum",
         metrics={"query_complexity": 0.0, "superposition_utilization": 0.0},
         constraints={"superposition": True, "correlation": True},
     ),
-    "hypergraph": ComputationalFrame(
+    "hypergraph": AnalysisPreset(
         name="hypergraph",
         frame_type="hypergraph",
         metrics={"rewriting_depth": 0.0, "branching_factor": 0.0, "causal_density": 0.0},
-        constraints={"causal_invariance": True},
+        constraints={"state_convergence": True},
     ),
-    "probabilistic": ComputationalFrame(
+    "probabilistic": AnalysisPreset(
         name="probabilistic",
         frame_type="probabilistic",
         metrics={"sample_complexity": 0.0, "confidence_bound": 0.0},
@@ -251,13 +251,13 @@ class MultiPerspectiveAnalyzer:
             graph: The hypergraph to analyse across computational frames.
         """
         self._graph = graph
-        self._frames: dict[str, ComputationalFrame] = dict(FRAME_TEMPLATES)
+        self._frames: dict[str, AnalysisPreset] = dict(FRAME_TEMPLATES)
         self._transformations: list[FrameTransformation] = []
         self._frame_outcomes: dict[str, dict[str, int]] = {}
         self._problem_history: list[tuple[np.ndarray, str, bool]] = []
         self._transformer = FrameTransformer()
 
-    def add_frame(self, frame: ComputationalFrame) -> None:
+    def add_frame(self, frame: AnalysisPreset) -> None:
         """Register a custom computational frame.
 
         Args:
@@ -265,18 +265,18 @@ class MultiPerspectiveAnalyzer:
         """
         self._frames[frame.name] = frame
 
-    def get_frame(self, name: str) -> ComputationalFrame | None:
+    def get_frame(self, name: str) -> AnalysisPreset | None:
         """Look up a frame by name.
 
         Args:
             name: The frame identifier.
 
         Returns:
-            The matching :class:`ComputationalFrame`, or ``None`` if not found.
+            The matching :class:`AnalysisPreset`, or ``None`` if not found.
         """
         return self._frames.get(name)
 
-    def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
+    def analyze_in_frame(self, concept: str, frame_name: str) -> PresetAnalysis:
         """Analyse a concept from the perspective of a single computational frame.
 
         Dispatches to the frame-specific analysis method for built-in frames
@@ -288,13 +288,13 @@ class MultiPerspectiveAnalyzer:
             frame_name: Name of the computational frame to use.
 
         Returns:
-            A :class:`FrameAnalysis` with complexity, approach, strengths,
+            A :class:`PresetAnalysis` with complexity, approach, strengths,
             and weaknesses.  Complexity is ``inf`` when the node or frame is
             unknown.
         """
         node = self._graph.get_node_by_label(concept)
         if not node:
-            return FrameAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="node_not_found")
+            return PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="node_not_found")
 
         edges = self._graph.edges_for(node.id)
         neighbor_count = len(set(nid for e in edges for nid in e.target_ids if nid != node.id))
@@ -314,8 +314,8 @@ class MultiPerspectiveAnalyzer:
         if frame:
             complexity = self._compute_complexity(node, frame)
             approach = self._derive_approach(frame, complexity)
-            strengths, weaknesses = self._assess_frame_legacy(frame, complexity)
-            return FrameAnalysis(
+            strengths, weaknesses = self._assess_custom_frame(frame, complexity)
+            return PresetAnalysis(
                 frame_name=frame_name,
                 complexity=complexity,
                 solution_approach=approach,
@@ -323,13 +323,13 @@ class MultiPerspectiveAnalyzer:
                 weaknesses=weaknesses,
             )
 
-        return FrameAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="unknown_frame")
+        return PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="unknown_frame")
 
     def multi_frame_analysis(
         self,
         concept: str,
         strategy: str = "best",
-    ) -> dict[str, FrameAnalysis]:
+    ) -> dict[str, PresetAnalysis]:
         """Run analysis across all registered frames for a concept.
 
         Args:
@@ -339,9 +339,9 @@ class MultiPerspectiveAnalyzer:
                 two lowest-complexity frames via Reciprocal Rank Fusion.
 
         Returns:
-            Dict mapping frame names to their :class:`FrameAnalysis`.
+            Dict mapping frame names to their :class:`PresetAnalysis`.
         """
-        results: dict[str, FrameAnalysis] = {}
+        results: dict[str, PresetAnalysis] = {}
         for frame_name in self._frames:
             results[frame_name] = self.analyze_in_frame(concept, frame_name)
         if strategy == "top2_rrf" and len(results) >= 2:
@@ -353,9 +353,9 @@ class MultiPerspectiveAnalyzer:
 
     def _merge_top2_rrf(
         self,
-        analyses: dict[str, FrameAnalysis],
+        analyses: dict[str, PresetAnalysis],
         top2: list[str],
-    ) -> dict[str, FrameAnalysis]:
+    ) -> dict[str, PresetAnalysis]:
         """Fuse the top-2 frame analyses using Reciprocal Rank Fusion (RRF).
 
         For each of the top-2 frames, ranks graph nodes by edge weight
@@ -371,7 +371,7 @@ class MultiPerspectiveAnalyzer:
 
         Returns:
             Dict mapping each of the two frame names to a new
-            :class:`FrameAnalysis` with RRF-augmented fields.
+            :class:`PresetAnalysis` with RRF-augmented fields.
         """
         node_ranks: dict[str, dict[str, int]] = {}
         for rank_idx, frame_name in enumerate(top2):
@@ -405,10 +405,10 @@ class MultiPerspectiveAnalyzer:
             score = sum(1.0 / (60 + r) for r in frame_ranks.values())
             rrf_scores[target] = score
 
-        merged: dict[str, FrameAnalysis] = {}
+        merged: dict[str, PresetAnalysis] = {}
         for frame_name in top2:
             analysis = analyses[frame_name]
-            merged[frame_name] = FrameAnalysis(
+            merged[frame_name] = PresetAnalysis(
                 frame_name=frame_name,
                 complexity=analysis.complexity,
                 solution_approach=analysis.solution_approach + "+rrf",
@@ -418,7 +418,7 @@ class MultiPerspectiveAnalyzer:
             )
         return merged
 
-    def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
+    def select_optimal_frame(self, concept: str) -> tuple[str, PresetAnalysis]:
         """Choose the frame with the lowest complexity for a concept.
 
         Args:
@@ -497,7 +497,7 @@ class MultiPerspectiveAnalyzer:
         self._transformations.append(t)
         return t
 
-    def _compute_information_preserved(self, params_a: dict[str, Any], params_b: dict[str, Any], analysis_a: FrameAnalysis, analysis_b: FrameAnalysis) -> float:
+    def _compute_information_preserved(self, params_a: dict[str, Any], params_b: dict[str, Any], analysis_a: PresetAnalysis, analysis_b: PresetAnalysis) -> float:
         """Estimate how much information survives a frame transformation.
 
         Computes a graded similarity between the two parameter sets.  For
@@ -535,7 +535,7 @@ class MultiPerspectiveAnalyzer:
                 agreement += shared_chars / max(len(va), len(vb), 1)
         return agreement / len(all_keys)
 
-    def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+    def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
         """Analyse a node under the classical (deterministic) frame."""
         complexity = self._kolmogorov_complexity(node)
         approach = "direct_lookup"
@@ -550,7 +550,7 @@ class MultiPerspectiveAnalyzer:
         assessment = self._assess_frame("classical")
         if complexity > 0.7:
             assessment.get("weaknesses", []).append("high_complexity")
-        return FrameAnalysis(
+        return PresetAnalysis(
             frame_name="classical",
             complexity=min(complexity, 1.0),
             solution_approach=approach,
@@ -576,7 +576,7 @@ class MultiPerspectiveAnalyzer:
         ratio = compressed / max(len(raw), 1)
         return min(ratio, 1.0)
 
-    def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+    def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
         """Analyse a node under the quantum (superposition) frame."""
         complexity = self._normalized_shannon_entropy(node)
         approach = "superposition_sampling"
@@ -590,7 +590,7 @@ class MultiPerspectiveAnalyzer:
         assessment = self._assess_frame("quantum")
         if multi_source:
             assessment.get("strengths", []).append("multi_source_targets_detected")
-        return FrameAnalysis(
+        return PresetAnalysis(
             frame_name="quantum",
             complexity=min(complexity, 1.0),
             solution_approach=approach if multi_source else "single_interpretation",
@@ -625,7 +625,7 @@ class MultiPerspectiveAnalyzer:
             return 0.0
         return float(min(entropy / max_entropy, 1.0))
 
-    def _hypergraph_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+    def _hypergraph_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
         """Analyse a node under the hypergraph (multi-arity) frame."""
         complexity = self._spectral_gap_complexity(node)
         approach = "multi_dimensional_traversal"
@@ -640,7 +640,7 @@ class MultiPerspectiveAnalyzer:
             assessment.get("strengths", []).append("multi_modal_structure")
         hyper_edges = [e for e in self._graph.edges if len(e.source_ids) > 1 or len(e.target_ids) > 1]
         hyper_ratio = len(hyper_edges) / max(total_edges, 1)
-        return FrameAnalysis(
+        return PresetAnalysis(
             frame_name="hypergraph",
             complexity=min(complexity, 1.0),
             solution_approach=approach,
@@ -682,14 +682,14 @@ class MultiPerspectiveAnalyzer:
         max_eval = max(abs(sorted_evals[0]), 1e-10)
         return float(min(spectral_gap / max_eval, 1.0))
 
-    def _probabilistic_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> FrameAnalysis:
+    def _probabilistic_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
         """Analyse a node under the probabilistic (sampling) frame."""
         complexity = self._transition_entropy(node)
         approach = "importance_sampling"
         assessment = self._assess_frame("probabilistic")
         if neighbor_count > 5:
             assessment.get("strengths", []).append("sufficient_sample_size")
-        return FrameAnalysis(
+        return PresetAnalysis(
             frame_name="probabilistic",
             complexity=min(complexity, 1.0),
             solution_approach=approach,
@@ -718,7 +718,7 @@ class MultiPerspectiveAnalyzer:
             return 0.0
         return float(min(entropy / max_entropy, 1.0))
 
-    def _compute_complexity(self, node: Hypernode | None, frame: ComputationalFrame) -> float:
+    def _compute_complexity(self, node: Hypernode | None, frame: AnalysisPreset) -> float:
         """Compute a normalised complexity estimate for a node in a given frame type.
 
         The base cost depends on the frame type and neighbor count, then is
@@ -743,7 +743,7 @@ class MultiPerspectiveAnalyzer:
             base = n_neighbors * 0.5
         return base / max(self._graph.node_count, 1)
 
-    def _derive_approach(self, frame: ComputationalFrame, complexity: float) -> str:
+    def _derive_approach(self, frame: AnalysisPreset, complexity: float) -> str:
         """Map a complexity score to a solution approach label."""
         if complexity < 0.1:
             return "direct_lookup"
@@ -775,7 +775,7 @@ class MultiPerspectiveAnalyzer:
         }
         return assessments.get(frame_name, {"strengths": [], "weaknesses": []})
 
-    def _assess_frame_legacy(self, frame: ComputationalFrame, complexity: float) -> tuple[list[str], list[str]]:
+    def _assess_custom_frame(self, frame: AnalysisPreset, complexity: float) -> tuple[list[str], list[str]]:
         """Assess a frame with complexity-adjusted strengths and weaknesses."""
         assessment = self._assess_frame(frame.name)
         strengths = list(assessment.get("strengths", []))
@@ -803,7 +803,7 @@ class MultiPerspectiveAnalyzer:
         return len(neighbors)
 
     @property
-    def frames(self) -> dict[str, ComputationalFrame]:
+    def frames(self) -> dict[str, AnalysisPreset]:
         """Return a shallow copy of the registered frames dict."""
         return dict(self._frames)
 
@@ -958,7 +958,7 @@ class MultiPerspectiveAnalyzer:
                 result[name] = 0.0
         return result
 
-    def select_optimal_frame_learned(self, concept: str) -> tuple[str, FrameAnalysis]:
+    def select_optimal_frame_learned(self, concept: str) -> tuple[str, PresetAnalysis]:
         """Select the best frame using shifted Thompson sampling over past outcomes.
 
         Frames with no recorded outcomes receive no bonus.  For frames with
@@ -1019,7 +1019,7 @@ class MultiPerspectiveAnalyzer:
             regions, and overall confidence.
         """
         frame_reachability: dict[str, set[str]] = {}
-        frame_analyses: dict[str, FrameAnalysis] = {}
+        frame_analyses: dict[str, PresetAnalysis] = {}
         for frame_name in self._frames:
             max_depth = 3
             min_weight = 0.0
@@ -1277,7 +1277,5 @@ class MultiPerspectiveAnalyzer:
             perspective_overlap=self.compute_perspective_overlap(seed_ids, "classical", "quantum"),
             frame_information_loss=self.compute_frame_information_loss(seed_ids, "classical"),
         )
-
-    compute_information_dissipation = compute_frame_information_loss
 
 

@@ -2,14 +2,14 @@ import math
 import time
 
 import pytest
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.kernel import Hyperedge
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.quantum import PotentialFieldConfig
 
 
 def _make_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("high", data={"importance": 0.9})
     mem.store("medium", data={"importance": 0.5})
     mem.store("low", data={"importance": 0.1})

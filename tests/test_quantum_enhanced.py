@@ -7,7 +7,7 @@ from hyper3 import (
     InterferencePattern,
     Interpretation,
     MeasurementBasis,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     ConceptCorrelation,
     QuantumState,
 )
@@ -23,7 +23,7 @@ def _build_graph():
 class TestConceptCorrelation:
     def test_create_correlation(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         ent = ql.create_correlation(
             ["cat", "dog"],
             ["bird", "fish"],
@@ -57,7 +57,7 @@ class TestConceptCorrelation:
 class TestInterference:
     def test_compute_interference(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["cat", "dog", "bird"], [0.7, -0.5, 0.3])
         patterns = ql.compute_interference(qs.id)
         assert isinstance(patterns, list)
@@ -76,7 +76,7 @@ class TestInterference:
 class TestMeasurementBasis:
     def test_builtin_bases(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         assert "linguistic" in ql.bases
         assert "temporal" in ql.bases
         assert "emotional" in ql.bases
@@ -84,7 +84,7 @@ class TestMeasurementBasis:
 
     def test_add_custom_basis(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         custom = MeasurementBasis(name="custom", dimensions=["x", "y"], weights={"x": 0.6, "y": 0.4})
         ql.add_basis(custom)
         assert ql.get_basis("custom") is not None
@@ -93,7 +93,7 @@ class TestMeasurementBasis:
 
     def test_collapse_with_basis(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["cat", "dog", "bird"])
         result = ql.collapse_with_basis(qs.id, "linguistic")
         assert isinstance(result, Interpretation)
@@ -103,7 +103,7 @@ class TestMeasurementBasis:
 class TestCollapseTriggers:
     def test_decoherence_trigger(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState(created_at=0.0, coherence_time=0.001)
         qs.add_interpretation("cat", 0.7)
         ql._states[qs.id] = qs
@@ -112,14 +112,14 @@ class TestCollapseTriggers:
 
     def test_single_interpretation_trigger(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["cat"])
         triggers = ql.detect_collapse_triggers(qs.id)
         assert any(t.trigger_type == "single_interpretation" for t in triggers)
 
     def test_no_triggers_for_fresh_state(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["cat", "dog", "bird"])
         triggers = ql.detect_collapse_triggers(qs.id)
         decoherence = [t for t in triggers if t.trigger_type == "decoherence_timeout"]
@@ -129,7 +129,7 @@ class TestCollapseTriggers:
 class TestCollapseCorrelated:
     def test_collapse_correlated(self):
         g = _build_graph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["cat", "dog"])
         ent = ql.create_correlation(
             ["cat", "dog"], ["bird", "fish"],

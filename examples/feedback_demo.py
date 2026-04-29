@@ -15,7 +15,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     EmbeddingProvider,
     Modality,
     ActivationConfig,
@@ -48,7 +48,7 @@ class SentenceTransformerProvider(EmbeddingProvider):
         return self._dim
 
 
-def build_medical_kb(mem: CognitiveMemory) -> None:
+def build_medical_kb(mem: HypergraphMemory) -> None:
     conditions = {
         "type 2 diabetes": {"category": "metabolic"},
         "hypertension": {"category": "cardiovascular"},
@@ -150,7 +150,7 @@ def print_results(label: str, results, expected: set[str] | None = None):
 def main() -> None:
     print("Loading model...")
     provider = SentenceTransformerProvider()
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.set_embedding_provider(provider)
     build_medical_kb(mem)
     print(f"KB: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges\n")

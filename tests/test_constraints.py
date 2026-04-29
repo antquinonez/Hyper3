@@ -9,7 +9,7 @@ from hyper3 import (
     NoSelfLoopConstraint,
     ProvenanceDepthConstraint,
     WeightInflationConstraint,
-    CognitiveMemory,
+    HypergraphMemory,
 )
 
 
@@ -151,7 +151,7 @@ class TestBoundaryNavigator:
 
 class TestBoundaryNavigatorIntegration:
     def test_relate_respects_constraints(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         from hyper3.constraints import BoundaryNavigator
         from hyper3.exceptions import ConstraintViolationError
         mem._boundary_navigator = BoundaryNavigator()
@@ -160,7 +160,7 @@ class TestBoundaryNavigatorIntegration:
             mem.relate("a", "a")
 
     def test_relate_allows_valid_edge(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         from hyper3.constraints import BoundaryNavigator
         mem._boundary_navigator = BoundaryNavigator()
         mem.store("a")

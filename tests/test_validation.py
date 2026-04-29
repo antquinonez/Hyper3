@@ -1,4 +1,4 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
 from hyper3.kernel import Hyperedge
 from hyper3.validation import (
@@ -10,7 +10,7 @@ from hyper3.validation import (
 
 
 def _make_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("a")
     mem.store("b")
     mem.store("c")
@@ -69,7 +69,7 @@ class TestValidationEngine:
         assert isinstance(report.novel_findings, list)
 
     def test_no_rules_returns_empty_report(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"x"})
@@ -91,7 +91,7 @@ class TestRunValidationSuite:
         assert isinstance(reports, list)
 
     def test_suite_empty_graph(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         engine = ValidationEngine(mem)
         reports = engine.run_validation_suite()
         assert reports == []

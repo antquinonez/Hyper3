@@ -277,7 +277,7 @@ class MergeInsight:
 
 
 @dataclass
-class CausalInvariant:
+class ConvergenceRecord:
     state_a_id: str
     state_b_id: str
     similarity: float
@@ -325,8 +325,8 @@ class CausalMergeEngine:
             edge_count=len(state.produced_edge_ids),
         )
 
-    def merge_invariant_states(self) -> list[CausalInvariant]:
-        merged: list[CausalInvariant] = []
+    def merge_invariant_states(self) -> list[ConvergenceRecord]:
+        merged: list[ConvergenceRecord] = []
         consumed: set[str] = set()
         state_ids = list(self._states.keys())
         for i, sa_id in enumerate(state_ids):
@@ -354,7 +354,7 @@ class CausalMergeEngine:
                         list(set(sa.produced_node_ids + sb.produced_node_ids)),
                         merged_edges,
                     )
-                    merged.append(CausalInvariant(sa_id, sb_id, sim, ms.id, [insight_a, insight_b]))
+                    merged.append(ConvergenceRecord(sa_id, sb_id, sim, ms.id, [insight_a, insight_b]))
         return merged
 
 

@@ -37,7 +37,7 @@ class RulialPosition:
 
 
 @dataclass
-class MetaComputationalPattern:
+class DetectedPattern:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     pattern_type: str = ""
     description: str = ""
@@ -69,17 +69,14 @@ class RulialSpace:
         self._multiway = multiway
         self._position = RulialPosition(timestamp=time.time())
         self._position_history: list[RulialPosition] = []
-        self._meta_patterns: list[MetaComputationalPattern] = []
+        self._meta_patterns: list[DetectedPattern] = []
         self._insights: list[HighLevelInsight] = []
         self._explored_rules: dict[str, int] = {}
         self._total_applications: int = 0
         self._rule_outcomes: dict[str, dict[str, int]] = {}
 
-    def update_position(self, rules: list[Rule] | None = None) -> RulialPosition:
+    def update_position(self) -> RulialPosition:
         """Recompute the current rulial position from graph statistics.
-
-        Args:
-            rules: Unused, kept for API compatibility.
 
         Returns:
             The updated RulialPosition.
@@ -388,14 +385,14 @@ class RulialSpace:
             unexplored=[r.name for r in rules if r.name not in self._explored_rules],
         )
 
-    def find_meta_patterns(self) -> list[MetaComputationalPattern]:
+    def find_meta_patterns(self) -> list[DetectedPattern]:
         """Detect meta-computational patterns across five analysis dimensions.
 
         Runs recurring, cross-domain, optimization, mutual-information,
         and structural-motif detectors.
 
         Returns:
-            List of discovered MetaComputationalPattern objects.
+            List of discovered DetectedPattern objects.
         """
         self._meta_patterns.clear()
         self._find_recurring_patterns()
@@ -414,7 +411,7 @@ class RulialSpace:
         for label, count in edge_labels.items():
             if count >= 3:
                 freq = count / max(total, 1)
-                self._meta_patterns.append(MetaComputationalPattern(
+                self._meta_patterns.append(DetectedPattern(
                     pattern_type="recurring_relation",
                     description=f"Relation '{label}' appears {count} times (freq={freq:.2f})",
                     occurrence_count=count,
@@ -429,7 +426,7 @@ class RulialSpace:
             for tag in node.metadata.modality_tags:
                 node_modalities.setdefault(str(tag), set()).add(node.id)
         if len(node_modalities) >= 2:
-            self._meta_patterns.append(MetaComputationalPattern(
+            self._meta_patterns.append(DetectedPattern(
                 pattern_type="cross_domain",
                 description=f"Knowledge spans {len(node_modalities)} modalities",
                 domains=set(node_modalities.keys()),
@@ -442,7 +439,7 @@ class RulialSpace:
         """Detect nodes with weight above 1.0 that have been reinforced."""
         high_weight = [n for n in self._graph.nodes if n.weight > 1.0]
         if len(high_weight) >= 2:
-            self._meta_patterns.append(MetaComputationalPattern(
+            self._meta_patterns.append(DetectedPattern(
                 pattern_type="optimized_path",
                 description=f"{len(high_weight)} nodes have been reinforced through usage",
                 occurrence_count=len(high_weight),
@@ -480,7 +477,7 @@ class RulialSpace:
                 if pa > 0 and pb > 0 and pab > 0:
                     mi = pab * math.log2(pab / (pa * pb))
                     if mi > 0.3:
-                        self._meta_patterns.append(MetaComputationalPattern(
+                        self._meta_patterns.append(DetectedPattern(
                             pattern_type="mutual_information",
                             description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
                             occurrence_count=both,
@@ -507,7 +504,7 @@ class RulialSpace:
         if hub_nodes:
             hub_nodes.sort(key=lambda x: x[1], reverse=True)
             top_hub = hub_nodes[0]
-            self._meta_patterns.append(MetaComputationalPattern(
+            self._meta_patterns.append(DetectedPattern(
                 pattern_type="hub_motif",
                 description=f"Hub node '{top_hub[0].label}' has degree {top_hub[1]}",
                 occurrence_count=len(hub_nodes),
@@ -531,7 +528,7 @@ class RulialSpace:
                 ):
                     chains += 1
         if chains >= 2:
-            self._meta_patterns.append(MetaComputationalPattern(
+            self._meta_patterns.append(DetectedPattern(
                 pattern_type="chain_motif",
                 description=f"Found {chains} transitive chain patterns",
                 occurrence_count=chains,
@@ -587,7 +584,7 @@ class RulialSpace:
         spectral = self._compute_spectral_entropy()
         if spectral > 0.7:
             self._insights.append(HighLevelInsight(
-                principle=f"Spectral entropy {spectral:.2f} indicates diverse eigenvalue distribution",
+                principle=f"Spectral entropy {spectral:.2f} indicates diverse singular-value distribution",
                 domain="spectral",
                 evidence=[f"Spectral entropy: {spectral:.3f}"],
                 confidence=spectral,
@@ -597,7 +594,7 @@ class RulialSpace:
         rule_diversity = len(self._explored_rules)
         if rule_diversity >= 3:
             self._insights.append(HighLevelInsight(
-                principle=f"Rule diversity ({rule_diversity} rules) enables multi-perspective reasoning",
+                principle=f"Rule diversity ({rule_diversity} rules) provides multiple inference patterns",
                 domain="rulial",
                 evidence=[f"Rules: {list(self._explored_rules.keys())}"],
                 confidence=min(1.0, rule_diversity / 5.0),
@@ -607,7 +604,7 @@ class RulialSpace:
         cross = [p for p in self._meta_patterns if p.pattern_type == "cross_domain"]
         if cross:
             self._insights.append(HighLevelInsight(
-                principle="Cross-domain knowledge enables analogical transfer",
+                principle="Cross-domain knowledge spans multiple modalities",
                 domain="meta",
                 evidence=[p.description for p in cross],
                 confidence=0.6,
@@ -637,7 +634,7 @@ class RulialSpace:
         return list(self._insights)
 
     @property
-    def meta_patterns(self) -> list[MetaComputationalPattern]:
+    def meta_patterns(self) -> list[DetectedPattern]:
         """Return a copy of the discovered meta-patterns."""
         return list(self._meta_patterns)
 

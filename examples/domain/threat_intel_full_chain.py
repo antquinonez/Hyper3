@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.rules import (
     TransitiveRule,
     InverseRule,
@@ -233,7 +233,7 @@ def section(n, title):
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     section(1, "Building the Threat Intelligence Knowledge Graph")
 

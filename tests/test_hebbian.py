@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.hebbian import HebbianLearner, HebbianConfig
 
 
 class TestHebbianBasic:
     def test_reinforce_empty_graph(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.hebbian_reinforce()
         assert result.edges_strengthened == 0
         assert result.edges_weakened == 0
 
     def test_reinforce_with_activation(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="connected")
@@ -24,7 +24,7 @@ class TestHebbianBasic:
         assert isinstance(result.edges_strengthened, int)
 
     def test_reinforce_pair(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="connected")
@@ -33,12 +33,12 @@ class TestHebbianBasic:
         assert result.new_weight > result.old_weight
 
     def test_reinforce_pair_nonexistent(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.hebbian_reinforce_pair("X", "Y")
         assert result is None
 
     def test_decay_unused(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="connected")
@@ -46,7 +46,7 @@ class TestHebbianBasic:
         assert count >= 0
 
     def test_strongest_associations(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -73,7 +73,7 @@ class TestHebbianConfig:
 
 class TestHebbianLearner:
     def test_history_tracking(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="link")
@@ -83,7 +83,7 @@ class TestHebbianLearner:
         assert len(mem.hebbian.history) == 1
 
     def test_reinforce_respects_max_weight(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         mem.store("Y")
         mem.relate("X", "Y", label="link")
@@ -97,7 +97,7 @@ class TestHebbianLearner:
         assert edge.weight <= 100.0
 
     def test_decay_respects_min_weight(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         mem.store("Y")
         edge = mem.relate("X", "Y", label="link")

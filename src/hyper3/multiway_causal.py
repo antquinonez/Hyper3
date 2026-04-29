@@ -9,7 +9,7 @@ import numpy as np
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
-from hyper3.results import CausalEnforceReport
+from hyper3.results import MergeReport
 from hyper3.quantum import (
     BUILTIN_BASES,
     CollapseTrigger,
@@ -17,7 +17,7 @@ from hyper3.quantum import (
     InterferencePattern,
     Interpretation,
     MeasurementBasis,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     QuantumState,
 )
 
@@ -33,7 +33,7 @@ class MergeInsight:
 
 
 @dataclass
-class CausalInvariant:
+class ConvergenceRecord:
     state_a_id: str
     state_b_id: str
     similarity: float
@@ -41,9 +41,9 @@ class CausalInvariant:
     insights: list[MergeInsight] = field(default_factory=list)
 
 
-class CausalInvarianceEngine:
+class StateConvergenceEngine:
     def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, threshold: float = 0.7) -> None:
-        """Initialize the causal invariance engine.
+        """Initialize the state convergence engine.
 
         Args:
             graph: The base hypergraph.
@@ -53,12 +53,12 @@ class CausalInvarianceEngine:
         self._graph = graph
         self._multiway = multiway
         self._threshold = threshold
-        self._invariants: list[CausalInvariant] = []
+        self._invariants: list[ConvergenceRecord] = []
         self._consumed_states: set[str] = set()
 
     @property
-    def invariants(self) -> list[CausalInvariant]:
-        """Return all recorded causal invariants."""
+    def invariants(self) -> list[ConvergenceRecord]:
+        """Return all recorded convergence records."""
         return list(self._invariants)
 
     def compute_state_similarity(self, state_a: MultiwayState, state_b: MultiwayState) -> float:
@@ -240,13 +240,13 @@ class CausalInvarianceEngine:
             edge_count=len(state.produced_edge_ids),
         )
 
-    def merge_invariant_states(self) -> list[CausalInvariant]:
+    def merge_invariant_states(self) -> list[ConvergenceRecord]:
         """Merge pairs of similar leaf states into unified states.
 
         Returns:
-            List of CausalInvariant records describing each merge.
+            List of ConvergenceRecord records describing each merge.
         """
-        merged: list[CausalInvariant] = []
+        merged: list[ConvergenceRecord] = []
         consumed: set[str] = set()
         for state_a_id, state_b_id, similarity in self.find_invariants():
             if state_a_id in consumed or state_b_id in consumed:
@@ -280,7 +280,7 @@ class CausalInvarianceEngine:
                 timestamp=time.time(),
             )
             self._multiway.add_state(merged_state)
-            invariant = CausalInvariant(
+            invariant = ConvergenceRecord(
                 state_a_id=state_a_id,
                 state_b_id=state_b_id,
                 similarity=similarity,
@@ -295,17 +295,17 @@ class CausalInvarianceEngine:
             merged.append(invariant)
         return merged
 
-    def enforce(self) -> CausalEnforceReport:
-        """Run the full causal invariance check and merge cycle.
+    def enforce(self) -> MergeReport:
+        """Run the full state convergence check and merge cycle.
 
         Returns:
-            CausalEnforceReport with invariants_found, states_before, states_after, and reduction.
+            MergeReport with merges_performed, states_before, states_after, and reduction.
         """
         before = self._multiway.state_count
         invariants = self.merge_invariant_states()
         after = self._multiway.state_count
-        return CausalEnforceReport(
-            invariants_found=len(invariants),
+        return MergeReport(
+            merges_performed=len(invariants),
             states_before=before,
             states_after=after,
             reduction=len(invariants),

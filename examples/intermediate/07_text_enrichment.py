@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from hyper3 import CognitiveMemory, LLMProvider, ExtractionResult
+from hyper3 import HypergraphMemory, LLMProvider, ExtractionResult
 
 
 REPORTS: list[str] = [
@@ -167,7 +167,7 @@ class SecurityNERProvider(LLMProvider):
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Security Incident Reports")
@@ -326,7 +326,7 @@ def main():
     print("SECTION 6: Pluggable LLMProvider for Richer Extraction")
     print("=" * 70)
 
-    mem_llm = CognitiveMemory(evolve_interval=0)
+    mem_llm = HypergraphMemory(evolve_interval=0)
     mem_llm.set_llm_provider(SecurityNERProvider())
 
     sample_reports = REPORTS[:3]

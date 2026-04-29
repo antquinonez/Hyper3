@@ -6,7 +6,7 @@ Compares Hyper3's self-evolution engine against simple baselines for
 graph maintenance under insertion pressure.
 
 Systems compared:
-  1. Hyper3 SelfEvolutionEngine - weighted decay + access-based pruning + equivalence merge
+  1. Hyper3 GraphMaintenanceEngine - weighted decay + access-based pruning + equivalence merge
   2. Age-based pruning (FIFO)   - remove oldest/least-accessed nodes
   3. Random pruning              - remove random nodes
 
@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import time
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 from shared import (
     build_cs_knowledge_graph,
     AgeBasedPruningBaseline,
@@ -51,7 +51,7 @@ IMPORTANT_NODES = {
 NOISE_PREFIX = "noise_"
 
 
-def add_noise_nodes(mem: CognitiveMemory, count: int) -> list[str]:
+def add_noise_nodes(mem: HypergraphMemory, count: int) -> list[str]:
     noise_ids = []
     for i in range(count):
         label = f"{NOISE_PREFIX}{i}"
@@ -66,7 +66,7 @@ def add_noise_nodes(mem: CognitiveMemory, count: int) -> list[str]:
     return noise_ids
 
 
-def query_important_nodes(mem: CognitiveMemory, important: set[str]) -> dict[str, bool]:
+def query_important_nodes(mem: HypergraphMemory, important: set[str]) -> dict[str, bool]:
     found = {}
     for label in important:
         node = mem.graph.get_node_by_label(label)
@@ -99,7 +99,7 @@ def main() -> None:
 
         for target_keep in target_keeps:
             # Hyper3 evolution
-            mem = CognitiveMemory(evolve_interval=0)
+            mem = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
                 mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
@@ -137,7 +137,7 @@ def main() -> None:
             ])
 
             # Age-based pruning
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
                 mem2.store(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
@@ -171,7 +171,7 @@ def main() -> None:
             ])
 
             # Random pruning
-            mem3 = CognitiveMemory(evolve_interval=0)
+            mem3 = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
                 mem3.store(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
@@ -208,7 +208,7 @@ def main() -> None:
 
     # --- Decay behavior analysis ---
     print_header("Decay Weight Analysis")
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     nodes, edges = build_cs_knowledge_graph()
     for label, data in nodes:
         mem.store(label, data=data, modalities={Modality.CONCEPTUAL})

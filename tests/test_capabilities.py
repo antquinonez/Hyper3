@@ -1,7 +1,7 @@
 import pytest
 from hyper3 import (
     CapabilityLevel,
-    CognitiveMemory,
+    HypergraphMemory,
     TransitiveRule,
     detect_capability_level,
     require_capability,
@@ -11,11 +11,11 @@ from hyper3.kernel import Hypergraph, Hypernode
 
 class TestDetectCapabilityLevel:
     def test_minimal_no_rules(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert detect_capability_level(mem) == CapabilityLevel.MINIMAL
 
     def test_minimal_no_multiway(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem._rules = [TransitiveRule(edge_label="rel")]
@@ -23,7 +23,7 @@ class TestDetectCapabilityLevel:
         assert level in (CapabilityLevel.MINIMAL, CapabilityLevel.STANDARD)
 
     def test_standard_with_populated_multiway(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b", label="rel")
@@ -35,7 +35,7 @@ class TestDetectCapabilityLevel:
         assert level in (CapabilityLevel.STANDARD, CapabilityLevel.ENHANCED, CapabilityLevel.FULL)
 
     def test_enhanced_with_active_quantum(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y", label="r")
@@ -55,7 +55,7 @@ class TestDetectCapabilityLevel:
 
     def test_scores_computed(self):
         from hyper3.capabilities import _compute_capability_score
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         scores = _compute_capability_score(mem)
         assert "graph" in scores
@@ -68,7 +68,7 @@ class TestRequireCapability:
         def do_thing(self):
             return "ok"
 
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         with pytest.raises(Exception):
             do_thing(mem)
 
@@ -77,7 +77,7 @@ class TestRequireCapability:
         def do_thing(self):
             return "ok"
 
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         result = do_thing(mem)
         assert result == "ok"
@@ -85,13 +85,13 @@ class TestRequireCapability:
 
 class TestDetectCapabilityMethod:
     def test_memory_detect_capability(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         level = mem.detect_capability()
         assert isinstance(level, CapabilityLevel)
         assert level == CapabilityLevel.MINIMAL
 
     def test_memory_with_rules_and_data(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem._rules = [TransitiveRule(edge_label="rel")]

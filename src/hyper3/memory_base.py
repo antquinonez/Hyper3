@@ -6,11 +6,11 @@ from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
 from hyper3.traversal import ObserverSlice, TraversalEngine
-from hyper3.evolution import SelfEvolutionEngine
+from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.overlay import HypergraphOverlay
-from hyper3.multiway_causal import CausalInvarianceEngine
-from hyper3.quantum import QuantumCognitiveLayer
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.quantum import QuantumInterpretationLayer
 from hyper3.multiway import MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
@@ -19,7 +19,7 @@ from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.meta_cognitive import MetaCognitiveLayer
+from hyper3.system_monitor import SystemMonitor
 from hyper3.embedding import EmbeddingEngine
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
@@ -32,7 +32,7 @@ from hyper3.backward_chain import BackwardChainEngine
 from hyper3.hebbian import HebbianLearner
 from hyper3.uncertainty import UncertaintyEngine
 from hyper3.structural_match import StructuralPatternEngine
-from hyper3.belief_revision import BeliefRevisionEngine
+from hyper3.belief_revision import ContradictionResolver
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.community import CommunityDetector
 from hyper3.graph_diff import GraphDiffer
@@ -50,14 +50,14 @@ from hyper3.results import (
 
 
 class _MemoryBase:
-    """Shared type annotations for all CognitiveMemory mixins."""
+    """Shared type annotations for all HypergraphMemory mixins."""
 
     _graph: Hypergraph
     _log: EventLog
     _cache: LazyCache
     _traversal: TraversalEngine
     _observer: ObserverSlice
-    _evolution: SelfEvolutionEngine
+    _evolution: GraphMaintenanceEngine
     _equivalence: EquivalenceEngine
     _decay_factor: float
     _evolve_interval: int
@@ -65,8 +65,8 @@ class _MemoryBase:
     _decay_threshold: float
     _operation_count: int
     _multiway_engine: MultiwayEngine | None
-    _causal_engine: CausalInvarianceEngine | None
-    _quantum: QuantumCognitiveLayer
+    _convergence_engine: StateConvergenceEngine | None
+    _quantum: QuantumInterpretationLayer
     _rules: list[Rule]
     _discovery: RuleDiscoveryEngine
     _serializer: Serializer
@@ -74,7 +74,7 @@ class _MemoryBase:
     _rulial: RulialSpace | None
     _anomaly_detector: StructuralAnomalyDetector
     _perspective: MultiPerspectiveAnalyzer
-    _meta: MetaCognitiveLayer
+    _meta: SystemMonitor
     _embedding_engine: EmbeddingEngine | None
     _activation: SpreadingActivation
     _retrieval: RetrievalEngine
@@ -88,7 +88,7 @@ class _MemoryBase:
     _hebbian: HebbianLearner | None
     _uncertainty_engine: UncertaintyEngine | None
     _structural_matcher: StructuralPatternEngine | None
-    _belief_revision: BeliefRevisionEngine | None
+    _belief_revision: ContradictionResolver | None
     _abstraction_nav: AbstractionNavigator | None
     _community_detector: CommunityDetector | None
     _graph_differ: GraphDiffer | None
@@ -123,7 +123,7 @@ class _MemoryBase:
     def reason_with_frame(self, seed_concepts: set[str], frame_name: str = "classical", rules: list[Rule] | None = None) -> ReasonResult:
         """Run reasoning with parameters derived from a computational frame."""
         ...
-    def reason_with_consensus(self, seed_concepts: set[str], rules: list[Rule] | None = None) -> ConsensusReasonResult:
+    def reason_robust(self, seed_concepts: set[str], rules: list[Rule] | None = None) -> ConsensusReasonResult:
         """Find multi-frame invariants then reason, returning consensus results."""
         ...
     def reason_incremental(self, new_node_labels: set[str], rules: list[Rule] | None = None, **kwargs: Any) -> ReasonResult:

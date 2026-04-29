@@ -14,15 +14,15 @@ from hyper3.enrichment import ExtractionResult, LLMEnricher, LLMProvider
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
-from hyper3.multiway_causal import CausalInvarianceEngine
-from hyper3.quantum import QuantumCognitiveLayer
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.quantum import QuantumInterpretationLayer
 from hyper3.structural_anomaly import StructuralAnomalyDetector
-from hyper3.multi_perspective import MultiPerspectiveAnalyzer, FrameAnalysis
-from hyper3.meta_cognitive import MetaCognitiveLayer, MetamorphosisTrigger, MetamorphosisPlan
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer, PresetAnalysis
+from hyper3.system_monitor import SystemMonitor, TuningTrigger, TuningPlan
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult, TemporalMatch, IntrospectionReport, FeedbackSummaryResult, BiasProfileResult, MetamorphosisResult
+from hyper3.results import TrainResult, TemporalMatch, HealthReport, FeedbackSummaryResult, BiasProfileResult, TuningResult
 from hyper3.feedback import OperationFeedback
 from hyper3.validation import ValidationReport
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
@@ -34,7 +34,7 @@ from hyper3.structural_match import (
     PatternEdge,
     StructuralMatchResult,
 )
-from hyper3.belief_revision import BeliefRevisionEngine, Contradiction, RevisionResult
+from hyper3.belief_revision import ContradictionResolver, Contradiction, RevisionResult
 from hyper3.abstraction import AbstractionNavigator, AbstractionSummary, AbstractionMapping, ExpandResult
 from hyper3.community import CommunityDetector, CommunityResult
 from hyper3.graph_diff import GraphDiffer, GraphDelta, GraphHistoryResult
@@ -517,8 +517,8 @@ class SubsystemMixin(_MemoryBase):
         return self._multiway_engine
 
     @property
-    def quantum(self) -> QuantumCognitiveLayer:
-        """The quantum cognitive layer for superposition and collapse."""
+    def quantum(self) -> QuantumInterpretationLayer:
+        """The quantum interpretation layer for superposition and collapse."""
         return self._quantum
 
     @property
@@ -556,8 +556,8 @@ class SubsystemMixin(_MemoryBase):
         return self._perspective
 
     @property
-    def meta(self) -> MetaCognitiveLayer:
-        """The meta-cognitive layer for introspection and metamorphosis."""
+    def meta(self) -> SystemMonitor:
+        """The system monitor layer for introspection and metamorphosis."""
         return self._meta
 
     @property
@@ -570,54 +570,54 @@ class SubsystemMixin(_MemoryBase):
         """The raw LRU cache with TTL and optional Markov prefetching."""
         return self._cache
 
-    def introspect(self) -> IntrospectionReport:
-        """Return a meta-cognitive introspection report for the current state."""
+    def introspect(self) -> HealthReport:
+        """Return a system monitor introspection report for the current state."""
         return self._meta.introspect(self._rules)
 
-    def check_metamorphosis(self) -> list[MetamorphosisTrigger]:
-        """Check whether any metamorphosis triggers fire (fitness, efficiency, staleness)."""
-        return self._meta.check_metamorphosis_triggers()
+    def check_metamorphosis(self) -> list[TuningTrigger]:
+        """Check whether any tuning triggers fire (fitness, efficiency, staleness)."""
+        return self._meta.check_tuning_triggers()
 
-    def propose_metamorphosis(self, triggers: list[MetamorphosisTrigger] | None = None) -> MetamorphosisPlan | None:
-        """Propose a metamorphosis plan from the given or auto-detected triggers."""
-        return self._meta.propose_metamorphosis(triggers)
+    def propose_tuning(self, triggers: list[TuningTrigger] | None = None) -> TuningPlan | None:
+        """Propose a tuning plan from the given or auto-detected triggers."""
+        return self._meta.propose_tuning(triggers)
 
-    def execute_metamorphosis_validated(
+    def execute_tuning_validated(
         self,
-        plan: MetamorphosisPlan,
+        plan: TuningPlan,
         *,
         fitness_tolerance: float = 0.0,
-    ) -> MetamorphosisResult:
-        """Execute a metamorphosis plan with snapshot, validation, and rollback.
+    ) -> TuningResult:
+        """Execute a tuning plan with snapshot, validation, and rollback.
 
         Requires a graph differ (created automatically on first capture_version
         call). If no differ is available, falls back to unvalidated execution.
 
         Args:
-            plan: The metamorphosis plan to execute.
+            plan: The tuning plan to execute.
             fitness_tolerance: Minimum fitness improvement required to accept
-                the metamorphosis. If 0, any non-degrading change is accepted.
+                the tuning. If 0, any non-degrading change is accepted.
 
         Returns:
-            MetamorphosisResult with results, validated, rolled_back,
+            TuningResult with results, validated, rolled_back,
             fitness_before, fitness_after, and optional delta.
         """
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
             self._meta.set_differ(self._graph_differ)
-        return self._meta.execute_metamorphosis_validated(
+        return self._meta.execute_tuning_validated(
             plan, fitness_tolerance=fitness_tolerance,
         )
 
-    def analyze_in_frame(self, concept: str, frame_name: str) -> FrameAnalysis:
+    def analyze_in_frame(self, concept: str, frame_name: str) -> PresetAnalysis:
         """Analyze a concept from a specific computational frame perspective."""
         return self._perspective.analyze_in_frame(concept, frame_name)
 
-    def multi_frame_analysis(self, concept: str) -> dict[str, FrameAnalysis]:
+    def multi_frame_analysis(self, concept: str) -> dict[str, PresetAnalysis]:
         """Analyze a concept across all computational frames."""
         return self._perspective.multi_frame_analysis(concept)
 
-    def select_optimal_frame(self, concept: str) -> tuple[str, FrameAnalysis]:
+    def select_optimal_frame(self, concept: str) -> tuple[str, PresetAnalysis]:
         """Select the best computational frame for reasoning about a concept."""
         return self._perspective.select_optimal_frame(concept)
 
@@ -990,7 +990,7 @@ class SubsystemMixin(_MemoryBase):
             List of Contradiction objects with edge IDs, labels, and severity.
         """
         if self._belief_revision is None:
-            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+            self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         return self._belief_revision.detect_contradictions()
 
     def revise_beliefs(self, *, strategy: str = "higher_confidence") -> RevisionResult:
@@ -1004,7 +1004,7 @@ class SubsystemMixin(_MemoryBase):
             RevisionResult with counts of contradictions found and edges revised.
         """
         if self._belief_revision is None:
-            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+            self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         result = self._belief_revision.revise(strategy=strategy)
         self._log.record(
             "revise_beliefs",
@@ -1026,7 +1026,7 @@ class SubsystemMixin(_MemoryBase):
             List of Contradiction objects between the two concepts.
         """
         if self._belief_revision is None:
-            self._belief_revision = BeliefRevisionEngine(self._graph, self._provenance)
+            self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         return self._belief_revision.check_consistency(source, target)
 
     def collapse_subgraph(
@@ -1191,7 +1191,7 @@ class SubsystemMixin(_MemoryBase):
         return self._structural_matcher
 
     @property
-    def belief_reviser(self) -> BeliefRevisionEngine | None:
+    def belief_reviser(self) -> ContradictionResolver | None:
         """The belief revision engine, or None if not yet initialized."""
         return self._belief_revision
 

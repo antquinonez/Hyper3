@@ -18,7 +18,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 
 
 THREAT_ACTORS = [
@@ -374,7 +374,7 @@ ACTOR_TO_TTP = [
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building the Threat Intelligence Knowledge Base")

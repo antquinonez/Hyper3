@@ -21,10 +21,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 
 import time
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 
 
-def build_graph(mem: CognitiveMemory) -> None:
+def build_graph(mem: HypergraphMemory) -> None:
     nodes = {
         "AI": {"category": "field"},
         "ML": {"category": "field"},
@@ -153,29 +153,29 @@ def reciprocal_rank(retrieved_labels: list[str], relevant: set[str]) -> float:
     return 0.0
 
 
-def run_activation_only(mem: CognitiveMemory, query: str, top_k: int = 10) -> list[str]:
+def run_activation_only(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
     mem.clear_activations()
     results = mem.activate(query, top_k=top_k, iterations=3)
     return [r.label for r in results]
 
 
-def run_similarity_only(mem: CognitiveMemory, query: str, top_k: int = 10) -> list[str]:
+def run_similarity_only(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
     results = mem.find_similar(query, top_k=top_k, threshold=-1.0)
     return [r.label_b for r in results]
 
 
-def run_combined(mem: CognitiveMemory, query: str, top_k: int = 10) -> list[str]:
+def run_combined(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
     results = mem.retrieve(query, top_k=top_k, iterations=3)
     return [r.label for r in results]
 
 
-def run_ltr(mem: CognitiveMemory, query: str, top_k: int = 10) -> list[str]:
+def run_ltr(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
     results = mem.retrieve(query, top_k=top_k, iterations=3, use_ltr=True)
     return [r.label for r in results]
 
 
 def evaluate_strategy(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     strategy_fn,
     queries: list[dict],
     k: int = 5,
@@ -260,7 +260,7 @@ def main() -> None:
     print("  Hyper3 Retrieval Quality Benchmark")
     print("=" * 80)
 
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     build_graph(mem)
 
     stats = mem.stats()

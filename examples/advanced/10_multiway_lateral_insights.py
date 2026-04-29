@@ -15,7 +15,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     Modality,
     TransitiveRule,
     InverseRule,
@@ -23,7 +23,7 @@ from hyper3 import (
 )
 
 
-def build_infrastructure(mem: CognitiveMemory) -> None:
+def build_infrastructure(mem: HypergraphMemory) -> None:
     regions = ["us-east", "us-west", "eu-west"]
 
     for region in regions:
@@ -288,7 +288,7 @@ def build_infrastructure(mem: CognitiveMemory) -> None:
 
 
 def score_branch_against_symptoms(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     leaf,
     symptom_ids: set[str],
 ) -> float:
@@ -305,7 +305,7 @@ def score_branch_against_symptoms(
     return (hits + active_symptom_overlap) / (total + len(produced) + 1)
 
 
-def summarize_state(mem: CognitiveMemory, state, max_labels: int = 6) -> dict:
+def summarize_state(mem: HypergraphMemory, state, max_labels: int = 6) -> dict:
     labels: list[str] = []
     for nid in list(state.active_node_ids)[:max_labels]:
         node = mem.graph.get_node(nid)
@@ -333,7 +333,7 @@ def summarize_state(mem: CognitiveMemory, state, max_labels: int = 6) -> dict:
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Build Cloud Infrastructure Graph
@@ -487,8 +487,8 @@ def main():
     print("SECTION 5: Convergent Hypothesis Branches")
     print("=" * 70)
 
-    ci = result.causal_invariance
-    invariants = ci.invariants_found if ci else 0
+    ci = result.state_convergence
+    invariants = ci.merges_performed if ci else 0
     reduction = ci.reduction if ci else 0
     print(f"  Causal invariants found: {invariants}")
     print(f"  States reduced via merge: {reduction}")
@@ -548,7 +548,7 @@ def main():
                 lat_state = mw_graph.get_state(lat_id) if mw_graph else None
                 rule = lat_state.rule_applied if lat_state else "unknown"
                 distance = ins.get("branchial_distance", 0.0)
-                novel_lateral = ins.get("novel_in_lateral", ins.get("novel_nodes_in_lateral", []))
+                novel_lateral = ins.get("novel_in_lateral", [])
                 novel_labels = []
                 for nid in novel_lateral:
                     node = mem.graph.get_node(nid)

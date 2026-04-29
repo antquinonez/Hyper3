@@ -4,17 +4,17 @@ from typing import Any
 
 from hyper3.kernel import Hyperedge, Hypergraph
 from hyper3.overlay import HypergraphOverlay
-from hyper3.multiway_causal import CausalInvarianceEngine
+from hyper3.multiway_causal import StateConvergenceEngine
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
 from hyper3.provenance import ProvenanceTracker
 from hyper3.quantum import QuantumState
-from hyper3.multi_perspective import InvariantDetector
+from hyper3.multi_perspective import RobustReachabilityDetector
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     BranchialAnalysis,
-    CausalEnforceReport,
+    MergeReport,
     CommitResult,
     ConsensusReasonResult,
     DerivationInfo,
@@ -36,7 +36,7 @@ class ReasoningMixin(_MemoryBase):
         from hyper3.multiway_branchial import BranchialSpace
         from hyper3.multiway_rulial import RulialSpace
         self._multiway_engine = MultiwayEngine(self._graph)
-        self._causal_engine = CausalInvarianceEngine(self._graph, self._multiway_engine.multiway)
+        self._convergence_engine = StateConvergenceEngine(self._graph, self._multiway_engine.multiway)
         self._branchial = BranchialSpace(self._graph, self._multiway_engine.multiway)
         self._rulial = RulialSpace(self._graph, self._multiway_engine)
         self._multiway_engine.set_rulial(self._rulial)
@@ -92,16 +92,16 @@ class ReasoningMixin(_MemoryBase):
     def _run_post_expansion(
         self,
         active_rules: list[Rule],
-        enforce_causal_invariance: bool,
-    ) -> tuple[CausalEnforceReport | None, BranchialAnalysis | None, RulialAnalysis | None]:
-        """Run causal invariance enforcement, branchial analysis, and rulial analysis after expansion.
+        enforce_convergence: bool,
+    ) -> tuple[MergeReport | None, BranchialAnalysis | None, RulialAnalysis | None]:
+        """Run state convergence enforcement, branchial analysis, and rulial analysis after expansion.
 
         Returns:
-            Tuple of (causal_report, branchial_report, rulial_report).
+            Tuple of (convergence_report, branchial_report, rulial_report).
         """
-        causal_report: CausalEnforceReport | None = None
-        if enforce_causal_invariance and self._causal_engine:
-            causal_report = self._causal_engine.enforce()
+        convergence_report: MergeReport | None = None
+        if enforce_convergence and self._convergence_engine:
+            convergence_report = self._convergence_engine.enforce()
 
         branchial_report: BranchialAnalysis | None = None
         if self._branchial:
@@ -111,10 +111,10 @@ class ReasoningMixin(_MemoryBase):
 
         rulial_report: RulialAnalysis | None = None
         if self._rulial:
-            self._rulial.update_position(active_rules)
+            self._rulial.update_position()
             rulial_report = self._rulial.analyze()
 
-        return causal_report, branchial_report, rulial_report
+        return convergence_report, branchial_report, rulial_report
 
     def _build_reason_result(
         self,
@@ -122,7 +122,7 @@ class ReasoningMixin(_MemoryBase):
         seed_concepts: set[str],
         use_overlay: bool,
         auto_commit: bool,
-        causal_report: CausalEnforceReport | None,
+        convergence_report: MergeReport | None,
         branchial_report: BranchialAnalysis | None,
         rulial_report: RulialAnalysis | None,
         auto_superpositions: list[QuantumState],
@@ -133,7 +133,7 @@ class ReasoningMixin(_MemoryBase):
             seeds=list(seed_concepts),
             states=report.states_created,
             rules_applied=report.rules_applied,
-            invariants=causal_report.invariants_found if causal_report else 0,
+            invariants=convergence_report.merges_performed if convergence_report else 0,
             overlay=use_overlay,
         )
         result = ReasonResult(
@@ -145,7 +145,7 @@ class ReasoningMixin(_MemoryBase):
                 branches=report.branches,
                 max_depth=report.max_depth_reached,
             ),
-            causal_invariance=causal_report,
+            state_convergence=convergence_report,
             branchial=branchial_report,
             rulial=rulial_report,
             multiway_leaves=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
@@ -167,7 +167,7 @@ class ReasoningMixin(_MemoryBase):
             ]
         return result
 
-    def reason_with_consensus(
+    def reason_robust(
         self,
         seed_concepts: set[str],
         *,
@@ -186,7 +186,7 @@ class ReasoningMixin(_MemoryBase):
         if not seed_ids:
             return ConsensusReasonResult(error="no seed nodes found")
 
-        detector = InvariantDetector(self._perspective)
+        detector = RobustReachabilityDetector(self._perspective)
         inv_set = detector.find_invariants(seed_ids, self._graph)
         detector.mark_invariants(inv_set, self._graph)
 
@@ -211,7 +211,7 @@ class ReasoningMixin(_MemoryBase):
         rules: list[Rule] | None = None,
         max_depth: int = 3,
         max_total_states: int = 30,
-        enforce_causal_invariance: bool = True,
+        enforce_convergence: bool = True,
         use_overlay: bool = True,
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
@@ -220,7 +220,7 @@ class ReasoningMixin(_MemoryBase):
         """Expand the multiway DAG from seed concepts using inference rules.
 
         If an overlay already exists it is auto-committed before a new one is
-        created.  After expansion the method runs causal invariance enforcement,
+        created.  After expansion the method runs state convergence enforcement,
         branchial analysis, rulial tracking, and optional auto-superposition.
 
         Args:
@@ -228,7 +228,7 @@ class ReasoningMixin(_MemoryBase):
             rules: Rules to apply; defaults to ``self._rules``.
             max_depth: Maximum expansion depth.
             max_total_states: Cap on total multiway states created.
-            enforce_causal_invariance: Whether to merge convergent states.
+            enforce_convergence: Whether to merge convergent states.
             use_overlay: Route new edges through an inference overlay.
             confidence_decay: Per-depth decay factor for overlay confidence.
             auto_commit: If True, commit the overlay after expansion.
@@ -269,8 +269,8 @@ class ReasoningMixin(_MemoryBase):
         target_graph = self._overlay if use_overlay and self._overlay else self._graph
         self._record_provenance(target_graph)
 
-        causal_report, branchial_report, rulial_report = self._run_post_expansion(
-            active_rules, enforce_causal_invariance,
+        convergence_report, branchial_report, rulial_report = self._run_post_expansion(
+            active_rules, enforce_convergence,
         )
 
         auto_superpositions: list[QuantumState] = []
@@ -279,7 +279,7 @@ class ReasoningMixin(_MemoryBase):
 
         return self._build_reason_result(
             report, seed_concepts, use_overlay, auto_commit,
-            causal_report, branchial_report, rulial_report, auto_superpositions,
+            convergence_report, branchial_report, rulial_report, auto_superpositions,
         )
 
     def commit_inferences(self) -> CommitResult:

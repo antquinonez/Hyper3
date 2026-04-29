@@ -1,9 +1,9 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule, AbductiveRule
 
 
 def _setup_chain():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     a = mem.store("a")
     b = mem.store("b")
     c = mem.store("c")
@@ -73,15 +73,15 @@ class TestRuleEffectivenessTracking:
         from pathlib import Path
         with tempfile.TemporaryDirectory() as td:
             path = str(Path(td) / "test.json")
-            mem.save_cognitive_state(path)
+            mem.save_state(path)
 
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             for node in mem._graph.nodes:
                 mem2._graph.add_node(node)
             for edge in mem._graph.edges:
                 mem2._graph.add_edge(edge)
             mem2._rules = [TransitiveRule()]
-            mem2.load_cognitive_state(path)
+            mem2.load_state(path)
 
             assert mem2._rulial is not None
             eff = mem2._rulial.get_rule_effectiveness()

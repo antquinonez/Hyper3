@@ -22,11 +22,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from hyper3 import CognitiveMemory, InverseRule, Modality, TransitiveRule
+from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building a Microservices Architecture Graph")

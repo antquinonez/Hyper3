@@ -579,10 +579,10 @@ def build_hyper3_memory(
     nodes: list[tuple[str, dict]],
     edges: list[tuple[str, str, str]],
 ) -> Any:
-    """Build a Hyper3 CognitiveMemory from node/edge lists."""
-    from hyper3 import CognitiveMemory, Modality
+    """Build a Hyper3 HypergraphMemory from node/edge lists."""
+    from hyper3 import HypergraphMemory, Modality
 
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     for label, data in nodes:
         mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
     for src, tgt, label in edges:

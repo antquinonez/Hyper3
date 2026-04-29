@@ -9,7 +9,7 @@ from hyper3.temporal import (
     TemporalReasoner,
     TimeInterval,
 )
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 
 
 class TestTimeInterval:
@@ -313,7 +313,7 @@ class TestTemporalReasoner:
 
 class TestMemoryIntegration:
     def test_add_temporal_event(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         ev = mem.add_temporal_event("lunch", 12.0, 13.0)
         assert ev.label == "lunch"
         assert ev.interval.start == 12.0
@@ -323,7 +323,7 @@ class TestMemoryIntegration:
         assert node.data == {"start": 12.0, "end": 13.0}
 
     def test_temporal_query_overlapping(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("meeting", 10.0, 12.0)
         mem.add_temporal_event("lunch", 11.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
@@ -333,7 +333,7 @@ class TestMemoryIntegration:
         assert "dinner" not in labels
 
     def test_temporal_query_before(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("breakfast", 7.0, 8.0)
         mem.add_temporal_event("lunch", 12.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
@@ -343,7 +343,7 @@ class TestMemoryIntegration:
         assert "dinner" not in labels
 
     def test_temporal_query_after(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("breakfast", 7.0, 8.0)
         mem.add_temporal_event("lunch", 12.0, 13.0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
@@ -353,7 +353,7 @@ class TestMemoryIntegration:
         assert "breakfast" not in labels
 
     def test_temporal_query_proximity(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("breakfast", 7.0, 8.0)
         mem.add_temporal_event("lunch", 12.0, 13.0)
         results = mem.temporal_query("breakfast", relation="proximity", max_gap=5.0)
@@ -361,11 +361,11 @@ class TestMemoryIntegration:
         assert "lunch" in labels
 
     def test_temporal_query_nonexistent(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.temporal_query("ghost") == []
 
     def test_causal_chain(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("dinner", 18.0, 19.0)
         mem.add_temporal_event("breakfast", 7.0, 8.0)
         mem.add_temporal_event("lunch", 12.0, 13.0)
@@ -373,13 +373,13 @@ class TestMemoryIntegration:
         assert order == ["breakfast", "lunch", "dinner"]
 
     def test_temporal_property(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.temporal is mem._temporal
 
     def test_load_reinitializes_temporal(self):
         import tempfile
         import os
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("event", 1.0, 2.0)
         assert len(mem.temporal.events) == 1
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
@@ -393,7 +393,7 @@ class TestMemoryIntegration:
             os.unlink(path)
 
     def test_temporal_event_logged(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("work", 9.0, 17.0)
         temporal_entries = mem.log.query("temporal_event")
         assert len(temporal_entries) == 1
@@ -402,7 +402,7 @@ class TestMemoryIntegration:
         assert temporal_entries[0]["details"]["end"] == 17.0
 
     def test_temporal_query_containing(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("day", 0.0, 24.0)
         mem.add_temporal_event("meeting", 10.0, 11.0)
         results = mem.temporal_query("meeting", relation="containing")

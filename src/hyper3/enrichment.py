@@ -567,7 +567,7 @@ class LLMEnricher:
                     relations.append(ExtractedRelation(
                         source_label=str(r["source"]),
                         target_label=str(r["target"]),
-                        relation_label=str(r.get("label", r.get("relation", "related_to"))),
+                        relation_label=str(r.get("label", "related_to")),
                         confidence=float(r.get("confidence", 0.9)),
                         bidirectional=bool(r.get("bidirectional", False)),
                     ))

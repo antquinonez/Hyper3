@@ -15,7 +15,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     Modality,
     TransitiveRule,
     InverseRule,
@@ -23,7 +23,7 @@ from hyper3 import (
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Fraud Network Construction")

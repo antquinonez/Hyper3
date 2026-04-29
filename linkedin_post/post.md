@@ -28,9 +28,9 @@ Three dependencies: numpy, scipy, networkx. No database. No API calls. No LLM.
 Runs on a laptop.
 
 ```python
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 
-mem = CognitiveMemory()
+mem = HypergraphMemory()
 
 mem.store("APT28", data={"origin": "Russia", "sophistication": "high"})
 mem.store("CVE-2023-44228", data={"cvss": 10.0, "product": "Apache_Log4j2"})

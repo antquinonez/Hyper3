@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 
 
 class TestAbstractionBasic:
     def test_collapse_subgraph(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -19,12 +19,12 @@ class TestAbstractionBasic:
         assert len(result.mapping.detail_labels) == 2
 
     def test_collapse_empty_set(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.collapse_subgraph(set())
         assert result is None
 
     def test_collapse_with_external_connections(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         mem.store("A")
         mem.store("B")
@@ -35,7 +35,7 @@ class TestAbstractionBasic:
         assert result.external_connections >= 1
 
     def test_expand_summary(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="connects")
@@ -45,12 +45,12 @@ class TestAbstractionBasic:
         assert result.summary_removed is True
 
     def test_expand_nonexistent(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.expand_summary("ghost")
         assert result is None
 
     def test_list_summaries(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -61,14 +61,14 @@ class TestAbstractionBasic:
         assert summaries[0].summary_label == "AB"
 
     def test_list_summaries_empty(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         summaries = mem.list_summaries()
         assert summaries == []
 
 
 class TestAbstractionNavigator:
     def test_collapse_preserves_external_edges(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("ext_in")
         mem.store("A")
         mem.store("B")
@@ -85,7 +85,7 @@ class TestAbstractionNavigator:
         assert len(edges_out) >= 1
 
     def test_collapse_removes_internal_edges(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="internal")
@@ -99,7 +99,7 @@ class TestAbstractionNavigator:
         assert len(internal_edges) == 0
 
     def test_expand_restores_external_connections(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         mem.store("A")
         mem.store("B")
@@ -111,7 +111,7 @@ class TestAbstractionNavigator:
         assert len(a_edges) >= 1
 
     def test_abstraction_property(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.abstraction is None
         mem.collapse_subgraph({"anything"}, summary_label="S")
         assert mem.abstraction is not None
@@ -119,14 +119,14 @@ class TestAbstractionNavigator:
     def test_nodes_at_layer(self) -> None:
         from hyper3.kernel import AbstractionLayer
         from hyper3.abstraction import AbstractionNavigator
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("detail_node")
         nav = AbstractionNavigator(mem.graph)
         result = nav.nodes_at_layer(AbstractionLayer.DETAIL)
         assert isinstance(result, list)
 
     def test_multiple_collapses(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")

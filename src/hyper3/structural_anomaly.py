@@ -48,7 +48,6 @@ class BoundaryIndicator:
         """Return True if the boundary score is below the 0.3 threshold."""
         return self.boundary_score < 0.3
 
-    is_decidable = is_low_risk
 
 
 @dataclass
@@ -70,12 +69,6 @@ class AnomalyDetectionResult:
     boundary_warnings: list[str] = field(default_factory=list)
     reasoning_level: int = 1
 
-    @property
-    def anomaly_status_alias(self) -> str:
-        return self.anomaly_status
-
-    decidability_status = anomaly_status_alias
-
 
 @dataclass
 class ExplorationAssumption:
@@ -84,9 +77,6 @@ class ExplorationAssumption:
     assumption: str
     coverage_gain: float = 0.0
     source_edge_id: str = ""
-
-
-Axiom = ExplorationAssumption
 
 
 @dataclass
@@ -100,12 +90,6 @@ class AssumptionSet:
         if assumption.source_edge_id:
             self.provenance[assumption.name] = assumption.source_edge_id
 
-    @property
-    def axioms(self) -> dict[str, ExplorationAssumption]:
-        return self.assumptions
-
-
-AxiomSet = AssumptionSet
 
 
 ANOMALY_PATTERNS: list[dict[str, Any]] = [
@@ -129,14 +113,6 @@ class ExplorationReport:
     coverage_upper: float = 0.0
     branch_coverage: dict[str, float] = field(default_factory=dict)
     assumption_dependent_nodes: list[str] = field(default_factory=list)
-
-    @property
-    def axioms_used(self) -> AssumptionSet:
-        return self.assumptions_used
-
-    @property
-    def axiom_dependent_nodes(self) -> list[str]:
-        return self.assumption_dependent_nodes
 
     @property
     def coverage_pct(self) -> float:
@@ -185,7 +161,6 @@ class StructuralAnomalyDetector:
         indicator.structural_anomaly_score = self._compute_structural_risk(concept, context)
         return indicator
 
-    assess_decidability = assess_anomaly
 
     def _detect_cycles(self, concept: str, context: dict[str, Any] | None) -> float:
         """Score the degree of cyclic structure in the concept's graph neighborhood.
@@ -677,8 +652,6 @@ class StructuralAnomalyDetector:
             assumption_dependent_nodes=list(set(report.assumption_dependent_nodes + assumption_nodes)),
         )
 
-    extend_proof = extend_exploration
-
     def compose_explorations(self, report_a: ExplorationReport, report_b: ExplorationReport) -> ExplorationReport:
         """Merge two exploration reports into a combined report.
 
@@ -757,7 +730,6 @@ class StructuralAnomalyDetector:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return [a for _, a in candidates[:top_k]]
 
-    suggest_axioms = suggest_assumptions
 
     def precompute_boundaries(self, concepts: list[str]) -> dict[str, BoundaryIndicator]:
         """Batch-compute and cache boundary indicators for a list of concepts.

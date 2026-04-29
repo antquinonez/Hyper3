@@ -3,7 +3,7 @@ from hyper3.event_log import EventLog
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialCorrelation
-from hyper3.quantum import QuantumCognitiveLayer, QuantumState
+from hyper3.quantum import QuantumInterpretationLayer, QuantumState
 from hyper3.visualization import (
     plot_branchial_space,
     plot_evolution_history,
@@ -142,7 +142,7 @@ class TestPlotQuantumState:
         g = Hypergraph()
         for label in ["x", "y", "z"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["x", "y", "z"])
         fig = plot_quantum_state(ql, qs.id, graph=g)
         assert fig is not None
@@ -153,7 +153,7 @@ class TestPlotQuantumState:
         g = Hypergraph()
         for label in ["x", "y"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["x", "y"])
         ql.collapse(qs.id)
         fig = plot_quantum_state(ql, qs.id, graph=g)
@@ -165,7 +165,7 @@ class TestPlotQuantumState:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         fig = plot_quantum_state(ql, qs.id, show_amplitudes=False, show_probabilities=True)
         assert fig is not None
@@ -174,7 +174,7 @@ class TestPlotQuantumState:
 
     def test_empty_state(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         fig = plot_quantum_state(ql, "nonexistent")
         assert fig is not None
         import matplotlib.pyplot as plt
@@ -186,7 +186,7 @@ class TestPlotQuantumInterference:
         g = Hypergraph()
         for label in ["a", "b"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         ql.evolve_amplitudes(qs.id, {"a": 1.5})
         ql.compute_interference(qs.id)
@@ -198,7 +198,7 @@ class TestPlotQuantumInterference:
     def test_no_interference(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="x"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["x"])
         fig = plot_quantum_interference(ql, qs.id)
         assert fig is not None
@@ -294,7 +294,7 @@ class TestPlotQuantumInterferenceDeep:
         g = Hypergraph()
         for label in ["a"]:
             g.add_node(Hypernode(id=label, label=label))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState()
         qs.add_interpretation("a", 0.6)
         qs.add_interpretation("a", 0.5)
@@ -306,7 +306,7 @@ class TestPlotQuantumInterferenceDeep:
 
     def test_interference_no_graph(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState()
         qs.add_interpretation("x", 0.4)
         qs.add_interpretation("x", -0.3)

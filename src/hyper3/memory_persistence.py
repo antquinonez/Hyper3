@@ -8,12 +8,12 @@ from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
-from hyper3.evolution import SelfEvolutionEngine
-from hyper3.quantum import QuantumCognitiveLayer
+from hyper3.evolution import GraphMaintenanceEngine
+from hyper3.quantum import QuantumInterpretationLayer
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.meta_cognitive import MetaCognitiveLayer
+from hyper3.system_monitor import SystemMonitor
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.temporal import TemporalReasoner
@@ -22,11 +22,11 @@ from hyper3.enrichment import LLMEnricher
 from hyper3.feedback import OperationFeedback
 from hyper3.persistence import Serializer
 from hyper3.snapshot import (
-    CognitiveSnapshot,
+    SystemSnapshot,
     capture_snapshot,
     restore_snapshot,
-    save_cognitive_state as _save_snapshot,
-    load_cognitive_state as _load_snapshot,
+    save_state as _save_snapshot,
+    load_state as _load_snapshot,
 )
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import EvolutionStats, MemoryStats
@@ -131,21 +131,21 @@ class PersistenceMixin(_MemoryBase):
         self._log = log
         self._traversal = TraversalEngine(self._graph)
         self._observer = ObserverSlice(self._graph)
-        self._evolution = SelfEvolutionEngine(
+        self._evolution = GraphMaintenanceEngine(
             self._graph,
             decay_threshold=self._decay_threshold,
             merge_threshold=self._merge_threshold,
         )
         self._equivalence = EquivalenceEngine(self._graph, threshold=self._merge_threshold)
         self._multiway_engine = None
-        self._causal_engine = None
-        self._quantum = QuantumCognitiveLayer(self._graph)
+        self._convergence_engine = None
+        self._quantum = QuantumInterpretationLayer(self._graph)
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._branchial = None
         self._rulial = None
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
-        self._meta = MetaCognitiveLayer(
+        self._meta = SystemMonitor(
             self._graph, self._evolution, self._log, self._discovery,
         )
         self._embedding_engine = None
@@ -161,8 +161,8 @@ class PersistenceMixin(_MemoryBase):
             self._cache.put(f"store:{node.label}", node.id)
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)
 
-    def save_cognitive_state(self, path: str) -> None:
-        """Save a full cognitive snapshot including quantum, multiway, and subsystem state.
+    def save_state(self, path: str) -> None:
+        """Save a full system snapshot including quantum, multiway, and subsystem state.
 
         Args:
             path: Destination file path.
@@ -180,10 +180,10 @@ class PersistenceMixin(_MemoryBase):
             feedback=self._feedback,
         )
         _save_snapshot(path, snapshot)
-        self._log.record("save_cognitive_state", path=path)
+        self._log.record("save_state", path=path)
 
-    def load_cognitive_state(self, path: str) -> None:
-        """Restore a full cognitive snapshot from disk.
+    def load_state(self, path: str) -> None:
+        """Restore a full system snapshot from disk.
 
         Args:
             path: Path to the saved snapshot file.
@@ -206,7 +206,7 @@ class PersistenceMixin(_MemoryBase):
         self._rulial = rulial
         if rulial is not None:
             self._meta.set_rulial(rulial)
-        self._log.record("load_cognitive_state", path=path)
+        self._log.record("load_state", path=path)
 
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
@@ -236,6 +236,6 @@ class PersistenceMixin(_MemoryBase):
             overlay_active=self._overlay is not None,
             overlay_edges=len(self._overlay.overlay_edge_ids) if self._overlay else 0,
             rulial=self._rulial.analyze() if self._rulial else None,
-            meta_cognitive=meta_stats,
+            monitor_stats=meta_stats,
             multi_edge_count=multi_edge_count,
         )

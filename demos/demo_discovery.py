@@ -5,13 +5,13 @@ Run with: .venv/bin/python demos/demo_discovery.py
 """
 
 import tempfile, os
-from hyper3 import CognitiveMemory, Modality, Serializer
+from hyper3 import HypergraphMemory, Modality, Serializer
 
 print("=" * 70)
 print("SESSION 1: Build knowledge, discover rules, persist")
 print("=" * 70)
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 for label in ["ignition", "fuel_flow", "combustion", "heat", "engine_rotation", "electricity", "spark"]:
     mem.store(label, modalities={Modality.CONCEPTUAL})
@@ -60,7 +60,7 @@ print("\n" + "=" * 70)
 print("SESSION 2: Load persisted state, continue building")
 print("=" * 70)
 
-mem2 = CognitiveMemory(evolve_interval=0)
+mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load(save_path)
 print(f"\n  Loaded: {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
 print(f"  Event log entries: {mem2.log.size}")

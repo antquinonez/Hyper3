@@ -220,10 +220,10 @@ class TestDirectionalActivation:
         assert b_default >= b_dir
 
 
-class TestCognitiveMemoryIntegration:
+class TestHypergraphMemoryIntegration:
     def test_retrieve(self):
-        from hyper3.memory import CognitiveMemory
-        mem = CognitiveMemory(evolve_interval=0)
+        from hyper3.memory import HypergraphMemory
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.store("z")
@@ -235,8 +235,8 @@ class TestCognitiveMemoryIntegration:
         assert "x" not in labels
 
     def test_feedback_round_trip(self):
-        from hyper3.memory import CognitiveMemory
-        mem = CognitiveMemory(evolve_interval=0)
+        from hyper3.memory import HypergraphMemory
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -251,6 +251,6 @@ class TestCognitiveMemoryIntegration:
         assert report["trained"] is True
 
     def test_retrieval_property(self):
-        from hyper3.memory import CognitiveMemory
-        mem = CognitiveMemory(evolve_interval=0)
+        from hyper3.memory import HypergraphMemory
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.retrieval is not None

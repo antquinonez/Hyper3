@@ -17,15 +17,15 @@ from __future__ import annotations
 from collections import defaultdict
 
 from hyper3 import (
-    CognitiveMemory,
-    InvariantDetector,
+    HypergraphMemory,
+    RobustReachabilityDetector,
     Modality,
     TransitiveRule,
     InverseRule,
 )
 
 
-def build_infrastructure(mem: CognitiveMemory) -> set[str]:
+def build_infrastructure(mem: HypergraphMemory) -> set[str]:
     services = {
         "web_frontend": {"type": "service", "exposure": "internet", "criticality": 8, "data_classification": "public"},
         "mobile_app": {"type": "service", "exposure": "internet", "criticality": 7, "data_classification": "public"},
@@ -336,7 +336,7 @@ def build_infrastructure(mem: CognitiveMemory) -> set[str]:
 
 
 def _traverse(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     seed_labels: set[str],
     *,
     max_depth: int = 4,
@@ -375,7 +375,7 @@ def _traverse(
     return reachable
 
 
-def _is_sensitive_node(mem: CognitiveMemory, nid: str) -> bool:
+def _is_sensitive_node(mem: HypergraphMemory, nid: str) -> bool:
     node = mem.graph.get_node(nid)
     if not node or not isinstance(node.data, dict):
         return True
@@ -384,7 +384,7 @@ def _is_sensitive_node(mem: CognitiveMemory, nid: str) -> bool:
 
 
 def analyze_perspective(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     seed_labels: set[str],
     frame_name: str,
     perspective_label: str,
@@ -458,7 +458,7 @@ def analyze_perspective(
 
 
 def find_invariants_and_disagreements(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     seed_labels: set[str],
     perspective_results: dict[str, dict],
 ) -> None:
@@ -470,7 +470,7 @@ def find_invariants_and_disagreements(
         if node:
             seed_ids.add(node.id)
 
-    detector = InvariantDetector(mem.perspective)
+    detector = RobustReachabilityDetector(mem.perspective)
     inv = detector.find_invariants(list(seed_ids), mem.graph)
 
     inv_labels = set()
@@ -537,7 +537,7 @@ def find_invariants_and_disagreements(
 
 
 def generate_recommendations(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     perspective_results: dict[str, dict],
 ) -> None:
     print("\n  --- Recommended Action Items ---")
@@ -597,7 +597,7 @@ def generate_recommendations(
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Infrastructure Graph Construction

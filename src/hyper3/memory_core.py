@@ -14,7 +14,7 @@ from hyper3.kernel import (
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolveResult, CausalEnforceReport
+from hyper3.results import EvolveResult, MergeReport
 
 
 class CoreMixin(_MemoryBase):
@@ -253,10 +253,10 @@ class CoreMixin(_MemoryBase):
         """
         report = self._evolution.evolve()
         self._cache.evict_expired()
-        causal_report: CausalEnforceReport | None = None
-        if hasattr(self, '_causal_engine') and self._causal_engine:
-            causal_report = self._causal_engine.enforce()
-        self._log.record("evolve", report=report, causal=causal_report)
+        convergence_report: MergeReport | None = None
+        if hasattr(self, '_convergence_engine') and self._convergence_engine:
+            convergence_report = self._convergence_engine.enforce()
+        self._log.record("evolve", report=report, convergence=convergence_report)
 
         node_count = self._graph.node_count
         edge_count = self._graph.edge_count
@@ -273,7 +273,7 @@ class CoreMixin(_MemoryBase):
             suppressed=report.suppressed,
             node_count=node_count,
             edge_count=edge_count,
-            causal=causal_report,
+            convergence=convergence_report,
         )
 
     def evolve_with_feedback(self) -> EvolveResult:
@@ -296,10 +296,10 @@ class CoreMixin(_MemoryBase):
             suppressed_nodes=suppressed if suppressed else None,
         )
         self._cache.evict_expired()
-        causal_report: CausalEnforceReport | None = None
-        if hasattr(self, '_causal_engine') and self._causal_engine:
-            causal_report = self._causal_engine.enforce()
-        self._log.record("evolve_with_feedback", report=report, causal=causal_report)
+        convergence_report: MergeReport | None = None
+        if hasattr(self, '_convergence_engine') and self._convergence_engine:
+            convergence_report = self._convergence_engine.enforce()
+        self._log.record("evolve_with_feedback", report=report, convergence=convergence_report)
 
         node_count = self._graph.node_count
         edge_count = self._graph.edge_count
@@ -315,7 +315,7 @@ class CoreMixin(_MemoryBase):
             suppressed=report.suppressed,
             node_count=node_count,
             edge_count=edge_count,
-            causal=causal_report,
+            convergence=convergence_report,
         )
 
     def _find_node(self, label: str) -> Hypernode | None:
@@ -343,7 +343,7 @@ class CoreMixin(_MemoryBase):
             else:
                 self.evolve()
             if hasattr(self, '_meta') and self._meta:
-                self._meta.auto_metamorphosis()
+                self._meta.auto_tune()
 
     def _node_label(self, node_id: str) -> str:
         """Return the human-readable label for a node ID, or a truncated ID fallback."""

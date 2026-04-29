@@ -7,10 +7,10 @@ from hyper3.event_log import EventLog
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.cache import LazyCache
 from hyper3.traversal import ObserverSlice, TraversalEngine
-from hyper3.evolution import SelfEvolutionEngine
+from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.overlay import HypergraphOverlay
-from hyper3.multiway_causal import CausalInvarianceEngine
-from hyper3.quantum import QuantumCognitiveLayer
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.quantum import QuantumInterpretationLayer
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
@@ -19,7 +19,7 @@ from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.meta_cognitive import MetaCognitiveLayer
+from hyper3.system_monitor import SystemMonitor
 from hyper3.embedding import EmbeddingEngine
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
@@ -32,7 +32,7 @@ from hyper3.backward_chain import BackwardChainEngine
 from hyper3.hebbian import HebbianLearner
 from hyper3.uncertainty import UncertaintyEngine
 from hyper3.structural_match import StructuralPatternEngine
-from hyper3.belief_revision import BeliefRevisionEngine
+from hyper3.belief_revision import ContradictionResolver
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.community import CommunityDetector
 from hyper3.graph_diff import GraphDiffer
@@ -44,7 +44,7 @@ from hyper3.memory_persistence import PersistenceMixin
 from hyper3.memory_subsystems import SubsystemMixin
 
 
-class CognitiveMemory(
+class HypergraphMemory(
     CoreMixin,
     ReasoningMixin,
     QuantumMixin,
@@ -62,7 +62,7 @@ class CognitiveMemory(
         decay_threshold: float = 0.1,
         evolve_interval: int = 10,
     ) -> None:
-        """Initialize the cognitive memory with all subsystems.
+        """Initialize the hypergraph memory with all subsystems.
 
         Args:
             cache_max_size: Maximum number of entries in the LRU cache.
@@ -78,7 +78,7 @@ class CognitiveMemory(
         self._cache = LazyCache(max_size=cache_max_size, ttl=cache_ttl)
         self._traversal = TraversalEngine(self._graph)
         self._observer = ObserverSlice(self._graph)
-        self._evolution = SelfEvolutionEngine(
+        self._evolution = GraphMaintenanceEngine(
             self._graph,
             decay_threshold=decay_threshold,
             merge_threshold=merge_threshold,
@@ -90,8 +90,8 @@ class CognitiveMemory(
         self._decay_threshold = decay_threshold
         self._operation_count = 0
         self._multiway_engine: MultiwayEngine | None = None
-        self._causal_engine: CausalInvarianceEngine | None = None
-        self._quantum = QuantumCognitiveLayer(self._graph)
+        self._convergence_engine: StateConvergenceEngine | None = None
+        self._quantum = QuantumInterpretationLayer(self._graph)
         self._rules: list[Rule] = []
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._serializer = Serializer()
@@ -99,7 +99,7 @@ class CognitiveMemory(
         self._rulial: RulialSpace | None = None
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
-        self._meta = MetaCognitiveLayer(
+        self._meta = SystemMonitor(
             self._graph, self._evolution, self._log, self._discovery,
         )
         self._embedding_engine: EmbeddingEngine | None = None
@@ -115,7 +115,7 @@ class CognitiveMemory(
         self._hebbian: HebbianLearner | None = None
         self._uncertainty_engine: UncertaintyEngine | None = None
         self._structural_matcher: StructuralPatternEngine | None = None
-        self._belief_revision: BeliefRevisionEngine | None = None
+        self._belief_revision: ContradictionResolver | None = None
         self._abstraction_nav: AbstractionNavigator | None = None
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None

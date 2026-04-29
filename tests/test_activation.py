@@ -4,7 +4,7 @@ import pytest
 
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.persistence import Serializer
 
 
@@ -236,7 +236,7 @@ class TestDiamondGraph:
 
 class TestIntegrationMemory:
     def test_activate_end_to_end(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("dog")
         mem.store("cat")
         mem.store("mammal")
@@ -249,7 +249,7 @@ class TestIntegrationMemory:
         assert "mammal" not in labels
 
     def test_stimulate_and_spread_methods(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y")
@@ -258,7 +258,7 @@ class TestIntegrationMemory:
         assert len(result) >= 1
 
     def test_clear_activations(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.stimulate("x", energy=1.0)
         mem.clear_activations()
@@ -266,13 +266,13 @@ class TestIntegrationMemory:
         assert len(result) == 0
 
     def test_load_reinitializes_activation(self, tmp_path):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b")
         path = str(tmp_path / "test.json")
         mem.save(path)
-        mem2 = CognitiveMemory(evolve_interval=0)
+        mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
         result = mem2.activate("a", top_k=5)
         assert isinstance(result, list)

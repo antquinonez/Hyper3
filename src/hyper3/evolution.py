@@ -16,7 +16,7 @@ class EvolutionMetrics:
     total_refinements: int = 0
 
 
-class SelfEvolutionEngine:
+class GraphMaintenanceEngine:
     """Drives automatic decay, pruning, and merging of hypergraph nodes."""
 
     def __init__(

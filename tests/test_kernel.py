@@ -11,7 +11,7 @@ from hyper3 import (
     Metadata,
     Modality,
     ObserverSlice,
-    SelfEvolutionEngine,
+    GraphMaintenanceEngine,
     TraversalEngine,
 )
 
@@ -502,7 +502,7 @@ class TestObserverSlice:
         assert "b" not in ids
 
 
-class TestSelfEvolutionEngine:
+class TestGraphMaintenanceEngine:
     def _build_graph(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a", data="x", weight=1.0))
@@ -515,14 +515,14 @@ class TestSelfEvolutionEngine:
 
     def test_decay_weights(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g, decay_threshold=0.1)
+        engine = GraphMaintenanceEngine(g, decay_threshold=0.1)
         decayed = engine.decay_weights(factor=0.5)
         a = g.get_node("a")
         assert a.weight == pytest.approx(0.5)
 
     def test_prune_dead_nodes(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g, decay_threshold=0.1)
+        engine = GraphMaintenanceEngine(g, decay_threshold=0.1)
         g.get_node("c").weight = 0.05
         pruned = engine.prune_dead_nodes()
         assert "c" in pruned
@@ -530,19 +530,19 @@ class TestSelfEvolutionEngine:
 
     def test_merge_equivalences(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g, merge_threshold=0.8)
+        engine = GraphMaintenanceEngine(g, merge_threshold=0.8)
         merged = engine.merge_equivalences()
         assert len(merged) >= 1
 
     def test_reinforce(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g)
+        engine = GraphMaintenanceEngine(g)
         engine.reinforce("a", boost=2.0)
         assert g.get_node("a").weight == 2.0
 
     def test_evolve(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g, decay_threshold=0.1)
+        engine = GraphMaintenanceEngine(g, decay_threshold=0.1)
         report = engine.evolve()
         assert "decayed" in report
         assert "pruned" in report
@@ -551,7 +551,7 @@ class TestSelfEvolutionEngine:
 
     def test_metrics_accumulate(self):
         g = self._build_graph()
-        engine = SelfEvolutionEngine(g)
+        engine = GraphMaintenanceEngine(g)
         engine.evolve()
         engine.evolve()
         assert engine.metrics.total_refinements == 2

@@ -1,10 +1,10 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.kernel import Hyperedge
 from hyper3.structural_anomaly import ExplorationAssumption, AssumptionSet, ExplorationReport
 
 
 def _make_cyclic_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("A")
     mem.store("B")
     mem.store("C")
@@ -163,7 +163,7 @@ class TestComposeExplorations:
 class TestSuggestAssumptions:
 
     def test_suggests_bridging_assumptions(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("X")
         mem.store("Y")
         mem.store("Z")
@@ -179,7 +179,7 @@ class TestSuggestAssumptions:
         assert any("Z" in a.assumption for a in suggestions)
 
     def test_suggests_top_k(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("root")
         for i in range(10):
             mem.store(f"isolated_{i}")

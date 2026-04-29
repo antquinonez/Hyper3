@@ -28,7 +28,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import networkx as nx
 import numpy as np
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 from shared import (
     build_cs_knowledge_graph,
     build_nx_digraph,

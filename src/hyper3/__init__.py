@@ -23,13 +23,13 @@ from hyper3.event_log import EventLog
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.cache import LazyCache
 from hyper3.traversal import TraversalEngine, SliceConfig, ObserverSlice
-from hyper3.evolution import EvolutionMetrics, SelfEvolutionEngine
+from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
 from hyper3.overlay import HypergraphOverlay
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import (
     AbductiveRule,
-    AnalogicalReasoningRule,
-    CausalInferenceRule,
+    StructuralProjectionRule,
+    HubInferenceRule,
     ContextualSubstitutionRule,
     GeneralizationRule,
     InverseRule,
@@ -46,8 +46,8 @@ from hyper3.multiway import (
     MultiwayState,
 )
 from hyper3.multiway_causal import (
-    CausalInvarianceEngine,
-    CausalInvariant,
+    StateConvergenceEngine,
+    ConvergenceRecord,
 )
 from hyper3.quantum import (
     CollapseTrigger,
@@ -55,7 +55,7 @@ from hyper3.quantum import (
     InterferencePattern,
     MeasurementBasis,
     PotentialFieldConfig,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     ConceptCorrelation,
     QuantumState,
 )
@@ -74,15 +74,13 @@ from hyper3.multiway_branchial import (
 )
 from hyper3.multiway_rulial import (
     HighLevelInsight,
-    MetaComputationalPattern,
+    DetectedPattern,
     RulialPosition,
     RulialSpace,
 )
 from hyper3.structural_anomaly import (
     AnomalyDetectionResult,
     AssumptionSet,
-    Axiom,
-    AxiomSet,
     BoundaryIndicator,
     BoundaryRegion,
     ExplorationAssumption,
@@ -95,23 +93,23 @@ from hyper3.frame_transform import (
     TransformedConfig,
 )
 from hyper3.multi_perspective import (
-    ComputationalFrame,
+    AnalysisPreset,
     ConsensusResult,
     DisagreementRegion,
-    FrameAnalysis,
+    PresetAnalysis,
     FrameTransformation,
-    InvariantDetector,
-    InvariantSet,
+    RobustReachabilityDetector,
+    RobustReachabilitySet,
     MultiPerspectiveAnalyzer,
     ProblemFeatures,
     StructuralMetrics,
 )
 
-from hyper3.meta_cognitive import (
-    CognitiveStateModel,
-    MetaCognitiveLayer,
-    MetamorphosisPlan,
-    MetamorphosisTrigger,
+from hyper3.system_monitor import (
+    SystemHealthModel,
+    SystemMonitor,
+    TuningPlan,
+    TuningTrigger,
 )
 from hyper3 import visualization
 from hyper3.embedding import (
@@ -173,7 +171,7 @@ from hyper3.feedback import (
     FeedbackSignal,
     OperationFeedback,
 )
-from hyper3.snapshot import CognitiveSnapshot
+from hyper3.snapshot import SystemSnapshot
 from hyper3.validation import (
     AgreementMetrics,
     ReasoningSummary,
@@ -183,7 +181,7 @@ from hyper3.validation import (
 from hyper3.results import (
     BiasProfileResult,
     BranchialAnalysis,
-    CausalEnforceReport,
+    MergeReport,
     CommitResult,
     ConsensusReasonResult,
     CorrelatedNodeInfo,
@@ -195,12 +193,12 @@ from hyper3.results import (
     ExpansionInfo,
     FeedbackSummaryResult,
     ImportResult,
-    IntrospectionReport,
+    HealthReport,
     IterativeReasonResult,
     LateralInferenceInsight,
     MemoryStats,
-    MetaCognitiveStats,
-    MetamorphosisResult,
+    MonitorStats,
+    TuningResult,
     PatternMatchInfo,
     ReasonResult,
     AnomalyAnalysis,
@@ -243,7 +241,7 @@ from hyper3.structural_match import (
     StructuralPatternEngine,
 )
 from hyper3.belief_revision import (
-    BeliefRevisionEngine,
+    ContradictionResolver,
     Contradiction,
     RevisionAction,
     RevisionPlan,

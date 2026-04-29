@@ -3,20 +3,20 @@ from __future__ import annotations
 import math
 
 from hyper3.multi_perspective import (
-    ComputationalFrame,
+    AnalysisPreset,
     MultiPerspectiveAnalyzer,
-    FrameAnalysis,
+    PresetAnalysis,
 )
 from hyper3.kernel import Hypergraph, Hypernode, Hyperedge, Metadata, Modality
 
 
-class TestCustomFrameLegacyPath:
-    def test_custom_frame_uses_legacy_analysis(self):
+class TestCustomPresetAnalysis:
+    def test_custom_frame_uses_custom_analysis(self):
         g = Hypergraph()
         a = Hypernode(label="x")
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="custom", frame_type="classical", metrics={"x": 0.5})
+        custom = AnalysisPreset(name="custom", frame_type="classical", metrics={"x": 0.5})
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom")
         assert result.frame_name == "custom"
@@ -36,7 +36,7 @@ class TestCustomFrameLegacyPath:
         )
         g.add_edge(e)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="custom2", frame_type="classical", metrics={"x": 0.5})
+        custom = AnalysisPreset(name="custom2", frame_type="classical", metrics={"x": 0.5})
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom2")
         assert result.frame_name == "custom2"
@@ -49,7 +49,7 @@ class TestCustomFrameLegacyPath:
             g.add_node(Hypernode(label=f"n{i}"))
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="custom_low", frame_type="classical")
+        custom = AnalysisPreset(name="custom_low", frame_type="classical")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "custom_low")
         assert "low_complexity" in result.strengths
@@ -164,7 +164,7 @@ class TestComputeComplexityFrameTypes:
         e = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="x")
         g.add_edge(e)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="test_q", frame_type="quantum")
+        custom = AnalysisPreset(name="test_q", frame_type="quantum")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_q")
         assert result.complexity < float("inf")
@@ -174,7 +174,7 @@ class TestComputeComplexityFrameTypes:
         a = Hypernode(label="x")
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="test_hg", frame_type="hypergraph")
+        custom = AnalysisPreset(name="test_hg", frame_type="hypergraph")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_hg")
         assert result.complexity < float("inf")
@@ -184,7 +184,7 @@ class TestComputeComplexityFrameTypes:
         a = Hypernode(label="x")
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="test_prob", frame_type="probabilistic")
+        custom = AnalysisPreset(name="test_prob", frame_type="probabilistic")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_prob")
         assert result.complexity < float("inf")
@@ -194,7 +194,7 @@ class TestComputeComplexityFrameTypes:
         a = Hypernode(label="x")
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="test_unknown", frame_type="neural")
+        custom = AnalysisPreset(name="test_unknown", frame_type="neural")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_unknown")
         assert result.complexity < float("inf")
@@ -209,7 +209,7 @@ class TestDeriveApproachLevels:
             n = Hypernode(label=f"n{i}")
             g.add_node(n)
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="test_local", frame_type="classical")
+        custom = AnalysisPreset(name="test_local", frame_type="classical")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_local")
         assert result.solution_approach in (
@@ -267,7 +267,7 @@ class TestNodeNotFound:
         assert result.solution_approach == "node_not_found"
 
 
-class TestMultiFrameAnalysis:
+class TestMultiPresetAnalysis:
     def test_multi_frame_analysis_returns_all(self):
         g = Hypergraph()
         a = Hypernode(label="x")
@@ -305,13 +305,13 @@ class TestGetFrame:
         assert cr.get_frame("nonexistent") is None
 
 
-class TestComputationalFrameComplexity:
+class TestAnalysisPresetComplexity:
     def test_empty_metrics_zero(self):
-        f = ComputationalFrame(name="t")
+        f = AnalysisPreset(name="t")
         assert f.complexity() == 0.0
 
     def test_with_metrics(self):
-        f = ComputationalFrame(name="t", metrics={"a": 1.0, "b": 3.0})
+        f = AnalysisPreset(name="t", metrics={"a": 1.0, "b": 3.0})
         assert f.complexity() == 2.0
 
 

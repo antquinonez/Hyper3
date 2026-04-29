@@ -8,7 +8,7 @@ from hyper3.embedding import (
     HashEmbeddingProvider,
     SimilarityResult,
 )
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 
 
 class TestHashEmbeddingProvider:
@@ -257,9 +257,9 @@ class TestCustomProvider:
         assert engine.compute_distance(x_id, y_id) == pytest.approx(0.0)
 
 
-class TestCognitiveMemoryIntegration:
+class TestHypergraphMemoryIntegration:
     def test_find_similar_no_provider(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         results = mem.find_similar("cat", threshold=-1.0)
@@ -267,11 +267,11 @@ class TestCognitiveMemoryIntegration:
         assert all(isinstance(r, SimilarityResult) for r in results)
 
     def test_find_similar_missing_concept(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.find_similar("nonexistent") == []
 
     def test_analogy_integration(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("king")
         mem.store("queen")
         mem.store("man")
@@ -283,7 +283,7 @@ class TestCognitiveMemoryIntegration:
             assert isinstance(score, float)
 
     def test_analogy_missing_concept(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         assert mem.analogy("a", "missing", "also_missing") == []
 
@@ -295,7 +295,7 @@ class TestCognitiveMemoryIntegration:
             def dimension(self) -> int:
                 return 2
 
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.set_embedding_provider(ConstProvider())
@@ -305,7 +305,7 @@ class TestCognitiveMemoryIntegration:
 
     def test_load_resets_embedding_engine(self):
         import tempfile, os
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
         mem.find_similar("cat", threshold=-1.0)
@@ -314,7 +314,7 @@ class TestCognitiveMemoryIntegration:
             path = f.name
         try:
             mem.save(path)
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2._embedding_engine is None
             results = mem2.find_similar("cat", threshold=-1.0)
@@ -323,7 +323,7 @@ class TestCognitiveMemoryIntegration:
             os.unlink(path)
 
     def test_find_similar_logs_event(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("alpha")
         mem.store("beta")
         mem.find_similar("alpha", threshold=-1.0)
@@ -479,7 +479,7 @@ class TestFaissIntegration:
         assert len(results) == 0
 
     def test_memory_enable_faiss(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(20):
             mem.store(f"concept_{i}")
         result = mem.enable_faiss()
@@ -489,7 +489,7 @@ class TestFaissIntegration:
         assert events[0]["details"]["success"] is True
 
     def test_memory_find_similar_with_faiss(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(15):
             mem.store(f"item_{i}")
         mem.enable_faiss()
@@ -498,7 +498,7 @@ class TestFaissIntegration:
         assert all(isinstance(r, SimilarityResult) for r in results)
 
     def test_memory_faiss_persists_across_retrieval(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"node_{i}")
         mem.enable_faiss()

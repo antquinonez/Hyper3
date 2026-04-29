@@ -190,7 +190,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
     """Classify the memory's capability level based on subsystem probe scores.
 
     Args:
-        memory: A ``CognitiveMemory`` instance (typed as ``object`` to avoid
+        memory: A ``HypergraphMemory`` instance (typed as ``object`` to avoid
             circular imports).
 
     Returns:

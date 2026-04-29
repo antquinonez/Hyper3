@@ -1,11 +1,11 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
 from hyper3.kernel import Hyperedge
 from hyper3.multiway_branchial import AnalogyProposal
 
 
 def _setup_analogy_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     for label in ["cell", "nucleus", "membrane", "protein",
                    "process", "memory", "interface", "data"]:
         mem.store(label)

@@ -1,10 +1,10 @@
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
-from hyper3.meta_cognitive import MetamorphosisTrigger, MetamorphosisPlan
+from hyper3.system_monitor import TuningTrigger, TuningPlan
 
 
 def _setup_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d"]:
         mem.store(label)
     mem.relate("a", "b", label="rel")
@@ -17,24 +17,24 @@ class TestMetamorphosisActions:
 
     def test_increase_merge_threshold(self):
         mem = _setup_mem()
-        plan = MetamorphosisPlan(actions=["increase_merge_threshold"])
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=["increase_merge_threshold"])
+        result = mem._meta.execute_tuning(plan)
         assert "increase_merge_threshold" in result
         assert result["increase_merge_threshold"]["new_threshold"] > result["increase_merge_threshold"]["old_threshold"]
 
     def test_expand_seed_set(self):
         mem = _setup_mem()
         mem.store("isolated")
-        plan = MetamorphosisPlan(actions=["expand_seed_set"])
+        plan = TuningPlan(actions=["expand_seed_set"])
         mem._meta.set_rules(mem._rules)
-        result = mem._meta.execute_metamorphosis(plan)
+        result = mem._meta.execute_tuning(plan)
         assert "expand_seed_set" in result
         assert "poorly_connected" in result["expand_seed_set"]
 
     def test_promote_pattern_to_rule_without_rulial(self):
         mem = _setup_mem()
-        plan = MetamorphosisPlan(actions=["promote_pattern_to_rule"])
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=["promote_pattern_to_rule"])
+        result = mem._meta.execute_tuning(plan)
         assert result["promote_pattern_to_rule"]["promoted"] is False
 
     def test_update_rulial_position(self):
@@ -44,20 +44,20 @@ class TestMetamorphosisActions:
         assert mem._rulial is not None
         mem._meta.set_rulial(mem._rulial)
         mem._meta.set_rules(mem._rules)
-        plan = MetamorphosisPlan(actions=["update_rulial_position"])
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=["update_rulial_position"])
+        result = mem._meta.execute_tuning(plan)
         assert result["update_rulial_position"]["updated"] is True
 
     def test_restructure_graph_dimensions(self):
         mem = _setup_mem()
-        plan = MetamorphosisPlan(actions=["restructure_graph_dimensions"])
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=["restructure_graph_dimensions"])
+        result = mem._meta.execute_tuning(plan)
         assert "restructure_graph_dimensions" in result
 
     def test_recalibrate_modality_weights(self):
         mem = _setup_mem()
-        plan = MetamorphosisPlan(actions=["recalibrate_modality_weights"])
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=["recalibrate_modality_weights"])
+        result = mem._meta.execute_tuning(plan)
         assert "recalibrate_modality_weights" in result
         assert "adjusted_edges" in result["recalibrate_modality_weights"]
 
@@ -71,8 +71,8 @@ class TestMetamorphosisActions:
             "restructure_graph_dimensions",
             "recalibrate_modality_weights",
         ]
-        plan = MetamorphosisPlan(actions=new_actions)
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=new_actions)
+        result = mem._meta.execute_tuning(plan)
         for action in new_actions:
             assert result.get(action) != "unknown_action", f"{action} was not handled"
 
@@ -83,8 +83,8 @@ class TestMetamorphosisActions:
             "run_rule_discovery",
             "optimize_weights",
         ]
-        plan = MetamorphosisPlan(actions=existing_actions)
-        result = mem._meta.execute_metamorphosis(plan)
+        plan = TuningPlan(actions=existing_actions)
+        result = mem._meta.execute_tuning(plan)
         expected_keys = ["adjust_evolution", "rule_discovery", "optimize_weights"]
         for key in expected_keys:
             assert key in result

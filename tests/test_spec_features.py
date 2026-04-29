@@ -8,17 +8,17 @@ import pytest
 
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.multiway_branchial import BranchialSpace, MultiScaleAnalysis, ScaleLevel
-from hyper3.multiway_causal import CausalInvarianceEngine
-from hyper3.quantum import MeasurementBasis, QuantumCognitiveLayer
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.quantum import MeasurementBasis, QuantumInterpretationLayer
 from hyper3.cache import LazyCache
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.rules import (
-    AnalogicalReasoningRule,
-    CausalInferenceRule,
+    StructuralProjectionRule,
+    HubInferenceRule,
     ContextualSubstitutionRule,
     RuleMatch,
 )
@@ -45,7 +45,7 @@ class TestGraphIsomorphismForCausalInvariance:
         s2 = MultiwayState(active_node_ids=frozenset({c.id, d.id}), produced_edge_ids=[e2.id])
         mw.add_state(s1)
         mw.add_state(s2)
-        engine = CausalInvarianceEngine(g, mw, threshold=0.0)
+        engine = StateConvergenceEngine(g, mw, threshold=0.0)
         score = engine.check_graph_isomorphism(s1, s2)
         assert score == 1.0
 
@@ -64,7 +64,7 @@ class TestGraphIsomorphismForCausalInvariance:
         s2 = MultiwayState(active_node_ids=frozenset({g.get_node_by_label("C").id, g.get_node_by_label("D").id, g.get_node_by_label("A").id}), produced_edge_ids=[e2.id, e3.id])
         mw.add_state(s1)
         mw.add_state(s2)
-        engine = CausalInvarianceEngine(g, mw, threshold=0.0)
+        engine = StateConvergenceEngine(g, mw, threshold=0.0)
         score = engine.check_graph_isomorphism(s1, s2)
         assert score == 0.0
 
@@ -75,17 +75,17 @@ class TestGraphIsomorphismForCausalInvariance:
         s2 = MultiwayState()
         mw.add_state(s1)
         mw.add_state(s2)
-        engine = CausalInvarianceEngine(g, mw)
+        engine = StateConvergenceEngine(g, mw)
         score = engine.check_graph_isomorphism(s1, s2)
         assert score == 1.0
 
 
-class TestAnalogicalReasoningRule:
+class TestStructuralProjectionRule:
     def test_no_embedding_engine_returns_empty(self):
         g = Hypergraph()
         for lbl in "ABCD":
             g.add_node(Hypernode(label=lbl))
-        rule = AnalogicalReasoningRule()
+        rule = StructuralProjectionRule()
         matches = rule.find_matches(g, frozenset(n.id for n in g.nodes))
         assert matches == []
 
@@ -108,7 +108,7 @@ class TestAnalogicalReasoningRule:
                 }
                 return emb_map.get(node_id)
 
-        rule = AnalogicalReasoningRule(similarity_threshold=0.5)
+        rule = StructuralProjectionRule(similarity_threshold=0.5)
         rule.set_embedding_engine(MockEngine())
         matches = rule.find_matches(g, frozenset(n.id for n in nodes))
         assert isinstance(matches, list)
@@ -120,7 +120,7 @@ class TestAnalogicalReasoningRule:
             n = Hypernode(label=lbl)
             g.add_node(n)
             nodes.append(n)
-        rule = AnalogicalReasoningRule()
+        rule = StructuralProjectionRule()
         match = RuleMatch(
             rule_name=rule.name,
             bindings={"A": nodes[0].id, "B": nodes[1].id, "C": nodes[2].id, "D": nodes[3].id},
@@ -134,15 +134,15 @@ class TestAnalogicalReasoningRule:
         assert nodes[3].id in edge.target_ids
 
     def test_serialization(self):
-        rule = AnalogicalReasoningRule(edge_label="rel", similarity_threshold=0.6)
+        rule = StructuralProjectionRule(edge_label="rel", similarity_threshold=0.6)
         d = rule.to_dict()
-        assert d["rule_type"] == "AnalogicalReasoningRule"
-        restored = AnalogicalReasoningRule._from_dict(d)
+        assert d["rule_type"] == "StructuralProjectionRule"
+        restored = StructuralProjectionRule._from_dict(d)
         assert restored._edge_label == "rel"
         assert restored._threshold == 0.6
 
 
-class TestCausalInferenceRule:
+class TestHubInferenceRule:
     def test_detects_recurring_pattern(self):
         g = Hypergraph()
         a = Hypernode(label="A")
@@ -154,7 +154,7 @@ class TestCausalInferenceRule:
         for _ in range(3):
             g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="leads_to"))
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="also"))
-        rule = CausalInferenceRule(min_support=2, confidence_threshold=0.5)
+        rule = HubInferenceRule(min_support=2, confidence_threshold=0.5)
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
         ab_matches = [m for m in matches if m.bindings["cause"] == a.id and m.bindings["effect"] == b.id]
         assert len(ab_matches) == 1
@@ -168,7 +168,7 @@ class TestCausalInferenceRule:
         g.add_node(a)
         g.add_node(b)
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="once"))
-        rule = CausalInferenceRule(min_support=5)
+        rule = HubInferenceRule(min_support=5)
         matches = rule.find_matches(g, frozenset({a.id, b.id}))
         assert len(matches) == 0
 
@@ -178,7 +178,7 @@ class TestCausalInferenceRule:
         b = Hypernode(label="B")
         g.add_node(a)
         g.add_node(b)
-        rule = CausalInferenceRule(causes_label="causes")
+        rule = HubInferenceRule(causes_label="causes")
         match = RuleMatch(rule_name=rule.name, bindings={"cause": a.id, "effect": b.id}, context={"support": 3, "confidence": 0.75})
         new_n, new_e = rule.apply(g, match)
         edge = g.get_edge(new_e[0])
@@ -186,9 +186,9 @@ class TestCausalInferenceRule:
         assert edge.metadata.custom["confidence"] == 0.75
 
     def test_serialization(self):
-        rule = CausalInferenceRule(min_support=3, confidence_threshold=0.7, causes_label="implies")
+        rule = HubInferenceRule(min_support=3, confidence_threshold=0.7, causes_label="implies")
         d = rule.to_dict()
-        restored = CausalInferenceRule._from_dict(d)
+        restored = HubInferenceRule._from_dict(d)
         assert restored._min_support == 3
         assert restored._confidence_threshold == 0.7
         assert restored._causes_label == "implies"
@@ -299,7 +299,7 @@ class TestPerRuleEffectivenessTracking:
 class TestMeasurementBasisLearning:
     def test_record_basis_outcome(self):
         g = Hypergraph()
-        qcl = QuantumCognitiveLayer(g)
+        qcl = QuantumInterpretationLayer(g)
         qcl.record_basis_outcome("linguistic", True)
         qcl.record_basis_outcome("linguistic", True)
         qcl.record_basis_outcome("linguistic", False)
@@ -308,7 +308,7 @@ class TestMeasurementBasisLearning:
 
     def test_get_effective_basis_returns_valid(self):
         g = Hypergraph()
-        qcl = QuantumCognitiveLayer(g)
+        qcl = QuantumInterpretationLayer(g)
         basis = qcl.get_effective_basis()
         assert basis in qcl.bases
 
@@ -316,7 +316,7 @@ class TestMeasurementBasisLearning:
         g = Hypergraph()
         n1 = Hypernode(label="test1")
         g.add_node(n1)
-        qcl = QuantumCognitiveLayer(g)
+        qcl = QuantumInterpretationLayer(g)
         for _ in range(50):
             qcl.record_basis_outcome("temporal", True)
         for _ in range(50):
@@ -348,7 +348,7 @@ class TestAdaptiveCoherenceTime:
         g = Hypergraph()
         for lbl in "ABCD":
             g.add_node(Hypernode(label=lbl))
-        qcl = QuantumCognitiveLayer(g)
+        qcl = QuantumInterpretationLayer(g)
         ids = [g.get_node_by_label(lbl).id for lbl in "ABCD"]
         qs = qcl.create_superposition(ids)
         assert qs.coherence_time != qs.base_coherence_time
@@ -482,9 +482,9 @@ class TestTraversalPrefetching:
         assert added == 1
 
 
-class TestCognitiveMemoryPrefetchAPI:
+class TestHypergraphMemoryPrefetchAPI:
     def test_enable_prefetch(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a", data={"x": 1})
         mem.store("b", data={"x": 2})
         mem.relate("a", "b", label="e")
@@ -492,7 +492,7 @@ class TestCognitiveMemoryPrefetchAPI:
         assert mem.cache.prefetch_enabled
 
     def test_record_access_and_predict(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("a", data={"x": 1})
         mem.store("b", data={"x": 2})
         mem.store("c", data={"x": 3})
@@ -504,7 +504,7 @@ class TestCognitiveMemoryPrefetchAPI:
         assert "b" in predicted
 
     def test_prefetch_neighbors(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("center", data={"x": 0})
         mem.store("n1", data={"x": 1})
         mem.store("n2", data={"x": 2})
@@ -514,11 +514,11 @@ class TestCognitiveMemoryPrefetchAPI:
         assert preloaded >= 2
 
     def test_predict_next_unknown_concept(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.predict_next_access("nonexistent") == []
 
     def test_cache_property(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.cache is not None
         assert mem.cache.size >= 0
 
@@ -595,7 +595,7 @@ class TestExplorationReportGeneration:
         partial_results = result.partial_results
         anomalous_results = [r for r in partial_results if r.get("status") == "anomalous"]
         if not anomalous_results:
-            assert result.decidability_status in ("boundary", "anomalous")
+            assert result.anomaly_status in ("boundary", "anomalous")
             return
         assert "exploration_report" in anomalous_results[0]
         report = anomalous_results[0]["exploration_report"]
@@ -614,7 +614,7 @@ class TestExplorationReportGeneration:
         result = tr.reason_at_level("A", {"cyclic_structure": 0.6, "high_centrality": 0.6})
         boundary_results = [r for r in result.partial_results if r.get("status") == "boundary"]
         if not boundary_results:
-            assert result.decidability_status in ("boundary", "anomalous", "low_risk")
+            assert result.anomaly_status in ("boundary", "anomalous", "low_risk")
             return
         br = boundary_results[0]
         assert "structural_conclusions" in br

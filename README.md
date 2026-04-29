@@ -8,21 +8,21 @@ Hyper3 is a Python library for knowledge representation and reasoning. It stores
 
 ```
 src/hyper3/
-├── kernel.py            Hypergraph, Hypernode, Hyperedge, EventLog, TraversalEngine, SelfEvolutionEngine
-├── rules.py             Rule ABC + TransitiveRule, InverseRule, GeneralizationRule, AbductiveRule, PropertyPropagationRule, AnalogicalReasoningRule, CausalInferenceRule, ContextualSubstitutionRule
+├── kernel.py            Hypergraph, Hypernode, Hyperedge, EventLog, TraversalEngine, GraphMaintenanceEngine
+├── rules.py             Rule ABC + TransitiveRule, InverseRule, GeneralizationRule, AbductiveRule, PropertyPropagationRule, StructuralProjectionRule, HubInferenceRule, ContextualSubstitutionRule
 ├── multiway.py          MultiwayEngine, MultiwayGraph, MultiwayState
-├── causal.py            CausalInvarianceEngine, QuantumCognitiveLayer (basis learning, adaptive coherence)
+├── multiway_causal.py            StateConvergenceEngine, QuantumInterpretationLayer (basis learning, adaptive coherence)
 ├── branchial.py         BranchialSpace (distance metrics, clustering, simultaneity groups, multi-scale analysis)
 ├── rulial.py            RulialSpace (computational density, meta-patterns, high-level insights, per-rule effectiveness)
 ├── structural_anomaly.py StructuralAnomalyDetector (boundary detection, decidability assessment, exploration reports)
 ├── multi_perspective.py MultiPerspectiveAnalyzer (multi-frame analysis, frame effectiveness learning)
-├── meta_cognitive.py    MetaCognitiveLayer (introspection, metamorphosis triggers)
+├── system_monitor.py    SystemMonitor (introspection, metamorphosis triggers)
 ├── persistence.py       Serializer (JSON save/load)
 ├── discovery.py         RuleDiscoveryEngine (automatic pattern detection)
 ├── activation.py        SpreadingActivation (energy propagation, associative recall)
 ├── embedding.py         EmbeddingEngine (semantic similarity, pluggable providers)
 ├── retrieval.py         RetrievalEngine (RRF, relevance feedback, learning-to-rank)
-├── memory.py            CognitiveMemory (unified API integrating all subsystems)
+├── memory.py            HypergraphMemory (unified API integrating all subsystems)
 └── visualization.py     Plotting with matplotlib (optional)
 ```
 
@@ -39,9 +39,9 @@ Requires Python >=3.12. Dependencies: numpy, scipy, networkx.
 ## Quick Start
 
 ```python
-from hyper3 import CognitiveMemory, TransitiveRule
+from hyper3 import HypergraphMemory, TransitiveRule
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 # Store concepts
 mem.store("Paris")
@@ -129,7 +129,7 @@ results = mem.retrieve("diabetes", top_k=10, use_ltr=True)
 ```python
 mem.save("knowledge.json")
 
-mem2 = CognitiveMemory(evolve_interval=0)
+mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load("knowledge.json")
 print(f"Loaded {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
 ```
@@ -161,11 +161,11 @@ Nodes (`Hypernode`) represent concepts with labels, data, metadata (temporal tag
 
 ### Causal Invariance
 
-`CausalInvarianceEngine` detects when different expansion paths converge to the same result and merges them, enforcing causal invariance (order-independence of rule application).
+`StateConvergenceEngine` detects when different expansion paths converge to the same result and merges them, merging convergent states.
 
 ### Quantum Cognition
 
-`QuantumCognitiveLayer` implements superposition (multiple interpretations with complex amplitudes), Born rule collapse, interference detection (constructive/destructive), entanglement between concept groups, and measurement bases for context-sensitive collapse.
+`QuantumInterpretationLayer` implements superposition (multiple interpretations with complex amplitudes), Born rule collapse, interference detection (constructive/destructive), entanglement between concept groups, and measurement bases for context-sensitive collapse.
 
 ### Branchial Space
 
@@ -177,15 +177,15 @@ Nodes (`Hypernode`) represent concepts with labels, data, metadata (temporal tag
 
 ### Self-Evolution
 
-`SelfEvolutionEngine` manages knowledge lifecycle: decaying weights on inactive nodes, pruning dead nodes below threshold, merging equivalent nodes, and reinforcing frequently accessed nodes.
+`GraphMaintenanceEngine` manages knowledge lifecycle: decaying weights on inactive nodes, pruning dead nodes below threshold, merging equivalent nodes, and reinforcing frequently accessed nodes.
 
 ### Meta-Cognition
 
-`MetaCognitiveLayer` introspects on reasoning performance, detects anti-patterns (low fitness, recurring bottlenecks), and triggers metamorphosis proposals for structural self-improvement.
+`SystemMonitor` introspects on reasoning performance, detects anti-patterns (low fitness, recurring bottlenecks), and triggers metamorphosis proposals for structural self-improvement.
 
 ## API Reference
 
-The `CognitiveMemory` class is the primary entry point, providing a unified API over all subsystems:
+The `HypergraphMemory` class is the primary entry point, providing a unified API over all subsystems:
 
 | Method | Description |
 |--------|-------------|

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.structural_match import (
     StructuralPatternEngine,
     PatternTemplate,
@@ -13,7 +13,7 @@ from hyper3.structural_match import (
 
 class TestStructuralMatchBasic:
     def test_match_chain(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -24,12 +24,12 @@ class TestStructuralMatchBasic:
         assert len(chains[0]) >= 3
 
     def test_match_chain_empty_graph(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         chains = mem.match_chains()
         assert chains == []
 
     def test_match_diamond(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -39,7 +39,7 @@ class TestStructuralMatchBasic:
         assert len(diamonds) >= 1
 
     def test_match_fan_out(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("hub")
         for i in range(5):
             mem.store(f"spoke_{i}")
@@ -49,7 +49,7 @@ class TestStructuralMatchBasic:
         assert fans[0]["fan_out"] >= 3
 
     def test_match_structural_pattern(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="depends_on")
@@ -60,7 +60,7 @@ class TestStructuralMatchBasic:
         assert result.total_match_count >= 1
 
     def test_match_structural_pattern_no_match(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="connects")
@@ -72,7 +72,7 @@ class TestStructuralMatchBasic:
 
 class TestStructuralPatternEngine:
     def test_match_pattern_with_weight_filter(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         edge = mem.relate("A", "B", label="strong")
@@ -87,7 +87,7 @@ class TestStructuralPatternEngine:
         assert result.total_match_count >= 1
 
     def test_match_pattern_with_data_type_constraint(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A", data={"type": "person"})
         mem.store("B", data={"type": "place"})
         mem.relate("A", "B", label="lives_in")
@@ -104,7 +104,7 @@ class TestStructuralPatternEngine:
         assert result.total_match_count >= 1
 
     def test_match_pattern_with_label_pattern(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("svc_auth")
         mem.store("svc_orders")
         mem.relate("svc_auth", "svc_orders", label="calls")
@@ -121,14 +121,14 @@ class TestStructuralPatternEngine:
         assert result.total_match_count >= 1
 
     def test_fan_out_no_results(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         engine = StructuralPatternEngine(mem.graph)
         result = engine.match_fan_out(min_fan=10)
         assert result == []
 
     def test_structural_matcher_property(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.structural_matcher is None
         mem.match_chains()
         assert mem.structural_matcher is not None
@@ -136,7 +136,7 @@ class TestStructuralPatternEngine:
 
 class TestStructuralMatchIntegration:
     def test_complex_pattern(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("client")
         mem.store("gateway")
         mem.store("service")

@@ -92,8 +92,8 @@ class Rule(ABC):
             "GeneralizationRule": GeneralizationRule,
             "AbductiveRule": AbductiveRule,
             "PropertyPropagationRule": PropertyPropagationRule,
-            "AnalogicalReasoningRule": AnalogicalReasoningRule,
-            "CausalInferenceRule": CausalInferenceRule,
+            "StructuralProjectionRule": StructuralProjectionRule,
+            "HubInferenceRule": HubInferenceRule,
             "ContextualSubstitutionRule": ContextualSubstitutionRule,
         }
         target_cls = rule_classes.get(rule_type)
@@ -684,7 +684,7 @@ class PropertyPropagationRule(Rule):
         return cls(property_key=data["property_key"], edge_label=data.get("edge_label", ""))
 
 
-class AnalogicalReasoningRule(Rule):
+class StructuralProjectionRule(Rule):
     def __init__(self, *, edge_label: str = "", similarity_threshold: float = 0.7) -> None:
         """Initialize the analogical reasoning rule.
 
@@ -825,23 +825,23 @@ class AnalogicalReasoningRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the analogical reasoning rule configuration."""
-        return {"rule_type": "AnalogicalReasoningRule", "edge_label": self._edge_label, "similarity_threshold": self._threshold}
+        return {"rule_type": "StructuralProjectionRule", "edge_label": self._edge_label, "similarity_threshold": self._threshold}
 
     @classmethod
-    def _from_dict(cls, data: dict[str, Any]) -> AnalogicalReasoningRule:
-        """Reconstruct an ``AnalogicalReasoningRule`` from serialized data."""
+    def _from_dict(cls, data: dict[str, Any]) -> StructuralProjectionRule:
+        """Reconstruct an ``StructuralProjectionRule`` from serialized data."""
         return cls(edge_label=data.get("edge_label", ""), similarity_threshold=data.get("similarity_threshold", 0.7))
 
 
-class CausalInferenceRule(Rule):
+class HubInferenceRule(Rule):
     def __init__(self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes") -> None:
-        """Initialize the causal inference rule.
+        """Initialize the hub inference rule.
 
         Args:
             min_support: Minimum co-occurrence count for a source-target pair.
             confidence_threshold: Minimum conditional probability
-                P(target|source) to infer causation.
-            causes_label: Label for inferred causal edges.
+                P(target|source) to infer an edge.
+            causes_label: Label for inferred edges.
         """
         self._min_support = min_support
         self._confidence_threshold = confidence_threshold
@@ -849,8 +849,8 @@ class CausalInferenceRule(Rule):
 
     @property
     def name(self) -> str:
-        """Return ``"causal_inference(<causes_label>)"``."""
-        return f"causal_inference({self._causes_label})"
+        """Return ``"hub_inference(<causes_label>)"``."""
+        return f"hub_inference({self._causes_label})"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
         """Find source-target pairs exceeding minimum support and confidence.
@@ -927,12 +927,12 @@ class CausalInferenceRule(Rule):
         return match.context.get("confidence", 0.5)
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize the causal inference rule configuration."""
-        return {"rule_type": "CausalInferenceRule", "min_support": self._min_support, "confidence_threshold": self._confidence_threshold, "causes_label": self._causes_label}
+        """Serialize the hub inference rule configuration."""
+        return {"rule_type": "HubInferenceRule", "min_support": self._min_support, "confidence_threshold": self._confidence_threshold, "causes_label": self._causes_label}
 
     @classmethod
-    def _from_dict(cls, data: dict[str, Any]) -> CausalInferenceRule:
-        """Reconstruct a ``CausalInferenceRule`` from serialized data."""
+    def _from_dict(cls, data: dict[str, Any]) -> HubInferenceRule:
+        """Reconstruct a ``HubInferenceRule`` from serialized data."""
         return cls(min_support=data.get("min_support", 2), confidence_threshold=data.get("confidence_threshold", 0.6), causes_label=data.get("causes_label", "causes"))
 
 

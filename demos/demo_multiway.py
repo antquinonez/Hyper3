@@ -160,8 +160,8 @@ for child in children:
             lateral = mw.get_state(insight["lateral_state"])
             lateral_rule = lateral.rule_applied if lateral else "?"
             print(f"    Lateral to [{lateral_rule}]")
-            print(f"      Novel in source: {[label_of(g, n) for n in insight['novel_nodes_in_source']]}")
-            print(f"      Novel in lateral: {[label_of(g, n) for n in insight['novel_nodes_in_lateral']]}")
+            print(f"      Novel in source: {[label_of(g, n) for n in insight['novel_in_source']]}")
+            print(f"      Novel in lateral: {[label_of(g, n) for n in insight['novel_in_lateral']]}")
             print(f"      Branchial distance: {insight['branchial_distance']}")
 print()
 

@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.community import CommunityDetector
 
 
 class TestCommunityBasic:
     def test_detect_communities(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -19,12 +19,12 @@ class TestCommunityBasic:
         assert result.coverage >= 0.0
 
     def test_detect_communities_empty_graph(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.detect_communities()
         assert result.community_count == 0
 
     def test_detect_communities_disconnected(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -35,7 +35,7 @@ class TestCommunityBasic:
         assert result.community_count >= 2
 
     def test_weighted_propagation(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -47,7 +47,7 @@ class TestCommunityBasic:
         assert result.community_count >= 1
 
     def test_community_labels(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("alpha")
         mem.store("beta")
         mem.relate("alpha", "beta", label="link")
@@ -57,7 +57,7 @@ class TestCommunityBasic:
             assert len(community.member_labels) >= 1
 
     def test_modularity(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"N{i}")
         for i in range(9):
@@ -66,7 +66,7 @@ class TestCommunityBasic:
         assert isinstance(result.modularity, float)
 
     def test_communities_property(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.communities is None
         mem.detect_communities()
         assert mem.communities is not None
@@ -74,7 +74,7 @@ class TestCommunityBasic:
 
 class TestCommunityDetector:
     def test_with_edge_label_filter(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -85,7 +85,7 @@ class TestCommunityDetector:
         assert result.community_count >= 1
 
     def test_reproducible_with_seed(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"N{i}")
             if i > 0:
@@ -97,7 +97,7 @@ class TestCommunityDetector:
         assert r1.community_count == r2.community_count
 
     def test_coverage_is_one_for_connected(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="link")
@@ -105,7 +105,7 @@ class TestCommunityDetector:
         assert result.coverage == 1.0
 
     def test_avg_community_size(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
             mem.store(f"N{i}")
         mem.relate("N0", "N1", label="link")
@@ -115,7 +115,7 @@ class TestCommunityDetector:
         assert result.avg_community_size > 0
 
     def test_weighted_fallback_on_negative_modularity(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"N{i}")
         for i in range(9):
@@ -126,7 +126,7 @@ class TestCommunityDetector:
         assert result.modularity >= 0 or result.community_count >= 1
 
     def test_weighted_fallback_disabled(self) -> None:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"N{i}")
         for i in range(9):

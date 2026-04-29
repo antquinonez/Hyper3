@@ -15,10 +15,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from hyper3 import CognitiveMemory, Modality
+from hyper3 import HypergraphMemory, Modality
 
 
-def build_hosts(mem: CognitiveMemory) -> list[str]:
+def build_hosts(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("web-01", {"os": "linux", "zone": "dmz", "criticality": 9, "patch_level": 0.8}),
         ("web-02", {"os": "linux", "zone": "dmz", "criticality": 9, "patch_level": 0.7}),
@@ -72,7 +72,7 @@ def build_hosts(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_segments(mem: CognitiveMemory) -> list[str]:
+def build_segments(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("seg-dmz-1", {"zone": "dmz", "cidr": "10.0.1.0/24"}),
         ("seg-dmz-2", {"zone": "dmz", "cidr": "10.0.2.0/24"}),
@@ -103,7 +103,7 @@ def build_segments(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_controls(mem: CognitiveMemory) -> list[str]:
+def build_controls(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("fw-perimeter", {"type": "firewall", "coverage": 0.9}),
         ("fw-internal", {"type": "firewall", "coverage": 0.7}),
@@ -128,7 +128,7 @@ def build_controls(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_services(mem: CognitiveMemory) -> list[str]:
+def build_services(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("svc-ssh", {"port": 22, "protocol": "tcp", "encrypted": True}),
         ("svc-http", {"port": 80, "protocol": "tcp", "encrypted": False}),
@@ -155,7 +155,7 @@ def build_services(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_vulnerabilities(mem: CognitiveMemory) -> list[str]:
+def build_vulnerabilities(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("cve-2024-0001", {"cvss": 9.8, "exploit_available": True}),
         ("cve-2024-0002", {"cvss": 8.5, "exploit_available": True}),
@@ -180,7 +180,7 @@ def build_vulnerabilities(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_users(mem: CognitiveMemory) -> list[str]:
+def build_users(mem: HypergraphMemory) -> list[str]:
     specs = [
         ("admin-root", {"privilege_level": 10, "department": "ops"}),
         ("admin-network", {"privilege_level": 9, "department": "network"}),
@@ -201,7 +201,7 @@ def build_users(mem: CognitiveMemory) -> list[str]:
     return [s[0] for s in specs]
 
 
-def build_edges(mem: CognitiveMemory) -> int:
+def build_edges(mem: HypergraphMemory) -> int:
     edges = 0
 
     host_seg = {
@@ -509,7 +509,7 @@ def build_edges(mem: CognitiveMemory) -> int:
 
 
 def compute_risk_scores(
-    mem: CognitiveMemory,
+    mem: HypergraphMemory,
     degree: dict[str, float],
     betweenness: dict[str, float],
 ) -> dict[str, float]:
@@ -547,7 +547,7 @@ def compute_risk_scores(
     return scores
 
 
-def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str, str, str]]:
+def find_cross_zone_violations(mem: HypergraphMemory) -> list[tuple[str, str, str, str, str]]:
     violations: list[tuple[str, str, str, str, str]] = []
     route_edges = mem.pattern_match(edge_label="routes_to")
     seg_zones: dict[str, str] = {}
@@ -589,7 +589,7 @@ def find_cross_zone_violations(mem: CognitiveMemory) -> list[tuple[str, str, str
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Building Enterprise Network Topology

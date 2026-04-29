@@ -4,9 +4,9 @@ Instructions for AI coding agents working on this project.
 
 ## Project Overview
 
-Hyper3 is a self-evolving hypergraph cognitive kernel library. It is a pure-Python package with numpy/scipy/networkx dependencies, no external services, no network calls, no database.
+Hyper3 is a self-evolving hypergraph knowledge graph library. It is a pure-Python package with numpy/scipy/networkx dependencies, no external services, no network calls, no database.
 
-**API stability**: The library is pre-release. Public APIs (classes, method signatures, exported symbols) may change between commits without deprecation warnings. Do not treat signature changes as bugs unless they break the test suite. Prioritize correctness and clarity over backward compatibility.
+**API stability**: The library is pre-release. Public APIs (classes, method signatures, exported symbols) may change between commits without deprecation warnings. Backward compatibility is not a goal — old names are removed, not aliased. Do not treat signature or name changes as bugs unless they break the test suite. Prioritize correctness, clarity, and honest naming over backward compatibility.
 
 ## Inspirational Foundation
 
@@ -23,10 +23,10 @@ These principles govern the architecture, API design, and implementation pattern
 
 ### DP-1: Compositional Architecture via Mixin Decomposition
 
-Complex facades are decomposed into focused mixins, each owning a coherent domain of responsibility. The `CognitiveMemory` facade composes from six mixins:
+Complex facades are decomposed into focused mixins, each owning a coherent domain of responsibility. The `HypergraphMemory` facade composes from six mixins:
 
 ```
-CognitiveMemory(CoreMixin, ReasoningMixin, QuantumMixin,
+HypergraphMemory(CoreMixin, ReasoningMixin, QuantumMixin,
                 AnalyticsMixin, PersistenceMixin, SubsystemMixin)
 ```
 
@@ -39,7 +39,7 @@ Each mixin lives in its own module (`memory_core.py`, `memory_reasoning.py`, etc
 class _MemoryBase:
     _graph: Hypergraph
     _log: EventLog
-    _evolution: SelfEvolutionEngine
+    _evolution: GraphMaintenanceEngine
     # ... shared state declarations
 
 class CoreMixin(_MemoryBase):
@@ -50,11 +50,11 @@ class ReasoningMixin(_MemoryBase):
     def reason(self, concepts: set[str], **kw): ...
 ```
 
-**When adding a new subsystem**: Create `memory_<domain>.py` with a class extending `_MemoryBase`. Add the mixin to `CognitiveMemory`'s inheritance list. Initialize any new engine instances in `CognitiveMemory.__init__`.
+**When adding a new subsystem**: Create `memory_<domain>.py` with a class extending `_MemoryBase`. Add the mixin to `HypergraphMemory`'s inheritance list. Initialize any new engine instances in `HypergraphMemory.__init__`.
 
 ### DP-2: Engine-Facade Separation with Delegation
 
-Domain logic lives in standalone engine classes (`SelfEvolutionEngine`, `BranchialSpace`, `QuantumCognitiveLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
+Domain logic lives in standalone engine classes (`GraphMaintenanceEngine`, `BranchialSpace`, `QuantumInterpretationLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
 **Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
@@ -93,7 +93,7 @@ def hebbian(self) -> HebbianLearner:
     return self._hebbian
 ```
 
-This pattern applies beyond `CognitiveMemory` — any class that owns optional expensive collaborators should defer their construction.
+This pattern applies beyond `HypergraphMemory` — any class that owns optional expensive collaborators should defer their construction.
 
 ### DP-4: Label-at-the-Boundary, IDs Internally
 
@@ -112,23 +112,23 @@ def relate(self, source: str, target: str, *, label: str = "related"):
 
 All engines receive and return IDs. All public methods accept and return labels. See EP-1 and EP-2 in the API Ergonomic Principles section for the detailed migration status.
 
-### DP-5: Typed Result Dataclasses with Backward-Compatible Access
+### DP-5: Typed Result Dataclasses
 
-All result dataclasses across every module extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for backward-compatible dict-like bracket access. This applies to result dataclasses defined in `results.py`, in engine modules (e.g., `CommunityResult` in `community.py`, `BackwardChainResult` in `backward_chain.py`), and in any new modules. New code should use attribute access; bracket access is preserved for migration smoothness.
+All result dataclasses across every module extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for dict-like bracket access alongside standard attribute access. This applies to result dataclasses defined in `results.py`, in engine modules (e.g., `CommunityResult` in `community.py`, `BackwardChainResult` in `backward_chain.py`), and in any new modules.
 
-**Why**: The spec describes "immutable event logging" and "consistency verification" as foundational layers. Typed dataclasses are the code-level analog: they make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The backward-compat layer ensures that code written before the migration continues to work.
+**Why**: The spec describes "immutable event logging" and "consistency verification" as foundational layers. Typed dataclasses are the code-level analog: they make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The dict-like access layer provides ergonomic convenience for interactive use and quick scripting.
 
 **Pattern**:
 ```python
 @dataclass
-class IntrospectionReport(_SimpleResultBase):
-    cognitive_state: CognitiveStateInfo
+class HealthReport(_SimpleResultBase):
+    system_health: HealthInfo
     graph_health: GraphHealthInfo
     recommendations: list[str]
 
 report = mem.introspect()
-fitness = report.cognitive_state.fitness      # preferred
-fitness = report["cognitive_state"]["fitness"] # still works via __getitem__
+fitness = report.system_health.fitness      # attribute access
+fitness = report["system_health"]["fitness"] # bracket access via __getitem__
 ```
 
 When creating new result types in any module, always extend `_SimpleResultBase` (import from `results.py`).
@@ -172,13 +172,13 @@ class TransitiveRule(Rule):
         return graph.add_edge(...)
 ```
 
-The `MultiwayEngine` applies all registered rules to the current graph state, branching into multiple possible futures. The `CausalInvarianceEngine` then merges equivalent states (the "equivalence merging" from Figure 6 of the spec).
+The `MultiwayEngine` applies all registered rules to the current graph state, branching into multiple possible futures. The `StateConvergenceEngine` then merges equivalent states (the "equivalence merging" from Figure 6 of the spec).
 
 ### DP-8: Quantum-Inspired Superposition and Collapse
 
 Ambiguous or multi-faceted concepts are represented as quantum superpositions with multiple interpretations, each having a complex amplitude. Contextual triggers cause collapse to a single interpretation via the Born rule.
 
-**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `QuantumCognitiveLayer.create_superposition()` creates states with amplitude-weighted interpretations; `collapse()` samples from `|amplitude|^2`; `create_correlation()` correlates interpretation collapse between nodes.
+**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `QuantumInterpretationLayer.create_superposition()` creates states with amplitude-weighted interpretations; `collapse()` samples from `|amplitude|^2`; `create_correlation()` correlates interpretation collapse between nodes.
 
 **Pattern**:
 ```python
@@ -224,11 +224,11 @@ results = mem.recall("cancer", config=config)
 
 The graph continuously evolves its own structure: decaying unused edges, pruning below-threshold nodes, merging equivalent nodes, and reinforcing frequently-used paths. This operates as a background process triggered by operation count.
 
-**Why**: The spec's "Continuous Structural Self-Evolution" (Figure 9, Figure 14) describes a feedback loop: "new interactions trigger dynamic instantiation, followed by immediate assessment of structural impact, leading to dynamic refinements." The `SelfEvolutionEngine` implements this as `decay()` (reduce weights), `prune()` (remove below-threshold), `merge()` (combine equivalent nodes), and `reinforce()` (strengthen used paths).
+**Why**: The spec's "Continuous Structural Self-Evolution" (Figure 9, Figure 14) describes a feedback loop: "new interactions trigger dynamic instantiation, followed by immediate assessment of structural impact, leading to dynamic refinements." The `GraphMaintenanceEngine` implements this as `decay()` (reduce weights), `prune()` (remove below-threshold), `merge()` (combine equivalent nodes), and `reinforce()` (strengthen used paths).
 
 **Pattern**:
 ```python
-mem = CognitiveMemory(evolve_interval=10)  # auto-evolve every 10 operations
+mem = HypergraphMemory(evolve_interval=10)  # auto-evolve every 10 operations
 mem.store("concept_a")
 mem.relate("concept_a", "concept_b")
 # ... after 10 operations, evolution runs automatically
@@ -286,8 +286,8 @@ The core library has no network calls, no database, no external services. All co
 ### DP-16: Domain Prefixes for Module Relationships
 
 Modules use naming prefixes to show their subsystem relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, causal invariance, rulial space)
-- `memory_*` — CognitiveMemory mixin decomposition
+- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rulial space)
+- `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `retrieval_*` — activation, retrieval engine, and related components
 - `embedding_*` — embedding providers and engines
@@ -332,29 +332,29 @@ The test suite and type checker are both correctness gates.
 The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
 - **kernel.py** — Core data structures: `Hypernode`, `Hyperedge`, `Hypergraph`, `Modality`, `AbstractionLayer`, `Metadata`. The `Hypergraph` class includes indexes, batch mode, path finding, pattern matching, subgraph extraction, and networkx conversion.
-- **exceptions.py** — Domain-specific exception hierarchy (`Hyper3Error`, `NodeNotFoundError`, `EdgeNotFoundError`, etc.). `NodeNotFoundError` extends both `Hyper3Error` and `ValueError` for backward compatibility.
+- **exceptions.py** — Domain-specific exception hierarchy (`Hyper3Error`, `NodeNotFoundError`, `EdgeNotFoundError`, etc.). `NodeNotFoundError` extends both `Hyper3Error` and `ValueError` for catch-ergonomics.
 - **event_log.py** — `EventLog` records timestamped events with query/filter support.
 - **equivalence.py** — `EquivalenceEngine` finds similar nodes using data + structural similarity with blocking.
 - **cache.py** — `LazyCache` LRU cache with TTL, optional Markov-model prefetching.
 - **traversal.py** — `TraversalEngine` (BFS, DFS, dimension-filtered, adaptive weight-priority), `SliceConfig`, `ObserverSlice`.
-- **evolution.py** — `SelfEvolutionEngine` with decay, prune, merge, reinforce. Returns typed `EvolveResult`. `EvolutionMetrics` dataclass.
+- **evolution.py** — `GraphMaintenanceEngine` with decay, prune, merge, reinforce. Returns typed `EvolveResult`. `EvolutionMetrics` dataclass.
 - **rules.py** — `Rule` ABC with 8 concrete implementations. Rules have `find_matches()` (pure query, no side effects) and `apply()` (mutates the graph).
 - **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
-- **multiway_causal.py** — `CausalInvarianceEngine` merges convergent states with graph isomorphism detection. Returns typed `CausalEnforceReport`.
-- **quantum.py** — `QuantumCognitiveLayer` provides superposition/collapse/correlation/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `ConceptCorrelation`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
+- **multiway_causal.py** — `StateConvergenceEngine` merges convergent states with graph isomorphism detection. Returns typed `MergeReport`.
+- **quantum.py** — `QuantumInterpretationLayer` provides superposition/collapse/correlation/interference, adaptive coherence time, and measurement basis learning via Thompson sampling. Also contains `QuantumState`, `Interpretation`, `ConceptCorrelation`, `InterferencePattern`, `MeasurementBasis`, `CollapseTrigger`, and `BUILTIN_BASES`.
 - **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
 - **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, high-level insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
 - **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
 - **multi_perspective.py** — `MultiPerspectiveAnalyzer` provides multi-perspective analysis (classical/quantum/hypergraph/probabilistic perspectives) with perspective effectiveness learning via Thompson sampling.
-- **meta_cognitive.py** — `MetaCognitiveLayer` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `IntrospectionReport`, `analyze()` returns typed `MetaCognitiveStats`.
-- **memory.py** — `CognitiveMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.
+- **system_monitor.py** — `SystemMonitor` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `HealthReport`, `analyze()` returns typed `MonitorStats`.
+- **memory.py** — `HypergraphMemory` is the unified facade that integrates all subsystems. It composes from 6 mixins for maintainability. This is the main entry point users interact with.
 - **memory_base.py** — `_MemoryBase` declares shared type annotations for all memory mixins.
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label.
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences.
 - **memory_quantum.py** — `QuantumMixin`: superpose, collapse, correlate, lateral_insights, structural anomaly detection.
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants.
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats.
-- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, multi-perspective analysis, discovery.
+- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, system monitor, multi-perspective analysis, discovery.
 - **persistence.py** — `Serializer` handles JSON save/load.
 - **rules_discovery.py** — `RuleDiscoveryEngine` discovers transitive/inverse/hub patterns in the graph. `analyze()` returns typed `DiscoveryAnalysis`.
 - **retrieval_activation.py** — `SpreadingActivation` provides associative recall via energy propagation through the graph. Configurable decay, per-label propagation rates, directional mode, and normalization.
@@ -366,8 +366,8 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
 ### Module naming convention
 Modules use domain prefixes to show relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, causal invariance, rulial space)
-- `memory_*` — CognitiveMemory mixin decomposition
+- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rulial space)
+- `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `embedding_*` — embedding providers and engines
 - `retrieval_*` — activation, retrieval engine, and related components
@@ -376,7 +376,7 @@ Modules use domain prefixes to show relationships:
 Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Always use `frozenset({...})` when constructing edges.
 
 ### `evolve_interval=0` disables auto-evolution
-`CognitiveMemory(evolve_interval=0)` prevents the memory from running decay/prune/merge cycles automatically after operations. Most tests use this to keep behavior deterministic. Production usage should set a positive interval.
+`HypergraphMemory(evolve_interval=0)` prevents the memory from running decay/prune/merge cycles automatically after operations. Most tests use this to keep behavior deterministic. Production usage should set a positive interval.
 
 ### Born rule collapse is probabilistic
 `collapse()` samples from the probability distribution defined by `|amplitude|^2`. Tests asserting exact collapse results must either use statistical approaches (run N trials, check distribution) or create single-interpretation states.
@@ -385,7 +385,7 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 `EventLog.record()` stores the event type under the key `"event_type"`, not `"type"`.
 ### `correlate()` remaps labels to IDs
 
-The `CognitiveMemory.correlate()` method takes labels but internally remaps correlation dict keys from labels to node IDs before passing to `QuantumCognitiveLayer.create_correlation()`. Tests where `node.id == node.label` mask this.
+The `HypergraphMemory.correlate()` method takes labels but internally remaps correlation dict keys from labels to node IDs before passing to `QuantumInterpretationLayer.create_correlation()`. Tests where `node.id == node.label` mask this.
 
 ### No comments in code
 Do not add comments unless explicitly asked.
@@ -415,13 +415,13 @@ After unitary evolution, amplitudes can be complex numbers. Code that consumes a
 `collapse_with_basis()` calls `record_basis_outcome(basis, success)` automatically: `True` when a valid basis produces a collapse result, `False` when the basis is not found or collapse returns None. Do not double-record outcomes in calling code.
 
 ### Prefetch API uses concept labels
-`CognitiveMemory.enable_prefetch()`, `record_access(concept)`, `predict_next_access(concept)`, and `prefetch_neighbors(concept)` all take concept labels (not node IDs). Internally they map to the `"store:<label>"` key format used by the cache. The `cache` property exposes the raw `LazyCache` for direct access if needed.
+`HypergraphMemory.enable_prefetch()`, `record_access(concept)`, `predict_next_access(concept)`, and `prefetch_neighbors(concept)` all take concept labels (not node IDs). Internally they map to the `"store:<label>"` key format used by the cache. The `cache` property exposes the raw `LazyCache` for direct access if needed.
 
 ### `select_optimal_frame_learned` uses shifted Thompson sampling
 Frame selection shifts complexity by +1.0 to avoid zero-base issues, then applies Thompson sampling: `score = (complexity + 1.0) * (1.0 - bonus * 0.6)`. Frames with no recorded outcomes are not eligible for the bonus. The bonus is sampled from `Beta(successes+1, failures+1)`.
 
 ### Belief revision uses a negation map
-`BeliefRevisionEngine` has a built-in `NEGATION_MAP` with pairs like `supports`/`opposes`, `causes`/`prevents`, `enables`/`blocks`. Custom negation pairs can be added via the `custom_negations` constructor parameter. Two edges between the same nodes with negated labels are flagged as contradictions.
+`ContradictionResolver` has a built-in `NEGATION_MAP` with pairs like `supports`/`opposes`, `causes`/`prevents`, `enables`/`blocks`. Custom negation pairs can be added via the `custom_negations` constructor parameter. Two edges between the same nodes with negated labels are flagged as contradictions.
 
 ### Subsystem lazy initialization
 The new subsystems (backward chain, Hebbian, uncertainty, structural match, belief revision, abstraction, community detection, graph diff) are lazily initialized on first use. They can be accessed via properties (e.g., `mem.hebbian`, `mem.backward_chain`) after first use. Direct constructor access is available for testing individual engines.
@@ -445,7 +445,7 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 `evolve_with_feedback()` checks the fitness trend from `OperationFeedback`. On declining trends, it intensifies decay (1.5x) and pruning (0.75x threshold), reinforces top-3 positively-reinforced nodes, and force-prunes suppressed nodes. On stable/improving trends, it uses standard parameters. `evolve_with_feedback()` returns `EvolveResult` with `reinforced` and `suppressed` counts.
 
 ### Validated metamorphosis requires a GraphDiffer
-`execute_metamorphosis_validated()` captures a pre-version, executes the metamorphosis plan, then compares fitness. If fitness degrades below `fitness_tolerance`, it rolls back to the pre-version. Without a `GraphDiffer` wired to the meta layer, it falls back to unvalidated execution. Call `capture_version()` first to auto-wire the differ.
+`execute_tuning_validated()` captures a pre-version, executes the metamorphosis plan, then compares fitness. If fitness degrades below `fitness_tolerance`, it rolls back to the pre-version. Without a `GraphDiffer` wired to the meta layer, it falls back to unvalidated execution. Call `capture_version()` first to auto-wire the differ.
 
 ### Cross-operation feedback identifies correlated nodes
 `feedback_summary()` (delegates to `OperationFeedback.cross_operation_summary()`) computes aggregate health across collapse/retrieval/inference/evolution operations and identifies nodes that appear in signals across multiple operation types, reporting their positive rate and signal type distribution.
@@ -454,7 +454,7 @@ Label propagation uses random tie-breaking. Pass a fixed `seed` for reproducible
 `compute_bias_profile()` returns a dict with `reasoning_style` (focused/exploratory/balanced/unknown), `bias_score`, `dominant_rules`, `underused_rules`, `position_trajectory` (exploring/exploiting/stable), and `average_effectiveness`. Requires rule effectiveness data from prior reasoning sessions; returns early with "unknown" style when no data exists.
 
 ### Causal merge insights capture unique contributions
-When `CausalInvarianceEngine` merges convergent multiway states, it computes `MergeInsight` for each merge partner listing nodes and edges unique to that state. These insights are attached to the `CausalInvariant.insights` list, preserving provenance of what each branch contributed before merging.
+When `StateConvergenceEngine` merges convergent multiway states, it computes `MergeInsight` for each merge partner listing nodes and edges unique to that state. These insights are attached to the `ConvergenceRecord.insights` list, preserving provenance of what each branch contributed before merging.
 
 ## API Ergonomic Principles
 
@@ -543,21 +543,21 @@ Higher-level methods (facades, coordinator classes) should call the underlying e
 
 ## Known API Gaps
 
-These are known violations of the EP/DP principles that remain for backward compatibility or require significant refactoring:
+These are known violations of the EP/DP principles that require significant refactoring:
 
-- **`execute_metamorphosis()` untyped return** (EP-3): `MetaCognitiveLayer.execute_metamorphosis()` (the unvalidated path) still returns `dict[str, Any]`. The validated variant (`execute_metamorphosis_validated`) and automated variant (`auto_metamorphosis`) return `MetamorphosisResult`. Internal helper methods (`_adjust_evolution()`, `_run_rule_discovery()`) also remain untyped.
+- **`execute_tuning()` untyped return** (EP-3): `SystemMonitor.execute_tuning()` (the unvalidated path) still returns `dict[str, Any]`. The validated variant (`execute_tuning_validated`) and automated variant (`auto_tune`) return `TuningResult`. Internal helper methods (`_adjust_evolution()`, `_run_rule_discovery()`) also remain untyped.
 
 ## Common Pitfalls
 
 - **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
 - **Label vs ID**: Hypernodes have both `id` (auto-generated UUID hex) and `label` (human-readable). Most APIs take labels; internal engines use IDs.
-- **`load()` resets thresholds**: `CognitiveMemory.load()` restores graph structure but constructor args (like `merge_threshold`) are set at construction time, not from the saved file. Tests must pass matching constructor args to the loading instance.
-- **Fitness never drops below 0.9**: The architectural fitness formula in `MetaCognitiveLayer` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
+- **`load()` resets thresholds**: `HypergraphMemory.load()` restores graph structure but constructor args (like `merge_threshold`) are set at construction time, not from the saved file. Tests must pass matching constructor args to the loading instance.
+- **Fitness never drops below 0.9**: The architectural fitness formula in `SystemMonitor` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
 - **Multiway expansion needs chains**: `TransitiveRule` only matches when there is a two-hop chain (A→B, B→C). Starting from a root node with no outgoing edges produces zero matches.
 - **EquivalenceEngine structural similarity**: Two nodes with no edges get structural score 0.0 (no evidence of equivalence). Two nodes with no overlapping neighbors also get structural score 0.0. Data similarity alone can still exceed the threshold if all shared dict keys have matching values. Provide discriminative data (unique names, IDs) to prevent false merges.
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Quantum decoherence is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
-- **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.causal_invariance`), use attribute access with explicit `if ci:` guards instead of `.get()`.
+- **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.state_convergence`), use attribute access with explicit `if ci:` guards instead of `.get()`.
 
 ## Performance Indexes
 
@@ -576,15 +576,15 @@ The following are already optimized — maintain them when making changes:
 - **equivalence.py** — `EquivalenceEngine` (extracted from kernel.py)
 - **cache.py** — `LazyCache` (extracted from kernel.py)
 - **traversal.py** — `TraversalEngine`, `SliceConfig`, `ObserverSlice` (extracted from kernel.py)
-- **evolution.py** — `SelfEvolutionEngine`, `EvolutionMetrics` (extracted from kernel.py)
-- **quantum.py** — `QuantumCognitiveLayer` and all quantum data types (extracted from multiway_causal.py)
+- **evolution.py** — `GraphMaintenanceEngine`, `EvolutionMetrics` (extracted from kernel.py)
+- **quantum.py** — `QuantumInterpretationLayer` and all quantum data types (extracted from multiway_causal.py)
 - **memory_base.py** — `_MemoryBase` shared type annotations for memory mixins
 - **memory_core.py** — `CoreMixin`: store, recall, relate, query, evolve, find_node, node_label
 - **memory_reasoning.py** — `ReasoningMixin`: reason (with decomposed helpers), reason_incremental, reason_iterative, reason_with_frame, derive, commit/rollback inferences
 - **memory_quantum.py** — `QuantumMixin`: superpose, collapse, correlate, lateral_insights, structural anomaly detection
 - **memory_analytics.py** — `AnalyticsMixin`: paths, centrality, cycles, components, pattern matching, label variants
 - **memory_persistence.py** — `PersistenceMixin`: save/load, import/export JSON/edgelist, stats
-- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, meta-cognitive, multi-perspective analysis, discovery
+- **memory_subsystems.py** — `SubsystemMixin`: temporal, enrichment, provenance, activation, retrieval, embedding, cache/prefetch, system monitor, multi-perspective analysis, discovery
 - **structural_anomaly.py** — `StructuralAnomalyDetector`. Detects cycles, centrality, contradictions.
 - **multi_perspective.py** — `MultiPerspectiveAnalyzer`. Multi-frame parameter selection.
 
@@ -599,7 +599,7 @@ The following are already optimized — maintain them when making changes:
 
 ## New Modules (Round 3 Additions — Gap Fill)
 
-- **snapshot.py** — `CognitiveSnapshot` dataclass for cross-session continuity. `capture()` freezes full memory state; `restore()` rebuilds from snapshot. Supports save/load to disk.
+- **snapshot.py** — `SystemSnapshot` dataclass for cross-session continuity. `capture()` freezes full memory state; `restore()` rebuilds from snapshot. Supports save/load to disk.
 - **frame_transform.py** — `FrameTransformer` defines 12 pair-wise transformation rules between classical/quantum/hypergraph/probabilistic frames. Returns `TransformedConfig` with transformed problem features.
 - **validation.py** — `ValidationEngine` compares simple vs enhanced reasoning with A/B testing. Produces `ValidationReport` with `AgreementMetrics` (precision, recall, F1, divergence).
 - **capabilities.py** — `CapabilityLevel` enum (BASIC/ENHANCED/ADVANCED) for staged implementation. `detect_capability_level()` inspects graph/engine state. `require_capability()` decorator gates functions.
@@ -611,7 +611,7 @@ The following are already optimized — maintain them when making changes:
 - **hebbian.py** — `HebbianLearner` implements co-activation learning: nodes activated together have their connecting edges strengthened. Integrates with `SpreadingActivation`. `HebbianConfig` controls learning rate, decay, and thresholds. `reinforce_from_activation()` runs a full Hebbian cycle from current activation state.
 - **uncertainty.py** — `UncertaintyEngine` propagates confidence through inference chains using provenance depth. `compute_confidence()` scores individual nodes (1.0 for observed, decaying for inferred). Supports geometric, minimum, and average combination strategies. `trace_chain()` finds the highest-confidence path between two nodes.
 - **structural_match.py** — `StructuralPatternEngine` provides subgraph pattern matching beyond label-based filtering. `PatternTemplate` defines role-based node/edge templates. `match_chain()` finds linear chains, `match_diamond()` finds convergence patterns, `match_fan_out()` finds hub nodes, `match_pattern()` matches arbitrary templates with data-type and label-pattern constraints.
-- **belief_revision.py** — `BeliefRevisionEngine` detects and resolves contradictory edges. Built-in negation map (`supports`/`opposes`, `causes`/`prevents`, etc.) with custom extension. Resolution strategies: `higher_confidence`, `higher_weight`, `observed_over_inferred`, `newer`. `revise()` cascades retraction to dependent inferences.
+- **belief_revision.py** — `ContradictionResolver` detects and resolves contradictory edges. Built-in negation map (`supports`/`opposes`, `causes`/`prevents`, etc.) with custom extension. Resolution strategies: `higher_confidence`, `higher_weight`, `observed_over_inferred`, `newer`. `revise()` cascades retraction to dependent inferences.
 - **abstraction.py** — `AbstractionNavigator` collapses subgraphs into summary nodes and expands them back. `collapse_subgraph()` removes internal edges, rewires external connections to the summary node. `expand_node()` restores original structure. `AbstractionMapping` tracks the collapse/expand relationship.
 - **community.py** — `CommunityDetector` identifies communities (clusters) in the main hypergraph. Label propagation (unweighted and weighted) and connected-components methods. Returns `CommunityResult` with per-community membership, internal/external edge counts, modularity, and coverage.
 - **graph_diff.py** — `GraphDiffer` captures graph versions and computes deltas. `capture()` snapshots node/edge state. `diff_from_version()` and `diff_between_versions()` produce `GraphDelta` with added/removed/modified nodes and edges. `rollback_to_version()` restores a prior state.
@@ -668,7 +668,7 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 - Place examples in `examples/` subdirectories: `basic/`, `intermediate/`, `advanced/`, `domain/`.
 - Each example must be self-contained: create its own data, no external files or network calls needed.
 - Use `if __name__ == "__main__": main()` guard.
-- Always use `CognitiveMemory(evolve_interval=0)` to keep behavior deterministic.
+- Always use `HypergraphMemory(evolve_interval=0)` to keep behavior deterministic.
 - Always use `.venv/bin/python` (full path) to run examples — the system Python is not the project Python.
 - Include a module-level docstring explaining the use case and how to run the script.
 - Use section headers (`print("=" * 70)` / `print("SECTION N: ...")`) for readability.
@@ -678,7 +678,7 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 - **For TransitiveRule to produce results**: The graph must contain same-label two-hop chains (A-[label]->B-[label]->C). Unique edge labels per pair produce zero matches. Add extra edges with reused labels to create chains.
 - **For collapse output**: Always resolve `Interpretation.node_id` to a label before printing: `node = mem.graph.get_node(answer.node_id); label = node.label if node else answer.node_id`.
 - **For `ActivationResult`**: The attribute is `activation` (not `energy` or `score`).
-- **For `lateral_insights()`**: Returns normalized dicts with both key variants (`novel_in_source` and `novel_nodes_in_source`). Always present: `branchial_distance`, `complementary_nodes`, `transferable_patterns`.
+- **For `lateral_insights()`**: Returns normalized dicts with keys `novel_in_source` and `novel_in_lateral`. Always present: `branchial_distance`, `complementary_nodes`, `transferable_patterns`.
 
 ### Validating examples
 
@@ -716,18 +716,18 @@ src/hyper3/          Source code (flat, no sub-packages)
   equivalence.py     EquivalenceEngine for node similarity
   cache.py           LazyCache with TTL and Markov prefetch
   traversal.py       TraversalEngine, SliceConfig, ObserverSlice
-  evolution.py       SelfEvolutionEngine, EvolutionMetrics
-  quantum.py         QuantumCognitiveLayer and quantum data types
+  evolution.py       GraphMaintenanceEngine, EvolutionMetrics
+  quantum.py         QuantumInterpretationLayer and quantum data types
   rules.py           Rule ABC with 8 concrete implementations
   rules_discovery.py RuleDiscoveryEngine
   multiway.py        MultiwayEngine, MultiwayGraph, MultiwayState
   multiway_branchial.py BranchialSpace with distance/clustering
-  multiway_causal.py CausalInvarianceEngine
+  multiway_causal.py StateConvergenceEngine
   multiway_rulial.py RulialSpace for rule universe tracking
   structural_anomaly.py StructuralAnomalyDetector
   multi_perspective.py MultiPerspectiveAnalyzer
-  meta_cognitive.py  MetaCognitiveLayer
-  memory.py          CognitiveMemory facade (thin, uses mixins)
+  system_monitor.py  SystemMonitor
+  memory.py          HypergraphMemory facade (thin, uses mixins)
   memory_base.py     _MemoryBase shared type annotations
   memory_core.py     CoreMixin: store, recall, relate, query, evolve
   memory_reasoning.py ReasoningMixin: reason, derive, commit/rollback
@@ -745,7 +745,7 @@ src/hyper3/          Source code (flat, no sub-packages)
   overlay.py         HypergraphOverlay for inference layers
   enrichment.py      LLMEnricher, RegexExtractor
   feedback.py        OperationFeedback for outcome tracking
-  snapshot.py        CognitiveSnapshot for cross-session continuity
+  snapshot.py        SystemSnapshot for cross-session continuity
   frame_transform.py FrameTransformer with 12 pair-wise transforms
   validation.py      ValidationEngine with A/B comparison
   capabilities.py    CapabilityLevel enum + detection + require_capability
@@ -754,7 +754,7 @@ src/hyper3/          Source code (flat, no sub-packages)
   hebbian.py         HebbianLearner for co-activation learning
   uncertainty.py     UncertaintyEngine for confidence propagation
   structural_match.py StructuralPatternEngine for subgraph matching
-  belief_revision.py BeliefRevisionEngine for contradiction resolution
+  belief_revision.py ContradictionResolver for contradiction resolution
   abstraction.py     AbstractionNavigator for hierarchical collapse/expand
   community.py       CommunityDetector for graph clustering
   graph_diff.py      GraphDiffer for versioned evolution tracking

@@ -1,8 +1,8 @@
 import time
 import pytest
 from hyper3 import (
-    CausalInvarianceEngine,
-    CausalInvariant,
+    StateConvergenceEngine,
+    ConvergenceRecord,
     Hypergraph,
     Hypernode,
     Hyperedge,
@@ -11,16 +11,16 @@ from hyper3 import (
     MultiwayGraph,
     MultiwayState,
     NodeNotFoundError,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     QuantumState,
     TransitiveRule,
     InverseRule,
-    CognitiveMemory,
+    HypergraphMemory,
     Modality,
 )
 
 
-class TestCausalInvarianceEngine:
+class TestStateConvergenceEngine:
     def _build_multiway(self):
         g = Hypergraph()
         for label in ["a", "b", "c", "d"]:
@@ -36,14 +36,14 @@ class TestCausalInvarianceEngine:
         mw = engine.multiway
         states = mw.states
         if len(states) >= 2:
-            ci = CausalInvarianceEngine(g, mw)
+            ci = StateConvergenceEngine(g, mw)
             sim = ci.compute_state_similarity(states[0], states[0])
             assert sim == 1.0
 
     def test_state_similarity_different(self):
         g, engine = self._build_multiway()
         mw = engine.multiway
-        ci = CausalInvarianceEngine(g, mw)
+        ci = StateConvergenceEngine(g, mw)
         root = mw.get_root()
         leaves = mw.get_leaves()
         if root and leaves:
@@ -53,26 +53,26 @@ class TestCausalInvarianceEngine:
     def test_find_invariants(self):
         g, engine = self._build_multiway()
         mw = engine.multiway
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         invariants = ci.find_invariants()
         assert isinstance(invariants, list)
 
     def test_merge_invariant_states(self):
         g, engine = self._build_multiway()
         mw = engine.multiway
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
         assert isinstance(merged, list)
         for inv in merged:
-            assert isinstance(inv, CausalInvariant)
+            assert isinstance(inv, ConvergenceRecord)
             assert inv.merged_into is not None
 
     def test_enforce(self):
         g, engine = self._build_multiway()
         mw = engine.multiway
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         report = ci.enforce()
-        assert "invariants_found" in report
+        assert "merges_performed" in report
         assert "states_before" in report
         assert "states_after" in report
 
@@ -132,12 +132,12 @@ class TestQuantumState:
         assert abs(total - 1.0) < 0.01
 
 
-class TestQuantumCognitiveLayer:
+class TestQuantumInterpretationLayer:
     def test_create_superposition(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         assert qs.superposition_count == 2
 
@@ -145,7 +145,7 @@ class TestQuantumCognitiveLayer:
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="concept_x"))
         g.add_node(Hypernode(id="y", label="concept_y"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_from_labels(["concept_x", "concept_y"])
         assert qs.superposition_count == 2
 
@@ -153,7 +153,7 @@ class TestQuantumCognitiveLayer:
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         result = ql.collapse(qs.id)
         assert result is not None
@@ -163,7 +163,7 @@ class TestQuantumCognitiveLayer:
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         ql.evolve_amplitudes(qs.id, {"a": 5.0, "b": 0.1})
         for interp in qs.interpretations:
@@ -173,7 +173,7 @@ class TestQuantumCognitiveLayer:
     def test_active_and_collapsed(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs1 = ql.create_superposition(["a"])
         qs2 = ql.create_superposition(["a"])
         assert len(ql.active_superpositions) == 2
@@ -183,13 +183,13 @@ class TestQuantumCognitiveLayer:
 
     def test_get_state(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         assert ql.get_state("nonexistent") is None
 
 
-class TestCognitiveMemoryIntegration:
+class TestHypergraphMemoryIntegration:
     def test_reason_with_rules(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         mem.store("a")
         mem.store("b")
         mem.store("c")
@@ -201,19 +201,19 @@ class TestCognitiveMemoryIntegration:
         assert result["expansion"]["rules_applied"] > 0
 
     def test_reason_no_rules(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         mem.store("a")
         result = mem.reason({"a"})
         assert "error" in result
 
     def test_reason_no_seed(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         mem.add_rules(TransitiveRule())
         result = mem.reason({"nonexistent"})
         assert "error" in result
 
     def test_superpose_and_collapse(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         mem.store("cat")
         mem.store("bank_river")
         mem.store("bank_finance")
@@ -224,12 +224,12 @@ class TestCognitiveMemoryIntegration:
         assert qs.collapsed
 
     def test_superpose_empty(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         with pytest.raises(NodeNotFoundError):
             mem.superpose(["nonexistent"])
 
     def test_lateral_insights(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         for label in ["a", "b", "c"]:
             mem.store(label)
         mem.relate("a", "b", label="rel")
@@ -240,11 +240,11 @@ class TestCognitiveMemoryIntegration:
         assert isinstance(insights, list)
 
     def test_lateral_insights_no_multiway(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         assert mem.lateral_insights("x") == []
 
     def test_stats_includes_new_fields(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         mem.store("a")
         mem.store("b")
         mem.relate("a", "b")
@@ -254,7 +254,7 @@ class TestCognitiveMemoryIntegration:
         assert "quantum_collapsed" in stats
 
     def test_multiway_property(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         assert mem.multiway is None
         mem.store("a")
         mem.store("b")
@@ -264,11 +264,11 @@ class TestCognitiveMemoryIntegration:
         assert mem.multiway is not None
 
     def test_quantum_property(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         assert mem.quantum is not None
 
     def test_full_pipeline(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for label in ["rain", "clouds", "wet_ground", "flooding", "umbrella"]:
             mem.store(label, modalities={Modality.CONCEPTUAL})
         mem.relate("rain", "wet_ground", label="causes")

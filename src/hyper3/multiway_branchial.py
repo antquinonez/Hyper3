@@ -334,12 +334,11 @@ class BranchialSpace:
         self._simultaneity_groups = groups
         return groups
 
-    def cluster_states(self, n_clusters: int = 0, threshold: float = 2.0) -> list[BranchialCluster]:
+    def cluster_states(self, n_clusters: int = 0) -> list[BranchialCluster]:
         """Cluster states by their branchial coordinates using k-means.
 
         Args:
             n_clusters: Desired number of clusters (0 = auto, len(states)//3).
-            threshold: Unused, kept for API compatibility.
 
         Returns:
             List of BranchialCluster with member state IDs and centroids.

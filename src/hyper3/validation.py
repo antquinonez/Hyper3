@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hyper3.memory import CognitiveMemory
+    from hyper3.memory import HypergraphMemory
     from hyper3.rules import Rule
 
 from hyper3.results import _SimpleResultBase
@@ -43,7 +43,7 @@ class ValidationReport(_SimpleResultBase):
 
 class ValidationEngine:
     def __init__(self, memory: Any) -> None:
-        """Initialize the validation engine bound to a CognitiveMemory instance."""
+        """Initialize the validation engine bound to a HypergraphMemory instance."""
         self._memory = memory
         self._history: list[ValidationReport] = []
 

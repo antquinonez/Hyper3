@@ -22,9 +22,9 @@ from __future__ import annotations
 from collections import Counter
 
 from hyper3 import (
-    AnalogicalReasoningRule,
-    CausalInferenceRule,
-    CognitiveMemory,
+    StructuralProjectionRule,
+    HubInferenceRule,
+    HypergraphMemory,
     GeneralizationRule,
     HashEmbeddingProvider,
     InverseRule,
@@ -33,13 +33,13 @@ from hyper3 import (
 )
 
 
-def _label(mem: CognitiveMemory, nid: str) -> str:
+def _label(mem: HypergraphMemory, nid: str) -> str:
     node = mem.graph.get_node(nid)
     return node.label if node else nid[:8]
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Infrastructure Graph Construction
@@ -467,14 +467,14 @@ def main() -> None:
     print()
 
     # =====================================================================
-    # SECTION 4: CausalInferenceRule — Co-Occurrence Patterns
+    # SECTION 4: HubInferenceRule — Co-Occurrence Patterns
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 4: CausalInferenceRule — Co-Occurrence Patterns")
+    print("SECTION 4: HubInferenceRule — Co-Occurrence Patterns")
     print("=" * 70)
 
-    causal = CausalInferenceRule(min_support=2, confidence_threshold=0.6, causes_label="causes")
+    causal = HubInferenceRule(min_support=2, confidence_threshold=0.6, causes_label="causes")
     c_matches = causal.find_matches(mem.graph, all_ids)
 
     print(f"  Found {len(c_matches)} causal relationships")
@@ -530,15 +530,15 @@ def main() -> None:
     print()
 
     # =====================================================================
-    # SECTION 6: AnalogicalReasoningRule — Structural Analogies
+    # SECTION 6: StructuralProjectionRule — Structural Analogies
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 6: AnalogicalReasoningRule — Structural Analogies")
+    print("SECTION 6: StructuralProjectionRule — Structural Analogies")
     print("=" * 70)
 
     mem.set_embedding_provider(HashEmbeddingProvider(dim=32))
-    analogical = AnalogicalReasoningRule(similarity_threshold=0.7)
+    analogical = StructuralProjectionRule(similarity_threshold=0.7)
     assert mem.embedding_engine is not None
     analogical.set_embedding_engine(mem.embedding_engine)
 

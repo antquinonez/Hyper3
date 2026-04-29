@@ -32,7 +32,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 from hyper3.rules import TransitiveRule, InverseRule
 
 
@@ -163,7 +163,7 @@ NOISY_NODES = {
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.add_rules(TransitiveRule(edge_label="calls"))
     mem.add_rules(TransitiveRule(edge_label="routes_to"))
     mem.add_rules(TransitiveRule(edge_label="blocks"))
@@ -359,13 +359,13 @@ def main() -> None:
         for t in triggers:
             print(f"    {t.trigger_type}: {t.description} (urgency={t.urgency:.2f})")
 
-        plan = mem.propose_metamorphosis(triggers)
+        plan = mem.propose_tuning(triggers)
         if plan:
             print(f"  Plan: {len(plan.actions)} actions, "
                   f"expected improvement={plan.expected_improvement:.2f}, "
                   f"risk={plan.risk_level:.2f}")
 
-            result = mem.execute_metamorphosis_validated(plan)
+            result = mem.execute_tuning_validated(plan)
             print(f"  Validated execution:")
             print(f"    rolled_back={result.rolled_back}")
             print(f"    fitness_before={result.fitness_before:.4f}")
@@ -389,7 +389,7 @@ def main() -> None:
     print("=" * 70)
 
     from hyper3.multiway import MultiwayEngine, MultiwayGraph
-    from hyper3.multiway_causal import CausalInvarianceEngine
+    from hyper3.multiway_causal import StateConvergenceEngine
 
     mw = MultiwayEngine(mem.graph)
     rules = list(mem._rules)
@@ -403,7 +403,7 @@ def main() -> None:
           f"{mw_result.rules_applied} rules applied")
 
     mw_graph = mw.multiway
-    causal = CausalInvarianceEngine(mem.graph, mw_graph, threshold=0.4)
+    causal = StateConvergenceEngine(mem.graph, mw_graph, threshold=0.4)
     invariants = causal.merge_invariant_states()
     print(f"  Causal invariants found: {len(invariants)}")
     for inv in invariants[:5]:

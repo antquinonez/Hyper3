@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.provenance import Explanation, ProvenanceRecord, ProvenanceTracker
 from hyper3.rules import TransitiveRule
 
@@ -247,9 +247,9 @@ class TestProvenanceTrackerProperties:
         assert tracker.record_count == 1
 
 
-class TestIntegrationCognitiveMemory:
+class TestIntegrationHypergraphMemory:
     def test_explain_with_memory(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -263,7 +263,7 @@ class TestIntegrationCognitiveMemory:
         assert exp.target_label == "C"
 
     def test_explain_given_edge(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B", label="related")
@@ -272,17 +272,17 @@ class TestIntegrationCognitiveMemory:
         assert exp.rule_name == "given"
 
     def test_explain_nonexistent_edge(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         assert mem.explain("A", "B") is None
 
     def test_explain_missing_node(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert mem.explain("A", "B") is None
 
     def test_retract_inference(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -296,17 +296,17 @@ class TestIntegrationCognitiveMemory:
         assert mem.explain("A", "C") is None
 
     def test_retract_nonexistent(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         assert mem.retract_inference("A", "B") == []
 
     def test_provenance_property(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         assert isinstance(mem.provenance, ProvenanceTracker)
 
     def test_provenance_records_after_reason(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -317,7 +317,7 @@ class TestIntegrationCognitiveMemory:
         assert mem.provenance.record_count >= 1
 
     def test_load_resets_provenance(self, tmp_path):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.relate("A", "B")
@@ -329,7 +329,7 @@ class TestIntegrationCognitiveMemory:
 
 class TestCascadeRetraction:
     def test_multi_level_cascade_retraction(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -355,7 +355,7 @@ class TestCascadeRetraction:
         assert mem.graph.edge_count < initial_edges
 
     def test_cascade_does_not_remove_given_edges(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")
@@ -368,7 +368,7 @@ class TestCascadeRetraction:
         assert mem.graph.get_edge(e_bc.id) is not None
 
     def test_full_chain_cascade(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
         mem.store("C")

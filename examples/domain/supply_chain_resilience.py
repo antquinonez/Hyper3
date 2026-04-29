@@ -12,11 +12,11 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, TransitiveRule, InverseRule, Modality
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Supply Chain Network Construction

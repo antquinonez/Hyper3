@@ -15,7 +15,7 @@ class Modality(Enum):
     TEXTUAL = "textual"
     CONCEPTUAL = "conceptual"
     TEMPORAL = "temporal"
-    CAUSAL = "causal"
+    CAUSAL = "convergence"
     SENSORY = "sensory"
     ABSTRACT = "abstract"
 

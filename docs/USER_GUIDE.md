@@ -22,9 +22,9 @@ pip install -e ".[dev]"     # Test and lint tools
 ## Quick Start
 
 ```python
-from hyper3 import CognitiveMemory
+from hyper3 import HypergraphMemory
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 # Store concepts with metadata
 mem.store("Log4j", data={"type": "vulnerability", "cvss": 10.0})
@@ -62,13 +62,13 @@ internal. All public methods accept and return labels.
 
 ### Evolve Interval
 
-`CognitiveMemory(evolve_interval=N)` runs self-evolution (decay, prune,
+`HypergraphMemory(evolve_interval=N)` runs self-evolution (decay, prune,
 merge) automatically every N operations. Set to `0` (default) to disable
 auto-evolution and call `mem.evolve()` manually when you want it.
 
 ```python
-mem = CognitiveMemory()                 # no auto-evolution
-mem = CognitiveMemory(evolve_interval=10)  # evolve every 10 ops
+mem = HypergraphMemory()                 # no auto-evolution
+mem = HypergraphMemory(evolve_interval=10)  # evolve every 10 ops
 ```
 
 Most scripts use `evolve_interval=0` for deterministic behavior.
@@ -293,7 +293,7 @@ sg = mem.subgraph({"APT28", "GOV", "CVE-2023-44228"})
 
 ```python
 mem.save("my_graph.json")
-mem2 = CognitiveMemory()
+mem2 = HypergraphMemory()
 mem2.load("my_graph.json")
 ```
 
@@ -346,7 +346,7 @@ worth the dependency when you need:
 - **Typed results**: Methods return dataclasses, not dicts. Access results
   via attributes (`result.expansion.rules_applied`), not brackets.
 - **Engine-facade separation**: Engines (SpreadingActivation,
-  QuantumCognitiveLayer, etc.) do the work. CognitiveMemory delegates and
+  QuantumInterpretationLayer, etc.) do the work. HypergraphMemory delegates and
   returns engine results directly.
 - **Zero external dependencies for core**: numpy, scipy, networkx only.
   FAISS and matplotlib are optional extras.

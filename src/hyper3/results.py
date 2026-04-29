@@ -42,7 +42,7 @@ class ExpansionInfo(_SimpleResultBase):
 @dataclass
 class ReasonResult(_SimpleResultBase):
     expansion: ExpansionInfo | None = None
-    causal_invariance: CausalEnforceReport | None = None
+    state_convergence: MergeReport | None = None
     branchial: BranchialAnalysis | None = None
     rulial: RulialAnalysis | None = None
     multiway_leaves: int = 0
@@ -75,8 +75,8 @@ class ConsensusReasonResult(_SimpleResultBase):
 
 
 @dataclass
-class CausalEnforceReport(_SimpleResultBase):
-    invariants_found: int = 0
+class MergeReport(_SimpleResultBase):
+    merges_performed: int = 0
     states_before: int = 0
     states_after: int = 0
     reduction: int = 0
@@ -91,7 +91,7 @@ class EvolveResult(_SimpleResultBase):
     suppressed: int = 0
     node_count: int = 0
     edge_count: int = 0
-    causal: CausalEnforceReport | None = None
+    convergence: MergeReport | None = None
 
 
 @dataclass
@@ -193,7 +193,7 @@ class EvolutionStats(_SimpleResultBase):
 
 
 @dataclass
-class MetaCognitiveStats(_SimpleResultBase):
+class MonitorStats(_SimpleResultBase):
     architectural_fitness: float = 0.0
     reasoning_mode: str = ""
     meta_level: int = 0
@@ -220,7 +220,7 @@ class MemoryStats(_SimpleResultBase):
     overlay_active: bool = False
     overlay_edges: int = 0
     rulial: RulialAnalysis | None = None
-    meta_cognitive: MetaCognitiveStats = field(default_factory=MetaCognitiveStats)
+    monitor_stats: MonitorStats = field(default_factory=MonitorStats)
     multi_edge_count: int = 0
 
 
@@ -305,7 +305,7 @@ class ImportResult(_SimpleResultBase):
 
 
 @dataclass
-class CognitiveStateInfo(_SimpleResultBase):
+class HealthInfo(_SimpleResultBase):
     fitness: float = 0.0
     mode: str = ""
     meta_level: int = 0
@@ -333,8 +333,8 @@ class DiscoveryHealthInfo(_SimpleResultBase):
 
 
 @dataclass
-class IntrospectionReport(_SimpleResultBase):
-    cognitive_state: CognitiveStateInfo = field(default_factory=CognitiveStateInfo)
+class HealthReport(_SimpleResultBase):
+    system_health: HealthInfo = field(default_factory=HealthInfo)
     graph_health: GraphHealthInfo = field(default_factory=GraphHealthInfo)
     evolution_health: EvolutionHealthInfo = field(default_factory=EvolutionHealthInfo)
     discovery_health: DiscoveryHealthInfo = field(default_factory=DiscoveryHealthInfo)
@@ -374,7 +374,7 @@ class BiasProfileResult(_SimpleResultBase):
 
 
 @dataclass
-class MetamorphosisResult(_SimpleResultBase):
+class TuningResult(_SimpleResultBase):
     results: dict[str, Any] = field(default_factory=dict)
     validated: bool = False
     rolled_back: bool = False

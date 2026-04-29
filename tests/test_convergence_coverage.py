@@ -1,8 +1,8 @@
 import pytest
 from hyper3 import (
-    CausalInvarianceEngine,
-    CausalInvariant,
-    CognitiveMemory,
+    StateConvergenceEngine,
+    ConvergenceRecord,
+    HypergraphMemory,
     CollapseTrigger,
     Hyperedge,
     Hypergraph,
@@ -13,7 +13,7 @@ from hyper3 import (
     Metadata,
     Modality,
     MultiwayEngine,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     ConceptCorrelation,
     QuantumState,
     TransitiveRule,
@@ -28,7 +28,7 @@ class TestCausalInvarianceDeep:
         from hyper3.multiway import MultiwayState
         s1 = MultiwayState(active_node_ids=frozenset())
         s2 = MultiwayState(active_node_ids=frozenset())
-        ci = CausalInvarianceEngine(g, mw.multiway)
+        ci = StateConvergenceEngine(g, mw.multiway)
         assert ci.compute_state_similarity(s1, s2) == 1.0
 
     def test_state_similarity_one_empty(self):
@@ -39,7 +39,7 @@ class TestCausalInvarianceDeep:
         from hyper3.multiway import MultiwayState
         s1 = MultiwayState(active_node_ids=frozenset({"a"}))
         s2 = MultiwayState(active_node_ids=frozenset())
-        ci = CausalInvarianceEngine(g, mw.multiway)
+        ci = StateConvergenceEngine(g, mw.multiway)
         assert ci.compute_state_similarity(s1, s2) == 0.0
 
     def test_no_duplicate_merges_on_repeated_enforce(self):
@@ -51,17 +51,17 @@ class TestCausalInvarianceDeep:
         mw = MultiwayEngine(g)
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a"}, [rule], max_depth=2, max_total_states=20)
-        ci = CausalInvarianceEngine(g, mw.multiway, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw.multiway, threshold=0.3)
         r1 = ci.enforce()
         r2 = ci.enforce()
-        assert r2["invariants_found"] == 0
+        assert r2["merges_performed"] == 0
 
     def test_invariants_property(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         mw = MultiwayEngine(g)
         mw.expand({"a"}, [], max_depth=1)
-        ci = CausalInvarianceEngine(g, mw.multiway)
+        ci = StateConvergenceEngine(g, mw.multiway)
         assert ci.invariants == []
 
     def test_enforce_reports_reduction(self):
@@ -73,7 +73,7 @@ class TestCausalInvarianceDeep:
         mw = MultiwayEngine(g)
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a"}, [rule], max_depth=2, max_total_states=20)
-        ci = CausalInvarianceEngine(g, mw.multiway, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw.multiway, threshold=0.3)
         report = ci.enforce()
         assert "reduction" in report
         assert isinstance(report["reduction"], int)
@@ -122,32 +122,32 @@ class TestQuantumLayerDeep:
     def test_collapse_with_basis_missing_basis(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a"])
         result = ql.collapse_with_basis(qs.id, "nonexistent_basis")
         assert result is not None
 
     def test_collapse_with_basis_empty_state(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         result = ql.collapse_with_basis("nonexistent", "linguistic")
         assert result is None
 
     def test_get_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         assert ql.get_correlation("nonexistent") is None
 
     def test_get_basis(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         assert ql.get_basis("linguistic") is not None
         assert ql.get_basis("nonexistent") is None
 
     def test_evolve_amplitudes_missing(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         ql.evolve_amplitudes("nonexistent", {"a": 2.0})
 
     def test_correlation_predict_no_match(self):
@@ -170,7 +170,7 @@ class TestQuantumLayerDeep:
 
     def test_interference_constructive(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState()
         qs.add_interpretation("a", 0.5)
         qs.add_interpretation("a", 0.3)
@@ -182,7 +182,7 @@ class TestQuantumLayerDeep:
 
     def test_interference_destructive(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState()
         qs.add_interpretation("a", 0.5)
         qs.add_interpretation("a", -0.3)
@@ -194,20 +194,20 @@ class TestQuantumLayerDeep:
 
     def test_interference_single_interpretation(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a"])
         patterns = ql.compute_interference(qs.id)
         assert patterns == []
 
     def test_collapse_correlated_missing(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         result = ql.collapse_correlated("nonexistent", "a")
         assert result == {}
 
     def test_collapse_triggers_already_collapsed(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a"])
         qs.collapsed = True
         triggers = ql.detect_collapse_triggers(qs.id)
@@ -215,7 +215,7 @@ class TestQuantumLayerDeep:
 
     def test_collapse_triggers_dominant(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState(created_at=0.0, coherence_time=0.0)
         qs.add_interpretation("a", 0.95)
         qs.add_interpretation("b", 0.01)
@@ -238,7 +238,7 @@ class TestQuantumLayerDeep:
         l2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset())
         mw.add_state(l1)
         mw.add_state(l2)
-        ci = CausalInvarianceEngine(g, mw)
+        ci = StateConvergenceEngine(g, mw)
         assert ci.find_invariants() == []
 
     def test_find_invariants_consumed_states(self):
@@ -255,7 +255,7 @@ class TestQuantumLayerDeep:
         mw.add_state(l0)
         mw.add_state(l1)
         mw.add_state(l2)
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         ci._consumed_states.add(l1.id)
         pairs = ci.find_invariants()
         for a_id, b_id, sim in pairs:
@@ -273,7 +273,7 @@ class TestQuantumLayerDeep:
         l1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "b"}))
         mw.add_state(l0)
         mw.add_state(l1)
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         pairs = ci.find_invariants()
         assert len(pairs) >= 1
         assert pairs[0][2] >= 0.3
@@ -290,7 +290,7 @@ class TestQuantumLayerDeep:
         l1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "b"}), rule_applied="rule_y")
         mw.add_state(l0)
         mw.add_state(l1)
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
         assert len(merged) >= 1
         inv = merged[0]
@@ -318,7 +318,7 @@ class TestQuantumLayerDeep:
         mw.add_state(l0)
         mw.add_state(l1)
         mw.add_state(l2)
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         ci._consumed_states.add(l0.id)
         ci._consumed_states.add(l2.id)
         merged = ci.merge_invariant_states()
@@ -347,12 +347,12 @@ class TestQuantumLayerDeep:
 
     def test_collapse_nonexistent_state(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         assert ql.collapse("nonexistent_id") is None
 
     def test_collapse_with_basis_missing_node(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["ghost_node"])
         result = ql.collapse_with_basis(qs.id, "linguistic")
         assert result is not None
@@ -360,7 +360,7 @@ class TestQuantumLayerDeep:
     def test_detect_collapse_triggers_interference_maxima(self):
         import time as _time
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState(created_at=_time.time())
         qs.add_interpretation("a", 0.6)
         qs.add_interpretation("a", 0.5)
@@ -373,7 +373,7 @@ class TestQuantumLayerDeep:
 
     def test_collapse_correlated_empty_interpretations(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState()
         ql._states[qs.id] = qs
         result = ql.collapse_correlated(qs.id, "a")
@@ -382,7 +382,7 @@ class TestQuantumLayerDeep:
     def test_collapse_correlated_fake_correlation(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a"])
         qs.correlation_ids.append("fake_ent_id")
         result = ql.collapse_correlated(qs.id, "a")
@@ -390,7 +390,7 @@ class TestQuantumLayerDeep:
 
     def test_correlations_property(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         ql.create_correlation(["a"], ["b"], {("a", "b"): 0.5})
         ents = ql.correlations
         assert len(ents) == 1
@@ -411,7 +411,7 @@ class TestQuantumLayerDeep:
         mw.add_state(l0)
         mw.add_state(l1)
         mw.add_state(l2)
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
         assert len(merged) >= 1
 
@@ -429,7 +429,7 @@ class TestQuantumLayerDeep:
         mw.add_state(l1)
         mw.get_leaves()
         del mw._states[l0.id]
-        ci = CausalInvarianceEngine(g, mw, threshold=0.3)
+        ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
         for inv in merged:
             assert inv.state_a_id != l0.id
@@ -449,7 +449,7 @@ class TestQuantumLayerDeep:
         node = Hypernode(id="a", label="a")
         node.metadata.custom = {"semantic": 0.8, "syntactic": 0.5, "pragmatic": 0.3}
         g.add_node(node)
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a"])
         result = ql.collapse_with_basis(qs.id, "linguistic")
         assert result is not None
@@ -457,7 +457,7 @@ class TestQuantumLayerDeep:
     def test_detect_collapse_triggers_single_interpretation(self):
         import time as _time
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = QuantumState(created_at=_time.time())
         qs.add_interpretation("a", 1.0)
         ql._states[qs.id] = qs
@@ -469,7 +469,7 @@ class TestQuantumLayerDeep:
         g = Hypergraph()
         g.add_node(Hypernode(id="a"))
         g.add_node(Hypernode(id="b"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         ent = ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
         assert ent.id in qs.correlation_ids
@@ -478,7 +478,7 @@ class TestQuantumLayerDeep:
         g = Hypergraph()
         g.add_node(Hypernode(id="a", label="a"))
         g.add_node(Hypernode(id="b", label="b"))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["a", "b"])
         ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
         result = ql.collapse_correlated(qs.id, "a")
@@ -486,7 +486,7 @@ class TestQuantumLayerDeep:
 
     def test_add_basis_and_bases_property(self):
         g = Hypergraph()
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         basis = MeasurementBasis(name="custom_test", dimensions=["d1"], weights={"d1": 1.0})
         ql.add_basis(basis)
         assert ql.get_basis("custom_test") is not None
@@ -497,7 +497,7 @@ class TestQuantumLayerDeep:
         g = Hypergraph()
         g.add_node(Hypernode(id="n1", metadata=Metadata(custom={"semantic": -2.0})))
         g.add_node(Hypernode(id="n2", metadata=Metadata(custom={"semantic": 1.0})))
-        ql = QuantumCognitiveLayer(g)
+        ql = QuantumInterpretationLayer(g)
         qs = ql.create_superposition(["n1", "n2"])
         result = ql.collapse_with_basis(qs.id, "linguistic")
         assert result is not None

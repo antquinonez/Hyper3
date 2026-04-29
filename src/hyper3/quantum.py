@@ -222,9 +222,9 @@ BUILTIN_BASES: dict[str, MeasurementBasis] = {
 }
 
 
-class QuantumCognitiveLayer:
+class QuantumInterpretationLayer:
     def __init__(self, graph: Hypergraph) -> None:
-        """Initialize the quantum cognitive layer backed by the given graph.
+        """Initialize the quantum interpretation layer backed by the given graph.
 
         Args:
             graph: The hypergraph whose nodes serve as quantum interpretations.

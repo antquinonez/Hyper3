@@ -11,7 +11,7 @@ from hyper3.event_log import EventLog
 from hyper3.cache import LazyCache
 from hyper3.quantum import (
     Interpretation,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     ConceptCorrelation,
     QuantumState,
 )
@@ -23,7 +23,7 @@ from hyper3.multiway_branchial import (
     BranchialSpace,
 )
 from hyper3.multiway_rulial import (
-    MetaComputationalPattern,
+    DetectedPattern,
     RulialPosition,
     RulialSpace,
     HighLevelInsight,
@@ -31,7 +31,7 @@ from hyper3.multiway_rulial import (
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
 from hyper3.retrieval_engine import FeedbackRecord, FeedbackStore, LearningToRank, RetrievalEngine
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.meta_cognitive import CognitiveStateModel, MetaCognitiveLayer
+from hyper3.system_monitor import SystemHealthModel, SystemMonitor
 from hyper3.feedback import OperationFeedback
 from hyper3.rules import Rule
 
@@ -39,7 +39,7 @@ SNAPSHOT_VERSION = 1
 
 
 @dataclass
-class CognitiveSnapshot:
+class SystemSnapshot:
     version: int = SNAPSHOT_VERSION
     saved_at: float = 0.0
 
@@ -71,9 +71,9 @@ class CognitiveSnapshot:
     frame_outcomes: dict[str, dict[str, int]] = field(default_factory=dict)
     basis_stats: dict[str, dict[str, int]] = field(default_factory=dict)
 
-    meta_cognitive_state: dict[str, Any] = field(default_factory=dict)
+    monitor_state: dict[str, Any] = field(default_factory=dict)
     meta_introspection_log: list[dict[str, Any]] = field(default_factory=list)
-    meta_metamorphosis_history: list[dict[str, Any]] = field(default_factory=list)
+    meta_tuning_history: list[dict[str, Any]] = field(default_factory=list)
 
     cache_items: list[tuple[str, Any, float]] = field(default_factory=list)
 
@@ -95,8 +95,8 @@ class CognitiveSnapshot:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CognitiveSnapshot:
-        """Reconstruct a CognitiveSnapshot from a serialized dict."""
+    def from_dict(cls, data: dict[str, Any]) -> SystemSnapshot:
+        """Reconstruct a SystemSnapshot from a serialized dict."""
         kwargs: dict[str, Any] = {}
         for f in cls.__dataclass_fields__:
             if f in data:
@@ -124,35 +124,35 @@ def _deserialize_amplitude(data: Any) -> float | complex:
 
 
 def capture_snapshot(
-    quantum: QuantumCognitiveLayer,
+    quantum: QuantumInterpretationLayer,
     multiway_engine: MultiwayEngine | None,
     branchial: BranchialSpace | None,
     rulial: RulialSpace | None,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
     perspective: MultiPerspectiveAnalyzer,
-    meta: MetaCognitiveLayer,
+    meta: SystemMonitor,
     cache: LazyCache,
     feedback: OperationFeedback | None = None,
-) -> CognitiveSnapshot:
+) -> SystemSnapshot:
     """Capture the full state of all subsystems into an immutable snapshot.
 
     Args:
-        quantum: Quantum cognitive layer whose states and correlations to capture.
+        quantum: Quantum interpretation layer whose states and correlations to capture.
         multiway_engine: Optional multiway engine whose DAG to capture.
         branchial: Optional branchial space whose coordinates and clusters to capture.
         rulial: Optional rulial space whose position, history, and patterns to capture.
         provenance: Provenance tracker whose records to capture.
         retrieval: Retrieval engine whose feedback and LTR weights to capture.
         perspective: Computational perspective whose frame outcomes to capture.
-        meta: Meta-cognitive layer whose state and history to capture.
+        meta: System monitor whose state and history to capture.
         cache: LazyCache whose live items to capture.
         feedback: Optional operation feedback tracker whose signals and stats to capture.
 
     Returns:
-        A :class:`CognitiveSnapshot` containing serialized copies of all subsystem state.
+        A :class:`SystemSnapshot` containing serialized copies of all subsystem state.
     """
-    snap = CognitiveSnapshot(saved_at=time.time())
+    snap = SystemSnapshot(saved_at=time.time())
     for qs in quantum._states.values():
         interps = []
         for interp in qs.interpretations:
@@ -296,17 +296,17 @@ def capture_snapshot(
     snap.basis_stats = {k: dict(v) for k, v in quantum._basis_stats.items()}
 
     state = meta._state
-    snap.meta_cognitive_state = {
+    snap.monitor_state = {
         "architectural_fitness": state.architectural_fitness,
         "computational_efficiency": state.computational_efficiency,
         "rulial_insight_count": state.rulial_insight_count,
-        "boundary_navigation_success": state.boundary_navigation_success,
+        "reasoning_activity_rate": state.reasoning_activity_rate,
         "reasoning_mode": state.reasoning_mode,
-        "meta_computational_level": state.meta_computational_level,
+        "complexity_level": state.complexity_level,
         "timestamp": state.timestamp,
     }
     snap.meta_introspection_log = list(meta._introspection_log)
-    for plan in meta._metamorphosis_history:
+    for plan in meta._tuning_history:
         triggers = []
         for t in plan.triggers:
             triggers.append({
@@ -315,7 +315,7 @@ def capture_snapshot(
                 "urgency": t.urgency,
                 "timestamp": t.timestamp,
             })
-        snap.meta_metamorphosis_history.append({
+        snap.meta_tuning_history.append({
             "id": plan.id,
             "triggers": triggers,
             "actions": plan.actions,
@@ -348,13 +348,13 @@ def capture_snapshot(
 
 
 def restore_snapshot(
-    snapshot: CognitiveSnapshot,
+    snapshot: SystemSnapshot,
     graph: Hypergraph,
-    quantum: QuantumCognitiveLayer,
+    quantum: QuantumInterpretationLayer,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
     perspective: MultiPerspectiveAnalyzer,
-    meta: MetaCognitiveLayer,
+    meta: SystemMonitor,
     cache: LazyCache,
     rules: list[Rule],
     feedback: OperationFeedback | None = None,
@@ -368,7 +368,7 @@ def restore_snapshot(
     Clears and repopulates quantum states/correlations, multiway DAG,
     branchial coordinates, rulial position/history, provenance records,
     retrieval feedback/LTR weights, perspective frame outcomes, and
-    meta-cognitive state.
+    system monitor state.
 
     Cache items are restored with their **original remaining TTL** by
     backdating the insertion timestamp: ``insert_time = now - (ttl -
@@ -380,12 +380,12 @@ def restore_snapshot(
         snapshot: The snapshot to restore from.
         graph: Live hypergraph (unchanged — graph structure must be
             restored separately).
-        quantum: Quantum cognitive layer to repopulate.
+        quantum: Quantum interpretation layer to repopulate.
         provenance: Provenance tracker to repopulate.
         retrieval: Retrieval engine whose feedback/LTR state to restore.
         perspective: Computational perspective whose frame outcomes to
             restore.
-        meta: Meta-cognitive layer whose state to restore.
+        meta: System monitor whose state to restore.
         cache: LazyCache whose items to restore with correct TTL.
         rules: Current rule list (not modified).
         feedback: Optional operation feedback tracker to restore.
@@ -415,7 +415,7 @@ def restore_snapshot(
             collapsed_to=state_data.get("collapsed_to"),
             coherence_time=state_data.get("coherence_time", 30.0),
             base_coherence_time=state_data.get("base_coherence_time", 30.0),
-            correlation_ids=state_data.get("correlation_ids", state_data.get("entanglement_ids", [])),
+            correlation_ids=state_data.get("correlation_ids", []),
         )
         quantum._states[qs.id] = qs
 
@@ -497,23 +497,23 @@ def restore_snapshot(
         rs = RulialSpace(graph, multiway_engine)
         pos_data = snapshot.rulial_position
         rs._position = RulialPosition(
-            graph_activity_density=pos_data.get("graph_activity_density", pos_data.get("computational_density", 0.0)),
+            graph_activity_density=pos_data.get("graph_activity_density", 0.0),
             rule_application_frequency=pos_data.get("rule_application_frequency", {}),
-            structural_complexity=pos_data.get("structural_complexity", pos_data.get("causal_graph_complexity", 0.0)),
+            structural_complexity=pos_data.get("structural_complexity", 0.0),
             branchial_coordinates=pos_data.get("branchial_coordinates", []),
             timestamp=pos_data.get("timestamp", 0.0),
         )
         for hist_data in snapshot.rulial_position_history:
             rs._position_history.append(RulialPosition(
-                graph_activity_density=hist_data.get("graph_activity_density", hist_data.get("computational_density", 0.0)),
+                graph_activity_density=hist_data.get("graph_activity_density", 0.0),
                 rule_application_frequency=hist_data.get("rule_application_frequency", {}),
-                structural_complexity=hist_data.get("structural_complexity", hist_data.get("causal_graph_complexity", 0.0)),
+                structural_complexity=hist_data.get("structural_complexity", 0.0),
                 branchial_coordinates=hist_data.get("branchial_coordinates", []),
                 timestamp=hist_data.get("timestamp", 0.0),
             ))
         rs._rule_outcomes = {k: dict(v) for k, v in snapshot.rulial_rule_outcomes.items()}
         for pat_data in snapshot.rulial_meta_patterns:
-            rs._meta_patterns.append(MetaComputationalPattern(
+            rs._meta_patterns.append(DetectedPattern(
                 id=pat_data["id"],
                 pattern_type=pat_data.get("pattern_type", ""),
                 description=pat_data.get("description", ""),
@@ -567,14 +567,14 @@ def restore_snapshot(
 
     perspective._frame_outcomes = {k: dict(v) for k, v in snapshot.frame_outcomes.items()}
 
-    meta_state = snapshot.meta_cognitive_state
-    meta._state = CognitiveStateModel(
+    meta_state = snapshot.monitor_state
+    meta._state = SystemHealthModel(
         architectural_fitness=meta_state.get("architectural_fitness", 1.0),
         computational_efficiency=meta_state.get("computational_efficiency", {}),
-        rulial_insight_count=meta_state.get("rulial_insight_count", meta_state.get("transcendental_yield", 0)),
-        boundary_navigation_success=meta_state.get("boundary_navigation_success", 0.0),
+        rulial_insight_count=meta_state.get("rulial_insight_count", 0),
+        reasoning_activity_rate=meta_state.get("reasoning_activity_rate", 0.0),
         reasoning_mode=meta_state.get("reasoning_mode", "standard"),
-        meta_computational_level=meta_state.get("meta_computational_level", 0),
+        complexity_level=meta_state.get("complexity_level", 0),
         timestamp=meta_state.get("timestamp", 0.0),
     )
     meta._introspection_log = list(snapshot.meta_introspection_log)
@@ -605,9 +605,9 @@ def restore_snapshot(
     return multiway_engine, branchial, rulial
 
 
-def save_cognitive_state(
+def save_state(
     path: str | Path,
-    snapshot: CognitiveSnapshot,
+    snapshot: SystemSnapshot,
 ) -> None:
     """Write a snapshot to a JSON file on disk.
 
@@ -620,18 +620,18 @@ def save_cognitive_state(
     p.write_text(json.dumps(snapshot.to_dict(), indent=2, default=_json_default))
 
 
-def load_cognitive_state(path: str | Path) -> CognitiveSnapshot:
+def load_state(path: str | Path) -> SystemSnapshot:
     """Load a snapshot from a JSON file on disk.
 
     Args:
-        path: Path to the JSON file produced by :func:`save_cognitive_state`.
+        path: Path to the JSON file produced by :func:`save_state`.
 
     Returns:
-        A reconstructed :class:`CognitiveSnapshot`.
+        A reconstructed :class:`SystemSnapshot`.
     """
     p = Path(path)
     data = json.loads(p.read_text())
-    return CognitiveSnapshot.from_dict(data)
+    return SystemSnapshot.from_dict(data)
 
 
 def _json_default(obj: Any) -> Any:

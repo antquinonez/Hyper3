@@ -1,12 +1,12 @@
 """
 Full integrated demo: store knowledge, reason with multiway rules,
-enforce causal invariance, create quantum superpositions, and collapse.
+enforce state convergence, create quantum superpositions, and collapse.
 
 Run with: .venv/bin/python demos/demo_integrated.py
 """
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     TransitiveRule,
     InverseRule,
     AbductiveRule,
@@ -15,7 +15,7 @@ from hyper3 import (
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # --- 1. BUILD KNOWLEDGE ------------------------------------------------
     print("=" * 70)
@@ -66,13 +66,13 @@ def main():
         max_total_states=25,
     )
     exp = result["expansion"]
-    ci = result["causal_invariance"]
+    ci = result["state_convergence"]
     print(f"\n  States created:   {exp['states_created']}")
     print(f"  Rules applied:    {exp['rules_applied']}")
     print(f"  Nodes produced:   {exp['nodes_produced']}")
     print(f"  Edges produced:   {exp['edges_produced']}")
     print(f"  Leaf branches:    {exp['branches']}")
-    print(f"  Causal invariants: {ci.get('invariants_found', 0)}")
+    print(f"  Causal invariants: {ci.get('merges_performed', 0)}")
     print(f"  States reduced:   {ci.get('reduction', 0)}")
     print(f"\n  Graph after reasoning: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
     print()
@@ -103,7 +103,7 @@ def main():
                 lat = mem.multiway.multiway.get_state(ins["lateral_state"])
                 rule = lat.rule_applied if lat else "?"
                 print(f"    Lateral branch [{rule}], distance={ins['branchial_distance']}")
-                for nid in ins["novel_nodes_in_lateral"]:
+                for nid in ins["novel_in_lateral"]:
                     n = mem.graph.get_node(nid)
                     if n:
                         print(f"      Discovered: {n.label}")

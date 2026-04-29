@@ -47,7 +47,7 @@ class RevisionResult(_SimpleResultBase):
     edges_kept_count: int = 0
 
 
-class BeliefRevisionEngine:
+class ContradictionResolver:
     NEGATION_MAP: dict[str, str] = {
         "is": "is_not",
         "is_not": "is",

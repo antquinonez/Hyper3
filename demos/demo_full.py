@@ -9,7 +9,7 @@ Run with: .venv/bin/python demos/demo_full.py
 """
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     Modality,
     TransitiveRule,
     InverseRule,
@@ -19,7 +19,7 @@ print("=" * 72)
 print("  HYPER3 FULL ARCHITECTURE DEMO")
 print("=" * 72)
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 # --- 1. Build Knowledge Graph ---
 print("\n[1] Building knowledge graph...")
@@ -180,7 +180,7 @@ for frame_name, analysis in multi.items():
 print("\n[8] Meta-cognitive introspection...")
 
 introspection = mem.introspect()
-cs = introspection.cognitive_state
+cs = introspection.system_health
 print(f"   Architectural fitness: {cs.fitness:.3f}")
 print(f"   Reasoning mode: {cs.mode}")
 print(f"   Meta-computational level: {cs.meta_level}")
@@ -199,7 +199,7 @@ if triggers:
     print(f"   Metamorphosis triggers: {len(triggers)}")
     for t in triggers:
         print(f"     [{t.trigger_type}] urgency={t.urgency:.2f}: {t.description}")
-    plan = mem.propose_metamorphosis(triggers)
+    plan = mem.propose_tuning(triggers)
     if plan:
         print(f"   Metamorphosis plan: {plan.actions}")
 else:

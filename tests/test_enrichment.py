@@ -12,7 +12,7 @@ from hyper3.enrichment import (
     LLMProvider,
     RegexExtractor,
 )
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 
 
 class StubLLMProvider(LLMProvider):
@@ -305,7 +305,7 @@ class TestDataclasses:
 
 class TestIntegration:
     def test_ingest_stores_entities(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.ingest("Paris is the capital of France")
         node = mem.graph.get_node_by_label("Paris")
         assert node is not None
@@ -313,7 +313,7 @@ class TestIntegration:
         assert node2 is not None
 
     def test_ingest_creates_edges(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("Paris is the capital of France")
         paris = mem.graph.get_node_by_label("Paris")
         france = mem.graph.get_node_by_label("France")
@@ -326,7 +326,7 @@ class TestIntegration:
         assert france.id in targets
 
     def test_set_llm_provider(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         stub = StubLLMProvider(
             "ENTITIES:\n"
             "- Alice | person\n\n"
@@ -339,20 +339,20 @@ class TestIntegration:
         assert result.entities[0].label == "Alice"
 
     def test_ingest_logs_operation(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("X leads to Y")
         events = mem.log.query("ingest")
         assert len(events) >= 1
         assert events[-1]["details"]["text_length"] == len("X leads to Y")
 
     def test_ingest_no_extract(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         result = mem.ingest("Paris is the capital of France", extract=False)
         assert len(result.entities) >= 2
         assert mem.graph.node_count == 0
 
     def test_ingest_extended_text(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         text = (
             "Cats are mammals. Dogs are mammals. "
             "Mammals such as whales and bats can be found worldwide. "

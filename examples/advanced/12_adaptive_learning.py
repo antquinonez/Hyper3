@@ -3,10 +3,10 @@ Self-Tuning Knowledge Graph for Operational Intelligence
 =========================================================
 
 Demonstrates how Hyper3 adapts its behavior over time through Thompson
-sampling and meta-cognitive feedback in an IT operations context.
+sampling and system monitor feedback in an IT operations context.
 
 Covers rule effectiveness learning, measurement basis learning, frame
-effectiveness learning, and meta-cognitive self-assessment.
+effectiveness learning, and system monitor self-assessment.
 
 Run with:
     .venv/bin/python examples/advanced/12_adaptive_learning.py
@@ -14,7 +14,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import CognitiveMemory, Modality, TransitiveRule, InverseRule
+from hyper3 import HypergraphMemory, Modality, TransitiveRule, InverseRule
 
 
 SERVERS = [
@@ -80,7 +80,7 @@ PLAYBOOKS = [
 ]
 
 
-def _build_graph(mem: CognitiveMemory) -> None:
+def _build_graph(mem: HypergraphMemory) -> None:
     for srv in SERVERS:
         mem.store(srv, data={"type": "server", "region": REGIONS[hash(srv) % len(REGIONS)]})
 
@@ -110,7 +110,7 @@ def _build_graph(mem: CognitiveMemory) -> None:
     _link_infrastructure(mem)
 
 
-def _link_servers_to_services(mem: CognitiveMemory) -> None:
+def _link_servers_to_services(mem: HypergraphMemory) -> None:
     service_servers: dict[str, list[str]] = {
         "web-frontend": [s for s in SERVERS if s.startswith("web-frontend")],
         "api-gateway": [s for s in SERVERS if s.startswith("api-gateway")],
@@ -144,7 +144,7 @@ def _link_servers_to_services(mem: CognitiveMemory) -> None:
             mem.relate(srv, svc, label="hosts")
 
 
-def _link_service_dependencies(mem: CognitiveMemory) -> None:
+def _link_service_dependencies(mem: HypergraphMemory) -> None:
     deps = [
         ("web-frontend", "cdn-layer"), ("web-frontend", "load-balancer"),
         ("web-frontend", "api-gateway"),
@@ -173,7 +173,7 @@ def _link_service_dependencies(mem: CognitiveMemory) -> None:
         mem.relate(src, tgt, label="depends_on")
 
 
-def _link_alerts_to_services(mem: CognitiveMemory) -> None:
+def _link_alerts_to_services(mem: HypergraphMemory) -> None:
     links = [
         ("high-latency", "api-gateway"), ("high-latency", "web-frontend"),
         ("high-latency", "load-balancer"),
@@ -198,7 +198,7 @@ def _link_alerts_to_services(mem: CognitiveMemory) -> None:
         mem.relate(alt, svc, label="triggers_on")
 
 
-def _link_incidents_to_alerts(mem: CognitiveMemory) -> None:
+def _link_incidents_to_alerts(mem: HypergraphMemory) -> None:
     links = [
         ("high-latency", "degraded-performance"),
         ("cpu-spike", "degraded-performance"),
@@ -215,7 +215,7 @@ def _link_incidents_to_alerts(mem: CognitiveMemory) -> None:
         mem.relate(alt, inc, label="escalates_to")
 
 
-def _link_playbooks_to_incidents(mem: CognitiveMemory) -> None:
+def _link_playbooks_to_incidents(mem: HypergraphMemory) -> None:
     links = [
         ("restart-service", "degraded-performance"),
         ("scale-horizontally", "capacity-exhaustion"),
@@ -232,7 +232,7 @@ def _link_playbooks_to_incidents(mem: CognitiveMemory) -> None:
         mem.relate(pb, inc, label="remediates")
 
 
-def _link_infrastructure(mem: CognitiveMemory) -> None:
+def _link_infrastructure(mem: HypergraphMemory) -> None:
     for srv in SERVERS:
         node = mem.graph.get_node_by_label(srv)
         if node and node.data:
@@ -244,7 +244,7 @@ def _link_infrastructure(mem: CognitiveMemory) -> None:
 
 
 def main() -> None:
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
     print("SECTION 1: Building IT Operations Knowledge Graph")
@@ -269,10 +269,10 @@ def main() -> None:
         ("InverseRule", "useful"), ("InverseRule", "pruned"),
         ("InverseRule", "useful"), ("InverseRule", "pruned"),
         ("InverseRule", "pruned"), ("InverseRule", "useful"),
-        ("CausalInferenceRule", "useful"), ("CausalInferenceRule", "useful"),
-        ("CausalInferenceRule", "reinforced"), ("CausalInferenceRule", "useful"),
-        ("CausalInferenceRule", "useful"), ("CausalInferenceRule", "reinforced"),
-        ("CausalInferenceRule", "useful"), ("CausalInferenceRule", "reinforced"),
+        ("HubInferenceRule", "useful"), ("HubInferenceRule", "useful"),
+        ("HubInferenceRule", "reinforced"), ("HubInferenceRule", "useful"),
+        ("HubInferenceRule", "useful"), ("HubInferenceRule", "reinforced"),
+        ("HubInferenceRule", "useful"), ("HubInferenceRule", "reinforced"),
         ("AnalogicalRule", "pruned"), ("AnalogicalRule", "pruned"),
         ("AnalogicalRule", "useful"), ("AnalogicalRule", "pruned"),
         ("GeneralizationRule", "useful"), ("GeneralizationRule", "useful"),
@@ -413,7 +413,7 @@ def main() -> None:
     print("=" * 70)
 
     report = mem.introspect()
-    cognitive_state = report.get("cognitive_state", {})
+    system_health = report.get("system_health", {})
     graph_health = report.get("graph_health", {})
     evolution_health = report.get("evolution_health", {})
     discovery_health = report.get("discovery_health", {})
@@ -421,10 +421,10 @@ def main() -> None:
     recommendations = report.get("recommendations", [])
 
     print("  Cognitive State:")
-    print(f"    Fitness:            {cognitive_state.get('fitness', 0.0):.3f}")
-    print(f"    Reasoning mode:     {cognitive_state.get('mode', 'unknown')}")
-    print(f"    Meta-computational:  level {cognitive_state.get('meta_level', 0)}")
-    print(f"    Rulial insight count: {cognitive_state.get('rulial_insight_count', cognitive_state.get('transcendental_yield', 0))}")
+    print(f"    Fitness:            {system_health.get('fitness', 0.0):.3f}")
+    print(f"    Reasoning mode:     {system_health.get('mode', 'unknown')}")
+    print(f"    Meta-computational:  level {system_health.get('meta_level', 0)}")
+    print(f"    Rulial insight count: {system_health.get('rulial_insight_count', system_health.get('transcendental_yield', 0))}")
 
     print("\n  Graph Health:")
     print(f"    Nodes:      {graph_health.get('nodes', 0)}")
@@ -461,7 +461,7 @@ def main() -> None:
               f"(urgency={trigger.urgency:.2f})")
 
     if triggers:
-        plan = mem.propose_metamorphosis(triggers)
+        plan = mem.propose_tuning(triggers)
         if plan:
             print(f"\n  Proposed metamorphosis plan:")
             print(f"    Actions: {plan.actions}")
@@ -500,7 +500,7 @@ def main() -> None:
         print(f"\n  Optimal frame: {best_frame} "
               f"(effectiveness={frame_eff[best_frame]:.2f})")
 
-    print(f"\n  System fitness: {cognitive_state.get('fitness', 0.0):.3f}")
+    print(f"\n  System fitness: {system_health.get('fitness', 0.0):.3f}")
     if triggers:
         print(f"  Self-repair: {len(triggers)} trigger(s) detected, actions recommended")
     else:

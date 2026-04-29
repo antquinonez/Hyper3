@@ -1,8 +1,8 @@
 import pytest
 from hyper3 import (
-    ComputationalFrame,
+    AnalysisPreset,
     MultiPerspectiveAnalyzer,
-    FrameAnalysis,
+    PresetAnalysis,
     FrameTransformation,
     Hyperedge,
     Hypergraph,
@@ -19,13 +19,13 @@ def _build_graph():
     return g
 
 
-class TestComputationalFrame:
+class TestAnalysisPreset:
     def test_complexity_empty_metrics(self):
-        f = ComputationalFrame(name="test")
+        f = AnalysisPreset(name="test")
         assert f.complexity() == 0.0
 
     def test_complexity_with_metrics(self):
-        f = ComputationalFrame(name="test", metrics={"a": 0.5, "b": 0.3})
+        f = AnalysisPreset(name="test", metrics={"a": 0.5, "b": 0.3})
         assert abs(f.complexity() - 0.4) < 0.01
 
 
@@ -41,7 +41,7 @@ class TestMultiPerspectiveAnalyzer:
     def test_add_custom_frame(self):
         g = _build_graph()
         cr = MultiPerspectiveAnalyzer(g)
-        custom = ComputationalFrame(name="custom", frame_type="neural", metrics={"training_convergence": 0.5})
+        custom = AnalysisPreset(name="custom", frame_type="neural", metrics={"training_convergence": 0.5})
         cr.add_frame(custom)
         assert cr.get_frame("custom") is not None
 
@@ -49,7 +49,7 @@ class TestMultiPerspectiveAnalyzer:
         g = _build_graph()
         cr = MultiPerspectiveAnalyzer(g)
         analysis = cr.analyze_in_frame("concept_a", "classical")
-        assert isinstance(analysis, FrameAnalysis)
+        assert isinstance(analysis, PresetAnalysis)
         assert analysis.complexity >= 0.0
         assert analysis.solution_approach
 
@@ -59,7 +59,7 @@ class TestMultiPerspectiveAnalyzer:
         results = cr.multi_frame_analysis("concept_a")
         assert len(results) == 4
         for name, analysis in results.items():
-            assert isinstance(analysis, FrameAnalysis)
+            assert isinstance(analysis, PresetAnalysis)
             assert analysis.frame_name == name
 
     def test_select_optimal_frame(self):
@@ -67,7 +67,7 @@ class TestMultiPerspectiveAnalyzer:
         cr = MultiPerspectiveAnalyzer(g)
         name, analysis = cr.select_optimal_frame("concept_a")
         assert name in cr.frames
-        assert isinstance(analysis, FrameAnalysis)
+        assert isinstance(analysis, PresetAnalysis)
 
     def test_transform_between_frames(self):
         g = _build_graph()

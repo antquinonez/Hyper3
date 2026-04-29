@@ -7,35 +7,35 @@ from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.event_log import EventLog
-from hyper3.evolution import EvolutionMetrics, SelfEvolutionEngine
+from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.multiway_rulial import RulialSpace
 from hyper3.graph_diff import GraphDiffer
 from hyper3.results import (
-    IntrospectionReport,
-    CognitiveStateInfo,
+    HealthReport,
+    HealthInfo,
     GraphHealthInfo,
     EvolutionHealthInfo,
     DiscoveryHealthInfo,
-    MetaCognitiveStats,
-    MetamorphosisResult,
+    MonitorStats,
+    TuningResult,
 )
 
 
 @dataclass
-class CognitiveStateModel:
+class SystemHealthModel:
     architectural_fitness: float = 1.0
     computational_efficiency: dict[str, float] = field(default_factory=dict)
     rulial_insight_count: int = 0
-    boundary_navigation_success: float = 0.0
+    reasoning_activity_rate: float = 0.0
     reasoning_mode: str = "standard"
-    meta_computational_level: int = 0
+    complexity_level: int = 0
     timestamp: float = 0.0
 
 
 @dataclass
-class MetamorphosisTrigger:
+class TuningTrigger:
     trigger_type: str
     description: str
     urgency: float = 0.0
@@ -43,23 +43,23 @@ class MetamorphosisTrigger:
 
 
 @dataclass
-class MetamorphosisPlan:
+class TuningPlan:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
-    triggers: list[MetamorphosisTrigger] = field(default_factory=list)
+    triggers: list[TuningTrigger] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
     expected_improvement: float = 0.0
     risk_level: float = 0.0
 
 
-class MetaCognitiveLayer:
+class SystemMonitor:
     def __init__(
         self,
         graph: Hypergraph,
-        evolution: SelfEvolutionEngine,
+        evolution: GraphMaintenanceEngine,
         log: EventLog,
         discovery: RuleDiscoveryEngine,
     ) -> None:
-        """Initialize the meta-cognitive layer with its core subsystem references.
+        """Initialize the system monitor layer with its core subsystem references.
 
         Args:
             graph: The underlying hypergraph.
@@ -71,9 +71,9 @@ class MetaCognitiveLayer:
         self._evolution = evolution
         self._log = log
         self._discovery = discovery
-        self._state = CognitiveStateModel(timestamp=time.time())
+        self._state = SystemHealthModel(timestamp=time.time())
         self._introspection_log: list[dict[str, Any]] = []
-        self._metamorphosis_history: list[MetamorphosisPlan] = []
+        self._tuning_history: list[TuningPlan] = []
         self._rulial: RulialSpace | None = None
         self._rules: list[Rule] | None = None
         self._differ: GraphDiffer | None = None
@@ -86,12 +86,8 @@ class MetaCognitiveLayer:
         """Store a reference to the active rule list for seed-set expansion."""
         self._rules = rules
 
-    def attach_rulial(self, rulial: RulialSpace) -> None:
-        """Attach a rulial space (alias for :meth:`set_rulial`)."""
-        self._rulial = rulial
-
     def set_differ(self, differ: GraphDiffer) -> None:
-        """Attach a graph differ for validated metamorphosis with rollback."""
+        """Attach a graph differ for validated tuning with rollback."""
         self._differ = differ
 
     def _compute_fitness(self, graph: Hypergraph, evolution_metrics: EvolutionMetrics, log: EventLog) -> float:
@@ -136,8 +132,8 @@ class MetaCognitiveLayer:
         geometric_mean = product ** (1.0 / len(factors))
         return geometric_mean
 
-    def assess_state(self, rules: list[Rule] | None = None) -> CognitiveStateModel:
-        """Evaluate the current cognitive state of the system.
+    def assess_state(self, rules: list[Rule] | None = None) -> SystemHealthModel:
+        """Evaluate the current health of the system.
 
         Computes architectural fitness, computational efficiency rates,
         rulial insight count, and boundary-navigation success.  When
@@ -150,10 +146,10 @@ class MetaCognitiveLayer:
                 count is included in the efficiency metrics.
 
         Returns:
-            A fresh :class:`CognitiveStateModel` (also stored as
+            A fresh :class:`SystemHealthModel` (also stored as
             ``self._state``).
         """
-        state = CognitiveStateModel(timestamp=time.time())
+        state = SystemHealthModel(timestamp=time.time())
 
         metrics = self._evolution.metrics
         total_ops = metrics.total_merges + metrics.total_prunes + metrics.total_refinements
@@ -174,7 +170,7 @@ class MetaCognitiveLayer:
 
         events = self._log.query()
         reasoning_count = sum(1 for e in events if e.get("event_type") == "reason")
-        state.boundary_navigation_success = min(1.0, reasoning_count / 10.0) if reasoning_count > 0 else 0.0
+        state.reasoning_activity_rate = min(1.0, reasoning_count / 10.0) if reasoning_count > 0 else 0.0
 
         discovered = self._discovery.get_discovered_rules()
         active = sum(1 for d in discovered if d.rule is not None)
@@ -189,21 +185,21 @@ class MetaCognitiveLayer:
         if self._rulial:
             rulial_pos = self._rulial.position
             if rulial_pos.graph_activity_density > 0.5:
-                state.meta_computational_level = 2
+                state.complexity_level = 2
             if state.rulial_insight_count > 3:
-                state.meta_computational_level = 3
+                state.complexity_level = 3
 
         self._state = state
         return state
 
-    def introspect(self, rules: list[Rule] | None = None) -> IntrospectionReport:
-        """Perform a full introspective analysis of the cognitive system.
+    def introspect(self, rules: list[Rule] | None = None) -> HealthReport:
+        """Perform a full introspective analysis of system health.
 
         Args:
             rules: Optional active rules forwarded to :meth:`assess_state`.
 
         Returns:
-            IntrospectionReport with cognitive_state, graph_health, evolution_health,
+            HealthReport with system_health, graph_health, evolution_health,
             discovery_health, optional rulial_health, anti_patterns, and recommendations.
         """
         state = self.assess_state(rules)
@@ -213,11 +209,11 @@ class MetaCognitiveLayer:
             rulial_health = self._rulial.analyze()
 
         anti_patterns = self._detect_anti_patterns()
-        report = IntrospectionReport(
-            cognitive_state=CognitiveStateInfo(
+        report = HealthReport(
+            system_health=HealthInfo(
                 fitness=state.architectural_fitness,
                 mode=state.reasoning_mode,
-                meta_level=state.meta_computational_level,
+                meta_level=state.complexity_level,
                 rulial_insight_count=state.rulial_insight_count,
             ),
             graph_health=GraphHealthInfo(
@@ -239,7 +235,7 @@ class MetaCognitiveLayer:
         )
 
         recommendations = self._generate_recommendations({
-            "cognitive_state": {"fitness": state.architectural_fitness, "mode": state.reasoning_mode},
+            "system_health": {"fitness": state.architectural_fitness, "mode": state.reasoning_mode},
             "graph_health": {"nodes": self._graph.node_count, "edges": self._graph.edge_count},
         })
         if recommendations:
@@ -279,7 +275,7 @@ class MetaCognitiveLayer:
             List of human-readable recommendation strings.
         """
         recs: list[str] = []
-        fitness = introspection.get("cognitive_state", {}).get("fitness", 1.0)
+        fitness = introspection.get("system_health", {}).get("fitness", 1.0)
         if fitness < 0.7:
             recs.append("Consider adjusting evolution parameters - fitness below threshold")
         graph_health = introspection.get("graph_health", {})
@@ -288,25 +284,25 @@ class MetaCognitiveLayer:
         density = edges / max(nodes * (nodes - 1), 1) if nodes > 1 else 0.0
         if density < 0.3:
             recs.append("Graph is sparse - add more relationships to improve connectivity")
-        mode = introspection.get("cognitive_state", {}).get("mode", "sparse")
+        mode = introspection.get("system_health", {}).get("mode", "sparse")
         if mode == "sparse":
             recs.append("Reasoning mode is sparse - add more rules to enrich inference")
         return recs
 
-    def check_metamorphosis_triggers(self) -> list[MetamorphosisTrigger]:
-        """Scan for conditions that warrant a metamorphosis plan.
+    def check_tuning_triggers(self) -> list[TuningTrigger]:
+        """Scan for conditions that warrant a tuning plan.
 
         Checks for low fitness, lack of discovered patterns despite graph
         size, strong rulial meta-patterns, and persistent anti-patterns.
 
         Returns:
-            A list of :class:`MetamorphosisTrigger` instances.
+            A list of :class:`TuningTrigger` instances.
         """
-        triggers: list[MetamorphosisTrigger] = []
+        triggers: list[TuningTrigger] = []
         state = self._state
 
         if state.architectural_fitness < 0.5:
-            triggers.append(MetamorphosisTrigger(
+            triggers.append(TuningTrigger(
                 trigger_type="performance_plateau",
                 description="Architectural fitness below acceptable threshold",
                 urgency=1.0 - state.architectural_fitness,
@@ -315,7 +311,7 @@ class MetaCognitiveLayer:
 
         discovered = self._discovery.get_discovered_rules()
         if not discovered and self._graph.edge_count > 10:
-            triggers.append(MetamorphosisTrigger(
+            triggers.append(TuningTrigger(
                 trigger_type="novel_problem",
                 description="No patterns discovered despite sufficient graph structure",
                 urgency=0.6,
@@ -326,7 +322,7 @@ class MetaCognitiveLayer:
             meta_patterns = self._rulial.meta_patterns
             for pattern in meta_patterns:
                 if pattern.occurrence_count >= 5 and pattern.pattern_type == "recurring_relation":
-                    triggers.append(MetamorphosisTrigger(
+                    triggers.append(TuningTrigger(
                         trigger_type="meta_insight",
                         description=f"Strong recurring pattern: {pattern.description}",
                         urgency=0.7,
@@ -341,7 +337,7 @@ class MetaCognitiveLayer:
                 for s in recent
             )
             if anti_pattern_count >= 3:
-                triggers.append(MetamorphosisTrigger(
+                triggers.append(TuningTrigger(
                     trigger_type="cross_domain",
                     description="Persistent anti-patterns suggest architectural issues",
                     urgency=0.8,
@@ -350,23 +346,23 @@ class MetaCognitiveLayer:
 
         return triggers
 
-    def propose_metamorphosis(self, triggers: list[MetamorphosisTrigger] | None = None) -> MetamorphosisPlan | None:
-        """Build a :class:`MetamorphosisPlan` from the given or auto-detected triggers.
+    def propose_tuning(self, triggers: list[TuningTrigger] | None = None) -> TuningPlan | None:
+        """Build a :class:`TuningPlan` from the given or auto-detected triggers.
 
         Args:
             triggers: Explicit trigger list.  When ``None``,
-                :meth:`check_metamorphosis_triggers` is called automatically.
+                :meth:`check_tuning_triggers` is called automatically.
 
         Returns:
             A plan with actions, expected improvement, and risk level, or
             ``None`` when no triggers are active.
         """
         if triggers is None:
-            triggers = self.check_metamorphosis_triggers()
+            triggers = self.check_tuning_triggers()
         if not triggers:
             return None
 
-        plan = MetamorphosisPlan(triggers=triggers)
+        plan = TuningPlan(triggers=triggers)
         max_urgency = max(t.urgency for t in triggers)
 
         for trigger in triggers:
@@ -386,11 +382,11 @@ class MetaCognitiveLayer:
         plan.expected_improvement = max_urgency * 0.5
         plan.risk_level = max_urgency * 0.3
 
-        self._metamorphosis_history.append(plan)
+        self._tuning_history.append(plan)
         return plan
 
-    def execute_metamorphosis(self, plan: MetamorphosisPlan) -> dict[str, Any]:
-        """Execute each action in a metamorphosis plan and collect results.
+    def execute_tuning(self, plan: TuningPlan) -> dict[str, Any]:
+        """Execute each action in a tuning plan and collect results.
 
         Args:
             plan: The plan whose ``actions`` list will be dispatched.
@@ -425,13 +421,13 @@ class MetaCognitiveLayer:
                 results[action_type] = "unknown_action"
         return results
 
-    def execute_metamorphosis_validated(
+    def execute_tuning_validated(
         self,
-        plan: MetamorphosisPlan,
+        plan: TuningPlan,
         *,
         fitness_tolerance: float = 0.0,
-    ) -> MetamorphosisResult:
-        """Execute a metamorphosis plan with pre-snapshot, validation, and rollback.
+    ) -> TuningResult:
+        """Execute a tuning plan with pre-snapshot, validation, and rollback.
 
         If a :class:`GraphDiffer` is attached via :meth:`set_differ`, the method
         captures a graph version before execution, runs all plan actions, then
@@ -440,13 +436,13 @@ class MetaCognitiveLayer:
         pre-snapshot.
 
         Args:
-            plan: The metamorphosis plan to execute.
+            plan: The tuning plan to execute.
             fitness_tolerance: Minimum fitness improvement required to accept
-                the metamorphosis. If 0 (default), any non-degrading change is
+                the tuning. If 0 (default), any non-degrading change is
                 accepted.
 
         Returns:
-            MetamorphosisResult with results, validated, rolled_back,
+            TuningResult with results, validated, rolled_back,
             fitness_before, fitness_after, improvement, and optional delta.
         """
         pre_version = None
@@ -457,7 +453,7 @@ class MetaCognitiveLayer:
         if self._differ is not None:
             pre_version = self._differ.capture()
 
-        results = self.execute_metamorphosis(plan)
+        results = self.execute_tuning(plan)
 
         fitness_after = self._compute_fitness(
             self._graph, self._evolution.metrics, self._log,
@@ -475,7 +471,7 @@ class MetaCognitiveLayer:
                 self._graph, self._evolution.metrics, self._log,
             )
 
-        return MetamorphosisResult(
+        return TuningResult(
             results=results,
             validated=self._differ is not None,
             rolled_back=rolled_back,
@@ -610,14 +606,14 @@ class MetaCognitiveLayer:
         best = max(patterns, key=lambda p: p.significance)
         if best.significance < 0.3:
             return {"promoted": False, "reason": "insufficient significance", "significance": best.significance}
-        from hyper3.rules import TransitiveRule, InverseRule, CausalInferenceRule, ContextualSubstitutionRule
+        from hyper3.rules import TransitiveRule, InverseRule, HubInferenceRule, ContextualSubstitutionRule
         structure = best.abstract_structure
         edge_label = structure.get("edge_label", "")
         rule_map = {
             "recurring_relation": lambda: TransitiveRule(edge_label=edge_label) if edge_label else TransitiveRule(),
             "chain_motif": lambda: TransitiveRule(edge_label=edge_label) if edge_label else TransitiveRule(),
-            "hub_motif": lambda: CausalInferenceRule(),
-            "mutual_information": lambda: CausalInferenceRule(),
+            "hub_motif": lambda: HubInferenceRule(),
+            "mutual_information": lambda: HubInferenceRule(),
             "inverse_pair": lambda: InverseRule(edge_label=edge_label, inverse_label=structure.get("inverse_label", f"inv_{edge_label}")) if edge_label else InverseRule(edge_label="related", inverse_label="related_inv"),
             "cross_domain": lambda: ContextualSubstitutionRule(),
         }
@@ -631,7 +627,7 @@ class MetaCognitiveLayer:
         """Refresh the rulial position and generate new high-level insights."""
         if not self._rulial:
             return {"updated": False, "reason": "no rulial"}
-        pos = self._rulial.update_position(self._rules or [])
+        pos = self._rulial.update_position()
         insights = self._rulial.generate_high_level_insights()
         return {
             "updated": True,
@@ -680,39 +676,39 @@ class MetaCognitiveLayer:
                                 adjusted += 1
         return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
-    def auto_metamorphosis(self) -> MetamorphosisResult:
-        """Check fitness and automatically trigger a validated metamorphosis if below threshold.
+    def auto_tune(self) -> TuningResult:
+        """Check fitness and automatically trigger a validated tuning if below threshold.
 
-        When a :class:`GraphDiffer` is attached, the metamorphosis is executed
+        When a :class:`GraphDiffer` is attached, the tuning is executed
         with validation and automatic rollback on failure. Otherwise, falls back
         to the unvalidated path.
 
         Returns:
-            MetamorphosisResult with fitness data. When no metamorphosis was
+            TuningResult with fitness data. When no tuning was
             needed, ``actions_taken`` is 0.
         """
         fitness = self._compute_fitness(self._graph, self._evolution.metrics, self._log)
         self._state.architectural_fitness = fitness
         if fitness < 0.6:
-            triggers = self.check_metamorphosis_triggers()
+            triggers = self.check_tuning_triggers()
             if triggers:
-                plan = self.propose_metamorphosis(triggers)
+                plan = self.propose_tuning(triggers)
                 if plan is not None:
                     if self._differ is not None:
-                        return self.execute_metamorphosis_validated(plan)
-                    results = self.execute_metamorphosis(plan)
-                    return MetamorphosisResult(
+                        return self.execute_tuning_validated(plan)
+                    results = self.execute_tuning(plan)
+                    return TuningResult(
                         results=results,
                         fitness_before=fitness,
                         fitness_after=self._compute_fitness(
                             self._graph, self._evolution.metrics, self._log,
                         ),
                     )
-        return MetamorphosisResult(fitness_before=fitness, fitness_after=fitness)
+        return TuningResult(fitness_before=fitness, fitness_after=fitness)
 
     @property
-    def state(self) -> CognitiveStateModel:
-        """The most recently assessed cognitive state model."""
+    def state(self) -> SystemHealthModel:
+        """The most recently assessed system health model."""
         return self._state
 
     @property
@@ -721,17 +717,17 @@ class MetaCognitiveLayer:
         return list(self._introspection_log)
 
     @property
-    def metamorphosis_history(self) -> list[MetamorphosisPlan]:
-        """A snapshot of all metamorphosis plans ever proposed."""
-        return list(self._metamorphosis_history)
+    def tuning_history(self) -> list[TuningPlan]:
+        """A snapshot of all tuning plans ever proposed."""
+        return list(self._tuning_history)
 
-    def analyze(self) -> MetaCognitiveStats:
+    def analyze(self) -> MonitorStats:
         """Return a typed summary of fitness, mode, meta-level, and activity counts."""
-        return MetaCognitiveStats(
+        return MonitorStats(
             architectural_fitness=self._state.architectural_fitness,
             reasoning_mode=self._state.reasoning_mode,
-            meta_level=self._state.meta_computational_level,
+            meta_level=self._state.complexity_level,
             introspections=len(self._introspection_log),
-            metamorphoses=len(self._metamorphosis_history),
+            metamorphoses=len(self._tuning_history),
             rulial_insight_count=self._state.rulial_insight_count,
         )

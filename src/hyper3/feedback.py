@@ -10,7 +10,7 @@ from hyper3.results import CorrelatedNodeInfo, FeedbackSummaryResult
 
 @dataclass
 class FeedbackSignal:
-    """A single recorded outcome from a cognitive operation."""
+    """A single recorded outcome from a graph operation."""
     signal_type: str
     node_id: str
     outcome: bool

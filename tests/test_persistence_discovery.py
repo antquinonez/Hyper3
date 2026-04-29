@@ -3,7 +3,7 @@ import os
 import tempfile
 import pytest
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     DiscoveredRule,
     Hypergraph,
     Hypernode,
@@ -229,9 +229,9 @@ class TestRuleDiscoveryEngine:
         assert len(second) == 0
 
 
-class TestCognitiveMemoryPersistence:
+class TestHypergraphMemoryPersistence:
     def test_save_and_load(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("alpha", data={"key": "val"})
         mem.store("beta")
         mem.relate("alpha", "beta", label="connects")
@@ -240,7 +240,7 @@ class TestCognitiveMemoryPersistence:
             path = os.path.join(tmpdir, "mem.json")
             mem.save(path)
 
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
 
             assert mem2.graph.node_count == 2
@@ -249,7 +249,7 @@ class TestCognitiveMemoryPersistence:
             assert node.data == {"key": "val"}
 
     def test_discover_and_apply(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d"]:
             mem.store(label)
         mem.relate("a", "b", label="next")
@@ -264,11 +264,11 @@ class TestCognitiveMemoryPersistence:
         assert stats["active_rules"] >= 1
 
     def test_discovery_property(self):
-        mem = CognitiveMemory()
+        mem = HypergraphMemory()
         assert mem.discovery is not None
 
     def test_persistence_preserves_event_log(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y", label="link")
@@ -277,14 +277,14 @@ class TestCognitiveMemoryPersistence:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "mem.json")
             mem.save(path)
-            mem2 = CognitiveMemory(evolve_interval=0)
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.log.size >= 3
 
 
 class TestBatchIngestion:
     def test_ingest_batch_extracts_from_multiple_texts(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         texts = [
             "Paris is the capital of France",
             "London is the capital of England",
@@ -296,7 +296,7 @@ class TestBatchIngestion:
         assert mem.log.size >= 1
 
     def test_ingest_batch_deduplicates_entities(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         texts = [
             "Paris is the capital of France",
             "Paris is known for the Eiffel Tower",
@@ -306,7 +306,7 @@ class TestBatchIngestion:
         assert mem.graph.node_count >= 2
 
     def test_ingest_batch_without_extraction(self):
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         results = mem.ingest_batch(["some text"], extract=False)
         assert len(results) == 1
         assert mem.graph.node_count == 0

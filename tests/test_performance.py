@@ -3,7 +3,7 @@ import time
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.rules import TransitiveRule
 from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
-from hyper3.multiway_causal import CausalInvarianceEngine
+from hyper3.multiway_causal import StateConvergenceEngine
 
 
 class TestLabelIndex:
@@ -133,7 +133,7 @@ class TestVectorizedInvariants:
             s = MultiwayState(parent_id=root.id, active_node_ids=nodes, depth=1)
             mg.add_state(s)
 
-        engine = CausalInvarianceEngine(g, mg, threshold=0.5)
+        engine = StateConvergenceEngine(g, mg, threshold=0.5)
         pairs = engine.find_invariants()
         for a_id, b_id, sim in pairs:
             assert 0.0 <= sim <= 1.0
@@ -149,7 +149,7 @@ class TestVectorizedInvariants:
         s2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"n3", "n4"}), depth=1)
         mg.add_state(s1)
         mg.add_state(s2)
-        engine = CausalInvarianceEngine(g, mg, threshold=0.7)
+        engine = StateConvergenceEngine(g, mg, threshold=0.7)
         pairs = engine.find_invariants()
         assert len(pairs) == 0
 

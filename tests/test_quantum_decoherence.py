@@ -1,11 +1,11 @@
 import time
 
-from hyper3.memory import CognitiveMemory
+from hyper3.memory import HypergraphMemory
 from hyper3.kernel import Hyperedge
 
 
 def _make_mem():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.store("x")
     mem.store("y")
     mem.store("z")

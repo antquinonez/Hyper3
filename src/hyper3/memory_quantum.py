@@ -10,7 +10,7 @@ from hyper3.quantum import (
     InterferencePattern,
     Interpretation,
     MeasurementBasis,
-    QuantumCognitiveLayer,
+    QuantumInterpretationLayer,
     ConceptCorrelation,
     QuantumState,
 )
@@ -240,21 +240,13 @@ class QuantumMixin(_MemoryBase):
         return result
 
     def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Ensure all lateral insight dicts have both key variants, default fields, and resolved labels."""
+        """Ensure all lateral insight dicts have default fields and resolved labels."""
         normalized: list[dict[str, Any]] = []
         for insight in insights:
             n = dict(insight)
             for key in ("novel_in_source", "novel_in_lateral", "complementary_nodes"):
                 if key in n and isinstance(n[key], list):
                     n[key] = [self._node_label(nid) for nid in n[key]]
-            if "novel_in_source" in n and "novel_nodes_in_source" not in n:
-                n["novel_nodes_in_source"] = n["novel_in_source"]
-            if "novel_in_lateral" in n and "novel_nodes_in_lateral" not in n:
-                n["novel_nodes_in_lateral"] = n["novel_in_lateral"]
-            if "novel_nodes_in_source" in n and "novel_in_source" not in n:
-                n["novel_in_source"] = n["novel_nodes_in_source"]
-            if "novel_nodes_in_lateral" in n and "novel_in_lateral" not in n:
-                n["novel_in_lateral"] = n["novel_nodes_in_lateral"]
             n.setdefault("branchial_distance", 0.0)
             n.setdefault("complementary_nodes", [])
             n.setdefault("transferable_patterns", [])

@@ -34,7 +34,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import networkx as nx
 
-from hyper3 import CognitiveMemory, TransitiveRule, InverseRule, Modality
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
 from shared import (
     build_dependency_graph,
     build_nx_digraph,
@@ -71,7 +71,7 @@ def run_h3_reasoning(
 ) -> tuple[set[tuple[str, str]], set[tuple[str, str]], float]:
     """Run Hyper3 reasoning and return (transitive_set, all_inferred_set, time)."""
     with Timer() as t:
-        mem = CognitiveMemory(evolve_interval=0)
+        mem = HypergraphMemory(evolve_interval=0)
         for lbl, data in nodes:
             mem.store(lbl, data=data, modalities={Modality.CONCEPTUAL})
         for src, tgt, lbl in edges:

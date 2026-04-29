@@ -20,7 +20,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     TransitiveRule,
     InverseRule,
     Modality,
@@ -28,7 +28,7 @@ from hyper3 import (
 
 
 def main():
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
     # SECTION 1: Building a Research Knowledge Graph
@@ -141,7 +141,7 @@ def main():
     # =====================================================================
     # SECTION 4: High-Level Explain API
     # =====================================================================
-    # The CognitiveMemory.explain() method provides a convenient
+    # The HypergraphMemory.explain() method provides a convenient
     # way to explain the relationship between two concepts.
 
     print("=" * 70)

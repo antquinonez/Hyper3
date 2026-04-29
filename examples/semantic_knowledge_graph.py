@@ -15,7 +15,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    CognitiveMemory,
+    HypergraphMemory,
     EmbeddingProvider,
     HashEmbeddingProvider,
     Modality,
@@ -53,7 +53,7 @@ def main() -> None:
     provider = SentenceTransformerProvider()
     print(f"Embedding dimension: {provider.dimension()}\n")
 
-    mem = CognitiveMemory(evolve_interval=0)
+    mem = HypergraphMemory(evolve_interval=0)
     mem.set_embedding_provider(provider)
 
     # --- Build a knowledge graph about technology ---

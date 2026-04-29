@@ -5,7 +5,7 @@ Each section shows what the system is doing and why it matters.
 Run with: .venv/bin/python demos/demo_walkthrough.py
 """
 
-from hyper3 import CognitiveMemory, TransitiveRule, InverseRule, Modality
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
 
 print("""
 ╔══════════════════════════════════════════════════════════════════════╗
@@ -14,7 +14,7 @@ print("""
 ╚══════════════════════════════════════════════════════════════════════╝
 """)
 
-mem = CognitiveMemory(evolve_interval=0)
+mem = HypergraphMemory(evolve_interval=0)
 
 # ─── STEP 1: Store domain knowledge ──────────────────────────────────
 print("━" * 72)
@@ -307,7 +307,7 @@ The system monitors its own cognitive fitness:
 """)
 
 introspection = mem.introspect()
-cs = introspection["cognitive_state"]
+cs = introspection["system_health"]
 gh = introspection["graph_health"]
 dh = introspection["discovery_health"]
 
@@ -341,7 +341,7 @@ mem.save(path)
 print(f"Saved {mem.graph.node_count} nodes, {mem.graph.edge_count} edges, {mem.log.size} events")
 print(f"File: {path}")
 
-mem2 = CognitiveMemory(evolve_interval=0)
+mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load(path)
 print(f"Loaded into fresh memory: {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
 print(f"Event log preserved: {mem2.log.size} events")

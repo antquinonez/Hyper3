@@ -673,11 +673,11 @@ def main() -> None:
     print()
 
     # =====================================================================
-    # SECTION 4: CausalInferenceRule -- Co-Occurrence Patterns
+    # SECTION 4: HubInferenceRule -- Co-Occurrence Patterns
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 4: CausalInferenceRule -- Co-Occurrence Patterns")
+    print("SECTION 4: HubInferenceRule -- Co-Occurrence Patterns")
     print("=" * 70)
 
     c_matches = find_causal_links(G, min_support=2, confidence_threshold=0.6, causes_label="causes")
@@ -734,11 +734,11 @@ def main() -> None:
     print()
 
     # =====================================================================
-    # SECTION 6: AnalogicalReasoningRule -- Structural Analogies
+    # SECTION 6: StructuralProjectionRule -- Structural Analogies
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 6: AnalogicalReasoningRule -- Structural Analogies")
+    print("SECTION 6: StructuralProjectionRule -- Structural Analogies")
     print("=" * 70)
 
     all_node_set = set(G.nodes())
