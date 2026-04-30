@@ -5,7 +5,6 @@ import pytest
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.memory import HypergraphMemory
-from hyper3.persistence import Serializer
 from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
 
 
@@ -59,7 +58,6 @@ class TestDecay:
         config = ActivationConfig(decay_factor=0.5, normalize_per_step=False)
         sa = SpreadingActivation(graph, config=config)
         sa.stimulate(nodes[0].id, 1.0)
-        dict(sa.activations)
         sa.spread(iterations=1)
         r2 = sa.activations
         assert r2[nodes[1].id] < 1.0
@@ -124,7 +122,8 @@ class TestGetActivated:
         sa.spread()
         high = sa.get_activated(threshold=0.5)
         low = sa.get_activated(threshold=0.001)
-        assert len(high) <= len(low)
+        assert len(high) == 3
+        assert len(low) == 3
 
     def test_top_k(self):
         graph = Hypergraph()
@@ -135,7 +134,7 @@ class TestGetActivated:
         sa.stimulate(nodes[0].id, 1.0)
         sa.spread()
         result = sa.get_activated(top_k=3)
-        assert len(result) <= 3
+        assert len(result) == 3
 
     def test_sorted_descending(self):
         graph, nodes = _make_chain()
@@ -145,6 +144,12 @@ class TestGetActivated:
         result = sa.get_activated(threshold=0.0)
         for i in range(len(result) - 1):
             assert result[i].activation >= result[i + 1].activation
+
+    def test_activation_result_comparison(self):
+        low = ActivationResult("a", "A", 0.3, 0)
+        high = ActivationResult("b", "B", 0.8, 1)
+        assert low < high
+        assert not (high < low)
 
 
 class TestAssociativeRecall:
@@ -175,7 +180,7 @@ class TestStimulateAndSpread:
         sa = SpreadingActivation(graph)
         seeds = {nodes[0].id: 0.5, nodes[2].id: 0.5}
         result = sa.stimulate_and_spread(seeds)
-        assert len(result) >= 2
+        assert len(result) == 3
 
     def test_seeds_by_label(self):
         graph, nodes = _make_chain()
@@ -256,7 +261,7 @@ class TestIntegrationMemory:
         mem.relate("x", "y")
         mem.stimulate("x", energy=1.0)
         result = mem.spread_activation()
-        assert len(result) >= 1
+        assert len(result) == 2
 
     def test_clear_activations(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -276,7 +281,7 @@ class TestIntegrationMemory:
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
         result = mem2.activate("a", top_k=5)
-        assert isinstance(result, list)
+        assert len(result) >= 1
 
 
 class TestStimulateNodeNotFoundError:
@@ -290,3 +295,70 @@ class TestStimulateNodeNotFoundError:
         mem.store("a")
         mem.stimulate("a", energy=2.0)
 
+
+class TestStimulateLabel:
+    def test_stimulate_label_found(self):
+        graph = Hypergraph()
+        n = _add_node(graph, "X")
+        sa = SpreadingActivation(graph)
+        sa.stimulate_label("X", 0.7)
+        assert abs(sa.activations[n.id] - 0.7) < 1e-9
+
+    def test_stimulate_label_missing_is_noop(self):
+        graph = Hypergraph()
+        sa = SpreadingActivation(graph)
+        sa.stimulate_label("missing", 1.0)
+        assert len(sa.activations) == 0
+
+
+class TestConfigProperty:
+    def test_config_exposes_settings(self):
+        config = ActivationConfig(decay_factor=0.7)
+        sa = SpreadingActivation(Hypergraph(), config=config)
+        assert sa.config.decay_factor == 0.7
+
+
+class TestSpreadHyperedge:
+    def test_empty_activations_returns_empty(self):
+        sa = SpreadingActivation(Hypergraph())
+        assert sa.spread_hyperedge(mode="and") == {}
+
+    def test_empty_source_ids_skipped(self):
+        graph = Hypergraph()
+        t = _add_node(graph, "T")
+        edge = Hyperedge(source_ids=frozenset(), target_ids=frozenset({t.id}))
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(t.id, 1.0)
+        result = sa.spread_hyperedge(iterations=1)
+        assert t.id in result
+
+    def test_or_mode_propagates(self):
+        graph = Hypergraph()
+        s = _add_node(graph, "S")
+        t = _add_node(graph, "T")
+        edge = Hyperedge(source_ids=frozenset({s.id}), target_ids=frozenset({t.id}), weight=1.0)
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(s.id, 1.0)
+        result = sa.spread_hyperedge(mode="or", iterations=1)
+        assert t.id in result
+
+    def test_majority_mode_with_two_of_three(self):
+        graph = Hypergraph()
+        s1 = _add_node(graph, "S1")
+        s2 = _add_node(graph, "S2")
+        s3 = _add_node(graph, "S3")
+        t = _add_node(graph, "T")
+        edge = Hyperedge(
+            source_ids=frozenset({s1.id, s2.id, s3.id}),
+            target_ids=frozenset({t.id}),
+            weight=1.0,
+        )
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(s1.id, 1.0)
+        sa.stimulate(s2.id, 1.0)
+        result = sa.spread_hyperedge(mode="majority", iterations=1)
+        assert t.id in result
+        assert result[t.id] > 0.0
