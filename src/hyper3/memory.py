@@ -1,48 +1,46 @@
 from __future__ import annotations
 
-from typing import Any
-
-from hyper3.kernel import Hypergraph
-from hyper3.event_log import EventLog
-from hyper3.equivalence import EquivalenceEngine
-from hyper3.cache import LazyCache
-from hyper3.traversal import ObserverSlice, TraversalEngine
-from hyper3.evolution import GraphMaintenanceEngine
-from hyper3.overlay import HypergraphOverlay
-from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.abstraction import AbstractionNavigator
+from hyper3.backward_chain import BackwardChainEngine
 from hyper3.belief import BeliefLayer
-from hyper3.multiway import ExpansionReport, MultiwayEngine
-from hyper3.rules import Rule
-from hyper3.rules_discovery import RuleDiscoveryEngine
-from hyper3.persistence import Serializer
-from hyper3.multiway_branchial import BranchialSpace
-from hyper3.multiway_rulial import RulialSpace
-from hyper3.structural_anomaly import StructuralAnomalyDetector
-from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.system_monitor import SystemMonitor
+from hyper3.belief_revision import ContradictionResolver
+from hyper3.cache import LazyCache
+from hyper3.community import CommunityDetector
+from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
+from hyper3.enrichment import LLMEnricher
+from hyper3.equivalence import EquivalenceEngine
+from hyper3.event_log import EventLog
+from hyper3.evolution import GraphMaintenanceEngine
+from hyper3.feedback import OperationFeedback
+from hyper3.graph_diff import GraphDiffer
+from hyper3.hebbian import HebbianLearner
+from hyper3.kernel import Hypergraph
+from hyper3.memory_analytics import AnalyticsMixin
+from hyper3.memory_bayesian import BayesianMixin
+from hyper3.memory_belief import BeliefMixin
+from hyper3.memory_core import CoreMixin
+from hyper3.memory_persistence import PersistenceMixin
+from hyper3.memory_reasoning import ReasoningMixin
+from hyper3.memory_subsystems import SubsystemMixin
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
+from hyper3.multiway import MultiwayEngine
+from hyper3.multiway_branchial import BranchialSpace
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.multiway_rulial import RulialSpace
+from hyper3.overlay import HypergraphOverlay
+from hyper3.persistence import Serializer
+from hyper3.provenance import ProvenanceTracker
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
-from hyper3.temporal import TemporalReasoner
-from hyper3.provenance import ProvenanceTracker
-from hyper3.enrichment import LLMEnricher
-from hyper3.feedback import OperationFeedback
-from hyper3.constraints import BoundaryNavigator
-from hyper3.backward_chain import BackwardChainEngine
-from hyper3.hebbian import HebbianLearner
-from hyper3.uncertainty import UncertaintyEngine
+from hyper3.rules import Rule
+from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
-from hyper3.belief_revision import ContradictionResolver
-from hyper3.abstraction import AbstractionNavigator
-from hyper3.community import CommunityDetector
-from hyper3.graph_diff import GraphDiffer
-from hyper3.memory_core import CoreMixin
-from hyper3.memory_reasoning import ReasoningMixin
-from hyper3.memory_belief import BeliefMixin
-from hyper3.memory_bayesian import BayesianMixin
-from hyper3.memory_analytics import AnalyticsMixin
-from hyper3.memory_persistence import PersistenceMixin
-from hyper3.memory_subsystems import SubsystemMixin
+from hyper3.system_monitor import SystemMonitor
+from hyper3.temporal import TemporalReasoner
+from hyper3.traversal import ObserverSlice, TraversalEngine
+from hyper3.uncertainty import UncertaintyEngine
 
 
 class HypergraphMemory(
@@ -58,6 +56,7 @@ class HypergraphMemory(
         if not isinstance(concept, str):
             return False
         return self.has_node(concept)
+
     def __init__(
         self,
         *,
@@ -109,7 +108,10 @@ class HypergraphMemory(
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
         self._meta = SystemMonitor(
-            self._graph, self._evolution, self._log, self._discovery,
+            self._graph,
+            self._evolution,
+            self._log,
+            self._discovery,
         )
         self._embedding_engine: EmbeddingEngine | None = None
         self._activation = SpreadingActivation(self._graph)

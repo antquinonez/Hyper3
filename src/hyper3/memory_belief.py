@@ -1,25 +1,20 @@
 from __future__ import annotations
 
-import time
 from typing import Any
 
-from hyper3.kernel import Hypergraph, Hypernode
-from hyper3.exceptions import NodeNotFoundError
 from hyper3.belief import (
-    SamplingTrigger,
+    BeliefState,
+    ConceptCorrelation,
     EvidenceInteraction,
     Outcome,
-    SamplingProfile,
-    BeliefLayer,
-    ConceptCorrelation,
-    BeliefState,
+    SamplingTrigger,
 )
-from hyper3.structural_anomaly import BoundaryRegion, AnomalyDetectionResult
+from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
+from hyper3.structural_anomaly import AnomalyDetectionResult, BoundaryRegion
 
 
 class BeliefMixin(_MemoryBase):
-
     def create_distribution(
         self,
         concepts: list[str],
@@ -61,7 +56,7 @@ class BeliefMixin(_MemoryBase):
         qs = self._belief.create_distribution(node_ids, amplitudes)
         if use_context_field and len(node_ids) > 1:
             activation_values: dict[str, float] = {}
-            if hasattr(self, '_activation'):
+            if hasattr(self, "_activation"):
                 for nid in node_ids:
                     self._activation.stimulate(nid, energy=1.0)
                 spread = self._activation.spread()
@@ -126,7 +121,9 @@ class BeliefMixin(_MemoryBase):
         self._log.record("compute_interactions", state_id=qs.id)
         return result
 
-    def correlate(self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]) -> ConceptCorrelation:
+    def correlate(
+        self, group_a: list[str], group_b: list[str], correlations: dict[tuple[str, str], float]
+    ) -> ConceptCorrelation:
         """Create a correlation between two groups of concept nodes.
 
         Correlation keys use concept labels, which are internally remapped
@@ -217,7 +214,9 @@ class BeliefMixin(_MemoryBase):
                 return self._normalize_lateral_insights(raw)
         return []
 
-    def detect_structural_anomalies(self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4) -> AnomalyDetectionResult:
+    def detect_structural_anomalies(
+        self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4
+    ) -> AnomalyDetectionResult:
         """Detect structural anomalies in the concept's graph neighborhood.
 
         Analyzes the concept for cycles, high centrality, contradictory

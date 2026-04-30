@@ -5,22 +5,22 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from hyper3.kernel import Hypergraph
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
-from hyper3.rules import Rule
-from hyper3.rules_discovery import RuleDiscoveryEngine
-from hyper3.multiway_rulial import RulialSpace
 from hyper3.graph_diff import GraphDiffer
+from hyper3.kernel import Hypergraph
+from hyper3.multiway_rulial import RulialSpace
 from hyper3.results import (
-    HealthReport,
-    HealthInfo,
-    GraphHealthInfo,
-    EvolutionHealthInfo,
     DiscoveryHealthInfo,
+    EvolutionHealthInfo,
+    GraphHealthInfo,
+    HealthInfo,
+    HealthReport,
     MonitorStats,
     TuningResult,
 )
+from hyper3.rules import Rule
+from hyper3.rules_discovery import RuleDiscoveryEngine
 
 
 @dataclass
@@ -105,11 +105,9 @@ class SystemMonitor:
         connectivity = 1.0 - (isolated / total_nodes)
 
         accessed_edges = sum(
-            1 for e in graph.edges
-            if any(
-                (node := graph.get_node(nid)) is not None and node.access_count > 0
-                for nid in e.target_ids
-            )
+            1
+            for e in graph.edges
+            if any((node := graph.get_node(nid)) is not None and node.access_count > 0 for nid in e.target_ids)
         )
         edge_utility = accessed_edges / max(total_edges, 1)
 
@@ -234,17 +232,21 @@ class SystemMonitor:
             anti_patterns=anti_patterns,
         )
 
-        recommendations = self._generate_recommendations({
-            "system_health": {"fitness": state.architectural_fitness, "mode": state.reasoning_mode},
-            "graph_health": {"nodes": self._graph.node_count, "edges": self._graph.edge_count},
-        })
+        recommendations = self._generate_recommendations(
+            {
+                "system_health": {"fitness": state.architectural_fitness, "mode": state.reasoning_mode},
+                "graph_health": {"nodes": self._graph.node_count, "edges": self._graph.edge_count},
+            }
+        )
         if recommendations:
             report.recommendations = recommendations
 
-        self._introspection_log.append({
-            "timestamp": time.time(),
-            "summary": report,
-        })
+        self._introspection_log.append(
+            {
+                "timestamp": time.time(),
+                "summary": report,
+            }
+        )
 
         return report
 
@@ -302,47 +304,52 @@ class SystemMonitor:
         state = self._state
 
         if state.architectural_fitness < 0.5:
-            triggers.append(TuningTrigger(
-                trigger_type="performance_plateau",
-                description="Architectural fitness below acceptable threshold",
-                urgency=1.0 - state.architectural_fitness,
-                timestamp=time.time(),
-            ))
+            triggers.append(
+                TuningTrigger(
+                    trigger_type="performance_plateau",
+                    description="Architectural fitness below acceptable threshold",
+                    urgency=1.0 - state.architectural_fitness,
+                    timestamp=time.time(),
+                )
+            )
 
         discovered = self._discovery.get_discovered_rules()
         if not discovered and self._graph.edge_count > 10:
-            triggers.append(TuningTrigger(
-                trigger_type="novel_problem",
-                description="No patterns discovered despite sufficient graph structure",
-                urgency=0.6,
-                timestamp=time.time(),
-            ))
+            triggers.append(
+                TuningTrigger(
+                    trigger_type="novel_problem",
+                    description="No patterns discovered despite sufficient graph structure",
+                    urgency=0.6,
+                    timestamp=time.time(),
+                )
+            )
 
         if self._rulial:
             meta_patterns = self._rulial.meta_patterns
             for pattern in meta_patterns:
                 if pattern.occurrence_count >= 5 and pattern.pattern_type == "recurring_relation":
-                    triggers.append(TuningTrigger(
-                        trigger_type="meta_insight",
-                        description=f"Strong recurring pattern: {pattern.description}",
-                        urgency=0.7,
-                        timestamp=time.time(),
-                    ))
+                    triggers.append(
+                        TuningTrigger(
+                            trigger_type="meta_insight",
+                            description=f"Strong recurring pattern: {pattern.description}",
+                            urgency=0.7,
+                            timestamp=time.time(),
+                        )
+                    )
                     break
 
         if self._introspection_log:
             recent = self._introspection_log[-5:]
-            anti_pattern_count = sum(
-                len(s.get("summary", {}).get("anti_patterns", []))
-                for s in recent
-            )
+            anti_pattern_count = sum(len(s.get("summary", {}).get("anti_patterns", [])) for s in recent)
             if anti_pattern_count >= 3:
-                triggers.append(TuningTrigger(
-                    trigger_type="cross_domain",
-                    description="Persistent anti-patterns suggest architectural issues",
-                    urgency=0.8,
-                    timestamp=time.time(),
-                ))
+                triggers.append(
+                    TuningTrigger(
+                        trigger_type="cross_domain",
+                        description="Persistent anti-patterns suggest architectural issues",
+                        urgency=0.8,
+                        timestamp=time.time(),
+                    )
+                )
 
         return triggers
 
@@ -447,7 +454,9 @@ class SystemMonitor:
         """
         pre_version = None
         fitness_before = self._compute_fitness(
-            self._graph, self._evolution.metrics, self._log,
+            self._graph,
+            self._evolution.metrics,
+            self._log,
         )
 
         if self._differ is not None:
@@ -456,7 +465,9 @@ class SystemMonitor:
         results = self.execute_tuning(plan)
 
         fitness_after = self._compute_fitness(
-            self._graph, self._evolution.metrics, self._log,
+            self._graph,
+            self._evolution.metrics,
+            self._log,
         )
 
         improvement = fitness_after - fitness_before
@@ -468,7 +479,9 @@ class SystemMonitor:
             delta = self._differ.rollback_to_version(pre_version.version_id)
             rolled_back = True
             fitness_after = self._compute_fitness(
-                self._graph, self._evolution.metrics, self._log,
+                self._graph,
+                self._evolution.metrics,
+                self._log,
             )
 
         return TuningResult(
@@ -488,7 +501,10 @@ class SystemMonitor:
         if self._state.architectural_fitness < 0.5:
             self._evolution._decay_threshold = min(decay * 1.5, 0.5)
             self._evolution._equivalence._threshold = max(merge - 0.1, 0.5)
-        return {"decay_threshold": self._evolution._decay_threshold, "merge_threshold": self._evolution._equivalence._threshold}
+        return {
+            "decay_threshold": self._evolution._decay_threshold,
+            "merge_threshold": self._evolution._equivalence._threshold,
+        }
 
     def _run_rule_discovery(self) -> dict[str, Any]:
         """Run full rule discovery and return the count of new patterns."""
@@ -507,7 +523,7 @@ class SystemMonitor:
                 if other.id == node.id:
                     continue
                 if node.data is not None and other.data is not None:
-                    if type(node.data) == type(other.data):
+                    if type(node.data) is type(other.data):
                         similarity = 1.0
                     elif isinstance(node.data, dict) and isinstance(other.data, dict):
                         shared_keys = set(node.data.keys()) & set(other.data.keys())
@@ -523,6 +539,7 @@ class SystemMonitor:
             for target, sim in candidates[:3]:
                 if sim > 0:
                     from hyper3.kernel import Hyperedge
+
                     edge = Hyperedge(
                         source_ids=frozenset({node.id}),
                         target_ids=frozenset({target.id}),
@@ -556,9 +573,11 @@ class SystemMonitor:
                 reinforced += 1
             neighbors: list[float] = []
             for src_id in edge.source_ids:
-                for other_edge in self._graph.edges_for(src_id):
-                    if other_edge.id != edge.id:
-                        neighbors.append(other_edge.weight)
+                neighbors.extend(
+                    other_edge.weight
+                    for other_edge in self._graph.edges_for(src_id)
+                    if other_edge.id != edge.id
+                )
             if neighbors:
                 avg_neighbor = sum(neighbors) / len(neighbors)
                 if abs(edge.weight - avg_neighbor) > avg_neighbor * 0.5:
@@ -575,10 +594,7 @@ class SystemMonitor:
 
     def _expand_seed_set(self) -> dict[str, Any]:
         """Apply rules to poorly-connected nodes to increase graph density."""
-        poorly_connected = [
-            n for n in self._graph.nodes
-            if len(self._graph.edges_for(n.id)) < 2
-        ]
+        poorly_connected = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) < 2]
         new_edges = 0
         if self._rules:
             for node in poorly_connected[:20]:
@@ -607,7 +623,8 @@ class SystemMonitor:
         best = max(patterns, key=lambda p: p.significance)
         if best.significance < 0.3:
             return {"promoted": False, "reason": "insufficient significance", "significance": best.significance}
-        from hyper3.rules import TransitiveRule, InverseRule, HubInferenceRule, ContextualSubstitutionRule
+        from hyper3.rules import ContextualSubstitutionRule, HubInferenceRule, InverseRule, TransitiveRule
+
         structure = best.abstract_structure
         edge_label = structure.get("edge_label", "")
         rule_map = {
@@ -615,7 +632,11 @@ class SystemMonitor:
             "chain_motif": lambda: TransitiveRule(edge_label=edge_label) if edge_label else TransitiveRule(),
             "hub_motif": lambda: HubInferenceRule(),
             "mutual_information": lambda: HubInferenceRule(),
-            "inverse_pair": lambda: InverseRule(edge_label=edge_label, inverse_label=structure.get("inverse_label", f"inv_{edge_label}")) if edge_label else InverseRule(edge_label="related", inverse_label="related_inv"),
+            "inverse_pair": lambda: (
+                InverseRule(edge_label=edge_label, inverse_label=structure.get("inverse_label", f"inv_{edge_label}"))
+                if edge_label
+                else InverseRule(edge_label="related", inverse_label="related_inv")
+            ),
             "cross_domain": lambda: ContextualSubstitutionRule(),
         }
         factory = rule_map.get(best.pattern_type, lambda: TransitiveRule())
@@ -654,6 +675,7 @@ class SystemMonitor:
     def _recalibrate_modality_weights(self) -> dict[str, Any]:
         """Blend outlier modality edge weights toward the global mean."""
         from hyper3.kernel import Modality
+
         weight_by_modality: dict[Modality, list[float]] = {}
         for edge in self._graph.edges:
             for source_id in edge.source_ids:
@@ -663,9 +685,9 @@ class SystemMonitor:
                         weight_by_modality.setdefault(mod, []).append(edge.weight)
         adjusted = 0
         if weight_by_modality:
-            global_mean = sum(
-                sum(ws) for ws in weight_by_modality.values()
-            ) / max(sum(len(ws) for ws in weight_by_modality.values()), 1)
+            global_mean = sum(sum(ws) for ws in weight_by_modality.values()) / max(
+                sum(len(ws) for ws in weight_by_modality.values()), 1
+            )
             for mod, weights in weight_by_modality.items():
                 mod_mean = sum(weights) / max(len(weights), 1)
                 if abs(mod_mean - global_mean) > 0.5:
@@ -702,7 +724,9 @@ class SystemMonitor:
                         results=results,
                         fitness_before=fitness,
                         fitness_after=self._compute_fitness(
-                            self._graph, self._evolution.metrics, self._log,
+                            self._graph,
+                            self._evolution.metrics,
+                            self._log,
                         ),
                     )
         return TuningResult(fitness_before=fitness, fitness_after=fitness)

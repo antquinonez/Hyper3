@@ -3,13 +3,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from hyper3.kernel import Hypergraph, Hypernode, Hyperedge, Metadata, Modality
-from hyper3.embedding_graph import (
-    RandomWalkEmbeddingProvider,
-    NeighborhoodFingerprintProvider,
-    CompositeEmbeddingProvider,
-)
 from hyper3.embedding import EmbeddingEngine, HashEmbeddingProvider
+from hyper3.embedding_graph import (
+    CompositeEmbeddingProvider,
+    NeighborhoodFingerprintProvider,
+    RandomWalkEmbeddingProvider,
+)
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 
 
 def _build_chain_graph(n: int = 10) -> Hypergraph:
@@ -324,7 +324,7 @@ class TestCompositeEmbeddingProvider:
         assert vec.shape == (8,)
 
     def test_embed_text_fallback(self):
-        graph = _build_chain_graph(3)
+        _build_chain_graph(3)
         p1 = HashEmbeddingProvider(dim=16)
         composite = CompositeEmbeddingProvider([p1])
         vec = composite.embed("test")

@@ -1,14 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
-import numpy as np
-
-from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
 from hyper3.embedding import EmbeddingEngine
 from hyper3.kernel import Hypergraph
 from hyper3.results import TrainResult
+from hyper3.retrieval_activation import SpreadingActivation
 
 
 @dataclass
@@ -40,7 +37,9 @@ class FeedbackStore:
         """Initialize an empty feedback store."""
         self._records: list[FeedbackRecord] = []
 
-    def record(self, query: str, node_id: str, label: str, relevant: bool, features: dict[str, float] | None = None) -> None:
+    def record(
+        self, query: str, node_id: str, label: str, relevant: bool, features: dict[str, float] | None = None
+    ) -> None:
         """Store a relevance judgment for a query-result pair.
 
         Args:
@@ -50,10 +49,15 @@ class FeedbackStore:
             relevant: Whether the result was judged relevant.
             features: Optional feature vector for learning-to-rank.
         """
-        self._records.append(FeedbackRecord(
-            query=query, node_id=node_id, label=label, relevant=relevant,
-            features=features or {},
-        ))
+        self._records.append(
+            FeedbackRecord(
+                query=query,
+                node_id=node_id,
+                label=label,
+                relevant=relevant,
+                features=features or {},
+            )
+        )
 
     @property
     def records(self) -> list[FeedbackRecord]:
@@ -248,15 +252,17 @@ class RetrievalEngine:
         for nid, rrf_score in fused[:top_k]:
             node = self._graph.get_node(nid)
             label = node.label if node else ""
-            results.append(RetrievalResult(
-                node_id=nid,
-                label=label,
-                activation=act_score_map.get(nid, 0.0),
-                similarity=sim_score_map.get(nid, 0.0),
-                rrf_score=rrf_score,
-                activation_rank=act_rank_map.get(nid, len(activation_ranked) + 1),
-                similarity_rank=sim_rank_map.get(nid, len(similarity_ranked) + 1),
-            ))
+            results.append(
+                RetrievalResult(
+                    node_id=nid,
+                    label=label,
+                    activation=act_score_map.get(nid, 0.0),
+                    similarity=sim_score_map.get(nid, 0.0),
+                    rrf_score=rrf_score,
+                    activation_rank=act_rank_map.get(nid, len(activation_ranked) + 1),
+                    similarity_rank=sim_rank_map.get(nid, len(similarity_ranked) + 1),
+                )
+            )
         return results
 
     def _rank_with_ltr(
@@ -309,11 +315,13 @@ class RetrievalEngine:
             }
             ltr_score = self._ltr.score(features)
             r = RetrievalResult(
-                node_id=nid, label=label,
+                node_id=nid,
+                label=label,
                 activation=act_score_map.get(nid, 0.0),
                 similarity=sim_score_map.get(nid, 0.0),
                 rrf_score=ltr_score,
-                activation_rank=0, similarity_rank=0,
+                activation_rank=0,
+                similarity_rank=0,
             )
             scored.append((ltr_score, r))
 

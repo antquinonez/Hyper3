@@ -3,21 +3,20 @@ from __future__ import annotations
 from statistics import median
 from typing import Any
 
-from hyper3.kernel import Hypergraph
-from hyper3.rules import Rule
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     GraphDescription,
     PatternMatchInfo,
-    SubgraphNode,
     SubgraphEdge,
+    SubgraphNode,
     SubgraphResult,
+)
+from hyper3.results import (
     top_k as _top_k,
 )
 
 
 class AnalyticsMixin(_MemoryBase):
-
     def find_paths(
         self,
         source: str,
@@ -44,8 +43,11 @@ class AnalyticsMixin(_MemoryBase):
         if not src or not tgt:
             return []
         raw = self._graph.find_paths(
-            src.id, tgt.id, edge_label=edge_label,
-            max_depth=max_depth, max_paths=max_paths,
+            src.id,
+            tgt.id,
+            edge_label=edge_label,
+            max_depth=max_depth,
+            max_paths=max_paths,
         )
         return [[self._node_label(nid) for nid in path] for path in raw]
 
@@ -67,7 +69,8 @@ class AnalyticsMixin(_MemoryBase):
             List of PatternMatchInfo for each matching edge.
         """
         matches = self._graph.pattern_match(
-            edge_label=edge_label, source_label=source_label,
+            edge_label=edge_label,
+            source_label=source_label,
             target_label=target_label,
         )
         results: list[PatternMatchInfo] = []
@@ -82,13 +85,15 @@ class AnalyticsMixin(_MemoryBase):
                 node = self._graph.get_node(tid)
                 if node:
                     tgt_labels.append(node.label)
-            results.append(PatternMatchInfo(
-                edge_id=edge.id,
-                label=edge.label,
-                source_labels=src_labels,
-                target_labels=tgt_labels,
-                bindings=bindings,
-            ))
+            results.append(
+                PatternMatchInfo(
+                    edge_id=edge.id,
+                    label=edge.label,
+                    source_labels=src_labels,
+                    target_labels=tgt_labels,
+                    bindings=bindings,
+                )
+            )
         return results
 
     def subgraph(self, concepts: set[str]) -> SubgraphResult:

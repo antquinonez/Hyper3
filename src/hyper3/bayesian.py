@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 import numpy as np
 
@@ -57,9 +56,7 @@ class CategoricalDistribution(_SimpleResultBase):
         return cls(outcomes={o: 1.0 / n for o in outcomes})
 
     @classmethod
-    def from_weights(
-        cls, outcomes: list[str], weights: list[float]
-    ) -> CategoricalDistribution:
+    def from_weights(cls, outcomes: list[str], weights: list[float]) -> CategoricalDistribution:
         if not outcomes:
             return cls()
         if len(weights) != len(outcomes):
@@ -71,7 +68,7 @@ class CategoricalDistribution(_SimpleResultBase):
             n = len(outcomes)
             return cls(outcomes={o: 1.0 / n for o in outcomes})
         probs = w / total
-        return cls(outcomes={o: float(p) for o, p in zip(outcomes, probs)})
+        return cls(outcomes={o: float(p) for o, p in zip(outcomes, probs, strict=False)})
 
 
 @dataclass
@@ -96,18 +93,14 @@ class BayesianLayer:
         self._beliefs: dict[str, CategoricalDistribution] = {}
         self._evidence_history: dict[str, list[Evidence]] = {}
 
-    def set_prior(
-        self, concept_id: str, distribution: CategoricalDistribution
-    ) -> None:
+    def set_prior(self, concept_id: str, distribution: CategoricalDistribution) -> None:
         dist = CategoricalDistribution(outcomes=dict(distribution.outcomes))
         dist.normalize()
         self._beliefs[concept_id] = dist
         if concept_id not in self._evidence_history:
             self._evidence_history[concept_id] = []
 
-    def add_evidence(
-        self, concept_id: str, evidence: Evidence
-    ) -> UpdateResult:
+    def add_evidence(self, concept_id: str, evidence: Evidence) -> UpdateResult:
         if concept_id not in self._beliefs:
             raise ValueError(f"No prior set for concept '{concept_id}'")
 
@@ -115,9 +108,7 @@ class BayesianLayer:
         prior_copy = CategoricalDistribution(outcomes=dict(prior.outcomes))
 
         hypotheses = list(prior.outcomes.keys())
-        prior_probs = np.array(
-            [prior.outcomes[h] for h in hypotheses], dtype=np.float64
-        )
+        prior_probs = np.array([prior.outcomes[h] for h in hypotheses], dtype=np.float64)
         prior_probs = np.clip(prior_probs, _EPS, None)
 
         likelihood = np.array(
@@ -136,9 +127,7 @@ class BayesianLayer:
         for i, h in enumerate(hypotheses):
             bayes_factors[h] = float(likelihood[i] / max(marginal, _EPS))
 
-        posterior = CategoricalDistribution(
-            outcomes={h: float(posterior_probs[i]) for i, h in enumerate(hypotheses)}
-        )
+        posterior = CategoricalDistribution(outcomes={h: float(posterior_probs[i]) for i, h in enumerate(hypotheses)})
         posterior.normalize()
 
         kl = self._kl_divergence(posterior_probs, prior_probs)
@@ -155,9 +144,7 @@ class BayesianLayer:
             kl_divergence=kl,
         )
 
-    def add_evidence_chain(
-        self, concept_id: str, evidence_list: list[Evidence]
-    ) -> UpdateResult:
+    def add_evidence_chain(self, concept_id: str, evidence_list: list[Evidence]) -> UpdateResult:
         if not evidence_list:
             current = self._beliefs.get(concept_id)
             return UpdateResult(
@@ -236,9 +223,7 @@ class BayesianLayer:
         if not hypotheses:
             return 0.0
 
-        prior_probs = np.array(
-            [dist.outcomes[h] for h in hypotheses], dtype=np.float64
-        )
+        prior_probs = np.array([dist.outcomes[h] for h in hypotheses], dtype=np.float64)
         prior_probs = np.clip(prior_probs, _EPS, None)
         prior_probs /= prior_probs.sum()
 
@@ -249,7 +234,7 @@ class BayesianLayer:
         likelihood = np.clip(likelihood, _EPS, None)
 
         expected_kl = 0.0
-        for i, h in enumerate(hypotheses):
+        for i, _h in enumerate(hypotheses):
             posterior_unnorm = prior_probs * likelihood
             marginal = posterior_unnorm.sum()
             if marginal <= 0:
@@ -274,9 +259,7 @@ class BayesianLayer:
         dist = self._beliefs.get(concept_id)
         if dist is None or not dist.outcomes:
             return []
-        sorted_outcomes = sorted(
-            dist.outcomes.items(), key=lambda x: x[1], reverse=True
-        )
+        sorted_outcomes = sorted(dist.outcomes.items(), key=lambda x: x[1], reverse=True)
         result: list[str] = []
         cumulative = 0.0
         for name, prob in sorted_outcomes:

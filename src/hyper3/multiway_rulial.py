@@ -9,11 +9,10 @@ from typing import Any
 import numpy as np
 from scipy.stats import entropy as scipy_entropy
 
-from hyper3.results import BiasProfileResult, RulialAnalysis, RuleNeighborhoodResult
-
 from hyper3.kernel import Hypergraph
+from hyper3.multiway import MultiwayEngine
+from hyper3.results import BiasProfileResult, RuleNeighborhoodResult, RulialAnalysis
 from hyper3.rules import Rule
-from hyper3.multiway import MultiwayEngine, MultiwayGraph
 
 
 @dataclass
@@ -105,10 +104,7 @@ class RulialSpace:
         """Return normalized rule application frequencies."""
         if self._total_applications == 0:
             return {}
-        return {
-            rule_name: count / self._total_applications
-            for rule_name, count in self._explored_rules.items()
-        }
+        return {rule_name: count / self._total_applications for rule_name, count in self._explored_rules.items()}
 
     def _compute_complexity(self) -> float:
         """Compute structural complexity as the mean of spectral entropy and motif diversity."""
@@ -223,7 +219,7 @@ class RulialSpace:
             float(n_leaves),
             float(max_depth),
             float(avg_branching),
-            float(min(depth_variance ** 0.5, 1.0)),
+            float(min(depth_variance**0.5, 1.0)),
             float(min(max_branching / max(n_states, 1), 1.0)),
         ]
 
@@ -313,15 +309,12 @@ class RulialSpace:
         total_apps = sum(e["applications"] for _, e in sorted_by_eff)
         avg_effectiveness = sum(e["effectiveness"] for _, e in sorted_by_eff) / len(sorted_by_eff)
 
-        dominant = [
-            name for name, stats in sorted_by_eff[:3]
-            if stats["effectiveness"] > avg_effectiveness
-        ]
+        dominant = [name for name, stats in sorted_by_eff[:3] if stats["effectiveness"] > avg_effectiveness]
 
         underused = [
-            name for name, stats in sorted_by_eff
-            if stats["effectiveness"] > avg_effectiveness
-            and stats["applications"] < (total_apps / len(sorted_by_eff))
+            name
+            for name, stats in sorted_by_eff
+            if stats["effectiveness"] > avg_effectiveness and stats["applications"] < (total_apps / len(sorted_by_eff))
         ]
 
         if dominant:
@@ -410,13 +403,15 @@ class RulialSpace:
         for label, count in edge_labels.items():
             if count >= 3:
                 freq = count / max(total, 1)
-                self._meta_patterns.append(DetectedPattern(
-                    pattern_type="recurring_relation",
-                    description=f"Relation '{label}' appears {count} times (freq={freq:.2f})",
-                    occurrence_count=count,
-                    abstract_structure={"label": label, "frequency": count, "relative_freq": freq},
-                    significance=min(1.0, freq * 2),
-                ))
+                self._meta_patterns.append(
+                    DetectedPattern(
+                        pattern_type="recurring_relation",
+                        description=f"Relation '{label}' appears {count} times (freq={freq:.2f})",
+                        occurrence_count=count,
+                        abstract_structure={"label": label, "frequency": count, "relative_freq": freq},
+                        significance=min(1.0, freq * 2),
+                    )
+                )
 
     def _find_cross_domain_patterns(self) -> None:
         """Detect when knowledge spans two or more modality tags."""
@@ -425,26 +420,30 @@ class RulialSpace:
             for tag in node.metadata.modality_tags:
                 node_modalities.setdefault(str(tag), set()).add(node.id)
         if len(node_modalities) >= 2:
-            self._meta_patterns.append(DetectedPattern(
-                pattern_type="cross_domain",
-                description=f"Knowledge spans {len(node_modalities)} modalities",
-                domains=set(node_modalities.keys()),
-                occurrence_count=len(node_modalities),
-                abstract_structure={"modality_distribution": {k: len(v) for k, v in node_modalities.items()}},
-                significance=0.5,
-            ))
+            self._meta_patterns.append(
+                DetectedPattern(
+                    pattern_type="cross_domain",
+                    description=f"Knowledge spans {len(node_modalities)} modalities",
+                    domains=set(node_modalities.keys()),
+                    occurrence_count=len(node_modalities),
+                    abstract_structure={"modality_distribution": {k: len(v) for k, v in node_modalities.items()}},
+                    significance=0.5,
+                )
+            )
 
     def _find_optimization_patterns(self) -> None:
         """Detect nodes with weight above 1.0 that have been reinforced."""
         high_weight = [n for n in self._graph.nodes if n.weight > 1.0]
         if len(high_weight) >= 2:
-            self._meta_patterns.append(DetectedPattern(
-                pattern_type="optimized_path",
-                description=f"{len(high_weight)} nodes have been reinforced through usage",
-                occurrence_count=len(high_weight),
-                abstract_structure={"reinforced_node_count": len(high_weight)},
-                significance=min(1.0, len(high_weight) / max(self._graph.node_count, 1)),
-            ))
+            self._meta_patterns.append(
+                DetectedPattern(
+                    pattern_type="optimized_path",
+                    description=f"{len(high_weight)} nodes have been reinforced through usage",
+                    occurrence_count=len(high_weight),
+                    abstract_structure={"reinforced_node_count": len(high_weight)},
+                    significance=min(1.0, len(high_weight) / max(self._graph.node_count, 1)),
+                )
+            )
 
     def _find_mutual_information_patterns(self) -> None:
         """Find pairs of edge labels with mutual information above 0.3 bits."""
@@ -464,7 +463,7 @@ class RulialSpace:
         label_list = sorted(label_counts.keys())[:20]
         pairs_checked = 0
         for i, la in enumerate(label_list):
-            for lb in label_list[i + 1:]:
+            for lb in label_list[i + 1 :]:
                 set_a = {nid for nid, lbls in node_labels.items() if la in lbls}
                 set_b = {nid for nid, lbls in node_labels.items() if lb in lbls}
                 both = len(set_a & set_b)
@@ -476,16 +475,20 @@ class RulialSpace:
                 if pa > 0 and pb > 0 and pab > 0:
                     mi = pab * math.log2(pab / (pa * pb))
                     if mi > 0.3:
-                        self._meta_patterns.append(DetectedPattern(
-                            pattern_type="mutual_information",
-                            description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
-                            occurrence_count=both,
-                            abstract_structure={
-                                "label_a": la, "label_b": lb,
-                                "mi": mi, "co_occurrence": both,
-                            },
-                            significance=min(1.0, mi),
-                        ))
+                        self._meta_patterns.append(
+                            DetectedPattern(
+                                pattern_type="mutual_information",
+                                description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
+                                occurrence_count=both,
+                                abstract_structure={
+                                    "label_a": la,
+                                    "label_b": lb,
+                                    "mi": mi,
+                                    "co_occurrence": both,
+                                },
+                                significance=min(1.0, mi),
+                            )
+                        )
                         pairs_checked += 1
                 if pairs_checked >= 5:
                     return
@@ -503,21 +506,23 @@ class RulialSpace:
         if hub_nodes:
             hub_nodes.sort(key=lambda x: x[1], reverse=True)
             top_hub = hub_nodes[0]
-            self._meta_patterns.append(DetectedPattern(
-                pattern_type="hub_motif",
-                description=f"Hub node '{top_hub[0].label}' has degree {top_hub[1]}",
-                occurrence_count=len(hub_nodes),
-                abstract_structure={
-                    "hub_label": top_hub[0].label,
-                    "hub_degree": top_hub[1],
-                    "hub_count": len(hub_nodes),
-                },
-                significance=min(1.0, top_hub[1] / max(n, 1)),
-            ))
+            self._meta_patterns.append(
+                DetectedPattern(
+                    pattern_type="hub_motif",
+                    description=f"Hub node '{top_hub[0].label}' has degree {top_hub[1]}",
+                    occurrence_count=len(hub_nodes),
+                    abstract_structure={
+                        "hub_label": top_hub[0].label,
+                        "hub_degree": top_hub[1],
+                        "hub_count": len(hub_nodes),
+                    },
+                    significance=min(1.0, top_hub[1] / max(n, 1)),
+                )
+            )
         chains = 0
         for edge in self._graph.edges:
             if len(edge.source_ids) == 1 and len(edge.target_ids) == 1:
-                src = next(iter(edge.source_ids))
+                next(iter(edge.source_ids))
                 tgt = next(iter(edge.target_ids))
                 tgt_edges = self._graph.edges_for(tgt)
                 if any(
@@ -527,13 +532,15 @@ class RulialSpace:
                 ):
                     chains += 1
         if chains >= 2:
-            self._meta_patterns.append(DetectedPattern(
-                pattern_type="chain_motif",
-                description=f"Found {chains} transitive chain patterns",
-                occurrence_count=chains,
-                abstract_structure={"chain_count": chains},
-                significance=min(1.0, chains / max(n, 1)),
-            ))
+            self._meta_patterns.append(
+                DetectedPattern(
+                    pattern_type="chain_motif",
+                    description=f"Found {chains} transitive chain patterns",
+                    occurrence_count=chains,
+                    abstract_structure={"chain_count": chains},
+                    significance=min(1.0, chains / max(n, 1)),
+                )
+            )
 
     def generate_high_level_insights(self) -> list[HighLevelInsight]:
         """Derive high-level insights from meta-patterns and graph statistics.
@@ -550,65 +557,77 @@ class RulialSpace:
 
         mi_patterns = [p for p in self._meta_patterns if p.pattern_type == "mutual_information"]
         for p in mi_patterns[:3]:
-            self._insights.append(HighLevelInsight(
-                principle=p.description,
-                domain="information_theory",
-                evidence=[p.description],
-                confidence=p.significance,
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle=p.description,
+                    domain="information_theory",
+                    evidence=[p.description],
+                    confidence=p.significance,
+                    timestamp=time.time(),
+                )
+            )
 
         recurring = [p for p in self._meta_patterns if p.pattern_type == "recurring_relation"]
         if recurring:
             top = max(recurring, key=lambda p: p.significance)
-            self._insights.append(HighLevelInsight(
-                principle=f"Dominant relation: {top.description}",
-                domain="structural",
-                evidence=[top.description],
-                confidence=top.significance,
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle=f"Dominant relation: {top.description}",
+                    domain="structural",
+                    evidence=[top.description],
+                    confidence=top.significance,
+                    timestamp=time.time(),
+                )
+            )
 
         density = self._position.graph_activity_density
         complexity = self._position.structural_complexity
         if density > 0.5 and complexity > 0.5:
-            self._insights.append(HighLevelInsight(
-                principle=f"High density ({density:.2f}) and complexity ({complexity:.2f}) suggest rich structural organization",
-                domain="computational",
-                evidence=[f"Density: {density:.3f}", f"Complexity: {complexity:.3f}"],
-                confidence=min(density, complexity),
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle=f"High density ({density:.2f}) and complexity ({complexity:.2f}) suggest rich structural organization",
+                    domain="computational",
+                    evidence=[f"Density: {density:.3f}", f"Complexity: {complexity:.3f}"],
+                    confidence=min(density, complexity),
+                    timestamp=time.time(),
+                )
+            )
 
         spectral = self._compute_spectral_entropy()
         if spectral > 0.7:
-            self._insights.append(HighLevelInsight(
-                principle=f"Spectral entropy {spectral:.2f} indicates diverse singular-value distribution",
-                domain="spectral",
-                evidence=[f"Spectral entropy: {spectral:.3f}"],
-                confidence=spectral,
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle=f"Spectral entropy {spectral:.2f} indicates diverse singular-value distribution",
+                    domain="spectral",
+                    evidence=[f"Spectral entropy: {spectral:.3f}"],
+                    confidence=spectral,
+                    timestamp=time.time(),
+                )
+            )
 
         rule_diversity = len(self._explored_rules)
         if rule_diversity >= 3:
-            self._insights.append(HighLevelInsight(
-                principle=f"Rule diversity ({rule_diversity} rules) provides multiple inference patterns",
-                domain="rulial",
-                evidence=[f"Rules: {list(self._explored_rules.keys())}"],
-                confidence=min(1.0, rule_diversity / 5.0),
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle=f"Rule diversity ({rule_diversity} rules) provides multiple inference patterns",
+                    domain="rulial",
+                    evidence=[f"Rules: {list(self._explored_rules.keys())}"],
+                    confidence=min(1.0, rule_diversity / 5.0),
+                    timestamp=time.time(),
+                )
+            )
 
         cross = [p for p in self._meta_patterns if p.pattern_type == "cross_domain"]
         if cross:
-            self._insights.append(HighLevelInsight(
-                principle="Cross-domain knowledge spans multiple modalities",
-                domain="meta",
-                evidence=[p.description for p in cross],
-                confidence=0.6,
-                timestamp=time.time(),
-            ))
+            self._insights.append(
+                HighLevelInsight(
+                    principle="Cross-domain knowledge spans multiple modalities",
+                    domain="meta",
+                    evidence=[p.description for p in cross],
+                    confidence=0.6,
+                    timestamp=time.time(),
+                )
+            )
 
         return self._insights
 
@@ -652,7 +671,11 @@ class RulialSpace:
         all_coords: list[list[float]] = []
         for pos in positions:
             if pos.branchial_coordinates:
-                coords = pos.branchial_coordinates[:2] if len(pos.branchial_coordinates) >= 2 else pos.branchial_coordinates + [0.0]
+                coords = (
+                    pos.branchial_coordinates[:2]
+                    if len(pos.branchial_coordinates) >= 2
+                    else pos.branchial_coordinates + [0.0]
+                )
                 all_coords.append(coords)
         if not all_coords:
             return [[0.0] * resolution for _ in range(resolution)]

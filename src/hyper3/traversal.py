@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import heapq
 import time
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
-from hyper3.kernel import Hypergraph, Hypernode, Modality, AbstractionLayer
+from hyper3.kernel import AbstractionLayer, Hypergraph, Hypernode, Modality
 
 
 class TraversalEngine:
@@ -19,9 +20,7 @@ class TraversalEngine:
         """
         self._graph = graph
 
-    def traverse_breadth_first(
-        self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100
-    ) -> list[Hypernode]:
+    def traverse_breadth_first(self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100) -> list[Hypernode]:
         """Traverse the graph breadth-first from a starting node.
 
         Args:
@@ -47,15 +46,11 @@ class TraversalEngine:
                 if node:
                     node.touch(time.time())
                     result.append(node)
-                next_frontier.extend(
-                    n for n in self._graph.neighbors(nid) if n not in visited
-                )
+                next_frontier.extend(n for n in self._graph.neighbors(nid) if n not in visited)
             frontier = next_frontier
         return result
 
-    def traverse_depth_first(
-        self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100
-    ) -> list[Hypernode]:
+    def traverse_depth_first(self, start_id: str, *, max_depth: int = 5, max_nodes: int = 100) -> list[Hypernode]:
         """Traverse the graph depth-first from a starting node.
 
         Args:
@@ -118,9 +113,7 @@ class TraversalEngine:
                 if node and modality in node.metadata.modality_tags:
                     node.touch(time.time())
                     result.append(node)
-                next_frontier.extend(
-                    n for n in self._graph.neighbors(nid) if n not in visited
-                )
+                next_frontier.extend(n for n in self._graph.neighbors(nid) if n not in visited)
             frontier = next_frontier
         return result
 
@@ -257,17 +250,16 @@ class ObserverSlice:
 
         def _filter(node: Hypernode) -> bool:
             """Return True if *node* satisfies the observer slice's filter criteria."""
-            if self._config.modalities and not (
-                node.metadata.modality_tags & self._config.modalities
-            ):
+            if self._config.modalities and not (node.metadata.modality_tags & self._config.modalities):
                 return False
-            if self._config.abstraction_layers and node.metadata.abstraction_layer not in self._config.abstraction_layers:
+            if (
+                self._config.abstraction_layers
+                and node.metadata.abstraction_layer not in self._config.abstraction_layers
+            ):
                 return False
             if node.weight < self._config.min_weight:
                 return False
-            if self._config.predicate and not self._config.predicate(node):
-                return False
-            return True
+            return not (self._config.predicate and not self._config.predicate(node))
 
         return engine.traverse_adaptive(
             start_id,

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from hyper3.kernel import Hypergraph, Hyperedge
+from hyper3.kernel import Hyperedge, Hypergraph
 from hyper3.results import _SimpleResultBase
 
 
@@ -66,7 +66,7 @@ class StructuralPatternEngine:
         candidates = self._find_edge_candidates(first_edge)
         matches: list[StructuralMatch] = []
 
-        for edge, initial_bindings in candidates:
+        for _edge, initial_bindings in candidates:
             binding_queue: list[dict[str, str]] = [initial_bindings]
             for pedge in pattern.edges[1:]:
                 next_bindings: list[dict[str, str]] = []
@@ -110,13 +110,15 @@ class StructuralPatternEngine:
                     score = self._score_match(bindings, pattern)
                     matched_edges = self._collect_matched_edges(bindings, pattern)
                     matched_nodes = list(set(bindings.values()))
-                    matches.append(StructuralMatch(
-                        pattern_name=pattern.name,
-                        bindings=dict(bindings),
-                        matched_edges=matched_edges,
-                        matched_nodes=matched_nodes,
-                        score=score,
-                    ))
+                    matches.append(
+                        StructuralMatch(
+                            pattern_name=pattern.name,
+                            bindings=dict(bindings),
+                            matched_edges=matched_edges,
+                            matched_nodes=matched_nodes,
+                            score=score,
+                        )
+                    )
                     if len(matches) >= max_matches:
                         break
 
@@ -146,19 +148,25 @@ class StructuralPatternEngine:
         max_chains: int = 50,
     ) -> list[list[str]]:
         chains: list[list[str]] = []
-        nodes_with_no_incoming: list[str] = []
         all_targets: set[str] = set()
         for edge in self._graph.edges:
             all_targets.update(edge.target_ids)
-        for node in self._graph.nodes:
-            if node.id not in all_targets:
-                nodes_with_no_incoming.append(node.id)
+        nodes_with_no_incoming: list[str] = [
+            node.id for node in self._graph.nodes if node.id not in all_targets
+        ]
 
         seeds = nodes_with_no_incoming if nodes_with_no_incoming else [n.id for n in self._graph.nodes]
 
         for seed in seeds:
             self._find_chains_dfs(
-                seed, edge_label, min_length, max_length, [seed], set(), chains, max_chains,
+                seed,
+                edge_label,
+                min_length,
+                max_length,
+                [seed],
+                set(),
+                chains,
+                max_chains,
             )
             if len(chains) >= max_chains:
                 break
@@ -222,28 +230,31 @@ class StructuralPatternEngine:
                         key = frozenset({a, b, tgt})
                         if key not in seen:
                             seen.add(key)
-                            a_node = self._graph.get_node(a)
-                            b_node = self._graph.get_node(b)
-                            t_node = self._graph.get_node(tgt)
-                            matches.append(StructuralMatch(
-                                pattern_name="diamond",
-                                bindings={
-                                    "source_a": a,
-                                    "source_b": b,
-                                    "converge": tgt,
-                                },
-                                matched_nodes=[a, b, tgt],
-                                score=min(
-                                    len(a_targets & b_targets) / max(len(a_targets | b_targets), 1),
-                                    1.0,
-                                ),
-                            ))
+                            self._graph.get_node(a)
+                            self._graph.get_node(b)
+                            self._graph.get_node(tgt)
+                            matches.append(
+                                StructuralMatch(
+                                    pattern_name="diamond",
+                                    bindings={
+                                        "source_a": a,
+                                        "source_b": b,
+                                        "converge": tgt,
+                                    },
+                                    matched_nodes=[a, b, tgt],
+                                    score=min(
+                                        len(a_targets & b_targets) / max(len(a_targets | b_targets), 1),
+                                        1.0,
+                                    ),
+                                )
+                            )
                             if len(matches) >= max_matches:
                                 return matches
         return matches
 
     def _find_edge_candidates(
-        self, pattern_edge: PatternEdge,
+        self,
+        pattern_edge: PatternEdge,
     ) -> list[tuple[Hyperedge, dict[str, str]]]:
         candidates: list[tuple[Hyperedge, dict[str, str]]] = []
         for edge in self._graph.edges:
@@ -261,7 +272,11 @@ class StructuralPatternEngine:
         return candidates
 
     def _edge_exists(
-        self, src_id: str, tgt_id: str, label: str | None, min_weight: float,
+        self,
+        src_id: str,
+        tgt_id: str,
+        label: str | None,
+        min_weight: float,
     ) -> bool:
         for edge in self._graph.edges_for(src_id):
             if label and edge.label != label:
@@ -273,7 +288,9 @@ class StructuralPatternEngine:
         return False
 
     def _validate_node_constraints(
-        self, bindings: dict[str, str], pattern: PatternTemplate,
+        self,
+        bindings: dict[str, str],
+        pattern: PatternTemplate,
     ) -> bool:
         for pnode in pattern.nodes:
             node_id = bindings.get(pnode.role)
@@ -288,16 +305,18 @@ class StructuralPatternEngine:
                     return False
             if pnode.label_pattern:
                 import re
+
                 if not re.search(pnode.label_pattern, node.label):
                     return False
             for key, value in pnode.constraints.items():
-                if isinstance(node.data, dict):
-                    if node.data.get(key) != value:
-                        return False
+                if isinstance(node.data, dict) and node.data.get(key) != value:
+                    return False
         return True
 
     def _score_match(
-        self, bindings: dict[str, str], pattern: PatternTemplate,
+        self,
+        bindings: dict[str, str],
+        pattern: PatternTemplate,
     ) -> float:
         total_weight = 0.0
         count = 0
@@ -306,15 +325,16 @@ class StructuralPatternEngine:
             tgt_id = bindings.get(pedge.target_role)
             if src_id and tgt_id:
                 for edge in self._graph.edges_for(src_id):
-                    if tgt_id in edge.target_ids:
-                        if not pedge.label or edge.label == pedge.label:
-                            total_weight += edge.weight
-                            count += 1
-                            break
+                    if tgt_id in edge.target_ids and (not pedge.label or edge.label == pedge.label):
+                        total_weight += edge.weight
+                        count += 1
+                        break
         return total_weight / max(count, 1)
 
     def _collect_matched_edges(
-        self, bindings: dict[str, str], pattern: PatternTemplate,
+        self,
+        bindings: dict[str, str],
+        pattern: PatternTemplate,
     ) -> list[str]:
         matched: list[str] = []
         for pedge in pattern.edges:
@@ -322,10 +342,9 @@ class StructuralPatternEngine:
             tgt_id = bindings.get(pedge.target_role)
             if src_id and tgt_id:
                 for edge in self._graph.edges_for(src_id):
-                    if tgt_id in edge.target_ids:
-                        if not pedge.label or edge.label == pedge.label:
-                            matched.append(edge.id)
-                            break
+                    if tgt_id in edge.target_ids and (not pedge.label or edge.label == pedge.label):
+                        matched.append(edge.id)
+                        break
         return matched
 
     def _find_chains_dfs(
@@ -353,7 +372,14 @@ class StructuralPatternEngine:
                 if nxt not in visited:
                     path.append(nxt)
                     self._find_chains_dfs(
-                        nxt, edge_label, min_length, max_length, path, visited, results, max_chains,
+                        nxt,
+                        edge_label,
+                        min_length,
+                        max_length,
+                        path,
+                        visited,
+                        results,
+                        max_chains,
                     )
                     path.pop()
         visited.discard(current)

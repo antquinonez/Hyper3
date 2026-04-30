@@ -49,9 +49,7 @@ class TimeInterval:
     def __post_init__(self):
         """Validate that the interval end is not before the start."""
         if self.end < self.start:
-            raise ValueError(
-                f"Interval end ({self.end}) must be >= start ({self.start})"
-            )
+            raise ValueError(f"Interval end ({self.end}) must be >= start ({self.start})")
 
     @property
     def duration(self) -> float:
@@ -238,8 +236,7 @@ class TemporalReasoner:
         return [
             ev
             for ev in self._events.values()
-            if ev.event_id != event_id
-            and ev.interval.relate_to(target.interval) == AllenRelation.BEFORE
+            if ev.event_id != event_id and ev.interval.relate_to(target.interval) == AllenRelation.BEFORE
         ]
 
     def find_after(self, event_id: str) -> list[TemporalEvent]:
@@ -250,8 +247,7 @@ class TemporalReasoner:
         return [
             ev
             for ev in self._events.values()
-            if ev.event_id != event_id
-            and ev.interval.relate_to(target.interval) == AllenRelation.AFTER
+            if ev.event_id != event_id and ev.interval.relate_to(target.interval) == AllenRelation.AFTER
         ]
 
     def find_overlapping(self, event_id: str) -> list[TemporalEvent]:
@@ -273,8 +269,7 @@ class TemporalReasoner:
         return [
             ev
             for ev in self._events.values()
-            if ev.event_id != event_id
-            and ev.interval.relate_to(target.interval) in overlapping_relations
+            if ev.event_id != event_id and ev.interval.relate_to(target.interval) in overlapping_relations
         ]
 
     def find_containing(self, event_id: str) -> list[TemporalEvent]:
@@ -285,8 +280,7 @@ class TemporalReasoner:
         return [
             ev
             for ev in self._events.values()
-            if ev.event_id != event_id
-            and ev.interval.relate_to(target.interval) == AllenRelation.CONTAINS
+            if ev.event_id != event_id and ev.interval.relate_to(target.interval) == AllenRelation.CONTAINS
         ]
 
     def causal_order(self, event_ids: list[str]) -> list[str]:
@@ -298,17 +292,11 @@ class TemporalReasoner:
         Returns:
             The event IDs sorted chronologically by start time.
         """
-        events = [
-            (eid, self._events[eid])
-            for eid in event_ids
-            if eid in self._events
-        ]
+        events = [(eid, self._events[eid]) for eid in event_ids if eid in self._events]
         events.sort(key=lambda x: x[1].interval.start)
         return [eid for eid, _ in events]
 
-    def detect_causal_chains(
-        self, *, min_chain_length: int = 3, max_chains: int = 1000
-    ) -> list[list[str]]:
+    def detect_causal_chains(self, *, min_chain_length: int = 3, max_chains: int = 1000) -> list[list[str]]:
         """Find all BEFORE/MEETS chains among registered events.
 
         Args:
@@ -364,9 +352,7 @@ class TemporalReasoner:
 
         return unique
 
-    def temporal_proximity(
-        self, event_id: str, max_gap: float = 1.0
-    ) -> list[tuple[TemporalEvent, float]]:
+    def temporal_proximity(self, event_id: str, max_gap: float = 1.0) -> list[tuple[TemporalEvent, float]]:
         """Find events within a temporal gap of the given event.
 
         Args:
@@ -385,8 +371,7 @@ class TemporalReasoner:
                 continue
             gap = max(
                 0.0,
-                max(target.interval.start, ev.interval.start)
-                - min(target.interval.end, ev.interval.end),
+                max(target.interval.start, ev.interval.start) - min(target.interval.end, ev.interval.end),
             )
             if gap <= max_gap:
                 results.append((ev, gap))
@@ -481,12 +466,14 @@ class TemporalReasoner:
                     if constraint.event_b_id == b.event_id:
                         allowed = constraint.relation
                         if relation != allowed:
-                            inconsistencies.append({
-                                "event_a": a.label,
-                                "event_b": b.label,
-                                "actual_relation": relation.value if hasattr(relation, "value") else str(relation),
-                                "expected_relation": allowed.value if hasattr(allowed, "value") else str(allowed),
-                            })
+                            inconsistencies.append(
+                                {
+                                    "event_a": a.label,
+                                    "event_b": b.label,
+                                    "actual_relation": relation.value if hasattr(relation, "value") else str(relation),
+                                    "expected_relation": allowed.value if hasattr(allowed, "value") else str(allowed),
+                                }
+                            )
         return inconsistencies
 
     def get_event_for_node(self, node_id: str, graph: Any) -> TemporalEvent | None:

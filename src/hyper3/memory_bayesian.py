@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-from hyper3.memory_base import _MemoryBase
 from hyper3.bayesian import BayesianLayer, CategoricalDistribution, Evidence, UpdateResult
+from hyper3.memory_base import _MemoryBase
 
 
 class BayesianMixin(_MemoryBase):
-
     _bayesian: BayesianLayer | None = None
 
     def set_prior(
@@ -14,6 +13,7 @@ class BayesianMixin(_MemoryBase):
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
+
             raise NodeNotFoundError(concept)
         if self._bayesian is None:
             self._bayesian = BayesianLayer(self._graph)
@@ -29,12 +29,11 @@ class BayesianMixin(_MemoryBase):
         self._log.record("set_prior", concept=concept, outcomes=outcomes)
         return distribution
 
-    def update_belief(
-        self, concept: str, *, evidence_name: str, likelihoods: dict[str, float]
-    ) -> UpdateResult:
+    def update_belief(self, concept: str, *, evidence_name: str, likelihoods: dict[str, float]) -> UpdateResult:
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
+
             raise NodeNotFoundError(concept)
         if self._bayesian is None:
             self._bayesian = BayesianLayer(self._graph)
@@ -67,9 +66,7 @@ class BayesianMixin(_MemoryBase):
             return None
         return self._node_label(result_id)
 
-    def bayes_factor(
-        self, concept: str, *, hypothesis_a: str, hypothesis_b: str
-    ) -> float | None:
+    def bayes_factor(self, concept: str, *, hypothesis_a: str, hypothesis_b: str) -> float | None:
         node = self._find_node(concept)
         if not node:
             return None

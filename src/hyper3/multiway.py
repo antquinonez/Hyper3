@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Any, Generator
+from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.rules import Rule, RuleMatch
@@ -89,11 +90,7 @@ class MultiwayGraph:
         parent = self._states.get(state.parent_id)
         if not parent:
             return []
-        return [
-            self._states[cid]
-            for cid in parent.children_ids
-            if cid in self._states and cid != state_id
-        ]
+        return [self._states[cid] for cid in parent.children_ids if cid in self._states and cid != state_id]
 
     def get_ancestors(self, state_id: str) -> list[MultiwayState]:
         """Walk from the given state to the root, collecting all ancestors."""
@@ -179,12 +176,14 @@ class MultiwayGraph:
         siblings = self.get_siblings(new_state.id)
         for sibling in siblings:
             distance = self.branchial_distance(new_state.id, sibling.id)
-            self._branchial_relations.append(BranchialRelation(
-                state_a_id=new_state.id,
-                state_b_id=sibling.id,
-                distance=distance,
-                common_ancestor_id=new_state.parent_id or "",
-            ))
+            self._branchial_relations.append(
+                BranchialRelation(
+                    state_a_id=new_state.id,
+                    state_b_id=sibling.id,
+                    distance=distance,
+                    common_ancestor_id=new_state.parent_id or "",
+                )
+            )
 
 
 @dataclass
@@ -275,8 +274,12 @@ class MultiwayEngine:
                 if not state:
                     continue
                 new_states = self._expand_state(
-                    state, rules, max_branches_per_state, report,
-                    overlay=overlay, confidence_decay=confidence_decay,
+                    state,
+                    rules,
+                    max_branches_per_state,
+                    report,
+                    overlay=overlay,
+                    confidence_decay=confidence_decay,
                 )
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
@@ -285,9 +288,7 @@ class MultiwayEngine:
                 break
             report.max_depth_reached += 1
 
-        report.branches = sum(
-            1 for s in self._multiway.states if s.is_leaf
-        )
+        report.branches = sum(1 for s in self._multiway.states if s.is_leaf)
         return report
 
     def expand_lazy(
@@ -342,17 +343,19 @@ class MultiwayEngine:
                 remaining = max_total_states - total_created
                 capped_branches = min(max_branches_per_state, remaining)
                 new_states = self._expand_state(
-                    state, rules, capped_branches,
-                    ExpansionReport(), overlay=overlay, confidence_decay=confidence_decay,
+                    state,
+                    rules,
+                    capped_branches,
+                    ExpansionReport(),
+                    overlay=overlay,
+                    confidence_decay=confidence_decay,
                 )
                 for new_id in new_states:
                     total_created += 1
                     new_state = self._multiway.get_state(new_id)
                     priority = 1.0
                     if new_state:
-                        produced_edges = [
-                            self._graph.get_edge(eid) for eid in new_state.produced_edge_ids
-                        ]
+                        produced_edges = [self._graph.get_edge(eid) for eid in new_state.produced_edge_ids]
                         produced_edges = [e for e in produced_edges if e is not None]
                         if produced_edges:
                             conf = produced_edges[0].metadata.custom.get("confidence", 1.0)
@@ -410,12 +413,11 @@ class MultiwayEngine:
             An ExpansionReport for the incremental expansion.
         """
         report = ExpansionReport()
-        affected_leaves: list[str] = []
-        for leaf in self._multiway.get_leaves():
-            if new_node_ids & leaf.active_node_ids:
-                affected_leaves.append(leaf.id)
-            elif new_edge_ids & set(leaf.produced_edge_ids):
-                affected_leaves.append(leaf.id)
+        affected_leaves: list[str] = [
+            leaf.id
+            for leaf in self._multiway.get_leaves()
+            if new_node_ids & leaf.active_node_ids or new_edge_ids & set(leaf.produced_edge_ids)
+        ]
         if not affected_leaves:
             for leaf in self._multiway.get_leaves():
                 affected_leaves.append(leaf.id)
@@ -430,18 +432,14 @@ class MultiwayEngine:
                 state = self._multiway.get_state(state_id)
                 if not state:
                     continue
-                new_states = self._expand_state(
-                    state, rules, max_branches_per_state, report
-                )
+                new_states = self._expand_state(state, rules, max_branches_per_state, report)
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
             frontier = next_frontier
             if not frontier:
                 break
             report.max_depth_reached += 1
-        report.branches = sum(
-            1 for s in self._multiway.states if s.is_leaf
-        )
+        report.branches = sum(1 for s in self._multiway.states if s.is_leaf)
         return report
 
     def find_convergent_states(self) -> list[tuple[str, str, float]]:
@@ -482,14 +480,16 @@ class MultiwayEngine:
             new_in_current = set(current.produced_node_ids) - set(sibling.produced_node_ids)
             new_in_sibling = set(sibling.produced_node_ids) - set(current.produced_node_ids)
             if new_in_current or new_in_sibling:
-                insights.append({
-                    "source_state": state_id,
-                    "lateral_state": sibling.id,
-                    "rule_used": sibling.rule_applied,
-                    "novel_in_source": list(new_in_current),
-                    "novel_in_lateral": list(new_in_sibling),
-                    "branchial_distance": self._multiway.branchial_distance(state_id, sibling.id),
-                })
+                insights.append(
+                    {
+                        "source_state": state_id,
+                        "lateral_state": sibling.id,
+                        "rule_used": sibling.rule_applied,
+                        "novel_in_source": list(new_in_current),
+                        "novel_in_lateral": list(new_in_sibling),
+                        "branchial_distance": self._multiway.branchial_distance(state_id, sibling.id),
+                    }
+                )
         return insights
 
     def _expand_state(
@@ -555,8 +555,6 @@ class MultiwayEngine:
                         parent_conf = min(parent_conf, overlay.get_confidence(eid))
                 for eid in new_edges:
                     overlay.set_confidence(eid, parent_conf * confidence_decay)
-                report.confidence_map.update(
-                    {eid: overlay.get_confidence(eid) for eid in new_edges}
-                )
+                report.confidence_map.update({eid: overlay.get_confidence(eid) for eid in new_edges})
 
         return new_state_ids

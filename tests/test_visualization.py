@@ -1,18 +1,19 @@
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
-from hyper3.event_log import EventLog
-from hyper3.rules import TransitiveRule
-from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace, BranchialCoordinates, BranchialCorrelation
+import matplotlib
+
 from hyper3.belief import BeliefLayer, BeliefState
+from hyper3.event_log import EventLog
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+from hyper3.multiway import MultiwayEngine
+from hyper3.multiway_branchial import BranchialCoordinates, BranchialCorrelation, BranchialSpace
+from hyper3.rules import TransitiveRule
 from hyper3.visualization import (
+    plot_belief_state,
     plot_branchial_space,
+    plot_evidence_interaction,
     plot_evolution_history,
     plot_hypergraph,
-    plot_belief_state,
-    plot_evidence_interaction,
 )
 
-import matplotlib
 matplotlib.use("Agg")
 
 

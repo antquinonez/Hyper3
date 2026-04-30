@@ -103,26 +103,30 @@ class AbstractionNavigator:
             edge_labels_seen: set[str] = set()
             for elabel, eweight, edata in edge_infos:
                 if elabel not in edge_labels_seen:
-                    self._graph.add_edge(Hyperedge(
-                        source_ids=frozenset({ext_src}),
-                        target_ids=frozenset({summary_node.id}),
-                        label=elabel,
-                        weight=eweight,
-                        data=edata,
-                    ))
+                    self._graph.add_edge(
+                        Hyperedge(
+                            source_ids=frozenset({ext_src}),
+                            target_ids=frozenset({summary_node.id}),
+                            label=elabel,
+                            weight=eweight,
+                            data=edata,
+                        )
+                    )
                     edge_labels_seen.add(elabel)
 
         for ext_tgt, edge_infos in external_edges_out.items():
             edge_labels_seen: set[str] = set()
             for elabel, eweight, edata in edge_infos:
                 if elabel not in edge_labels_seen:
-                    self._graph.add_edge(Hyperedge(
-                        source_ids=frozenset({summary_node.id}),
-                        target_ids=frozenset({ext_tgt}),
-                        label=elabel,
-                        weight=eweight,
-                        data=edata,
-                    ))
+                    self._graph.add_edge(
+                        Hyperedge(
+                            source_ids=frozenset({summary_node.id}),
+                            target_ids=frozenset({ext_tgt}),
+                            label=elabel,
+                            weight=eweight,
+                            data=edata,
+                        )
+                    )
                     edge_labels_seen.add(elabel)
 
         mapping = AbstractionMapping(
@@ -221,7 +225,4 @@ class AbstractionNavigator:
         return list(self._mappings.values())
 
     def nodes_at_layer(self, layer: AbstractionLayer) -> list[Hypernode]:
-        return [
-            n for n in self._graph.nodes
-            if n.metadata.abstraction_layer == layer
-        ]
+        return [n for n in self._graph.nodes if n.metadata.abstraction_layer == layer]

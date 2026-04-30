@@ -49,7 +49,6 @@ class BoundaryIndicator:
         return self.boundary_score < 0.3
 
 
-
 @dataclass
 class BoundaryRegion:
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
@@ -89,7 +88,6 @@ class AssumptionSet:
         self.assumptions[assumption.name] = assumption
         if assumption.source_edge_id:
             self.provenance[assumption.name] = assumption.source_edge_id
-
 
 
 ANOMALY_PATTERNS: list[dict[str, Any]] = [
@@ -166,7 +164,6 @@ class StructuralAnomalyDetector:
         indicator.contradiction_risk = self._detect_label_contradictions(concept, context)
         indicator.structural_anomaly_score = self._compute_structural_risk(concept, context)
         return indicator
-
 
     def _detect_cycles(self, concept: str, context: dict[str, Any] | None) -> float:
         """Score the degree of cyclic structure in the concept's graph neighborhood.
@@ -245,7 +242,9 @@ class StructuralAnomalyDetector:
         self._cache_graph_ver = self._graph_version()
         return 0.7 if node_id in scc_map and len(scc_map[node_id]) > 1 else 0.0
 
-    def _dfs_cycle_check(self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None = None) -> bool:
+    def _dfs_cycle_check(
+        self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None = None
+    ) -> bool:
         """Check whether a directed path exists from current back to start within max_depth."""
         if max_depth <= 0:
             return False
@@ -346,7 +345,7 @@ class StructuralAnomalyDetector:
             edge_labels.add(edge.label)
         label_list = list(edge_labels)
         for i, label_a in enumerate(label_list):
-            for label_b in label_list[i + 1:]:
+            for label_b in label_list[i + 1 :]:
                 if self._are_contradictory(label_a, label_b):
                     return 0.7
         learned = self._learned_opposition_score(node.id, label_list)
@@ -375,7 +374,7 @@ class StructuralAnomalyDetector:
                 for src in edge.source_ids:
                     label_node_sets.setdefault(edge.label, set()).add(src)
         for i, la in enumerate(labels):
-            for lb in labels[i + 1:]:
+            for lb in labels[i + 1 :]:
                 set_a = label_node_sets.get(la, set())
                 set_b = label_node_sets.get(lb, set())
                 if set_a and set_b:
@@ -487,16 +486,18 @@ class StructuralAnomalyDetector:
             return [{"status": "concept_not_found", "concept": concept}]
         neighbors = self._get_neighbor_labels(node.id)
         degree = len(self._graph.edges_for(node.id))
-        results.append({
-            "status": "low_risk",
-            "concept": concept,
-            "connections": neighbors[:10],
-            "confidence": 1.0 - min(1.0, len(neighbors) / 100.0),
-            "structural_features": {
-                "degree": degree,
-                "is_isolated": degree == 0,
-            },
-        })
+        results.append(
+            {
+                "status": "low_risk",
+                "concept": concept,
+                "connections": neighbors[:10],
+                "confidence": 1.0 - min(1.0, len(neighbors) / 100.0),
+                "structural_features": {
+                    "degree": degree,
+                    "is_isolated": degree == 0,
+                },
+            }
+        )
         return results
 
     def _boundary_aware_reasoning(
@@ -525,12 +526,14 @@ class StructuralAnomalyDetector:
                 assumption_dependent.append("High centrality claims depend on graph completeness")
             if indicator.contradiction_risk > 0.5:
                 assumption_dependent.append("Contradictory patterns require consistency assumptions")
-        results.append({
-            "status": "boundary",
-            "boundary_score": indicator.boundary_score,
-            "structural_conclusions": structural_conclusions,
-            "assumption_dependent": assumption_dependent,
-        })
+        results.append(
+            {
+                "status": "boundary",
+                "boundary_score": indicator.boundary_score,
+                "structural_conclusions": structural_conclusions,
+                "assumption_dependent": assumption_dependent,
+            }
+        )
         return results
 
     def _anomaly_aware_approach(
@@ -554,13 +557,15 @@ class StructuralAnomalyDetector:
             "coverage_upper": report.coverage_upper,
             "branch_coverage": report.branch_coverage,
         }
-        results.append({
-            "status": "anomalous",
-            "boundary_score": indicator.boundary_score,
-            "approach": "exploration_based_analysis",
-            "extended_neighborhood": report.expanded_nodes[:10],
-            "exploration_report": report_dict,
-        })
+        results.append(
+            {
+                "status": "anomalous",
+                "boundary_score": indicator.boundary_score,
+                "approach": "exploration_based_analysis",
+                "extended_neighborhood": report.expanded_nodes[:10],
+                "exploration_report": report_dict,
+            }
+        )
         return results
 
     def _generate_warnings(self, indicator: BoundaryIndicator) -> list[str]:
@@ -584,8 +589,7 @@ class StructuralAnomalyDetector:
         node = self._find_concept_node(concept)
         if node:
             neighbors = self._get_neighbor_labels(node.id)
-            for neighbor in neighbors[:3]:
-                formulations.append(f"Related low-risk problem: '{neighbor}'")
+            formulations.extend(f"Related low-risk problem: '{neighbor}'" for neighbor in neighbors[:3])
         return formulations
 
     def _structural_analysis(self, concept: str, indicator: BoundaryIndicator) -> list[str]:
@@ -684,7 +688,7 @@ class StructuralAnomalyDetector:
             A new ExplorationReport with updated coverage and bounds.
         """
         new_assumptions = AssumptionSet()
-        for name, ax in report.assumptions_used.assumptions.items():
+        for ax in report.assumptions_used.assumptions.values():
             new_assumptions.add(ax)
         new_assumptions.add(assumption)
         node = self._find_concept_node(report.concept)
@@ -738,9 +742,9 @@ class StructuralAnomalyDetector:
         lower_pct = min(lower * 100.0, coverage)
         upper_pct = min(upper * 100.0, 100.0)
         merged_assumptions = AssumptionSet()
-        for name, asm in report_a.assumptions_used.assumptions.items():
+        for asm in report_a.assumptions_used.assumptions.values():
             merged_assumptions.add(asm)
-        for name, asm in report_b.assumptions_used.assumptions.items():
+        for asm in report_b.assumptions_used.assumptions.values():
             merged_assumptions.add(asm)
         merged_branch_cov = dict(report_a.branch_coverage)
         for label, cov in report_b.branch_coverage.items():
@@ -797,7 +801,6 @@ class StructuralAnomalyDetector:
         candidates.sort(key=lambda x: x[0], reverse=True)
         return [a for _, a in candidates[:top_k]]
 
-
     def precompute_boundaries(self, concepts: list[str]) -> dict[str, BoundaryIndicator]:
         """Batch-compute and cache boundary indicators for a list of concepts.
 
@@ -844,12 +847,14 @@ class StructuralAnomalyDetector:
         for concept in concepts:
             indicator = self.assess_anomaly(concept)
             status = "low_risk" if indicator.is_low_risk else ("boundary" if indicator.is_boundary else "anomalous")
-            self._boundary_regions.append(BoundaryRegion(
-                description=concept,
-                boundary_score=indicator.boundary_score,
-                indicator=indicator,
-                status=status,
-            ))
+            self._boundary_regions.append(
+                BoundaryRegion(
+                    description=concept,
+                    boundary_score=indicator.boundary_score,
+                    indicator=indicator,
+                    status=status,
+                )
+            )
         return self._boundary_regions
 
     @property
@@ -875,5 +880,3 @@ class StructuralAnomalyDetector:
             anomalous=anomalous,
             reasoning_history=len(self._reasoning_history),
         )
-
-

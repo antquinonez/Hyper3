@@ -1,9 +1,13 @@
 import time
+
+import numpy as np
 import pytest
+
 from hyper3 import (
     AbstractionLayer,
     EquivalenceEngine,
     EventLog,
+    GraphMaintenanceEngine,
     Hyperedge,
     Hypergraph,
     Hypernode,
@@ -11,9 +15,13 @@ from hyper3 import (
     Metadata,
     Modality,
     ObserverSlice,
-    GraphMaintenanceEngine,
     TraversalEngine,
 )
+from hyper3.memory import HypergraphMemory
+from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.retrieval_activation import SpreadingActivation
+from hyper3.rules import TransitiveRule
 
 
 class TestHypernode:
@@ -516,7 +524,7 @@ class TestGraphMaintenanceEngine:
     def test_decay_weights(self):
         g = self._build_graph()
         engine = GraphMaintenanceEngine(g, decay_threshold=0.1)
-        decayed = engine.decay_weights(factor=0.5)
+        engine.decay_weights(factor=0.5)
         a = g.get_node("a")
         assert a.weight == pytest.approx(0.5)
 
@@ -555,3 +563,1366 @@ class TestGraphMaintenanceEngine:
         engine.evolve()
         engine.evolve()
         assert engine.metrics.total_refinements == 2
+
+
+
+
+class TestHypernodeMatchesScalar:
+    def test_matches_bool_data(self):
+        a = Hypernode(data=True)
+        b = Hypernode(data=True)
+        assert a.matches(b) == 1.0
+
+    def test_matches_int_data(self):
+        a = Hypernode(data=42)
+        b = Hypernode(data=42)
+        assert a.matches(b) == 1.0
+
+    def test_matches_different_scalars(self):
+        a = Hypernode(data=42)
+        b = Hypernode(data=99)
+        assert a.matches(b) == 0.0
+
+
+class TestBatchMode:
+    def test_batch_mode_add_node(self):
+        g = Hypergraph()
+        g.begin_batch()
+        g.add_node(Hypernode(id="a", label="a"))
+        assert g._neighbor_cache is None
+        assert g._cache_invalidated_in_batch is True
+        g.end_batch()
+        assert g._batch_mode is False
+        assert g._neighbor_cache is None
+
+    def test_batch_mode_no_invalidation(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g._neighbor_cache = {"a": []}
+        g.begin_batch()
+        assert not g._cache_invalidated_in_batch
+        g.end_batch()
+        assert g._neighbor_cache == {"a": []}
+
+    def test_batch_mode_add_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.begin_batch()
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        assert g._cache_invalidated_in_batch
+        g.end_batch()
+        assert g._neighbor_cache is None
+
+    def test_batch_mode_remove_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.begin_batch()
+        g.remove_node("a")
+        assert g._cache_invalidated_in_batch
+        g.end_batch()
+        assert g._neighbor_cache is None
+
+    def test_batch_mode_remove_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.begin_batch()
+        g.remove_edge("e1")
+        assert g._cache_invalidated_in_batch
+        g.end_batch()
+        assert g._neighbor_cache is None
+
+
+class TestFindPaths:
+    def test_find_paths_missing_source(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="b"))
+        assert g.find_paths("missing", "b") == []
+
+    def test_find_paths_missing_target(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        assert g.find_paths("a", "missing") == []
+
+    def test_find_paths_max_depth_exceeded(self):
+        g = Hypergraph()
+        for lbl in "abcde":
+            g.add_node(Hypernode(id=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"e"})))
+        paths = g.find_paths("a", "e", max_depth=2)
+        assert paths == []
+
+    def test_find_paths_max_paths(self):
+        g = Hypergraph()
+        for lbl in "abcdef":
+            g.add_node(Hypernode(id=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"d"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"})))
+        paths = g.find_paths("a", "d", max_paths=1)
+        assert len(paths) <= 1
+
+    def test_find_paths_with_edge_label(self):
+        g = Hypergraph()
+        for lbl in "abc":
+            g.add_node(Hypernode(id=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="other"))
+        paths = g.find_paths("a", "c", edge_label="rel")
+        assert paths == []
+
+
+class TestPatternMatch:
+    def test_pattern_match_with_limit(self):
+        g = Hypergraph()
+        for i in range(20):
+            g.add_node(Hypernode(id=f"n{i}", label=f"label{i}"))
+            if i > 0:
+                g.add_edge(Hyperedge(
+                    source_ids=frozenset({f"n{i-1}"}),
+                    target_ids=frozenset({f"n{i}"}),
+                    label="rel",
+                ))
+        results = g.pattern_match(edge_label="rel", limit=5)
+        assert len(results) == 5
+
+    def test_pattern_match_source_and_target_labels(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="alpha"))
+        g.add_node(Hypernode(id="b", label="beta"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="causes",
+        ))
+        results = g.pattern_match(edge_label="causes", source_label="alpha", target_label="beta")
+        assert len(results) == 1
+        assert results[0][1]["source_label"] == "alpha"
+        assert results[0][1]["target_label"] == "beta"
+
+
+class TestLabeledEdges:
+    def test_labeled_edges_property(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="alpha"))
+        g.add_node(Hypernode(id="b", label="beta"))
+        g.add_edge(Hyperedge(
+            id="e1",
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="causes",
+            weight=2.0,
+            data={"key": "val"},
+        ))
+        edges = g.labeled_edges
+        assert len(edges) == 1
+        assert edges[0]["id"] == "e1"
+        assert edges[0]["label"] == "causes"
+        assert edges[0]["source_labels"] == ["alpha"]
+        assert edges[0]["target_labels"] == ["beta"]
+        assert edges[0]["weight"] == 2.0
+        assert edges[0]["data"] == {"key": "val"}
+
+    def test_labeled_edges_empty_graph(self):
+        g = Hypergraph()
+        assert g.labeled_edges == []
+
+
+class TestDegreeCentrality:
+    def test_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        result = g.degree_centrality()
+        assert result == {"a": 1.0}
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.degree_centrality() == {}
+
+
+class TestBetweennessCentralityEmpty:
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.betweenness_centrality() == {}
+
+
+class TestHasCycleEmpty:
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.has_cycle() is False
+
+
+class TestDetectCycles:
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.detect_cycles() == []
+
+    def test_max_cycles_limit(self):
+        g = Hypergraph()
+        for i in range(6):
+            g.add_node(Hypernode(id=f"n{i}"))
+            if i > 0:
+                g.add_edge(Hyperedge(
+                    source_ids=frozenset({f"n{i}"}),
+                    target_ids=frozenset({f"n{i-1}"}),
+                ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"n0"}),
+            target_ids=frozenset({"n5"}),
+        ))
+        cycles = g.detect_cycles(max_cycles=1)
+        assert len(cycles) <= 1
+
+
+class TestShortestPath:
+    def test_missing_nodes(self):
+        g = Hypergraph()
+        assert g.shortest_path("a", "b") is None
+
+    def test_unweighted(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        path = g.shortest_path("a", "b", weighted=False)
+        assert path == ["a", "b"]
+
+
+class TestMergeNode:
+    def test_merge_missing_primary(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="s"))
+        assert g.merge_node("missing", "s") is None
+
+    def test_merge_missing_secondary(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="p"))
+        assert g.merge_node("p", "missing") is None
+
+    def test_merge_transfers_modality_tags(self):
+        g = Hypergraph()
+        p = Hypernode(id="p", label="primary", metadata=Metadata(modality_tags={Modality.CONCEPTUAL}))
+        s = Hypernode(id="s", label="secondary", metadata=Metadata(modality_tags={Modality.TEMPORAL}))
+        g.add_node(p)
+        g.add_node(s)
+        g.merge_node("p", "s")
+        assert Modality.TEMPORAL in p.metadata.modality_tags
+        assert Modality.CONCEPTUAL in p.metadata.modality_tags
+
+    def test_merge_same_label_no_alias(self):
+        g = Hypergraph()
+        p = Hypernode(id="p", label="same")
+        s = Hypernode(id="s", label="same")
+        g.add_node(p)
+        g.add_node(s)
+        g.merge_node("p", "s")
+        assert "aliases" not in p.metadata.custom
+
+
+class TestDirectedEdgeAccessors:
+    def test_outgoing_edges(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="out"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"}), label="in"))
+        out = g.outgoing_edges("a")
+        assert len(out) == 1
+        assert out[0].label == "out"
+
+    def test_incoming_edges(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="out"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"}), label="in"))
+        inc = g.incoming_edges("a")
+        assert len(inc) == 1
+        assert inc[0].label == "in"
+
+    def test_out_neighbors(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"})))
+        nbrs = g.out_neighbors("a")
+        assert set(nbrs) == {"b", "c"}
+
+    def test_in_neighbors(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"a"})))
+        nbrs = g.in_neighbors("a")
+        assert set(nbrs) == {"b", "c"}
+
+    def test_out_neighbors_deduplicates(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="second"))
+        nbrs = g.out_neighbors("a")
+        assert nbrs == ["b"]
+
+    def test_in_neighbors_deduplicates(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="second"))
+        nbrs = g.in_neighbors("b")
+        assert nbrs == ["a"]
+
+    def test_out_neighbors_excludes_self(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"a"})))
+        assert g.out_neighbors("a") == []
+
+    def test_in_neighbors_excludes_self(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"a"})))
+        assert g.in_neighbors("a") == []
+
+
+class TestIncidenceMatrix:
+    def test_basic_incidence(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        H, nodes, edges = g.incidence_matrix()
+        assert H.shape == (2, 1)
+        a_idx = nodes.index("a")
+        b_idx = nodes.index("b")
+        assert H[a_idx, 0] == 1.0
+        assert H[b_idx, 0] == -1.0
+
+    def test_empty_graph_incidence(self):
+        g = Hypergraph()
+        H, nodes, edges = g.incidence_matrix()
+        assert H.shape == (0, 0)
+        assert nodes == []
+        assert edges == []
+
+
+class TestHypergraphLaplacian:
+    def test_empty_graph(self):
+        g = Hypergraph()
+        L = g.hypergraph_laplacian()
+        assert L.shape == (0, 0)
+
+    def test_single_node_no_edges(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        L = g.hypergraph_laplacian()
+        assert L.shape == (1, 1)
+        assert L[0, 0] == 0.0
+
+    def test_two_nodes_one_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            weight=2.0,
+        ))
+        L = g.hypergraph_laplacian()
+        assert L.shape == (2, 2)
+        assert L[0, 0] > 0
+        assert L[1, 1] > 0
+
+
+class TestGetNodeByLabel:
+    def test_unlabeled_node_not_in_index(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label=""))
+        assert g.get_node_by_label("anything") is None
+
+    def test_label_overwrites_previous(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="x"))
+        g.add_node(Hypernode(id="b", label="x"))
+        found = g.get_node_by_label("x")
+        assert found.id == "b"
+
+
+class TestMergeNodeEdgeRewire:
+    def test_merge_creates_self_loop_edge(self):
+        g = Hypergraph()
+        p = Hypernode(id="p", label="p")
+        s = Hypernode(id="s", label="s")
+        g.add_node(p)
+        g.add_node(s)
+        edge = Hyperedge(
+            id="e1",
+            source_ids=frozenset({"s"}),
+            target_ids=frozenset({"p"}),
+        )
+        g.add_edge(edge)
+        g.merge_node("p", "s")
+        assert "p" in edge.source_ids
+        assert "p" in edge.target_ids
+
+
+class TestNodeDegree:
+    def test_node_degree(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"})))
+        assert g.node_degree("a") == 2
+        assert g.node_degree("b") == 1
+        assert g.node_degree("c") == 1
+
+    def test_degree_distribution(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        g.add_node(Hypernode(id="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"})))
+        dist = g.degree_distribution()
+        assert dist[2] == 1
+        assert dist[1] == 2
+
+
+"""Tests for hypergraph-native algorithms and n-ary edge support."""
+
+
+
+
+
+def _make_graph_with_edges():
+    g = Hypergraph()
+    a = Hypernode(label="A")
+    b = Hypernode(label="B")
+    c = Hypernode(label="C")
+    d = Hypernode(label="D")
+    for n in [a, b, c, d]:
+        g.add_node(n)
+    g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="rel", weight=2.0))
+    g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="rel", weight=3.0))
+    g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({d.id}), label="rel", weight=1.0))
+    return g, a, b, c, d
+
+
+def _make_hyperedge_graph():
+    g = Hypergraph()
+    a = Hypernode(label="A")
+    b = Hypernode(label="B")
+    c = Hypernode(label="C")
+    d = Hypernode(label="D")
+    e = Hypernode(label="E")
+    for n in [a, b, c, d, e]:
+        g.add_node(n)
+    g.add_edge(Hyperedge(
+        source_ids=frozenset({a.id, b.id}),
+        target_ids=frozenset({c.id, d.id}),
+        label="joint_produces",
+        weight=2.0,
+    ))
+    g.add_edge(Hyperedge(
+        source_ids=frozenset({c.id}),
+        target_ids=frozenset({e.id}),
+        label="leads_to",
+        weight=1.0,
+    ))
+    g.add_edge(Hyperedge(
+        source_ids=frozenset({d.id, e.id}),
+        target_ids=frozenset({a.id}),
+        label="feeds_back",
+        weight=1.5,
+    ))
+    return g, a, b, c, d, e
+
+
+class TestNaryEdgeCreation:
+    def test_create_and_query_hyperedge(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        hyperedges = [edge for edge in g.edges if len(edge.source_ids) > 1 or len(edge.target_ids) > 1]
+        assert len(hyperedges) == 2
+        joint = next(e for e in hyperedges if e.label == "joint_produces")
+        assert joint.source_ids == frozenset({a.id, b.id})
+        assert joint.target_ids == frozenset({c.id, d.id})
+
+    def test_relate_hyperedge_via_memory(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("gene_a")
+        mem.store("gene_b")
+        mem.store("protein_complex")
+        mem.store("pathway")
+        edge = mem.relate_hyperedge(
+            {"gene_a", "gene_b"},
+            {"protein_complex", "pathway"},
+            label="jointly_encodes",
+            weight=5.0,
+        )
+        assert edge.weight == 5.0
+        assert len(edge.source_ids) == 2
+        assert len(edge.target_ids) == 2
+        assert edge.label == "jointly_encodes"
+
+    def test_query_hyperedges_by_cardinality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        mem.store("z")
+        mem.relate("x", "y", label="pair")
+        mem.relate_hyperedge({"x", "y"}, {"z"}, label="nary")
+
+        pairwise = mem.query_hyperedges(min_source_cardinality=1, min_target_cardinality=1)
+        assert len(pairwise) == 2
+
+        nary_only = mem.query_hyperedges(min_source_cardinality=2)
+        assert len(nary_only) == 1
+        assert nary_only[0].label == "nary"
+
+    def test_query_hyperedges_by_containing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
+        mem.relate("a", "b", label="ab")
+
+        edges_with_a = mem.query_hyperedges(containing="a")
+        assert len(edges_with_a) == 2
+
+        edges_with_c = mem.query_hyperedges(containing="c")
+        assert len(edges_with_c) == 1
+        assert edges_with_c[0].label == "abc"
+
+    def test_hyperedge_neighbors(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        nbrs = g.hyperedge_neighbors(a.id)
+        assert b.id in nbrs
+        assert c.id in nbrs
+        assert d.id in nbrs
+        assert len(nbrs[b.id]) == 1
+        assert len(nbrs[c.id]) == 1
+
+    def test_hyperedge_neighbors_via_memory(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate_hyperedge({"a", "b"}, {"c"}, label="joint")
+        nbrs = mem.hyperedge_neighbors("a")
+        assert "b" in nbrs
+        assert "c" in nbrs
+
+
+class TestStar:
+    def test_star_returns_incident_edges(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        edges = g.star(b.id)
+        assert len(edges) == 2
+        labels = {e.label for e in edges}
+        assert labels == {"rel"}
+
+    def test_star_empty_for_unknown(self):
+        g = Hypergraph()
+        assert g.star("nonexistent") == []
+
+
+class TestHyperedgeCocoverage:
+    def test_cocoverage_counts(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        cov = g.hyperedge_cocoverage(a.id)
+        assert cov[b.id] == 1
+        assert cov[c.id] == 1
+        assert cov[d.id] == 2
+        assert cov[e.id] == 1
+
+
+class TestConnectedComponents:
+    def test_pairwise_components(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        comps = g.connected_components()
+        assert len(comps) == 1
+        assert {a.id, b.id, c.id, d.id} == comps[0]
+
+    def test_disconnected_components(self):
+        g = Hypergraph()
+        a, b, c, d = Hypernode(label="A"), Hypernode(label="B"), Hypernode(label="C"), Hypernode(label="D")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        comps = g.connected_components()
+        assert len(comps) == 3
+        sizes = sorted(len(c) for c in comps)
+        assert sizes == [1, 1, 2]
+
+    def test_hyperedge_connects_all_members(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        comps = g.connected_components()
+        assert len(comps) == 1
+        assert {a.id, b.id, c.id, d.id, e.id} == comps[0]
+
+    def test_s_components_high_s_splits(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        comps_s1 = g.connected_components(s=1)
+        assert len(comps_s1) == 1
+        comps_s3 = g.connected_components(s=3)
+        assert len(comps_s3) >= 2
+
+
+class TestShortestPathHypergraph:
+    def test_pairwise_shortest_path(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        path = g.shortest_path(a.id, d.id, weighted=False)
+        assert path is not None
+        assert path[0] == a.id
+        assert path[-1] == d.id
+        assert len(path) == 4
+
+    def test_no_path(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="A"), Hypernode(label="B")
+        g.add_node(a)
+        g.add_node(b)
+        assert g.shortest_path(a.id, b.id) is None
+
+    def test_weighted_shortest_path(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        path = g.shortest_path(a.id, d.id, weighted=True)
+        assert path is not None
+        assert path[0] == a.id
+        assert path[-1] == d.id
+
+    def test_hyperedge_shortest_path(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        path = g.shortest_path(a.id, e.id, weighted=False)
+        assert path is not None
+        assert path[0] == a.id
+        assert path[-1] == e.id
+
+    def test_same_node(self):
+        g, a, *_ = _make_graph_with_edges()
+        path = g.shortest_path(a.id, a.id)
+        assert path == [a.id]
+
+
+class TestCycleDetection:
+    def test_no_cycle(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        assert g.has_cycle() is False
+
+    def test_detect_cycle(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="A"), Hypernode(label="B"), Hypernode(label="C")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id})))
+        assert g.has_cycle() is True
+
+    def test_detect_cycles_returns_list(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="A"), Hypernode(label="B"), Hypernode(label="C")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id})))
+        cycles = g.detect_cycles()
+        assert len(cycles) >= 1
+
+    def test_hyperedge_cycle(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        assert g.has_cycle() is True
+
+
+class TestBetweennessCentrality:
+    def test_basic_centrality(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        bc = g.betweenness_centrality()
+        assert len(bc) == 4
+        assert all(0.0 <= v <= 1.0 for v in bc.values())
+        assert bc[b.id] > 0 or bc[c.id] > 0
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.betweenness_centrality() == {}
+
+    def test_approximate_with_sampling(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        bc = g.betweenness_centrality(max_samples=5)
+        assert len(bc) == 4
+
+
+class TestPageRank:
+    def test_basic_pagerank(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        pr = g.pagerank()
+        assert len(pr) == 4
+        total = sum(pr.values())
+        assert abs(total - 1.0) < 0.01
+
+    def test_pagerank_via_memory(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate("A", "B", label="rel")
+        mem.relate("B", "C", label="rel")
+        pr = mem.pagerank()
+        assert len(pr) == 3
+        total = sum(pr.values())
+        assert abs(total - 1.0) < 0.01
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        pr = g.pagerank()
+        assert pr == {}
+
+    def test_no_edges(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="A"), Hypernode(label="B")
+        g.add_node(a)
+        g.add_node(b)
+        pr = g.pagerank()
+        assert len(pr) == 2
+        assert abs(pr[a.id] - pr[b.id]) < 0.01
+
+
+class TestSPersistence:
+    def test_basic_filtration(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        filt = g.s_persistence()
+        assert len(filt.levels) >= 1
+        assert filt.levels[0].s == 1
+        assert filt.levels[0].num_components >= 1
+        if len(filt.levels) > 1:
+            assert filt.levels[-1].num_components >= filt.levels[0].num_components
+
+    def test_no_edges(self):
+        g = Hypergraph()
+        filt = g.s_persistence()
+        assert len(filt.levels) == 0
+        g2 = Hypergraph()
+        a = Hypernode(label="A")
+        g2.add_node(a)
+        filt2 = g2.s_persistence()
+        assert len(filt2.levels) == 1
+        assert filt2.levels[0].num_components == 1
+
+    def test_via_memory(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
+        filt = mem.s_persistence()
+        assert len(filt.levels) >= 1
+
+
+class TestHyperedgeSimilarity:
+    def test_jaccard_similarity(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        edges = list(g._edges.values())
+        e1 = edges[0]
+        result = g.hyperedge_similarity(e1.id, metric="jaccard")
+        assert len(result.similar_edges) > 0
+        assert all(0.0 <= score <= 1.0 for _, score in result.similar_edges)
+
+    def test_sorensen_dice(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        edges = list(g._edges.values())
+        e1 = edges[0]
+        result = g.hyperedge_similarity(e1.id, metric="sorensen_dice")
+        assert len(result.similar_edges) > 0
+
+    def test_top_k(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        edges = list(g._edges.values())
+        result = g.hyperedge_similarity(edges[0].id, top_k=1)
+        assert len(result.similar_edges) <= 1
+
+
+class TestSpectralEmbedding:
+    def test_basic_embedding(self):
+        g, a, b, c, d = _make_graph_with_edges()
+        se = g.spectral_embedding(dimensions=2)
+        assert len(se.node_ids) == 4
+        assert se.embeddings.shape[0] == 4
+        assert se.embeddings.shape[1] <= 2
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        se = g.spectral_embedding()
+        assert len(se.node_ids) == 0
+
+    def test_via_memory(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate("A", "B", label="r")
+        mem.relate("B", "C", label="r")
+        result = mem.spectral_embedding(dimensions=2)
+        assert "A" in result
+        assert "B" in result
+        assert "C" in result
+        assert len(result["A"]) <= 2
+
+
+class TestSpreadHyperedge:
+    def test_linear_mode(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate("A", "B", label="r")
+        mem.relate("B", "C", label="r")
+        results = mem.spread_hyperedge("A", energy=1.0, mode="linear", iterations=3)
+        labels = {r.label for r in results}
+        assert "B" in labels
+
+    def test_and_mode_requires_all_sources(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        results = mem.spread_hyperedge("A", energy=1.0, mode="and", iterations=3)
+        labels = {r.label for r in results}
+        assert "C" not in labels
+
+    def test_and_mode_succeeds_with_all_sources(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        if mem._activation is None:
+            mem._activation = SpreadingActivation(mem._graph)
+        mem._activation.clear()
+        a_node = mem._find_node("A")
+        b_node = mem._find_node("B")
+        mem._activation.stimulate(a_node.id, 1.0)
+        mem._activation.stimulate(b_node.id, 1.0)
+        mem._activation.spread_hyperedge(mode="and", iterations=3)
+        activated = mem._activation.get_activated()
+        labels = {r.label for r in activated}
+        assert "C" in labels
+
+    def test_or_mode(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        results = mem.spread_hyperedge("A", energy=1.0, mode="or", iterations=3)
+        labels = {r.label for r in results}
+        assert "C" in labels
+
+
+class TestIncidenceMatrixUnsigned:
+    def test_unsigned_incidence(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        H, node_ids, edge_ids = g.incidence_matrix_unsigned()
+        assert H.shape[0] == 5
+        assert H.shape[1] == 3
+        for val in H.flat:
+            assert val in (0.0, 1.0)
+        assert np.sum(H) > 0
+
+
+class TestGraphLevelMethods:
+    def test_s_connected_components(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        comps = g.s_connected_components(s=1)
+        assert len(comps) == 1
+        comps_high = g.s_connected_components(s=10)
+        assert len(comps_high) > 1
+
+    def test_incidence_matrix_with_nary(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        H, node_ids, edge_ids = g.incidence_matrix()
+        assert H.shape[0] == 5
+        assert H.shape[1] == 3
+        positive = np.sum(H > 0)
+        negative = np.sum(H < 0)
+        assert positive > 0
+        assert negative > 0
+
+    def test_laplacian_with_nary(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        L = g.hypergraph_laplacian()
+        assert L.shape == (5, 5)
+        assert np.allclose(L, L.T, atol=1e-10)
+
+
+
+
+
+class TestLabelIndex:
+    def test_get_node_by_label_found(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1", label="alpha"))
+        g.add_node(Hypernode(id="x2", label="beta"))
+        node = g.get_node_by_label("alpha")
+        assert node is not None
+        assert node.id == "x1"
+
+    def test_get_node_by_label_not_found(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1", label="alpha"))
+        assert g.get_node_by_label("gamma") is None
+
+    def test_get_node_by_label_empty_graph(self):
+        g = Hypergraph()
+        assert g.get_node_by_label("anything") is None
+
+    def test_label_index_updated_on_remove(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1", label="alpha"))
+        assert g.get_node_by_label("alpha") is not None
+        g.remove_node("x1")
+        assert g.get_node_by_label("alpha") is None
+
+    def test_label_index_on_merge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1", label="alpha"))
+        g.add_node(Hypernode(id="x2", label="beta"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"x1"}), target_ids=frozenset({"x2"}), label="rel"))
+        g.merge_node("x1", "x2")
+        assert g.get_node_by_label("alpha") is not None
+        assert g.get_node_by_label("beta") is None
+
+    def test_label_index_unlabeled_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1"))
+        assert g.get_node_by_label("") is None
+
+    def test_label_index_overwrite(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x1", label="alpha"))
+        g.add_node(Hypernode(id="x2", label="alpha"))
+        node = g.get_node_by_label("alpha")
+        assert node is not None
+        assert node.id in ("x1", "x2")
+
+
+class TestNeighborCache:
+    def test_neighbors_cached(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        nbrs1 = g.neighbors("a")
+        nbrs2 = g.neighbors("b")
+        assert "b" in nbrs1
+        assert "a" in nbrs2
+
+    def test_neighbor_cache_invalidated_on_add_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_node(Hypernode(id="c", label="c"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        assert g.neighbors("a") == ["b"]
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
+        nbrs = g.neighbors("a")
+        assert set(nbrs) == {"b", "c"}
+
+    def test_neighbor_cache_invalidated_on_remove_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        e = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel")
+        g.add_edge(e)
+        assert "b" in g.neighbors("a")
+        g.remove_edge(e.id)
+        assert g.neighbors("a") == []
+
+    def test_neighbor_cache_invalidated_on_remove_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        assert "b" in g.neighbors("a")
+        g.remove_node("b")
+        assert g.neighbors("a") == []
+
+
+class TestLeavesCache:
+    def test_leaves_cached(self):
+        mg = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"r"}))
+        mg.add_state(root)
+        s1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a"}), depth=1)
+        mg.add_state(s1)
+        leaves1 = mg.get_leaves()
+        leaves2 = mg.get_leaves()
+        assert leaves1 is leaves2
+        assert len(leaves1) == 1
+
+    def test_leaves_cache_invalidated(self):
+        mg = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"r"}))
+        mg.add_state(root)
+        mg.get_leaves()
+        s1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a"}), depth=1)
+        mg.add_state(s1)
+        leaves = mg.get_leaves()
+        assert len(leaves) == 1
+        assert leaves[0].id == s1.id
+
+
+class TestVectorizedInvariants:
+    def test_vectorized_matches_original(self):
+        g = Hypergraph()
+        for i in range(20):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        mg = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset(f"n{i}" for i in range(5)))
+        mg.add_state(root)
+        for i in range(10):
+            nodes = frozenset(f"n{i+j}" for j in range(5))
+            s = MultiwayState(parent_id=root.id, active_node_ids=nodes, depth=1)
+            mg.add_state(s)
+
+        engine = StateConvergenceEngine(g, mg, threshold=0.5)
+        pairs = engine.find_invariants()
+        for _a_id, _b_id, sim in pairs:
+            assert 0.0 <= sim <= 1.0
+
+    def test_vectorized_no_false_positives(self):
+        g = Hypergraph()
+        for i in range(10):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        mg = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"n0"}))
+        mg.add_state(root)
+        s1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"n1", "n2"}), depth=1)
+        s2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"n3", "n4"}), depth=1)
+        mg.add_state(s1)
+        mg.add_state(s2)
+        engine = StateConvergenceEngine(g, mg, threshold=0.7)
+        pairs = engine.find_invariants()
+        assert len(pairs) == 0
+
+
+class TestTransitiveRuleOptimization:
+    def test_edge_set_avoids_duplicates(self):
+        g = Hypergraph()
+        for i in range(5):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n1"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1"}), target_ids=frozenset({"n2"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n2"}), label="rel"))
+        rule = TransitiveRule(edge_label="rel")
+        active = frozenset(f"n{i}" for i in range(3))
+        matches = rule.find_matches(g, active)
+        assert len(matches) == 0
+
+    def test_edge_set_finds_new_transitive(self):
+        g = Hypergraph()
+        for i in range(4):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n1"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1"}), target_ids=frozenset({"n2"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n2"}), target_ids=frozenset({"n3"}), label="rel"))
+        rule = TransitiveRule(edge_label="rel")
+        active = frozenset(f"n{i}" for i in range(4))
+        matches = rule.find_matches(g, active)
+        assert len(matches) == 2
+
+
+class TestBatchMutation:
+    def test_batch_mode_defers_cache_invalidation(self):
+        g, nodes = _make_chain_graph()
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes[0].id}),
+                target_ids=frozenset({nodes[1].id}),
+                label="e",
+            )
+        )
+        _ = g.neighbors(nodes[0].id)
+        assert g._neighbor_cache is not None
+        g.begin_batch()
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes[1].id}),
+                target_ids=frozenset({nodes[2].id}),
+                label="e",
+            )
+        )
+        assert g._neighbor_cache is not None
+        assert g._cache_invalidated_in_batch is True
+        g.end_batch()
+        assert g._neighbor_cache is None
+        assert g._batch_mode is False
+
+    def test_batch_mode_restores_functionality(self):
+        g, nodes = _make_chain_graph()
+        g.begin_batch()
+        for i in range(4):
+            g.add_edge(
+                Hyperedge(
+                    source_ids=frozenset({nodes[i].id}),
+                    target_ids=frozenset({nodes[i + 1].id}),
+                    label="next",
+                )
+            )
+        g.end_batch()
+        nbrs = g.neighbors(nodes[0].id)
+        assert len(nbrs) > 0
+
+    def test_non_batch_mode_invalidates_immediately(self):
+        g, nodes = _make_chain_graph()
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes[0].id}),
+                target_ids=frozenset({nodes[1].id}),
+                label="e",
+            )
+        )
+        _ = g.neighbors(nodes[0].id)
+        assert g._neighbor_cache is not None
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes[1].id}),
+                target_ids=frozenset({nodes[2].id}),
+                label="e",
+            )
+        )
+        assert g._neighbor_cache is None
+
+
+class TestPathQueries:
+    def test_find_paths_basic(self):
+        g, a, b, c, d = _make_path_graph()
+        paths = g.find_paths(a.id, d.id)
+        assert len(paths) >= 1
+        for path in paths:
+            assert path[0] == a.id
+            assert path[-1] == d.id
+
+    def test_find_paths_with_label(self):
+        g, a, b, c, d = _make_path_graph()
+        paths = g.find_paths(a.id, d.id, edge_label="next")
+        assert len(paths) >= 1
+        assert any(len(p) == 4 for p in paths)
+
+    def test_find_paths_no_path(self):
+        g = Hypergraph()
+        x, y = Hypernode(label="x"), Hypernode(label="y")
+        g.add_node(x)
+        g.add_node(y)
+        paths = g.find_paths(x.id, y.id)
+        assert paths == []
+
+    def test_find_paths_max_paths(self):
+        g, a, b, c, d = _make_path_graph()
+        paths = g.find_paths(a.id, d.id, max_paths=1)
+        assert len(paths) <= 1
+
+    def test_pattern_match_by_label(self):
+        g, a, b, c, d = _make_path_graph()
+        matches = g.pattern_match(edge_label="skip")
+        assert len(matches) == 1
+        edge, bindings = matches[0]
+        assert edge.label == "skip"
+
+    def test_pattern_match_by_source_target(self):
+        g, a, b, c, d = _make_path_graph()
+        matches = g.pattern_match(source_label="a", target_label="d")
+        assert len(matches) >= 1
+
+
+class TestEquivalenceBlocking:
+    def test_blocking_reduces_comparisons(self):
+        g = Hypergraph()
+        for i in range(10):
+            g.add_node(Hypernode(label=f"dict_{i}", data={"type": "a", "val": i}))
+            g.add_node(Hypernode(label=f"str_{i}", data="same_string"))
+            g.add_node(Hypernode(label=f"none_{i}", data=None))
+        engine = EquivalenceEngine(g, threshold=0.5)
+        pairs = engine.find_equivalences()
+        assert len(pairs) > 0
+        for _a_id, _b_id, score in pairs:
+            assert score >= 0.5
+
+    def test_blocking_key_groups(self):
+        g = Hypergraph()
+        for i in range(5):
+            g.add_node(Hypernode(label=f"d{i}", data={"x": 1, "y": 2}))
+            g.add_node(Hypernode(label=f"s{i}", data="hello"))
+            g.add_node(Hypernode(label=f"n{i}"))
+        engine = EquivalenceEngine(g, threshold=0.5)
+        pairs = engine.find_equivalences()
+        assert len(pairs) > 0
+
+
+class TestSubgraphExtraction:
+    def test_subgraph_includes_only_specified_nodes(self):
+        g, nodes = _make_graph_wave2()
+        sg = g.subgraph({nodes[0].id, nodes[1].id, nodes[2].id})
+        assert sg.node_count == 3
+        assert sg.edge_count == 2
+
+    def test_subgraph_excludes_external_edges(self):
+        g, nodes = _make_graph_wave2()
+        sg = g.subgraph({nodes[0].id, nodes[1].id})
+        assert sg.node_count == 2
+        assert sg.edge_count == 1
+
+    def test_subgraph_empty_set(self):
+        g, nodes = _make_graph_wave2()
+        sg = g.subgraph(set())
+        assert sg.node_count == 0
+
+    def test_subgraph_preserves_labels(self):
+        g, nodes = _make_graph_wave2()
+        sg = g.subgraph({nodes[0].id, nodes[1].id})
+        assert sg.get_node_by_label("n0") is not None
+        assert sg.get_node_by_label("n1") is not None
+
+
+class TestGraphAnalytics:
+    def test_degree_centrality(self):
+        g, nodes = _make_graph_wave2()
+        dc = g.degree_centrality()
+        assert nodes[1].id in dc
+        assert dc[nodes[1].id] > dc[nodes[5].id]
+
+    def test_betweenness_centrality(self):
+        g, nodes = _make_graph_wave2()
+        bc = g.betweenness_centrality()
+        assert isinstance(bc, dict)
+        assert len(bc) == 6
+
+    def test_connected_components(self):
+        g, nodes = _make_graph_wave2()
+        components = g.connected_components()
+        assert len(components) == 3
+
+    def test_has_cycle_false(self):
+        g, nodes = _make_graph_wave2()
+        assert g.has_cycle() is False
+
+    def test_has_cycle_true(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="e"))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="e"))
+        assert g.has_cycle() is True
+
+    def test_detect_cycles(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="e"))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="e"))
+        cycles = g.detect_cycles()
+        assert len(cycles) > 0
+
+    def test_shortest_path(self):
+        g, nodes = _make_graph_wave2()
+        path = g.shortest_path(nodes[0].id, nodes[2].id, weighted=False)
+        assert path is not None
+        assert len(path) == 3
+        assert path[0] == nodes[0].id
+        assert path[-1] == nodes[2].id
+
+    def test_shortest_path_no_path(self):
+        g, nodes = _make_graph_wave2()
+        path = g.shortest_path(nodes[0].id, nodes[5].id, weighted=False)
+        assert path is None
+
+    def test_degree_distribution(self):
+        g, nodes = _make_graph_wave2()
+        dist = g.degree_distribution()
+        assert isinstance(dist, dict)
+        assert sum(dist.values()) == 6
+
+    def test_node_degree(self):
+        g, nodes = _make_graph_wave2()
+        assert g.node_degree(nodes[1].id) >= 2
+        assert g.node_degree(nodes[5].id) == 0
+
+
+
+def _make_chain_graph():
+    g = Hypergraph()
+    nodes = []
+    for i in range(5):
+        n = Hypernode(label=f"n{i}")
+        g.add_node(n)
+        nodes.append(n)
+    return g, nodes
+
+
+
+def _make_path_graph():
+    g = Hypergraph()
+    a, b, c, d = (
+        Hypernode(label="a"),
+        Hypernode(label="b"),
+        Hypernode(label="c"),
+        Hypernode(label="d"),
+    )
+    g.add_node(a)
+    g.add_node(b)
+    g.add_node(c)
+    g.add_node(d)
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="next"
+        )
+    )
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="next"
+        )
+    )
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({c.id}), target_ids=frozenset({d.id}), label="next"
+        )
+    )
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({a.id}), target_ids=frozenset({d.id}), label="skip"
+        )
+    )
+    return g, a, b, c, d
+
+
+
+def _make_graph_wave2():
+    g = Hypergraph()
+    nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+    for n in nodes:
+        g.add_node(n)
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), label="e"))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), label="e"))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id}), target_ids=frozenset({nodes[4].id}), label="e"))
+    return g, nodes
+

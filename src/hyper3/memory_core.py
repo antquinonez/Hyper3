@@ -3,6 +3,8 @@ from __future__ import annotations
 import time
 from typing import Any
 
+from hyper3.event_log import EventLog
+from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.kernel import (
     AbstractionLayer,
     Hyperedge,
@@ -11,14 +13,11 @@ from hyper3.kernel import (
     Metadata,
     Modality,
 )
-from hyper3.event_log import EventLog
-from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import EvolveResult, MergeReport
 
 
 class CoreMixin(_MemoryBase):
-
     @property
     def graph(self) -> Hypergraph:
         """The underlying hypergraph data structure."""
@@ -106,8 +105,10 @@ class CoreMixin(_MemoryBase):
                 self._evolution.reinforce(node.id)
 
         candidates = [
-            n for n in self._graph.nodes
-            if n.label == concept or (n.metadata.custom.get("aliases") and concept in n.metadata.custom.get("aliases", []))
+            n
+            for n in self._graph.nodes
+            if n.label == concept
+            or (n.metadata.custom.get("aliases") and concept in n.metadata.custom.get("aliases", []))
         ]
 
         if not candidates:
@@ -347,10 +348,7 @@ class CoreMixin(_MemoryBase):
         if not node:
             return {}
         raw = self._graph.hyperedge_neighbors(node.id)
-        return {
-            self._node_label(nid): edges
-            for nid, edges in raw.items()
-        }
+        return {self._node_label(nid): edges for nid, edges in raw.items()}
 
     def relate(
         self,
@@ -466,16 +464,10 @@ class CoreMixin(_MemoryBase):
             return []
 
         if modality:
-            return self._traversal.traverse_dimension(
-                node.id, modality, max_depth=max_depth, max_nodes=max_nodes
-            )
+            return self._traversal.traverse_dimension(node.id, modality, max_depth=max_depth, max_nodes=max_nodes)
         if strategy == "dfs":
-            return self._traversal.traverse_depth_first(
-                node.id, max_depth=max_depth, max_nodes=max_nodes
-            )
-        return self._traversal.traverse_breadth_first(
-            node.id, max_depth=max_depth, max_nodes=max_nodes
-        )
+            return self._traversal.traverse_depth_first(node.id, max_depth=max_depth, max_nodes=max_nodes)
+        return self._traversal.traverse_breadth_first(node.id, max_depth=max_depth, max_nodes=max_nodes)
 
     def evolve(self) -> EvolveResult:
         """Run a manual evolution cycle (decay, prune, merge, reinforce).
@@ -487,7 +479,7 @@ class CoreMixin(_MemoryBase):
         report = self._evolution.evolve()
         self._cache.evict_expired()
         convergence_report: MergeReport | None = None
-        if hasattr(self, '_convergence_engine') and self._convergence_engine:
+        if hasattr(self, "_convergence_engine") and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()
         self._log.record("evolve", report=report, convergence=convergence_report)
 
@@ -495,7 +487,7 @@ class CoreMixin(_MemoryBase):
         edge_count = self._graph.edge_count
         total = node_count + edge_count
         fitness = 1.0 - (report.pruned / max(total, 1)) * 0.1
-        if hasattr(self, '_feedback') and self._feedback is not None:
+        if hasattr(self, "_feedback") and self._feedback is not None:
             self._feedback.record_evolution_outcome(fitness)
 
         return EvolveResult(
@@ -530,7 +522,7 @@ class CoreMixin(_MemoryBase):
         )
         self._cache.evict_expired()
         convergence_report: MergeReport | None = None
-        if hasattr(self, '_convergence_engine') and self._convergence_engine:
+        if hasattr(self, "_convergence_engine") and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()
         self._log.record("evolve_with_feedback", report=report, convergence=convergence_report)
 
@@ -571,11 +563,11 @@ class CoreMixin(_MemoryBase):
         """Increment the operation counter and trigger evolution if the interval is reached."""
         self._operation_count += 1
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
-            if hasattr(self, '_feedback') and self._feedback is not None:
-                result = self.evolve_with_feedback()
+            if hasattr(self, "_feedback") and self._feedback is not None:
+                self.evolve_with_feedback()
             else:
                 self.evolve()
-            if hasattr(self, '_meta') and self._meta:
+            if hasattr(self, "_meta") and self._meta:
                 self._meta.auto_tune()
 
     def _node_label(self, node_id: str) -> str:

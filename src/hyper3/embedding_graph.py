@@ -118,7 +118,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         for node in nodes:
             degree = len(self._graph.edges_for(node.id))
             degree_counts[node_idx[node.id]] = max(degree, 1)
-        self._neg_sampling_probs = degree_counts ** 0.75
+        self._neg_sampling_probs = degree_counts**0.75
         self._neg_sampling_probs /= self._neg_sampling_probs.sum()
 
         w_in: dict[int, np.ndarray] = {}
@@ -144,8 +144,12 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
                             continue
                         ctx_idx = indices[ctx_pos]
                         self._sgns_update(
-                            w_in, w_out, target_idx, ctx_idx,
-                            n_nodes, lr,
+                            w_in,
+                            w_out,
+                            target_idx,
+                            ctx_idx,
+                            n_nodes,
+                            lr,
                         )
 
         for idx, nid in enumerate(self._node_list):
@@ -236,7 +240,8 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         w_out[context_idx] = w_out[context_idx] + g * target_vec
 
         neg_indices = self._rng.choice(
-            n_nodes, size=self._neg_samples,
+            n_nodes,
+            size=self._neg_samples,
             p=self._neg_sampling_probs,
         )
         for neg_idx in neg_indices:
@@ -275,7 +280,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         self._label_weights: dict[str, float] = {}
         self._idf_cache: dict[str, float] = {}
         self._projection: np.ndarray | None = None
-        self._projection = self._rng.randn(1024, self._dim).astype(np.float64) / (1024 ** 0.5)
+        self._projection = self._rng.randn(1024, self._dim).astype(np.float64) / (1024**0.5)
 
     def dimension(self) -> int:
         """Return the configured embedding dimensionality."""
@@ -355,14 +360,13 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
 
         two_hop_edges: list[Any] = []
         for edge in edges:
-            if node_id in edge.source_ids:
-                neighbors = edge.target_ids
-            else:
-                neighbors = edge.source_ids
-            for nid in neighbors:
-                for e2 in self._graph.edges_for(nid):
-                    if e2.id != edge.id:
-                        two_hop_edges.append(e2)
+            neighbors = edge.target_ids if node_id in edge.source_ids else edge.source_ids
+            two_hop_edges.extend(
+                e2
+                for nid in neighbors
+                for e2 in self._graph.edges_for(nid)
+                if e2.id != edge.id
+            )
 
         for e2 in two_hop_edges:
             label_idf = self._idf_cache.get(e2.label, 1.0)
@@ -375,15 +379,10 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
                 tag_feat = self._hash_feature(f"modality:{tag.value}", "meta")
                 sparse[tag_feat] += 1.0
             if node.metadata.abstraction_layer:
-                layer_feat = self._hash_feature(
-                    f"layer:{node.metadata.abstraction_layer.value}", "meta"
-                )
+                layer_feat = self._hash_feature(f"layer:{node.metadata.abstraction_layer.value}", "meta")
                 sparse[layer_feat] += 1.0
 
-        if self._projection is not None:
-            result = sparse @ self._projection
-        else:
-            result = sparse[: self._dim]
+        result = sparse @ self._projection if self._projection is not None else sparse[: self._dim]
 
         norm = np.linalg.norm(result)
         if norm > 0:
@@ -483,7 +482,7 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
             Unit-normalized combined embedding vector.
         """
         parts: list[np.ndarray] = []
-        for provider, weight in zip(self._providers, self._weights):
+        for provider, weight in zip(self._providers, self._weights, strict=False):
             vec = provider.embed(text)
             parts.append(vec * weight)
         if not parts:
@@ -511,11 +510,8 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
             Unit-normalized combined embedding vector.
         """
         parts: list[np.ndarray] = []
-        for provider, weight in zip(self._providers, self._weights):
-            if hasattr(provider, "embed_node"):
-                vec = provider.embed_node(node_id, text)
-            else:
-                vec = provider.embed(text)
+        for provider, weight in zip(self._providers, self._weights, strict=False):
+            vec = provider.embed_node(node_id, text) if hasattr(provider, "embed_node") else provider.embed(text)
             parts.append(vec * weight)
         if not parts:
             return np.zeros(self.dimension())
@@ -550,11 +546,8 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
             node = graph.get_node(nid)
             label = node.label if node else ""
             parts: list[np.ndarray] = []
-            for provider, weight in zip(self._providers, self._weights):
-                if hasattr(provider, "embed_node"):
-                    vec = provider.embed_node(nid, label)
-                else:
-                    vec = provider.embed(label)
+            for provider, weight in zip(self._providers, self._weights, strict=False):
+                vec = provider.embed_node(nid, label) if hasattr(provider, "embed_node") else provider.embed(label)
                 parts.append(vec * weight)
             matrix.append(np.concatenate(parts))
         mat = np.array(matrix)

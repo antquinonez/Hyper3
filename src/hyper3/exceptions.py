@@ -1,5 +1,6 @@
 class Hyper3Error(Exception):
     """Base exception for all Hyper3 errors."""
+
     pass
 
 

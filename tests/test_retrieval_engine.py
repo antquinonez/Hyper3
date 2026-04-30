@@ -1,6 +1,6 @@
+from hyper3.embedding import EmbeddingEngine, HashEmbeddingProvider
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.retrieval_activation import ActivationConfig, SpreadingActivation
-from hyper3.embedding import EmbeddingEngine, HashEmbeddingProvider
 from hyper3.retrieval_engine import (
     FeedbackStore,
     LearningToRank,

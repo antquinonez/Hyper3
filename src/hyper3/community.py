@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.results import _SimpleResultBase
@@ -79,7 +78,9 @@ class CommunityDetector:
 
         if weighted_fallback and result.modularity < 0:
             weighted = self.detect_weighted_label_propagation(
-                max_iterations=max_iterations, seed=seed, edge_label=edge_label,
+                max_iterations=max_iterations,
+                seed=seed,
+                edge_label=edge_label,
             )
             if weighted.modularity > result.modularity:
                 return weighted
@@ -139,7 +140,8 @@ class CommunityDetector:
         return self._build_result(labels, neighbor_map)
 
     def _build_neighbor_map(
-        self, edge_label: str | None,
+        self,
+        edge_label: str | None,
     ) -> dict[str, list[tuple[str, float]]]:
         neighbor_map: dict[str, list[tuple[str, float]]] = {}
         for node in self._graph.nodes:
@@ -199,15 +201,17 @@ class CommunityDetector:
                 node = self._graph.get_node(nid)
                 member_labels.append(node.label if node else nid[:8])
 
-            communities.append(Community(
-                community_id=cid,
-                member_ids=members,
-                member_labels=member_labels,
-                size=len(members),
-                internal_edges=internal,
-                external_edges=external,
-                modularity_contribution=mod_contrib,
-            ))
+            communities.append(
+                Community(
+                    community_id=cid,
+                    member_ids=members,
+                    member_labels=member_labels,
+                    size=len(members),
+                    internal_edges=internal,
+                    external_edges=external,
+                    modularity_contribution=mod_contrib,
+                )
+            )
 
         communities.sort(key=lambda c: c.size, reverse=True)
 

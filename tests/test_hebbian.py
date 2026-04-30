@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hyper3 import HypergraphMemory
-from hyper3.hebbian import HebbianLearner, HebbianConfig
+from hyper3.hebbian import HebbianConfig, HebbianLearner
 
 
 class TestHebbianBasic:

@@ -296,7 +296,7 @@ class TestSystemSnapshotComplexAmplitudes:
         mem2.load_state(str(tmp_path_fixture))
 
         restored_qs = list(mem2._belief._states.values())[0]
-        for orig, restored in zip(pre_amps, restored_qs.outcomes):
+        for orig, restored in zip(pre_amps, restored_qs.outcomes, strict=False):
             assert abs(abs(orig) - abs(restored.amplitude)) < 1e-10
 
 
@@ -304,7 +304,7 @@ class TestSystemSnapshotDict:
 
     def test_to_dict_and_from_dict(self, mem):
         _populate_memory(mem)
-        qs = mem.create_distribution(["alpha", "beta"])
+        mem.create_distribution(["alpha", "beta"])
         mem._provenance.record_inference("e1", "rule1")
 
         snap = capture_snapshot(

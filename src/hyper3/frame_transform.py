@@ -259,7 +259,6 @@ _FRAMES = {"classical", "quantum", "hypergraph", "probabilistic"}
 
 
 class FrameTransformer:
-
     def transform(
         self,
         from_frame: str,
@@ -288,10 +287,13 @@ class FrameTransformer:
         params = parameters or {}
         if from_frame == to_frame:
             return TransformedConfig(
-                algorithm="bfs" if from_frame == "classical" else
-                          "superposition" if from_frame == "quantum" else
-                          "pattern_match" if from_frame == "hypergraph" else
-                          "probabilistic",
+                algorithm="bfs"
+                if from_frame == "classical"
+                else "superposition"
+                if from_frame == "quantum"
+                else "pattern_match"
+                if from_frame == "hypergraph"
+                else "probabilistic",
                 max_depth=max_depth,
                 max_branches=max_branches,
                 max_total_states=max_total_states,

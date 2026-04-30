@@ -6,16 +6,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from hyper3.kernel import Hypergraph
-from hyper3.event_log import EventLog
-from hyper3.cache import LazyCache
 from hyper3.belief import (
-    Outcome,
     BeliefLayer,
-    ConceptCorrelation,
     BeliefState,
+    ConceptCorrelation,
+    Outcome,
 )
-from hyper3.multiway import MultiwayEngine, MultiwayGraph, MultiwayState
+from hyper3.cache import LazyCache
+from hyper3.feedback import OperationFeedback
+from hyper3.kernel import Hypergraph
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer
+from hyper3.multiway import MultiwayEngine, MultiwayState
 from hyper3.multiway_branchial import (
     BranchialCluster,
     BranchialCoordinates,
@@ -24,16 +25,14 @@ from hyper3.multiway_branchial import (
 )
 from hyper3.multiway_rulial import (
     DetectedPattern,
+    HighLevelInsight,
     RulialPosition,
     RulialSpace,
-    HighLevelInsight,
 )
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
-from hyper3.retrieval_engine import FeedbackRecord, FeedbackStore, LearningToRank, RetrievalEngine
-from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.system_monitor import SystemHealthModel, SystemMonitor
-from hyper3.feedback import OperationFeedback
+from hyper3.retrieval_engine import FeedbackRecord, RetrievalEngine
 from hyper3.rules import Rule
+from hyper3.system_monitor import SystemHealthModel, SystemMonitor
 
 SNAPSHOT_VERSION = 1
 
@@ -110,7 +109,11 @@ class SystemSnapshot:
             if f in remapped:
                 val = remapped[f]
                 if f == "cache_items":
-                    val = [(item[0], item[1], item[2]) for item in val if isinstance(item, (list, tuple)) and len(item) >= 3]
+                    val = [
+                        (item[0], item[1], item[2])
+                        for item in val
+                        if isinstance(item, (list, tuple)) and len(item) >= 3
+                    ]
                 kwargs[f] = val
         return cls(**kwargs)
 
@@ -162,33 +165,38 @@ def capture_snapshot(
     """
     snap = SystemSnapshot(saved_at=time.time())
     for qs in belief._states.values():
-        interps = []
-        for interp in qs.outcomes:
-            interps.append({
+        interps = [
+            {
                 "node_id": interp.node_id,
                 "amplitude": _serialize_amplitude(interp.amplitude),
                 "metadata": interp.metadata,
                 "label": interp.label,
-            })
-        snap.belief_states.append({
-            "id": qs.id,
-            "outcomes": interps,
-            "created_at": qs.created_at,
-            "resolved": qs.resolved,
-            "resolved_to": qs.resolved_to,
-            "coherence_time": qs.coherence_time,
-            "base_coherence_time": qs.base_coherence_time,
-            "correlation_ids": qs.correlation_ids,
-        })
+            }
+            for interp in qs.outcomes
+        ]
+        snap.belief_states.append(
+            {
+                "id": qs.id,
+                "outcomes": interps,
+                "created_at": qs.created_at,
+                "resolved": qs.resolved,
+                "resolved_to": qs.resolved_to,
+                "coherence_time": qs.coherence_time,
+                "base_coherence_time": qs.base_coherence_time,
+                "correlation_ids": qs.correlation_ids,
+            }
+        )
 
     for corr in belief._correlations.values():
-        snap.belief_correlations.append({
-            "id": corr.id,
-            "group_a_node_ids": sorted(corr.group_a_node_ids),
-            "group_b_node_ids": sorted(corr.group_b_node_ids),
-            "correlation_matrix": [[k[0], k[1], v] for k, v in corr.correlation_matrix.items()],
-            "strength": corr.strength,
-        })
+        snap.belief_correlations.append(
+            {
+                "id": corr.id,
+                "group_a_node_ids": sorted(corr.group_a_node_ids),
+                "group_b_node_ids": sorted(corr.group_b_node_ids),
+                "correlation_matrix": [[k[0], k[1], v] for k, v in corr.correlation_matrix.items()],
+                "strength": corr.strength,
+            }
+        )
 
     snap.belief_basis_stats = dict(belief._basis_stats)
 
@@ -197,43 +205,51 @@ def capture_snapshot(
         root = mw.get_root()
         snap.multiway_root_id = root.id if root else None
         for state in mw.states:
-            snap.multiway_states.append({
-                "id": state.id,
-                "parent_id": state.parent_id,
-                "active_node_ids": sorted(state.active_node_ids),
-                "rule_applied": state.rule_applied,
-                "match_bindings": state.match_bindings,
-                "depth": state.depth,
-                "produced_node_ids": state.produced_node_ids,
-                "produced_edge_ids": state.produced_edge_ids,
-                "children_ids": state.children_ids,
-                "timestamp": state.timestamp,
-            })
+            snap.multiway_states.append(
+                {
+                    "id": state.id,
+                    "parent_id": state.parent_id,
+                    "active_node_ids": sorted(state.active_node_ids),
+                    "rule_applied": state.rule_applied,
+                    "match_bindings": state.match_bindings,
+                    "depth": state.depth,
+                    "produced_node_ids": state.produced_node_ids,
+                    "produced_edge_ids": state.produced_edge_ids,
+                    "children_ids": state.children_ids,
+                    "timestamp": state.timestamp,
+                }
+            )
 
     if branchial is not None:
         for sid, coords in branchial._coordinates.items():
-            snap.branchial_coordinates.append({
-                "state_id": sid,
-                "position": coords.position,
-                "depth": coords.depth,
-                "branch_index": coords.branch_index,
-            })
+            snap.branchial_coordinates.append(
+                {
+                    "state_id": sid,
+                    "position": coords.position,
+                    "depth": coords.depth,
+                    "branch_index": coords.branch_index,
+                }
+            )
         for key, metrics in branchial._distance_cache.items():
-            snap.branchial_distance_cache.append({
-                "key": list(key),
-                "structural": metrics.structural,
-                "conceptual": metrics.conceptual,
-                "computational": metrics.computational,
-                "evolutionary": metrics.evolutionary,
-            })
+            snap.branchial_distance_cache.append(
+                {
+                    "key": list(key),
+                    "structural": metrics.structural,
+                    "conceptual": metrics.conceptual,
+                    "computational": metrics.computational,
+                    "evolutionary": metrics.evolutionary,
+                }
+            )
         for cluster in branchial._clusters:
-            snap.branchial_clusters.append({
-                "id": cluster.id,
-                "state_ids": sorted(cluster.state_ids),
-                "label": cluster.label,
-                "centroid_state_id": cluster.centroid.state_id if cluster.centroid else None,
-                "centroid_position": cluster.centroid.position if cluster.centroid else [],
-            })
+            snap.branchial_clusters.append(
+                {
+                    "id": cluster.id,
+                    "state_ids": sorted(cluster.state_ids),
+                    "label": cluster.label,
+                    "centroid_state_id": cluster.centroid.state_id if cluster.centroid else None,
+                    "centroid_position": cluster.centroid.position if cluster.centroid else [],
+                }
+            )
 
     if rulial is not None:
         pos = rulial._position
@@ -245,58 +261,68 @@ def capture_snapshot(
             "timestamp": pos.timestamp,
         }
         for hist_pos in rulial._position_history:
-            snap.rulial_position_history.append({
-                "graph_activity_density": hist_pos.graph_activity_density,
-                "rule_application_frequency": hist_pos.rule_application_frequency,
-                "structural_complexity": hist_pos.structural_complexity,
-                "branchial_coordinates": hist_pos.branchial_coordinates,
-                "timestamp": hist_pos.timestamp,
-            })
+            snap.rulial_position_history.append(
+                {
+                    "graph_activity_density": hist_pos.graph_activity_density,
+                    "rule_application_frequency": hist_pos.rule_application_frequency,
+                    "structural_complexity": hist_pos.structural_complexity,
+                    "branchial_coordinates": hist_pos.branchial_coordinates,
+                    "timestamp": hist_pos.timestamp,
+                }
+            )
         snap.rulial_rule_outcomes = {k: dict(v) for k, v in rulial._rule_outcomes.items()}
         for pat in rulial._meta_patterns:
-            snap.rulial_meta_patterns.append({
-                "id": pat.id,
-                "pattern_type": pat.pattern_type,
-                "description": pat.description,
-                "occurrence_count": pat.occurrence_count,
-                "domains": sorted(pat.domains),
-                "abstract_structure": pat.abstract_structure,
-                "significance": pat.significance,
-            })
+            snap.rulial_meta_patterns.append(
+                {
+                    "id": pat.id,
+                    "pattern_type": pat.pattern_type,
+                    "description": pat.description,
+                    "occurrence_count": pat.occurrence_count,
+                    "domains": sorted(pat.domains),
+                    "abstract_structure": pat.abstract_structure,
+                    "significance": pat.significance,
+                }
+            )
         for insight in rulial._insights:
-            snap.rulial_insights.append({
-                "id": insight.id,
-                "principle": insight.principle,
-                "domain": insight.domain,
-                "evidence": insight.evidence,
-                "confidence": insight.confidence,
-                "timestamp": insight.timestamp,
-            })
+            snap.rulial_insights.append(
+                {
+                    "id": insight.id,
+                    "principle": insight.principle,
+                    "domain": insight.domain,
+                    "evidence": insight.evidence,
+                    "confidence": insight.confidence,
+                    "timestamp": insight.timestamp,
+                }
+            )
         snap.rulial_explored_rules = dict(rulial._explored_rules)
         snap.rulial_total_applications = rulial._total_applications
 
-    for edge_id, record in provenance._records.items():
-        snap.provenance_records.append({
-            "edge_id": record.edge_id,
-            "rule_name": record.rule_name,
-            "input_edge_ids": record.input_edge_ids,
-            "input_node_ids": record.input_node_ids,
-            "depth": record.depth,
-            "timestamp": record.timestamp,
-            "metadata": record.metadata,
-        })
+    for record in provenance._records.values():
+        snap.provenance_records.append(
+            {
+                "edge_id": record.edge_id,
+                "rule_name": record.rule_name,
+                "input_edge_ids": record.input_edge_ids,
+                "input_node_ids": record.input_node_ids,
+                "depth": record.depth,
+                "timestamp": record.timestamp,
+                "metadata": record.metadata,
+            }
+        )
     for edge_id, dep_ids in provenance._edge_to_dependents.items():
         snap.provenance_dependents[edge_id] = sorted(dep_ids)
 
     if hasattr(retrieval, "_feedback") and retrieval._feedback is not None:
         for rec in retrieval._feedback.records:
-            snap.retrieval_feedback.append({
-                "query": rec.query,
-                "node_id": rec.node_id,
-                "label": rec.label,
-                "relevant": rec.relevant,
-                "features": rec.features,
-            })
+            snap.retrieval_feedback.append(
+                {
+                    "query": rec.query,
+                    "node_id": rec.node_id,
+                    "label": rec.label,
+                    "relevant": rec.relevant,
+                    "features": rec.features,
+                }
+            )
     if hasattr(retrieval, "_ltr") and retrieval._ltr is not None:
         snap.retrieval_ltr_weights = dict(retrieval._ltr.weights)
 
@@ -315,21 +341,24 @@ def capture_snapshot(
     }
     snap.meta_introspection_log = list(meta._introspection_log)
     for plan in meta._tuning_history:
-        triggers = []
-        for t in plan.triggers:
-            triggers.append({
+        triggers = [
+            {
                 "trigger_type": t.trigger_type,
                 "description": t.description,
                 "urgency": t.urgency,
                 "timestamp": t.timestamp,
-            })
-        snap.meta_tuning_history.append({
-            "id": plan.id,
-            "triggers": triggers,
-            "actions": plan.actions,
-            "expected_improvement": plan.expected_improvement,
-            "risk_level": plan.risk_level,
-        })
+            }
+            for t in plan.triggers
+        ]
+        snap.meta_tuning_history.append(
+            {
+                "id": plan.id,
+                "triggers": triggers,
+                "actions": plan.actions,
+                "expected_improvement": plan.expected_improvement,
+                "risk_level": plan.risk_level,
+            }
+        )
 
     now = time.time()
     for key, (cached_at, value) in cache._cache.items():
@@ -339,14 +368,16 @@ def capture_snapshot(
 
     if feedback is not None:
         for signal in feedback._signals:
-            snap.feedback_signals.append({
-                "signal_type": signal.signal_type,
-                "node_id": signal.node_id,
-                "outcome": signal.outcome,
-                "confidence": signal.confidence,
-                "context": signal.context,
-                "timestamp": signal.timestamp,
-            })
+            snap.feedback_signals.append(
+                {
+                    "signal_type": signal.signal_type,
+                    "node_id": signal.node_id,
+                    "outcome": signal.outcome,
+                    "confidence": signal.confidence,
+                    "context": signal.context,
+                    "timestamp": signal.timestamp,
+                }
+            )
         snap.feedback_collapse_stats = {k: dict(v) for k, v in feedback._collapse_stats.items()}
         snap.feedback_retrieval_stats = {k: dict(v) for k, v in feedback._retrieval_stats.items()}
         snap.feedback_inference_stats = {k: dict(v) for k, v in feedback._inference_stats.items()}
@@ -407,14 +438,15 @@ def restore_snapshot(
     belief._basis_stats.clear()
 
     for state_data in snapshot.belief_states:
-        interps = []
-        for idata in state_data.get("outcomes", state_data.get("interpretations", [])):
-            interps.append(Outcome(
+        interps = [
+            Outcome(
                 node_id=idata["node_id"],
                 amplitude=_deserialize_amplitude(idata["amplitude"]),
                 metadata=idata.get("metadata", {}),
                 label=idata.get("label", ""),
-            ))
+            )
+            for idata in state_data.get("outcomes", state_data.get("interpretations", []))
+        ]
         qs = BeliefState(
             id=state_data["id"],
             outcomes=interps,
@@ -512,33 +544,39 @@ def restore_snapshot(
             timestamp=pos_data.get("timestamp", 0.0),
         )
         for hist_data in snapshot.rulial_position_history:
-            rs._position_history.append(RulialPosition(
-                graph_activity_density=hist_data.get("graph_activity_density", 0.0),
-                rule_application_frequency=hist_data.get("rule_application_frequency", {}),
-                structural_complexity=hist_data.get("structural_complexity", 0.0),
-                branchial_coordinates=hist_data.get("branchial_coordinates", []),
-                timestamp=hist_data.get("timestamp", 0.0),
-            ))
+            rs._position_history.append(
+                RulialPosition(
+                    graph_activity_density=hist_data.get("graph_activity_density", 0.0),
+                    rule_application_frequency=hist_data.get("rule_application_frequency", {}),
+                    structural_complexity=hist_data.get("structural_complexity", 0.0),
+                    branchial_coordinates=hist_data.get("branchial_coordinates", []),
+                    timestamp=hist_data.get("timestamp", 0.0),
+                )
+            )
         rs._rule_outcomes = {k: dict(v) for k, v in snapshot.rulial_rule_outcomes.items()}
         for pat_data in snapshot.rulial_meta_patterns:
-            rs._meta_patterns.append(DetectedPattern(
-                id=pat_data["id"],
-                pattern_type=pat_data.get("pattern_type", ""),
-                description=pat_data.get("description", ""),
-                occurrence_count=pat_data.get("occurrence_count", 0),
-                domains=set(pat_data.get("domains", [])),
-                abstract_structure=pat_data.get("abstract_structure", {}),
-                significance=pat_data.get("significance", 0.0),
-            ))
+            rs._meta_patterns.append(
+                DetectedPattern(
+                    id=pat_data["id"],
+                    pattern_type=pat_data.get("pattern_type", ""),
+                    description=pat_data.get("description", ""),
+                    occurrence_count=pat_data.get("occurrence_count", 0),
+                    domains=set(pat_data.get("domains", [])),
+                    abstract_structure=pat_data.get("abstract_structure", {}),
+                    significance=pat_data.get("significance", 0.0),
+                )
+            )
         for ins_data in snapshot.rulial_insights:
-            rs._insights.append(HighLevelInsight(
-                id=ins_data["id"],
-                principle=ins_data.get("principle", ""),
-                domain=ins_data.get("domain", "meta"),
-                evidence=ins_data.get("evidence", []),
-                confidence=ins_data.get("confidence", 0.0),
-                timestamp=ins_data.get("timestamp", 0.0),
-            ))
+            rs._insights.append(
+                HighLevelInsight(
+                    id=ins_data["id"],
+                    principle=ins_data.get("principle", ""),
+                    domain=ins_data.get("domain", "meta"),
+                    evidence=ins_data.get("evidence", []),
+                    confidence=ins_data.get("confidence", 0.0),
+                    timestamp=ins_data.get("timestamp", 0.0),
+                )
+            )
         rs._explored_rules = dict(snapshot.rulial_explored_rules)
         rs._total_applications = snapshot.rulial_total_applications
         rulial = rs
@@ -562,13 +600,15 @@ def restore_snapshot(
     if hasattr(retrieval, "_feedback") and retrieval._feedback is not None:
         retrieval._feedback._records.clear()
         for fb_data in snapshot.retrieval_feedback:
-            retrieval._feedback._records.append(FeedbackRecord(
-                query=fb_data["query"],
-                node_id=fb_data["node_id"],
-                label=fb_data["label"],
-                relevant=fb_data["relevant"],
-                features=fb_data.get("features", {}),
-            ))
+            retrieval._feedback._records.append(
+                FeedbackRecord(
+                    query=fb_data["query"],
+                    node_id=fb_data["node_id"],
+                    label=fb_data["label"],
+                    relevant=fb_data["relevant"],
+                    features=fb_data.get("features", {}),
+                )
+            )
     if hasattr(retrieval, "_ltr") and retrieval._ltr is not None:
         for k, v in snapshot.retrieval_ltr_weights.items():
             retrieval._ltr._weights[k] = v
@@ -595,16 +635,19 @@ def restore_snapshot(
 
     if feedback is not None:
         from hyper3.feedback import FeedbackSignal
+
         feedback._signals.clear()
         for sig_data in snapshot.feedback_signals:
-            feedback._signals.append(FeedbackSignal(
-                signal_type=sig_data["signal_type"],
-                node_id=sig_data["node_id"],
-                outcome=sig_data["outcome"],
-                confidence=sig_data.get("confidence", 0.0),
-                context=sig_data.get("context", {}),
-                timestamp=sig_data.get("timestamp", 0.0),
-            ))
+            feedback._signals.append(
+                FeedbackSignal(
+                    signal_type=sig_data["signal_type"],
+                    node_id=sig_data["node_id"],
+                    outcome=sig_data["outcome"],
+                    confidence=sig_data.get("confidence", 0.0),
+                    context=sig_data.get("context", {}),
+                    timestamp=sig_data.get("timestamp", 0.0),
+                )
+            )
         feedback._collapse_stats = {k: dict(v) for k, v in snapshot.feedback_collapse_stats.items()}
         feedback._retrieval_stats = {k: dict(v) for k, v in snapshot.feedback_retrieval_stats.items()}
         feedback._inference_stats = {k: dict(v) for k, v in snapshot.feedback_inference_stats.items()}

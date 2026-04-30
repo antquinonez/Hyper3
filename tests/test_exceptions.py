@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from hyper3.exceptions import (
-    Hyper3Error,
-    NodeNotFoundError,
-    EdgeNotFoundError,
-    StateNotFoundError,
     BeliefStateNotFoundError,
     CollapseError,
     CorrelationError,
+    EdgeNotFoundError,
+    Hyper3Error,
+    InferenceError,
+    NodeNotFoundError,
     RuleApplicationError,
     SerializationError,
+    StateNotFoundError,
     TemporalConstraintError,
-    InferenceError,
 )
 
 

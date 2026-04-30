@@ -2,39 +2,38 @@ from __future__ import annotations
 
 from typing import Any
 
-from hyper3.kernel import Hyperedge, Hypergraph
-from hyper3.overlay import HypergraphOverlay
-from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.multiway import ExpansionReport, MultiwayEngine
-from hyper3.rules import Rule
-from hyper3.rules_discovery import DiscoveredRule
-from hyper3.provenance import ProvenanceTracker
 from hyper3.belief import BeliefState
-from hyper3.multi_perspective import RobustReachabilityDetector
+from hyper3.kernel import Hypergraph
 from hyper3.memory_base import _MemoryBase
+from hyper3.multi_perspective import RobustReachabilityDetector
+from hyper3.multiway import ExpansionReport, MultiwayEngine
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.overlay import HypergraphOverlay
 from hyper3.results import (
     BranchialAnalysis,
-    MergeReport,
     CommitResult,
     ConsensusReasonResult,
     DerivationInfo,
     DiscoverResult,
     ExpansionInfo,
     IterativeReasonResult,
+    MergeReport,
     ReasonResult,
     RollbackResult,
     RulialAnalysis,
 )
+from hyper3.rules import Rule
+from hyper3.rules_discovery import DiscoveredRule
 
 
 class ReasoningMixin(_MemoryBase):
-
     def _ensure_multiway(self) -> None:
         """Lazily initialize the multiway engine and related subsystems."""
         if self._multiway_engine is not None:
             return
         from hyper3.multiway_branchial import BranchialSpace
         from hyper3.multiway_rulial import RulialSpace
+
         self._multiway_engine = MultiwayEngine(self._graph)
         self._convergence_engine = StateConvergenceEngine(self._graph, self._multiway_engine.multiway)
         self._branchial = BranchialSpace(self._graph, self._multiway_engine.multiway)
@@ -59,7 +58,7 @@ class ReasoningMixin(_MemoryBase):
         for state in self._multiway_engine.multiway.states:
             if state.rule_applied and state.produced_edge_ids:
                 applied_names.setdefault(state.rule_applied, []).extend(state.produced_edge_ids)
-        for name, edge_ids in applied_names.items():
+        for name in applied_names:
             self._rulial.record_rule_application(name)
         if self._rulial:
             self._rulial_rule_productions = applied_names
@@ -76,10 +75,11 @@ class ReasoningMixin(_MemoryBase):
             prov_input_edges: list[str] = []
             if state.match_bindings:
                 bvals = set(state.match_bindings.values())
-                for edge in target_graph.edges:
-                    if edge.id not in state.produced_edge_ids:
-                        if edge.source_ids & bvals and edge.target_ids & bvals:
-                            prov_input_edges.append(edge.id)
+                prov_input_edges.extend(
+                    edge.id
+                    for edge in target_graph.edges
+                    if edge.id not in state.produced_edge_ids and edge.source_ids & bvals and edge.target_ids & bvals
+                )
             for edge_id in state.produced_edge_ids:
                 self._provenance.record_inference(
                     edge_id=edge_id,
@@ -162,8 +162,7 @@ class ReasoningMixin(_MemoryBase):
                 self._track_rule_effectiveness()
         if auto_distributions:
             result.auto_distributions = [
-                {"state_id": qs.id, "outcome_count": qs.outcome_count}
-                for qs in auto_distributions
+                {"state_id": qs.id, "outcome_count": qs.outcome_count} for qs in auto_distributions
             ]
         return result
 
@@ -259,7 +258,10 @@ class ReasoningMixin(_MemoryBase):
         effective_max_states = max_total_states if not exhaustive else 10_000_000
         all_node_ids = {n.id for n in self._graph.nodes}
         report = self._multiway_engine.expand(
-            all_node_ids, active_rules, max_depth=max_depth, max_total_states=effective_max_states,
+            all_node_ids,
+            active_rules,
+            max_depth=max_depth,
+            max_total_states=effective_max_states,
             overlay=self._overlay if use_overlay else None,
             confidence_decay=confidence_decay,
         )
@@ -271,7 +273,8 @@ class ReasoningMixin(_MemoryBase):
         self._record_provenance(target_graph)
 
         convergence_report, branchial_report, rulial_report = self._run_post_expansion(
-            active_rules, enforce_convergence,
+            active_rules,
+            enforce_convergence,
         )
 
         auto_distributions: list[BeliefState] = []
@@ -279,8 +282,14 @@ class ReasoningMixin(_MemoryBase):
             auto_distributions = self._auto_create_inference_distributions()
 
         return self._build_reason_result(
-            report, seed_concepts, use_overlay, auto_commit,
-            convergence_report, branchial_report, rulial_report, auto_distributions,
+            report,
+            seed_concepts,
+            use_overlay,
+            auto_commit,
+            convergence_report,
+            branchial_report,
+            rulial_report,
+            auto_distributions,
         )
 
     def commit_inferences(self) -> CommitResult:
@@ -357,8 +366,11 @@ class ReasoningMixin(_MemoryBase):
             for eid in state.produced_edge_ids:
                 new_edge_ids.add(eid)
         report = self._multiway_engine.expand_incremental(
-            new_node_ids, new_edge_ids, active_rules,
-            max_depth=max_depth, max_total_states=max_total_states,
+            new_node_ids,
+            new_edge_ids,
+            active_rules,
+            max_depth=max_depth,
+            max_total_states=max_total_states,
         )
         self._log.record("reason_incremental", new_nodes=len(new_node_ids), states=report.states_created)
         return ReasonResult(
@@ -404,7 +416,8 @@ class ReasoningMixin(_MemoryBase):
 
         for _iteration in range(max_iterations):
             result = self.reason(
-                seed_concepts, rules=active_rules,
+                seed_concepts,
+                rules=active_rules,
                 max_depth=max_depth,
                 max_total_states=max_total_states,
                 auto_commit=False,
@@ -485,7 +498,8 @@ class ReasoningMixin(_MemoryBase):
         max_states = transformed.max_total_states
 
         result = self.reason(
-            seed_concepts, rules=rules,
+            seed_concepts,
+            rules=rules,
             max_depth=max_depth,
             max_total_states=max_states,
         )
@@ -526,12 +540,14 @@ class ReasoningMixin(_MemoryBase):
         results: list[DerivationInfo] = []
         for rule in active_rules:
             derivations = rule.find_derivation(target.id, self._graph)
-            for d in derivations:
-                results.append(DerivationInfo(
+            results.extend(
+                DerivationInfo(
                     rule=rule.name,
                     bindings={k: self._node_label(v) for k, v in d.bindings.items()},
                     context=d.context,
-                ))
+                )
+                for d in derivations
+            )
         return results
 
     def add_rules(self, *rules: Rule) -> None:
@@ -577,11 +593,11 @@ class ReasoningMixin(_MemoryBase):
                 for source in edge.source_ids:
                     target_groups.setdefault(tid, []).append((source, conf))
         states: list[BeliefState] = []
-        for target_id, sources in target_groups.items():
+        for sources in target_groups.values():
             if len(sources) < 2:
                 continue
             node_ids = [s for s, _ in sources]
-            amplitudes = [c ** 0.5 for _, c in sources]
+            amplitudes = [c**0.5 for _, c in sources]
             qs = self._belief.create_distribution(node_ids, amplitudes)
             states.append(qs)
         return states

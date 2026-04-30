@@ -38,10 +38,7 @@ class ConceptCorrelation:
         for (node_a, node_b), corr in self.correlation_matrix.items():
             if abs(corr) < 1e-10:
                 continue
-            if corr > 0:
-                scaled = observed_value
-            else:
-                scaled = "opposite"
+            scaled = observed_value if corr > 0 else "opposite"
             if node_a == observed_node_id and node_b in self.group_b_node_ids:
                 predictions[node_b] = scaled
             elif node_b == observed_node_id and node_a in self.group_a_node_ids:
@@ -125,7 +122,7 @@ class BeliefState:
         """Scale amplitudes so that total probability sums to 1."""
         total = sum(abs(i.amplitude) ** 2 for i in self.outcomes)
         if total > 0:
-            scale = total ** -0.5
+            scale = total**-0.5
             for i in self.outcomes:
                 i.amplitude *= scale
 
@@ -249,7 +246,7 @@ class BeliefLayer:
         if amplitudes is None:
             amp = 1.0 / (len(node_ids) ** 0.5) if node_ids else 0.0
             amplitudes = [amp] * len(node_ids)
-        for nid, amp in zip(node_ids, amplitudes):
+        for nid, amp in zip(node_ids, amplitudes, strict=False):
             node = self._graph.get_node(nid)
             lbl = node.label if node else ""
             qs.add_outcome(nid, amp, label=lbl)
@@ -402,7 +399,7 @@ class BeliefLayer:
         qs = self._states.get(qs_id)
         if not qs or not qs.outcomes:
             return None
-        n = len(qs.outcomes)
+        len(qs.outcomes)
         amp_vec = np.array([i.amplitude for i in qs.outcomes], dtype=complex)
         rho = np.outer(amp_vec, amp_vec.conj())
         return rho
@@ -462,15 +459,15 @@ class BeliefLayer:
         if keep_dim == 0:
             return np.array([[]])
         trace_out = [i for i in range(len(dims)) if i not in keep_set]
-        new_dims = [dims[i] for i in range(len(dims)) if i in keep_set]
-        row_idx = list(range(len(dims)))
-        col_idx = list(range(len(dims), 2 * len(dims)))
+        [dims[i] for i in range(len(dims)) if i in keep_set]
+        list(range(len(dims)))
+        list(range(len(dims), 2 * len(dims)))
         for idx in reversed(trace_out):
             d = dims[idx]
             row_before = [dims[i] for i in range(len(dims)) if i < idx]
             row_after = [dims[i] for i in range(len(dims)) if i > idx]
-            col_before = [dims[i] for i in range(len(dims)) if i < idx]
-            col_after = [dims[i] for i in range(len(dims)) if i > idx]
+            [dims[i] for i in range(len(dims)) if i < idx]
+            [dims[i] for i in range(len(dims)) if i > idx]
             row_shape = []
             for i in range(len(dims)):
                 if i < idx:
@@ -513,12 +510,15 @@ class BeliefLayer:
         if total_amp > 0 and dominant_amp / total_amp > 0.8:
             triggers.append(SamplingTrigger("dominant_outcome", 0.8, {"ratio": dominant_amp / total_amp}))
         interference = self.compute_interactions(qs_id)
-        for pattern in interference:
-            if pattern.is_constructive and pattern.net_amplitude > 0.7:
-                triggers.append(SamplingTrigger(
-                    "interference_maxima", 0.7,
-                    {"node_id": pattern.node_id, "amplitude": pattern.net_amplitude},
-                ))
+        triggers.extend(
+            SamplingTrigger(
+                "interference_maxima",
+                0.7,
+                {"node_id": pattern.node_id, "amplitude": pattern.net_amplitude},
+            )
+            for pattern in interference
+            if pattern.is_constructive and pattern.net_amplitude > 0.7
+        )
         return triggers
 
     def compute_interactions(self, qs_id: str) -> list[EvidenceInteraction]:
@@ -550,12 +550,14 @@ class BeliefLayer:
             else:
                 constructive = 0.0
                 destructive = abs(net_amp)
-            patterns.append(EvidenceInteraction(
-                node_id=node_id,
-                constructive=constructive,
-                destructive=destructive,
-                net_amplitude=abs(net_amp),
-            ))
+            patterns.append(
+                EvidenceInteraction(
+                    node_id=node_id,
+                    constructive=constructive,
+                    destructive=destructive,
+                    net_amplitude=abs(net_amp),
+                )
+            )
         return patterns
 
     def create_correlation(

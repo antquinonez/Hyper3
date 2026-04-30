@@ -11,6 +11,7 @@ from hyper3.results import CorrelatedNodeInfo, FeedbackSummaryResult
 @dataclass
 class FeedbackSignal:
     """A single recorded outcome from a graph operation."""
+
     signal_type: str
     node_id: str
     outcome: bool
@@ -36,7 +37,10 @@ class OperationFeedback:
         self._evolution_fitness_history: list[float] = []
 
     def record_collapse_outcome(
-        self, qs_id: str, selected_node_id: str, correct: bool | None = None,
+        self,
+        qs_id: str,
+        selected_node_id: str,
+        correct: bool | None = None,
     ) -> None:
         """Record the outcome of a quantum collapse.
 
@@ -53,17 +57,22 @@ class OperationFeedback:
             stats["incorrect"] += 1
         else:
             stats["unknown"] += 1
-        self._signals.append(FeedbackSignal(
-            signal_type="collapse",
-            node_id=selected_node_id,
-            outcome=correct is True,
-            confidence=1.0 if correct is not None else 0.5,
-            context={"qs_id": qs_id},
-            timestamp=time.time(),
-        ))
+        self._signals.append(
+            FeedbackSignal(
+                signal_type="collapse",
+                node_id=selected_node_id,
+                outcome=correct is True,
+                confidence=1.0 if correct is not None else 0.5,
+                context={"qs_id": qs_id},
+                timestamp=time.time(),
+            )
+        )
 
     def record_retrieval_outcome(
-        self, query: str, relevant_ids: set[str], irrelevant_ids: set[str],
+        self,
+        query: str,
+        relevant_ids: set[str],
+        irrelevant_ids: set[str],
     ) -> None:
         """Record which retrieved nodes were relevant or irrelevant for a query.
 
@@ -76,21 +85,25 @@ class OperationFeedback:
         stats["relevant"] += len(relevant_ids)
         stats["irrelevant"] += len(irrelevant_ids)
         for nid in relevant_ids:
-            self._signals.append(FeedbackSignal(
-                signal_type="retrieval_relevant",
-                node_id=nid,
-                outcome=True,
-                context={"query": query},
-                timestamp=time.time(),
-            ))
+            self._signals.append(
+                FeedbackSignal(
+                    signal_type="retrieval_relevant",
+                    node_id=nid,
+                    outcome=True,
+                    context={"query": query},
+                    timestamp=time.time(),
+                )
+            )
         for nid in irrelevant_ids:
-            self._signals.append(FeedbackSignal(
-                signal_type="retrieval_irrelevant",
-                node_id=nid,
-                outcome=False,
-                context={"query": query},
-                timestamp=time.time(),
-            ))
+            self._signals.append(
+                FeedbackSignal(
+                    signal_type="retrieval_irrelevant",
+                    node_id=nid,
+                    outcome=False,
+                    context={"query": query},
+                    timestamp=time.time(),
+                )
+            )
 
     def record_inference_outcome(self, edge_id: str, accepted: bool) -> None:
         """Record whether an inferred edge was accepted or rejected.
@@ -105,12 +118,14 @@ class OperationFeedback:
             stats["accepted"] += 1
         else:
             stats["rejected"] += 1
-        self._signals.append(FeedbackSignal(
-            signal_type="inference",
-            node_id=edge_id,
-            outcome=accepted,
-            timestamp=time.time(),
-        ))
+        self._signals.append(
+            FeedbackSignal(
+                signal_type="inference",
+                node_id=edge_id,
+                outcome=accepted,
+                timestamp=time.time(),
+            )
+        )
 
     def record_evolution_outcome(self, fitness: float) -> None:
         """Record an evolution cycle fitness measurement.
@@ -119,13 +134,15 @@ class OperationFeedback:
             fitness: The fitness score produced by the evolution cycle.
         """
         self._evolution_fitness_history.append(fitness)
-        self._signals.append(FeedbackSignal(
-            signal_type="evolution",
-            node_id="",
-            outcome=fitness > 0.5,
-            confidence=fitness,
-            timestamp=time.time(),
-        ))
+        self._signals.append(
+            FeedbackSignal(
+                signal_type="evolution",
+                node_id="",
+                outcome=fitness > 0.5,
+                confidence=fitness,
+                timestamp=time.time(),
+            )
+        )
 
     def get_reinforced_nodes(self, min_signals: int = 2) -> set[str]:
         """Return node IDs with a majority of positive outcome signals.
@@ -260,9 +277,7 @@ class OperationFeedback:
                 if signal.outcome:
                     positive_by_node[signal.node_id] = positive_by_node.get(signal.node_id, 0) + 1
 
-        multi_signal_nodes = {
-            nid for nid, count in total_by_node.items() if count >= 3
-        }
+        multi_signal_nodes = {nid for nid, count in total_by_node.items() if count >= 3}
         correlated_nodes: dict[str, CorrelatedNodeInfo] = {}
         for nid in multi_signal_nodes:
             pos = positive_by_node.get(nid, 0)
@@ -270,11 +285,7 @@ class OperationFeedback:
             correlated_nodes[nid] = CorrelatedNodeInfo(
                 positive_rate=pos / total,
                 signal_count=total,
-                signal_types=list({
-                    s.signal_type.split("_")[0]
-                    for s in self._signals
-                    if s.node_id == nid
-                }),
+                signal_types=list({s.signal_type.split("_")[0] for s in self._signals if s.node_id == nid}),
             )
 
         return FeedbackSummaryResult(

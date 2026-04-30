@@ -170,9 +170,7 @@ class EmbeddingEngine:
             return float("inf")
         return float(np.linalg.norm(emb_a - emb_b))
 
-    def find_similar(
-        self, node_id: str, *, top_k: int = 10, threshold: float | None = None
-    ) -> list[SimilarityResult]:
+    def find_similar(self, node_id: str, *, top_k: int = 10, threshold: float | None = None) -> list[SimilarityResult]:
         """Find nodes most similar to the given node by cosine similarity.
 
         Args:
@@ -259,9 +257,7 @@ class EmbeddingEngine:
         results.sort(key=lambda r: r.similarity, reverse=True)
         return results[:top_k]
 
-    def find_all_similar_pairs(
-        self, *, threshold: float | None = None
-    ) -> list[SimilarityResult]:
+    def find_all_similar_pairs(self, *, threshold: float | None = None) -> list[SimilarityResult]:
         """Find all node pairs whose similarity meets the threshold.
 
         Args:
@@ -305,9 +301,7 @@ class EmbeddingEngine:
         results.sort(key=lambda r: r.similarity, reverse=True)
         return results
 
-    def analogy(
-        self, a: str, b: str, c: str, *, top_k: int = 5
-    ) -> list[tuple[str, float]]:
+    def analogy(self, a: str, b: str, c: str, *, top_k: int = 5) -> list[tuple[str, float]]:
         """Solve a word-analogy task: "a is to b as c is to ?".
 
         Computes the target vector as ``emb(c) + emb(b) - emb(a)`` and returns
@@ -377,10 +371,10 @@ class EmbeddingEngine:
 
         Returns:
             ``True`` if FAISS was successfully enabled, ``False`` if the
-            ``faiss`` package is not installed.
+             ``faiss`` package is not installed.
         """
         try:
-            import faiss  # type: ignore[import-untyped]
+            import faiss  # type: ignore[import-untyped]  # noqa: F401
         except ImportError:
             return False
         self._faiss_nlist = nlist
@@ -441,7 +435,7 @@ class EmbeddingEngine:
         q = query_vec.astype(np.float32).reshape(1, -1)
         distances, indices = self._faiss_index.search(q, min(top_k + 1, self._faiss_index.ntotal))
         results: list[tuple[str, float]] = []
-        for dist, idx in zip(distances[0], indices[0]):
+        for dist, idx in zip(distances[0], indices[0], strict=False):
             if idx < 0:
                 continue
             results.append((self._faiss_id_map[idx], float(dist)))

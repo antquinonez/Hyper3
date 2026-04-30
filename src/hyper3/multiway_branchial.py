@@ -31,8 +31,8 @@ class BranchialCoordinates:
         max_len = max(len(self.position), len(other.position))
         a = np.zeros(max_len)
         b = np.zeros(max_len)
-        a[:len(self.position)] = self.position
-        b[:len(other.position)] = other.position
+        a[: len(self.position)] = self.position
+        b[: len(other.position)] = other.position
         return float(np.linalg.norm(a - b))
 
 
@@ -68,12 +68,7 @@ class BranchialDistanceMetrics:
     @property
     def combined(self) -> float:
         """Return the weighted combination of all distance components."""
-        return (
-            0.3 * self.structural
-            + 0.3 * self.conceptual
-            + 0.2 * self.computational
-            + 0.2 * self.evolutionary
-        )
+        return 0.3 * self.structural + 0.3 * self.conceptual + 0.2 * self.computational + 0.2 * self.evolutionary
 
 
 @dataclass
@@ -111,7 +106,9 @@ class AnalogyProposal:
 
 
 class BranchialSpace:
-    def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None) -> None:
+    def __init__(
+        self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None
+    ) -> None:
         """Initialize the branchial space.
 
         Args:
@@ -361,7 +358,7 @@ class BranchialSpace:
             coord = self._coordinates[sid]
             if coord.position:
                 arr = np.array(coord.position)
-                data[i, :len(arr)] = arr
+                data[i, : len(arr)] = arr
 
         centroids, labels = kmeans2(data, n_clusters, minit="points", iter=10)
 
@@ -506,13 +503,16 @@ class BranchialSpace:
                 }
                 if self._embedding_engine is not None:
                     insight["semantic_novelty_scores"] = self._rank_novel_by_similarity(
-                        novel_in_peer, current.active_node_ids,
+                        novel_in_peer,
+                        current.active_node_ids,
                     )
                 insights.append(insight)
         return insights
 
     def _rank_novel_by_similarity(
-        self, novel_ids: set[str], reference_ids: frozenset[str],
+        self,
+        novel_ids: set[str],
+        reference_ids: frozenset[str],
     ) -> dict[str, float]:
         """Score novel node IDs by their dot-product similarity to the reference mean embedding."""
         if not self._embedding_engine or not novel_ids or not reference_ids:
@@ -655,19 +655,20 @@ class BranchialSpace:
 
         proposed: list[dict[str, Any]] = []
         for label in source_patterns:
-            existing = {e.label for eid in target.produced_edge_ids
-                        for e in [self._graph.get_edge(eid)] if e}
+            existing = {e.label for eid in target.produced_edge_ids for e in [self._graph.get_edge(eid)] if e}
             if label not in existing:
                 for s_src, t_src in mapping.items():
-                    proposed.append({
-                        "source_node": s_src,
-                        "target_node": t_src,
-                        "edge_label": label,
-                    })
+                    proposed.append(
+                        {
+                            "source_node": s_src,
+                            "target_node": t_src,
+                            "edge_label": label,
+                        }
+                    )
 
-        structural_overlap = len(
-            set(source.produced_edge_ids) & set(target.produced_edge_ids)
-        ) / max(len(set(source.produced_edge_ids) | set(target.produced_edge_ids)), 1)
+        structural_overlap = len(set(source.produced_edge_ids) & set(target.produced_edge_ids)) / max(
+            len(set(source.produced_edge_ids) | set(target.produced_edge_ids)), 1
+        )
         conf = (1.0 - min(distance, 1.0)) * 0.5 + structural_overlap * 0.5
 
         return AnalogyProposal(
@@ -721,6 +722,7 @@ class BranchialSpace:
         if source_state_id == target_state_id:
             return [source_state_id]
         import heapq
+
         target_pos = self._coordinates[target_state_id]
         open_set: list[tuple[float, str]] = [(0.0, source_state_id)]
         came_from: dict[str, str] = {}
@@ -804,10 +806,9 @@ class BranchialSpace:
             depth=parent_coord.depth + 1,
             branch_index=existing_count,
         )
-        keys_to_remove: list[tuple[str, str]] = []
-        for key in self._distance_cache:
-            if state_id in key:
-                keys_to_remove.append(key)
+        keys_to_remove: list[tuple[str, str]] = [
+            key for key in self._distance_cache if state_id in key
+        ]
         for key in keys_to_remove:
             del self._distance_cache[key]
 
@@ -881,7 +882,7 @@ class BranchialSpace:
             coord = self._coordinates[sid]
             if coord.position:
                 arr = np.array(coord.position)
-                data[i, :len(arr)] = arr
+                data[i, : len(arr)] = arr
 
         if data.shape[1] == 0:
             return MultiScaleAnalysis()
@@ -915,9 +916,7 @@ class BranchialSpace:
         )
 
         if analysis.macro.n_clusters > 1:
-            analysis.cross_scale_insights.append(
-                f"Macro structure: {analysis.macro.n_clusters} major regions"
-            )
+            analysis.cross_scale_insights.append(f"Macro structure: {analysis.macro.n_clusters} major regions")
         if analysis.meso.n_clusters > analysis.macro.n_clusters:
             analysis.cross_scale_insights.append(
                 f"Meso structure: {analysis.meso.n_clusters} sub-regions within {analysis.macro.n_clusters} macro regions"
@@ -945,7 +944,7 @@ class BranchialSpace:
             min_s = min(sizes)
             if max_s > min_s * 2:
                 insights.append(f"Imbalanced clusters: sizes range from {min_s} to {max_s}")
-            insights.append(f"{len(clusters)} clusters with avg size {sum(sizes)/len(sizes):.1f}")
+            insights.append(f"{len(clusters)} clusters with avg size {sum(sizes) / len(sizes):.1f}")
         return ScaleLevel(name=name, n_clusters=len(clusters), clusters=clusters, insights=insights)
 
     def analyze(self) -> BranchialAnalysis:
@@ -956,8 +955,6 @@ class BranchialSpace:
             correlations=len(self._correlations),
             simultaneity_groups=len(self._simultaneity_groups),
             avg_cluster_size=sum(c.size for c in self._clusters) / max(len(self._clusters), 1),
-            avg_correlation_strength=(
-                sum(c.correlation for c in self._correlations) / max(len(self._correlations), 1)
-            ),
+            avg_correlation_strength=(sum(c.correlation for c in self._correlations) / max(len(self._correlations), 1)),
             multi_scale_available=True,
         )

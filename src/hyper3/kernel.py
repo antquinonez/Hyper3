@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import time
 import uuid
+from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
@@ -11,9 +11,9 @@ import networkx as nx
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.results import (
     HyperedgeSimilarityResult,
+    SpectralEmbeddingResult,
     SPersistenceLevel,
     SPersistenceResult,
-    SpectralEmbeddingResult,
 )
 
 
@@ -395,14 +395,8 @@ class Hypergraph:
                 node = self._nodes.get(tid)
                 if node:
                     target_labels.add(node.label)
-            if source_label is not None:
-                source_match = source_label in source_labels
-            else:
-                source_match = True
-            if target_label is not None:
-                target_match = target_label in target_labels
-            else:
-                target_match = True
+            source_match = source_label in source_labels if source_label is not None else True
+            target_match = target_label in target_labels if target_label is not None else True
             if source_match and target_match:
                 bindings: dict[str, str] = {}
                 bindings["source_label"] = next(iter(source_labels)) if source_labels else ""
@@ -427,37 +421,41 @@ class Hypergraph:
         id_set = node_ids & set(self._nodes.keys())
         for nid in id_set:
             node = self._nodes[nid]
-            result.add_node(Hypernode(
-                id=node.id,
-                label=node.label,
-                data=node.data,
-                metadata=Metadata(
-                    temporal_tags=dict(node.metadata.temporal_tags),
-                    modality_tags=set(node.metadata.modality_tags),
-                    abstraction_layer=node.metadata.abstraction_layer,
-                    custom=dict(node.metadata.custom),
-                ),
-                access_count=node.access_count,
-                created_at=node.created_at,
-                last_accessed=node.last_accessed,
-                weight=node.weight,
-            ))
+            result.add_node(
+                Hypernode(
+                    id=node.id,
+                    label=node.label,
+                    data=node.data,
+                    metadata=Metadata(
+                        temporal_tags=dict(node.metadata.temporal_tags),
+                        modality_tags=set(node.metadata.modality_tags),
+                        abstraction_layer=node.metadata.abstraction_layer,
+                        custom=dict(node.metadata.custom),
+                    ),
+                    access_count=node.access_count,
+                    created_at=node.created_at,
+                    last_accessed=node.last_accessed,
+                    weight=node.weight,
+                )
+            )
         for edge in self._edges.values():
             if edge.source_ids <= id_set and edge.target_ids <= id_set:
-                result.add_edge(Hyperedge(
-                    id=edge.id,
-                    source_ids=frozenset(edge.source_ids),
-                    target_ids=frozenset(edge.target_ids),
-                    label=edge.label,
-                    data=edge.data,
-                    metadata=Metadata(
-                        temporal_tags=dict(edge.metadata.temporal_tags),
-                        modality_tags=set(edge.metadata.modality_tags),
-                        abstraction_layer=edge.metadata.abstraction_layer,
-                        custom=dict(edge.metadata.custom),
-                    ),
-                    weight=edge.weight,
-                ))
+                result.add_edge(
+                    Hyperedge(
+                        id=edge.id,
+                        source_ids=frozenset(edge.source_ids),
+                        target_ids=frozenset(edge.target_ids),
+                        label=edge.label,
+                        data=edge.data,
+                        metadata=Metadata(
+                            temporal_tags=dict(edge.metadata.temporal_tags),
+                            modality_tags=set(edge.metadata.modality_tags),
+                            abstraction_layer=edge.metadata.abstraction_layer,
+                            custom=dict(edge.metadata.custom),
+                        ),
+                        weight=edge.weight,
+                    )
+                )
         return result
 
     def to_networkx(self) -> nx.DiGraph:
@@ -481,7 +479,7 @@ class Hypergraph:
     def _to_networkx_inverted_weights(self) -> nx.DiGraph:
         """Convert to a networkx DiGraph with cost = 1/weight on each edge."""
         G = self.to_networkx()
-        for u, v, data in G.edges(data=True):
+        for _u, _v, data in G.edges(data=True):
             w = data.get("weight", 1.0)
             data["cost"] = 1.0 / max(w, 1e-9)
         return G
@@ -510,14 +508,16 @@ class Hypergraph:
                 node = self._nodes.get(tid)
                 if node:
                     tgt_labels.append(node.label)
-            results.append({
-                "id": edge.id,
-                "label": edge.label,
-                "source_labels": src_labels,
-                "target_labels": tgt_labels,
-                "weight": edge.weight,
-                "data": edge.data,
-            })
+            results.append(
+                {
+                    "id": edge.id,
+                    "label": edge.label,
+                    "source_labels": src_labels,
+                    "target_labels": tgt_labels,
+                    "weight": edge.weight,
+                    "data": edge.data,
+                }
+            )
         return results
 
     def degree_centrality(self) -> dict[str, float]:
@@ -558,6 +558,7 @@ class Hypergraph:
         sources: list[str]
         if max_samples is not None and max_samples < n:
             import random as _rng
+
             sources = _rng.sample(node_ids, min(max_samples, n))
         else:
             sources = node_ids
@@ -569,10 +570,10 @@ class Hypergraph:
             dist[s] = 0.0
             sigma[s] = 1.0
             stack: list[str] = []
-            queue: list[str] = [s]
+            queue: deque[str] = deque([s])
 
             while queue:
-                v = queue.pop(0)
+                v = queue.popleft()
                 stack.append(v)
                 for edge in self.outgoing_edges(v):
                     for w in edge.target_ids:
@@ -687,8 +688,7 @@ class Hypergraph:
         for comp in node_components:
             covered.update(comp)
         isolated = set(self._nodes.keys()) - covered
-        for nid in isolated:
-            node_components.append({nid})
+        node_components.extend({nid} for nid in isolated)
 
         return node_components
 
@@ -718,11 +718,7 @@ class Hypergraph:
             color[u] = BLACK
             return False
 
-        for nid in self._nodes:
-            if color[nid] == WHITE:
-                if dfs(nid):
-                    return True
-        return False
+        return any(color[nid] == WHITE and dfs(nid) for nid in self._nodes)
 
     def detect_cycles(self, max_cycles: int = 10) -> list[list[str]]:
         """Find directed cycles using hypergraph-native DFS.
@@ -744,27 +740,28 @@ class Hypergraph:
         def dfs(
             node: str,
             path: list[str],
-            path_set: set[str],
+            path_pos: dict[str, int],
         ) -> None:
             if len(cycles) >= max_cycles:
                 return
             for edge in self.outgoing_edges(node):
                 for tgt in edge.target_ids:
-                    if tgt in path_set:
-                        idx = path.index(tgt)
+                    if tgt in path_pos:
+                        idx = path_pos[tgt]
                         cycles.append(path[idx:] + [tgt])
                         if len(cycles) >= max_cycles:
                             return
                     elif tgt not in visited_global:
                         path.append(tgt)
-                        path_set.add(tgt)
-                        dfs(tgt, path, path_set)
+                        path_pos[tgt] = len(path) - 1
+                        dfs(tgt, path, path_pos)
                         path.pop()
-                        path_set.discard(tgt)
+                        del path_pos[tgt]
 
-        for nid in list(self._nodes.keys()):
+        for nid in self._nodes:
             if nid not in visited_global:
-                dfs(nid, [nid], {nid})
+                path_pos = {nid: 0}
+                dfs(nid, [nid], path_pos)
                 visited_global.add(nid)
                 if len(cycles) >= max_cycles:
                     break
@@ -807,9 +804,9 @@ class Hypergraph:
         """BFS shortest path treating hyperedges as single hops."""
         visited: set[str] = {source}
         parent: dict[str, str] = {}
-        queue: list[str] = [source]
+        queue: deque[str] = deque([source])
         while queue:
-            current = queue.pop(0)
+            current = queue.popleft()
             if current == target:
                 path = [target]
                 while path[-1] != source:
@@ -955,11 +952,10 @@ class Hypergraph:
         for j, edge in enumerate(self._edges.values()):
             W[j] = edge.weight
 
-        D_e = np.array([
-            len(self._edges[eid].source_ids) + len(self._edges[eid].target_ids)
-            if eid in self._edges else 1.0
-            for eid in edge_list
-        ], dtype=float)
+        edge_map = self._edges
+        D_e = np.array(
+            [len(edge_map[eid].source_ids) + len(edge_map[eid].target_ids) for eid in edge_list], dtype=float
+        )
         D_e_inv = np.where(D_e > 0, 1.0 / D_e, 0.0)
 
         D_v = H @ W
@@ -976,7 +972,7 @@ class Hypergraph:
         M = Dv_inv_sqrt_sp @ H_sp @ W_sp @ De_inv_sp @ H_sp.T @ Dv_inv_sqrt_sp
 
         try:
-            eigenvalues, eigenvectors = sla.eigsh(M, k=k, which='LM')
+            eigenvalues, eigenvectors = sla.eigsh(M, k=k, which="LM")
             idx = np.argsort(-eigenvalues)
             eigenvalues = eigenvalues[idx]
             eigenvectors = eigenvectors[:, idx]
@@ -1044,7 +1040,14 @@ class Hypergraph:
         if not edge_list:
             if self._nodes:
                 return SPersistenceResult(
-                    levels=[SPersistenceLevel(s=1, components=[frozenset(self._nodes.keys())], num_components=1, largest_component_size=len(self._nodes))],
+                    levels=[
+                        SPersistenceLevel(
+                            s=1,
+                            components=[frozenset(self._nodes.keys())],
+                            num_components=1,
+                            largest_component_size=len(self._nodes),
+                        )
+                    ],
                     max_s=1,
                     total_edges=0,
                 )
@@ -1070,16 +1073,16 @@ class Hypergraph:
         for s_val in range(1, effective_max + 1):
             edge_parent = list(range(m))
 
-            def find(x: int) -> int:
-                while edge_parent[x] != x:
-                    edge_parent[x] = edge_parent[edge_parent[x]]
-                    x = edge_parent[x]
+            def find(x: int) -> int:  # noqa: B023
+                while edge_parent[x] != x:  # noqa: B023
+                    edge_parent[x] = edge_parent[edge_parent[x]]  # noqa: B023
+                    x = edge_parent[x]  # noqa: B023
                 return x
 
             def union(a: int, b: int) -> None:
                 ra, rb = find(a), find(b)
                 if ra != rb:
-                    edge_parent[ra] = rb
+                    edge_parent[ra] = rb  # noqa: B023
 
             for (i, j), ov in overlaps.items():
                 if ov >= s_val:
@@ -1101,15 +1104,16 @@ class Hypergraph:
             for comp in node_components:
                 covered.update(comp)
             isolated = set(self._nodes.keys()) - covered
-            for nid in isolated:
-                node_components.append(frozenset({nid}))
+            node_components.extend(frozenset({nid}) for nid in isolated)
 
-            levels.append(SPersistenceLevel(
-                s=s_val,
-                components=node_components,
-                num_components=len(node_components),
-                largest_component_size=max(len(c) for c in node_components) if node_components else 0,
-            ))
+            levels.append(
+                SPersistenceLevel(
+                    s=s_val,
+                    components=node_components,
+                    num_components=len(node_components),
+                    largest_component_size=max(len(c) for c in node_components) if node_components else 0,
+                )
+            )
 
         return SPersistenceResult(
             levels=levels,
@@ -1378,9 +1382,7 @@ class Hypergraph:
                     H[node_idx[nid], j] = 1.0
             W[j, j] = edge.weight
 
-        edge_degrees = np.array([
-            len(edge.source_ids) + len(edge.target_ids) for edge in edge_list
-        ], dtype=float)
+        edge_degrees = np.array([len(edge.source_ids) + len(edge.target_ids) for edge in edge_list], dtype=float)
         D_e_inv = np.diag(np.where(edge_degrees > 0, 1.0 / edge_degrees, 0.0))
 
         D_v = np.diag(H @ W @ np.ones(m))

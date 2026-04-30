@@ -306,7 +306,7 @@ class TestDataclasses:
 class TestIntegration:
     def test_ingest_stores_entities(self):
         mem = HypergraphMemory(evolve_interval=0)
-        result = mem.ingest("Paris is the capital of France")
+        mem.ingest("Paris is the capital of France")
         node = mem.graph.get_node_by_label("Paris")
         assert node is not None
         node2 = mem.graph.get_node_by_label("France")

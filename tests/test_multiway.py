@@ -1,20 +1,21 @@
+import numpy as np
 import pytest
-from hyper3 import (
-    Hypergraph,
-    Hypernode,
-    Hyperedge,
-    Metadata,
-    Modality,
-    TransitiveRule,
-    InverseRule,
-    GeneralizationRule,
+
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
+from hyper3.memory import HypergraphMemory
+from hyper3.multiway import ExpansionReport, MultiwayEngine, MultiwayGraph, MultiwayState
+from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.rules import (
     AbductiveRule,
+    ContextualSubstitutionRule,
+    GeneralizationRule,
+    HubInferenceRule,
+    InverseRule,
     PropertyPropagationRule,
+    Rule,
     RuleMatch,
-    MultiwayEngine,
-    MultiwayGraph,
-    MultiwayState,
-    ExpansionReport,
+    StructuralProjectionRule,
+    TransitiveRule,
 )
 
 
@@ -301,7 +302,7 @@ class TestAbductiveRuleEdgeCases:
         rule = AbductiveRule(effect_label="leads_to")
         match = rule.find_matches(g, frozenset({"cause", "effect"}))[0]
         rule.apply(g, match)
-        matches2 = rule.find_matches(g, frozenset({"cause", "effect"}))
+        rule.find_matches(g, frozenset({"cause", "effect"}))
         cause_edges = [e for e in g.edges if e.label == "possible_cause"]
         assert len(cause_edges) >= 1
 
@@ -537,3 +538,441 @@ class TestMultiwayEngine:
         assert report.rules_applied == 0
         assert report.states_created == 1
         assert report.branches == 1
+
+
+class TestRuleFromDictAllTypes:
+    def _round_trip(self, rule: Rule) -> None:
+        data = rule.to_dict()
+        restored = Rule.from_dict(data)
+        assert isinstance(restored, type(rule))
+        assert restored.to_dict() == data
+
+    def test_transitive_rule(self):
+        self._round_trip(TransitiveRule(edge_label="causes", new_label="inferred"))
+
+    def test_transitive_rule_no_label(self):
+        self._round_trip(TransitiveRule())
+
+    def test_inverse_rule(self):
+        self._round_trip(InverseRule(edge_label="causes", inverse_label="prevented_by"))
+
+    def test_generalization_rule(self):
+        self._round_trip(GeneralizationRule())
+
+    def test_abductive_rule(self):
+        self._round_trip(AbductiveRule())
+
+    def test_property_propagation_rule(self):
+        self._round_trip(PropertyPropagationRule(property_key="color"))
+
+    def test_structural_projection_rule(self):
+        self._round_trip(StructuralProjectionRule())
+
+    def test_hub_inference_rule(self):
+        self._round_trip(HubInferenceRule())
+
+    def test_contextual_substitution_rule(self):
+        self._round_trip(ContextualSubstitutionRule())
+
+    def test_unknown_type_raises(self):
+        with pytest.raises(ValueError):
+            Rule.from_dict({"rule_type": "NonexistentRule"})
+
+
+class TestRuleConfidence:
+    def test_transitive_rule_sets_confidence(self):
+        g, a, b, c = _make_rule_graph()
+        rule = TransitiveRule(edge_label="next")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) > 0
+        rule.apply(g, matches[0])
+        inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
+        assert len(inferred) > 0
+        assert inferred[0].metadata.custom["confidence"] == 0.9
+
+    def test_inverse_rule_sets_confidence(self):
+        g, a, b, c = _make_rule_graph()
+        rule = InverseRule(edge_label="next", inverse_label="prev")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) > 0
+        rule.apply(g, matches[0])
+        inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
+        assert any(e.metadata.custom.get("confidence") == 0.9 for e in inferred)
+
+    def test_abductive_rule_sets_confidence(self):
+        g, a, b, c = _make_rule_graph()
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({a.id}),
+                target_ids=frozenset({b.id}),
+                label="causes",
+            )
+        )
+        rule = AbductiveRule(effect_label="causes")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) > 0
+        rule.apply(g, matches[0])
+        inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
+        assert len(inferred) > 0
+        assert any(e.metadata.custom.get("confidence") == 0.5 for e in inferred)
+
+
+class TestIncrementalExpansion:
+    def test_reason_incremental(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="next")
+        mem.relate("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason({"a", "b", "c"}, use_overlay=False)
+        assert result["expansion"]["rules_applied"] > 0
+        mem.store("d")
+        mem.relate("c", "d", label="next")
+        inc_result = mem.reason_incremental({"c", "d"})
+        assert "expansion" in inc_result
+
+    def test_reason_incremental_no_prior_session(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.reason_incremental({"a"})
+        assert "error" in result
+
+
+class TestExhaustiveReasoning:
+    def test_exhaustive_explores_more_states(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for ch in "abcdefghij":
+            mem.store(ch)
+        for i in range(9):
+            mem.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        bounded = mem.reason({"a", "b", "c", "d"}, max_total_states=2)
+        bounded_states = bounded.expansion.states_created if bounded.expansion else 0
+        mem2 = HypergraphMemory(evolve_interval=0)
+        for ch in "abcdefghij":
+            mem2.store(ch)
+        for i in range(9):
+            mem2.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+        mem2.add_rules(TransitiveRule(edge_label="next"))
+        exhaustive = mem2.reason({"a", "b", "c", "d"}, max_total_states=2, exhaustive=True)
+        exhaustive_states = exhaustive.expansion.states_created if exhaustive.expansion else 0
+        assert exhaustive_states >= bounded_states
+
+    def test_exhaustive_flag_signature(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        result = mem.reason({"x"}, exhaustive=True)
+        assert result.error is None or isinstance(result.error, str)
+
+
+class TestGraphIsomorphismForCausalInvariance:
+    def test_isomorphic_structures_detected(self):
+        g = Hypergraph()
+        a = Hypernode(label="A", data="same")
+        b = Hypernode(label="B", data="same")
+        c = Hypernode(label="C", data="same")
+        d = Hypernode(label="D", data="same")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_node(d)
+        e1 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="rel")
+        e2 = Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({d.id}), label="rel")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        mw = MultiwayGraph()
+        s1 = MultiwayState(active_node_ids=frozenset({a.id, b.id}), produced_edge_ids=[e1.id])
+        s2 = MultiwayState(active_node_ids=frozenset({c.id, d.id}), produced_edge_ids=[e2.id])
+        mw.add_state(s1)
+        mw.add_state(s2)
+        engine = StateConvergenceEngine(g, mw, threshold=0.0)
+        score = engine.check_graph_isomorphism(s1, s2)
+        assert score == 1.0
+
+    def test_non_isomorphic_structures(self):
+        g = Hypergraph()
+        for lbl in "ABCD":
+            g.add_node(Hypernode(label=lbl, data=lbl))
+        e1 = Hyperedge(source_ids=frozenset({g.get_node_by_label("A").id}), target_ids=frozenset({g.get_node_by_label("B").id}), label="rel")
+        g.add_edge(e1)
+        e2 = Hyperedge(source_ids=frozenset({g.get_node_by_label("C").id}), target_ids=frozenset({g.get_node_by_label("D").id}), label="rel")
+        g.add_edge(e2)
+        e3 = Hyperedge(source_ids=frozenset({g.get_node_by_label("D").id}), target_ids=frozenset({g.get_node_by_label("A").id}), label="back")
+        g.add_edge(e3)
+        mw = MultiwayGraph()
+        s1 = MultiwayState(active_node_ids=frozenset({g.get_node_by_label("A").id, g.get_node_by_label("B").id}), produced_edge_ids=[e1.id])
+        s2 = MultiwayState(active_node_ids=frozenset({g.get_node_by_label("C").id, g.get_node_by_label("D").id, g.get_node_by_label("A").id}), produced_edge_ids=[e2.id, e3.id])
+        mw.add_state(s1)
+        mw.add_state(s2)
+        engine = StateConvergenceEngine(g, mw, threshold=0.0)
+        score = engine.check_graph_isomorphism(s1, s2)
+        assert score == 0.0
+
+    def test_empty_states_isomorphic(self):
+        g = Hypergraph()
+        mw = MultiwayGraph()
+        s1 = MultiwayState()
+        s2 = MultiwayState()
+        mw.add_state(s1)
+        mw.add_state(s2)
+        engine = StateConvergenceEngine(g, mw)
+        score = engine.check_graph_isomorphism(s1, s2)
+        assert score == 1.0
+
+
+class TestStructuralProjectionRule:
+    def test_no_embedding_engine_returns_empty(self):
+        g = Hypergraph()
+        for lbl in "ABCD":
+            g.add_node(Hypernode(label=lbl))
+        rule = StructuralProjectionRule()
+        matches = rule.find_matches(g, frozenset(n.id for n in g.nodes))
+        assert matches == []
+
+    def test_with_mock_embedding_engine(self):
+        g = Hypergraph()
+        nodes = []
+        for lbl in "ABCD":
+            n = Hypernode(label=lbl)
+            g.add_node(n)
+            nodes.append(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), label="rel"))
+
+        class MockEngine:
+            def get_embedding(self, node_id):
+                emb_map = {
+                    nodes[0].id: np.array([1.0, 0.0, 0.0]),
+                    nodes[1].id: np.array([0.0, 1.0, 0.0]),
+                    nodes[2].id: np.array([0.5, 0.0, 0.0]),
+                    nodes[3].id: np.array([0.0, 0.5, 0.0]),
+                }
+                return emb_map.get(node_id)
+
+        rule = StructuralProjectionRule(similarity_threshold=0.5)
+        rule.set_embedding_engine(MockEngine())
+        matches = rule.find_matches(g, frozenset(n.id for n in nodes))
+        assert isinstance(matches, list)
+
+    def test_apply_creates_edge(self):
+        g = Hypergraph()
+        nodes = []
+        for lbl in "ABCD":
+            n = Hypernode(label=lbl)
+            g.add_node(n)
+            nodes.append(n)
+        rule = StructuralProjectionRule()
+        match = RuleMatch(
+            rule_name=rule.name,
+            bindings={"A": nodes[0].id, "B": nodes[1].id, "C": nodes[2].id, "D": nodes[3].id},
+            context={"analogy_score": 0.8},
+        )
+        new_n, new_e = rule.apply(g, match)
+        assert len(new_e) == 1
+        edge = g.get_edge(new_e[0])
+        assert edge is not None
+        assert nodes[2].id in edge.source_ids
+        assert nodes[3].id in edge.target_ids
+
+    def test_serialization(self):
+        rule = StructuralProjectionRule(edge_label="rel", similarity_threshold=0.6)
+        d = rule.to_dict()
+        assert d["rule_type"] == "StructuralProjectionRule"
+        restored = StructuralProjectionRule._from_dict(d)
+        assert restored._edge_label == "rel"
+        assert restored._threshold == 0.6
+
+
+class TestHubInferenceRule:
+    def test_detects_recurring_pattern(self):
+        g = Hypergraph()
+        a = Hypernode(label="A")
+        b = Hypernode(label="B")
+        c = Hypernode(label="C")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        for _ in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="leads_to"))
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="also"))
+        rule = HubInferenceRule(min_support=2, confidence_threshold=0.5)
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        ab_matches = [m for m in matches if m.bindings["cause"] == a.id and m.bindings["effect"] == b.id]
+        assert len(ab_matches) == 1
+        assert ab_matches[0].context["confidence"] >= 0.5
+        assert ab_matches[0].context["support"] >= 2
+
+    def test_skips_below_support(self):
+        g = Hypergraph()
+        a = Hypernode(label="A")
+        b = Hypernode(label="B")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="once"))
+        rule = HubInferenceRule(min_support=5)
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert len(matches) == 0
+
+    def test_apply_creates_causes_edge(self):
+        g = Hypergraph()
+        a = Hypernode(label="A")
+        b = Hypernode(label="B")
+        g.add_node(a)
+        g.add_node(b)
+        rule = HubInferenceRule(causes_label="causes")
+        match = RuleMatch(rule_name=rule.name, bindings={"cause": a.id, "effect": b.id}, context={"support": 3, "confidence": 0.75})
+        new_n, new_e = rule.apply(g, match)
+        edge = g.get_edge(new_e[0])
+        assert edge.label == "causes"
+        assert edge.metadata.custom["confidence"] == 0.75
+
+    def test_serialization(self):
+        rule = HubInferenceRule(min_support=3, confidence_threshold=0.7, causes_label="implies")
+        d = rule.to_dict()
+        restored = HubInferenceRule._from_dict(d)
+        assert restored._min_support == 3
+        assert restored._confidence_threshold == 0.7
+        assert restored._causes_label == "implies"
+
+
+class TestContextualSubstitutionRule:
+    def test_detects_similar_nodes(self):
+        g = Hypergraph()
+        a = Hypernode(label="cat", data={"type": "feline"})
+        b = Hypernode(label="dog", data={"type": "canine"})
+        c = Hypernode(label="car", data={"wheels": 4})
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        rule = ContextualSubstitutionRule(similarity_threshold=0.0)
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) >= 1
+
+    def test_creates_bidirectional_edges(self):
+        g = Hypergraph()
+        a = Hypernode(label="x", data=42)
+        b = Hypernode(label="y", data=42)
+        g.add_node(a)
+        g.add_node(b)
+        rule = ContextualSubstitutionRule()
+        match = RuleMatch(rule_name=rule.name, bindings={"A": a.id, "B": b.id}, context={"similarity": 1.0})
+        new_n, new_e = rule.apply(g, match)
+        assert len(new_e) == 2
+        e1 = g.get_edge(new_e[0])
+        e2 = g.get_edge(new_e[1])
+        assert a.id in (e1.source_ids | e2.source_ids)
+        assert b.id in (e1.target_ids | e2.target_ids)
+
+    def test_skips_existing_substitution(self):
+        g = Hypergraph()
+        a = Hypernode(label="x", data=1)
+        b = Hypernode(label="y", data=1)
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="substitutes_for"))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="substitutes_for"))
+        rule = ContextualSubstitutionRule()
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert len(matches) == 0
+
+    def test_serialization(self):
+        rule = ContextualSubstitutionRule(similarity_threshold=0.9, substitution_label="equiv")
+        d = rule.to_dict()
+        restored = ContextualSubstitutionRule._from_dict(d)
+        assert restored._threshold == 0.9
+        assert restored._label == "equiv"
+
+
+class TestLazyMultiwayExpansion:
+    def test_expand_lazy_yields_states(self):
+        g = Hypergraph()
+        a = Hypernode(label="A")
+        b = Hypernode(label="B")
+        c = Hypernode(label="C")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="rel"))
+        from hyper3.rules import TransitiveRule
+        engine = MultiwayEngine(g)
+        rule = TransitiveRule(edge_label="rel")
+        states = list(engine.expand_lazy(
+            {a.id, b.id, c.id}, [rule], max_depth=2, max_total_states=10,
+        ))
+        assert len(states) >= 1
+        assert states[0][1] == 0
+
+    def test_expand_lazy_respects_max_states(self):
+        g = Hypergraph()
+        nodes = []
+        for i in range(5):
+            n = Hypernode(label=f"n{i}")
+            g.add_node(n)
+            nodes.append(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i+1].id}), label="e"))
+        from hyper3.rules import TransitiveRule
+        engine = MultiwayEngine(g)
+        rule = TransitiveRule(edge_label="e")
+        states = list(engine.expand_lazy(
+            frozenset(n.id for n in nodes), [rule], max_depth=3, max_total_states=5,
+        ))
+        assert len(states) <= 5
+
+
+class TestRuleScoring:
+    def test_transitive_rule_scores_high_for_weighted_edges(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="next", weight=2.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="next", weight=2.0))
+        rule = TransitiveRule(edge_label="next")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) > 0
+        score = rule.score_match(matches[0], g)
+        assert score > 1.0
+
+    def test_default_score_is_one(self):
+        rule = InverseRule(edge_label="x", inverse_label="y")
+        match = RuleMatch(rule_name="test", bindings={"source": "a", "target": "b"})
+        g = Hypergraph()
+        assert rule.score_match(match, g) >= 0.0
+
+
+
+def _make_rule_graph():
+    g = Hypergraph()
+    a = Hypernode(label="a", data={"x": 1})
+    b = Hypernode(label="b", data={"x": 1})
+    c = Hypernode(label="c", data={"x": 1})
+    g.add_node(a)
+    g.add_node(b)
+    g.add_node(c)
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="next"
+        )
+    )
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="next"
+        )
+    )
+    return g, a, b, c
+
+
+
+def _setup_memory():
+    mem = HypergraphMemory(evolve_interval=0)
+    mem.store("a")
+    mem.store("b")
+    mem.store("c")
+    mem.relate("a", "b", label="next")
+    mem.relate("b", "c", label="next")
+    mem.add_rules(TransitiveRule(edge_label="next"))
+    return mem
+

@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from hyper3.memory import HypergraphMemory
     from hyper3.rules import Rule
 
 from hyper3.results import _SimpleResultBase
@@ -182,7 +181,8 @@ class ValidationEngine:
         pre_nodes = {n.id for n in self._memory._graph.nodes}
 
         result = self._memory.reason(
-            seed_concepts, rules=rules,
+            seed_concepts,
+            rules=rules,
             auto_commit=True,
         )
 
@@ -196,7 +196,6 @@ class ValidationEngine:
 
         expansion = result.expansion if result.expansion else None
         nodes_produced_count = expansion.nodes_produced if expansion else 0
-        edges_produced_count = expansion.edges_produced if expansion else 0
 
         seed_ids: set[str] = set()
         for concept in seed_concepts:
@@ -239,7 +238,7 @@ class ValidationEngine:
         if len(weights) > 1:
             mean = sum(weights) / len(weights)
             variance = sum((w - mean) ** 2 for w in weights) / len(weights)
-            std_dev = variance ** 0.5
+            std_dev = variance**0.5
             cv = std_dev / max(mean, 1e-15)
             consistency_bonus = 1.0 / (1.0 + cv)
         return min(avg_weight * depth_penalty * consistency_bonus, 1.0)
@@ -290,8 +289,7 @@ class ValidationEngine:
             node = self._memory._graph.get_node(nid)
             label = node.label if node else nid[:8]
             findings.append({"type": "node", "id": nid, "label": label})
-        for eid in list(novel_edges)[:10]:
-            findings.append({"type": "edge", "id": eid})
+        findings.extend({"type": "edge", "id": eid} for eid in list(novel_edges)[:10])
         return findings
 
     def _find_contradictions(
@@ -335,25 +333,29 @@ class ValidationEngine:
             for s_edge in simple_edges_by_src_tgt[key]:
                 for e_edge in enhanced_edges_by_src_tgt[key]:
                     if s_edge.label and e_edge.label and s_edge.label != e_edge.label:
-                        contradictions.append({
-                            "type": "label_conflict",
-                            "simple_edge": s_edge.id,
-                            "enhanced_edge": e_edge.id,
-                            "simple_label": s_edge.label,
-                            "enhanced_label": e_edge.label,
-                            "nodes": list(key),
-                        })
+                        contradictions.append(
+                            {
+                                "type": "label_conflict",
+                                "simple_edge": s_edge.id,
+                                "enhanced_edge": e_edge.id,
+                                "simple_label": s_edge.label,
+                                "enhanced_label": e_edge.label,
+                                "nodes": list(key),
+                            }
+                        )
                     if s_edge.label == e_edge.label:
                         weight_diff = abs(s_edge.weight - e_edge.weight)
                         if weight_diff > 0.5:
-                            contradictions.append({
-                                "type": "weight_divergence",
-                                "simple_edge": s_edge.id,
-                                "enhanced_edge": e_edge.id,
-                                "simple_weight": s_edge.weight,
-                                "enhanced_weight": e_edge.weight,
-                                "divergence": weight_diff,
-                            })
+                            contradictions.append(
+                                {
+                                    "type": "weight_divergence",
+                                    "simple_edge": s_edge.id,
+                                    "enhanced_edge": e_edge.id,
+                                    "simple_weight": s_edge.weight,
+                                    "enhanced_weight": e_edge.weight,
+                                    "divergence": weight_diff,
+                                }
+                            )
 
         simple_labels: dict[str, list[str]] = {}
         for eid in se:
@@ -371,12 +373,14 @@ class ValidationEngine:
             s_set = set(simple_labels[node_id])
             e_set = set(enhanced_labels[node_id])
             if not s_set & e_set:
-                contradictions.append({
-                    "type": "direction_conflict",
-                    "node_id": node_id,
-                    "simple_direction": simple_labels[node_id][0],
-                    "enhanced_direction": enhanced_labels[node_id][0],
-                })
+                contradictions.append(
+                    {
+                        "type": "direction_conflict",
+                        "node_id": node_id,
+                        "simple_direction": simple_labels[node_id][0],
+                        "enhanced_direction": enhanced_labels[node_id][0],
+                    }
+                )
 
         return contradictions
 

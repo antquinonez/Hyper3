@@ -8,7 +8,6 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
-
 from hyper3.results import _SimpleResultBase
 
 
@@ -153,24 +152,127 @@ PREPOSITIONAL_PATTERNS: list[tuple[str, str, float]] = [
     ("against", "against", 0.65),
 ]
 
-SENTENCE_SPLIT_RE = re.compile(r'(?<=[.!?])\s+')
-STOP_WORDS = frozenset({
-    "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
-    "have", "has", "had", "do", "does", "did", "will", "would", "could",
-    "should", "may", "might", "shall", "can", "must", "to", "of", "in",
-    "for", "on", "with", "at", "by", "from", "as", "into", "through",
-    "during", "before", "after", "above", "below", "between", "out", "off",
-    "over", "under", "again", "further", "then", "once", "here", "there",
-    "when", "where", "why", "how", "all", "each", "every", "both", "few",
-    "more", "most", "other", "some", "such", "no", "not", "only", "own",
-    "same", "so", "than", "too", "very", "just", "because", "but", "and",
-    "or", "if", "while", "about", "up", "its", "it", "this", "that",
-    "these", "those", "which", "who", "whom", "what", "whose",
-})
-PRONOUNS = frozenset({
-    "he", "she", "it", "they", "him", "her", "them", "his", "hers",
-    "its", "their", "theirs", "this", "that", "these", "those",
-})
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "the",
+        "is",
+        "are",
+        "was",
+        "were",
+        "be",
+        "been",
+        "being",
+        "have",
+        "has",
+        "had",
+        "do",
+        "does",
+        "did",
+        "will",
+        "would",
+        "could",
+        "should",
+        "may",
+        "might",
+        "shall",
+        "can",
+        "must",
+        "to",
+        "of",
+        "in",
+        "for",
+        "on",
+        "with",
+        "at",
+        "by",
+        "from",
+        "as",
+        "into",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "out",
+        "off",
+        "over",
+        "under",
+        "again",
+        "further",
+        "then",
+        "once",
+        "here",
+        "there",
+        "when",
+        "where",
+        "why",
+        "how",
+        "all",
+        "each",
+        "every",
+        "both",
+        "few",
+        "more",
+        "most",
+        "other",
+        "some",
+        "such",
+        "no",
+        "not",
+        "only",
+        "own",
+        "same",
+        "so",
+        "than",
+        "too",
+        "very",
+        "just",
+        "because",
+        "but",
+        "and",
+        "or",
+        "if",
+        "while",
+        "about",
+        "up",
+        "its",
+        "it",
+        "this",
+        "that",
+        "these",
+        "those",
+        "which",
+        "who",
+        "whom",
+        "what",
+        "whose",
+    }
+)
+PRONOUNS = frozenset(
+    {
+        "he",
+        "she",
+        "it",
+        "they",
+        "him",
+        "her",
+        "them",
+        "his",
+        "hers",
+        "its",
+        "their",
+        "theirs",
+        "this",
+        "that",
+        "these",
+        "those",
+    }
+)
 
 
 class RegexExtractor:
@@ -218,14 +320,15 @@ class RegexExtractor:
         )
 
     def _extract_active(
-        self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
+        self,
+        text: str,
+        entities: dict[str, ExtractedEntity],
+        relations: list[ExtractedRelation],
     ) -> None:
         """Find active-voice relation patterns (subject verb object)."""
         for pattern, rel_label, base_conf in self._active_patterns:
             regex = re.compile(
-                r'(\b\w+(?:\s+\w+){0,3}?)\s+'
-                + re.escape(pattern)
-                + r'\s+(\b\w+(?:\s+\w+){0,3})',
+                r"(\b\w+(?:\s+\w+){0,3}?)\s+" + re.escape(pattern) + r"\s+(\b\w+(?:\s+\w+){0,3})",
                 re.IGNORECASE,
             )
             for match in regex.finditer(text):
@@ -234,22 +337,25 @@ class RegexExtractor:
                 if source and target and source.lower() not in STOP_WORDS and target.lower() not in STOP_WORDS:
                     entities.setdefault(source, ExtractedEntity(label=source))
                     entities.setdefault(target, ExtractedEntity(label=target))
-                    relations.append(ExtractedRelation(
-                        source_label=source,
-                        target_label=target,
-                        relation_label=rel_label,
-                        confidence=base_conf,
-                    ))
+                    relations.append(
+                        ExtractedRelation(
+                            source_label=source,
+                            target_label=target,
+                            relation_label=rel_label,
+                            confidence=base_conf,
+                        )
+                    )
 
     def _extract_passive(
-        self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
+        self,
+        text: str,
+        entities: dict[str, ExtractedEntity],
+        relations: list[ExtractedRelation],
     ) -> None:
         """Find passive-voice relation patterns (object verb subject)."""
         for pattern, rel_label, base_conf in self._passive_patterns:
             regex = re.compile(
-                r'(\b\w+(?:\s+\w+){0,3}?)\s+'
-                + re.escape(pattern)
-                + r'\s+(\b\w+(?:\s+\w+){0,3})',
+                r"(\b\w+(?:\s+\w+){0,3}?)\s+" + re.escape(pattern) + r"\s+(\b\w+(?:\s+\w+){0,3})",
                 re.IGNORECASE,
             )
             for match in regex.finditer(text):
@@ -258,16 +364,18 @@ class RegexExtractor:
                 if source and target and source.lower() not in STOP_WORDS and target.lower() not in STOP_WORDS:
                     entities.setdefault(source, ExtractedEntity(label=source))
                     entities.setdefault(target, ExtractedEntity(label=target))
-                    relations.append(ExtractedRelation(
-                        source_label=source,
-                        target_label=target,
-                        relation_label=rel_label,
-                        confidence=base_conf,
-                    ))
+                    relations.append(
+                        ExtractedRelation(
+                            source_label=source,
+                            target_label=target,
+                            relation_label=rel_label,
+                            confidence=base_conf,
+                        )
+                    )
 
     def _extract_noun_phrases(self, text: str, entities: dict[str, ExtractedEntity]) -> None:
         """Extract capitalized sequences, quoted strings, and parenthesized terms as entities."""
-        cap_seq = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
+        cap_seq = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b")
         for match in cap_seq.finditer(text):
             label = match.group(1)
             if label.lower() not in STOP_WORDS:
@@ -279,18 +387,21 @@ class RegexExtractor:
             if label and len(label) > 1:
                 entities.setdefault(label, ExtractedEntity(label=label, entity_type="quoted", confidence=0.7))
 
-        paren_def = re.compile(r'\(([^)]{1,50}?)\)')
+        paren_def = re.compile(r"\(([^)]{1,50}?)\)")
         for match in paren_def.finditer(text):
             label = match.group(1).strip()
             if label and len(label) > 1:
                 entities.setdefault(label, ExtractedEntity(label=label, confidence=0.65))
 
     def _extract_appositions(
-        self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
+        self,
+        text: str,
+        entities: dict[str, ExtractedEntity],
+        relations: list[ExtractedRelation],
     ) -> None:
         """Extract appositive constructions like \"entity, a category\" as is_a relations."""
         appos = re.compile(
-            r'(\b\w+(?:\s+\w+){0,2}?)\s*,\s*(?:a|an|the)\s+(\b\w+(?:\s+\w+){0,2}?)\s*[,.]',
+            r"(\b\w+(?:\s+\w+){0,2}?)\s*,\s*(?:a|an|the)\s+(\b\w+(?:\s+\w+){0,2}?)\s*[,.]",
             re.IGNORECASE,
         )
         for match in appos.finditer(text):
@@ -299,56 +410,65 @@ class RegexExtractor:
             if entity and category:
                 entities.setdefault(entity, ExtractedEntity(label=entity))
                 entities.setdefault(category, ExtractedEntity(label=category, entity_type="category"))
-                relations.append(ExtractedRelation(
-                    source_label=entity,
-                    target_label=category,
-                    relation_label="is_a",
-                    confidence=0.8,
-                ))
+                relations.append(
+                    ExtractedRelation(
+                        source_label=entity,
+                        target_label=category,
+                        relation_label="is_a",
+                        confidence=0.8,
+                    )
+                )
 
     def _extract_lists(
-        self, text: str, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
+        self,
+        text: str,
+        entities: dict[str, ExtractedEntity],
+        relations: list[ExtractedRelation],
     ) -> None:
         """Extract list patterns such as \"X such as A, B, C\" and \"X contains A, B, C\"."""
         list_pat = re.compile(
-            r'(\b\w+(?:\s+\w+){0,2}?)\s+such\s+as\s+(.+?)(?:[.;]|\Z)',
+            r"(\b\w+(?:\s+\w+){0,2}?)\s+such\s+as\s+(.+?)(?:[.;]|\Z)",
             re.IGNORECASE,
         )
         for match in list_pat.finditer(text):
             category = match.group(1).strip()
             items_str = match.group(2).strip()
-            items = re.split(r'\s*,\s*(?:and\s+)?|\s+and\s+', items_str)
+            items = re.split(r"\s*,\s*(?:and\s+)?|\s+and\s+", items_str)
             entities.setdefault(category, ExtractedEntity(label=category))
             for item in items:
                 item = item.strip(".,;:!?")
                 if item:
                     entities.setdefault(item, ExtractedEntity(label=item))
-                    relations.append(ExtractedRelation(
-                        source_label=item,
-                        target_label=category,
-                        relation_label="is_a",
-                        confidence=0.75,
-                    ))
+                    relations.append(
+                        ExtractedRelation(
+                            source_label=item,
+                            target_label=category,
+                            relation_label="is_a",
+                            confidence=0.75,
+                        )
+                    )
 
         contain_list = re.compile(
-            r'(\b\w+(?:\s+\w+){0,2}?)\s+(?:includes?|contains?|has)\s+(.+?)(?:[.;]|\Z)',
+            r"(\b\w+(?:\s+\w+){0,2}?)\s+(?:includes?|contains?|has)\s+(.+?)(?:[.;]|\Z)",
             re.IGNORECASE,
         )
         for match in contain_list.finditer(text):
             container = match.group(1).strip()
             items_str = match.group(2).strip()
-            items = re.split(r'\s*,\s*(?:and\s+)?|\s+and\s+', items_str)
+            items = re.split(r"\s*,\s*(?:and\s+)?|\s+and\s+", items_str)
             entities.setdefault(container, ExtractedEntity(label=container))
             for item in items:
                 item = item.strip(".,;:!?")
                 if item:
                     entities.setdefault(item, ExtractedEntity(label=item))
-                    relations.append(ExtractedRelation(
-                        source_label=container,
-                        target_label=item,
-                        relation_label="contains",
-                        confidence=0.75,
-                    ))
+                    relations.append(
+                        ExtractedRelation(
+                            source_label=container,
+                            target_label=item,
+                            relation_label="contains",
+                            confidence=0.75,
+                        )
+                    )
 
     def _resolve_coreference(self, text: str, entities: dict[str, ExtractedEntity]) -> None:
         """Resolve pronoun coreferences by linking pronouns to the last seen capitalized entity.
@@ -378,7 +498,8 @@ class RegexExtractor:
                     stripped = word.strip(".,;:!?()[]{}\"'")
                     if stripped and stripped not in entities:
                         entities[stripped] = ExtractedEntity(
-                            label=stripped, confidence=0.5,
+                            label=stripped,
+                            confidence=0.5,
                         )
                     last_entity = stripped
 
@@ -397,7 +518,9 @@ class RegexExtractor:
         return min(base + freq_boost, 1.0)
 
     def _deduplicate(
-        self, entities: dict[str, ExtractedEntity], relations: list[ExtractedRelation],
+        self,
+        entities: dict[str, ExtractedEntity],
+        relations: list[ExtractedRelation],
     ) -> tuple[dict[str, ExtractedEntity], list[ExtractedRelation]]:
         """Remove duplicate relations, keeping the highest confidence per triple."""
         seen_relations: set[tuple[str, str, str]] = set()
@@ -507,11 +630,13 @@ class LLMEnricher:
             elif in_relations and line.startswith("-"):
                 parts = [p.strip() for p in line[1:].strip().split("->")]
                 if len(parts) >= 3:
-                    relations.append(ExtractedRelation(
-                        source_label=parts[0],
-                        relation_label="->".join(parts[1:-1]),
-                        target_label=parts[-1],
-                    ))
+                    relations.append(
+                        ExtractedRelation(
+                            source_label=parts[0],
+                            relation_label="->".join(parts[1:-1]),
+                            target_label=parts[-1],
+                        )
+                    )
 
         return ExtractionResult(
             entities=entities,
@@ -526,14 +651,14 @@ class LLMEnricher:
         surrounding text.
         """
         json_str = response.strip()
-        fence_match = re.search(r'```(?:json)?\s*\n?(.*?)\n?```', json_str, re.DOTALL)
+        fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", json_str, re.DOTALL)
         if fence_match:
             json_str = fence_match.group(1).strip()
 
         brace_start = json_str.find("{")
         brace_end = json_str.rfind("}")
         if brace_start >= 0 and brace_end > brace_start:
-            json_str = json_str[brace_start:brace_end + 1]
+            json_str = json_str[brace_start : brace_end + 1]
         else:
             return None
 
@@ -552,24 +677,28 @@ class LLMEnricher:
         if isinstance(raw_entities, list):
             for e in raw_entities:
                 if isinstance(e, dict) and "label" in e:
-                    entities.append(ExtractedEntity(
-                        label=str(e["label"]),
-                        entity_type=str(e.get("type", "")),
-                        confidence=float(e.get("confidence", 0.9)),
-                    ))
+                    entities.append(
+                        ExtractedEntity(
+                            label=str(e["label"]),
+                            entity_type=str(e.get("type", "")),
+                            confidence=float(e.get("confidence", 0.9)),
+                        )
+                    )
                 elif isinstance(e, str):
                     entities.append(ExtractedEntity(label=e))
 
         raw_relations = data.get("relations", [])
         if isinstance(raw_relations, list):
-            for r in raw_relations:
-                if isinstance(r, dict) and "source" in r and "target" in r:
-                    relations.append(ExtractedRelation(
-                        source_label=str(r["source"]),
-                        target_label=str(r["target"]),
-                        relation_label=str(r.get("label", "related_to")),
-                        confidence=float(r.get("confidence", 0.9)),
-                        bidirectional=bool(r.get("bidirectional", False)),
-                    ))
+            relations.extend(
+                ExtractedRelation(
+                    source_label=str(r["source"]),
+                    target_label=str(r["target"]),
+                    relation_label=str(r.get("label", "related_to")),
+                    confidence=float(r.get("confidence", 0.9)),
+                    bidirectional=bool(r.get("bidirectional", False)),
+                )
+                for r in raw_relations
+                if isinstance(r, dict) and "source" in r and "target" in r
+            )
 
         return ExtractionResult(entities=entities, relations=relations, raw_text="")

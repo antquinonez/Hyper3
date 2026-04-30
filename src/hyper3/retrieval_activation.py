@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from hyper3.kernel import Hypergraph
 
@@ -116,10 +115,7 @@ class SpreadingActivation:
                 if new_max > 0:
                     scale = current_max / new_max
                     self._activations = {nid: a * scale for nid, a in self._activations.items()}
-            self._activations = {
-                nid: a for nid, a in self._activations.items()
-                if a >= self._config.min_activation
-            }
+            self._activations = {nid: a for nid, a in self._activations.items() if a >= self._config.min_activation}
         return dict(self._activations)
 
     def get_activated(
@@ -280,9 +276,6 @@ class SpreadingActivation:
                 if nid not in self._depth_map or depth < self._depth_map[nid]:
                     self._depth_map[nid] = depth
 
-            self._activations = {
-                nid: a for nid, a in self._activations.items()
-                if a >= threshold
-            }
+            self._activations = {nid: a for nid, a in self._activations.items() if a >= threshold}
 
         return dict(self._activations)

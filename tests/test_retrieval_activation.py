@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import pytest
 
+from hyper3.exceptions import NodeNotFoundError
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
-from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
 from hyper3.memory import HypergraphMemory
 from hyper3.persistence import Serializer
+from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
 
 
 def _add_node(graph: Hypergraph, label: str) -> Hypernode:
@@ -58,7 +59,7 @@ class TestDecay:
         config = ActivationConfig(decay_factor=0.5, normalize_per_step=False)
         sa = SpreadingActivation(graph, config=config)
         sa.stimulate(nodes[0].id, 1.0)
-        r1 = dict(sa.activations)
+        dict(sa.activations)
         sa.spread(iterations=1)
         r2 = sa.activations
         assert r2[nodes[1].id] < 1.0
@@ -276,3 +277,16 @@ class TestIntegrationMemory:
         mem2.load(path)
         result = mem2.activate("a", top_k=5)
         assert isinstance(result, list)
+
+
+class TestStimulateNodeNotFoundError:
+    def test_stimulate_missing_concept_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        with pytest.raises(NodeNotFoundError):
+            mem.stimulate("nonexistent")
+
+    def test_stimulate_valid_concept_succeeds(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.stimulate("a", energy=2.0)
+

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import time
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -158,11 +156,13 @@ class TransitiveRule(Rule):
                                 continue
                             if (nid_a, nid_c) in edge_set:
                                 continue
-                            matches.append(RuleMatch(
-                                rule_name=self.name,
-                                bindings={"A": nid_a, "B": nid_b, "C": nid_c},
-                                context={"edge_ab": e1.id, "edge_bc": e2.id},
-                            ))
+                            matches.append(
+                                RuleMatch(
+                                    rule_name=self.name,
+                                    bindings={"A": nid_a, "B": nid_b, "C": nid_c},
+                                    context={"edge_ab": e1.id, "edge_bc": e2.id},
+                                )
+                            )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -188,10 +188,7 @@ class TransitiveRule(Rule):
 
     def _edge_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
         """Check whether a direct edge from *source* to *target* exists."""
-        for edge in graph.edges_for(source):
-            if source in edge.source_ids and target in edge.target_ids:
-                return True
-        return False
+        return any(source in edge.source_ids and target in edge.target_ids for edge in graph.edges_for(source))
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a transitive match as the product of constituent edge weights and confidences."""
@@ -233,11 +230,13 @@ class TransitiveRule(Rule):
                             continue
                         if (nid_a, target_node_id) in edge_set:
                             continue
-                        derivations.append(RuleMatch(
-                            rule_name=self.name,
-                            bindings={"A": nid_a, "B": nid_b, "C": target_node_id},
-                            context={"edge_ab": e_ab.id, "edge_bc": e_bc.id},
-                        ))
+                        derivations.append(
+                            RuleMatch(
+                                rule_name=self.name,
+                                bindings={"A": nid_a, "B": nid_b, "C": target_node_id},
+                                context={"edge_ab": e_ab.id, "edge_bc": e_bc.id},
+                            )
+                        )
         return derivations
 
     def to_dict(self) -> dict[str, Any]:
@@ -287,11 +286,13 @@ class InverseRule(Rule):
                 for target in edge.target_ids & active_nodes:
                     if self._inverse_exists(graph, target, nid):
                         continue
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"source": nid, "target": target},
-                        context={"original_edge": edge.id},
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"source": nid, "target": target},
+                            context={"original_edge": edge.id},
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -343,13 +344,15 @@ class InverseRule(Rule):
         for edge in outgoing:
             if edge.label != self._edge_label:
                 continue
-            for source_of_inverse in edge.target_ids:
-                if not self._inverse_exists(graph, source_of_inverse, target_node_id):
-                    derivations.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"source": source_of_inverse, "target": target_node_id},
-                        context={"original_edge": edge.id},
-                    ))
+            derivations.extend(
+                RuleMatch(
+                    rule_name=self.name,
+                    bindings={"source": source_of_inverse, "target": target_node_id},
+                    context={"original_edge": edge.id},
+                )
+                for source_of_inverse in edge.target_ids
+                if not self._inverse_exists(graph, source_of_inverse, target_node_id)
+            )
         return derivations
 
     def to_dict(self) -> dict[str, Any]:
@@ -399,15 +402,17 @@ class GeneralizationRule(Rule):
                 if sim >= self._threshold:
                     if self._abstract_exists(graph, nodes[i], nodes[j]):
                         continue
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"A": nodes[i].id, "B": nodes[j].id},
-                        context={
-                            "similarity": sim,
-                            "label_a": nodes[i].label,
-                            "label_b": nodes[j].label,
-                        },
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"A": nodes[i].id, "B": nodes[j].id},
+                            context={
+                                "similarity": sim,
+                                "label_a": nodes[i].label,
+                                "label_b": nodes[j].label,
+                            },
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -447,10 +452,7 @@ class GeneralizationRule(Rule):
 
     def _abstract_exists(self, graph: Hypergraph, a: Hypernode, b: Hypernode) -> bool:
         """Check whether a ``"generalizes"`` edge already links *a* to *b*."""
-        for edge in graph.edges_for(a.id):
-            if edge.label == "generalizes" and b.id in edge.target_ids:
-                return True
-        return False
+        return any(edge.label == "generalizes" and b.id in edge.target_ids for edge in graph.edges_for(a.id))
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a generalization match by the similarity stored in context."""
@@ -458,12 +460,19 @@ class GeneralizationRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the generalization rule configuration."""
-        return {"rule_type": "GeneralizationRule", "similarity_threshold": self._threshold, "label_prefix": self._label_prefix}
+        return {
+            "rule_type": "GeneralizationRule",
+            "similarity_threshold": self._threshold,
+            "label_prefix": self._label_prefix,
+        }
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> GeneralizationRule:
         """Reconstruct a ``GeneralizationRule`` from serialized data."""
-        return cls(similarity_threshold=data.get("similarity_threshold", 0.8), label_prefix=data.get("label_prefix", "abstract_"))
+        return cls(
+            similarity_threshold=data.get("similarity_threshold", 0.8),
+            label_prefix=data.get("label_prefix", "abstract_"),
+        )
 
 
 class AbductiveRule(Rule):
@@ -509,9 +518,9 @@ class AbductiveRule(Rule):
             if not node_b:
                 continue
             incoming = [
-                e for e in graph.edges_for(nid_b)
-                if nid_b in e.target_ids
-                and (not self._effect_label or e.label == self._effect_label)
+                e
+                for e in graph.edges_for(nid_b)
+                if nid_b in e.target_ids and (not self._effect_label or e.label == self._effect_label)
             ]
             for edge in incoming:
                 for nid_a in edge.source_ids & active_nodes:
@@ -521,11 +530,13 @@ class AbductiveRule(Rule):
                     pair_key = (node_a.label, node_b.label)
                     if pair_key in existing_pairs:
                         continue
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"observed": nid_b, "potential_cause": nid_a},
-                        context={"via_edge": edge.id, "edge_label": edge.label},
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"observed": nid_b, "potential_cause": nid_a},
+                            context={"via_edge": edge.id, "edge_label": edge.label},
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -629,14 +640,16 @@ class PropertyPropagationRule(Rule):
                         continue
                     if self._property_key in target.metadata.custom:
                         continue
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"source": nid, "target": target_id},
-                        context={
-                            "property_value": node.metadata.custom[self._property_key],
-                            "via_edge": edge.id,
-                        },
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"source": nid, "target": target_id},
+                            context={
+                                "property_value": node.metadata.custom[self._property_key],
+                                "via_edge": edge.id,
+                            },
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -679,7 +692,11 @@ class PropertyPropagationRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the property propagation rule configuration."""
-        return {"rule_type": "PropertyPropagationRule", "property_key": self._property_key, "edge_label": self._edge_label}
+        return {
+            "rule_type": "PropertyPropagationRule",
+            "property_key": self._property_key,
+            "edge_label": self._edge_label,
+        }
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> PropertyPropagationRule:
@@ -765,7 +782,7 @@ class StructuralProjectionRule(Rule):
                     idx_b = node_to_idx[nid_b]
                     analogy_vec = normed[idx_b] - normed[idx_a]
                     for nid_c in active_with_emb:
-                        if nid_c == nid_a or nid_c == nid_b:
+                        if nid_c in (nid_a, nid_b):
                             continue
                         idx_c = node_to_idx[nid_c]
                         target_vec = analogy_vec + normed[idx_c]
@@ -784,11 +801,13 @@ class StructuralProjectionRule(Rule):
                             key = (nid_a, nid_b, nid_c, nid_d)
                             if key not in seen_analogies:
                                 seen_analogies.add(key)
-                                matches.append(RuleMatch(
-                                    rule_name=self.name,
-                                    bindings={"A": nid_a, "B": nid_b, "C": nid_c, "D": nid_d},
-                                    context={"analogy_score": sim, "edge_ab": e1.id},
-                                ))
+                                matches.append(
+                                    RuleMatch(
+                                        rule_name=self.name,
+                                        bindings={"A": nid_a, "B": nid_b, "C": nid_c, "D": nid_d},
+                                        context={"analogy_score": sim, "edge_ab": e1.id},
+                                    )
+                                )
                             break
         return matches
 
@@ -814,10 +833,14 @@ class StructuralProjectionRule(Rule):
             source_ids=frozenset({c_id}),
             target_ids=frozenset({d_id}),
             label=label,
-            metadata=Metadata(custom={
-                "rule": self.name, "inferred": True, "confidence": confidence,
-                "analogy": f"{a_node.label if a_node else 'A'}:{b_node.label if b_node else 'B'}::{c_node.label if c_node else 'C'}:{d_node.label if d_node else 'D'}",
-            }),
+            metadata=Metadata(
+                custom={
+                    "rule": self.name,
+                    "inferred": True,
+                    "confidence": confidence,
+                    "analogy": f"{a_node.label if a_node else 'A'}:{b_node.label if b_node else 'B'}::{c_node.label if c_node else 'C'}:{d_node.label if d_node else 'D'}",
+                }
+            ),
         )
         graph.add_edge(edge)
         return [], [edge.id]
@@ -828,7 +851,11 @@ class StructuralProjectionRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the analogical reasoning rule configuration."""
-        return {"rule_type": "StructuralProjectionRule", "edge_label": self._edge_label, "similarity_threshold": self._threshold}
+        return {
+            "rule_type": "StructuralProjectionRule",
+            "edge_label": self._edge_label,
+            "similarity_threshold": self._threshold,
+        }
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StructuralProjectionRule:
@@ -837,7 +864,9 @@ class StructuralProjectionRule(Rule):
 
 
 class HubInferenceRule(Rule):
-    def __init__(self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes") -> None:
+    def __init__(
+        self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes"
+    ) -> None:
         """Initialize the hub inference rule.
 
         Args:
@@ -868,22 +897,19 @@ class HubInferenceRule(Rule):
         """
         matches: list[RuleMatch] = []
         edge_pairs: dict[tuple[str, str], int] = {}
+        source_totals: dict[str, int] = {}
         for edge in graph.edges:
+            active_srcs = [s for s in edge.source_ids if s in active_nodes]
+            for src in active_srcs:
+                source_totals[src] = source_totals.get(src, 0) + 1
             if not edge.label:
                 continue
-            for src in edge.source_ids:
-                if src not in active_nodes:
-                    continue
+            for src in active_srcs:
                 for tgt in edge.target_ids:
                     if tgt not in active_nodes or tgt == src:
                         continue
                     pair = (src, tgt)
                     edge_pairs[pair] = edge_pairs.get(pair, 0) + 1
-        source_totals: dict[str, int] = {}
-        for edge in graph.edges:
-            for src in edge.source_ids:
-                if src in active_nodes:
-                    source_totals[src] = source_totals.get(src, 0) + 1
         for (src, tgt), pair_count in edge_pairs.items():
             total_from_src = source_totals.get(src, 0)
             if total_from_src == 0:
@@ -897,11 +923,13 @@ class HubInferenceRule(Rule):
                         existing = True
                         break
                 if not existing:
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"cause": src, "effect": tgt},
-                        context={"support": support, "confidence": confidence},
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"cause": src, "effect": tgt},
+                            context={"support": support, "confidence": confidence},
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -920,7 +948,14 @@ class HubInferenceRule(Rule):
             source_ids=frozenset({cause_id}),
             target_ids=frozenset({effect_id}),
             label=self._causes_label,
-            metadata=Metadata(custom={"rule": self.name, "inferred": True, "confidence": confidence, "support": match.context["support"]}),
+            metadata=Metadata(
+                custom={
+                    "rule": self.name,
+                    "inferred": True,
+                    "confidence": confidence,
+                    "support": match.context["support"],
+                }
+            ),
         )
         graph.add_edge(edge)
         return [], [edge.id]
@@ -931,12 +966,21 @@ class HubInferenceRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the hub inference rule configuration."""
-        return {"rule_type": "HubInferenceRule", "min_support": self._min_support, "confidence_threshold": self._confidence_threshold, "causes_label": self._causes_label}
+        return {
+            "rule_type": "HubInferenceRule",
+            "min_support": self._min_support,
+            "confidence_threshold": self._confidence_threshold,
+            "causes_label": self._causes_label,
+        }
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> HubInferenceRule:
         """Reconstruct a ``HubInferenceRule`` from serialized data."""
-        return cls(min_support=data.get("min_support", 2), confidence_threshold=data.get("confidence_threshold", 0.6), causes_label=data.get("causes_label", "causes"))
+        return cls(
+            min_support=data.get("min_support", 2),
+            confidence_threshold=data.get("confidence_threshold", 0.6),
+            causes_label=data.get("causes_label", "causes"),
+        )
 
 
 class ContextualSubstitutionRule(Rule):
@@ -975,11 +1019,13 @@ class ContextualSubstitutionRule(Rule):
                 if sim >= self._threshold:
                     if self._substitution_exists(graph, nodes[i].id, nodes[j].id):
                         continue
-                    matches.append(RuleMatch(
-                        rule_name=self.name,
-                        bindings={"A": nodes[i].id, "B": nodes[j].id},
-                        context={"similarity": sim},
-                    ))
+                    matches.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"A": nodes[i].id, "B": nodes[j].id},
+                            context={"similarity": sim},
+                        )
+                    )
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -1012,10 +1058,7 @@ class ContextualSubstitutionRule(Rule):
 
     def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
         """Check whether a substitution edge between *a_id* and *b_id* exists."""
-        for edge in graph.edges_for(a_id):
-            if edge.label == self._label and b_id in edge.target_ids:
-                return True
-        return False
+        return any(edge.label == self._label and b_id in edge.target_ids for edge in graph.edges_for(a_id))
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a substitution match by the similarity stored in context."""
@@ -1023,9 +1066,16 @@ class ContextualSubstitutionRule(Rule):
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the contextual substitution rule configuration."""
-        return {"rule_type": "ContextualSubstitutionRule", "similarity_threshold": self._threshold, "substitution_label": self._label}
+        return {
+            "rule_type": "ContextualSubstitutionRule",
+            "similarity_threshold": self._threshold,
+            "substitution_label": self._label,
+        }
 
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> ContextualSubstitutionRule:
         """Reconstruct a ``ContextualSubstitutionRule`` from serialized data."""
-        return cls(similarity_threshold=data.get("similarity_threshold", 0.8), substitution_label=data.get("substitution_label", "substitutes_for"))
+        return cls(
+            similarity_threshold=data.get("similarity_threshold", 0.8),
+            substitution_label=data.get("substitution_label", "substitutes_for"),
+        )

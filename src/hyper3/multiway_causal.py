@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -10,16 +9,6 @@ import numpy as np
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
 from hyper3.results import MergeReport
-from hyper3.belief import (
-    BUILTIN_PROFILES,
-    SamplingTrigger,
-    ConceptCorrelation,
-    EvidenceInteraction,
-    Outcome,
-    SamplingProfile,
-    BeliefLayer,
-    BeliefState,
-)
 
 
 @dataclass
@@ -227,7 +216,9 @@ class StateConvergenceEngine:
         pairs.sort(key=lambda p: p[2], reverse=True)
         return pairs
 
-    def _extract_insight(self, state: MultiwayState, other_node_ids: frozenset[str], other_edge_ids: set[str]) -> MergeInsight:
+    def _extract_insight(
+        self, state: MultiwayState, other_node_ids: frozenset[str], other_edge_ids: set[str]
+    ) -> MergeInsight:
         """Extract the unique contributions of a state relative to its merge partner."""
         unique_nodes = [nid for nid in state.active_node_ids if nid not in other_node_ids]
         unique_edges = [eid for eid in state.produced_edge_ids if eid not in other_edge_ids]
@@ -256,10 +247,14 @@ class StateConvergenceEngine:
             if not state_a or not state_b:
                 continue
             insight_a = self._extract_insight(
-                state_a, state_b.active_node_ids, set(state_b.produced_edge_ids),
+                state_a,
+                state_b.active_node_ids,
+                set(state_b.produced_edge_ids),
             )
             insight_b = self._extract_insight(
-                state_b, state_a.active_node_ids, set(state_a.produced_edge_ids),
+                state_b,
+                state_a.active_node_ids,
+                set(state_a.produced_edge_ids),
             )
             merged_nodes = state_a.active_node_ids | state_b.active_node_ids
             merged_edges = list(set(state_a.produced_edge_ids + state_b.produced_edge_ids))
@@ -273,9 +268,7 @@ class StateConvergenceEngine:
                 active_node_ids=merged_nodes,
                 rule_applied=" + ".join(rules_used) if rules_used else None,
                 depth=min(state_a.depth, state_b.depth),
-                produced_node_ids=list(
-                    set(state_a.produced_node_ids + state_b.produced_node_ids)
-                ),
+                produced_node_ids=list(set(state_a.produced_node_ids + state_b.produced_node_ids)),
                 produced_edge_ids=merged_edges,
                 timestamp=time.time(),
             )

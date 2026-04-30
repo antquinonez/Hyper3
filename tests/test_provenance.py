@@ -345,7 +345,7 @@ class TestCascadeRetraction:
             if edge.label == "inferred":
                 inferred_labels.add((edge.source_ids, edge.target_ids, edge.id))
         retracted_any = False
-        for src_ids, tgt_ids, eid in inferred_labels:
+        for _src_ids, _tgt_ids, eid in inferred_labels:
             if mem.provenance.is_inferred(eid):
                 ids = mem.provenance.retract(eid)
                 for rid in ids:

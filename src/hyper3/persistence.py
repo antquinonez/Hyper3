@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from hyper3.event_log import EventLog
 from hyper3.kernel import (
     AbstractionLayer,
     Hyperedge,
@@ -12,7 +13,6 @@ from hyper3.kernel import (
     Metadata,
     Modality,
 )
-from hyper3.event_log import EventLog
 
 
 class Serializer:
@@ -131,6 +131,7 @@ class Serializer:
             List of Rule instances.
         """
         from hyper3.rules import Rule
+
         return [Rule.from_dict(d) for d in data]
 
     def save_with_rules(self, graph: Hypergraph, log: EventLog, rules: list[Any], path: str | Path) -> None:
@@ -223,6 +224,7 @@ class Serializer:
             A new Hypergraph instance.
         """
         from hyper3.kernel import Hyperedge, Hypernode
+
         p = Path(path)
         graph = Hypergraph()
         lines = p.read_text().strip().split("\n")

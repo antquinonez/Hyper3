@@ -93,14 +93,16 @@ class HebbianLearner:
                     weakened += 1
 
                 edge.weight = new_weight
-                updates.append(HebbianUpdate(
-                    source_id=src_id,
-                    target_id=tgt_id,
-                    edge_id=edge.id,
-                    old_weight=old_weight,
-                    new_weight=new_weight,
-                    co_activation=co_act,
-                ))
+                updates.append(
+                    HebbianUpdate(
+                        source_id=src_id,
+                        target_id=tgt_id,
+                        edge_id=edge.id,
+                        old_weight=old_weight,
+                        new_weight=new_weight,
+                        co_activation=co_act,
+                    )
+                )
 
         avg_change = 0.0
         if updates:
@@ -164,16 +166,18 @@ class HebbianLearner:
                     edge.weight - self._config.decay_rate,
                     self._config.min_edge_weight,
                 )
-                for src_id in edge.source_ids or ("",):
-                    for tgt_id in edge.target_ids or ("",):
-                        updates.append(HebbianUpdate(
-                            source_id=src_id,
-                            target_id=tgt_id,
-                            edge_id=edge.id,
-                            old_weight=old_weight,
-                            new_weight=edge.weight,
-                            co_activation=0.0,
-                        ))
+                updates.extend(
+                    HebbianUpdate(
+                        source_id=src_id,
+                        target_id=tgt_id,
+                        edge_id=edge.id,
+                        old_weight=old_weight,
+                        new_weight=edge.weight,
+                        co_activation=0.0,
+                    )
+                    for src_id in edge.source_ids or ("",)
+                    for tgt_id in edge.target_ids or ("",)
+                )
         return updates
 
     def get_strongest_associations(self, node_label: str, top_k: int = 10) -> list[tuple[str, float]]:
@@ -193,7 +197,8 @@ class HebbianLearner:
         return neighbor_weights[:top_k]
 
     def _find_co_active_pairs(
-        self, active_ids: dict[str, float],
+        self,
+        active_ids: dict[str, float],
     ) -> list[tuple[str, str, float]]:
         pairs: list[tuple[str, str, float]] = []
         ids = list(active_ids.keys())
@@ -208,8 +213,8 @@ class HebbianLearner:
         return pairs
 
     def _find_connecting_edges(self, node_a: str, node_b: str) -> list[Any]:
-        edges = []
-        for edge in self._graph.edges_for(node_a):
-            if node_b in (edge.source_ids | edge.target_ids):
-                edges.append(edge)
-        return edges
+        return [
+            edge
+            for edge in self._graph.edges_for(node_a)
+            if node_b in (edge.source_ids | edge.target_ids)
+        ]

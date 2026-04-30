@@ -48,9 +48,11 @@ class WeightInflationConstraint(ConstraintCheck):
         if self.growth_factor > 0:
             neighbor_weights: list[float] = []
             for src_id in edge.source_ids:
-                for existing in graph.edges_for(src_id):
-                    if existing.id != edge.id:
-                        neighbor_weights.append(existing.weight)
+                neighbor_weights.extend(
+                    existing.weight
+                    for existing in graph.edges_for(src_id)
+                    if existing.id != edge.id
+                )
             if neighbor_weights:
                 avg_neighbor = sum(neighbor_weights) / len(neighbor_weights)
                 if avg_neighbor > 0 and edge.weight > avg_neighbor * self.growth_factor:
@@ -64,9 +66,11 @@ class WeightInflationConstraint(ConstraintCheck):
         if self.growth_factor > 0:
             neighbor_weights: list[float] = []
             for src_id in edge.source_ids:
-                for existing in graph.edges_for(src_id):
-                    if existing.id != edge.id:
-                        neighbor_weights.append(existing.weight)
+                neighbor_weights.extend(
+                    existing.weight
+                    for existing in graph.edges_for(src_id)
+                    if existing.id != edge.id
+                )
             if neighbor_weights:
                 avg_neighbor = sum(neighbor_weights) / len(neighbor_weights)
                 if avg_neighbor > 0 and edge.weight > avg_neighbor * self.growth_factor:
@@ -155,12 +159,16 @@ class BoundaryNavigator:
             constraints: Custom constraint list.  When ``None``, the four
                 built-in constraints are used.
         """
-        self._constraints: list[ConstraintCheck] = constraints if constraints is not None else [
-            NoSelfLoopConstraint(),
-            WeightInflationConstraint(),
-            ProvenanceDepthConstraint(),
-            DuplicateEdgeConstraint(),
-        ]
+        self._constraints: list[ConstraintCheck] = (
+            constraints
+            if constraints is not None
+            else [
+                NoSelfLoopConstraint(),
+                WeightInflationConstraint(),
+                ProvenanceDepthConstraint(),
+                DuplicateEdgeConstraint(),
+            ]
+        )
 
     def add_constraint(self, constraint: ConstraintCheck) -> None:
         """Append a constraint to the active list."""
@@ -187,9 +195,7 @@ class BoundaryNavigator:
                 violations.append(f"[{type(c).__name__}] {reason}")
         return violations
 
-    def validate_and_filter(
-        self, edges: list[Any], graph: Any
-    ) -> tuple[list[Any], list[dict[str, Any]]]:
+    def validate_and_filter(self, edges: list[Any], graph: Any) -> tuple[list[Any], list[dict[str, Any]]]:
         """Partition edges into valid and rejected lists with violation reasons.
 
         Args:
@@ -205,10 +211,12 @@ class BoundaryNavigator:
         for edge in edges:
             violations = self.validate_edge(edge, graph)
             if violations:
-                rejected.append({
-                    "edge_id": getattr(edge, "id", ""),
-                    "violations": violations,
-                })
+                rejected.append(
+                    {
+                        "edge_id": getattr(edge, "id", ""),
+                        "violations": violations,
+                    }
+                )
             else:
                 valid.append(edge)
         return valid, rejected

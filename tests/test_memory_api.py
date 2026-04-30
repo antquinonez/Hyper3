@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3 import HypergraphMemory, GraphDescription, top_k
+from hyper3 import GraphDescription, HypergraphMemory, top_k
 
 
 class TestHasNode:

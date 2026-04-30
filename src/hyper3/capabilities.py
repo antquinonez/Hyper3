@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any
 
 
 class CapabilityLevel(Enum):
@@ -159,10 +158,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
         try:
             nodes = list(getattr(graph, "nodes", []))
             if nodes:
-                total_edges = sum(
-                    len(list(getattr(graph, "edges_for", lambda x: [])(n.id)))
-                    for n in nodes
-                )
+                total_edges = sum(len(list(getattr(graph, "edges_for", lambda x: [])(n.id))) for n in nodes)
                 density = total_edges / max(len(nodes) * (len(nodes) - 1), 1)
                 scores["graph_density"] = min(density, 1.0)
             else:
@@ -174,10 +170,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
             belief = getattr(memory, "_belief", None)
             if belief is not None:
                 states = getattr(belief, "_states", {})
-                active = sum(
-                    1 for s in states.values()
-                    if not getattr(s, "resolved", True)
-                )
+                active = sum(1 for s in states.values() if not getattr(s, "resolved", True))
                 scores["belief_active_ratio"] = active / max(len(states), 1)
             else:
                 scores["belief_active_ratio"] = 0.0
@@ -210,10 +203,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
         return CapabilityLevel.MINIMAL
 
     advanced = (
-        scores.get("provenance", 0)
-        + scores.get("belief", 0)
-        + scores.get("branchial", 0)
-        + scores.get("rulial", 0)
+        scores.get("provenance", 0) + scores.get("belief", 0) + scores.get("branchial", 0) + scores.get("rulial", 0)
     )
     if advanced < 2.0:
         return CapabilityLevel.STANDARD
@@ -235,8 +225,10 @@ def require_capability(level: CapabilityLevel):
     the decorated function's name, docstring, and module.
     """
     import functools
+
     def decorator(func):
         """Wrap *func* so the capability check runs before each call."""
+
         @functools.wraps(func)
         def wrapper(self, *args, **kwargs):
             """Invoke the decorated method after verifying capability level."""
@@ -246,9 +238,10 @@ def require_capability(level: CapabilityLevel):
             required_idx = levels.index(level)
             if current_idx < required_idx:
                 from hyper3.exceptions import Hyper3Error
-                raise Hyper3Error(
-                    f"requires {level.value} capability, current: {current.value}"
-                )
+
+                raise Hyper3Error(f"requires {level.value} capability, current: {current.value}")
             return func(self, *args, **kwargs)
+
         return wrapper
+
     return decorator

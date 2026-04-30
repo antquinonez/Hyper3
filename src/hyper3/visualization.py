@@ -7,9 +7,9 @@ import numpy as np
 if TYPE_CHECKING:
     from matplotlib.figure import Figure
 
-    from hyper3.multiway_branchial import BranchialSpace
     from hyper3.belief import BeliefLayer
     from hyper3.kernel import Hypergraph
+    from hyper3.multiway_branchial import BranchialSpace
 
 
 def _import_pyplot():
@@ -47,8 +47,6 @@ def plot_hypergraph(
     """
     plt = _import_pyplot()
     import networkx as nx
-
-    from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 
     G = nx.DiGraph()
     for node in graph.nodes:
@@ -117,9 +115,7 @@ def plot_hypergraph(
         width=1.5,
     )
     if edge_labels:
-        nx.draw_networkx_edge_labels(
-            G, pos, edge_labels, ax=ax, font_size=font_size - 2, font_color="#cc4400"
-        )
+        nx.draw_networkx_edge_labels(G, pos, edge_labels, ax=ax, font_size=font_size - 2, font_color="#cc4400")
 
     ax.set_title(title)
     ax.axis("off")
@@ -269,7 +265,7 @@ def plot_belief_state(
         ax = axes[idx]
         amplitudes = [i.amplitude for i in qs.outcomes]
         colors = ["#4477AA" if (a.real if isinstance(a, complex) else a) >= 0 else "#cc4444" for a in amplitudes]
-        bars = ax.bar(range(n), amplitudes, color=colors, edgecolor="#333333", linewidth=0.5)
+        ax.bar(range(n), amplitudes, color=colors, edgecolor="#333333", linewidth=0.5)
         ax.set_xticks(range(n))
         ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
         ax.set_ylabel("Amplitude")
@@ -281,7 +277,7 @@ def plot_belief_state(
     if show_probabilities:
         ax = axes[idx]
         probs = [i.probability for i in qs.outcomes]
-        bars = ax.bar(range(n), probs, color="#44aa77", edgecolor="#333333", linewidth=0.5)
+        ax.bar(range(n), probs, color="#44aa77", edgecolor="#333333", linewidth=0.5)
         ax.set_xticks(range(n))
         ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=8)
         ax.set_ylabel("Probability (|ψ|²)")
@@ -338,7 +334,9 @@ def plot_evidence_interaction(
     constructive = [p.constructive for p in interference]
     destructive = [p.destructive for p in interference]
 
-    ax.bar(x - width / 2, constructive, width, label="Constructive", color="#44aa77", edgecolor="#333333", linewidth=0.5)
+    ax.bar(
+        x - width / 2, constructive, width, label="Constructive", color="#44aa77", edgecolor="#333333", linewidth=0.5
+    )
     ax.bar(x + width / 2, destructive, width, label="Destructive", color="#cc4444", edgecolor="#333333", linewidth=0.5)
     ax.axhline(y=0, color="#666666", linewidth=0.5)
 

@@ -2,14 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from hyper3.kernel import Hypergraph
 from hyper3.equivalence import EquivalenceEngine
+from hyper3.kernel import Hypergraph
 from hyper3.results import EvolveResult
 
 
 @dataclass
 class EvolutionMetrics:
     """Accumulated statistics about graph evolution operations."""
+
     total_merges: int = 0
     total_prunes: int = 0
     total_decay_events: int = 0
@@ -74,8 +75,7 @@ class GraphMaintenanceEngine:
         to_remove = [
             node.id
             for node in self._graph.nodes
-            if node.weight <= self._decay_threshold
-            and node.access_count <= self._prune_access_count
+            if node.weight <= self._decay_threshold and node.access_count <= self._prune_access_count
         ]
         for nid in to_remove:
             self._graph.remove_node(nid)

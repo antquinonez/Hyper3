@@ -1,40 +1,39 @@
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Any
 
-from hyper3.kernel import Hypergraph, Hypernode, Metadata
-from hyper3.results import ImportResult
-from hyper3.event_log import EventLog
-from hyper3.cache import LazyCache
-from hyper3.equivalence import EquivalenceEngine
-from hyper3.traversal import ObserverSlice, TraversalEngine
-from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.belief import BeliefLayer
-from hyper3.rules_discovery import RuleDiscoveryEngine
-from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.enrichment import LLMEnricher
+from hyper3.equivalence import EquivalenceEngine
+from hyper3.evolution import GraphMaintenanceEngine
+from hyper3.feedback import OperationFeedback
+from hyper3.kernel import Hypernode, Metadata
+from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
-from hyper3.system_monitor import SystemMonitor
+from hyper3.provenance import ProvenanceTracker
+from hyper3.results import EvolutionStats, ImportResult, MemoryStats
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
-from hyper3.temporal import TemporalReasoner
-from hyper3.provenance import ProvenanceTracker
-from hyper3.enrichment import LLMEnricher
-from hyper3.feedback import OperationFeedback
-from hyper3.persistence import Serializer
+from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.snapshot import (
-    SystemSnapshot,
     capture_snapshot,
     restore_snapshot,
-    save_state as _save_snapshot,
+)
+from hyper3.snapshot import (
     load_state as _load_snapshot,
 )
-from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolutionStats, MemoryStats
+from hyper3.snapshot import (
+    save_state as _save_snapshot,
+)
+from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.system_monitor import SystemMonitor
+from hyper3.temporal import TemporalReasoner
+from hyper3.traversal import ObserverSlice, TraversalEngine
 
 
 class PersistenceMixin(_MemoryBase):
-
     def load_records(
         self,
         nodes: list[dict[str, Any]],
@@ -90,8 +89,9 @@ class PersistenceMixin(_MemoryBase):
             tgt_node = self._find_node(str(tgt))
             if not src_node or not tgt_node:
                 continue
-            edge = self.relate(
-                str(src), str(tgt),
+            self.relate(
+                str(src),
+                str(tgt),
                 label=rec.get("label", rec.get("relation", "")),
                 edge_data=rec.get("edge_data"),
                 weight=float(rec["weight"]) if rec.get("weight") is not None else 1.0,
@@ -157,10 +157,8 @@ class PersistenceMixin(_MemoryBase):
         """
         imported = self._serializer.import_edgelist(path)
         for edge in imported.edges:
-            try:
+            with contextlib.suppress(Exception):
                 self._graph.add_edge(edge)
-            except Exception:
-                pass
         self._log.record("import_edgelist", path=path, edges=imported.edge_count)
         return ImportResult(edges=imported.edge_count)
 
@@ -212,7 +210,10 @@ class PersistenceMixin(_MemoryBase):
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
         self._meta = SystemMonitor(
-            self._graph, self._evolution, self._log, self._discovery,
+            self._graph,
+            self._evolution,
+            self._log,
+            self._discovery,
         )
         self._embedding_engine = None
         self._activation = SpreadingActivation(self._graph)
@@ -277,10 +278,7 @@ class PersistenceMixin(_MemoryBase):
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
         meta_stats = self._meta.analyze()
-        multi_edge_count = sum(
-            1 for e in self._graph.edges
-            if len(e.source_ids) > 1 or len(e.target_ids) > 1
-        )
+        multi_edge_count = sum(1 for e in self._graph.edges if len(e.source_ids) > 1 or len(e.target_ids) > 1)
         return MemoryStats(
             nodes=self._graph.node_count,
             edges=self._graph.edge_count,

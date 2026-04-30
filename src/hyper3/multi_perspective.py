@@ -1,16 +1,14 @@
 from __future__ import annotations
 
-import math
 import random
-import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from hyper3.results import PerspectiveAnalysis
 import numpy as np
 
-from hyper3.kernel import Hypergraph, Hypernode, Modality
 from hyper3.frame_transform import FrameTransformer
+from hyper3.kernel import Hypergraph, Hypernode, Modality
+from hyper3.results import PerspectiveAnalysis
 
 
 @dataclass
@@ -24,14 +22,16 @@ class ProblemFeatures:
 
     def to_vector(self) -> np.ndarray:
         """Convert problem features to a numpy feature vector."""
-        return np.array([
-            self.graph_density,
-            self.seed_degree,
-            self.modality_diversity,
-            self.temporal_range,
-            self.avg_weight,
-            self.connectivity,
-        ])
+        return np.array(
+            [
+                self.graph_density,
+                self.seed_degree,
+                self.modality_diversity,
+                self.temporal_range,
+                self.avg_weight,
+                self.connectivity,
+            ]
+        )
 
 
 @dataclass
@@ -374,7 +374,7 @@ class MultiPerspectiveAnalyzer:
             :class:`PresetAnalysis` with RRF-augmented fields.
         """
         node_ranks: dict[str, dict[str, int]] = {}
-        for rank_idx, frame_name in enumerate(top2):
+        for _rank_idx, frame_name in enumerate(top2):
             analysis = analyses[frame_name]
             edges = self._graph.edges
             sorted_by_complexity = sorted(
@@ -393,8 +393,7 @@ class MultiPerspectiveAnalyzer:
             if params.get("strategy") == "bfs":
                 pass
             if frame_name == "probabilistic":
-                ranked_nodes = [n for n in ranked_nodes
-                                if any(e.weight >= 0.3 for e in self._graph.edges_for(n))]
+                ranked_nodes = [n for n in ranked_nodes if any(e.weight >= 0.3 for e in self._graph.edges_for(n))]
             for rank, target in enumerate(ranked_nodes[:50]):
                 if target not in node_ranks:
                     node_ranks[target] = {}
@@ -455,11 +454,11 @@ class MultiPerspectiveAnalyzer:
             A :class:`~hyper3.frame_transform.TransformedConfig` with the
             transformed parameters.
         """
-        from hyper3.frame_transform import TransformedConfig
         analysis = self.analyze_in_frame(concept, from_frame)
         params = analysis.parameters or {}
         return self._transformer.transform(
-            from_frame, to_frame,
+            from_frame,
+            to_frame,
             max_depth=max_depth,
             max_total_states=max_total_states,
             parameters=params,
@@ -497,7 +496,9 @@ class MultiPerspectiveAnalyzer:
         self._transformations.append(t)
         return t
 
-    def _compute_information_preserved(self, params_a: dict[str, Any], params_b: dict[str, Any], analysis_a: PresetAnalysis, analysis_b: PresetAnalysis) -> float:
+    def _compute_information_preserved(
+        self, params_a: dict[str, Any], params_b: dict[str, Any], analysis_a: PresetAnalysis, analysis_b: PresetAnalysis
+    ) -> float:
         """Estimate how much information survives a frame transformation.
 
         Computes a graded similarity between the two parameter sets.  For
@@ -531,11 +532,13 @@ class MultiPerspectiveAnalyzer:
             elif va == vb:
                 agreement += 1.0
             elif isinstance(va, str) and isinstance(vb, str):
-                shared_chars = sum(1 for a, b in zip(va, vb) if a == b)
+                shared_chars = sum(1 for a, b in zip(va, vb, strict=False) if a == b)
                 agreement += shared_chars / max(len(va), len(vb), 1)
         return agreement / len(all_keys)
 
-    def _classical_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
+    def _classical_analysis(
+        self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int
+    ) -> PresetAnalysis:
         """Analyse a node under the classical (deterministic) frame."""
         complexity = self._kolmogorov_complexity(node)
         approach = "direct_lookup"
@@ -562,6 +565,7 @@ class MultiPerspectiveAnalyzer:
     def _kolmogorov_complexity(self, node: Hypernode) -> float:
         """Estimate Kolmogorov complexity via zlib compression ratio of the node's local structure."""
         import zlib
+
         parts: list[str] = [node.label]
         for edge in self._graph.edges_for(node.id):
             parts.append(edge.label)
@@ -576,7 +580,9 @@ class MultiPerspectiveAnalyzer:
         ratio = compressed / max(len(raw), 1)
         return min(ratio, 1.0)
 
-    def _quantum_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
+    def _quantum_analysis(
+        self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int
+    ) -> PresetAnalysis:
         """Analyse a node under the quantum (superposition) frame."""
         complexity = self._normalized_shannon_entropy(node)
         approach = "superposition_sampling"
@@ -625,7 +631,9 @@ class MultiPerspectiveAnalyzer:
             return 0.0
         return float(min(entropy / max_entropy, 1.0))
 
-    def _hypergraph_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
+    def _hypergraph_analysis(
+        self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int
+    ) -> PresetAnalysis:
         """Analyse a node under the hypergraph (multi-arity) frame."""
         complexity = self._spectral_gap_complexity(node)
         approach = "multi_dimensional_traversal"
@@ -686,7 +694,9 @@ class MultiPerspectiveAnalyzer:
         max_eval = max(abs(sorted_evals[0]), 1e-10)
         return float(min(spectral_gap / max_eval, 1.0))
 
-    def _probabilistic_analysis(self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int) -> PresetAnalysis:
+    def _probabilistic_analysis(
+        self, node: Hypernode, neighbor_count: int, total_nodes: int, total_edges: int
+    ) -> PresetAnalysis:
         """Analyse a node under the probabilistic (sampling) frame."""
         complexity = self._transition_entropy(node)
         approach = "importance_sampling"
@@ -738,7 +748,7 @@ class MultiPerspectiveAnalyzer:
         if frame.frame_type == "classical":
             base = n_neighbors * 0.5 + 1.0
         elif frame.frame_type == "quantum":
-            base = max(1.0, n_neighbors ** 0.5)
+            base = max(1.0, n_neighbors**0.5)
         elif frame.frame_type == "hypergraph":
             base = n_neighbors * 0.3 + self._graph.edge_count * 0.01
         elif frame.frame_type == "probabilistic":
@@ -1069,14 +1079,17 @@ class MultiPerspectiveAnalyzer:
             disagreeing = [f for f in frame_reachability if f not in agreeing]
             node_obj = self._graph.get_node(nid)
             label = node_obj.label if node_obj else nid[:8]
-            disagreements.append(DisagreementRegion(
-                center_node=label,
-                frames_agreeing=agreeing,
-                frames_disagreeing=disagreeing,
-            ))
+            disagreements.append(
+                DisagreementRegion(
+                    center_node=label,
+                    frames_agreeing=agreeing,
+                    frames_disagreeing=disagreeing,
+                )
+            )
 
         resolved = self.resolve_disagreement(
-            frame_reachability, strategy,
+            frame_reachability,
+            strategy,
         )
 
         confidence = len(resolved) / max(len(all_nodes), 1)
@@ -1170,7 +1183,7 @@ class MultiPerspectiveAnalyzer:
         neighbor_list = list(seed_neighbors)
         for i, n1 in enumerate(neighbor_list):
             n1_nbrs = {t for e in self._graph.edges_for(n1) for t in e.target_ids}
-            for n2 in neighbor_list[i + 1:]:
+            for n2 in neighbor_list[i + 1 :]:
                 if n2 in n1_nbrs:
                     triangle_count += 1
         max_triangles = len(neighbor_list) * (len(neighbor_list) - 1) / 2
@@ -1281,5 +1294,3 @@ class MultiPerspectiveAnalyzer:
             perspective_overlap=self.compute_perspective_overlap(seed_ids, "classical", "quantum"),
             frame_information_loss=self.compute_frame_information_loss(seed_ids, "classical"),
         )
-
-

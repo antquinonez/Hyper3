@@ -141,14 +141,16 @@ class GraphDiffer:
 
         for eid, edata in version.snapshot.get("edges", {}).items():
             if not self._graph.get_edge(eid):
-                self._graph.add_edge(Hyperedge(
-                    id=eid,
-                    source_ids=frozenset(edata.get("source_ids", set())),
-                    target_ids=frozenset(edata.get("target_ids", set())),
-                    label=edata.get("label", ""),
-                    weight=edata.get("weight", 1.0),
-                    data=edata.get("data"),
-                ))
+                self._graph.add_edge(
+                    Hyperedge(
+                        id=eid,
+                        source_ids=frozenset(edata.get("source_ids", set())),
+                        target_ids=frozenset(edata.get("target_ids", set())),
+                        label=edata.get("label", ""),
+                        weight=edata.get("weight", 1.0),
+                        data=edata.get("data"),
+                    )
+                )
 
         return delta
 
@@ -188,7 +190,9 @@ class GraphDiffer:
         }
 
     def _compute_delta(
-        self, before: dict[str, Any], after: dict[str, Any],
+        self,
+        before: dict[str, Any],
+        after: dict[str, Any],
     ) -> GraphDelta:
         before_nodes = before.get("nodes", {})
         after_nodes = after.get("nodes", {})
@@ -201,35 +205,41 @@ class GraphDiffer:
 
         for nid, ndata in after_nodes.items():
             if nid not in before_nodes:
-                nodes_added.append(NodeDelta(
-                    node_id=nid,
-                    node_label=ndata.get("label", ""),
-                    change_type="added",
-                    new_data=ndata.get("data"),
-                    new_weight=ndata.get("weight", 0.0),
-                ))
+                nodes_added.append(
+                    NodeDelta(
+                        node_id=nid,
+                        node_label=ndata.get("label", ""),
+                        change_type="added",
+                        new_data=ndata.get("data"),
+                        new_weight=ndata.get("weight", 0.0),
+                    )
+                )
             else:
                 old = before_nodes[nid]
                 if old.get("weight") != ndata.get("weight") or old.get("data") != ndata.get("data"):
-                    nodes_modified.append(NodeDelta(
-                        node_id=nid,
-                        node_label=ndata.get("label", ""),
-                        change_type="modified",
-                        old_data=old.get("data"),
-                        new_data=ndata.get("data"),
-                        old_weight=old.get("weight", 0.0),
-                        new_weight=ndata.get("weight", 0.0),
-                    ))
+                    nodes_modified.append(
+                        NodeDelta(
+                            node_id=nid,
+                            node_label=ndata.get("label", ""),
+                            change_type="modified",
+                            old_data=old.get("data"),
+                            new_data=ndata.get("data"),
+                            old_weight=old.get("weight", 0.0),
+                            new_weight=ndata.get("weight", 0.0),
+                        )
+                    )
 
         for nid, ndata in before_nodes.items():
             if nid not in after_nodes:
-                nodes_removed.append(NodeDelta(
-                    node_id=nid,
-                    node_label=ndata.get("label", ""),
-                    change_type="removed",
-                    old_data=ndata.get("data"),
-                    old_weight=ndata.get("weight", 0.0),
-                ))
+                nodes_removed.append(
+                    NodeDelta(
+                        node_id=nid,
+                        node_label=ndata.get("label", ""),
+                        change_type="removed",
+                        old_data=ndata.get("data"),
+                        old_weight=ndata.get("weight", 0.0),
+                    )
+                )
 
         edges_added: list[EdgeDelta] = []
         edges_removed: list[EdgeDelta] = []
@@ -237,39 +247,51 @@ class GraphDiffer:
 
         for eid, edata in after_edges.items():
             if eid not in before_edges:
-                edges_added.append(EdgeDelta(
-                    edge_id=eid,
-                    change_type="added",
-                    new_label=edata.get("label", ""),
-                    new_weight=edata.get("weight", 0.0),
-                    source_label=self._resolve_edge_labels(edata, "source", after_nodes),
-                    target_label=self._resolve_edge_labels(edata, "target", after_nodes),
-                ))
+                edges_added.append(
+                    EdgeDelta(
+                        edge_id=eid,
+                        change_type="added",
+                        new_label=edata.get("label", ""),
+                        new_weight=edata.get("weight", 0.0),
+                        source_label=self._resolve_edge_labels(edata, "source", after_nodes),
+                        target_label=self._resolve_edge_labels(edata, "target", after_nodes),
+                    )
+                )
             else:
                 old = before_edges[eid]
                 if old.get("weight") != edata.get("weight") or old.get("label") != edata.get("label"):
-                    edges_modified.append(EdgeDelta(
-                        edge_id=eid,
-                        change_type="modified",
-                        old_label=old.get("label", ""),
-                        new_label=edata.get("label", ""),
-                        old_weight=old.get("weight", 0.0),
-                        new_weight=edata.get("weight", 0.0),
-                    ))
+                    edges_modified.append(
+                        EdgeDelta(
+                            edge_id=eid,
+                            change_type="modified",
+                            old_label=old.get("label", ""),
+                            new_label=edata.get("label", ""),
+                            old_weight=old.get("weight", 0.0),
+                            new_weight=edata.get("weight", 0.0),
+                        )
+                    )
 
         for eid, edata in before_edges.items():
             if eid not in after_edges:
-                edges_removed.append(EdgeDelta(
-                    edge_id=eid,
-                    change_type="removed",
-                    old_label=edata.get("label", ""),
-                    old_weight=edata.get("weight", 0.0),
-                    source_label=self._resolve_edge_labels(edata, "source", before_nodes),
-                    target_label=self._resolve_edge_labels(edata, "target", before_nodes),
-                ))
+                edges_removed.append(
+                    EdgeDelta(
+                        edge_id=eid,
+                        change_type="removed",
+                        old_label=edata.get("label", ""),
+                        old_weight=edata.get("weight", 0.0),
+                        source_label=self._resolve_edge_labels(edata, "source", before_nodes),
+                        target_label=self._resolve_edge_labels(edata, "target", before_nodes),
+                    )
+                )
 
-        total = (len(nodes_added) + len(nodes_removed) + len(nodes_modified)
-                 + len(edges_added) + len(edges_removed) + len(edges_modified))
+        total = (
+            len(nodes_added)
+            + len(nodes_removed)
+            + len(nodes_modified)
+            + len(edges_added)
+            + len(edges_removed)
+            + len(edges_modified)
+        )
 
         return GraphDelta(
             nodes_added=nodes_added,
@@ -286,7 +308,10 @@ class GraphDiffer:
         )
 
     def _resolve_edge_labels(
-        self, edata: dict[str, Any], direction: str, node_map: dict[str, Any],
+        self,
+        edata: dict[str, Any],
+        direction: str,
+        node_map: dict[str, Any],
     ) -> str:
         ids = edata.get(f"{direction}_ids", set())
         labels: list[str] = []

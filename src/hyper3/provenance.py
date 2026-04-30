@@ -8,6 +8,7 @@ from typing import Any
 @dataclass
 class ProvenanceRecord:
     """Records how an inferred edge was derived."""
+
     edge_id: str
     rule_name: str
     input_edge_ids: list[str] = field(default_factory=list)
@@ -20,6 +21,7 @@ class ProvenanceRecord:
 @dataclass
 class Explanation:
     """Human-readable derivation tree for an inferred edge."""
+
     edge_id: str
     source_label: str
     target_label: str
@@ -42,8 +44,7 @@ class Explanation:
         if self.rule_name == "given":
             return f"{prefix}{self.source_label} -> {self.target_label} (given)"
         lines = [f"{prefix}{self.source_label} -> {self.target_label} (inferred) because:"]
-        for inp in self.input_explanations:
-            lines.append(inp.render(indent + 1))
+        lines.extend(inp.render(indent + 1) for inp in self.input_explanations)
         lines.append(f"{prefix}  via {self.rule_name}")
         return "\n".join(lines)
 

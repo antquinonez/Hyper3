@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
-from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata
+from hyper3.kernel import Hypergraph
 from hyper3.results import DiscoveryAnalysis
-from hyper3.rules import Rule, RuleMatch, TransitiveRule, InverseRule
+from hyper3.rules import InverseRule, Rule, TransitiveRule
 
 
 @dataclass
@@ -98,9 +98,7 @@ class RuleDiscoveryEngine:
                             if target in edge_a.source_ids:
                                 pair_key = f"{edge_a.label}::{edge_b.label}"
                                 label_pairs[pair_key] += 1
-                                pair_edges.setdefault(pair_key, []).append(
-                                    (edge_a.label, edge_b.label)
-                                )
+                                pair_edges.setdefault(pair_key, []).append((edge_a.label, edge_b.label))
         for pair_key, count in label_pairs.items():
             if count < min_pair_count:
                 continue

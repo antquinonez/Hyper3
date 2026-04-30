@@ -117,8 +117,8 @@ class TestAbstractionNavigator:
         assert mem.abstraction is not None
 
     def test_nodes_at_layer(self) -> None:
-        from hyper3.kernel import AbstractionLayer
         from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import AbstractionLayer
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("detail_node")
         nav = AbstractionNavigator(mem.graph)

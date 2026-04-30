@@ -1,22 +1,24 @@
 import time
+
 import pytest
+
 from hyper3 import (
-    StateConvergenceEngine,
+    BeliefLayer,
+    BeliefState,
     ConvergenceRecord,
-    Hypergraph,
-    Hypernode,
     Hyperedge,
-    Outcome,
+    Hypergraph,
+    HypergraphMemory,
+    Hypernode,
+    InverseRule,
+    Modality,
     MultiwayEngine,
     MultiwayGraph,
     MultiwayState,
     NodeNotFoundError,
-    BeliefLayer,
-    BeliefState,
+    Outcome,
+    StateConvergenceEngine,
     TransitiveRule,
-    InverseRule,
-    HypergraphMemory,
-    Modality,
 )
 
 
@@ -175,7 +177,7 @@ class TestBeliefLayer:
         g.add_node(Hypernode(id="a"))
         ql = BeliefLayer(g)
         qs1 = ql.create_distribution(["a"])
-        qs2 = ql.create_distribution(["a"])
+        ql.create_distribution(["a"])
         assert len(ql.active_distributions) == 2
         ql.sample(qs1.id)
         assert len(ql.active_distributions) == 1
@@ -289,3 +291,61 @@ class TestHypergraphMemoryIntegration:
         stats = mem.stats()
         assert stats["nodes"] >= 5
         assert stats["multiway_states"] > 0
+
+
+
+class TestCausalInvarianceDeep:
+    def test_state_similarity_both_empty(self):
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        mw.expand(set(), [], max_depth=1)
+        s1 = MultiwayState(active_node_ids=frozenset())
+        s2 = MultiwayState(active_node_ids=frozenset())
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.compute_state_similarity(s1, s2) == 1.0
+
+    def test_state_similarity_one_empty(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        mw = MultiwayEngine(g)
+        mw.expand({"a"}, [], max_depth=1)
+        s1 = MultiwayState(active_node_ids=frozenset({"a"}))
+        s2 = MultiwayState(active_node_ids=frozenset())
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.compute_state_similarity(s1, s2) == 0.0
+
+    def test_no_duplicate_merges_on_repeated_enforce(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=label, label=label))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
+        mw = MultiwayEngine(g)
+        rule = TransitiveRule(edge_label="rel")
+        mw.expand({"a"}, [rule], max_depth=2, max_total_states=20)
+        ci = StateConvergenceEngine(g, mw.multiway, threshold=0.3)
+        ci.enforce()
+        r2 = ci.enforce()
+        assert r2["merges_performed"] == 0
+
+    def test_invariants_property(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        mw = MultiwayEngine(g)
+        mw.expand({"a"}, [], max_depth=1)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.invariants == []
+
+    def test_enforce_reports_reduction(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=label, label=label))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
+        mw = MultiwayEngine(g)
+        rule = TransitiveRule(edge_label="rel")
+        mw.expand({"a"}, [rule], max_depth=2, max_total_states=20)
+        ci = StateConvergenceEngine(g, mw.multiway, threshold=0.3)
+        report = ci.enforce()
+        assert "reduction" in report
+        assert isinstance(report["reduction"], int)

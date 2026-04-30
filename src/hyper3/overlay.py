@@ -175,10 +175,7 @@ class HypergraphOverlay:
             Combined list of matching nodes.
         """
         base = self._base.query_dimension(modality)
-        overlay = [
-            n for n in self._overlay_nodes.values()
-            if modality in n.metadata.modality_tags
-        ]
+        overlay = [n for n in self._overlay_nodes.values() if modality in n.metadata.modality_tags]
         return base + overlay
 
     def merge_node(self, primary_id: str, secondary_id: str) -> Hypernode | None:
@@ -211,6 +208,7 @@ class HypergraphOverlay:
                 primary_base = self._base.get_node(primary_id)
                 if primary_base:
                     import copy
+
                     self._overlay_nodes[primary_id] = copy.deepcopy(primary_base)
         result = self._base.merge_node(primary_id, secondary_id)
         if result and result.label:
@@ -356,15 +354,16 @@ class HypergraphOverlay:
         Returns:
             List of dicts with keys: id, source_labels, target_labels, label, confidence.
         """
-        result: list[dict[str, str]] = []
-        for edge in self._overlay_edges.values():
-            result.append({
+        result: list[dict[str, str]] = [
+            {
                 "id": edge.id,
                 "source_labels": ", ".join(sorted(self._resolve_label(nid) for nid in edge.source_ids)),
                 "target_labels": ", ".join(sorted(self._resolve_label(nid) for nid in edge.target_ids)),
                 "label": edge.label,
                 "confidence": f"{self.get_confidence(edge.id):.2f}",
-            })
+            }
+            for edge in self._overlay_edges.values()
+        ]
         return result
 
     @property

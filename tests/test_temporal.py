@@ -1,15 +1,15 @@
 import pytest
 
 from hyper3.kernel import Hypergraph
+from hyper3.memory import HypergraphMemory
 from hyper3.temporal import (
-    AllenRelation,
     INVERSE_RELATIONS,
+    AllenRelation,
     TemporalConstraint,
     TemporalEvent,
     TemporalReasoner,
     TimeInterval,
 )
-from hyper3.memory import HypergraphMemory
 
 
 class TestTimeInterval:
@@ -377,8 +377,8 @@ class TestMemoryIntegration:
         assert mem.temporal is mem._temporal
 
     def test_load_reinitializes_temporal(self):
-        import tempfile
         import os
+        import tempfile
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_temporal_event("event", 1.0, 2.0)
         assert len(mem.temporal.events) == 1
@@ -415,3 +415,21 @@ class TestMemoryIntegration:
             tr.add_event(f"e{i}", f"event_{i}", i * 10.0, i * 10.0 + 5.0)
         chains = tr.detect_causal_chains(min_chain_length=3, max_chains=5)
         assert len(chains) <= 5
+
+
+class TestTemporalConsistency:
+    def test_temporal_consistency_check(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e")
+        mem.add_temporal_event("a", 0.0, 5.0)
+        mem.add_temporal_event("b", 3.0, 8.0)
+        edge = mem.graph.edges[0]
+        result = mem.temporal.edge_temporal_consistency(
+            edge.id,
+            edge.id,
+            mem.graph,
+        )
+        assert "consistent" in result
+

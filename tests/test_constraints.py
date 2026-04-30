@@ -1,15 +1,16 @@
 import pytest
+
 from hyper3 import (
     BoundaryNavigator,
     ConstraintCheck,
     Hyperedge,
     Hypergraph,
+    HypergraphMemory,
     Hypernode,
     Metadata,
     NoSelfLoopConstraint,
     ProvenanceDepthConstraint,
     WeightInflationConstraint,
-    HypergraphMemory,
 )
 
 

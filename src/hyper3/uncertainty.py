@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.provenance import ProvenanceTracker
@@ -99,7 +98,10 @@ class UncertaintyEngine:
         )
 
     def trace_chain(
-        self, source_label: str, target_label: str, max_depth: int = 10,
+        self,
+        source_label: str,
+        target_label: str,
+        max_depth: int = 10,
     ) -> ConfidenceChain | None:
         source = self._graph.get_node_by_label(source_label)
         target = self._graph.get_node_by_label(target_label)
@@ -108,7 +110,13 @@ class UncertaintyEngine:
 
         visited: set[str] = set()
         best_chain = self._dfs_chain(
-            source.id, target.id, [], [], 0, max_depth, visited,
+            source.id,
+            target.id,
+            [],
+            [],
+            0,
+            max_depth,
+            visited,
         )
         return best_chain
 
@@ -143,11 +151,11 @@ class UncertaintyEngine:
                         if ie:
                             input_confs.append(ie.weight)
                     if input_confs:
-                        edge_conf = self._combine(input_confs) * (self._depth_decay ** depth)
+                        edge_conf = self._combine(input_confs) * (self._depth_decay**depth)
                     else:
-                        edge_conf = self._base_confidence * (self._depth_decay ** depth)
+                        edge_conf = self._base_confidence * (self._depth_decay**depth)
                 else:
-                    edge_conf = self._base_confidence * (self._depth_decay ** depth)
+                    edge_conf = self._base_confidence * (self._depth_decay**depth)
                 incoming_inferred.append((edge.id, edge_conf, depth, rule_name))
 
         if not incoming_inferred:
@@ -214,7 +222,13 @@ class UncertaintyEngine:
                     if rule:
                         new_rules.append(rule)
                 result = self._dfs_chain(
-                    nxt, target, new_edges, new_rules, depth + 1, max_depth, visited,
+                    nxt,
+                    target,
+                    new_edges,
+                    new_rules,
+                    depth + 1,
+                    max_depth,
+                    visited,
                 )
                 if result and (best is None or result.chain_confidence > best.chain_confidence):
                     best = result
@@ -222,7 +236,7 @@ class UncertaintyEngine:
         visited.discard(current)
 
         if best:
-            src_node = self._graph.get_node(current)
+            self._graph.get_node(current)
             return ConfidenceChain(
                 start_id=current,
                 end_id=best.end_id,

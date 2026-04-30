@@ -1,7 +1,36 @@
 from __future__ import annotations
 
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
+from hyper3.memory import HypergraphMemory
 from hyper3.overlay import HypergraphOverlay
-from hyper3.kernel import Hypergraph, Hypernode, Hyperedge, Metadata, Modality
+from hyper3.rules import TransitiveRule
+
+
+def _make_base_graph():
+    g = Hypergraph()
+    a = Hypernode(label="a")
+    b = Hypernode(label="b")
+    g.add_node(a)
+    g.add_node(b)
+    g.add_edge(
+        Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+            label="base_edge",
+        )
+    )
+    return g, a, b
+
+
+def _setup_memory():
+    mem = HypergraphMemory(evolve_interval=0)
+    mem.store("a")
+    mem.store("b")
+    mem.store("c")
+    mem.relate("a", "b", label="next")
+    mem.relate("b", "c", label="next")
+    mem.add_rules(TransitiveRule(edge_label="next"))
+    return mem
 
 
 class TestOverlayAddNodeUnlabeled:
@@ -386,3 +415,176 @@ class TestOverlayNeighbors:
         nbrs = ov.neighbors(a.id)
         assert b.id in nbrs
         assert c.id in nbrs
+
+
+class TestHypergraphOverlay:
+    def test_overlay_read_delegates_to_base(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        assert overlay.get_node(a.id) is not None
+        assert overlay.get_node(a.id).label == "a"
+        assert overlay.get_node_by_label("b") is not None
+
+    def test_overlay_write_does_not_modify_base(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        overlay.add_node(c)
+        assert overlay.get_node(c.id) is not None
+        assert g.get_node(c.id) is None
+        assert overlay.node_count == 3
+        assert g.node_count == 2
+
+    def test_overlay_edge_sees_base_edges(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        edges = overlay.edges_for(a.id)
+        assert len(edges) == 1
+        assert edges[0].label == "base_edge"
+
+    def test_overlay_add_edge_combines(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        overlay.add_node(c)
+        overlay.add_edge(
+            Hyperedge(
+                source_ids=frozenset({a.id}),
+                target_ids=frozenset({c.id}),
+                label="overlay_edge",
+            )
+        )
+        edges = overlay.edges_for(a.id)
+        assert len(edges) == 2
+        labels = {e.label for e in edges}
+        assert "base_edge" in labels
+        assert "overlay_edge" in labels
+
+    def test_overlay_commit_merges_to_base(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        overlay.add_node(c)
+        overlay.add_edge(
+            Hyperedge(
+                source_ids=frozenset({a.id}),
+                target_ids=frozenset({c.id}),
+                label="overlay_edge",
+            )
+        )
+        node_ids, edge_ids = overlay.commit()
+        assert len(node_ids) == 1
+        assert len(edge_ids) == 1
+        assert g.get_node(c.id) is not None
+        assert g.get_edge(edge_ids[0]) is not None
+
+    def test_overlay_rollback_discards(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        overlay.add_node(c)
+        overlay.rollback()
+        assert len(overlay.overlay_node_ids) == 0
+        assert g.get_node(c.id) is None
+
+    def test_overlay_confidence(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        e = Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+            label="conf_edge",
+        )
+        overlay.add_edge(e)
+        overlay.set_confidence(e.id, 0.75)
+        assert overlay.get_confidence(e.id) == 0.75
+        assert overlay.get_confidence("nonexistent") == 1.0
+
+    def test_overlay_confidence_persists_on_commit(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        e = Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+            label="conf_edge",
+        )
+        overlay.add_edge(e)
+        overlay.set_confidence(e.id, 0.85)
+        overlay.commit()
+        edge = g.get_edge(e.id)
+        assert edge is not None
+        assert edge.metadata.custom.get("confidence") == 0.85
+
+    def test_overlay_neighbors_combines(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        overlay.add_node(c)
+        overlay.add_edge(
+            Hyperedge(
+                source_ids=frozenset({a.id}),
+                target_ids=frozenset({c.id}),
+                label="oc",
+            )
+        )
+        nbrs = overlay.neighbors(a.id)
+        assert b.id in nbrs
+        assert c.id in nbrs
+
+    def test_overlay_is_overlay_edge(self):
+        g, a, b = _make_base_graph()
+        overlay = HypergraphOverlay(g)
+        base_edge = g.edges[0]
+        assert not overlay.is_overlay_edge(base_edge.id)
+        e = Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+            label="new",
+        )
+        overlay.add_edge(e)
+        assert overlay.is_overlay_edge(e.id)
+
+
+class TestMemoryOverlayIntegration:
+    def test_reason_with_overlay_auto_commit(self):
+        mem = _setup_memory()
+        result = mem.reason({"a", "b", "c"}, auto_commit=True)
+        assert "expansion" in result
+        assert result["expansion"]["rules_applied"] > 0
+        assert mem.overlay is None
+        inferred = [e for e in mem.graph.edges if e.metadata.custom.get("inferred")]
+        assert len(inferred) > 0
+
+    def test_reason_with_overlay_manual_commit(self):
+        mem = _setup_memory()
+        result = mem.reason({"a", "b", "c"}, auto_commit=False)
+        assert result["expansion"]["rules_applied"] > 0
+        assert mem.overlay is not None
+        overlay_edges_before = len(mem.overlay.overlay_edge_ids)
+        commit_result = mem.commit_inferences()
+        assert mem.overlay is None
+        assert commit_result["committed_edges"] == overlay_edges_before
+
+    def test_reason_with_overlay_rollback(self):
+        mem = _setup_memory()
+        base_edge_count = mem.graph.edge_count
+        result = mem.reason({"a", "b", "c"}, auto_commit=False)
+        assert result["expansion"]["rules_applied"] > 0
+        assert mem.overlay is not None
+        overlay_edge_count = len(mem.overlay.overlay_edge_ids)
+        assert overlay_edge_count > 0
+        rollback_result = mem.rollback_inferences()
+        assert mem.overlay is None
+        assert mem.graph.edge_count == base_edge_count
+        assert rollback_result["rolled_back_edges"] == overlay_edge_count
+
+    def test_reason_without_overlay(self):
+        mem = _setup_memory()
+        result = mem.reason({"a", "b", "c"}, use_overlay=False)
+        assert (
+            "overlay" not in result
+            or result.get("overlay") is None
+            or result.get("overlay", {}).get("edge_count", 0) == 0
+        )
+        assert mem.overlay is None
+

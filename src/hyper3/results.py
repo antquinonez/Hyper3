@@ -9,7 +9,7 @@ class _SimpleResultBase:
         return getattr(self, key)
 
     def __contains__(self, key: str) -> bool:
-        if not hasattr(self, key) or key.startswith('_'):
+        if not hasattr(self, key) or key.startswith("_"):
             return False
         val = getattr(self, key)
         if isinstance(val, (int, float, bool)):
@@ -17,13 +17,13 @@ class _SimpleResultBase:
         return val is not None
 
     def get(self, key: str, default: Any = None) -> Any:
-        if not hasattr(self, key) or key.startswith('_'):
+        if not hasattr(self, key) or key.startswith("_"):
             return default
         val = getattr(self, key, default)
         return default if val is None else val
 
     def keys(self) -> list[str]:
-        return [k for k in getattr(self, '__dataclass_fields__', {}) if not k.startswith('_')]
+        return [k for k in getattr(self, "__dataclass_fields__", {}) if not k.startswith("_")]
 
     def items(self) -> list[tuple[str, Any]]:
         return [(k, getattr(self, k)) for k in self.keys()]

@@ -113,16 +113,18 @@ class ContradictionResolver:
                         src_node = self._graph.get_node(repr_src)
                         tgt_node = self._graph.get_node(repr_tgt)
                         severity = self._compute_severity(a, b)
-                        contradictions.append(Contradiction(
-                            edge_a_id=a.id,
-                            edge_b_id=b.id,
-                            edge_a_label=a.label,
-                            edge_b_label=b.label,
-                            source_label=src_node.label if src_node else repr_src[:8],
-                            target_label=tgt_node.label if tgt_node else repr_tgt[:8],
-                            contradiction_type="negation",
-                            severity=severity,
-                        ))
+                        contradictions.append(
+                            Contradiction(
+                                edge_a_id=a.id,
+                                edge_b_id=b.id,
+                                edge_a_label=a.label,
+                                edge_b_label=b.label,
+                                source_label=src_node.label if src_node else repr_src[:8],
+                                target_label=tgt_node.label if tgt_node else repr_tgt[:8],
+                                contradiction_type="negation",
+                                severity=severity,
+                            )
+                        )
 
         self_loops = self._detect_self_contradictions()
         contradictions.extend(self_loops)
@@ -154,23 +156,27 @@ class ContradictionResolver:
                     if edge:
                         self._graph.remove_edge(eid)
                         edges_removed.append(eid)
-                        plan.actions.append(RevisionAction(
-                            action_type="cascade_retract",
-                            edge_id=eid,
-                            reason=f"dependent on removed edge {loser}",
-                            confidence_before=edge.weight,
-                            confidence_after=0.0,
-                        ))
+                        plan.actions.append(
+                            RevisionAction(
+                                action_type="cascade_retract",
+                                edge_id=eid,
+                                reason=f"dependent on removed edge {loser}",
+                                confidence_before=edge.weight,
+                                confidence_after=0.0,
+                            )
+                        )
 
                 edges_removed.append(loser)
                 edges_kept.append(winner)
-                plan.actions.append(RevisionAction(
-                    action_type="remove",
-                    edge_id=loser,
-                    reason=f"contradicts {winner} ({c.contradiction_type})",
-                    confidence_before=conf_before,
-                    confidence_after=0.0,
-                ))
+                plan.actions.append(
+                    RevisionAction(
+                        action_type="remove",
+                        edge_id=loser,
+                        reason=f"contradicts {winner} ({c.contradiction_type})",
+                        confidence_before=conf_before,
+                        confidence_after=0.0,
+                    )
+                )
 
         plan.edges_removed = edges_removed
         plan.edges_kept = edges_kept
@@ -199,18 +205,20 @@ class ContradictionResolver:
         for label, edges in labels_seen.items():
             neg = self._negation_map.get(label)
             if neg and neg in labels_seen:
-                for a in edges:
-                    for b in labels_seen[neg]:
-                        contradictions.append(Contradiction(
-                            edge_a_id=a.id,
-                            edge_b_id=b.id,
-                            edge_a_label=a.label,
-                            edge_b_label=b.label,
-                            source_label=source_label,
-                            target_label=target_label,
-                            contradiction_type="negation",
-                            severity=self._compute_severity(a, b),
-                        ))
+                contradictions.extend(
+                    Contradiction(
+                        edge_a_id=a.id,
+                        edge_b_id=b.id,
+                        edge_a_label=a.label,
+                        edge_b_label=b.label,
+                        source_label=source_label,
+                        target_label=target_label,
+                        contradiction_type="negation",
+                        severity=self._compute_severity(a, b),
+                    )
+                    for a in edges
+                    for b in labels_seen[neg]
+                )
 
         return contradictions
 
@@ -230,23 +238,27 @@ class ContradictionResolver:
             for label, edges in label_map.items():
                 neg = self._negation_map.get(label)
                 if neg and neg in label_map:
-                    for a in edges:
-                        for b in label_map[neg]:
-                            if a.id != b.id:
-                                results.append(Contradiction(
-                                    edge_a_id=a.id,
-                                    edge_b_id=b.id,
-                                    edge_a_label=a.label,
-                                    edge_b_label=b.label,
-                                    source_label=node.label,
-                                    target_label=node.label,
-                                    contradiction_type="self_negation",
-                                    severity=0.8,
-                                ))
+                    results.extend(
+                        Contradiction(
+                            edge_a_id=a.id,
+                            edge_b_id=b.id,
+                            edge_a_label=a.label,
+                            edge_b_label=b.label,
+                            source_label=node.label,
+                            target_label=node.label,
+                            contradiction_type="self_negation",
+                            severity=0.8,
+                        )
+                        for a in edges
+                        for b in label_map[neg]
+                        if a.id != b.id
+                    )
         return results
 
     def _resolve(
-        self, contradiction: Contradiction, strategy: str,
+        self,
+        contradiction: Contradiction,
+        strategy: str,
     ) -> tuple[str | None, str | None]:
         edge_a = self._graph.get_edge(contradiction.edge_a_id)
         edge_b = self._graph.get_edge(contradiction.edge_b_id)
@@ -292,7 +304,7 @@ class ContradictionResolver:
         if not prov:
             return 1.0
         depth = prov.depth
-        return 0.9 ** depth
+        return 0.9**depth
 
     def _compute_severity(self, edge_a: Any, edge_b: Any) -> float:
         weight_diff = abs(edge_a.weight - edge_b.weight)

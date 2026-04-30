@@ -1,15 +1,17 @@
 import os
 import tempfile
+
 import pytest
+
 from hyper3 import (
     AbductiveRule,
-    HypergraphMemory,
-    MultiPerspectiveAnalyzer,
     GeneralizationRule,
+    HypergraphMemory,
     InverseRule,
-    SamplingProfile,
     Modality,
+    MultiPerspectiveAnalyzer,
     PropertyPropagationRule,
+    SamplingProfile,
     TransitiveRule,
 )
 
@@ -126,7 +128,7 @@ class TestIntegrationFullPipeline:
 
         analyses = mem.multi_frame_analysis("engine")
         assert len(analyses) == 4
-        for name, analysis in analyses.items():
+        for analysis in analyses.values():
             assert analysis.solution_approach != ""
 
         custom = SamplingProfile(name="diagnostic", dimensions=["severity", "frequency"])
@@ -189,12 +191,11 @@ class TestIntegrationFullPipeline:
         mem.relate("keep", "drop")
 
         keep_node = None
-        drop_node = None
         for n in mem.graph.nodes:
             if n.label == "keep":
                 keep_node = n
             elif n.label == "drop":
-                drop_node = n
+                pass
 
         if keep_node:
             for _ in range(5):
@@ -244,7 +245,7 @@ class TestIntegrationFullPipeline:
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["cat", "dog", "bird"]:
             mem.store(label, tags={"semantic": 0.5, "recency": 1.0, "valence": 0.3})
-        qs = mem.create_distribution(["cat", "dog", "bird"])
+        mem.create_distribution(["cat", "dog", "bird"])
         for profile_name in ["linguistic", "temporal", "emotional", "pragmatic"]:
             qs2 = mem.create_distribution(["cat", "dog", "bird"])
             result = mem.sample_with_profile(qs2, profile_name)

@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from hyper3.kernel import Hypergraph, Hypernode
 
 
@@ -85,7 +83,7 @@ class EquivalenceEngine:
         """
         merged: list[str] = []
         used: set[str] = set()
-        for primary_id, secondary_id, score in self.find_equivalences():
+        for primary_id, secondary_id, _score in self.find_equivalences():
             if primary_id in used or secondary_id in used:
                 continue
             result = self._graph.merge_node(primary_id, secondary_id)

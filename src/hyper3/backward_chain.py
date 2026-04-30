@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 from hyper3.kernel import Hypergraph
 from hyper3.results import _SimpleResultBase
@@ -74,13 +73,20 @@ class BackwardChainEngine:
                 known_ids.add(node.id)
 
         tree = self._build_proof_tree(
-            target.id, known_ids, edge_label, depth=0, visited=set(),
+            target.id,
+            known_ids,
+            edge_label,
+            depth=0,
+            visited=set(),
         )
 
         alternatives: list[ProofTree] = []
         if tree.achieved:
             alternatives = self._find_alternative_proofs(
-                target.id, known_ids, edge_label, exclude_steps=tree.steps,
+                target.id,
+                known_ids,
+                edge_label,
+                exclude_steps=tree.steps,
             )
 
         all_premises = set()
@@ -174,7 +180,11 @@ class BackwardChainEngine:
 
                 for pid in premise_ids:
                     sub = self._build_proof_tree(
-                        pid, known_ids, edge_label, depth + 1, visited,
+                        pid,
+                        known_ids,
+                        edge_label,
+                        depth + 1,
+                        visited,
                     )
                     sub_trees.append(sub)
                     sub_confidences.append(sub.confidence)
@@ -270,4 +280,4 @@ class BackwardChainEngine:
                     return alternatives
 
         alternatives.sort(key=lambda t: t.confidence, reverse=True)
-        return alternatives[:self._max_alternatives]
+        return alternatives[: self._max_alternatives]

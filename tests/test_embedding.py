@@ -1,13 +1,13 @@
 import numpy as np
 import pytest
 
-from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.embedding import (
     EmbeddingEngine,
     EmbeddingProvider,
     HashEmbeddingProvider,
     SimilarityResult,
 )
+from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.memory import HypergraphMemory
 
 
@@ -304,7 +304,8 @@ class TestHypergraphMemoryIntegration:
         assert results[0].similarity == pytest.approx(1.0)
 
     def test_load_resets_embedding_engine(self):
-        import tempfile, os
+        import os
+        import tempfile
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("cat")
         mem.store("dog")
@@ -380,7 +381,7 @@ class TestFaissIntegration:
         bf_ids = [r.node_b_id for r in results_bf]
         faiss_ids = [r.node_b_id for r in results_faiss]
         assert bf_ids == faiss_ids
-        for bf, fi in zip(results_bf, results_faiss):
+        for bf, fi in zip(results_bf, results_faiss, strict=False):
             assert abs(bf.similarity - fi.similarity) < 1e-5
 
     def test_find_similar_respects_threshold_with_faiss(self):

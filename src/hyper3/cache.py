@@ -40,7 +40,7 @@ class LazyCache:
             self._transition_counts[prev][key] = self._transition_counts[prev].get(key, 0) + 1
         self._access_history.append(key)
         if len(self._access_history) > self._max_history:
-            self._access_history = self._access_history[-self._max_history:]
+            self._access_history = self._access_history[-self._max_history :]
 
     def predict_next(self, current_key: str, top_k: int = 3) -> list[str]:
         """Predict the next likely accessed keys based on transition history.

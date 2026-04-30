@@ -1,13 +1,18 @@
+import time
+
 import pytest
+
 from hyper3 import (
+    AnomalyDetectionResult,
     BoundaryIndicator,
     BoundaryRegion,
     Hyperedge,
     Hypergraph,
     Hypernode,
     StructuralAnomalyDetector,
-    AnomalyDetectionResult,
 )
+from hyper3.memory import HypergraphMemory
+from hyper3.structural_anomaly import AssumptionSet, ExplorationAssumption, ExplorationReport
 
 
 def _build_graph():
@@ -315,3 +320,362 @@ class TestStructuralAnomalyDeepCoverage:
             anomalous_entries = [r for r in result.partial_results if r.get("status") == "anomalous"]
             if anomalous_entries:
                 assert "extended_neighborhood" in anomalous_entries[0]
+
+
+
+
+def _build_graph():
+    g = Hypergraph()
+    for label in ["cat", "dog", "mammal", "animal"]:
+        g.add_node(Hypernode(id=label, label=label))
+    g.add_edge(Hyperedge(source_ids=frozenset({"cat"}), target_ids=frozenset({"mammal"}), label="is_a"))
+    g.add_edge(Hyperedge(source_ids=frozenset({"dog"}), target_ids=frozenset({"mammal"}), label="is_a"))
+    g.add_edge(Hyperedge(source_ids=frozenset({"mammal"}), target_ids=frozenset({"animal"}), label="is_a"))
+    return g
+
+
+class TestPrecomputeBoundaries:
+    def test_returns_dict_with_indicators(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        results = tr.precompute_boundaries(["cat", "dog"])
+        assert len(results) == 2
+        for indicator in results.values():
+            assert isinstance(indicator, BoundaryIndicator)
+
+    def test_second_call_uses_cache(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        r1 = tr.precompute_boundaries(["cat"])
+        r2 = tr.precompute_boundaries(["cat"])
+        assert r1["cat"].boundary_score == r2["cat"].boundary_score
+        assert len(tr._boundary_cache) == 1
+
+    def test_cache_populated(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        tr.precompute_boundaries(["cat", "dog", "mammal"])
+        assert len(tr._boundary_cache) == 3
+
+    def test_missing_concept_still_returns_indicator(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        results = tr.precompute_boundaries(["nonexistent"])
+        assert "nonexistent" in results
+        assert isinstance(results["nonexistent"], BoundaryIndicator)
+
+
+class TestInvalidateBoundaryCache:
+    def test_invalidate_specific_concept(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        tr.precompute_boundaries(["cat", "dog"])
+        tr.invalidate_boundary_cache("cat")
+        assert "cat" not in tr._boundary_cache
+        assert "dog" in tr._boundary_cache
+
+    def test_invalidate_all(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        tr.precompute_boundaries(["cat", "dog", "mammal"])
+        tr.invalidate_boundary_cache()
+        assert len(tr._boundary_cache) == 0
+
+    def test_invalidate_nonexistent_concept_no_error(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        tr.invalidate_boundary_cache("nonexistent")
+
+    def test_cache_expires_after_ttl(self):
+        g = _build_graph()
+        tr = StructuralAnomalyDetector(g)
+        tr._boundary_cache_ttl = 0.01
+        tr.precompute_boundaries(["cat"])
+        time.sleep(0.02)
+        assert "cat" in tr._boundary_cache
+        tr.precompute_boundaries(["cat"])
+        assert len(tr._boundary_cache) == 1
+
+
+
+
+def _make_cyclic_mem():
+    mem = HypergraphMemory(evolve_interval=0)
+    mem.store("A")
+    mem.store("B")
+    mem.store("C")
+    mem.store("D")
+    a = mem.graph.get_node_by_label("A")
+    b = mem.graph.get_node_by_label("B")
+    c = mem.graph.get_node_by_label("C")
+    d = mem.graph.get_node_by_label("D")
+    mem.graph.add_edge(Hyperedge(
+        source_ids=frozenset({a.id}), target_ids=frozenset({b.id}),
+        label="rel",
+    ))
+    mem.graph.add_edge(Hyperedge(
+        source_ids=frozenset({b.id}), target_ids=frozenset({c.id}),
+        label="rel",
+    ))
+    mem.graph.add_edge(Hyperedge(
+        source_ids=frozenset({c.id}), target_ids=frozenset({a.id}),
+        label="rel",
+    ))
+    mem.graph.add_edge(Hyperedge(
+        source_ids=frozenset({b.id}), target_ids=frozenset({d.id}),
+        label="rel",
+    ))
+    return mem
+
+
+class TestExplorationAssumptionAndAssumptionSet:
+
+    def test_assumption_creation(self):
+        asm = ExplorationAssumption(name="test", description="desc", assumption="assume X")
+        assert asm.name == "test"
+        assert asm.coverage_gain == 0.0
+
+    def test_assumptionset_add(self):
+        asm = ExplorationAssumption(name="test", description="desc", assumption="assume X", source_edge_id="e1")
+        aset = AssumptionSet()
+        aset.add(asm)
+        assert "test" in aset.assumptions
+        assert aset.provenance["test"] == "e1"
+
+    def test_assumptionset_add_without_provenance(self):
+        asm = ExplorationAssumption(name="test", description="desc", assumption="assume X")
+        aset = AssumptionSet()
+        aset.add(asm)
+        assert "test" in aset.assumptions
+        assert "test" not in aset.provenance
+
+
+class TestChernoffBounds:
+
+    def test_bounds_contain_observed(self):
+        mem = _make_cyclic_mem()
+        lower, upper = mem._anomaly_detector._chernoff_bounds(0.5, 100, delta=0.05)
+        assert lower <= 0.5 <= upper
+
+    def test_bounds_tighter_with_more_samples(self):
+        mem = _make_cyclic_mem()
+        lo1, hi1 = mem._anomaly_detector._chernoff_bounds(0.5, 10)
+        lo2, hi2 = mem._anomaly_detector._chernoff_bounds(0.5, 1000)
+        assert (hi2 - lo2) < (hi1 - lo1)
+
+    def test_zero_samples_returns_full_range(self):
+        mem = _make_cyclic_mem()
+        lo, hi = mem._anomaly_detector._chernoff_bounds(0.5, 0)
+        assert lo == 0.0
+        assert hi == 1.0
+
+
+class TestBuildExplorationReport:
+
+    def test_builds_report_from_graph(self):
+        mem = _make_cyclic_mem()
+        report = mem._anomaly_detector._build_exploration_report("A")
+        assert report.concept == "A"
+        assert len(report.expanded_nodes) > 0
+        assert report.coverage > 0
+
+    def test_chernoff_bounds_in_report(self):
+        mem = _make_cyclic_mem()
+        report = mem._anomaly_detector._build_exploration_report("A")
+        assert report.coverage_lower > 0 or report.branches_explored == 0
+        assert report.coverage_upper >= report.coverage_lower
+
+    def test_branch_coverage(self):
+        mem = _make_cyclic_mem()
+        report = mem._anomaly_detector._build_exploration_report("A")
+        assert isinstance(report.branch_coverage, dict)
+
+    def test_nonexistent_concept(self):
+        mem = _make_cyclic_mem()
+        report = mem._anomaly_detector._build_exploration_report("ZZZ")
+        assert report.concept == "ZZZ"
+        assert report.expanded_nodes == []
+
+
+class TestExtendExploration:
+
+    def test_coverage_increases_with_assumption(self):
+        mem = _make_cyclic_mem()
+        report = mem._anomaly_detector._build_exploration_report("A")
+        asm = ExplorationAssumption(
+            name="bridge_1",
+            description="Assume reachability to D",
+            assumption="A -> D directly",
+            coverage_gain=0.2,
+        )
+        extended = mem._anomaly_detector.extend_exploration(report, asm)
+        assert "bridge_1" in extended.assumptions_used.assumptions
+
+    def test_assumption_dependent_nodes_tracked(self):
+        mem = _make_cyclic_mem()
+        mem.store("E")
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({mem.graph.get_node_by_label("A").id}),
+            target_ids=frozenset({mem.graph.get_node_by_label("E").id}),
+            label="bridge",
+        ))
+        report = mem._anomaly_detector._build_exploration_report("A")
+        len(report.expanded_nodes)
+        asm = ExplorationAssumption(name="ext", description="extend", assumption="A->E", coverage_gain=0.1)
+        extended = mem._anomaly_detector.extend_exploration(report, asm)
+        assert len(extended.assumptions_used.assumptions) == 1
+
+
+class TestComposeExplorations:
+
+    def test_compose_merges_nodes(self):
+        mem = _make_cyclic_mem()
+        report_a = mem._anomaly_detector._build_exploration_report("A")
+        report_b = mem._anomaly_detector._build_exploration_report("B")
+        composed = mem._anomaly_detector.compose_explorations(report_a, report_b)
+        assert composed.concept == "A+B"
+        assert composed.total_branches_estimated == report_a.total_branches_estimated + report_b.total_branches_estimated
+
+    def test_compose_merges_assumptions(self):
+        mem = _make_cyclic_mem()
+        report_a = mem._anomaly_detector._build_exploration_report("A")
+        report_b = mem._anomaly_detector._build_exploration_report("B")
+        asm1 = ExplorationAssumption(name="asm1", description="a", assumption="x")
+        asm2 = ExplorationAssumption(name="asm2", description="b", assumption="y")
+        report_a.assumptions_used.add(asm1)
+        report_b.assumptions_used.add(asm2)
+        composed = mem._anomaly_detector.compose_explorations(report_a, report_b)
+        assert "asm1" in composed.assumptions_used.assumptions
+        assert "asm2" in composed.assumptions_used.assumptions
+
+    def test_compose_chernoff_bounds(self):
+        mem = _make_cyclic_mem()
+        report_a = mem._anomaly_detector._build_exploration_report("A")
+        report_b = mem._anomaly_detector._build_exploration_report("B")
+        composed = mem._anomaly_detector.compose_explorations(report_a, report_b)
+        assert composed.coverage_lower <= composed.coverage_upper
+
+
+class TestSuggestAssumptions:
+
+    def test_suggests_bridging_assumptions(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("X")
+        mem.store("Y")
+        mem.store("Z")
+        x = mem.graph.get_node_by_label("X")
+        y = mem.graph.get_node_by_label("Y")
+        mem.graph.get_node_by_label("Z")
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({x.id}), target_ids=frozenset({y.id}),
+            label="link",
+        ))
+        suggestions = mem._anomaly_detector.suggest_assumptions("X")
+        assert len(suggestions) > 0
+        assert any("Z" in a.assumption for a in suggestions)
+
+    def test_suggests_top_k(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("root")
+        for i in range(10):
+            mem.store(f"isolated_{i}")
+        suggestions = mem._anomaly_detector.suggest_assumptions("root", top_k=3)
+        assert len(suggestions) <= 3
+
+    def test_no_suggestions_for_nonexistent(self):
+        mem = _make_cyclic_mem()
+        suggestions = mem._anomaly_detector.suggest_assumptions("NONEXISTENT")
+        assert suggestions == []
+
+
+class TestExplorationReportGeneration:
+    def test_partial_proof_dataclass(self):
+        report = ExplorationReport(
+            concept="test",
+            expanded_nodes=["a", "b"],
+            total_branches_estimated=10,
+            branches_explored=3,
+            coverage=0.3,
+        )
+        assert report.coverage_pct == pytest.approx(30.0)
+        assert report.bounds == {}
+
+    def test_anomalous_produces_exploration_report(self):
+        g = Hypergraph()
+        for lbl in "ABCDE":
+            g.add_node(Hypernode(label=lbl))
+        a = g.get_node_by_label("A")
+        for lbl in "BCDE":
+            n = g.get_node_by_label(lbl)
+            g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({n.id}), label="rel"))
+        tr = StructuralAnomalyDetector(g)
+        result = tr.reason_at_level("A", {"cyclic_structure": 0.1, "contradiction": 0.1, "structural_anomaly": 0.1})
+        partial_results = result.partial_results
+        anomalous_results = [r for r in partial_results if r.get("status") == "anomalous"]
+        if not anomalous_results:
+            assert result.anomaly_status in ("boundary", "anomalous")
+            return
+        assert "exploration_report" in anomalous_results[0]
+        report = anomalous_results[0]["exploration_report"]
+        assert "coverage_pct" in report
+        assert "branches_explored" in report
+
+    def test_boundary_aware_distinguishes_conclusions(self):
+        g = Hypergraph()
+        for lbl in "ABCD":
+            g.add_node(Hypernode(label=lbl))
+        a = g.get_node_by_label("A")
+        for lbl in "BCD":
+            n = g.get_node_by_label(lbl)
+            g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({n.id}), label="rel"))
+        tr = StructuralAnomalyDetector(g)
+        result = tr.reason_at_level("A", {"cyclic_structure": 0.6, "high_centrality": 0.6})
+        boundary_results = [r for r in result.partial_results if r.get("status") == "boundary"]
+        if not boundary_results:
+            assert result.anomaly_status in ("boundary", "anomalous", "low_risk")
+            return
+        br = boundary_results[0]
+        assert "structural_conclusions" in br
+        assert "assumption_dependent" in br
+        assert isinstance(br["structural_conclusions"], list)
+        assert isinstance(br["assumption_dependent"], list)
+
+
+class TestStructuralAnomaly:
+    def test_self_loop_detection(self):
+        g = Hypergraph()
+        a = Hypernode(label="self_ref")
+        g.add_node(a)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({a.id}), label="self"))
+        reasoner = StructuralAnomalyDetector(g)
+        boundaries = reasoner.map_boundaries(["self_ref"])
+        assert len(boundaries) == 1
+        assert boundaries[0].description == "self_ref"
+        assert boundaries[0].indicator is not None
+        assert boundaries[0].indicator.cyclic_structure > 0.0
+
+    def test_cycle_detection_structural(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="next"))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="next"))
+        g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id}), label="next"))
+        reasoner = StructuralAnomalyDetector(g)
+        result = reasoner.reason_at_level("a")
+        assert result.reasoning_level >= 1
+
+    def test_terminal_node_detection(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="src"), Hypernode(label="sink")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="to"))
+        reasoner = StructuralAnomalyDetector(g)
+        boundaries = reasoner.map_boundaries(["sink"])
+        assert len(boundaries) > 0
+        assert boundaries[0].description == "sink"
+        assert boundaries[0].indicator is not None
+

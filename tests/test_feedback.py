@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3.kernel import Hypergraph, Hypernode, Hyperedge
-from hyper3.feedback import OperationFeedback, FeedbackSignal
+from hyper3.feedback import FeedbackSignal, OperationFeedback
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+from hyper3.memory import HypergraphMemory
 
 
 def _make_graph(n: int = 4) -> Hypergraph:
@@ -175,3 +176,77 @@ class TestEquivalenceEngineUpgrade:
         key_a = eq._blocking_key(a)
         key_b = eq._blocking_key(b)
         assert key_a == key_b
+
+
+class TestFeedbackSummary:
+    def test_empty_feedback(self):
+        g = Hypergraph()
+        fb = OperationFeedback(g)
+        result = fb.cross_operation_summary()
+        assert result.overall_health == 0.5
+        assert result.total_signals == 0
+        assert result.correlated_nodes == {}
+        assert result.fitness_trend == "insufficient_data"
+
+    def test_collapse_accuracy_reflected(self):
+        g = Hypergraph()
+        fb = OperationFeedback(g)
+        fb.record_collapse_outcome("qs1", "n1", correct=True)
+        fb.record_collapse_outcome("qs2", "n2", correct=False)
+        result = fb.cross_operation_summary()
+        assert result.collapse_accuracy == 0.5
+
+    def test_retrieval_precision_reflected(self):
+        g = Hypergraph()
+        n1 = Hypernode(label="a")
+        n2 = Hypernode(label="b")
+        g.add_node(n1)
+        g.add_node(n2)
+        fb = OperationFeedback(g)
+        fb.record_retrieval_outcome("q1", [n1.id], [n2.id])
+        result = fb.cross_operation_summary()
+        assert result.total_signals >= 2
+
+    def test_inference_acceptance_reflected(self):
+        g = Hypergraph()
+        fb = OperationFeedback(g)
+        fb.record_inference_outcome("e1", accepted=True)
+        fb.record_inference_outcome("e2", accepted=False)
+        result = fb.cross_operation_summary()
+        assert result.inference_acceptance_rate == 0.5
+
+    def test_fitness_trend_declining(self):
+        g = Hypergraph()
+        fb = OperationFeedback(g)
+        for f in [0.9, 0.8, 0.7, 0.6, 0.5]:
+            fb.record_evolution_outcome(f)
+        result = fb.cross_operation_summary()
+        assert result.fitness_trend == "declining"
+
+    def test_fitness_trend_improving(self):
+        g = Hypergraph()
+        fb = OperationFeedback(g)
+        for f in [0.5, 0.6, 0.7, 0.8, 0.9]:
+            fb.record_evolution_outcome(f)
+        result = fb.cross_operation_summary()
+        assert result.fitness_trend == "improving"
+
+    def test_correlated_nodes(self):
+        g = Hypergraph()
+        n = Hypernode(label="hub")
+        g.add_node(n)
+        fb = OperationFeedback(g)
+        fb.record_collapse_outcome("qs1", n.id, correct=True)
+        fb.record_collapse_outcome("qs2", n.id, correct=True)
+        fb.record_collapse_outcome("qs3", n.id, correct=False)
+        result = fb.cross_operation_summary()
+        assert n.id in result.correlated_nodes
+        info = result.correlated_nodes[n.id]
+        assert info.signal_count >= 3
+
+    def test_memory_facade_feedback_summary(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem._feedback.record_collapse_outcome("qs1", "n1", correct=True)
+        result = mem.feedback_summary()
+        assert result.total_signals >= 1
+

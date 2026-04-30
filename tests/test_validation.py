@@ -1,11 +1,11 @@
+from hyper3.kernel import Hyperedge
 from hyper3.memory import HypergraphMemory
 from hyper3.rules import TransitiveRule
-from hyper3.kernel import Hyperedge
 from hyper3.validation import (
+    AgreementMetrics,
+    ReasoningSummary,
     ValidationEngine,
     ValidationReport,
-    ReasoningSummary,
-    AgreementMetrics,
 )
 
 

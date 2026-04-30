@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from hyper3 import HypergraphMemory
-from hyper3.belief_revision import ContradictionResolver, Contradiction
+from hyper3.belief_revision import Contradiction, ContradictionResolver
 
 
 class TestBeliefRevisionBasic:
@@ -107,7 +109,7 @@ class TestContradictionResolver:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
-        e1 = mem.relate("A", "B", label="supports")
+        mem.relate("A", "B", label="supports")
         e2 = mem.relate("A", "B", label="opposes")
         mem._provenance.record_inference(
             edge_id=e2.id, rule_name="test", input_edge_ids=[], depth=1,
@@ -159,3 +161,52 @@ class TestBeliefRevisionMultipleContradictions:
         engine = ContradictionResolver(mem.graph, mem._provenance)
         result = engine.revise()
         assert result.edges_removed_count >= 1
+
+
+class TestBeliefRevisionNewerStrategy:
+    def test_newer_edge_survives(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        e_old = mem.relate("A", "B", label="supports")
+        e_new = mem.relate("A", "B", label="opposes")
+        mem._provenance.record_inference(
+            edge_id=e_old.id,
+            rule_name="test",
+            input_edge_ids=[],
+            depth=0,
+        )
+        time.sleep(0.01)
+        mem._provenance.record_inference(
+            edge_id=e_new.id,
+            rule_name="test",
+            input_edge_ids=[],
+            depth=0,
+        )
+        engine = ContradictionResolver(mem.graph, mem._provenance)
+        result = engine.revise(strategy="newer")
+        assert result.edges_removed_count >= 1
+        surviving = [e for e in mem.graph.edges if e.label in ("supports", "opposes")]
+        assert len(surviving) == 1
+        assert surviving[0].id == e_new.id
+
+    def test_newer_with_no_provenance_favors_first(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="supports")
+        mem.relate("A", "B", label="opposes")
+        engine = ContradictionResolver(mem.graph, mem._provenance)
+        result = engine.revise(strategy="newer")
+        assert result.edges_removed_count >= 1
+
+    def test_newer_strategy_via_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="causes")
+        mem.relate("A", "B", label="prevents")
+        result = mem.revise_beliefs(strategy="newer")
+        assert result.contradictions_detected >= 1
+        assert result.edges_removed_count >= 1
+

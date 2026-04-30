@@ -1,48 +1,53 @@
 from __future__ import annotations
 
+import contextlib
 from typing import Any
 
-from hyper3.kernel import Hypergraph
+from hyper3.abstraction import AbstractionMapping, AbstractionNavigator, AbstractionSummary, ExpandResult
+from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
+from hyper3.belief import BeliefLayer
+from hyper3.belief_revision import Contradiction, ContradictionResolver, RevisionResult
 from hyper3.cache import LazyCache
 from hyper3.capabilities import CapabilityLevel
+from hyper3.community import CommunityDetector, CommunityResult
 from hyper3.embedding import EmbeddingEngine, EmbeddingProvider, SimilarityResult
-from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
-from hyper3.retrieval_engine import FeedbackStore, LearningToRank, RetrievalEngine, RetrievalResult
-from hyper3.temporal import TemporalEvent, TemporalReasoner
-from hyper3.provenance import Explanation, ProvenanceTracker
 from hyper3.enrichment import ExtractionResult, LLMEnricher, LLMProvider
+from hyper3.feedback import OperationFeedback
+from hyper3.graph_diff import GraphDelta, GraphDiffer, GraphHistoryResult
+from hyper3.hebbian import HebbianLearner, HebbianResult, HebbianUpdate
+from hyper3.memory_base import _MemoryBase
+from hyper3.multi_perspective import MultiPerspectiveAnalyzer, PresetAnalysis
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_rulial import RulialSpace
-from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.belief import BeliefLayer
-from hyper3.structural_anomaly import StructuralAnomalyDetector
-from hyper3.multi_perspective import MultiPerspectiveAnalyzer, PresetAnalysis
-from hyper3.system_monitor import SystemMonitor, TuningTrigger, TuningPlan
-from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.overlay import HypergraphOverlay
-from hyper3.memory_base import _MemoryBase
-from hyper3.results import TrainResult, TemporalMatch, HealthReport, FeedbackSummaryResult, BiasProfileResult, TuningResult
-from hyper3.feedback import OperationFeedback
-from hyper3.validation import ValidationReport
-from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult
-from hyper3.uncertainty import UncertaintyEngine, UncertaintyResult, ConfidenceScore, ConfidenceChain
-from hyper3.structural_match import (
-    StructuralPatternEngine,
-    PatternTemplate,
-    PatternNode,
-    PatternEdge,
-    StructuralMatchResult,
+from hyper3.provenance import Explanation, ProvenanceTracker
+from hyper3.results import (
+    BiasProfileResult,
+    FeedbackSummaryResult,
+    HealthReport,
+    TemporalMatch,
+    TrainResult,
+    TuningResult,
 )
-from hyper3.belief_revision import ContradictionResolver, Contradiction, RevisionResult
-from hyper3.abstraction import AbstractionNavigator, AbstractionSummary, AbstractionMapping, ExpandResult
-from hyper3.community import CommunityDetector, CommunityResult
-from hyper3.graph_diff import GraphDiffer, GraphDelta, GraphHistoryResult
-from hyper3.hebbian import HebbianLearner, HebbianConfig, HebbianResult, HebbianUpdate
+from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
+from hyper3.retrieval_engine import FeedbackStore, RetrievalEngine, RetrievalResult
+from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.structural_match import (
+    PatternEdge,
+    PatternNode,
+    PatternTemplate,
+    StructuralMatchResult,
+    StructuralPatternEngine,
+)
+from hyper3.system_monitor import SystemMonitor, TuningPlan, TuningTrigger
+from hyper3.temporal import TemporalEvent, TemporalReasoner
+from hyper3.uncertainty import ConfidenceChain, ConfidenceScore, UncertaintyEngine, UncertaintyResult
+from hyper3.validation import ValidationReport
 
 
 class SubsystemMixin(_MemoryBase):
-
     def set_embedding_provider(self, provider: EmbeddingProvider) -> None:
         """Set a custom embedding provider for semantic similarity.
 
@@ -70,9 +75,7 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("enable_faiss", success=result)
         return result
 
-    def find_similar(
-        self, concept: str, *, top_k: int = 10, threshold: float | None = None
-    ) -> list[SimilarityResult]:
+    def find_similar(self, concept: str, *, top_k: int = 10, threshold: float | None = None) -> list[SimilarityResult]:
         """Find semantically similar nodes to a concept using embeddings.
 
         Args:
@@ -92,9 +95,7 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("find_similar", concept=concept, results=len(results))
         return results
 
-    def analogy(
-        self, a: str, b: str, c: str, *, top_k: int = 5
-    ) -> list[tuple[str, float]]:
+    def analogy(self, a: str, b: str, c: str, *, top_k: int = 5) -> list[tuple[str, float]]:
         """Solve an analogy problem: "a is to b as c is to ?".
 
         Uses vector arithmetic on embeddings to find the answer.
@@ -123,7 +124,9 @@ class SubsystemMixin(_MemoryBase):
             labeled.append((label, score))
         return labeled
 
-    def activate(self, concept: str, *, energy: float = 1.0, top_k: int = 10, iterations: int | None = None) -> list[ActivationResult]:
+    def activate(
+        self, concept: str, *, energy: float = 1.0, top_k: int = 10, iterations: int | None = None
+    ) -> list[ActivationResult]:
         """Perform spreading activation from a concept node.
 
         Args:
@@ -152,6 +155,7 @@ class SubsystemMixin(_MemoryBase):
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
+
             raise NodeNotFoundError(concept)
         self._activation.stimulate(node.id, energy)
 
@@ -171,7 +175,9 @@ class SubsystemMixin(_MemoryBase):
         """Reset all spreading activation state."""
         self._activation.clear()
 
-    def retrieve(self, concept: str, *, top_k: int = 10, iterations: int = 3, use_ltr: bool = False) -> list[RetrievalResult]:
+    def retrieve(
+        self, concept: str, *, top_k: int = 10, iterations: int = 3, use_ltr: bool = False
+    ) -> list[RetrievalResult]:
         """Retrieve nodes relevant to a concept using RRF or learned-to-rank.
 
         Args:
@@ -256,7 +262,9 @@ class SubsystemMixin(_MemoryBase):
         self._log.record("temporal_event", label=label, start=start, end=end)
         return event
 
-    def temporal_query(self, concept: str, *, relation: str = "overlapping", max_gap: float = 1.0) -> list[TemporalMatch]:
+    def temporal_query(
+        self, concept: str, *, relation: str = "overlapping", max_gap: float = 1.0
+    ) -> list[TemporalMatch]:
         """Query temporal events by their relationship to a reference event.
 
         Args:
@@ -283,8 +291,7 @@ class SubsystemMixin(_MemoryBase):
         elif relation == "proximity":
             pairs = self._temporal.temporal_proximity(concept, max_gap=max_gap)
             return [
-                TemporalMatch(label=e.label, start=e.interval.start, end=e.interval.end, gap=gap)
-                for e, gap in pairs
+                TemporalMatch(label=e.label, start=e.interval.start, end=e.interval.end, gap=gap) for e, gap in pairs
             ]
         else:
             events = self._temporal.find_overlapping(concept)
@@ -325,15 +332,13 @@ class SubsystemMixin(_MemoryBase):
                     data={"type": entity.entity_type} if entity.entity_type else None,
                 )
             for rel in result.relations:
-                try:
+                with contextlib.suppress(Exception):
                     self.relate(
                         rel.source_label,
                         rel.target_label,
                         label=rel.relation_label,
                         bidirectional=rel.bidirectional,
                     )
-                except Exception:
-                    pass
         self._log.record(
             "ingest",
             text_length=len(text),
@@ -373,15 +378,13 @@ class SubsystemMixin(_MemoryBase):
                     )
                     seen_entities.add(entity.label)
                 for rel in result.relations:
-                    try:
+                    with contextlib.suppress(Exception):
                         self.relate(
                             rel.source_label,
                             rel.target_label,
                             label=rel.relation_label,
                             bidirectional=rel.bidirectional,
                         )
-                    except Exception:
-                        pass
             results.append(result)
         self._log.record(
             "ingest_batch",
@@ -407,8 +410,11 @@ class SubsystemMixin(_MemoryBase):
         if not node_a or not node_b:
             return None
         for edge in self._graph.edges:
-            if (node_a.id in edge.source_ids and node_b.id in edge.target_ids
-                    and (not edge_label or edge.label == edge_label)):
+            if (
+                node_a.id in edge.source_ids
+                and node_b.id in edge.target_ids
+                and (not edge_label or edge.label == edge_label)
+            ):
                 return self._provenance.explain(edge.id, graph=self._graph)
         return None
 
@@ -429,9 +435,12 @@ class SubsystemMixin(_MemoryBase):
             return []
         retracted: list[str] = []
         for edge in list(self._graph.edges):
-            if (node_a.id in edge.source_ids and node_b.id in edge.target_ids
-                    and (not edge_label or edge.label == edge_label)
-                    and self._provenance.is_inferred(edge.id)):
+            if (
+                node_a.id in edge.source_ids
+                and node_b.id in edge.target_ids
+                and (not edge_label or edge.label == edge_label)
+                and self._provenance.is_inferred(edge.id)
+            ):
                 ids = self._provenance.retract(edge.id)
                 for eid in ids:
                     self._graph.remove_edge(eid)
@@ -606,7 +615,8 @@ class SubsystemMixin(_MemoryBase):
             self._graph_differ = GraphDiffer(self._graph)
             self._meta.set_differ(self._graph_differ)
         return self._meta.execute_tuning_validated(
-            plan, fitness_tolerance=fitness_tolerance,
+            plan,
+            fitness_tolerance=fitness_tolerance,
         )
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> PresetAnalysis:
@@ -641,6 +651,7 @@ class SubsystemMixin(_MemoryBase):
             A ValidationReport with agreement metrics.
         """
         from hyper3.validation import ValidationEngine
+
         engine = ValidationEngine(self)
         return engine.run_comparison(seed_concepts, rules)
 
@@ -657,12 +668,14 @@ class SubsystemMixin(_MemoryBase):
             List of ValidationReport objects, one per test case.
         """
         from hyper3.validation import ValidationEngine
+
         engine = ValidationEngine(self)
         return engine.run_validation_suite(test_cases)
 
     def detect_capability(self) -> CapabilityLevel:
         """Detect the current capability level of this memory instance."""
         from hyper3.capabilities import detect_capability_level
+
         return detect_capability_level(self)
 
     def prove(
@@ -689,11 +702,14 @@ class SubsystemMixin(_MemoryBase):
         """
         if self._backward_chain is None:
             self._backward_chain = BackwardChainEngine(
-                self._graph, self._rules, max_depth=max_depth,
-
+                self._graph,
+                self._rules,
+                max_depth=max_depth,
             )
         return self._backward_chain.prove(
-            concept, known_facts=known_facts, edge_label=edge_label,
+            concept,
+            known_facts=known_facts,
+            edge_label=edge_label,
         )
 
     def prove_batch(
@@ -716,7 +732,9 @@ class SubsystemMixin(_MemoryBase):
         if self._backward_chain is None:
             self._backward_chain = BackwardChainEngine(self._graph, self._rules)
         return self._backward_chain.prove_batch(
-            target_concepts, known_facts=known_facts, edge_label=edge_label,
+            target_concepts,
+            known_facts=known_facts,
+            edge_label=edge_label,
         )
 
     def hebbian_reinforce(self) -> HebbianResult:
@@ -739,7 +757,11 @@ class SubsystemMixin(_MemoryBase):
         return result
 
     def hebbian_reinforce_pair(
-        self, source: str, target: str, *, strength: float = 1.0,
+        self,
+        source: str,
+        target: str,
+        *,
+        strength: float = 1.0,
     ) -> HebbianUpdate | None:
         """Manually reinforce the connection between two concepts.
 
@@ -771,7 +793,10 @@ class SubsystemMixin(_MemoryBase):
         return len(updates)
 
     def strongest_associations(
-        self, concept: str, *, top_k: int = 10,
+        self,
+        concept: str,
+        *,
+        top_k: int = 10,
     ) -> list[tuple[str, float]]:
         """Return the strongest Hebbian associations from a concept.
 
@@ -823,7 +848,11 @@ class SubsystemMixin(_MemoryBase):
         return self._uncertainty_engine.flag_low_confidence(threshold)
 
     def trace_confidence_chain(
-        self, source: str, target: str, *, max_depth: int = 10,
+        self,
+        source: str,
+        target: str,
+        *,
+        max_depth: int = 10,
     ) -> ConfidenceChain | None:
         """Trace the highest-confidence inference chain between two concepts.
 
@@ -881,7 +910,9 @@ class SubsystemMixin(_MemoryBase):
         ]
 
         template = PatternTemplate(
-            name=pattern_name, nodes=p_nodes, edges=p_edges,
+            name=pattern_name,
+            nodes=p_nodes,
+            edges=p_edges,
         )
         return self._structural_matcher.match_pattern(template, max_matches=max_matches)
 
@@ -922,7 +953,10 @@ class SubsystemMixin(_MemoryBase):
         return labeled_chains
 
     def match_diamonds(
-        self, *, edge_label: str | None = None, max_matches: int = 50,
+        self,
+        *,
+        edge_label: str | None = None,
+        max_matches: int = 50,
     ) -> list[dict[str, Any]]:
         """Find diamond patterns (A->C, B->C, A and B share common upstream).
 
@@ -936,7 +970,8 @@ class SubsystemMixin(_MemoryBase):
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
         matches = self._structural_matcher.match_diamond(
-            edge_label=edge_label, max_matches=max_matches,
+            edge_label=edge_label,
+            max_matches=max_matches,
         )
         results: list[dict[str, Any]] = []
         for m in matches:
@@ -967,7 +1002,9 @@ class SubsystemMixin(_MemoryBase):
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
         fans = self._structural_matcher.match_fan_out(
-            edge_label=edge_label, min_fan=min_fan, max_results=max_results,
+            edge_label=edge_label,
+            min_fan=min_fan,
+            max_results=max_results,
         )
         results: list[dict[str, Any]] = []
         for nid, target_ids in fans:
@@ -976,11 +1013,13 @@ class SubsystemMixin(_MemoryBase):
             for tid in target_ids:
                 tn = self._graph.get_node(tid)
                 tgt_labels.append(tn.label if tn else tid[:8])
-            results.append({
-                "node": node.label if node else nid[:8],
-                "fan_out": len(target_ids),
-                "targets": tgt_labels,
-            })
+            results.append(
+                {
+                    "node": node.label if node else nid[:8],
+                    "fan_out": len(target_ids),
+                    "targets": tgt_labels,
+                }
+            )
         return results
 
     def detect_contradictions(self) -> list[Contradiction]:
@@ -1014,7 +1053,9 @@ class SubsystemMixin(_MemoryBase):
         return result
 
     def check_consistency(
-        self, source: str, target: str,
+        self,
+        source: str,
+        target: str,
     ) -> list[Contradiction]:
         """Check for contradictions between two specific concepts.
 
@@ -1052,6 +1093,7 @@ class SubsystemMixin(_MemoryBase):
             AbstractionSummary, or None if no valid nodes found.
         """
         from hyper3.kernel import AbstractionLayer
+
         if self._abstraction_nav is None:
             self._abstraction_nav = AbstractionNavigator(self._graph)
         layer_enum = AbstractionLayer(layer)
@@ -1108,13 +1150,15 @@ class SubsystemMixin(_MemoryBase):
 
         if method == "weighted_label_propagation":
             return self._community_detector.detect_weighted_label_propagation(
-                seed=seed, edge_label=edge_label,
+                seed=seed,
+                edge_label=edge_label,
             )
         elif method == "connected_components":
             return self._community_detector.detect_connected_components()
         else:
             return self._community_detector.detect_label_propagation(
-                seed=seed, edge_label=edge_label,
+                seed=seed,
+                edge_label=edge_label,
             )
 
     def capture_version(self) -> dict[str, int]:
@@ -1272,7 +1316,6 @@ class SubsystemMixin(_MemoryBase):
         """
         se_result = self._graph.spectral_embedding(dimensions=dimensions)
         result: dict[str, list[float]] = {}
-        import numpy as np
         for i, nid in enumerate(se_result.node_ids):
             node = self._graph.get_node(nid)
             if node and se_result.embeddings is not None and i < se_result.embeddings.shape[0]:
