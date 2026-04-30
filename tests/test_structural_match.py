@@ -22,8 +22,9 @@ class TestStructuralMatchBasic:
         mem.relate("A", "B", label="next")
         mem.relate("B", "C", label="next")
         chains = mem.match_chains(edge_label="next", min_length=2)
-        assert len(chains) >= 1
-        assert len(chains[0]) >= 3
+        assert len(chains) == 1
+        assert len(chains[0]) == 3
+        assert chains[0] == ["A", "B", "C"]
 
     def test_match_chain_empty_graph(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -38,7 +39,9 @@ class TestStructuralMatchBasic:
         mem.relate("A", "C", label="feeds")
         mem.relate("B", "C", label="feeds")
         diamonds = mem.match_diamonds()
-        assert len(diamonds) >= 1
+        assert len(diamonds) == 1
+        assert diamonds[0]["converge"] == "C"
+        assert {diamonds[0]["source_a"], diamonds[0]["source_b"]} == {"A", "B"}
 
     def test_match_fan_out(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -47,8 +50,9 @@ class TestStructuralMatchBasic:
             mem.store(f"spoke_{i}")
             mem.relate("hub", f"spoke_{i}", label="connects")
         fans = mem.match_fan_out(min_fan=3)
-        assert len(fans) >= 1
-        assert fans[0]["fan_out"] >= 3
+        assert len(fans) == 1
+        assert fans[0]["fan_out"] == 5
+        assert fans[0]["node"] == "hub"
 
     def test_match_structural_pattern(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -59,7 +63,7 @@ class TestStructuralMatchBasic:
             nodes=[{"role": "source"}, {"role": "target"}],
             edges=[{"source_role": "source", "target_role": "target", "label": "depends_on"}],
         )
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_match_structural_pattern_no_match(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -86,7 +90,9 @@ class TestStructuralPatternEngine:
             edges=[PatternEdge(source_role="src", target_role="tgt", label="strong", min_weight=3.0)],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
+        assert len(result.matches) == 1
+        assert result.matches[0].score > 0
 
     def test_match_pattern_with_data_type_constraint(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -103,7 +109,7 @@ class TestStructuralPatternEngine:
             edges=[PatternEdge(source_role="person", target_role="place", label="lives_in")],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_match_pattern_with_label_pattern(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -120,7 +126,7 @@ class TestStructuralPatternEngine:
             edges=[PatternEdge(source_role="caller", target_role="callee", label="calls")],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_fan_out_no_results(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -154,11 +160,7 @@ class TestStructuralMatchIntegration:
                 {"source_role": "mid", "target_role": "back", "label": "routes_to"},
             ],
         )
-        assert result.total_match_count >= 1
-
-
-
-
+        assert result.total_match_count == 1
 
 
 class TestMatchPatternDeep:
@@ -287,7 +289,9 @@ class TestMatchChainDeep:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="other"))
         engine = StructuralPatternEngine(g)
         chains = engine.match_chain(edge_label="next", min_length=2)
-        assert len(chains) >= 1
+        assert len(chains) == 1
+        assert chains[0][0] == "a"
+        assert chains[0][-1] == "c"
 
     def test_chain_max_chains(self):
         g = Hypergraph()
@@ -340,10 +344,10 @@ class TestMatchFanOutDeep:
             ))
         engine = StructuralPatternEngine(g)
         fans = engine.match_fan_out(edge_label="connects", min_fan=3)
-        assert len(fans) >= 1
+        assert len(fans) == 1
         hub_id, targets = fans[0]
         assert hub_id == "hub"
-        assert len(targets) >= 3
+        assert len(targets) == 5
 
 
 class TestStructuralMatchResultAccess:
