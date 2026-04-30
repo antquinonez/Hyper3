@@ -80,7 +80,7 @@ class TestTransitiveRule:
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="y"))
         rule = TransitiveRule()
         matches = rule.find_matches(g, frozenset({"a", "b", "c"}))
-        assert len(matches) >= 1
+        assert len(matches) == 1
 
 
 class TestInverseRule:
@@ -168,7 +168,7 @@ class TestAbductiveRule:
         g.add_edge(Hyperedge(source_ids=frozenset({"cause"}), target_ids=frozenset({"effect"}), label="leads_to"))
         rule = AbductiveRule(effect_label="leads_to")
         matches = rule.find_matches(g, frozenset({"cause", "effect"}))
-        assert len(matches) >= 1
+        assert len(matches) == 1
 
     def test_creates_hypothesis(self):
         g = Hypergraph()
@@ -192,7 +192,7 @@ class TestAbductiveRule:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"b"}), label="y"))
         rule = AbductiveRule()
         matches = rule.find_matches(g, frozenset({"a", "b", "c"}))
-        assert len(matches) >= 2
+        assert len(matches) == 2
 
 
 class TestPropertyPropagationRule:
@@ -304,7 +304,7 @@ class TestAbductiveRuleEdgeCases:
         rule.apply(g, match)
         rule.find_matches(g, frozenset({"cause", "effect"}))
         cause_edges = [e for e in g.edges if e.label == "possible_cause"]
-        assert len(cause_edges) >= 1
+        assert len(cause_edges) == 1
 
     def test_handles_missing_node_in_find(self):
         g = Hypergraph()
@@ -584,17 +584,17 @@ class TestRuleConfidence:
         g, a, b, c = _make_rule_graph()
         rule = TransitiveRule(edge_label="next")
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
-        assert len(matches) > 0
+        assert len(matches) == 1
         rule.apply(g, matches[0])
         inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
-        assert len(inferred) > 0
+        assert len(inferred) == 1
         assert inferred[0].metadata.custom["confidence"] == 0.9
 
     def test_inverse_rule_sets_confidence(self):
         g, a, b, c = _make_rule_graph()
         rule = InverseRule(edge_label="next", inverse_label="prev")
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
-        assert len(matches) > 0
+        assert len(matches) == 2
         rule.apply(g, matches[0])
         inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
         assert any(e.metadata.custom.get("confidence") == 0.9 for e in inferred)
@@ -610,10 +610,10 @@ class TestRuleConfidence:
         )
         rule = AbductiveRule(effect_label="causes")
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
-        assert len(matches) > 0
+        assert len(matches) == 1
         rule.apply(g, matches[0])
         inferred = [e for e in g.edges if e.metadata.custom.get("inferred")]
-        assert len(inferred) > 0
+        assert len(inferred) == 1
         assert any(e.metadata.custom.get("confidence") == 0.5 for e in inferred)
 
 
@@ -752,7 +752,8 @@ class TestStructuralProjectionRule:
         rule = StructuralProjectionRule(similarity_threshold=0.5)
         rule.set_embedding_engine(MockEngine())
         matches = rule.find_matches(g, frozenset(n.id for n in nodes))
-        assert isinstance(matches, list)
+        assert len(matches) == 1
+        assert "analogy_score" in matches[0].context
 
     def test_apply_creates_edge(self):
         g = Hypergraph()
@@ -799,8 +800,8 @@ class TestHubInferenceRule:
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
         ab_matches = [m for m in matches if m.bindings["cause"] == a.id and m.bindings["effect"] == b.id]
         assert len(ab_matches) == 1
-        assert ab_matches[0].context["confidence"] >= 0.5
-        assert ab_matches[0].context["support"] >= 2
+        assert ab_matches[0].context["confidence"] == 0.75
+        assert ab_matches[0].context["support"] == 3
 
     def test_skips_below_support(self):
         g = Hypergraph()
@@ -846,7 +847,7 @@ class TestContextualSubstitutionRule:
         g.add_node(c)
         rule = ContextualSubstitutionRule(similarity_threshold=0.0)
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
-        assert len(matches) >= 1
+        assert len(matches) == 3
 
     def test_creates_bidirectional_edges(self):
         g = Hypergraph()
@@ -975,4 +976,256 @@ def _setup_memory():
     mem.relate("b", "c", label="next")
     mem.add_rules(TransitiveRule(edge_label="next"))
     return mem
+
+
+class TestRuleBaseClass:
+    def test_base_score_match_returns_one(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x"))
+        rule = TransitiveRule()
+        match = RuleMatch(rule_name="test", bindings={"A": "x", "B": "x", "C": "x"})
+        assert rule.score_match(match, g) == 1.0
+
+    def test_base_find_derivation_returns_empty(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x"))
+        rule = TransitiveRule()
+        assert rule.find_derivation("x", g) == []
+
+
+class TestTransitiveRuleDerivation:
+    def test_find_derivation_finds_chain(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(id="a"), Hypernode(id="b"), Hypernode(id="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        rule = TransitiveRule(edge_label="rel")
+        derivations = rule.find_derivation("c", g)
+        assert len(derivations) == 1
+        assert derivations[0].bindings["C"] == "c"
+        assert derivations[0].bindings["B"] == "b"
+        assert derivations[0].bindings["A"] == "a"
+
+    def test_find_derivation_skips_self_loop(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"}), label="rel"))
+        rule = TransitiveRule(edge_label="rel")
+        derivations = rule.find_derivation("a", g)
+        assert all(d.bindings["A"] != d.bindings["C"] for d in derivations)
+
+    def test_find_derivation_empty_for_isolated(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x"))
+        rule = TransitiveRule()
+        assert rule.find_derivation("x", g) == []
+
+
+class TestInverseRuleDerivation:
+    def test_find_derivation_finds_inverse(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"}), label="next"))
+        rule = InverseRule(edge_label="next", inverse_label="prev")
+        derivations = rule.find_derivation("b", g)
+        assert len(derivations) == 1
+        assert derivations[0].bindings["source"] == "a"
+        assert derivations[0].bindings["target"] == "b"
+
+    def test_find_derivation_skips_existing_inverse(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="next"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"}), label="prev"))
+        rule = InverseRule(edge_label="next", inverse_label="prev")
+        derivations = rule.find_derivation("b", g)
+        assert len(derivations) == 0
+
+
+class TestGeneralizationRuleScoreMatch:
+    def test_score_match_uses_context_similarity(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = GeneralizationRule(similarity_threshold=0.5)
+        match = RuleMatch(rule_name="generalization", bindings={}, context={"similarity": 0.8})
+        assert rule.score_match(match, g) == 0.8
+
+    def test_score_match_defaults_to_half(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = GeneralizationRule(similarity_threshold=0.5)
+        match = RuleMatch(rule_name="generalization", bindings={}, context={})
+        assert rule.score_match(match, g) == 0.5
+
+
+class TestAbductiveRuleScoreMatch:
+    def test_score_match_with_via_edge(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        edge = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="causes",
+            weight=2.0,
+            metadata=Metadata(custom={"confidence": 0.8}),
+        )
+        g.add_edge(edge)
+        rule = AbductiveRule(effect_label="causes")
+        match = RuleMatch(rule_name="abductive", bindings={}, context={"via_edge": edge.id})
+        score = rule.score_match(match, g)
+        expected = min(max(2.0 * 0.6 * 0.8, 0.1), 1.0)
+        assert score == pytest.approx(expected)
+
+    def test_score_match_fallback_without_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = AbductiveRule()
+        match = RuleMatch(rule_name="abductive", bindings={}, context={})
+        assert rule.score_match(match, g) == 0.3
+
+
+class TestPropertyPropagationRuleScoreMatch:
+    def test_score_match_with_numeric_value(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        edge = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), weight=2.0)
+        g.add_edge(edge)
+        rule = PropertyPropagationRule(property_key="k")
+        match = RuleMatch(rule_name="prop", bindings={}, context={"via_edge": edge.id, "property_value": 5.0})
+        score = rule.score_match(match, g)
+        specificity = min(abs(5.0) * 0.1, 0.5) + 0.5
+        expected = min(max(2.0 * 0.7 * specificity, 0.1), 1.0)
+        assert score == pytest.approx(expected)
+
+    def test_score_match_with_string_value(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        edge = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), weight=1.0)
+        g.add_edge(edge)
+        rule = PropertyPropagationRule(property_key="k")
+        match = RuleMatch(rule_name="prop", bindings={}, context={"via_edge": edge.id, "property_value": "abc"})
+        score = rule.score_match(match, g)
+        specificity = min(len("abc") * 0.05, 0.5) + 0.5
+        expected = min(max(1.0 * 0.7 * specificity, 0.1), 1.0)
+        assert score == pytest.approx(expected)
+
+    def test_score_match_fallback_without_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = PropertyPropagationRule(property_key="k")
+        match = RuleMatch(rule_name="prop", bindings={}, context={})
+        assert rule.score_match(match, g) == 0.4
+
+
+class TestStructuralProjectionRuleEdgeCases:
+    def test_fewer_than_four_embeddings_returns_empty(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+
+        class SmallEngine:
+            def get_embedding(self, node_id):
+                return np.array([1.0])
+
+        rule = StructuralProjectionRule(similarity_threshold=0.5)
+        rule.set_embedding_engine(SmallEngine())
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert matches == []
+
+    def test_cosine_sim_with_zero_norm(self):
+        rule = StructuralProjectionRule()
+        assert rule._cosine_sim(np.array([0.0, 0.0]), np.array([1.0, 0.0])) == 0.0
+
+    def test_cosine_sim_with_vectors(self):
+        rule = StructuralProjectionRule()
+        sim = rule._cosine_sim(np.array([1.0, 0.0]), np.array([1.0, 0.0]))
+        assert sim == pytest.approx(1.0)
+
+
+class TestHubInferenceRuleEdgeCases:
+    def test_skips_unlabeled_edges(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label=""))
+        rule = HubInferenceRule(min_support=1, confidence_threshold=0.5)
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert len(matches) == 0
+
+    def test_skips_self_target(self):
+        g = Hypergraph()
+        a = Hypernode(id="a")
+        g.add_node(a)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({a.id}), label="self"))
+        rule = HubInferenceRule(min_support=1, confidence_threshold=0.5)
+        matches = rule.find_matches(g, frozenset({a.id}))
+        assert len(matches) == 0
+
+    def test_existing_causes_edge_prevents_match(self):
+        g = Hypergraph()
+        a, b = Hypernode(id="a"), Hypernode(id="b")
+        g.add_node(a)
+        g.add_node(b)
+        for _ in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="leads_to"))
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="causes"))
+        rule = HubInferenceRule(min_support=2, confidence_threshold=0.5, causes_label="causes")
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert len(matches) == 0
+
+    def test_score_match_uses_confidence(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = HubInferenceRule()
+        match = RuleMatch(rule_name="hub", bindings={}, context={"confidence": 0.85})
+        assert rule.score_match(match, g) == 0.85
+
+
+class TestContextualSubstitutionScoreMatch:
+    def test_score_match_uses_similarity(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = ContextualSubstitutionRule()
+        match = RuleMatch(rule_name="sub", bindings={}, context={"similarity": 0.7})
+        assert rule.score_match(match, g) == 0.7
+
+    def test_score_match_defaults(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = ContextualSubstitutionRule()
+        match = RuleMatch(rule_name="sub", bindings={}, context={})
+        assert rule.score_match(match, g) == 0.5
+
+
+class TestStructuralProjectionScoreMatch:
+    def test_score_match_uses_analogy_score(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = StructuralProjectionRule()
+        match = RuleMatch(rule_name="proj", bindings={}, context={"analogy_score": 0.6})
+        assert rule.score_match(match, g) == 0.6
+
+    def test_score_match_defaults(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        rule = StructuralProjectionRule()
+        match = RuleMatch(rule_name="proj", bindings={}, context={})
+        assert rule.score_match(match, g) == 0.5
 
