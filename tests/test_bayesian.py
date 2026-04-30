@@ -50,6 +50,26 @@ class TestEvidenceAndUpdateResult:
         assert ev.likelihoods["h1"] == 0.9
         assert ev.likelihoods["h2"] == 0.1
 
+    def test_evidence_defaults(self) -> None:
+        ev = Evidence()
+        assert ev.name == ""
+        assert ev.likelihoods == {}
+
+    def test_evidence_bracket_access(self) -> None:
+        ev = Evidence(name="obs", likelihoods={"A": 0.7})
+        assert ev["name"] == "obs"
+        assert ev["likelihoods"] == {"A": 0.7}
+
+    def test_evidence_keys_and_items(self) -> None:
+        ev = Evidence(name="lab", likelihoods={"X": 0.5})
+        assert ev.keys() == ["name", "likelihoods"]
+        assert ("name", "lab") in ev.items()
+
+    def test_evidence_contains(self) -> None:
+        ev = Evidence(name="sensor", likelihoods={"ok": 0.99})
+        assert "name" in ev
+        assert "likelihoods" in ev
+
     def test_update_result_has_fields(self) -> None:
         result = UpdateResult(
             concept="c1",
