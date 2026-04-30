@@ -702,7 +702,7 @@ def main():
         if not t3_node:
             continue
         t3_lt = suppliers[t3_name]["lead_time_days"]
-        for e1 in mem.graph.edges_for(t3_node.id):
+        for e1 in mem.graph.incident_edges(t3_node.id):
             if e1.label != "supplies_to":
                 continue
             for t2_id in e1.target_ids:
@@ -710,7 +710,7 @@ def main():
                 if not t2_node or t2_node.data.get("tier") != 2:
                     continue
                 t2_lt = t2_node.data.get("lead_time_days", 0)
-                for e2 in mem.graph.edges_for(t2_id):
+                for e2 in mem.graph.incident_edges(t2_id):
                     if e2.label != "supplies_to":
                         continue
                     for t1_id in e2.target_ids:

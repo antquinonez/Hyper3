@@ -160,7 +160,7 @@ class RobustReachabilityDetector:
             for _ in range(max_depth):
                 next_frontier: list[str] = []
                 for nid in frontier:
-                    for edge in graph.edges_for(nid):
+                    for edge in graph.incident_edges(nid):
                         if edge.weight < min_weight:
                             continue
                         for tgt in edge.target_ids:
@@ -296,7 +296,7 @@ class MultiPerspectiveAnalyzer:
         if not node:
             return PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="node_not_found")
 
-        edges = self._graph.edges_for(node.id)
+        edges = self._graph.incident_edges(node.id)
         neighbor_count = len(set(nid for e in edges for nid in e.target_ids if nid != node.id))
         total_nodes = self._graph.node_count
         total_edges = self._graph.edge_count
@@ -393,7 +393,7 @@ class MultiPerspectiveAnalyzer:
             if params.get("strategy") == "bfs":
                 pass
             if frame_name == "probabilistic":
-                ranked_nodes = [n for n in ranked_nodes if any(e.weight >= 0.3 for e in self._graph.edges_for(n))]
+                ranked_nodes = [n for n in ranked_nodes if any(e.weight >= 0.3 for e in self._graph.incident_edges(n))]
             for rank, target in enumerate(ranked_nodes[:50]):
                 if target not in node_ranks:
                     node_ranks[target] = {}
@@ -567,7 +567,7 @@ class MultiPerspectiveAnalyzer:
         import zlib
 
         parts: list[str] = [node.label]
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             parts.append(edge.label)
             for nid in edge.target_ids:
                 n = self._graph.get_node(nid)
@@ -589,7 +589,7 @@ class MultiPerspectiveAnalyzer:
         recommended_depth = 3
         recommended_states = min(neighbor_count * 2, 50)
         competing_edges: dict[str, int] = {}
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             for tgt in edge.target_ids:
                 competing_edges[tgt] = competing_edges.get(tgt, 0) + 1
         multi_source = {k: v for k, v in competing_edges.items() if v > 1}
@@ -612,7 +612,7 @@ class MultiPerspectiveAnalyzer:
 
     def _normalized_shannon_entropy(self, node: Hypernode) -> float:
         """Compute normalised Shannon entropy over the node's edge target distribution."""
-        edges = self._graph.edges_for(node.id)
+        edges = self._graph.incident_edges(node.id)
         if not edges:
             return 0.0
         targets: list[str] = []
@@ -638,7 +638,7 @@ class MultiPerspectiveAnalyzer:
         complexity = self._spectral_gap_complexity(node)
         approach = "multi_dimensional_traversal"
         modalities = set()
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             for nid in edge.target_ids:
                 n = self._graph.get_node(nid)
                 if n:
@@ -662,7 +662,7 @@ class MultiPerspectiveAnalyzer:
         )
 
     def _spectral_gap_complexity(self, node: Hypernode) -> float:
-        edges = self._graph.edges_for(node.id)
+        edges = self._graph.incident_edges(node.id)
         if not edges:
             return 0.0
         local_node_ids: set[str] = {node.id}
@@ -717,7 +717,7 @@ class MultiPerspectiveAnalyzer:
 
     def _transition_entropy(self, node: Hypernode) -> float:
         """Compute normalised entropy of the node's edge weight distribution."""
-        edges = self._graph.edges_for(node.id)
+        edges = self._graph.incident_edges(node.id)
         if not edges:
             return 0.0
         total_weight = sum(e.weight for e in edges)
@@ -807,11 +807,11 @@ class MultiPerspectiveAnalyzer:
     def _count_neighbors(self, node_id: str) -> int:
         """Count unique neighbor nodes (excluding the node itself).
 
-        Differs from ``len(graph.edges_for(node_id))`` which counts edges,
+        Differs from ``len(graph.incident_edges(node_id))`` which counts edges,
         not unique endpoints.
         """
         neighbors: set[str] = set()
-        for edge in self._graph.edges_for(node_id):
+        for edge in self._graph.incident_edges(node_id):
             neighbors.update(edge.source_ids | edge.target_ids)
         neighbors.discard(node_id)
         return len(neighbors)
@@ -852,7 +852,7 @@ class MultiPerspectiveAnalyzer:
         total_pairs = 0
 
         for sid in seed_ids:
-            edges = self._graph.edges_for(sid)
+            edges = self._graph.incident_edges(sid)
             targets: set[str] = set()
             for e in edges:
                 targets.update(e.target_ids)
@@ -870,7 +870,7 @@ class MultiPerspectiveAnalyzer:
                 if sid >= other_id:
                     continue
                 total_pairs += 1
-                other_edges = self._graph.edges_for(other_id)
+                other_edges = self._graph.incident_edges(other_id)
                 other_targets = {t for e in other_edges for t in e.target_ids}
                 if sid in other_targets or other_id in targets:
                     connected_pairs += 1
@@ -1056,7 +1056,7 @@ class MultiPerspectiveAnalyzer:
             for _ in range(max_depth):
                 next_frontier: list[str] = []
                 for nid in frontier:
-                    for edge in self._graph.edges_for(nid):
+                    for edge in self._graph.incident_edges(nid):
                         if edge.weight < min_weight:
                             continue
                         for tgt in edge.target_ids:
@@ -1173,16 +1173,16 @@ class MultiPerspectiveAnalyzer:
             return 0.0
         seed_neighbors: set[str] = set()
         for sid in seed_ids:
-            for edge in self._graph.edges_for(sid):
+            for edge in self._graph.incident_edges(sid):
                 seed_neighbors.update(edge.target_ids)
         if not seed_neighbors:
             return 0.0
-        neighbor_degrees = [len(self._graph.edges_for(nid)) for nid in seed_neighbors]
+        neighbor_degrees = [len(self._graph.incident_edges(nid)) for nid in seed_neighbors]
         avg_degree = sum(neighbor_degrees) / len(neighbor_degrees) if neighbor_degrees else 0
         triangle_count = 0
         neighbor_list = list(seed_neighbors)
         for i, n1 in enumerate(neighbor_list):
-            n1_nbrs = {t for e in self._graph.edges_for(n1) for t in e.target_ids}
+            n1_nbrs = {t for e in self._graph.incident_edges(n1) for t in e.target_ids}
             for n2 in neighbor_list[i + 1 :]:
                 if n2 in n1_nbrs:
                     triangle_count += 1
@@ -1224,7 +1224,7 @@ class MultiPerspectiveAnalyzer:
         for _ in range(from_max_depth):
             next_f: list[str] = []
             for nid in frontier:
-                for edge in self._graph.edges_for(nid):
+                for edge in self._graph.incident_edges(nid):
                     if edge.weight < from_min_weight:
                         continue
                     for tgt in edge.target_ids:
@@ -1243,7 +1243,7 @@ class MultiPerspectiveAnalyzer:
         for _ in range(to_max_depth):
             next_f: list[str] = []
             for nid in frontier:
-                for edge in self._graph.edges_for(nid):
+                for edge in self._graph.incident_edges(nid):
                     if edge.weight < to_min_weight:
                         continue
                     for tgt in edge.target_ids:

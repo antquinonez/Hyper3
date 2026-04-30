@@ -139,14 +139,14 @@ class ValidationEngine:
         for eid in list(new_edges):
             self._memory._graph.remove_edge(eid)
         for nid in list(new_nodes):
-            if not self._memory._graph.edges_for(nid):
+            if not self._memory._graph.incident_edges(nid):
                 self._memory._graph.remove_node(nid)
 
         elapsed = (time.perf_counter() - start) * 1000.0
 
         total_reachable = len(seed_ids)
         for sid in seed_ids:
-            for edge in self._memory._graph.edges_for(sid):
+            for edge in self._memory._graph.incident_edges(sid):
                 total_reachable += len(edge.target_ids)
         coverage = len(nodes) / max(total_reachable, 1)
 
@@ -204,7 +204,7 @@ class ValidationEngine:
                 seed_ids.add(node.id)
         total_reachable = len(seed_ids)
         for sid in seed_ids:
-            for edge in self._memory._graph.edges_for(sid):
+            for edge in self._memory._graph.incident_edges(sid):
                 total_reachable += len(edge.target_ids)
         coverage = nodes_produced_count / max(total_reachable, 1)
 

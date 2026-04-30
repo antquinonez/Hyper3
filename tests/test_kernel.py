@@ -198,7 +198,7 @@ class TestHypergraph:
         e2 = Hyperedge(id="e2", source_ids=frozenset({"b"}), target_ids=frozenset({"a"}))
         g.add_edge(e1)
         g.add_edge(e2)
-        assert len(g.edges_for("a")) == 2
+        assert len(g.incident_edges("a")) == 2
 
     def test_neighbors(self):
         g = Hypergraph()

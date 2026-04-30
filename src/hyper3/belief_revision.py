@@ -240,7 +240,7 @@ class ContradictionResolver:
     def _detect_self_contradictions(self, seen_pairs: set[frozenset[str]]) -> list[Contradiction]:
         results: list[Contradiction] = []
         for node in self._graph.nodes:
-            edges = self._graph.edges_for(node.id)
+            edges = self._graph.incident_edges(node.id)
             label_map: dict[str, list[Any]] = {}
             for edge in edges:
                 label_map.setdefault(edge.label, []).append(edge)

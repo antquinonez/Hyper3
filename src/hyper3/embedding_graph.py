@@ -116,7 +116,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
 
         degree_counts = np.ones(n_nodes, dtype=np.float64)
         for node in nodes:
-            degree = len(self._graph.edges_for(node.id))
+            degree = len(self._graph.incident_edges(node.id))
             degree_counts[node_idx[node.id]] = max(degree, 1)
         self._neg_sampling_probs = degree_counts**0.75
         self._neg_sampling_probs /= self._neg_sampling_probs.sum()
@@ -193,7 +193,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         walk = [start_id]
         current = start_id
         for _ in range(length - 1):
-            edges = self._graph.edges_for(current)
+            edges = self._graph.incident_edges(current)
             if not edges:
                 break
             edge = edges[self._rng.randint(len(edges))]
@@ -337,7 +337,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         self._ensure_idf()
         sparse = np.zeros(1024, dtype=np.float64)
 
-        edges = self._graph.edges_for(node_id)
+        edges = self._graph.incident_edges(node_id)
         for edge in edges:
             is_source = node_id in edge.source_ids
             direction = 1.0 if is_source else -1.0
@@ -364,7 +364,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
             two_hop_edges.extend(
                 e2
                 for nid in neighbors
-                for e2 in self._graph.edges_for(nid)
+                for e2 in self._graph.incident_edges(nid)
                 if e2.id != edge.id
             )
 
@@ -418,7 +418,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
             return
         for node in self._graph.nodes:
             seen_labels: set[str] = set()
-            for edge in self._graph.edges_for(node.id):
+            for edge in self._graph.incident_edges(node.id):
                 if edge.label not in seen_labels:
                     label_doc_count[edge.label] = label_doc_count.get(edge.label, 0) + 1
                     seen_labels.add(edge.label)

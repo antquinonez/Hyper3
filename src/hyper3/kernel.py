@@ -256,8 +256,12 @@ class Hypergraph:
             self._neighbor_cache = None
         return True
 
-    def edges_for(self, node_id: str) -> list[Hyperedge]:
-        """Return all edges connected to the given node.
+    def incident_edges(self, node_id: str) -> list[Hyperedge]:
+        """Return all edges incident to the given node (both source and target).
+
+        This returns edges where the node appears in ``source_ids`` OR
+        ``target_ids``.  For directed traversal, use ``outgoing_edges()`` or
+        ``incoming_edges()`` instead.
 
         Args:
             node_id: The ID of the node.
@@ -267,6 +271,10 @@ class Hypergraph:
         """
         edge_ids = self._node_to_edges.get(node_id, set())
         return [self._edges[eid] for eid in edge_ids if eid in self._edges]
+
+    def edges_for(self, node_id: str) -> list[Hyperedge]:
+        """Alias for ``incident_edges``. Prefer ``incident_edges`` for clarity."""
+        return self.incident_edges(node_id)
 
     def neighbors(self, node_id: str) -> list[str]:
         """Return IDs of all nodes sharing an edge with the given node.
@@ -284,7 +292,7 @@ class Hypergraph:
             self._neighbor_cache = {}
             for nid in self._nodes:
                 nbrs: set[str] = set()
-                for edge in self.edges_for(nid):
+                for edge in self.incident_edges(nid):
                     nbrs.update(edge.node_ids)
                 nbrs.discard(nid)
                 self._neighbor_cache[nid] = list(nbrs)
@@ -531,7 +539,7 @@ class Hypergraph:
             return {nid: 1.0 for nid in self._nodes}
         result: dict[str, float] = {}
         for nid in self._nodes:
-            degree = len(self.edges_for(nid))
+            degree = len(self.incident_edges(nid))
             result[nid] = degree / (n - 1)
         return result
 
@@ -1184,7 +1192,7 @@ class Hypergraph:
         Returns:
             Edge count for the node.
         """
-        return len(self.edges_for(node_id))
+        return len(self.incident_edges(node_id))
 
     def degree_distribution(self) -> dict[int, int]:
         """Compute the degree distribution across all nodes.
@@ -1194,7 +1202,7 @@ class Hypergraph:
         """
         dist: dict[int, int] = {}
         for nid in self._nodes:
-            d = len(self.edges_for(nid))
+            d = len(self.incident_edges(nid))
             dist[d] = dist.get(d, 0) + 1
         return dist
 
@@ -1258,7 +1266,7 @@ class Hypergraph:
     def outgoing_edges(self, node_id: str) -> list[Hyperedge]:
         """Return edges where node_id is in source_ids.
 
-        Unlike ``edges_for`` which returns all edges touching a node,
+        Unlike ``incident_edges`` which returns all edges touching a node,
         this only returns edges where the node is a source.
 
         Args:
@@ -1267,7 +1275,7 @@ class Hypergraph:
         Returns:
             List of hyperedges where node_id appears in source_ids.
         """
-        return [e for e in self.edges_for(node_id) if node_id in e.source_ids]
+        return [e for e in self.incident_edges(node_id) if node_id in e.source_ids]
 
     def incoming_edges(self, node_id: str) -> list[Hyperedge]:
         """Return edges where node_id is in target_ids.
@@ -1278,7 +1286,7 @@ class Hypergraph:
         Returns:
             List of hyperedges where node_id appears in target_ids.
         """
-        return [e for e in self.edges_for(node_id) if node_id in e.target_ids]
+        return [e for e in self.incident_edges(node_id) if node_id in e.target_ids]
 
     def out_neighbors(self, node_id: str) -> list[str]:
         """Return target IDs of outgoing edges.
@@ -1394,7 +1402,7 @@ class Hypergraph:
     def star(self, node_id: str) -> list[Hyperedge]:
         """Return all edges incident to a node.
 
-        Public alias for :meth:`edges_for`. Named after the ``star(v)``
+        Alias for :meth:`incident_edges`. Named after the ``star(v)``
         operator in hypergraph theory: the set of hyperedges containing
         vertex ``v``.
 
@@ -1404,7 +1412,7 @@ class Hypergraph:
         Returns:
             List of hyperedges incident to the node.
         """
-        return self.edges_for(node_id)
+        return self.incident_edges(node_id)
 
     def hyperedge_neighbors(self, node_id: str) -> dict[str, list[Hyperedge]]:
         """Return co-participating nodes grouped by shared hyperedges.
@@ -1420,7 +1428,7 @@ class Hypergraph:
             shared between that neighbor and ``node_id``.
         """
         result: dict[str, list[Hyperedge]] = {}
-        for edge in self.edges_for(node_id):
+        for edge in self.incident_edges(node_id):
             for nid in edge.node_ids:
                 if nid == node_id:
                     continue

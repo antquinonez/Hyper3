@@ -77,7 +77,7 @@ class StructuralPatternEngine:
                         if self._edge_exists(src_id, tgt_id, pedge.label, pedge.min_weight):
                             next_bindings.append(bindings)
                     elif src_id:
-                        for e in self._graph.edges_for(src_id):
+                        for e in self._graph.incident_edges(src_id):
                             if pedge.label and e.label != pedge.label:
                                 continue
                             if e.weight < pedge.min_weight:
@@ -183,7 +183,7 @@ class StructuralPatternEngine:
         fan_outs: list[tuple[str, list[str]]] = []
         for node in self._graph.nodes:
             targets: list[str] = []
-            for edge in self._graph.edges_for(node.id):
+            for edge in self._graph.incident_edges(node.id):
                 if edge_label and edge.label != edge_label:
                     continue
                 targets.extend(edge.target_ids)
@@ -278,7 +278,7 @@ class StructuralPatternEngine:
         label: str | None,
         min_weight: float,
     ) -> bool:
-        for edge in self._graph.edges_for(src_id):
+        for edge in self._graph.incident_edges(src_id):
             if label and edge.label != label:
                 continue
             if edge.weight < min_weight:
@@ -324,7 +324,7 @@ class StructuralPatternEngine:
             src_id = bindings.get(pedge.source_role)
             tgt_id = bindings.get(pedge.target_role)
             if src_id and tgt_id:
-                for edge in self._graph.edges_for(src_id):
+                for edge in self._graph.incident_edges(src_id):
                     if tgt_id in edge.target_ids and (not pedge.label or edge.label == pedge.label):
                         total_weight += edge.weight
                         count += 1
@@ -341,7 +341,7 @@ class StructuralPatternEngine:
             src_id = bindings.get(pedge.source_role)
             tgt_id = bindings.get(pedge.target_role)
             if src_id and tgt_id:
-                for edge in self._graph.edges_for(src_id):
+                for edge in self._graph.incident_edges(src_id):
                     if tgt_id in edge.target_ids and (not pedge.label or edge.label == pedge.label):
                         matched.append(edge.id)
                         break
@@ -365,7 +365,7 @@ class StructuralPatternEngine:
         if len(path) - 1 >= min_length:
             results.append(list(path))
         visited.add(current)
-        for edge in self._graph.edges_for(current):
+        for edge in self._graph.incident_edges(current):
             if edge_label and edge.label != edge_label:
                 continue
             for nxt in edge.target_ids:

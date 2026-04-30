@@ -1292,7 +1292,7 @@ class SubsystemMixin(_MemoryBase):
             return []
         results: list[tuple[str, float]] = []
         seen_edges: set[str] = set()
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             sim_result = self._graph.hyperedge_similarity(edge.id, metric=metric, top_k=top_k)
             for eid, score in sim_result.similar_edges:
                 if eid not in seen_edges:

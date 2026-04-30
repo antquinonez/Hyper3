@@ -201,7 +201,7 @@ class CoreMixin(_MemoryBase):
         if not node:
             return []
         nbr_ids: set[str] = set()
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             if edge_label is not None and edge.label != edge_label:
                 continue
             node_in_source = node.id in edge.source_ids

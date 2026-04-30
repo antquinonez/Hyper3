@@ -472,6 +472,14 @@ When `StateConvergenceEngine` merges convergent multiway states, it computes `Me
 ### `has_node()` and `__contains__` for existence checks
 `mem.has_node(concept)` returns `bool`. `concept in mem` also works via `__contains__`. Do not use the private `_find_node()` method in user code or example scripts.
 
+### `incident_edges()` vs `outgoing_edges()` vs `incoming_edges()`
+Three edge-access methods with distinct semantics:
+- `incident_edges(node)` returns all edges where the node participates in any role (source or target). This is the most common query for degree, neighbor, and similarity calculations.
+- `outgoing_edges(node)` returns only edges where the node is in `source_ids`. Use for directed traversal (path finding, BFS, rule matching).
+- `incoming_edges(node)` returns only edges where the node is in `target_ids`.
+
+The deprecated alias `edges_for()` still works but prefer `incident_edges()` for clarity. When implementing rules or algorithms that traverse the graph directionally, always use `outgoing_edges()` — using `incident_edges()` for directed traversal is a common source of bugs.
+
 ### `ensure()` for idempotent graph construction
 `mem.ensure(concept, data=..., update=False)` creates a node only if absent. Unlike `store()`, it does not reinforce the node or trigger evolution. Use during graph construction to avoid spurious reinforcement of frequently-referenced nodes. Pass `update=True` to merge new data into an existing node's data dict.
 
@@ -659,7 +667,7 @@ The following are already optimized — maintain them when making changes:
 - `Hypergraph._neighbor_cache: dict[str, list[str]] | None` — Full neighbor map, lazily built, invalidated on any edge/node mutation.
 - `MultiwayGraph._leaves_cache: list[MultiwayState] | None` — Cached leaf list, invalidated when a state gains children.
 - `BranchialSpace._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics]` — Cached pairwise distances.
-- `TransitiveRule` uses a pre-built `edge_set: set[tuple[str, str]]` for O(1) edge-existence checks instead of scanning `edges_for()`.
+- `TransitiveRule` uses a pre-built `edge_set: set[tuple[str, str]]` for O(1) edge-existence checks instead of scanning `incident_edges()`.
 - `EmbeddingEngine` supports optional FAISS index (`enable_faiss()`). When enabled, `find_similar()` uses inner-product search instead of brute-force O(N) scan. IndexFlatIP for <1K nodes, IndexIVFFlat for >=1K. FAISS is an optional `[faiss]` extra.
 
 ## Extracted Modules (from kernel.py refactoring)

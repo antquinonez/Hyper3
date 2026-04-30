@@ -158,7 +158,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
         try:
             nodes = list(getattr(graph, "nodes", []))
             if nodes:
-                total_edges = sum(len(list(getattr(graph, "edges_for", lambda x: [])(n.id))) for n in nodes)
+                total_edges = sum(len(list(getattr(graph, "incident_edges", lambda x: [])(n.id))) for n in nodes)
                 density = total_edges / max(len(nodes) * (len(nodes) - 1), 1)
                 scores["graph_density"] = min(density, 1.0)
             else:

@@ -175,7 +175,7 @@ class StructuralAnomalyDetector:
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "cyclic_structure", 0.0)
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             if node.id in edge.target_ids and node.id in edge.source_ids:
                 return 0.9
         visited: set[str] = set()
@@ -250,7 +250,7 @@ class StructuralAnomalyDetector:
             return False
         if budget is not None and budget[0] <= 0:
             return False
-        for edge in self._graph.edges_for(current):
+        for edge in self._graph.incident_edges(current):
             if current not in edge.source_ids:
                 continue
             for tgt in edge.target_ids:
@@ -280,7 +280,7 @@ class StructuralAnomalyDetector:
         total = self._graph.node_count
         if total <= 1:
             return self._context_boost(context, "high_centrality", 0.0)
-        degree = len(self._graph.edges_for(node.id))
+        degree = len(self._graph.incident_edges(node.id))
         connectivity = degree / (total - 1)
         centrality = self._eigenvector_centrality_local(node.id, total)
         score = max(connectivity, centrality)
@@ -341,7 +341,7 @@ class StructuralAnomalyDetector:
         if not node:
             return self._context_boost(context, "contradiction", 0.0)
         edge_labels: set[str] = set()
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             edge_labels.add(edge.label)
         label_list = list(edge_labels)
         for i, label_a in enumerate(label_list):
@@ -409,8 +409,8 @@ class StructuralAnomalyDetector:
         node = self._find_concept_node(concept)
         if not node:
             return self._context_boost(context, "structural_anomaly", 0.0)
-        outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
-        incoming = [e for e in self._graph.edges_for(node.id) if node.id in e.target_ids]
+        outgoing = [e for e in self._graph.incident_edges(node.id) if node.id in e.source_ids]
+        incoming = [e for e in self._graph.incident_edges(node.id) if node.id in e.target_ids]
         if not outgoing and incoming:
             return 0.6
         total = self._graph.node_count
@@ -485,7 +485,7 @@ class StructuralAnomalyDetector:
         if not node:
             return [{"status": "concept_not_found", "concept": concept}]
         neighbors = self._get_neighbor_labels(node.id)
-        degree = len(self._graph.edges_for(node.id))
+        degree = len(self._graph.incident_edges(node.id))
         results.append(
             {
                 "status": "low_risk",
@@ -512,7 +512,7 @@ class StructuralAnomalyDetector:
         structural_conclusions: list[str] = []
         assumption_dependent: list[str] = []
         if node:
-            degree = len(self._graph.edges_for(node.id))
+            degree = len(self._graph.incident_edges(node.id))
             structural_conclusions.append(f"Node has degree {degree}")
             scc = self._scc_cycle_check(node.id)
             if scc > 0:
@@ -644,12 +644,12 @@ class StructuralAnomalyDetector:
         total_branches = 0
         branches_explored = 0
         branch_cov: dict[str, float] = {}
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             for nid in edge.target_ids:
                 n = self._graph.get_node(nid)
                 if n:
                     total_branches += 1
-                    for e2 in self._graph.edges_for(n.id):
+                    for e2 in self._graph.incident_edges(n.id):
                         for nid2 in e2.target_ids:
                             n2 = self._graph.get_node(nid2)
                             if n2 and n2.label not in extended:
@@ -780,7 +780,7 @@ class StructuralAnomalyDetector:
         if not node:
             return []
         reachable: set[str] = set()
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             reachable.update(edge.target_ids)
         all_nodes = {n.id for n in self._graph.nodes}
         frontier = all_nodes - reachable - {node.id}
@@ -789,7 +789,7 @@ class StructuralAnomalyDetector:
             target = self._graph.get_node(nid)
             if not target:
                 continue
-            bridging_edges = self._graph.edges_for(nid)
+            bridging_edges = self._graph.incident_edges(nid)
             gain = len(bridging_edges) / max(self._graph.node_count, 1)
             asm = ExplorationAssumption(
                 name=f"bridge_{nid[:8]}",

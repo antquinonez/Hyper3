@@ -90,7 +90,7 @@ class RuleDiscoveryEngine:
             if not edge_a.label:
                 continue
             for nid in edge_a.target_ids:
-                for edge_b in self._graph.edges_for(nid):
+                for edge_b in self._graph.incident_edges(nid):
                     if not edge_b.label or edge_b.label == edge_a.label:
                         continue
                     if nid in edge_b.source_ids:
@@ -128,7 +128,7 @@ class RuleDiscoveryEngine:
         """
         discovered: list[DiscoveredRule] = []
         for node in self._graph.nodes:
-            outgoing = [e for e in self._graph.edges_for(node.id) if node.id in e.source_ids]
+            outgoing = [e for e in self._graph.incident_edges(node.id) if node.id in e.source_ids]
             label_groups: Counter[str] = Counter()
             for edge in outgoing:
                 if edge.label:
@@ -192,7 +192,7 @@ class RuleDiscoveryEngine:
             if edge_a.label != label:
                 continue
             for mid_id in edge_a.target_ids:
-                for edge_b in self._graph.edges_for(mid_id):
+                for edge_b in self._graph.incident_edges(mid_id):
                     if edge_b.label != label:
                         continue
                     if mid_id in edge_b.source_ids:

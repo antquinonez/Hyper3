@@ -101,7 +101,7 @@ class SystemMonitor:
         if total_nodes == 0:
             return 1.0
 
-        isolated = sum(1 for n in graph.nodes if len(graph.edges_for(n.id)) == 0)
+        isolated = sum(1 for n in graph.nodes if len(graph.incident_edges(n.id)) == 0)
         connectivity = 1.0 - (isolated / total_nodes)
 
         accessed_edges = sum(
@@ -515,7 +515,7 @@ class SystemMonitor:
 
     def _increase_connectivity(self) -> dict[str, Any]:
         """Bridge isolated nodes to their most similar neighbors via auto_bridge edges."""
-        isolated = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) == 0]
+        isolated = [n for n in self._graph.nodes if len(self._graph.incident_edges(n.id)) == 0]
         bridged = 0
         for node in isolated:
             candidates: list[tuple[Any, float]] = []
@@ -557,7 +557,7 @@ class SystemMonitor:
         smoothed = 0
         edge_count: dict[str, int] = {}
         for node in self._graph.nodes:
-            for edge in self._graph.edges_for(node.id):
+            for edge in self._graph.incident_edges(node.id):
                 edge_count[edge.id] = edge_count.get(edge.id, 0) + 1
         for edge in self._graph.edges:
             sources = list(edge.source_ids)
@@ -575,7 +575,7 @@ class SystemMonitor:
             for src_id in edge.source_ids:
                 neighbors.extend(
                     other_edge.weight
-                    for other_edge in self._graph.edges_for(src_id)
+                    for other_edge in self._graph.incident_edges(src_id)
                     if other_edge.id != edge.id
                 )
             if neighbors:
@@ -594,7 +594,7 @@ class SystemMonitor:
 
     def _expand_seed_set(self) -> dict[str, Any]:
         """Apply rules to poorly-connected nodes to increase graph density."""
-        poorly_connected = [n for n in self._graph.nodes if len(self._graph.edges_for(n.id)) < 2]
+        poorly_connected = [n for n in self._graph.nodes if len(self._graph.incident_edges(n.id)) < 2]
         new_edges = 0
         if self._rules:
             for node in poorly_connected[:20]:

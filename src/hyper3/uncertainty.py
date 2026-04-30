@@ -212,7 +212,7 @@ class UncertaintyEngine:
         visited.add(current)
         best: ConfidenceChain | None = None
 
-        for edge in self._graph.edges_for(current):
+        for edge in self._graph.incident_edges(current):
             for nxt in edge.target_ids:
                 new_edges = path_edges + [edge.id]
                 new_rules = path_rules[:]

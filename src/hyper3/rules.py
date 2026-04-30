@@ -138,14 +138,14 @@ class TransitiveRule(Rule):
                 for tgt in edge.target_ids:
                     edge_set.add((src, tgt))
         for nid_a in active_nodes:
-            for e1 in graph.edges_for(nid_a):
+            for e1 in graph.incident_edges(nid_a):
                 if self._edge_label and e1.label != self._edge_label:
                     continue
                 if nid_a not in e1.source_ids:
                     continue
                 targets_b = e1.target_ids & active_nodes
                 for nid_b in targets_b:
-                    for e2 in graph.edges_for(nid_b):
+                    for e2 in graph.incident_edges(nid_b):
                         if self._edge_label and e2.label != self._edge_label:
                             continue
                         if nid_b not in e2.source_ids:
@@ -188,7 +188,7 @@ class TransitiveRule(Rule):
 
     def _edge_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
         """Check whether a direct edge from *source* to *target* exists."""
-        return any(source in edge.source_ids and target in edge.target_ids for edge in graph.edges_for(source))
+        return any(source in edge.source_ids and target in edge.target_ids for edge in graph.incident_edges(source))
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a transitive match as the product of constituent edge weights and confidences."""
@@ -216,12 +216,12 @@ class TransitiveRule(Rule):
             for src in edge.source_ids:
                 for tgt in edge.target_ids:
                     edge_set.add((src, tgt))
-        incoming_to_c = [e for e in graph.edges_for(target_node_id) if target_node_id in e.target_ids]
+        incoming_to_c = [e for e in graph.incident_edges(target_node_id) if target_node_id in e.target_ids]
         for e_bc in incoming_to_c:
             if self._edge_label and e_bc.label and e_bc.label != self._edge_label:
                 continue
             for nid_b in e_bc.source_ids:
-                incoming_to_b = [e for e in graph.edges_for(nid_b) if nid_b in e.target_ids]
+                incoming_to_b = [e for e in graph.incident_edges(nid_b) if nid_b in e.target_ids]
                 for e_ab in incoming_to_b:
                     if self._edge_label and e_ab.label and e_ab.label != self._edge_label:
                         continue
@@ -278,7 +278,7 @@ class InverseRule(Rule):
         """
         matches: list[RuleMatch] = []
         for nid in active_nodes:
-            for edge in graph.edges_for(nid):
+            for edge in graph.incident_edges(nid):
                 if edge.label != self._edge_label:
                     continue
                 if nid not in edge.source_ids:
@@ -317,7 +317,7 @@ class InverseRule(Rule):
 
     def _inverse_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
         """Check whether an inverse edge from *source* to *target* already exists."""
-        for edge in graph.edges_for(source):
+        for edge in graph.incident_edges(source):
             if edge.label == self._inverse_label and source in edge.source_ids and target in edge.target_ids:
                 return True
         return False
@@ -340,7 +340,7 @@ class InverseRule(Rule):
             Matches with bindings ``{source, target}``.
         """
         derivations: list[RuleMatch] = []
-        outgoing = [e for e in graph.edges_for(target_node_id) if target_node_id in e.source_ids]
+        outgoing = [e for e in graph.incident_edges(target_node_id) if target_node_id in e.source_ids]
         for edge in outgoing:
             if edge.label != self._edge_label:
                 continue
@@ -452,7 +452,7 @@ class GeneralizationRule(Rule):
 
     def _abstract_exists(self, graph: Hypergraph, a: Hypernode, b: Hypernode) -> bool:
         """Check whether a ``"generalizes"`` edge already links *a* to *b*."""
-        return any(edge.label == "generalizes" and b.id in edge.target_ids for edge in graph.edges_for(a.id))
+        return any(edge.label == "generalizes" and b.id in edge.target_ids for edge in graph.incident_edges(a.id))
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a generalization match by the similarity stored in context."""
@@ -519,7 +519,7 @@ class AbductiveRule(Rule):
                 continue
             incoming = [
                 e
-                for e in graph.edges_for(nid_b)
+                for e in graph.incident_edges(nid_b)
                 if nid_b in e.target_ids and (not self._effect_label or e.label == self._effect_label)
             ]
             for edge in incoming:
@@ -630,7 +630,7 @@ class PropertyPropagationRule(Rule):
                 continue
             if self._property_key not in node.metadata.custom:
                 continue
-            for edge in graph.edges_for(nid):
+            for edge in graph.incident_edges(nid):
                 if self._edge_label and edge.label != self._edge_label:
                     continue
                 if nid not in edge.source_ids:
@@ -774,7 +774,7 @@ class StructuralProjectionRule(Rule):
         node_to_idx = {nid: i for i, nid in enumerate(active_list)}
         seen_analogies: set[tuple[str, str, str, str]] = set()
         for nid_a in active_with_emb:
-            for e1 in graph.edges_for(nid_a):
+            for e1 in graph.incident_edges(nid_a):
                 if self._edge_label and e1.label != self._edge_label:
                     continue
                 if nid_a not in e1.source_ids:
@@ -829,7 +829,7 @@ class StructuralProjectionRule(Rule):
         label = edge_ab.label if edge_ab else "analogous"
         if any(
             e.label == label and c_id in e.source_ids and d_id in e.target_ids
-            for e in graph.edges_for(c_id)
+            for e in graph.incident_edges(c_id)
         ):
             return [], []
         a_node = graph.get_node(match.bindings["A"])
@@ -926,7 +926,7 @@ class HubInferenceRule(Rule):
             confidence = pair_count / total_from_src
             if support >= self._min_support and confidence >= self._confidence_threshold:
                 existing = False
-                for e in graph.edges_for(src):
+                for e in graph.incident_edges(src):
                     if e.label == self._causes_label and tgt in e.target_ids:
                         existing = True
                         break
@@ -1067,7 +1067,7 @@ class ContextualSubstitutionRule(Rule):
         return [], [edge_ab.id, edge_ba.id]
 
     def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
-        for edge in graph.edges_for(a_id):
+        for edge in graph.incident_edges(a_id):
             if edge.label != self._label:
                 continue
             if a_id in edge.source_ids and b_id in edge.target_ids:

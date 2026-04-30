@@ -107,7 +107,7 @@ class TestAbstractionNavigator:
         mem.relate("A", "B", label="internal")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         mem.expand_summary("AB")
-        a_edges = mem.graph.edges_for(mem.graph.get_node_by_label("A").id)
+        a_edges = mem.graph.incident_edges(mem.graph.get_node_by_label("A").id)
         assert len(a_edges) >= 1
 
     def test_abstraction_property(self) -> None:

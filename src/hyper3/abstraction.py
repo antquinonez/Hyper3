@@ -169,7 +169,7 @@ class AbstractionNavigator:
             else:
                 expanded_nodes.append(nid)
 
-        summary_edges = list(self._graph.edges_for(summary_node.id))
+        summary_edges = list(self._graph.incident_edges(summary_node.id))
         for edge in summary_edges:
             is_incoming = summary_node.id in edge.target_ids
             for external_id in edge.source_ids | edge.target_ids:

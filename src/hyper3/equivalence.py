@@ -60,11 +60,11 @@ class EquivalenceEngine:
     def _structural_similarity(self, node_a: Hypernode, node_b: Hypernode) -> float:
         """Compute Jaccard similarity of the neighborhood sets of two nodes."""
         neighbors_a: set[str] = set()
-        for edge in self._graph.edges_for(node_a.id):
+        for edge in self._graph.incident_edges(node_a.id):
             neighbors_a.update(edge.target_ids | edge.source_ids)
         neighbors_a.discard(node_a.id)
         neighbors_b: set[str] = set()
-        for edge in self._graph.edges_for(node_b.id):
+        for edge in self._graph.incident_edges(node_b.id):
             neighbors_b.update(edge.target_ids | edge.source_ids)
         neighbors_b.discard(node_b.id)
         if not neighbors_a and not neighbors_b:

@@ -319,7 +319,7 @@ class TestIntegration:
         france = mem.graph.get_node_by_label("France")
         assert paris is not None
         assert france is not None
-        edges = list(mem.graph.edges_for(paris.id))
+        edges = list(mem.graph.incident_edges(paris.id))
         targets = set()
         for e in edges:
             targets.update(e.target_ids)

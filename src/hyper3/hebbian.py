@@ -186,7 +186,7 @@ class HebbianLearner:
             return []
 
         neighbor_weights: list[tuple[str, float]] = []
-        for edge in self._graph.edges_for(node.id):
+        for edge in self._graph.incident_edges(node.id):
             for nid in edge.target_ids | edge.source_ids:
                 if nid != node.id:
                     n = self._graph.get_node(nid)
@@ -215,6 +215,6 @@ class HebbianLearner:
     def _find_connecting_edges(self, node_a: str, node_b: str) -> list[Any]:
         return [
             edge
-            for edge in self._graph.edges_for(node_a)
+            for edge in self._graph.incident_edges(node_a)
             if node_b in (edge.source_ids | edge.target_ids)
         ]

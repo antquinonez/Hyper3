@@ -149,7 +149,7 @@ class _NodeCreatorRule(Rule):
 
     def find_matches(self, graph, active_nodes):
         for nid in active_nodes:
-            for edge in graph.edges_for(nid):
+            for edge in graph.incident_edges(nid):
                 if nid in edge.source_ids:
                     for tgt in edge.target_ids:
                         if tgt in active_nodes:

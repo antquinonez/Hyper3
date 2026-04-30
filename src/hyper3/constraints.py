@@ -50,7 +50,7 @@ class WeightInflationConstraint(ConstraintCheck):
             for src_id in edge.source_ids:
                 neighbor_weights.extend(
                     existing.weight
-                    for existing in graph.edges_for(src_id)
+                    for existing in graph.incident_edges(src_id)
                     if existing.id != edge.id
                 )
             if neighbor_weights:
@@ -68,7 +68,7 @@ class WeightInflationConstraint(ConstraintCheck):
             for src_id in edge.source_ids:
                 neighbor_weights.extend(
                     existing.weight
-                    for existing in graph.edges_for(src_id)
+                    for existing in graph.incident_edges(src_id)
                     if existing.id != edge.id
                 )
             if neighbor_weights:
@@ -116,7 +116,7 @@ class ProvenanceDepthConstraint(ConstraintCheck):
         visited.add(edge_id)
         max_upstream = 0
         for src_id in edge.source_ids:
-            for upstream in graph.edges_for(src_id):
+            for upstream in graph.incident_edges(src_id):
                 if src_id in upstream.target_ids:
                     upstream_depth = self._measure_chain_depth(upstream, graph, visited)
                     max_upstream = max(max_upstream, upstream_depth + 1)
@@ -127,7 +127,7 @@ class DuplicateEdgeConstraint(ConstraintCheck):
     def is_valid(self, edge: Any, graph: Any) -> bool:
         """Reject edges that duplicate an existing edge's source, target, and label."""
         for src_id in edge.source_ids:
-            for existing in graph.edges_for(src_id):
+            for existing in graph.incident_edges(src_id):
                 if (
                     existing.id != edge.id
                     and existing.source_ids == edge.source_ids
@@ -140,7 +140,7 @@ class DuplicateEdgeConstraint(ConstraintCheck):
     def check(self, edge: Any, graph: Any) -> str | None:
         """Return a message when a duplicate edge is detected."""
         for src_id in edge.source_ids:
-            for existing in graph.edges_for(src_id):
+            for existing in graph.incident_edges(src_id):
                 if (
                     existing.id != edge.id
                     and existing.source_ids == edge.source_ids

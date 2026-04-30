@@ -260,7 +260,7 @@ class AnalyticsMixin(_MemoryBase):
             lbl = edge.label or "(unlabeled)"
             edge_labels[lbl] = edge_labels.get(lbl, 0) + 1
 
-        degrees = [len(self._graph.edges_for(nid)) for nid in self._graph._nodes]
+        degrees = [len(self._graph.incident_edges(nid)) for nid in self._graph._nodes]
         nc = self._graph.node_count
         ec = self._graph.edge_count
 

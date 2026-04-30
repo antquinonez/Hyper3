@@ -357,7 +357,7 @@ def _traverse(
     for _ in range(max_depth):
         next_frontier = []
         for nid in frontier:
-            for edge in mem.graph.edges_for(nid):
+            for edge in mem.graph.incident_edges(nid):
                 if edge.weight < weight_threshold:
                     continue
                 if edge_filter and edge.label not in edge_filter:

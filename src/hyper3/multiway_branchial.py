@@ -623,7 +623,7 @@ class BranchialSpace:
         def _neighborhood_signature(nid: str) -> frozenset[str]:
             """Return a frozenset of edge labels incident to *nid*."""
             labels: set[str] = set()
-            for edge in self._graph.edges_for(nid):
+            for edge in self._graph.incident_edges(nid):
                 if edge.label:
                     labels.add(edge.label)
             return frozenset(labels)

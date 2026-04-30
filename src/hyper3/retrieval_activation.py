@@ -85,7 +85,7 @@ class SpreadingActivation:
             delta_depth: dict[str, int] = {}
             current_max = max(self._activations.values()) if self._activations else 0.0
             for node_id, activation in list(self._activations.items()):
-                edges = self._graph.edges_for(node_id)
+                edges = self._graph.incident_edges(node_id)
                 for edge in edges:
                     rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
                     if self._config.directional:

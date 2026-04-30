@@ -390,7 +390,7 @@ class TestOverlayRemoveOverlayEdgeInternal:
         ov.add_edge(e)
         ov._remove_overlay_edge(e.id)
         assert e.id not in ov.overlay_edge_ids
-        assert len(ov.edges_for(a.id)) == 0
+        assert len(ov.incident_edges(a.id)) == 0
 
     def test_remove_nonexistent_edge_noop(self):
         g = Hypergraph()
@@ -438,7 +438,7 @@ class TestHypergraphOverlay:
     def test_overlay_edge_sees_base_edges(self):
         g, a, b = _make_base_graph()
         overlay = HypergraphOverlay(g)
-        edges = overlay.edges_for(a.id)
+        edges = overlay.incident_edges(a.id)
         assert len(edges) == 1
         assert edges[0].label == "base_edge"
 
@@ -454,7 +454,7 @@ class TestHypergraphOverlay:
                 label="overlay_edge",
             )
         )
-        edges = overlay.edges_for(a.id)
+        edges = overlay.incident_edges(a.id)
         assert len(edges) == 2
         labels = {e.label for e in edges}
         assert "base_edge" in labels

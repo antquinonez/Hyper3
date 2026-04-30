@@ -666,7 +666,7 @@ class BeliefLayer:
             if w > max_weight:
                 max_weight = w
 
-            edges = self._graph.edges_for(nid)
+            edges = self._graph.incident_edges(nid)
             degree = len(edges)
             node_degrees[nid] = float(degree)
             if degree > max_degree:

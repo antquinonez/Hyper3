@@ -132,7 +132,7 @@ class HypergraphOverlay:
             return True
         return False
 
-    def edges_for(self, node_id: str) -> list[Hyperedge]:
+    def incident_edges(self, node_id: str) -> list[Hyperedge]:
         """Return all edges for a node from both base and overlay layers.
 
         Args:
@@ -141,10 +141,14 @@ class HypergraphOverlay:
         Returns:
             Combined list of base and overlay edges.
         """
-        base_edges = self._base.edges_for(node_id)
+        base_edges = self._base.incident_edges(node_id)
         overlay_ids = self._overlay_node_to_edges.get(node_id, set())
         overlay_edges = [self._overlay_edges[eid] for eid in overlay_ids if eid in self._overlay_edges]
         return base_edges + overlay_edges
+
+    def edges_for(self, node_id: str) -> list[Hyperedge]:
+        """Alias for ``incident_edges``. Prefer ``incident_edges`` for clarity."""
+        return self.incident_edges(node_id)
 
     def neighbors(self, node_id: str) -> list[str]:
         """Return neighbor IDs from both the base graph and overlay.

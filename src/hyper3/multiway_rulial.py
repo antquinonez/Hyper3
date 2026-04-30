@@ -450,7 +450,7 @@ class RulialSpace:
         node_labels: dict[str, set[str]] = {}
         for node in self._graph.nodes:
             labels: set[str] = set()
-            for edge in self._graph.edges_for(node.id):
+            for edge in self._graph.incident_edges(node.id):
                 labels.add(edge.label)
             node_labels[node.id] = labels
         label_counts: dict[str, int] = {}
@@ -500,7 +500,7 @@ class RulialSpace:
             return
         hub_nodes = []
         for node in self._graph.nodes:
-            degree = len(self._graph.edges_for(node.id))
+            degree = len(self._graph.incident_edges(node.id))
             if degree >= 3:
                 hub_nodes.append((node, degree))
         if hub_nodes:
@@ -524,7 +524,7 @@ class RulialSpace:
             if len(edge.source_ids) == 1 and len(edge.target_ids) == 1:
                 next(iter(edge.source_ids))
                 tgt = next(iter(edge.target_ids))
-                tgt_edges = self._graph.edges_for(tgt)
+                tgt_edges = self._graph.incident_edges(tgt)
                 if any(
                     len(e.source_ids) == 1 and len(e.target_ids) == 1 and tgt in e.source_ids
                     for e in tgt_edges
