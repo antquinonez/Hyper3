@@ -136,7 +136,7 @@ class TestEmbeddingEngine:
         nid = g.get_node_by_label("node_0").id
         engine = EmbeddingEngine(g, similarity_threshold=-1.0)
         results = engine.find_similar(nid, top_k=5, threshold=-1.0)
-        assert len(results) <= 5
+        assert len(results) == 5
 
     def test_find_similar_sorted_desc(self):
         g = _make_graph(*(f"node_{i}" for i in range(10)))
@@ -519,3 +519,56 @@ class TestFaissIntegration:
         ids1 = [r.node_b_id for r in results1]
         ids2 = [r.node_b_id for r in results2]
         assert ids1 == ids2
+
+
+class TestEmbeddingEdgeCases:
+    def test_find_all_similar_pairs_empty_graph(self):
+        engine = EmbeddingEngine(Hypergraph())
+        assert engine.find_all_similar_pairs() == []
+
+    def test_analogy_with_all_similar_embeddings(self):
+        class ConstProvider(EmbeddingProvider):
+            def embed(self, text: str) -> np.ndarray:
+                v = np.zeros(8)
+                v[0] = 1.0
+                return v
+
+            def dimension(self) -> int:
+                return 8
+
+        g = _make_graph("a", "b", "c", "d", "e")
+        engine = EmbeddingEngine(g, provider=ConstProvider())
+        a_id = g.get_node_by_label("a").id
+        b_id = g.get_node_by_label("b").id
+        c_id = g.get_node_by_label("c").id
+        results = engine.analogy(a_id, b_id, c_id, top_k=3)
+        assert len(results) == 2
+        for _nid, score in results:
+            assert abs(score - 1.0) < 1e-6
+
+    def test_find_similar_faiss_with_missing_node(self):
+        g = _make_graph("a", "b", "c")
+        engine = EmbeddingEngine(g, similarity_threshold=-1.0)
+        engine.enable_faiss()
+        b_node = g.get_node_by_label("b")
+        g.remove_node(b_node.id)
+        nid = g.get_node_by_label("a").id
+        results = engine.find_similar(nid, top_k=10, threshold=-1.0)
+        assert all(r.node_b_id != b_node.id for r in results)
+
+    def test_get_embedding_node_with_no_label_uses_data(self):
+        g = Hypergraph()
+        node = Hypernode(label="", data={"key": "value"})
+        g.add_node(node)
+        engine = EmbeddingEngine(g)
+        emb = engine.get_embedding(node.id)
+        assert emb is not None
+        assert abs(np.linalg.norm(emb) - 1.0) < 1e-10
+
+    def test_get_embedding_node_with_no_label_no_data_uses_id(self):
+        g = Hypergraph()
+        node = Hypernode(label="")
+        g.add_node(node)
+        engine = EmbeddingEngine(g)
+        emb = engine.get_embedding(node.id)
+        assert emb is not None
