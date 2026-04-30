@@ -554,6 +554,11 @@ class ReasoningMixin(_MemoryBase):
         """Append inference rules to the active rule set."""
         self._rules.extend(rules)
 
+    @property
+    def rules(self) -> list[Rule]:
+        """Return a copy of the active inference rule list."""
+        return list(self._rules)
+
     def discover_rules(self) -> list[DiscoveredRule]:
         """Discover transitive, inverse, and hub patterns in the graph."""
         return self._discovery.discover_all()
