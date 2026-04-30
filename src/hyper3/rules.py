@@ -596,13 +596,13 @@ class AbductiveRule(Rule):
 
 
 class PropertyPropagationRule(Rule):
-    def __init__(self, *, property_key: str, edge_label: str = "") -> None:
+    def __init__(self, *, property_key: str, edge_label: str | None = None) -> None:
         """Initialize the property propagation rule.
 
         Args:
             property_key: Metadata key to propagate from source to target nodes.
-            edge_label: Only propagate along edges with this label. Empty
-                string matches all.
+            edge_label: Only propagate along edges with this label. ``None``
+                matches all edges.
         """
         self._property_key = property_key
         self._edge_label = edge_label
@@ -703,15 +703,16 @@ class PropertyPropagationRule(Rule):
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> PropertyPropagationRule:
         """Reconstruct a ``PropertyPropagationRule`` from serialized data."""
-        return cls(property_key=data["property_key"], edge_label=data.get("edge_label", ""))
+        return cls(property_key=data["property_key"], edge_label=data.get("edge_label"))
 
 
 class StructuralProjectionRule(Rule):
-    def __init__(self, *, edge_label: str = "", similarity_threshold: float = 0.7) -> None:
+    def __init__(self, *, edge_label: str | None = None, similarity_threshold: float = 0.7) -> None:
         """Initialize the analogical reasoning rule.
 
         Args:
-            edge_label: Only consider edges with this label. Empty matches all.
+            edge_label: Only consider edges with this label. ``None``
+                matches all edges.
             similarity_threshold: Minimum embedding cosine similarity for
                 candidate D in the analogy A:B :: C:D.
         """
@@ -867,7 +868,7 @@ class StructuralProjectionRule(Rule):
     @classmethod
     def _from_dict(cls, data: dict[str, Any]) -> StructuralProjectionRule:
         """Reconstruct an ``StructuralProjectionRule`` from serialized data."""
-        return cls(edge_label=data.get("edge_label", ""), similarity_threshold=data.get("similarity_threshold", 0.7))
+        return cls(edge_label=data.get("edge_label"), similarity_threshold=data.get("similarity_threshold", 0.7))
 
 
 class HubInferenceRule(Rule):

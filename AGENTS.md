@@ -382,6 +382,9 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` constructor parameter
 `HypergraphMemory(rules=[...])` accepts an initial list of inference rules at construction. Rules can also be added later via `add_rules()`. Both approaches are equivalent.
 
+### Rule `edge_label` convention
+All rules that accept an `edge_label` parameter use `None` as the default, meaning "match all edges." Passing a specific string filters to only edges with that label. Do not use empty string `""` as a filter — it matches only unlabeled edges. The guard pattern is `if self._edge_label and e.label != self._edge_label: continue`, which is falsy for `None`.
+
 ### `reason()` uses all graph nodes for pattern matching
 `reason()` passes all graph node IDs (not just seed concepts) as active nodes to the multiway expansion engine. This allows rules like `TransitiveRule` to find chains through intermediate nodes that are not part of the seed set. Seeds determine which nodes trigger the expansion; all nodes participate in pattern matching.
 
