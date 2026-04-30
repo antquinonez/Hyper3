@@ -135,8 +135,6 @@ class ValidationEngine:
                     for nid in node_ids:
                         nodes.add(nid)
 
-            new_edges = {e.id for e in self._memory._graph.edges} - pre_edges
-            new_nodes = {n.id for n in self._memory._graph.nodes} - pre_nodes
         finally:
             for eid in list({e.id for e in self._memory._graph.edges} - pre_edges):
                 self._memory._graph.remove_edge(eid)

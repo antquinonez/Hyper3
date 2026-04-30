@@ -394,7 +394,7 @@ class SubsystemMixin(_MemoryBase):
         )
         return results
 
-    def explain(self, source: str, target: str, *, edge_label: str = "") -> Explanation | None:
+    def explain(self, source: str, target: str, *, edge_label: str | None = None) -> Explanation | None:
         """Produce a recursive explanation for the edge between two concepts.
 
         Args:
@@ -418,7 +418,7 @@ class SubsystemMixin(_MemoryBase):
                 return self._provenance.explain(edge.id, graph=self._graph)
         return None
 
-    def retract_inference(self, source: str, target: str, *, edge_label: str = "") -> list[str]:
+    def retract_inference(self, source: str, target: str, *, edge_label: str | None = None) -> list[str]:
         """Retract inferred edges between two concepts, cascading to dependent conclusions.
 
         Args:

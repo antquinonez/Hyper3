@@ -306,12 +306,14 @@ class AnalyticsMixin(_MemoryBase):
         """
         return [[self._node_label(nid) for nid in cycle] for cycle in self._graph.detect_cycles(max_cycles)]
 
-    def shortest_path(self, source: str, target: str) -> list[str] | None:
+    def shortest_path(self, source: str, target: str, *, weighted: bool = True) -> list[str] | None:
         """Find the shortest path between two concepts.
 
         Args:
             source: Label of the source node.
             target: Label of the target node.
+            weighted: If True (default), use edge weights (importance) for
+                path cost. If False, use unweighted BFS.
 
         Returns:
             List of node labels forming the shortest path, or None if no path exists.
@@ -320,7 +322,7 @@ class AnalyticsMixin(_MemoryBase):
         tgt = self._find_node(target)
         if not src or not tgt:
             return None
-        raw = self._graph.shortest_path(src.id, tgt.id)
+        raw = self._graph.shortest_path(src.id, tgt.id, weighted=weighted)
         if raw is None:
             return None
         return [self._node_label(nid) for nid in raw]
