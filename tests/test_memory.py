@@ -50,7 +50,7 @@ class TestHypergraphMemoryStore:
         n1 = mem.store("concept")
         initial_weight = n1.weight
         mem.store("concept")
-        assert n1.weight >= initial_weight
+        assert n1.weight > initial_weight
 
 
 class TestHypergraphMemoryRecall:
@@ -58,7 +58,7 @@ class TestHypergraphMemoryRecall:
         mem = HypergraphMemory()
         mem.store("alpha")
         results = mem.recall("alpha")
-        assert len(results) >= 1
+        assert len(results) == 1
         assert results[0].label == "alpha"
 
     def test_recall_returns_empty_for_unknown(self):
@@ -87,7 +87,8 @@ class TestHypergraphMemoryRecall:
         mem.relate("b", "c")
         shallow = mem.recall("a", max_depth=1)
         deep = mem.recall("a", max_depth=5)
-        assert len(shallow) <= len(deep)
+        assert len(shallow) == 1
+        assert len(deep) == 3
 
     def test_recall_finds_by_alias(self):
         mem = HypergraphMemory()
@@ -97,7 +98,7 @@ class TestHypergraphMemoryRecall:
         eq = EquivalenceEngine(mem.graph, threshold=0.8)
         eq.merge_equivalences()
         results = mem.recall("beta")
-        assert len(results) >= 1
+        assert len(results) == 1
 
 
 class TestHypergraphMemoryRelate:
@@ -106,7 +107,6 @@ class TestHypergraphMemoryRelate:
         mem.store("a")
         mem.store("b")
         edge = mem.relate("a", "b", label="causes")
-        assert edge is not None
         assert edge.label == "causes"
         assert mem.graph.edge_count == 1
 
@@ -152,7 +152,7 @@ class TestHypergraphMemoryQuery:
         mem.relate("a", "b")
         results = mem.query("root", strategy="dfs")
         labels = {n.label for n in results}
-        assert "root" in labels
+        assert labels == {"root", "a", "b"}
 
     def test_query_by_modality(self):
         mem = HypergraphMemory()
@@ -177,8 +177,8 @@ class TestHypergraphMemoryEvolution:
         mem.store("c", data="z", tags={"low": True})
         mem.graph.get_node(mem.graph.nodes[-1].id).weight = 0.01
         report = mem.evolve()
-        assert "merged" in report
-        assert "pruned" in report
+        assert report["merged"] == 1
+        assert report["pruned"] == 0
 
     def test_auto_evolve_triggers(self):
         mem = HypergraphMemory(evolve_interval=3)
@@ -186,7 +186,7 @@ class TestHypergraphMemoryEvolution:
         mem.store("b", data="y")
         mem.store("c", data="z")
         assert mem._operation_count == 3
-        assert mem.log.size > 3
+        assert mem.log.size == 4
 
     def test_stats(self):
         mem = HypergraphMemory()
@@ -206,7 +206,7 @@ class TestHypergraphMemoryEventLog:
         mem.store("b")
         mem.relate("a", "b")
         mem.recall("a")
-        assert mem.log.size >= 4
+        assert mem.log.size == 4
 
     def test_log_query_by_type(self):
         mem = HypergraphMemory()
@@ -214,8 +214,8 @@ class TestHypergraphMemoryEventLog:
         mem.recall("a")
         stores = mem.log.query(event_type="store")
         recalls = mem.log.query(event_type="recall")
-        assert len(stores) >= 1
-        assert len(recalls) >= 1
+        assert len(stores) == 1
+        assert len(recalls) == 1
 
 
 class TestNormalizeLateralInsights:
@@ -606,7 +606,7 @@ class TestFindNodeWithAlias:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("original", tags={"aliases": ["alias1", "alias2"]})
         found = mem.recall("alias1")
-        assert len(found) > 0
+        assert len(found) == 1
         assert found[0].label == "original"
 
     def test_find_node_by_alias_not_in_cache(self):
@@ -614,7 +614,6 @@ class TestFindNodeWithAlias:
         mem.store("original", tags={"aliases": ["my_alias"]})
         mem._cache.clear()
         found = mem._find_node("my_alias")
-        assert found is not None
         assert found.label == "original"
 
 
@@ -838,9 +837,9 @@ class TestEvolveWithFeedback:
         mem._feedback.record_evolution_outcome(0.3)
         mem._feedback.record_evolution_outcome(0.2)
         result = mem.evolve_with_feedback()
-        assert result is not None
-        assert hasattr(result, "decayed")
-        assert hasattr(result, "reinforced")
+        assert isinstance(result["decayed"], int)
+        assert isinstance(result["reinforced"], int)
+        assert result["node_count"] >= 2
 
 
 class TestComputeBiasProfile:
@@ -1323,4 +1322,176 @@ class TestLateralInsightsNonBranchialFallback:
         mem._branchial = None
         insights = mem.lateral_insights("p")
         assert isinstance(insights, list)
+
+
+class TestHasNode:
+    def test_has_node_true(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        assert mem.has_node("x") is True
+
+    def test_has_node_false(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.has_node("missing") is False
+
+    def test_contains(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("y")
+        assert "y" in mem
+        assert "z" not in mem
+
+
+class TestEnsure:
+    def test_ensure_creates_new(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        node = mem.ensure("new_concept", data={"k": 1})
+        assert node.label == "new_concept"
+        assert node.data == {"k": 1}
+
+    def test_ensure_idempotent(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        n1 = mem.store("existing")
+        n2 = mem.ensure("existing")
+        assert n1.id == n2.id
+
+    def test_ensure_update_merges_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x", data={"a": 1})
+        mem.ensure("x", data={"b": 2}, update=True)
+        node = mem.graph.get_node(mem.graph.get_node_by_label("x").id)
+        assert node.data["a"] == 1
+        assert node.data["b"] == 2
+
+    def test_ensure_no_update_preserves_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x", data={"a": 1})
+        mem.ensure("x", data={"b": 2}, update=False)
+        node = mem.graph.get_node(mem.graph.get_node_by_label("x").id)
+        assert node.data == {"a": 1}
+        assert "b" not in node.data
+
+
+class TestNeighbors:
+    def test_neighbors_out(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="r")
+        mem.relate("a", "c", label="r")
+        nbrs = mem.neighbors("a", direction="out")
+        assert set(nbrs) == {"b", "c"}
+
+    def test_neighbors_in(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="r")
+        nbrs = mem.neighbors("b", direction="in")
+        assert nbrs == ["a"]
+
+    def test_neighbors_by_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="causes")
+        mem.relate("a", "c", label="enables")
+        nbrs = mem.neighbors("a", edge_label="causes", direction="out")
+        assert nbrs == ["b"]
+
+    def test_neighbors_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.neighbors("missing") == []
+
+
+class TestRelateHyperedge:
+    def test_creates_nary_edge(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        edge = mem.relate_hyperedge({"a", "b"}, {"c", "d"}, label="joint")
+        assert edge.label == "joint"
+        assert len(edge.source_ids) == 2
+        assert len(edge.target_ids) == 2
+
+    def test_missing_source_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("c")
+        with pytest.raises(NodeNotFoundError):
+            mem.relate_hyperedge({"missing"}, {"c"}, label="e")
+
+    def test_missing_target_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        with pytest.raises(NodeNotFoundError):
+            mem.relate_hyperedge({"a"}, {"missing"}, label="e")
+
+
+class TestQueryHyperedges:
+    def test_filter_by_cardinality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        mem.relate("a", "b", label="pair")
+        mem.relate_hyperedge({"a", "b"}, {"c", "d"}, label="nary")
+        results = mem.query_hyperedges(min_source_cardinality=2)
+        assert len(results) == 1
+        assert results[0].label == "nary"
+
+    def test_filter_by_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="x")
+        mem.relate("b", "c", label="y")
+        results = mem.query_hyperedges(label="x")
+        assert len(results) == 1
+
+    def test_filter_by_containing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="e1")
+        mem.relate("b", "c", label="e2")
+        results = mem.query_hyperedges(containing="a")
+        assert len(results) == 1
+        assert results[0].label == "e1"
+
+    def test_containing_missing_returns_empty(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.query_hyperedges(containing="missing") == []
+
+
+class TestHyperedgeNeighbors:
+    def test_returns_shared_hyperedges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
+        nbrs = mem.hyperedge_neighbors("a")
+        assert "b" in nbrs
+        assert "c" in nbrs
+
+    def test_missing_concept_returns_empty(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.hyperedge_neighbors("missing") == {}
+
+
+class TestMaybeEvolveFeedback:
+    def test_maybe_evolve_uses_feedback_path(self):
+        mem = HypergraphMemory(evolve_interval=2)
+        mem.store("a")
+        mem.store("b")
+        mem._feedback.record_evolution_outcome(0.5)
+        result = mem.evolve_with_feedback()
+        assert isinstance(result["decayed"], int)
 
