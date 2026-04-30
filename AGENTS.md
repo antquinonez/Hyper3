@@ -769,10 +769,38 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 | Hyperedge diffusion (AND/OR/majority) | Gate modes on n-ary edge activation flow | `retrieval_activation.py` | Structural heuristic (linear mode is rigorous; gate modes are practical extensions) |
 | Spectral entropy (hypergraph) | SVD of incidence matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
 
+## Edit Safety
+
+### ES-1: Verify match uniqueness before editing
+
+The `Edit` tool replaces exact string matches. When `oldString` appears multiple times in a file, the edit fails with a "found multiple matches" error. To resolve this, include more surrounding context in `oldString` to make it unique.
+
+**Critical hazard**: In test files, common patterns like `assert g.edge_count == 2` or `rule.apply(g, match)` can appear dozens of times. If you narrow `oldString` to include the *last* occurrence of such a pattern (e.g., the last few lines of the file), the edit will replace from that match point to the end of the file — **silently deleting everything after it** if `newString` is shorter than `oldString`.
+
+**Prevention steps** (mandatory before every edit to a file with 200+ lines):
+1. **Count matches**: Use `grep -c "your oldString pattern" <file>` to verify it appears exactly once. If it appears more than once, include more surrounding lines until it is unique.
+2. **Prefer appending**: When adding new test classes to the end of a file, use a multi-line `oldString` that includes the *final* `def test_` method body plus its closing assert, and a `newString` that reproduces that method body *and* appends the new class. This avoids any risk of truncation.
+3. **Verify after edit**: Immediately run `wc -l <file>` or `git diff --stat` after editing to confirm the file has *grown*, not shrunk. If the line count decreased unexpectedly, run `git checkout <file>` immediately and retry.
+4. **Never match on generic patterns**: Do not use `assert g.edge_count == N` or `rule.apply(g, match)` alone as `oldString` in files like `test_multiway.py` or `test_rules.py` where these patterns repeat. Always include the surrounding `def test_` method signature to make the match unique.
+
+### ES-2: Verify test count after editing existing test files
+
+After editing any test file that already existed (not newly created), immediately compare the test count before and after:
+
+```bash
+# Before editing
+grep -cE '^\s+def test_' tests/test_X.py
+
+# After editing — must be >= before count
+grep -cE '^\s+def test_' tests/test_X.py
+```
+
+If the count decreased, a test was accidentally deleted. Run `git checkout tests/test_X.py` and retry the edit.
+
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 2001 tests must pass.
+2. Run the full test suite after changes. All 2124 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -1055,7 +1083,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 2001
+- **Tests**: 2124
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 96%
 - **Pyright**: 0 errors
