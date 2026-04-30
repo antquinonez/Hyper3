@@ -13,8 +13,7 @@ Run:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory
-from hyper3.rules import TransitiveRule, InverseRule
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
 
 
 def main() -> None:
@@ -51,9 +50,10 @@ def main() -> None:
         mem.store(concept)
     mem.relate("epsilon", "zeta", label="connects")
 
-    mem.operation_feedback.record_inference_outcome("edge_1", accepted=True)
-    mem.operation_feedback.record_inference_outcome("edge_2", accepted=True)
-    mem.operation_feedback.record_inference_outcome("edge_3", accepted=False)
+    _sample_edges = list(mem.graph.edges)[:3]
+    mem.operation_feedback.record_inference_outcome(_sample_edges[0].id, accepted=True)
+    mem.operation_feedback.record_inference_outcome(_sample_edges[1].id, accepted=True)
+    mem.operation_feedback.record_inference_outcome(_sample_edges[2].id, accepted=False)
 
     print(f"  Inference acceptance rate: {mem.operation_feedback.inference_acceptance_rate():.2f}")
     print(f"  Reinforced nodes: {len(mem.operation_feedback.get_reinforced_nodes())}")
@@ -124,6 +124,7 @@ def main() -> None:
     else:
         print("  No metamorphosis triggers (system healthy)")
 
+        # Force low fitness to demonstrate metamorphosis (internal state for demo only)
         mem._meta._state.architectural_fitness = 0.3
         triggers = mem.check_metamorphosis()
         if triggers:

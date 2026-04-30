@@ -707,7 +707,7 @@ def main():
             src_node = mem.graph.get_node_by_label(src)
             tgt_node = mem.graph.get_node_by_label(tgt)
             if src_node and tgt_node:
-                for edge in mem.graph.incident_edges(src_node.id):
+                for edge in mem.graph.outgoing_edges(src_node.id):
                     if tgt_node.id in edge.target_ids and edge.label == "trusts":
                         has_trust = True
                         break

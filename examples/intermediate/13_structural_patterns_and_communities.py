@@ -231,8 +231,7 @@ def main() -> None:
         mem.store(name, data=data)
 
     for src, tgt, label, weight in EDGES:
-        edge = mem.relate(src, tgt, label=label)
-        edge.weight = weight
+        mem.relate(src, tgt, label=label, weight=weight)
 
     print(f"  Nodes: {mem.graph.node_count}")
     print(f"  Edges: {mem.graph.edge_count}")

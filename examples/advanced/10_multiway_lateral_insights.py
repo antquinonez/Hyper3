@@ -633,7 +633,7 @@ def main():
         best = branch_scores[0]
         print(f"  Best explanation branch: rule={best[0]['rule']}, score={best[1]:.3f}")
     print(f"  Convergent branch pairs found: {len(convergent_pairs)}")
-    print(f"  Causal invariants merged: {ci.get('reduction', 0)}")
+    print(f"  Causal invariants merged: {ci.get('reduction', 0) if ci else 0}")
     print(f"  Lateral insights discovered: {total_insights}")
     print()
     print("  Key finding: multiway expansion produces genuinely different")
