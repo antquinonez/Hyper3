@@ -126,7 +126,7 @@ class ContradictionResolver:
                             )
                         )
 
-        self_loops = self._detect_self_contradictions()
+        self_loops = self._detect_self_contradictions(seen_pairs)
         contradictions.extend(self_loops)
 
         return contradictions
@@ -196,29 +196,39 @@ class ContradictionResolver:
             return []
 
         contradictions: list[Contradiction] = []
+        seen_pairs: set[frozenset[str]] = set()
         labels_seen: dict[str, list[Any]] = {}
+        processed: set[str] = set()
 
         for edge in self._graph.edges:
             if src.id in edge.source_ids and tgt.id in edge.target_ids:
                 labels_seen.setdefault(edge.label, []).append(edge)
 
         for label, edges in labels_seen.items():
+            if label in processed:
+                continue
             neg = self._negation_map.get(label)
             if neg and neg in labels_seen:
-                contradictions.extend(
-                    Contradiction(
-                        edge_a_id=a.id,
-                        edge_b_id=b.id,
-                        edge_a_label=a.label,
-                        edge_b_label=b.label,
-                        source_label=source_label,
-                        target_label=target_label,
-                        contradiction_type="negation",
-                        severity=self._compute_severity(a, b),
-                    )
-                    for a in edges
-                    for b in labels_seen[neg]
-                )
+                processed.add(label)
+                processed.add(neg)
+                for a in edges:
+                    for b in labels_seen[neg]:
+                        pair_key = frozenset({a.id, b.id})
+                        if pair_key in seen_pairs:
+                            continue
+                        seen_pairs.add(pair_key)
+                        contradictions.append(
+                            Contradiction(
+                                edge_a_id=a.id,
+                                edge_b_id=b.id,
+                                edge_a_label=a.label,
+                                edge_b_label=b.label,
+                                source_label=source_label,
+                                target_label=target_label,
+                                contradiction_type="negation",
+                                severity=self._compute_severity(a, b),
+                            )
+                        )
 
         return contradictions
 
@@ -227,7 +237,7 @@ class ContradictionResolver:
             return False
         return self._negation_map.get(label_a) == label_b
 
-    def _detect_self_contradictions(self) -> list[Contradiction]:
+    def _detect_self_contradictions(self, seen_pairs: set[frozenset[str]]) -> list[Contradiction]:
         results: list[Contradiction] = []
         for node in self._graph.nodes:
             edges = self._graph.edges_for(node.id)
@@ -235,24 +245,33 @@ class ContradictionResolver:
             for edge in edges:
                 label_map.setdefault(edge.label, []).append(edge)
 
+            processed: set[str] = set()
             for label, edges in label_map.items():
+                if label in processed:
+                    continue
                 neg = self._negation_map.get(label)
                 if neg and neg in label_map:
-                    results.extend(
-                        Contradiction(
-                            edge_a_id=a.id,
-                            edge_b_id=b.id,
-                            edge_a_label=a.label,
-                            edge_b_label=b.label,
-                            source_label=node.label,
-                            target_label=node.label,
-                            contradiction_type="self_negation",
-                            severity=0.8,
-                        )
-                        for a in edges
-                        for b in label_map[neg]
-                        if a.id != b.id
-                    )
+                    processed.add(label)
+                    processed.add(neg)
+                    for a in edges:
+                        for b in label_map[neg]:
+                            if a.id != b.id:
+                                pair_key = frozenset({a.id, b.id})
+                                if pair_key in seen_pairs:
+                                    continue
+                                seen_pairs.add(pair_key)
+                                results.append(
+                                    Contradiction(
+                                        edge_a_id=a.id,
+                                        edge_b_id=b.id,
+                                        edge_a_label=a.label,
+                                        edge_b_label=b.label,
+                                        source_label=node.label,
+                                        target_label=node.label,
+                                        contradiction_type="self_negation",
+                                        severity=0.8,
+                                    )
+                                )
         return results
 
     def _resolve(
