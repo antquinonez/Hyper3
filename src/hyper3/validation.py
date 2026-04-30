@@ -125,22 +125,24 @@ class ValidationEngine:
         pre_edges = {e.id for e in self._memory._graph.edges}
         pre_nodes = {n.id for n in self._memory._graph.nodes}
 
-        for rule in rules:
-            matches = rule.find_matches(self._memory._graph, active_nodes)
-            for match in matches:
-                node_ids, edge_ids_list = rule.apply(self._memory._graph, match)
-                for eid in edge_ids_list:
-                    edges.add(eid)
-                for nid in node_ids:
-                    nodes.add(nid)
+        try:
+            for rule in rules:
+                matches = rule.find_matches(self._memory._graph, active_nodes)
+                for match in matches:
+                    node_ids, edge_ids_list = rule.apply(self._memory._graph, match)
+                    for eid in edge_ids_list:
+                        edges.add(eid)
+                    for nid in node_ids:
+                        nodes.add(nid)
 
-        new_edges = {e.id for e in self._memory._graph.edges} - pre_edges
-        new_nodes = {n.id for n in self._memory._graph.nodes} - pre_nodes
-        for eid in list(new_edges):
-            self._memory._graph.remove_edge(eid)
-        for nid in list(new_nodes):
-            if not self._memory._graph.incident_edges(nid):
-                self._memory._graph.remove_node(nid)
+            new_edges = {e.id for e in self._memory._graph.edges} - pre_edges
+            new_nodes = {n.id for n in self._memory._graph.nodes} - pre_nodes
+        finally:
+            for eid in list({e.id for e in self._memory._graph.edges} - pre_edges):
+                self._memory._graph.remove_edge(eid)
+            for nid in list({n.id for n in self._memory._graph.nodes} - pre_nodes):
+                if not self._memory._graph.incident_edges(nid):
+                    self._memory._graph.remove_node(nid)
 
         elapsed = (time.perf_counter() - start) * 1000.0
 
