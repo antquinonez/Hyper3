@@ -15,13 +15,14 @@ class TestCommunityBasic:
         mem.relate("A", "B", label="connects")
         mem.relate("B", "C", label="connects")
         result = mem.detect_communities(seed=42)
-        assert result.community_count >= 1
-        assert result.coverage >= 0.0
+        assert result.community_count == 1
+        assert result.coverage == 1.0
 
     def test_detect_communities_empty_graph(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         result = mem.detect_communities()
         assert result.community_count == 0
+        assert result.modularity == 0.0
 
     def test_detect_communities_disconnected(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -32,7 +33,7 @@ class TestCommunityBasic:
         mem.relate("A", "B", label="group1")
         mem.relate("C", "D", label="group2")
         result = mem.detect_communities(method="connected_components")
-        assert result.community_count >= 2
+        assert result.community_count == 2
 
     def test_weighted_propagation(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -44,7 +45,7 @@ class TestCommunityBasic:
         e1.weight = 10.0
         e2.weight = 0.1
         result = mem.detect_communities(method="weighted_label_propagation", seed=42)
-        assert result.community_count >= 1
+        assert result.community_count == 1
 
     def test_community_labels(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -52,9 +53,8 @@ class TestCommunityBasic:
         mem.store("beta")
         mem.relate("alpha", "beta", label="link")
         result = mem.detect_communities(seed=42)
-        if result.community_count >= 1:
-            community = result.communities[0]
-            assert len(community.member_labels) >= 1
+        assert result.community_count == 1
+        assert set(result.communities[0].member_labels) == {"alpha", "beta"}
 
     def test_modularity(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -63,7 +63,7 @@ class TestCommunityBasic:
         for i in range(9):
             mem.relate(f"N{i}", f"N{i+1}", label="link")
         result = mem.detect_communities(seed=42)
-        assert isinstance(result.modularity, float)
+        assert abs(result.modularity - 0.3889) < 0.01
 
     def test_communities_property(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -82,7 +82,7 @@ class TestCommunityDetector:
         mem.relate("B", "C", label="type2")
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(edge_label="type1", seed=42)
-        assert result.community_count >= 1
+        assert result.community_count == 2
 
     def test_reproducible_with_seed(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -112,7 +112,8 @@ class TestCommunityDetector:
         mem.relate("N2", "N3", label="link")
         mem.relate("N4", "N5", label="link")
         result = mem.detect_communities(method="connected_components")
-        assert result.avg_community_size > 0
+        assert result.avg_community_size == 2.0
+        assert result.community_count == 3
 
     def test_weighted_fallback_on_negative_modularity(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -123,7 +124,7 @@ class TestCommunityDetector:
             e.weight = 0.1 + i * 0.5
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(seed=42, weighted_fallback=True)
-        assert result.modularity >= 0 or result.community_count >= 1
+        assert result.community_count >= 1
 
     def test_weighted_fallback_disabled(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -134,6 +135,27 @@ class TestCommunityDetector:
         detector = CommunityDetector(mem.graph)
         unweighted = detector.detect_label_propagation(seed=42, weighted_fallback=False)
         with_fallback = detector.detect_label_propagation(seed=42, weighted_fallback=True)
-        assert isinstance(unweighted.modularity, float)
-        assert isinstance(with_fallback.modularity, float)
         assert with_fallback.modularity >= unweighted.modularity
+
+
+class TestCommunityEdgeCases:
+    def test_weighted_empty_graph(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        detector = CommunityDetector(mem.graph)
+        result = detector.detect_weighted_label_propagation(seed=42)
+        assert result.community_count == 0
+
+    def test_isolated_nodes_zero_edges(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("X")
+        mem.store("Y")
+        detector = CommunityDetector(mem.graph)
+        result = detector.detect_label_propagation(seed=42)
+        assert result.community_count == 2
+        assert result.modularity == 0.0
+
+    def test_connected_components_empty(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        detector = CommunityDetector(mem.graph)
+        result = detector.detect_connected_components()
+        assert result.community_count == 0
