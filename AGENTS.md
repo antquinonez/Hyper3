@@ -879,6 +879,31 @@ Good:
 assert report["merged"] == 1
 ```
 
+### TP-11: Correctness over coverage
+
+Every test must verify that the code produces the *right* result, not just *any* result. Coverage is a finding tool, not a target. When writing tests:
+
+- **Invariants**: Test bounds, identities, symmetries, and conservation laws. If cosine similarity must be in [-1, 1], assert it. If PageRank must sum to 1.0, assert it. If rollback must restore the exact captured state, assert it.
+- **Consistency**: Two APIs computing the same thing must agree. If `find_paths(A, B)` returns paths, each path must be a valid sequence of edges in the graph. If `connected_components()` returns groups, the groups must be disjoint and their union must be all nodes.
+- **Independent verification**: When asserting exact values, verify against independent calculation — not by running the code under test and copying its output. A test that asserts `result == run_code_and_print(result)` is a tautology.
+- **Bug-first mindset**: When the code produces a surprising result, investigate whether it's a bug *before* enshrining it as expected behavior (per TP-3). A test that asserts incorrect output is worse than no test — it gives false confidence.
+- **Property tests over single-value tests**: Prefer testing structural properties (ordering, containment, monotonicity, idempotency) over single-value assertions when the output has natural invariants. `assert all(a >= b for a, b in zip(results, results[1:]))` is stronger than `assert results[0] >= results[1]`.
+
+Bad:
+```python
+result = mem.detect_contradictions()
+assert len(result) == 5  # verified empirically... but is 5 correct, or should it be 3?
+```
+
+Good:
+```python
+result = mem.detect_contradictions()
+unique_pairs = {frozenset({c.edge_a_id, c.edge_b_id}) for c in result}
+assert len(unique_pairs) == len(set(unique_pairs))  # no duplicate pairs
+for c in result:
+    assert resolver._are_contradictory(c.edge_a_label, c.edge_b_label)  # each is a real contradiction
+```
+
 ## Writing Example Scripts
 
 ### Structure and conventions
