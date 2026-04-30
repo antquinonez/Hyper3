@@ -376,8 +376,9 @@ Modules use domain prefixes to show relationships:
 ### Frozenset edge IDs
 Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Always use `frozenset({...})` when constructing edges.
 
-### `evolve_interval=0` disables auto-evolution
-`HypergraphMemory(evolve_interval=0)` prevents the memory from running decay/prune/merge cycles automatically after operations. Most tests use this to keep behavior deterministic. Production usage should set a positive interval.
+### `evolve_interval` defaults to 0 (disabled)
+
+`HypergraphMemory()` does not auto-evolve by default. Set `evolve_interval` to a positive value (e.g. 10 or 50) to enable automatic decay/prune/merge cycles after operations. This default was chosen for deterministic behavior in tests and interactive use. Production usage should set a positive interval.
 
 ### `rules` constructor parameter
 `HypergraphMemory(rules=[...])` accepts an initial list of inference rules at construction. Rules can also be added later via `add_rules()`. Both approaches are equivalent.

@@ -66,7 +66,7 @@ class HypergraphMemory(
         merge_threshold: float = 0.8,
         decay_factor: float = 0.95,
         decay_threshold: float = 0.1,
-        evolve_interval: int = 10,
+        evolve_interval: int = 0,
     ) -> None:
         """Initialize the hypergraph memory with all subsystems.
 
@@ -79,7 +79,9 @@ class HypergraphMemory(
             decay_factor: Multiplier applied to node weights during evolution decay.
             decay_threshold: Nodes below this weight are pruned during evolution.
             evolve_interval: Number of operations between automatic evolution cycles.
-                Set to 0 to disable auto-evolution.
+                Set to a positive value to enable auto-evolution. Default is 0
+                (disabled) for deterministic behavior. Production usage should
+                set a positive interval (e.g. 10 or 50).
         """
         self._graph = Hypergraph()
         self._log = EventLog()
