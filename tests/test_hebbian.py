@@ -12,6 +12,8 @@ class TestHebbianBasic:
         result = mem.hebbian_reinforce()
         assert result.edges_strengthened == 0
         assert result.edges_weakened == 0
+        assert result.total_co_activations == 0
+        assert result.avg_weight_change == 0.0
 
     def test_reinforce_with_activation(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -21,7 +23,10 @@ class TestHebbianBasic:
         mem.stimulate("A", energy=1.0)
         mem.spread_activation()
         result = mem.hebbian_reinforce()
-        assert isinstance(result.edges_strengthened, int)
+        assert result.edges_strengthened == 1
+        assert result.edges_weakened == 0
+        assert result.total_co_activations == 1
+        assert result.avg_weight_change > 0.0
 
     def test_reinforce_pair(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -30,20 +35,32 @@ class TestHebbianBasic:
         mem.relate("A", "B", label="connected")
         result = mem.hebbian_reinforce_pair("A", "B", strength=2.0)
         assert result is not None
-        assert result.new_weight > result.old_weight
+        assert result.old_weight == 1.0
+        assert abs(result.new_weight - 1.2) < 1e-9
 
     def test_reinforce_pair_nonexistent(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         result = mem.hebbian_reinforce_pair("X", "Y")
         assert result is None
 
+    def test_reinforce_pair_no_edge(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        result = mem.hebbian_reinforce_pair("A", "B")
+        assert result is None
+
     def test_decay_unused(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         mem.store("B")
-        mem.relate("A", "B", label="connected")
-        count = mem.hebbian_decay_unused(threshold_access_count=0)
-        assert count >= 0
+        edge = mem.relate("A", "B", label="connected")
+        edge.weight = 0.5
+        learner = HebbianLearner(mem.graph, mem._activation)
+        updates = learner.decay_unused(threshold_access_count=1)
+        assert len(updates) == 1
+        assert updates[0].old_weight == 0.5
+        assert abs(updates[0].new_weight - 0.49) < 1e-9
 
     def test_strongest_associations(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -54,9 +71,14 @@ class TestHebbianBasic:
         mem.relate("A", "C", label="weak")
         mem.hebbian_reinforce_pair("A", "B", strength=10.0)
         results = mem.strongest_associations("A", top_k=2)
-        assert len(results) <= 2
-        if len(results) >= 1:
-            assert results[0][0] in ("B", "C")
+        assert len(results) == 2
+        assert results[0][0] == "B"
+        assert results[0][1] > results[1][1]
+
+    def test_strongest_associations_nonexistent(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        results = mem.strongest_associations("Z", top_k=5)
+        assert results == []
 
 
 class TestHebbianConfig:
@@ -69,6 +91,13 @@ class TestHebbianConfig:
         config = HebbianConfig()
         assert config.learning_rate == 0.1
         assert config.max_edge_weight == 100.0
+
+    def test_config_via_property(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.hebbian_reinforce()
+        config = mem.hebbian.config
+        assert config.learning_rate == 0.1
 
 
 class TestHebbianLearner:
@@ -103,6 +132,21 @@ class TestHebbianLearner:
         edge = mem.relate("X", "Y", label="link")
         edge.weight = 0.5
         learner = HebbianLearner(mem.graph, mem._activation)
-        updates = learner.decay_unused(threshold_access_count=0)
+        updates = learner.decay_unused(threshold_access_count=1)
         for u in updates:
             assert u.new_weight >= 0.01
+
+    def test_low_co_activation_decays_edge(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="link")
+        mem.stimulate("A", energy=0.2)
+        mem.stimulate("B", energy=0.2)
+        config = HebbianConfig(activation_threshold=0.3)
+        learner = HebbianLearner(mem.graph, mem._activation, config=config)
+        result = learner.reinforce_from_activation()
+        assert result.edges_weakened == 1
+        assert result.edges_strengthened == 0
+        assert len(result.updates) == 1
+        assert result.updates[0].new_weight < result.updates[0].old_weight
