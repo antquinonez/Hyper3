@@ -1229,3 +1229,66 @@ class TestStructuralProjectionScoreMatch:
         match = RuleMatch(rule_name="proj", bindings={}, context={})
         assert rule.score_match(match, g) == 0.5
 
+
+class TestSemanticRules:
+    def test_transitive_excludes_empty_label_edges(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label=""))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="rel"))
+        rule = TransitiveRule(edge_label="rel")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) == 0
+
+    def test_property_propagation_respects_edge_direction(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", metadata=Metadata(custom={"domain": "physics"}))
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id}), label="x"))
+        rule = PropertyPropagationRule(property_key="domain")
+        matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
+        assert len(matches) == 0
+
+    def test_property_propagation_forward(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", metadata=Metadata(custom={"domain": "physics"}))
+        b = Hypernode(label="b")
+        for n in [a, b]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="x"))
+        rule = PropertyPropagationRule(property_key="domain")
+        matches = rule.find_matches(g, frozenset({a.id, b.id}))
+        assert len(matches) == 1
+        assert matches[0].bindings["source"] == a.id
+        assert matches[0].bindings["target"] == b.id
+
+    def test_substitution_dedup_is_bidirectional(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        for n in [a, b]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="sub"))
+        rule = ContextualSubstitutionRule(substitution_label="sub")
+        assert rule._substitution_exists(g, a.id, b.id)
+
+    def test_contextual_substitution_apply_idempotent(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        for n in [a, b]:
+            g.add_node(n)
+        rule = ContextualSubstitutionRule(substitution_label="sub")
+        match = RuleMatch(
+            rule_name=rule.name,
+            bindings={"A": a.id, "B": b.id},
+            context={"similarity": 0.8},
+        )
+        rule.apply(g, match)
+        assert g.edge_count == 2
+        rule.apply(g, match)
+        assert g.edge_count == 2
+

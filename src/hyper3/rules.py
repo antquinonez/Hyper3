@@ -139,14 +139,14 @@ class TransitiveRule(Rule):
                     edge_set.add((src, tgt))
         for nid_a in active_nodes:
             for e1 in graph.edges_for(nid_a):
-                if self._edge_label and e1.label and e1.label != self._edge_label:
+                if self._edge_label and e1.label != self._edge_label:
                     continue
                 if nid_a not in e1.source_ids:
                     continue
                 targets_b = e1.target_ids & active_nodes
                 for nid_b in targets_b:
                     for e2 in graph.edges_for(nid_b):
-                        if self._edge_label and e2.label and e2.label != self._edge_label:
+                        if self._edge_label and e2.label != self._edge_label:
                             continue
                         if nid_b not in e2.source_ids:
                             continue
@@ -633,6 +633,8 @@ class PropertyPropagationRule(Rule):
             for edge in graph.edges_for(nid):
                 if self._edge_label and edge.label != self._edge_label:
                     continue
+                if nid not in edge.source_ids:
+                    continue
                 targets = edge.target_ids & active_nodes
                 for target_id in targets:
                     target = graph.get_node(target_id)
@@ -772,7 +774,7 @@ class StructuralProjectionRule(Rule):
         seen_analogies: set[tuple[str, str, str, str]] = set()
         for nid_a in active_with_emb:
             for e1 in graph.edges_for(nid_a):
-                if self._edge_label and e1.label and e1.label != self._edge_label:
+                if self._edge_label and e1.label != self._edge_label:
                     continue
                 if nid_a not in e1.source_ids:
                     continue
@@ -822,12 +824,17 @@ class StructuralProjectionRule(Rule):
             ``( [], [new_edge_id] )``.
         """
         c_id, d_id = match.bindings["C"], match.bindings["D"]
+        edge_ab = graph.get_edge(match.context.get("edge_ab", ""))
+        label = edge_ab.label if edge_ab else "analogous"
+        if any(
+            e.label == label and c_id in e.source_ids and d_id in e.target_ids
+            for e in graph.edges_for(c_id)
+        ):
+            return [], []
         a_node = graph.get_node(match.bindings["A"])
         b_node = graph.get_node(match.bindings["B"])
         c_node = graph.get_node(c_id)
         d_node = graph.get_node(d_id)
-        edge_ab = graph.get_edge(match.context.get("edge_ab", ""))
-        label = edge_ab.label if edge_ab else "analogous"
         confidence = match.context.get("analogy_score", 0.7)
         edge = Hyperedge(
             source_ids=frozenset({c_id}),
@@ -1039,6 +1046,8 @@ class ContextualSubstitutionRule(Rule):
             ``( [], [edge_ab_id, edge_ba_id] )``.
         """
         a_id, b_id = match.bindings["A"], match.bindings["B"]
+        if self._substitution_exists(graph, a_id, b_id):
+            return [], []
         confidence = match.context["similarity"]
         edge_ab = Hyperedge(
             source_ids=frozenset({a_id}),
@@ -1057,8 +1066,14 @@ class ContextualSubstitutionRule(Rule):
         return [], [edge_ab.id, edge_ba.id]
 
     def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
-        """Check whether a substitution edge between *a_id* and *b_id* exists."""
-        return any(edge.label == self._label and b_id in edge.target_ids for edge in graph.edges_for(a_id))
+        for edge in graph.edges_for(a_id):
+            if edge.label != self._label:
+                continue
+            if a_id in edge.source_ids and b_id in edge.target_ids:
+                return True
+            if b_id in edge.source_ids and a_id in edge.target_ids:
+                return True
+        return False
 
     def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
         """Score a substitution match by the similarity stored in context."""
