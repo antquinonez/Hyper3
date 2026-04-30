@@ -383,6 +383,9 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` constructor parameter
 `HypergraphMemory(rules=[...])` accepts an initial list of inference rules at construction. Rules can also be added later via `add_rules()`. Both approaches are equivalent.
 
+### `rules` read-only property
+`mem.rules` returns a copy of the currently active inference rules as a list. This is a read-only property; use `add_rules()` to register new rules.
+
 ### Rule `edge_label` convention
 All rules that accept an `edge_label` parameter use `None` as the default, meaning "match all edges." Passing a specific string filters to only edges with that label. Do not use empty string `""` as a filter — it matches only unlabeled edges. The guard pattern is `if self._edge_label and e.label != self._edge_label: continue`, which is falsy for `None`.
 
@@ -426,7 +429,7 @@ If `reason(use_overlay=True)` is called while an overlay already exists (from a 
 After unitary evolution, amplitudes can be complex numbers. Code that consumes amplitudes should use `abs()` for magnitude comparisons. `probability` property already uses `abs()`.
 
 ### `create_distribution()` context field is opt-in
-`use_context_field` defaults to `True`. The distribution is evolved using spreading activation values and structural prominence, biasing toward well-connected nodes. Pass `use_context_field=False` to apply the raw Born rule to the provided amplitudes without structural bias.
+`use_context_field` defaults to `True`. The distribution is evolved using spreading activation values and structural prominence, biasing toward well-connected nodes. Prior activation state is preserved (not overwritten) during context evolution. Pass `use_context_field=False` to apply the raw Born rule to the provided amplitudes without structural bias.
 
 ### `EquivalenceEngine` uses combined similarity
 `find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting. Nodes with empty neighborhoods get structural similarity 0.0 (no evidence of equivalence), not 1.0.
@@ -491,7 +494,7 @@ The deprecated alias `edges_for()` still works but prefer `incident_edges()` for
 `mem.ensure(concept, data=..., update=False)` creates a node only if absent. Unlike `store()`, it does not reinforce the node or trigger evolution. Use during graph construction to avoid spurious reinforcement of frequently-referenced nodes. Pass `update=True` to merge new data into an existing node's data dict.
 
 ### `relate()` accepts `weight` parameter
-`mem.relate(source, target, label=..., weight=5.0)` sets edge importance. Default is 1.0. The weight propagates to networkx algorithms (centrality, shortest path). Bidirectional edges both receive the same weight.
+`mem.relate(source, target, label=..., weight=5.0)` sets edge importance. Default is 1.0. Weight must be positive (> 0); values <= 0 raise `ValueError`. The weight propagates to networkx algorithms (centrality, shortest path). Bidirectional edges both receive the same weight.
 
 ### `neighbors()` for directed neighbor queries
 `mem.neighbors(concept, edge_label=..., direction="out"|"in"|"any")` returns labels of neighboring nodes. Filters by edge label and direction. Returns `[]` for missing concepts.
@@ -512,7 +515,7 @@ The deprecated alias `edges_for()` still works but prefer `incident_edges()` for
 `BayesianLayer` performs proper Bayesian prior x likelihood -> posterior updating. `set_prior()` initializes a categorical prior, `update_belief()` applies likelihood to produce a posterior, `get_belief()` returns the current distribution. `map_estimate()` returns the most probable outcome. `bayes_factor()` computes the Bayes factor between two hypotheses. `credible_set()` returns outcomes within a probability mass threshold. `reset_belief()` restores the prior.
 
 ### N-ary hyperedge creation via `relate_hyperedge()`
-`mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="joint")` creates true n-ary edges. Unlike `relate()` which creates pairwise (1:1) edges, this connects multiple sources to multiple targets in a single hyperedge. All source and target concepts must already exist as nodes (raises `NodeNotFoundError` otherwise).
+`mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="joint")` creates true n-ary edges. Unlike `relate()` which creates pairwise (1:1) edges, this connects multiple sources to multiple targets in a single hyperedge. Source and target sets must be non-empty; weight must be positive (> 0). All source and target concepts must already exist as nodes (raises `NodeNotFoundError` otherwise).
 
 ### Hyperedge querying via `query_hyperedges()`
 `mem.query_hyperedges(min_source_cardinality=2, containing="gene_a")` filters edges by cardinality and node membership. Returns raw `Hyperedge` objects (which use node IDs internally). Use `min_source_cardinality` and `min_target_cardinality` to find true n-ary edges.
@@ -622,7 +625,7 @@ Every public method must have a concrete return type annotation. Replace bare `A
 When a concept label does not resolve to a node, methods should follow one of two patterns based on the operation's semantics:
 
 - **Query/read operations** (`recall`, `find_paths`, `find_similar`, `explain`, `prove`): return an empty result (`[]`, `None`, or a result object with `achievable=False`). Do not raise.
-- **Write/mutation operations** (`relate`, `correlate`, `stimulate`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
+- **Write/mutation operations** (`relate`, `correlate`, `stimulate`, `create_distribution`): raise `NodeNotFoundError`. The caller must ensure the node exists before creating relationships.
 
 Document the behavior in the docstring.
 
@@ -700,7 +703,7 @@ The following are already optimized — maintain them when making changes:
 ## New Modules (Round 1-2 Additions)
 
 - **overlay.py** — `HypergraphOverlay` provides a temporary inference layer on top of the base graph. Supports `commit()` (merge to base) and `rollback()` (discard). Tracks per-edge confidence. `reason(use_overlay=True, auto_commit=False)` enables review-before-commit workflow.
-- **provenance.py** — `ProvenanceTracker` records inference derivations (rule name, input edges, depth). `explain()` produces recursive `Explanation` objects with `render()`. `retract()` cascades: removing a premise removes all dependent conclusions.
+- **provenance.py** — `ProvenanceTracker` records inference derivations (rule name, input edges, depth). `explain()` produces recursive `Explanation` objects with `render()`. `retract()` cascades: removing a premise removes all dependent conclusions. Facade methods `explain()` and `retract_inference()` accept `edge_label: str | None = None` to filter by edge label.
 - **temporal.py** — `TemporalReasoner` with full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, constraint checking, and edge-level temporal consistency.
 - **enrichment.py** — `LLMEnricher` extracts entities/relations from text. `RegexExtractor` is the zero-dependency fallback. Pluggable `LLMProvider` ABC for real language models.
 - **embedding_graph.py** — `RandomWalkEmbeddingProvider` (Node2Vec-style skip-gram with negative sampling), `NeighborhoodFingerprintProvider` (TF-IDF-weighted edge label hashing), `CompositeEmbeddingProvider` (weighted combination with optional PCA). All implement `EmbeddingProvider.embed_node()` for graph-structure-aware embeddings.
@@ -769,7 +772,7 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1852 tests must pass.
+2. Run the full test suite after changes. All 2001 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -1052,7 +1055,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1852
+- **Tests**: 2001
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 96%
 - **Pyright**: 0 errors

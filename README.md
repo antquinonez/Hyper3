@@ -207,7 +207,7 @@ from hyper3.visualization import plot_hypergraph, plot_belief_state
 fig = plot_hypergraph(mem.graph, layout="spring", show_weights=True)
 fig.savefig("graph.png")
 
-fig = plot_belief_state(mem._belief, qs.id, graph=mem.graph)
+fig = plot_belief_state(mem.belief, qs.id, graph=mem.graph)
 fig.savefig("belief.png")
 ```
 
@@ -294,6 +294,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `commit_inferences()` | Merge overlay inferences to base graph |
 | `rollback_inferences()` | Discard overlay inferences |
 | `add_rules(*rules)` | Register inference rules |
+| `rules` | Read-only list of active inference rules |
 | `discover_rules()` | Discover structural patterns |
 | `auto_discover_and_apply()` | Discover and register rules automatically |
 
@@ -335,7 +336,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `describe()` | Graph summary (degree stats, density, components) |
 | `connected_components()` | Connected components |
 | `has_cycle()` / `detect_cycles()` | Cycle detection |
-| `shortest_path(source, target)` | Shortest path query |
+| `shortest_path(source, target, *, weighted)` | Shortest path query (weighted by default) |
 
 ### Retrieval
 
@@ -370,8 +371,8 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 
 | Method | Description |
 |--------|-------------|
-| `explain(source, target)` | Recursive explanation of inference derivation |
-| `retract_inference(source, target)` | Cascade retract a conclusion and dependents |
+| `explain(source, target, *, edge_label)` | Recursive explanation of inference derivation |
+| `retract_inference(source, target, *, edge_label)` | Cascade retract a conclusion and dependents |
 
 ### Cognitive Engines
 
@@ -458,7 +459,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-1700 tests, 93% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+2001 tests, 96% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
 
 ## Performance
 

@@ -28,12 +28,10 @@ library inverts weights internally.
 
 ### Betweenness Centrality Normalization
 
-`betweenness_centrality()` normalizes by `1/n` (where n = number of source nodes),
-not the standard `1/((n-1)(n-2))` used in textbook directed betweenness. This means
-values can exceed 1.0 for dense graphs. With `max_samples`, normalization is
-`1/max_samples` and values are raw pairwise dependency counts that can exceed 1.0.
-
-This is documented per AGENTS.md: "`betweenness_centrality(max_samples=N)` is not normalized."
+`betweenness_centrality()` normalizes by `1/((n-1)(n-2))` for n >= 3, producing
+values in [0, 1]. This matches the standard textbook normalization for directed
+betweenness. With `max_samples`, normalization is `1/max_samples` and values are
+raw pairwise dependency counts that can exceed 1.0.
 
 ### PageRank
 

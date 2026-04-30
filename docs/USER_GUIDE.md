@@ -182,25 +182,17 @@ Hold competing hypotheses in superposition and collapse to the most likely
 one via the Born rule.
 
 ```python
-# Create superposition with prior amplitudes
-qs = mem.superpose(
+qs = mem.create_distribution(
     ["APT28", "APT29", "Lazarus"],
     amplitudes=[0.7, 0.5, 0.4],
 )
 
-# Check the probability distribution (Born rule: P(i) = |a_i|^2 / sum)
-for interp in qs.interpretations:
-    node = mem.graph.get_node(interp.node_id)
-    print(f"  {node.label}: probability={interp.probability:.4f}")
-
-# Collapse: probabilistic sampling from the distribution
-answer = mem.collapse(qs)
+answer = mem.sample(qs)
 if answer:
     node = mem.graph.get_node(answer.node_id)
-    print(f"Collapsed to: {node.label}")
+    print(f"Sampled: {node.label if node else answer.node_id}")
 
-# Collapse with contextual evidence
-answer = mem.collapse(qs, context={"APT28": 3.0, "Lazarus": 0.5})
+answer = mem.sample(qs, context={"APT28": 3.0, "Lazarus": 0.5})
 ```
 
 **The math is correct**: For amplitudes `[0.7, 0.5, 0.4]`, the probabilities
@@ -208,13 +200,14 @@ are `[0.49, 0.25, 0.16]` normalized to sum to 1.0, giving `[0.495, 0.253, 0.162]
 Collapse samples from this distribution. Over many trials, the frequencies
 converge to these probabilities.
 
-**Context field** (opt-in): By default, `superpose()` applies the raw Born
-rule to your amplitudes. If you pass `use_context_field=True`, the system
-runs spreading activation across the graph and multiplies each amplitude by
-a potential field derived from node degree, weight, activation, and edge
-strength. This biases the distribution toward structurally prominent nodes.
-Use this when you want graph topology to inform the priors; leave it off
-when you want exact control over the probability distribution.
+**Context field** (default on): By default, `create_distribution()` evolves the
+distribution using spreading activation values and structural prominence,
+preserving any prior activation state. This biases the distribution toward
+structurally prominent nodes (higher degree, more connections).
+Pass `use_context_field=False` to apply the raw Born rule to the provided
+amplitudes without structural bias. Use the context field when you want
+graph topology to inform the priors; turn it off when you want exact
+control over the probability distribution.
 
 ### 5. Self-Evolution
 
@@ -284,7 +277,7 @@ centrality = mem.degree_centrality()
 bc = mem.betweenness_centrality()
 
 # Find cycles, connected components, subgraphs
-cycles = mem.find_cycles()
+cycles = mem.detect_cycles()
 components = mem.connected_components()
 sg = mem.subgraph({"APT28", "GOV", "CVE-2023-44228"})
 ```
@@ -318,10 +311,10 @@ lines = mem.export_edgelist()
 - **Not an LLM**: No language model integration. The `LLMEnricher` in the
   enrichment module provides a pluggable interface, but the built-in
   extractor uses regex.
-- **Not a replacement for networkx**: Hyper3 uses networkx internally for
-  graph algorithms (centrality, shortest path, connected components). It
-  adds rule-based inference, spreading activation, quantum collapse, and
-  self-evolution on top of the graph.
+- **Not a replacement for networkx**: Hyper3 implements hypergraph-native
+  algorithms for centrality, shortest path, and connected components (not
+  pairwise networkx decomposition). It adds rule-based inference, spreading
+  activation, quantum collapse, and self-evolution on top of the graph.
 
 ## When to Use Raw NetworkX
 
