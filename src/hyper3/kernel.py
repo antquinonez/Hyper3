@@ -548,7 +548,13 @@ class Hypergraph:
 
         Runs single-source BFS from every node (or a sampled subset),
         accumulating dependency scores.  Hyperedges are traversed as
-        single hops.
+        single hops. Edge weights are not used; this is a structural
+        (unweighted) metric.
+
+        Normalized by 1/n (where n is the number of source nodes), so
+        values can exceed 1.0 for dense graphs. With ``max_samples``, the
+        normalization is 1/max_samples and values are raw pairwise
+        dependency counts.
 
         Args:
             max_samples: If set, approximate using this many random
@@ -789,6 +795,10 @@ class Hypergraph:
         Traverses hyperedges as single hops: an edge connecting
         {A, B} -> {C, D} lets A and B both reach C and D in one step.
 
+        Edge weights represent importance (higher = stronger), so cost
+        is computed as 1/weight for Dijkstra. Higher-weighted edges are
+        preferred in the shortest path.
+
         Args:
             source_id: ID of the starting node.
             target_id: ID of the destination node.
@@ -862,10 +872,11 @@ class Hypergraph:
     def pagerank(self, *, alpha: float = 0.85, max_iterations: int = 100, tol: float = 1e-6) -> dict[str, float]:
         """Compute PageRank using the hypergraph transition matrix.
 
-        Uses the incidence-based formula:
-            P = D_v^{-1} H W D_e^{-1} H^T
+        Edge weights are used as transition probabilities: higher weight
+        means a stronger endorsement. Values sum to 1.0.
 
-        This degrades to standard PageRank when all edges are pairwise.
+        This degrades to standard PageRank when all edges are pairwise
+        with equal weights.
 
         Args:
             alpha: Damping factor (teleportation probability).

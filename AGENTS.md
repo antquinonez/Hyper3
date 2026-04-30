@@ -408,7 +408,13 @@ Do not add comments unless explicitly asked.
 Do not use emojis in code or commit messages unless explicitly asked.
 
 ### Edge weights are importance, not cost
-`Hyperedge.weight` represents importance/strength (higher = more important). The kernel inverts weights to `cost = 1/weight` when calling networkx algorithms (shortest path, betweenness centrality). Never pass weights directly to networkx — use `_to_networkx_inverted_weights()`.
+`Hyperedge.weight` represents importance/strength (higher = more important). Algorithms use weights consistently:
+- `shortest_path`: inverts to `cost = 1/weight` for Dijkstra (high importance = low cost = preferred)
+- `pagerank`: uses weights directly as transition probabilities (high importance = strong endorsement)
+- `betweenness_centrality`: unweighted (structural metric, ignores edge weights)
+- `degree_centrality`: unweighted (counts edges, not weights)
+
+Betweenness centrality is normalized by `1/n` (not `1/((n-1)(n-2))`), so values can exceed 1.0 for dense graphs. With `max_samples`, values are raw pairwise dependency counts.
 
 ### `context` parameter in structural anomaly detection
 `StructuralAnomalyDetector` detection methods accept a `context` dict that supplements structural analysis. Supported keys: `cyclic_structure` (bool/float), `high_centrality` (bool/float), `contradiction` (bool/float), `structural_anomaly` (bool/float), and `contradictory` (bool). Pass `True` for a 0.3 boost, or a float in [0,1] to set a floor.
