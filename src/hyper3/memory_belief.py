@@ -51,19 +51,22 @@ class BeliefMixin(_MemoryBase):
             else:
                 missing.append(concept)
         if missing:
-            self._log.record("create_distribution_missing", missing=missing, requested=len(concepts))
+            raise NodeNotFoundError(missing[0])
         if not node_ids:
             raise NodeNotFoundError(concepts[0] if concepts else "")
         qs = self._belief.create_distribution(node_ids, amplitudes)
         if use_context_field and len(node_ids) > 1:
             activation_values: dict[str, float] = {}
             if hasattr(self, "_activation"):
+                saved_state = dict(self._activation._activations) if self._activation._activations else {}
                 for nid in node_ids:
                     self._activation.stimulate(nid, energy=1.0)
                 spread = self._activation.spread()
                 for nid in node_ids:
                     activation_values[nid] = spread.get(nid, 0.0)
                 self._activation.clear()
+                for nid, energy in saved_state.items():
+                    self._activation.stimulate(nid, energy=energy)
             self._belief.evolve_in_context(qs.id, activation_values)
         self._log.record("create_distribution", concepts=concepts, state_id=qs.id, outcomes=qs.outcome_count)
         return qs
