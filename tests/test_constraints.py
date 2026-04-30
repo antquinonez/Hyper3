@@ -168,3 +168,167 @@ class TestBoundaryNavigatorIntegration:
         mem.store("b")
         edge = mem.relate("a", "b")
         assert edge is not None
+
+
+class TestWeightInflationConstraintCheck:
+    def test_check_message_for_absolute_max(self):
+        edge, g = _make_edge("a", "b", weight=200.0)
+        c = WeightInflationConstraint(max_weight=100.0)
+        reason = c.check(edge, g)
+        assert reason is not None
+        assert "exceeds maximum" in reason
+        assert "200.0" in reason
+
+    def test_check_message_for_neighborhood_outlier(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            weight=1.0,
+        ))
+        inflated = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            weight=50.0,
+        )
+        c = WeightInflationConstraint(max_weight=100.0, growth_factor=3.0)
+        reason = c.check(inflated, g)
+        assert reason is not None
+        assert "neighborhood average" in reason
+
+    def test_check_returns_none_for_valid(self):
+        edge, g = _make_edge("a", "b", weight=50.0)
+        c = WeightInflationConstraint(max_weight=100.0)
+        assert c.check(edge, g) is None
+
+
+class TestProvenanceDepthConstraintChain:
+    def test_rejects_chain_exceeding_max(self):
+        g = Hypergraph()
+        for lbl in ("a", "b", "c", "d"):
+            g.add_node(Hypernode(id=lbl, label=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"c"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"b"})))
+        edge = Hyperedge(
+            source_ids=frozenset({"b"}),
+            target_ids=frozenset({"a"}),
+            metadata=Metadata(custom={"provenance_depth": 1}),
+        )
+        c = ProvenanceDepthConstraint(max_depth=1)
+        assert not c.is_valid(edge, g)
+
+    def test_check_message_provenance_depth(self):
+        edge, g = _make_edge("a", "b", custom={"provenance_depth": 15})
+        c = ProvenanceDepthConstraint(max_depth=10)
+        reason = c.check(edge, g)
+        assert reason is not None
+        assert "provenance depth" in reason
+        assert "15" in reason
+
+    def test_check_message_chain_depth(self):
+        g = Hypergraph()
+        for lbl in ("a", "b", "c", "d"):
+            g.add_node(Hypernode(id=lbl, label=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"c"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"b"})))
+        edge = Hyperedge(
+            source_ids=frozenset({"b"}),
+            target_ids=frozenset({"a"}),
+            metadata=Metadata(custom={"provenance_depth": 1}),
+        )
+        c = ProvenanceDepthConstraint(max_depth=1)
+        reason = c.check(edge, g)
+        assert reason is not None
+        assert "inference chain depth" in reason
+
+    def test_chain_cycle_returns_zero(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"})))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"a"})))
+        edge = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            metadata=Metadata(custom={"provenance_depth": 1}),
+        )
+        c = ProvenanceDepthConstraint(max_depth=10)
+        assert c.is_valid(edge, g)
+
+    def test_check_returns_none_for_shallow(self):
+        edge, g = _make_edge("a", "b", custom={"provenance_depth": 3})
+        c = ProvenanceDepthConstraint(max_depth=10)
+        assert c.check(edge, g) is None
+
+
+class TestDuplicateEdgeConstraint:
+    def test_rejects_duplicate(self):
+        from hyper3.constraints import DuplicateEdgeConstraint
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="rel",
+        ))
+        dup = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="rel",
+        )
+        c = DuplicateEdgeConstraint()
+        assert not c.is_valid(dup, g)
+
+    def test_accepts_different_label(self):
+        from hyper3.constraints import DuplicateEdgeConstraint
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="rel",
+        ))
+        other = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="other",
+        )
+        c = DuplicateEdgeConstraint()
+        assert c.is_valid(other, g)
+
+    def test_check_returns_duplicate_message(self):
+        from hyper3.constraints import DuplicateEdgeConstraint
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="rel",
+        ))
+        dup = Hyperedge(
+            source_ids=frozenset({"a"}),
+            target_ids=frozenset({"b"}),
+            label="rel",
+        )
+        c = DuplicateEdgeConstraint()
+        reason = c.check(dup, g)
+        assert reason is not None
+        assert "duplicate" in reason
+        assert "rel" in reason
+
+    def test_check_returns_none_for_unique(self):
+        from hyper3.constraints import DuplicateEdgeConstraint
+        edge, g = _make_edge("a", "b")
+        c = DuplicateEdgeConstraint()
+        assert c.check(edge, g) is None
+
+    def test_accepts_when_no_existing_edges(self):
+        from hyper3.constraints import DuplicateEdgeConstraint
+        edge, g = _make_edge("a", "b")
+        c = DuplicateEdgeConstraint()
+        assert c.is_valid(edge, g)

@@ -588,3 +588,123 @@ class TestMemoryOverlayIntegration:
         )
         assert mem.overlay is None
 
+
+class TestOverlayMergeNodeSecondaryInOverlay:
+    def test_merge_secondary_in_overlay_remaps_edges(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        ov = HypergraphOverlay(g)
+        ov.add_node(c)
+        e = Hyperedge(
+            source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="x"
+        )
+        ov.add_edge(e)
+        result = ov.merge_node(b.id, c.id)
+        assert result is not None
+        assert c.id not in ov.overlay_node_ids
+        remapped = ov.get_edge(e.id)
+        assert remapped is not None
+        assert b.id in remapped.target_ids
+        assert c.id not in remapped.target_ids
+
+    def test_merge_secondary_in_overlay_copies_primary_from_base(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        ov = HypergraphOverlay(g)
+        c = Hypernode(label="c")
+        ov.add_node(c)
+        e = Hyperedge(
+            source_ids=frozenset({c.id}), target_ids=frozenset({a.id}), label="y"
+        )
+        ov.add_edge(e)
+        assert a.id not in ov.overlay_node_ids
+        ov.merge_node(a.id, c.id)
+        assert a.id in ov.overlay_node_ids
+        copied = ov._overlay_nodes[a.id]
+        assert copied is not a
+        assert copied.label == "a"
+
+    def test_merge_secondary_in_overlay_clears_label_index(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b_labeled")
+        g.add_node(a)
+        g.add_node(b)
+        ov = HypergraphOverlay(g)
+        ov.merge_node(a.id, b.id)
+        assert ov.get_node_by_label("b_labeled") is None
+
+
+class TestOverlayResolveLabel:
+    def test_resolve_label_overlay_node(self):
+        g = Hypergraph()
+        ov = HypergraphOverlay(g)
+        n = Hypernode(label="my_label")
+        ov.add_node(n)
+        assert ov._resolve_label(n.id) == "my_label"
+
+    def test_resolve_label_base_node(self):
+        g = Hypergraph()
+        a = Hypernode(label="base_label")
+        g.add_node(a)
+        ov = HypergraphOverlay(g)
+        assert ov._resolve_label(a.id) == "base_label"
+
+    def test_resolve_label_missing_truncates_id(self):
+        g = Hypergraph()
+        ov = HypergraphOverlay(g)
+        fake_id = "abcdef1234567890"
+        assert ov._resolve_label(fake_id) == fake_id[:8]
+
+
+class TestOverlayLabeledEdges:
+    def test_labeled_edges_empty(self):
+        g = Hypergraph()
+        ov = HypergraphOverlay(g)
+        assert ov.labeled_edges == []
+
+    def test_labeled_edges_with_overlay_edges(self):
+        g = Hypergraph()
+        a = Hypernode(label="alpha")
+        b = Hypernode(label="beta")
+        g.add_node(a)
+        g.add_node(b)
+        ov = HypergraphOverlay(g)
+        e = Hyperedge(
+            source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="rel"
+        )
+        ov.add_edge(e)
+        ov.set_confidence(e.id, 0.75)
+        le = ov.labeled_edges
+        assert len(le) == 1
+        entry = le[0]
+        assert entry["id"] == e.id
+        assert entry["source_labels"] == "alpha"
+        assert entry["target_labels"] == "beta"
+        assert entry["label"] == "rel"
+        assert entry["confidence"] == "0.75"
+
+    def test_labeled_edges_unresolved_id_uses_truncated(self):
+        g = Hypergraph()
+        ov = HypergraphOverlay(g)
+        fake_src = "src_1234567890"
+        fake_tgt = "tgt_9876543210"
+        e = Hyperedge(
+            source_ids=frozenset({fake_src}),
+            target_ids=frozenset({fake_tgt}),
+            label="unknown",
+        )
+        ov.add_edge(e)
+        le = ov.labeled_edges
+        assert len(le) == 1
+        assert le[0]["source_labels"] == fake_src[:8]
+        assert le[0]["target_labels"] == fake_tgt[:8]
+

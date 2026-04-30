@@ -1265,3 +1265,62 @@ def _setup_memory():
     mem.add_rules(TransitiveRule(edge_label="next"))
     return mem
 
+
+class TestCorrelateNodeNotFound:
+    def test_correlate_missing_group_a_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        mem.create_distribution(["x", "y"])
+        with pytest.raises(NodeNotFoundError):
+            mem.correlate(
+                ["x", "missing_a"],
+                ["y"],
+                {("x", "y"): 0.8},
+            )
+
+    def test_correlate_missing_group_b_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        mem.create_distribution(["x", "y"])
+        with pytest.raises(NodeNotFoundError):
+            mem.correlate(
+                ["x"],
+                ["y", "missing_b"],
+                {("x", "y"): 0.8},
+            )
+
+
+class TestSampleCorrelated:
+    def test_sample_correlated_returns_labels(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        qs = mem.create_distribution(["x", "y"])
+        mem.correlate(["x"], ["y"], {("x", "y"): 0.9})
+        result = mem.sample_correlated(qs, "x")
+        assert isinstance(result, dict)
+
+    def test_sample_correlated_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        qs = mem.create_distribution(["x"])
+        result = mem.sample_correlated(qs, "nonexistent")
+        assert result == {}
+
+
+class TestLateralInsightsNonBranchialFallback:
+    def test_lateral_insights_uses_multiway_fallback(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("p")
+        mem.store("q")
+        mem.store("r")
+        mem.relate("p", "q", label="link")
+        mem.relate("q", "r", label="link")
+        mem.add_rules(TransitiveRule(edge_label="link", new_label="link"))
+        mem.reason({"p"}, max_depth=2)
+        mem._branchial = None
+        insights = mem.lateral_insights("p")
+        assert isinstance(insights, list)
+

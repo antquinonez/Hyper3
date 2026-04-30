@@ -349,3 +349,96 @@ class TestCausalInvarianceDeep:
         report = ci.enforce()
         assert "reduction" in report
         assert isinstance(report["reduction"], int)
+
+
+class TestGraphIsomorphismCoverage:
+    def test_edge_count_mismatch_returns_zero(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=label, label=label))
+        e1 = g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        e2 = g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
+        e3 = g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
+        mw = MultiwayEngine(g)
+        s1 = MultiwayState(active_node_ids=frozenset({"a", "b", "c", "d"}), produced_edge_ids=[e1.id, e2.id])
+        s2 = MultiwayState(active_node_ids=frozenset({"a", "b", "c", "d"}), produced_edge_ids=[e1.id, e2.id, e3.id])
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.check_graph_isomorphism(s1, s2) == 0.0
+
+    def test_node_match_returns_false_for_missing_nodes(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="shared", data={"k": "v"}))
+        g.add_node(Hypernode(id="b", label="shared", data={"k": "v"}))
+        e1 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"miss1"}), label="rel")
+        e2 = Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"miss2"}), label="rel")
+        g._edges[e1.id] = e1
+        g._edges[e2.id] = e2
+        mw = MultiwayEngine(g)
+        s1 = MultiwayState(active_node_ids=frozenset({"a", "miss1"}), produced_edge_ids=[e1.id])
+        s2 = MultiwayState(active_node_ids=frozenset({"b", "miss2"}), produced_edge_ids=[e2.id])
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.check_graph_isomorphism(s1, s2) == 0.0
+
+    def test_large_graphs_use_approximate_isomorphism(self):
+        g = Hypergraph()
+        n = 55
+        for i in range(n):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        edge_ids = []
+        for i in range(n - 1):
+            e = g.add_edge(Hyperedge(source_ids=frozenset({f"n{i}"}), target_ids=frozenset({f"n{i + 1}"}), label="rel"))
+            edge_ids.append(e.id)
+        mw = MultiwayEngine(g)
+        shared = frozenset({f"n{i}" for i in range(n)})
+        s1 = MultiwayState(active_node_ids=shared, produced_edge_ids=edge_ids)
+        s2 = MultiwayState(active_node_ids=shared, produced_edge_ids=edge_ids)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci.check_graph_isomorphism(s1, s2) == 0.8
+
+    def test_approximate_empty_graphs(self):
+        import networkx as nx
+
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        assert ci._approximate_isomorphism(nx.DiGraph(), nx.DiGraph()) == 1.0
+
+    def test_approximate_degree_mismatch(self):
+        import networkx as nx
+
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        ga = nx.DiGraph([(0, 1), (1, 2)])
+        gb = nx.DiGraph([(0, 1), (0, 2), (1, 2)])
+        assert ci._approximate_isomorphism(ga, gb) == 0.0
+
+    def test_approximate_in_degree_mismatch(self):
+        import networkx as nx
+
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        ga = nx.DiGraph([(0, 1), (0, 2)])
+        gb = nx.DiGraph([(0, 1), (2, 1)])
+        assert ci._approximate_isomorphism(ga, gb) == 0.0
+
+    def test_approximate_triangle_mismatch(self):
+        import networkx as nx
+
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        ga = nx.DiGraph([(0, 1), (1, 2), (2, 0), (3, 4), (4, 5), (5, 3)])
+        gb = nx.DiGraph([(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (5, 0)])
+        assert ci._approximate_isomorphism(ga, gb) == 0.0
+
+    def test_approximate_all_match(self):
+        import networkx as nx
+
+        g = Hypergraph()
+        mw = MultiwayEngine(g)
+        ci = StateConvergenceEngine(g, mw.multiway)
+        ga = nx.DiGraph([(0, 1), (1, 2), (2, 0)])
+        gb = nx.DiGraph([(0, 2), (2, 1), (1, 0)])
+        assert ci._approximate_isomorphism(ga, gb) == 0.8

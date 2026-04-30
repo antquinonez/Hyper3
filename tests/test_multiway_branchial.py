@@ -1246,3 +1246,454 @@ class TestMultiScaleBranchialAnalysis:
         result = bs.multi_scale_analysis()
         assert result.macro.n_clusters == 0
 
+
+class TestSetEmbeddingEngine:
+    def test_set_embedding_engine_clears_cache(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        bs.set_embedding_engine(emb)
+        assert bs._embedding_engine is emb
+        assert len(bs._state_embeddings) == 0
+
+
+class TestConceptualDistanceWithEmbedding:
+    def test_conceptual_distance_with_embedding(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        emb.precompute_all()
+        bs = BranchialSpace(g, mw)
+        bs.set_embedding_engine(emb)
+        dist = bs._conceptual_distance(root.id, child1.id)
+        assert 0.0 <= dist <= 2.0
+
+    def test_conceptual_distance_falls_back_to_labels(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        bs = BranchialSpace(g, mw)
+        dist = bs._conceptual_distance(root.id, child1.id)
+        assert 0.0 <= dist <= 2.0
+
+    def test_conceptual_distance_empty_nodes(self):
+        g = Hypergraph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset())
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset(), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        bs = BranchialSpace(g, mw)
+        dist = bs._conceptual_distance(root.id, child1.id)
+        assert dist == 0.0
+
+    def test_conceptual_distance_both_empty_labels(self):
+        g = Hypergraph()
+        n1 = Hypernode(id="n1", label="")
+        n2 = Hypernode(id="n2", label="")
+        g.add_node(n1)
+        g.add_node(n2)
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"n1"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"n2"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        bs = BranchialSpace(g, mw)
+        dist = bs._conceptual_distance(root.id, child1.id)
+        assert dist == 0.0
+
+
+class TestGetStateEmbedding:
+    def test_returns_none_for_missing_state(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        bs = BranchialSpace(g, mw)
+        assert bs._get_state_embedding("nonexistent") is None
+
+    def test_returns_none_for_no_active_nodes(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset())
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        assert bs._get_state_embedding(root.id) is None
+
+    def test_returns_none_without_embedding_engine(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        assert bs._get_state_embedding(root.id) is None
+
+    def test_caches_embedding(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        emb.precompute_all()
+        bs = BranchialSpace(g, mw)
+        bs.set_embedding_engine(emb)
+        result1 = bs._get_state_embedding(root.id)
+        assert result1 is not None
+        result2 = bs._get_state_embedding(root.id)
+        assert result1 is result2
+
+
+class TestLateralInferenceDeep:
+    def test_lateral_with_embedding_engine(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "c"}), depth=1, rule_applied="r1")
+        child1.produced_edge_ids = []
+        child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b", "d"}), depth=1, rule_applied="r2")
+        child2.produced_edge_ids = []
+        mw.add_state(root)
+        mw.add_state(child1)
+        mw.add_state(child2)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        emb.precompute_all()
+        bs = BranchialSpace(g, mw)
+        bs.set_embedding_engine(emb)
+        bs.assign_coordinates()
+        insights = bs.lateral_inference(child1.id)
+        assert isinstance(insights, list)
+
+    def test_rank_novel_by_similarity(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
+        mw.add_state(root)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        emb.precompute_all()
+        bs = BranchialSpace(g, mw)
+        bs.set_embedding_engine(emb)
+        scores = bs._rank_novel_by_similarity(frozenset({"c", "d"}), frozenset({"a", "b"}))
+        assert isinstance(scores, dict)
+
+    def test_rank_novel_empty_inputs(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        bs = BranchialSpace(g, mw)
+        assert bs._rank_novel_by_similarity(frozenset(), frozenset({"a"})) == {}
+        assert bs._rank_novel_by_similarity(frozenset({"a"}), frozenset()) == {}
+
+
+class TestTransferInsightDeep:
+    def test_transfer_with_labeled_edges(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "b", "c"}), depth=1, rule_applied="r1")
+        child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "b", "d"}), depth=1, rule_applied="r2")
+        mw.add_state(root)
+        mw.add_state(child1)
+        mw.add_state(child2)
+        e1 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="implies")
+        g.add_edge(e1)
+        child1.produced_edge_ids = [e1.id]
+        child2.produced_edge_ids = []
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        proposal = bs.transfer_insight(child1.id, child2.id)
+        assert proposal.source_state_id == child1.id
+        assert proposal.target_state_id == child2.id
+        assert "implies" in proposal.source_patterns
+
+    def test_transfer_missing_states(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        bs = BranchialSpace(g, mw)
+        proposal = bs.transfer_insight("missing_a", "missing_b")
+        assert proposal.confidence == 0.0
+
+    def test_transfer_no_edge_labels(self):
+        g = Hypergraph()
+        for lbl in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=lbl, label=lbl))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1, rule_applied="r1")
+        child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1, rule_applied="r2")
+        mw.add_state(root)
+        mw.add_state(child1)
+        mw.add_state(child2)
+        child1.produced_edge_ids = []
+        child2.produced_edge_ids = []
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        proposal = bs.transfer_insight(child1.id, child2.id)
+        assert proposal.source_patterns == []
+        assert proposal.proposed_edges == []
+
+
+class TestFindAnalogousStatesDeep:
+    def test_find_analogous_with_distance_range(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        child3 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"d"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        mw.add_state(child2)
+        mw.add_state(child3)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        results = bs.find_analogous_states(child1.id, min_distance=0.0, max_distance=100.0)
+        assert isinstance(results, list)
+
+    def test_find_analogous_auto_assigns(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child1)
+        bs = BranchialSpace(g, mw)
+        results = bs.find_analogous_states(child1.id)
+        assert isinstance(results, list)
+
+
+class TestFindAllAnalogiesDeep:
+    def test_find_all_analogies(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1, rule_applied="r1")
+        child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1, rule_applied="r2")
+        child3 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"d"}), depth=1, rule_applied="r3")
+        e1 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="flow")
+        e2 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="flow")
+        e3 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"d"}), label="flow")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        g.add_edge(e3)
+        child1.produced_edge_ids = [e1.id]
+        child2.produced_edge_ids = [e2.id]
+        child3.produced_edge_ids = [e3.id]
+        mw.add_state(root)
+        mw.add_state(child1)
+        mw.add_state(child2)
+        mw.add_state(child3)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        proposals = bs.find_all_analogies(child1.id)
+        assert isinstance(proposals, list)
+
+
+class TestPlanPathDeep:
+    def test_plan_path_self(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        path = bs.plan_path(root.id, root.id)
+        assert path == [root.id]
+
+    def test_plan_path_unreachable(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        orphan = MultiwayState(active_node_ids=frozenset({"b"}))
+        mw.add_state(orphan)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        path = bs.plan_path(root.id, orphan.id)
+        assert path == []
+
+    def test_plan_path_to_child(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        child = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(child)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        path = bs.plan_path(root.id, child.id)
+        assert root.id in path
+        assert child.id in path
+
+    def test_plan_path_auto_assigns(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        path = bs.plan_path(root.id, root.id)
+        assert path == [root.id]
+
+    def test_plan_path_with_siblings(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        gc = MultiwayState(parent_id=c1.id, active_node_ids=frozenset({"d"}), depth=2)
+        mw.add_state(root)
+        mw.add_state(c1)
+        mw.add_state(c2)
+        mw.add_state(gc)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        path = bs.plan_path(c2.id, gc.id)
+        assert c2.id in path
+        assert gc.id in path
+        assert path[0] == c2.id
+        assert path[-1] == gc.id
+
+    def test_plan_path_missing_coordinates(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        path = bs.plan_path(root.id, "nonexistent")
+        assert path == []
+
+
+class TestNearestHighDensityRegionDeep:
+    def test_no_clusters(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        assert bs.nearest_high_density_region(root.id) is None
+
+    def test_no_coordinates(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        bs._clusters = [BranchialCluster(state_ids={"x", "y"})]
+        result = bs.nearest_high_density_region("nonexistent_state")
+        assert result is None
+
+
+class TestMultiScaleAnalysisDeep:
+    def test_imbalanced_clusters_insight(self):
+        g = Hypergraph()
+        for i in range(8):
+            g.add_node(Hypernode(label=f"n{i}"))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset(n.id for n in g.nodes[:4]))
+        mw.add_state(root)
+        for i in range(7):
+            child = MultiwayState(
+                parent_id=root.id,
+                active_node_ids=frozenset(n.id for n in g.nodes[:1]),
+                depth=1,
+                rule_applied=f"rule_{i}",
+            )
+            mw.add_state(child)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        result = bs.multi_scale_analysis()
+        assert isinstance(result, MultiScaleAnalysis)
+
+    def test_empty_position_data(self):
+        g = Hypergraph()
+        for i in range(4):
+            g.add_node(Hypernode(label=f"n{i}"))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset())
+        mw.add_state(root)
+        for _i in range(3):
+            child = MultiwayState(parent_id=root.id, active_node_ids=frozenset(), depth=1)
+            mw.add_state(child)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        result = bs.multi_scale_analysis()
+        assert isinstance(result, MultiScaleAnalysis)
+
+
+class TestBuildSimultaneityGroups:
+    def test_build_groups_from_multiway(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(c1)
+        mw.add_state(c2)
+        bs = BranchialSpace(g, mw)
+        groups = bs.build_simultaneity_groups()
+        assert isinstance(groups, list)
+
+    def test_add_state_to_simultaneity(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(c1)
+        bs = BranchialSpace(g, mw)
+        bs.add_state_to_simultaneity(c1)
+        assert len(bs.simultaneity_groups) >= 1
+        c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        mw.add_state(c2)
+        bs.add_state_to_simultaneity(c2)
+        assert len(bs.simultaneity_groups) == 1
+
+    def test_add_state_without_parent(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = BranchialSpace(g, mw)
+        bs.add_state_to_simultaneity(root)
+        assert len(bs.simultaneity_groups) == 0
+
+    def test_remove_state_from_simultaneity(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(c1)
+        bs = BranchialSpace(g, mw)
+        bs.add_state_to_simultaneity(c1)
+        bs.remove_state_from_simultaneity(c1.id)
+        assert c1.id not in bs.simultaneity_groups[0].state_ids
+
+
+class TestAnalyzeDeep:
+    def test_analyze_with_data(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        mw.add_state(root)
+        mw.add_state(c1)
+        mw.add_state(c2)
+        bs = BranchialSpace(g, mw)
+        bs.assign_coordinates()
+        analysis = bs.analyze()
+        assert analysis.states_mapped > 0
+

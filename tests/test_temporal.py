@@ -433,3 +433,111 @@ class TestTemporalConsistency:
         )
         assert "consistent" in result
 
+
+class TestAdditionalCoverage:
+    def test_relate_to_nan_rejected(self):
+        with pytest.raises(ValueError):
+            TimeInterval(1.0, float('nan'))
+
+    def test_edge_temporal_consistency_both_edges_missing(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        result = tr.edge_temporal_consistency("missing_a", "missing_b", g)
+        assert result == {"consistent": True, "reason": "edge_not_found"}
+
+    def test_edge_temporal_consistency_one_edge_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e1")
+        edge_a_id = mem.graph.edges[0].id
+        result = mem.temporal.edge_temporal_consistency(edge_a_id, "missing", mem.graph)
+        assert result == {"consistent": True, "reason": "edge_not_found"}
+
+    def test_edge_temporal_consistency_no_temporal_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e1")
+        mem.relate("b", "a", label="e2")
+        edge_a_id = mem.graph.edges[0].id
+        edge_b_id = mem.graph.edges[1].id
+        result = mem.temporal.edge_temporal_consistency(edge_a_id, edge_b_id, mem.graph)
+        assert result == {"consistent": True, "reason": "no_temporal_data"}
+
+    def test_check_constraint_consistency_single_event(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        assert tr.check_constraint_consistency() == []
+
+    def test_check_constraint_consistency_no_constraints(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        tr.add_event("e2", "B", 3.0, 5.0)
+        assert tr.check_constraint_consistency() == []
+
+    def test_check_constraint_consistency_matching(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        tr.add_event("e2", "B", 3.0, 5.0)
+        tr.add_constraint("e1", "e2", AllenRelation.BEFORE)
+        assert tr.check_constraint_consistency() == []
+
+    def test_check_constraint_consistency_mismatch(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        tr.add_event("e2", "B", 3.0, 5.0)
+        tr.add_constraint("e1", "e2", AllenRelation.AFTER)
+        result = tr.check_constraint_consistency()
+        assert len(result) == 1
+        assert result[0]["event_a"] == "A"
+        assert result[0]["event_b"] == "B"
+        assert result[0]["actual_relation"] == "before"
+        assert result[0]["expected_relation"] == "after"
+
+    def test_check_constraint_consistency_non_matching_target(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        tr.add_event("e2", "B", 3.0, 5.0)
+        tr.add_event("e3", "C", 6.0, 8.0)
+        tr.add_constraint("e1", "e3", AllenRelation.BEFORE)
+        assert tr.check_constraint_consistency() == []
+
+    def test_check_constraint_consistency_none_interval(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        tr.add_event("e1", "A", 0.0, 2.0)
+        e2 = tr.add_event("e2", "B", 3.0, 5.0)
+        e2.interval = None
+        tr.add_constraint("e1", "e2", AllenRelation.BEFORE)
+        assert tr.check_constraint_consistency() == []
+
+    def test_get_event_for_node_found(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("my_event")
+        node = mem.graph.get_node_by_label("my_event")
+        mem.temporal.add_event("ev1", "my_event", 0.0, 5.0)
+        result = mem.temporal.get_event_for_node(node.id, mem.graph)
+        assert result is not None
+        assert result.event_id == "ev1"
+        assert result.label == "my_event"
+
+    def test_get_event_for_node_no_matching_event(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("something")
+        node = mem.graph.get_node_by_label("something")
+        mem.temporal.add_event("ev1", "other", 0.0, 5.0)
+        result = mem.temporal.get_event_for_node(node.id, mem.graph)
+        assert result is None
+
+    def test_get_event_for_node_missing_node(self):
+        g = Hypergraph()
+        tr = TemporalReasoner(g)
+        result = tr.get_event_for_node("nonexistent", g)
+        assert result is None
+

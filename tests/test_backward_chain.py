@@ -6,10 +6,53 @@ from hyper3 import (
     AbductiveRule,
     HypergraphMemory,
     InverseRule,
+    Rule,
+    RuleMatch,
     TransitiveRule,
 )
-from hyper3.backward_chain import BackwardChainEngine
+from hyper3.backward_chain import BackwardChainEngine, ProofStep, ProofTree
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+
+
+class _DerivationRule(Rule):
+    def __init__(
+        self,
+        target_id: str,
+        premise_id: str,
+        *,
+        name: str = "test_derive",
+        score: float = 1.0,
+        context: dict | None = None,
+    ):
+        self._target_id = target_id
+        self._premise_id = premise_id
+        self._name = name
+        self._score = score
+        self._ctx = context if context is not None else {}
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        return []
+
+    def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        return [], []
+
+    def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
+        if target_node_id == self._target_id:
+            return [
+                RuleMatch(
+                    rule_name=self._name,
+                    bindings={"premise": self._premise_id},
+                    context=self._ctx,
+                )
+            ]
+        return []
+
+    def score_match(self, match: RuleMatch, graph: Hypergraph) -> float:
+        return self._score
 
 
 class TestBackwardChainBasic:
@@ -222,3 +265,164 @@ class TestBackwardChainingFromWave2:
         rule = AbductiveRule()
         derivations = rule.find_derivation(a.id, g)
         assert derivations == []
+
+
+class TestBackwardChainMissingPremiseFallback:
+    def test_missing_premise_uses_truncated_id_as_label(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        g.add_node(t)
+        fake_id = "abcdefgh12345678"
+        engine = BackwardChainEngine(g, [])
+        fake_tree = ProofTree(
+            goal_id=t.id,
+            goal_label="T",
+            achieved=False,
+            steps=[
+                ProofStep(
+                    rule_name="fake",
+                    target_id=t.id,
+                    required_premises=[fake_id],
+                    match=RuleMatch(rule_name="fake", bindings={"x": fake_id}),
+                    confidence=0.5,
+                )
+            ],
+            confidence=0.5,
+        )
+        engine._build_proof_tree = lambda *a, **k: fake_tree
+        result = engine.prove("T", known_facts=set())
+        assert not result.achievable
+        assert len(result.missing_premises) == 1
+        assert result.missing_premises[0] == fake_id[:8]
+
+
+class TestBackwardChainBatchAccumulation:
+    def test_prove_batch_accumulates_proven_labels(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="A"), Hypernode(label="B"), Hypernode(label="C")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        rule_b = _DerivationRule(b.id, a.id, name="derive_b", score=0.9)
+        rule_c = _DerivationRule(c.id, b.id, name="derive_c", score=0.8)
+        engine = BackwardChainEngine(g, [rule_b, rule_c])
+        results = engine.prove_batch(["B", "C"], known_facts={"A"})
+        assert results[0].achievable
+        assert results[1].achievable
+
+
+class TestBackwardChainEdgeLabelFilter:
+    def test_derivation_filtered_by_mismatched_edge_label(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p = Hypernode(label="P")
+        g.add_node(t)
+        g.add_node(p)
+        rule = _DerivationRule(t.id, p.id, name="test", context={"edge_label": "correct"})
+        engine = BackwardChainEngine(g, [rule])
+        result = engine.prove("T", known_facts={"P"}, edge_label="wrong")
+        assert not result.achievable
+
+
+class TestBackwardChainBestTreeSelection:
+    def test_selects_highest_confidence_proof(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        weak = _DerivationRule(t.id, p1.id, name="weak", score=0.3)
+        strong = _DerivationRule(t.id, p2.id, name="strong", score=0.9)
+        engine = BackwardChainEngine(g, [weak, strong])
+        result = engine.prove("T", known_facts={"P1", "P2"})
+        assert result.achievable
+        assert result.confidence == pytest.approx(0.9)
+
+    def test_returns_best_tree_when_multiple_derivations(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        r1 = _DerivationRule(t.id, p1.id, name="first", score=0.4)
+        r2 = _DerivationRule(t.id, p2.id, name="second", score=0.8)
+        engine = BackwardChainEngine(g, [r1, r2])
+        result = engine.prove("T", known_facts={"P1", "P2"})
+        assert result.achievable
+        assert result.proof_tree is not None
+        assert any(s.rule_name == "second" for s in result.proof_tree.steps)
+
+
+class TestBackwardChainAlternativeProofs:
+    def test_finds_alternatives_excluding_primary(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        p3 = Hypernode(label="P3")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        g.add_node(p3)
+        r1 = _DerivationRule(t.id, p1.id, name="r1", score=0.5)
+        r2 = _DerivationRule(t.id, p2.id, name="r2", score=0.7)
+        r3 = _DerivationRule(t.id, p3.id, name="r3", score=0.9)
+        engine = BackwardChainEngine(g, [r1, r2, r3], max_alternatives=2)
+        result = engine.prove("T", known_facts={"P1", "P2", "P3"})
+        assert result.achievable
+        assert result.confidence == pytest.approx(0.9)
+        assert len(result.alternative_plans) == 2
+
+    def test_alternative_unsatisfied_premise(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        primary = _DerivationRule(t.id, p1.id, name="primary", score=0.9)
+        alt = _DerivationRule(t.id, p2.id, name="alt", score=0.5)
+        engine = BackwardChainEngine(g, [primary, alt], max_alternatives=5)
+        result = engine.prove("T", known_facts={"P1"})
+        assert result.achievable
+        assert len(result.alternative_plans) == 1
+        assert not result.alternative_plans[0].achieved
+
+    def test_alternative_edge_label_filter(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        primary = _DerivationRule(t.id, p1.id, name="primary", score=0.9, context={"edge_label": "wanted"})
+        alt = _DerivationRule(t.id, p2.id, name="alt", score=0.5, context={"edge_label": "unwanted"})
+        engine = BackwardChainEngine(g, [primary, alt])
+        result = engine.prove("T", known_facts={"P1", "P2"}, edge_label="wanted")
+        assert result.achievable
+        assert len(result.alternative_plans) == 0
+
+    def test_alternatives_sorted_by_confidence(self):
+        g = Hypergraph()
+        t = Hypernode(label="T")
+        p1 = Hypernode(label="P1")
+        p2 = Hypernode(label="P2")
+        p3 = Hypernode(label="P3")
+        g.add_node(t)
+        g.add_node(p1)
+        g.add_node(p2)
+        g.add_node(p3)
+        r1 = _DerivationRule(t.id, p1.id, name="r1", score=0.9)
+        r2 = _DerivationRule(t.id, p2.id, name="r2", score=0.3)
+        r3 = _DerivationRule(t.id, p3.id, name="r3", score=0.6)
+        engine = BackwardChainEngine(g, [r1, r2, r3], max_alternatives=10)
+        result = engine.prove("T", known_facts={"P1", "P2", "P3"})
+        assert result.achievable
+        assert len(result.alternative_plans) == 2
+        assert result.alternative_plans[0].confidence >= result.alternative_plans[1].confidence

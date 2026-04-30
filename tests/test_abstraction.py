@@ -139,3 +139,93 @@ class TestAbstractionNavigator:
         assert r2 is not None
         summaries = mem.list_summaries()
         assert len(summaries) == 2
+
+
+class TestAbstractionCoverage:
+    def test_mappings_property(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import Hypergraph, Hypernode
+
+        graph = Hypergraph()
+        nav = AbstractionNavigator(graph)
+        assert nav.mappings == {}
+        graph.add_node(Hypernode(label="A"))
+        graph.add_node(Hypernode(label="B"))
+        nav.collapse_subgraph({"A", "B"}, summary_label="AB")
+        mappings = nav.mappings
+        assert len(mappings) == 1
+        assert all(m.summary_label == "AB" for m in mappings.values())
+
+    def test_expand_node_no_mapping(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import Hypergraph, Hypernode
+
+        graph = Hypergraph()
+        nav = AbstractionNavigator(graph)
+        graph.add_node(Hypernode(label="orphan"))
+        result = nav.expand_node("orphan")
+        assert result is None
+
+    def test_expand_with_removed_detail_and_outgoing_edge(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
+
+        graph = Hypergraph()
+        nav = AbstractionNavigator(graph)
+        a = Hypernode(label="A")
+        b = Hypernode(label="B")
+        ext = Hypernode(label="EXT")
+        graph.add_node(a)
+        graph.add_node(b)
+        graph.add_node(ext)
+        graph.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+            label="internal",
+        ))
+        graph.add_edge(Hyperedge(
+            source_ids=frozenset({b.id}),
+            target_ids=frozenset({ext.id}),
+            label="out",
+        ))
+        graph.add_edge(Hyperedge(
+            source_ids=frozenset({ext.id}),
+            target_ids=frozenset({a.id}),
+            label="in",
+        ))
+        nav.collapse_subgraph({"A", "B"}, summary_label="AB")
+        graph.remove_node(a.id)
+        result = nav.expand_node("AB")
+        assert result is not None
+        assert result.summary_removed is True
+        assert b.id in result.expanded_nodes
+        assert a.id not in result.expanded_nodes
+
+    def test_get_summary_for(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import Hypergraph, Hypernode
+
+        graph = Hypergraph()
+        nav = AbstractionNavigator(graph)
+        assert nav.get_summary_for("nothing") is None
+        graph.add_node(Hypernode(label="X"))
+        assert nav.get_summary_for("X") is None
+        graph.add_node(Hypernode(label="A"))
+        graph.add_node(Hypernode(label="B"))
+        nav.collapse_subgraph({"A", "B"}, summary_label="AB")
+        mapping = nav.get_summary_for("AB")
+        assert mapping is not None
+        assert mapping.summary_label == "AB"
+
+    def test_get_summary_children(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+        from hyper3.kernel import Hypergraph, Hypernode
+
+        graph = Hypergraph()
+        nav = AbstractionNavigator(graph)
+        assert nav.get_summary_children("nothing") == []
+        graph.add_node(Hypernode(label="A"))
+        graph.add_node(Hypernode(label="B"))
+        nav.collapse_subgraph({"A", "B"}, summary_label="AB")
+        children = nav.get_summary_children("AB")
+        assert children == ["A", "B"]

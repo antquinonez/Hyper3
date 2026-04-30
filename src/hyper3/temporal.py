@@ -48,6 +48,10 @@ class TimeInterval:
 
     def __post_init__(self):
         """Validate that the interval end is not before the start."""
+        import math
+
+        if math.isnan(self.start) or math.isnan(self.end):
+            raise ValueError(f"Interval bounds must be finite numbers, got start={self.start}, end={self.end}")
         if self.end < self.start:
             raise ValueError(f"Interval end ({self.end}) must be >= start ({self.start})")
 

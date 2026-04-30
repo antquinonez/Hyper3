@@ -740,6 +740,94 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 6. Run a coverage report after adding tests: `.venv/bin/python -m pytest tests/ --cov=hyper3 --cov-report=term-missing --tb=short`. Target 95%+ per module.
 7. **Do not commit unless the user explicitly asks.** Stage changes and report readiness, but let the user decide when to commit.
 
+## Testing Principles
+
+Tests must verify **correct behavior**, not exercise code paths for coverage. A test that passes without asserting anything meaningful is worse than no test — it gives false confidence and makes real bugs harder to spot during review.
+
+### TP-1: Assert specific values, not just types
+
+Every test must assert at least one specific, predictable value. `isinstance(result, float)`, `isinstance(result, list)`, and `result is not None` are not sufficient assertions on their own — they would pass even if the code returned garbage.
+
+Bad:
+```python
+dist = bs._conceptual_distance(state_a, state_b)
+assert isinstance(dist, float)
+```
+
+Good:
+```python
+dist = bs._conceptual_distance(state_a, state_b)
+assert 0.0 <= dist <= 2.0  # cosine distance is bounded in [0, 2]
+```
+
+Acceptable uses of type-only assertions: verifying that a factory method returns the correct subclass, or that an error path returns `None` instead of raising.
+
+### TP-2: Assert the semantics, not the implementation
+
+Tests should verify *what* the code computes, not *how* it computes it. If the test would need to change after a correct refactoring (renaming a private method, reordering internal steps), the test is coupled to the wrong thing.
+
+- For distance/similarity functions: assert bounds, ordering, or equivalence-class membership (e.g., "distance to self is 0", "symmetric inputs produce symmetric output").
+- For graph algorithms: assert structural properties of the result (path is contiguous, cluster members share edges, returned set is a subset of inputs).
+- For result dataclasses: assert specific field values, not just that the object exists.
+
+### TP-3: Do not enshrine bugs as expected behavior
+
+If a function returns a wrong or nonsensical result, write the test to assert the **correct** behavior and let it fail. Then fix the source code. Never write a passing test that asserts incorrect output just to gain coverage on a code path.
+
+Example: if `TimeInterval(1.0, NaN).relate_to(other)` silently falls through to `EQUALS`, do not write `assert result == AllenRelation.EQUALS`. Instead, either fix the source to reject NaN in `__post_init__` and assert `ValueError`, or skip the test with a comment explaining the known bug.
+
+### TP-4: Every edge-case test needs a justification
+
+When testing an edge case (empty input, missing node, NaN, zero-length collection), the test must document *why* this edge case matters and what the correct behavior should be. Do not construct pathological inputs just because a code path exists.
+
+Good:
+```python
+def test_conceptual_distance_both_empty_states():
+    # Two states with no active nodes are identical -> distance 0
+    ...
+    assert dist == 0.0
+```
+
+Bad:
+```python
+def test_conceptual_distance_empty():
+    dist = bs._conceptual_distance(empty_a, empty_b)
+    assert isinstance(dist, float)
+```
+
+### TP-5: Test error paths by asserting the error
+
+When testing that invalid input raises an exception, assert the specific exception type and, where practical, the error message content. Do not catch the exception and assert `True`.
+
+Good:
+```python
+with pytest.raises(NodeNotFoundError):
+    mem.correlate(["missing"], ["x"], {("missing", "x"): 0.5})
+```
+
+Bad:
+```python
+try:
+    mem.correlate(["missing"], ["x"], {("missing", "x"): 0.5})
+    assert False, "should have raised"
+except NodeNotFoundError:
+    pass
+```
+
+### TP-6: Coverage is a finding tool, not a target
+
+Use coverage reports to identify untested code paths, then write tests that verify correct behavior on those paths. Do not write tests whose only purpose is to move the coverage number upward. If a code path cannot be tested with a meaningful assertion, it is acceptable to leave it uncovered rather than add a vacuous test.
+
+### TP-7: Avoid compound weak assertions
+
+Prefer one strong assertion over several weak ones. A test that asserts `result.total_match_count >= 1` is stronger than a test that asserts `isinstance(result.total_match_count, int)`. A test that asserts `result.total_match_count == 3` (when the input deterministically produces exactly 3 matches) is strongest.
+
+Use `>=` when the exact count depends on non-deterministic internal ordering. Use `==` when the input deterministically produces a known result.
+
+### TP-8: Test observable behavior over internal state
+
+Prefer testing through the public API. Directly accessing private attributes (`_overlay_nodes`, `_state_embeddings`, `_distance_cache`) is acceptable for coverage of internal logic that cannot be observed through public methods, but the test must still assert specific values on those internals, not just their existence or type.
+
 ## Writing Example Scripts
 
 ### Structure and conventions

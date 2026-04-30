@@ -242,3 +242,311 @@ class TestCapabilityLevelValues:
     def test_level_ordering(self):
         levels = list(CapabilityLevel)
         assert levels.index(CapabilityLevel.MINIMAL) < levels.index(CapabilityLevel.FULL)
+
+
+class TestProbeGraphExceptionBranch:
+    def test_graph_nodes_raises(self):
+        class BadNodes:
+            def __len__(self):
+                raise RuntimeError("boom")
+
+        class BadGraph:
+            nodes = BadNodes()
+
+        class Mem:
+            _graph = BadGraph()
+
+        assert _probe_graph(Mem()) is False
+
+
+class TestProbeRulesBranches:
+    def test_rules_present_no_nodes(self):
+        class FakeGraph:
+            nodes = []
+
+        class Mem:
+            _rules = [TransitiveRule()]
+            _graph = FakeGraph()
+
+        assert _probe_rules(Mem()) is True
+
+    def test_rules_exception_returns_bool_rules(self):
+        class BadRule:
+            def find_matches(self, graph, active):
+                raise RuntimeError("boom")
+
+        class FakeNode:
+            id = "n1"
+
+        class FakeGraph:
+            nodes = [FakeNode()]
+
+        class Mem:
+            _rules = [BadRule()]
+            _graph = FakeGraph()
+
+        assert _probe_rules(Mem()) is True
+
+
+class TestProbeMultiwayBranches:
+    def test_multiway_attr_is_none(self):
+        class Engine:
+            multiway = None
+
+        class Mem:
+            _multiway_engine = Engine()
+
+        assert _probe_multiway(Mem()) is False
+
+    def test_multiway_exception(self):
+        class BadEngine:
+            @property
+            def multiway(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _multiway_engine = BadEngine()
+
+        assert _probe_multiway(Mem()) is False
+
+
+class TestProbeProvenanceException:
+    def test_provenance_exception(self):
+        class BadProv:
+            @property
+            def _records(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _provenance = BadProv()
+
+        assert _probe_provenance(Mem()) is False
+
+
+class TestProbeBeliefException:
+    def test_belief_exception(self):
+        class BadBelief:
+            @property
+            def _states(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _belief = BadBelief()
+
+        assert _probe_belief(Mem()) is False
+
+
+class TestProbeBranchialException:
+    def test_branchial_exception(self):
+        class BadBranchial:
+            @property
+            def _coordinates(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _branchial = BadBranchial()
+
+        assert _probe_branchial(Mem()) is False
+
+
+class TestProbeRulialBranches:
+    def test_rulial_with_history(self):
+        class Rulial:
+            _position_history = [("pos", 1.0)]
+
+        class Mem:
+            _rulial = Rulial()
+
+        assert _probe_rulial(Mem()) is True
+
+    def test_rulial_exception(self):
+        class BadRulial:
+            @property
+            def _position_history(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _rulial = BadRulial()
+
+        assert _probe_rulial(Mem()) is False
+
+
+class TestProbeEmbeddingBranches:
+    def test_embedding_with_cache(self):
+        class Engine:
+            _cache = {"node1": [0.1, 0.2]}
+
+        class Mem:
+            _embedding_engine = Engine()
+
+        assert _probe_embedding(Mem()) is True
+
+    def test_embedding_exception(self):
+        class BadEngine:
+            @property
+            def _cache(self):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _embedding_engine = BadEngine()
+
+        assert _probe_embedding(Mem()) is False
+
+
+class TestProbeRetrievalBranches:
+    def test_retrieval_feedback_is_none(self):
+        class Retrieval:
+            _feedback = None
+
+        class Mem:
+            _retrieval = Retrieval()
+
+        assert _probe_retrieval(Mem()) is False
+
+    def test_retrieval_callable_size(self):
+        class Feedback:
+            def size(self):
+                return 3
+
+        class Retrieval:
+            _feedback = Feedback()
+
+        class Mem:
+            _retrieval = Retrieval()
+
+        assert _probe_retrieval(Mem()) is True
+
+    def test_retrieval_callable_size_zero(self):
+        class Feedback:
+            def size(self):
+                return 0
+
+        class Retrieval:
+            _feedback = Feedback()
+
+        class Mem:
+            _retrieval = Retrieval()
+
+        assert _probe_retrieval(Mem()) is False
+
+    def test_retrieval_exception(self):
+        class BadFeedback:
+            @property
+            def size(self):
+                raise RuntimeError("boom")
+
+        class Retrieval:
+            _feedback = BadFeedback()
+
+        class Mem:
+            _retrieval = Retrieval()
+
+        assert _probe_retrieval(Mem()) is False
+
+
+class TestComputeCapabilityScoreExceptions:
+    def test_probe_exception_in_loop(self):
+        class RaisingDescriptor:
+            def __get__(self, obj, objtype=None):
+                raise RuntimeError("boom")
+
+        class BadMemory:
+            _multiway_engine = RaisingDescriptor()
+
+        scores = _compute_capability_score(BadMemory())
+        assert scores["multiway"] == 0.0
+
+    def test_graph_density_exception(self):
+        class BadNode:
+            id = "n1"
+
+        class BadGraph:
+            nodes = [BadNode()]
+
+            def edges_for(self, node_id):
+                raise RuntimeError("boom")
+
+        class Mem:
+            _graph = BadGraph()
+
+        scores = _compute_capability_score(Mem())
+        assert scores["graph_density"] == 0.0
+
+    def test_belief_active_ratio_exception(self):
+        class BadStates(dict):
+            def values(self):
+                raise RuntimeError("boom")
+
+        class BadBelief:
+            _states = BadStates()
+
+        class FakeNode:
+            id = "n1"
+
+        class FakeGraph:
+            nodes = [FakeNode()]
+
+            def edges_for(self, node_id):
+                return []
+
+        class Mem:
+            _graph = FakeGraph()
+            _belief = BadBelief()
+
+        scores = _compute_capability_score(Mem())
+        assert scores["belief_active_ratio"] == 0.0
+
+
+class TestDetectFullLevel:
+    def test_enhanced_when_full_below_threshold(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="rel")
+        mem.relate("b", "c", label="rel")
+        mem._rules = [TransitiveRule(edge_label="rel")]
+        mem._multiway_engine = MultiwayEngine(mem._graph)
+        mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
+        mem.create_distribution(["a", "b"])
+        mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
+        mem._branchial.assign_coordinates()
+        mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
+
+        class FakeRulial:
+            _position_history = [("p", 1.0)]
+
+        mem._rulial = FakeRulial()
+        level = detect_capability_level(mem)
+        assert level == CapabilityLevel.ENHANCED
+
+    def test_full_capability_level(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="rel")
+        mem.relate("b", "c", label="rel")
+        mem._rules = [TransitiveRule(edge_label="rel")]
+        mem._multiway_engine = MultiwayEngine(mem._graph)
+        mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
+        mem.create_distribution(["a", "b"])
+        mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
+        mem._branchial.assign_coordinates()
+        mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
+
+        class FakeRulial:
+            _position_history = [("p", 1.0)]
+
+        mem._rulial = FakeRulial()
+
+        class FakeEmbeddingEngine:
+            _cache = {"n1": [0.1]}
+
+        mem._embedding_engine = FakeEmbeddingEngine()
+
+        node = mem.graph.get_node_by_label("a")
+        mem._retrieval._feedback.record("q1", node.id, "relevant", True)
+
+        level = detect_capability_level(mem)
+        assert level == CapabilityLevel.FULL

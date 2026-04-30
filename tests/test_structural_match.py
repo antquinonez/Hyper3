@@ -355,3 +355,253 @@ class TestStructuralMatchResultAccess:
         )
         assert match["pattern_name"] == "test"
         assert match["score"] == 0.9
+
+
+class TestCoverageGaps:
+
+    def test_pattern_both_roles_bound_edge_exists(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r2"))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="dual",
+            nodes=[PatternNode(role="x"), PatternNode(role="y")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="x", target_role="y", label="r2"),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count >= 1
+
+    def test_pattern_source_bound_weight_skip(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_node(Hypernode(id="c", label="C"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="r2", weight=0.1))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="r2", weight=2.0))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="weighted_src",
+            nodes=[PatternNode(role="x"), PatternNode(role="y"), PatternNode(role="z")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="x", target_role="z", label="r2", min_weight=1.0),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count >= 1
+
+    def test_pattern_target_only_bound_with_filters(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_node(Hypernode(id="c", label="C"))
+        g.add_node(Hypernode(id="d", label="D"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"c"}), label="r3"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"b"}), label="r2", weight=0.1))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"b"}), label="r2", weight=2.0))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="converge",
+            nodes=[PatternNode(role="x"), PatternNode(role="y"), PatternNode(role="z")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="z", target_role="y", label="r2", min_weight=1.0),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count >= 1
+        found_z = [m.bindings["z"] for m in result.matches]
+        assert "c" in found_z
+
+    def test_pattern_neither_role_bound(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_node(Hypernode(id="c", label="C"))
+        g.add_node(Hypernode(id="d", label="D"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="r2"))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="unbound",
+            nodes=[PatternNode(role="x"), PatternNode(role="y"), PatternNode(role="p"), PatternNode(role="q")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="p", target_role="q", label="r2"),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count >= 1
+
+    def test_pattern_binding_queue_empty(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="dead_end",
+            nodes=[PatternNode(role="x"), PatternNode(role="y"), PatternNode(role="z")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="y", target_role="z", label="nonexistent"),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count == 0
+
+    def test_edge_exists_label_and_weight_filters(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_node(Hypernode(id="c", label="C"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="first"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="wrong"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="second", weight=0.1))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="second", weight=2.0))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="exists_full",
+            nodes=[PatternNode(role="x"), PatternNode(role="y")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="first"),
+                PatternEdge(source_role="x", target_role="y", label="second", min_weight=1.0),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count >= 1
+
+    def test_edge_exists_no_match(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="r1"))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="miss",
+            nodes=[PatternNode(role="x"), PatternNode(role="y")],
+            edges=[
+                PatternEdge(source_role="x", target_role="y", label="r1"),
+                PatternEdge(source_role="x", target_role="y", label="absent"),
+            ],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count == 0
+
+    def test_fan_out_mixed_labels(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="hub"))
+        for i in range(4):
+            g.add_node(Hypernode(id=f"s{i}", label=f"S{i}"))
+            g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({f"s{i}"}), label="target"))
+        g.add_node(Hypernode(id="extra"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({"extra"}), label="other"))
+        engine = StructuralPatternEngine(g)
+        fans = engine.match_fan_out(edge_label="target", min_fan=3)
+        assert len(fans) >= 1
+        _, targets = fans[0]
+        assert "extra" not in targets
+
+    def test_fan_out_max_results_limit(self):
+        g = Hypergraph()
+        for h in range(5):
+            g.add_node(Hypernode(id=f"hub{h}"))
+            for i in range(5):
+                g.add_node(Hypernode(id=f"s{h}_{i}"))
+                g.add_edge(Hyperedge(source_ids=frozenset({f"hub{h}"}), target_ids=frozenset({f"s{h}_{i}"})))
+        engine = StructuralPatternEngine(g)
+        fans = engine.match_fan_out(min_fan=3, max_results=2)
+        assert len(fans) <= 2
+
+    def test_diamond_mixed_labels(self):
+        g = Hypergraph()
+        for lbl in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=lbl, label=lbl))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="flow"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="flow"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="other"))
+        engine = StructuralPatternEngine(g)
+        diamonds = engine.match_diamond(edge_label="flow")
+        assert len(diamonds) >= 1
+
+    def test_diamond_max_matches_limit(self):
+        g = Hypergraph()
+        for i in range(10):
+            g.add_node(Hypernode(id=f"n{i}", label=f"N{i}"))
+        for src_a, src_b in [(0, 1), (2, 3), (4, 5), (6, 7)]:
+            for tgt in [8, 9]:
+                g.add_edge(Hyperedge(
+                    source_ids=frozenset({f"n{src_a}"}),
+                    target_ids=frozenset({f"n{tgt}"}),
+                    label="e",
+                ))
+                g.add_edge(Hyperedge(
+                    source_ids=frozenset({f"n{src_b}"}),
+                    target_ids=frozenset({f"n{tgt}"}),
+                    label="e",
+                ))
+        engine = StructuralPatternEngine(g)
+        diamonds = engine.match_diamond(max_matches=1)
+        assert len(diamonds) == 1
+
+    def test_edge_candidates_weight_filter(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A"))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=0.1))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="heavy",
+            nodes=[PatternNode(role="s"), PatternNode(role="t")],
+            edges=[PatternEdge(source_role="s", target_role="t", label="rel", min_weight=1.0)],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count == 0
+
+    def test_validate_constraints_node_absent(self):
+        g = Hypergraph()
+        engine = StructuralPatternEngine(g)
+        bindings = {"x": "ghost_id"}
+        pattern = PatternTemplate(
+            name="ghost",
+            nodes=[PatternNode(role="x")],
+            edges=[PatternEdge(source_role="x", target_role="y")],
+        )
+        assert engine._validate_node_constraints(bindings, pattern) is False
+
+    def test_validate_constraints_dict_mismatch(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="A", data={"role": "admin"}))
+        g.add_node(Hypernode(id="b", label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        engine = StructuralPatternEngine(g)
+        pattern = PatternTemplate(
+            name="mismatch",
+            nodes=[PatternNode(role="s", constraints={"role": "user"}), PatternNode(role="t")],
+            edges=[PatternEdge(source_role="s", target_role="t", label="rel")],
+        )
+        result = engine.match_pattern(pattern)
+        assert result.total_match_count == 0
+
+    def test_chain_hits_max_length(self):
+        g = Hypergraph()
+        for i in range(10):
+            g.add_node(Hypernode(id=f"n{i}", label=f"N{i}"))
+            if i > 0:
+                g.add_edge(Hyperedge(
+                    source_ids=frozenset({f"n{i-1}"}),
+                    target_ids=frozenset({f"n{i}"}),
+                    label="next",
+                ))
+        engine = StructuralPatternEngine(g)
+        chains = engine.match_chain(edge_label="next", min_length=1, max_length=3)
+        for chain in chains:
+            assert len(chain) - 1 <= 3
