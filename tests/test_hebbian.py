@@ -150,3 +150,31 @@ class TestHebbianLearner:
         assert result.edges_strengthened == 0
         assert len(result.updates) == 1
         assert result.updates[0].new_weight < result.updates[0].old_weight
+
+    def test_non_activated_edge_unchanged(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.store("C")
+        mem.relate("A", "B", label="activated")
+        mem.relate("A", "C", label="dormant")
+        mem.stimulate("A", energy=1.0)
+        mem.stimulate("B", energy=1.0)
+        result = mem.hebbian_reinforce()
+        assert result.edges_strengthened == 1
+        assert result.avg_weight_change > 0.0
+        c_node = mem.graph.get_node_by_label("C")
+        a_node = mem.graph.get_node_by_label("A")
+        for e in mem.graph.edges:
+            if a_node.id in e.source_ids and c_node.id in e.target_ids:
+                assert e.weight == 1.0
+
+    def test_reinforce_exact_weight_delta(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="link")
+        result = mem.hebbian_reinforce_pair("A", "B", strength=1.0)
+        assert result is not None
+        assert result.old_weight == 1.0
+        assert abs(result.new_weight - 1.1) < 1e-9
