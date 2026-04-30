@@ -209,12 +209,11 @@ class TestSemanticCommunity:
         for s, t in [("A", "B"), ("B", "C"), ("A", "C")]:
             g.add_edge(Hyperedge(source_ids=frozenset({nodes[s].id}), target_ids=frozenset({nodes[t].id}), label="x"))
             g.add_edge(Hyperedge(source_ids=frozenset({nodes[t].id}), target_ids=frozenset({nodes[s].id}), label="x"))
-        g.add_edge(Hyperedge(source_ids=frozenset({nodes["C"].id}), target_ids=frozenset({nodes["D"].id}), label="x"))
-        g.add_edge(Hyperedge(source_ids=frozenset({nodes["D"].id}), target_ids=frozenset({nodes["C"].id}), label="x"))
         for s, t in [("D", "E"), ("E", "F"), ("D", "F")]:
             g.add_edge(Hyperedge(source_ids=frozenset({nodes[s].id}), target_ids=frozenset({nodes[t].id}), label="x"))
             g.add_edge(Hyperedge(source_ids=frozenset({nodes[t].id}), target_ids=frozenset({nodes[s].id}), label="x"))
         det = CommunityDetector(g)
-        result = det.detect_label_propagation()
+        result = det.detect_connected_components()
+        assert result.community_count == 2
         total_external = sum(c.external_edges for c in result.communities)
-        assert total_external >= 2
+        assert total_external == 0

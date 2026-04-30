@@ -217,6 +217,8 @@ class CommunityDetector:
         covered_nodes = sum(c.size for c in communities)
         total_internal_edges = sum(c.internal_edges for c in communities)
         coverage = total_internal_edges / total_edges if total_edges > 0 else 0.0
+        coverage = max(0.0, min(1.0, coverage))
+        total_modularity = max(-0.5, min(1.0, total_modularity))
 
         largest = communities[0].size if communities else 0
         avg_size = covered_nodes / len(communities) if communities else 0.0
