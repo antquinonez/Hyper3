@@ -105,8 +105,8 @@ class TestRelateWeight:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
-        edge = mem.relate("a", "b", label="x", weight=0.0)
-        assert edge.weight == 0.0
+        with pytest.raises(ValueError, match="positive"):
+            mem.relate("a", "b", label="x", weight=0.0)
 
 
 class TestNeighbors:

@@ -36,6 +36,7 @@ class CoreMixin(_MemoryBase):
         modalities: set[Modality] | None = None,
         abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
         tags: dict[str, Any] | None = None,
+        update: bool = False,
     ) -> Hypernode:
         """Store a concept as a hypernode in the graph.
 
@@ -48,6 +49,9 @@ class CoreMixin(_MemoryBase):
             modalities: Set of modality tags for the node metadata.
             abstraction: Abstraction layer classification.
             tags: Additional custom metadata key-value pairs.
+            update: If True and the node exists, merge *data* into the
+                existing node's data dict. If False, existing data is
+                left unchanged.
 
         Returns:
             The existing or newly created Hypernode.
@@ -58,6 +62,8 @@ class CoreMixin(_MemoryBase):
             if existing:
                 existing.touch(time.time())
                 self._evolution.reinforce(existing.id)
+                if update and data and isinstance(data, dict) and isinstance(existing.data, dict):
+                    existing.data.update(data)
                 self._log.record("store_cache_hit", node_id=existing.id, concept=concept)
                 return existing
 
@@ -245,7 +251,14 @@ class CoreMixin(_MemoryBase):
 
         Raises:
             NodeNotFoundError: If any source or target concept is not found.
+            ValueError: If sources or targets are empty, or weight is not positive.
         """
+        if not sources:
+            raise ValueError("sources must not be empty")
+        if not targets:
+            raise ValueError("targets must not be empty")
+        if weight <= 0:
+            raise ValueError(f"Edge weight must be positive, got {weight}")
         src_ids: set[str] = set()
         for s in sources:
             node = self._find_node(s)
@@ -375,8 +388,11 @@ class CoreMixin(_MemoryBase):
 
         Raises:
             NodeNotFoundError: If either node is not found.
+            ValueError: If weight is not positive.
             ConstraintViolationError: If a boundary constraint rejects the edge.
         """
+        if weight <= 0:
+            raise ValueError(f"Edge weight must be positive, got {weight}")
         src_node = self._find_node(source)
         tgt_node = self._find_node(target)
         if not src_node:
