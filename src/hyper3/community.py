@@ -182,15 +182,14 @@ class CommunityDetector:
 
             for nid in members:
                 neighbors = neighbor_map.get(nid, [])
-                for nb_id, weight in neighbors:
-                    degree_sum += weight
+                for nb_id, _w in neighbors:
+                    degree_sum += 1
                     if nb_id in member_set:
                         internal += 1
                     else:
                         external += 1
 
             internal //= 2
-            external //= 2
             e_ii = internal / total_edges
             a_i = degree_sum / (2 * total_edges)
             mod_contrib = e_ii - a_i * a_i
@@ -216,8 +215,8 @@ class CommunityDetector:
         communities.sort(key=lambda c: c.size, reverse=True)
 
         covered_nodes = sum(c.size for c in communities)
-        total_nodes = len(labels)
-        coverage = covered_nodes / total_nodes if total_nodes > 0 else 0.0
+        total_internal_edges = sum(c.internal_edges for c in communities)
+        coverage = total_internal_edges / total_edges if total_edges > 0 else 0.0
 
         largest = communities[0].size if communities else 0
         avg_size = covered_nodes / len(communities) if communities else 0.0

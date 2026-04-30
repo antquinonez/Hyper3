@@ -4,6 +4,7 @@ import pytest
 
 from hyper3 import HypergraphMemory
 from hyper3.community import CommunityDetector
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 
 
 class TestCommunityBasic:
@@ -159,3 +160,61 @@ class TestCommunityEdgeCases:
         detector = CommunityDetector(mem.graph)
         result = detector.detect_connected_components()
         assert result.community_count == 0
+
+
+class TestSemanticCommunity:
+    def test_communities_are_disjoint(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(f"N{i}")
+        mem.relate("N0", "N1", label="x")
+        mem.relate("N1", "N2", label="x")
+        mem.relate("N3", "N4", label="x")
+        mem.relate("N4", "N5", label="x")
+        result = mem.detect_communities(seed=42)
+        all_members = []
+        for c in result.communities:
+            all_members.extend(c.member_ids)
+        assert len(all_members) == len(set(all_members))
+
+    def test_modularity_bounds(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(f"N{i}")
+        mem.relate("N0", "N1", label="x")
+        mem.relate("N1", "N2", label="x")
+        mem.relate("N3", "N4", label="x")
+        mem.relate("N4", "N5", label="x")
+        result = mem.detect_communities(seed=42)
+        assert -0.5 <= result.modularity <= 1.0
+
+    def test_coverage_less_than_one_with_cross_community_edges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(f"N{i}")
+        mem.relate("N0", "N1", label="x")
+        mem.relate("N1", "N2", label="x")
+        mem.relate("N2", "N3", label="x")
+        mem.relate("N3", "N4", label="x")
+        mem.relate("N4", "N5", label="x")
+        result = mem.detect_communities(seed=42)
+        if result.community_count > 1:
+            assert result.coverage < 1.0
+
+    def test_external_edges_count_cross_community(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "ABCDEF"}
+        for n in nodes.values():
+            g.add_node(n)
+        for s, t in [("A", "B"), ("B", "C"), ("A", "C")]:
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[s].id}), target_ids=frozenset({nodes[t].id}), label="x"))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[t].id}), target_ids=frozenset({nodes[s].id}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes["C"].id}), target_ids=frozenset({nodes["D"].id}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes["D"].id}), target_ids=frozenset({nodes["C"].id}), label="x"))
+        for s, t in [("D", "E"), ("E", "F"), ("D", "F")]:
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[s].id}), target_ids=frozenset({nodes[t].id}), label="x"))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[t].id}), target_ids=frozenset({nodes[s].id}), label="x"))
+        det = CommunityDetector(g)
+        result = det.detect_label_propagation()
+        total_external = sum(c.external_edges for c in result.communities)
+        assert total_external >= 2
