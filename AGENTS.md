@@ -527,6 +527,24 @@ All graph algorithms in `kernel.py` now use hypergraph-native implementations in
 ### Hyperedge similarity search
 `mem.hyperedge_similarity("concept", metric="jaccard")` finds hyperedges similar to those containing a concept by node-set overlap. Metrics: `jaccard`, `sorensen_dice`, `overlap_coefficient`.
 
+### `betweenness_centrality(max_samples=N)` is not normalized
+When `max_samples` is set and less than the number of nodes, the result is raw pairwise dependency counts that can exceed 1.0. Without `max_samples`, the result is normalized to [0, 1]. Tests on sampled betweenness should not assert `<= 1.0`.
+
+### `detect_cycles(max_cycles=N)` is a soft limit
+The DFS checks `len(cycles) >= max_cycles` at function entry, not at the point of cycle discovery. The algorithm may produce more than `N` cycles. Tests should assert `len(limited) < len(all_cycles)`, not `len(limited) == N`.
+
+### `find_paths` returns all paths, not just shortest
+`find_paths(source, target)` finds every path from source to target. A graph with both a direct edge and an indirect chain returns both paths. The exact count depends on graph structure. Use `max_paths=1` when only one path is expected.
+
+### `ObserverSlice.narrow` depth counts expansion steps
+`narrow("root", max_depth=1)` returns only the root node itself, not root + direct neighbors. `max_depth` limits how many expansion steps the traversal takes. For root + neighbors, use `max_depth=2`.
+
+### `GraphMaintenanceEngine()` default merges identical-data neighbors
+Nodes with matching `data` values that share a connecting edge will merge during `evolve()` even without an explicit `merge_threshold`. The default constructor enables merging. For tests that need to avoid merging, use `merge_threshold=1.0` (disabled).
+
+### `hyperedge_similarity` with unknown metric defaults to jaccard
+Passing an unrecognized metric string falls through to the `else` branch which computes `intersection / union` — identical to the jaccard formula. No error is raised.
+
 ## API Ergonomic Principles
 
 These principles govern the design of public-facing method signatures and return types across **all** modules — engine classes, utility classes, result dataclasses, and facades. Apply them when adding new public methods, refactoring existing ones, or defining new result types.
@@ -733,7 +751,7 @@ The inspiration documents use theoretical terms from advanced mathematics. Many 
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 1700 tests must pass.
+2. Run the full test suite after changes. All 1852 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -827,6 +845,39 @@ Use `>=` when the exact count depends on non-deterministic internal ordering. Us
 ### TP-8: Test observable behavior over internal state
 
 Prefer testing through the public API. Directly accessing private attributes (`_overlay_nodes`, `_state_embeddings`, `_distance_cache`) is acceptable for coverage of internal logic that cannot be observed through public methods, but the test must still assert specific values on those internals, not just their existence or type.
+
+### TP-9: Use exact assertions on deterministic outputs
+
+When the test input fully determines the output (e.g., `max_paths=1`, `max_nodes=3`, a specific graph structure), use `==` not `<=` or `>=`. Range assertions on deterministic values are weaker than necessary — they would pass even if the implementation returned 0 or an arbitrary large number.
+
+Use `>=` or `<=` only when the output is genuinely non-deterministic (sampling, random tie-breaking, floating-point convergence) or when testing a structural property (e.g., "all similarities are in [0,1]").
+
+Bad:
+```python
+paths = g.find_paths(a, d, max_paths=1)
+assert len(paths) <= 1  # passes for 0, which is wrong
+```
+
+Good:
+```python
+paths = g.find_paths(a, d, max_paths=1)
+assert len(paths) == 1  # must find exactly one path
+```
+
+### TP-10: Verify expected values empirically
+
+Before writing an exact assertion, run the code in isolation to confirm the expected value. Guessing at counts, lengths, or numeric results leads to test failures that waste review time. This is especially important for graph algorithms where the output depends on traversal order, edge structure, and weight semantics.
+
+Bad:
+```python
+assert report["merged"] == 0  # guess — actually 1 because default merge_threshold merges identical-data nodes
+```
+
+Good:
+```python
+# Verify with: engine = GraphMaintenanceEngine(g, decay_threshold=0.1); print(engine.evolve())
+assert report["merged"] == 1
+```
 
 ## Writing Example Scripts
 
@@ -958,9 +1009,9 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 1700
+- **Tests**: 1852
 - **Test files**: 38 (one per source module + integration)
-- **Coverage**: 93%
+- **Coverage**: 96%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
 - **Examples**: 51 (26 Hyper3: 3 basic, 6 intermediate, 6 advanced, 7 domain, 5 project pipelines; 20 comparison + 5 project comparisons)

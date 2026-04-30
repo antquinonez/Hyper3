@@ -426,7 +426,7 @@ class TestTraversalEngine:
         g = self._build_graph()
         engine = TraversalEngine(g)
         result = engine.traverse_breadth_first("root", max_nodes=3)
-        assert len(result) <= 3
+        assert len(result) == 3
 
     def test_dfs(self):
         g = self._build_graph()
@@ -439,7 +439,7 @@ class TestTraversalEngine:
         g = self._build_graph()
         engine = TraversalEngine(g)
         result = engine.traverse_depth_first("root", max_depth=1)
-        assert len(result) < 5
+        assert len(result) == 3
 
     def test_traverse_dimension(self):
         g = Hypergraph()
@@ -460,7 +460,7 @@ class TestTraversalEngine:
         engine = TraversalEngine(g)
         engine.traverse_breadth_first("root")
         root = g.get_node("root")
-        assert root.access_count >= 1
+        assert root.access_count == 1
 
 
 class TestObserverSlice:
@@ -477,13 +477,13 @@ class TestObserverSlice:
         g = self._build_graph()
         obs = ObserverSlice(g)
         result = obs.narrow("root", max_depth=1, max_nodes=5)
-        assert len(result) <= 5
+        assert {n.id for n in result} == {"root"}
 
     def test_broaden(self):
         g = self._build_graph()
         obs = ObserverSlice(g)
         result = obs.broaden("root", max_depth=5, max_nodes=100)
-        assert len(result) >= 1
+        assert len(result) == 4
 
     def test_filter_by_modality(self):
         g = Hypergraph()
@@ -540,7 +540,7 @@ class TestGraphMaintenanceEngine:
         g = self._build_graph()
         engine = GraphMaintenanceEngine(g, merge_threshold=0.8)
         merged = engine.merge_equivalences()
-        assert len(merged) >= 1
+        assert len(merged) == 1
 
     def test_reinforce(self):
         g = self._build_graph()
@@ -552,10 +552,10 @@ class TestGraphMaintenanceEngine:
         g = self._build_graph()
         engine = GraphMaintenanceEngine(g, decay_threshold=0.1)
         report = engine.evolve()
-        assert "decayed" in report
-        assert "pruned" in report
-        assert "merged" in report
-        assert "node_count" in report
+        assert report["decayed"] == 0
+        assert report["pruned"] == 1
+        assert report["merged"] == 1
+        assert report["node_count"] == 2
 
     def test_metrics_accumulate(self):
         g = self._build_graph()
@@ -666,7 +666,7 @@ class TestFindPaths:
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"d"})))
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"})))
         paths = g.find_paths("a", "d", max_paths=1)
-        assert len(paths) <= 1
+        assert len(paths) == 1
 
     def test_find_paths_with_edge_label(self):
         g = Hypergraph()
@@ -777,7 +777,7 @@ class TestDetectCycles:
             target_ids=frozenset({"n5"}),
         ))
         cycles = g.detect_cycles(max_cycles=1)
-        assert len(cycles) <= 1
+        assert len(cycles) == 1
 
 
 class TestShortestPath:
@@ -944,8 +944,10 @@ class TestHypergraphLaplacian:
         ))
         L = g.hypergraph_laplacian()
         assert L.shape == (2, 2)
-        assert L[0, 0] > 0
-        assert L[1, 1] > 0
+        assert L[0, 0] == pytest.approx(1.0)
+        assert L[1, 1] == pytest.approx(1.0)
+        assert L[0, 1] == pytest.approx(-1.0)
+        assert L[1, 0] == pytest.approx(-1.0)
 
 
 class TestGetNodeByLabel:
@@ -1182,7 +1184,7 @@ class TestConnectedComponents:
         comps_s1 = g.connected_components(s=1)
         assert len(comps_s1) == 1
         comps_s3 = g.connected_components(s=3)
-        assert len(comps_s3) >= 2
+        assert len(comps_s3) == 3
 
 
 class TestShortestPathHypergraph:
@@ -1245,7 +1247,7 @@ class TestCycleDetection:
         g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id})))
         g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({a.id})))
         cycles = g.detect_cycles()
-        assert len(cycles) >= 1
+        assert len(cycles) == 1
 
     def test_hyperedge_cycle(self):
         g, a, b, c, d, e = _make_hyperedge_graph()
@@ -1309,11 +1311,10 @@ class TestSPersistence:
     def test_basic_filtration(self):
         g, a, b, c, d, e = _make_hyperedge_graph()
         filt = g.s_persistence()
-        assert len(filt.levels) >= 1
+        assert len(filt.levels) == 2
         assert filt.levels[0].s == 1
-        assert filt.levels[0].num_components >= 1
-        if len(filt.levels) > 1:
-            assert filt.levels[-1].num_components >= filt.levels[0].num_components
+        assert filt.levels[0].num_components == 1
+        assert filt.levels[1].num_components >= filt.levels[0].num_components
 
     def test_no_edges(self):
         g = Hypergraph()
@@ -1333,7 +1334,8 @@ class TestSPersistence:
         mem.store("c")
         mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
         filt = mem.s_persistence()
-        assert len(filt.levels) >= 1
+        assert len(filt.levels) == 1
+        assert filt.levels[0].num_components == 1
 
 
 class TestHyperedgeSimilarity:
@@ -1342,7 +1344,7 @@ class TestHyperedgeSimilarity:
         edges = list(g._edges.values())
         e1 = edges[0]
         result = g.hyperedge_similarity(e1.id, metric="jaccard")
-        assert len(result.similar_edges) > 0
+        assert len(result.similar_edges) == 2
         assert all(0.0 <= score <= 1.0 for _, score in result.similar_edges)
 
     def test_sorensen_dice(self):
@@ -1350,13 +1352,13 @@ class TestHyperedgeSimilarity:
         edges = list(g._edges.values())
         e1 = edges[0]
         result = g.hyperedge_similarity(e1.id, metric="sorensen_dice")
-        assert len(result.similar_edges) > 0
+        assert len(result.similar_edges) == 2
 
     def test_top_k(self):
         g, a, b, c, d, e = _make_hyperedge_graph()
         edges = list(g._edges.values())
         result = g.hyperedge_similarity(edges[0].id, top_k=1)
-        assert len(result.similar_edges) <= 1
+        assert len(result.similar_edges) == 1
 
 
 class TestSpectralEmbedding:
@@ -1445,7 +1447,7 @@ class TestIncidenceMatrixUnsigned:
         assert H.shape[1] == 3
         for val in H.flat:
             assert val in (0.0, 1.0)
-        assert np.sum(H) > 0
+        assert np.sum(H) == 9.0
 
 
 class TestGraphLevelMethods:
@@ -1454,7 +1456,7 @@ class TestGraphLevelMethods:
         comps = g.s_connected_components(s=1)
         assert len(comps) == 1
         comps_high = g.s_connected_components(s=10)
-        assert len(comps_high) > 1
+        assert len(comps_high) == 3
 
     def test_incidence_matrix_with_nary(self):
         g, a, b, c, d, e = _make_hyperedge_graph()
@@ -1463,8 +1465,8 @@ class TestGraphLevelMethods:
         assert H.shape[1] == 3
         positive = np.sum(H > 0)
         negative = np.sum(H < 0)
-        assert positive > 0
-        assert negative > 0
+        assert positive == 5
+        assert negative == 4
 
     def test_laplacian_with_nary(self):
         g, a, b, c, d, e = _make_hyperedge_graph()
@@ -1689,7 +1691,7 @@ class TestBatchMutation:
             )
         g.end_batch()
         nbrs = g.neighbors(nodes[0].id)
-        assert len(nbrs) > 0
+        assert len(nbrs) == 1
 
     def test_non_batch_mode_invalidates_immediately(self):
         g, nodes = _make_chain_graph()
@@ -1716,7 +1718,7 @@ class TestPathQueries:
     def test_find_paths_basic(self):
         g, a, b, c, d = _make_path_graph()
         paths = g.find_paths(a.id, d.id)
-        assert len(paths) >= 1
+        assert len(paths) == 2
         for path in paths:
             assert path[0] == a.id
             assert path[-1] == d.id
@@ -1724,7 +1726,7 @@ class TestPathQueries:
     def test_find_paths_with_label(self):
         g, a, b, c, d = _make_path_graph()
         paths = g.find_paths(a.id, d.id, edge_label="next")
-        assert len(paths) >= 1
+        assert len(paths) == 1
         assert any(len(p) == 4 for p in paths)
 
     def test_find_paths_no_path(self):
@@ -1738,7 +1740,7 @@ class TestPathQueries:
     def test_find_paths_max_paths(self):
         g, a, b, c, d = _make_path_graph()
         paths = g.find_paths(a.id, d.id, max_paths=1)
-        assert len(paths) <= 1
+        assert len(paths) == 1
 
     def test_pattern_match_by_label(self):
         g, a, b, c, d = _make_path_graph()
@@ -1750,7 +1752,7 @@ class TestPathQueries:
     def test_pattern_match_by_source_target(self):
         g, a, b, c, d = _make_path_graph()
         matches = g.pattern_match(source_label="a", target_label="d")
-        assert len(matches) >= 1
+        assert len(matches) == 1
 
 
 class TestEquivalenceBlocking:
@@ -1812,7 +1814,6 @@ class TestGraphAnalytics:
     def test_betweenness_centrality(self):
         g, nodes = _make_graph_wave2()
         bc = g.betweenness_centrality()
-        assert isinstance(bc, dict)
         assert len(bc) == 6
 
     def test_connected_components(self):
@@ -1841,7 +1842,7 @@ class TestGraphAnalytics:
         g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="e"))
         g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="e"))
         cycles = g.detect_cycles()
-        assert len(cycles) > 0
+        assert len(cycles) == 1
 
     def test_shortest_path(self):
         g, nodes = _make_graph_wave2()
@@ -1859,12 +1860,11 @@ class TestGraphAnalytics:
     def test_degree_distribution(self):
         g, nodes = _make_graph_wave2()
         dist = g.degree_distribution()
-        assert isinstance(dist, dict)
         assert sum(dist.values()) == 6
 
     def test_node_degree(self):
         g, nodes = _make_graph_wave2()
-        assert g.node_degree(nodes[1].id) >= 2
+        assert g.node_degree(nodes[1].id) == 2
         assert g.node_degree(nodes[5].id) == 0
 
 
@@ -1925,4 +1925,158 @@ def _make_graph_wave2():
     g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), label="e"))
     g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id}), target_ids=frozenset({nodes[4].id}), label="e"))
     return g, nodes
+
+
+class TestIdempotentEdgeAdd:
+    def test_add_same_edge_returns_existing(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        g.add_node(a)
+        e1 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({a.id}), label="loop")
+        result1 = g.add_edge(e1)
+        result2 = g.add_edge(e1)
+        assert result1 is result2
+        assert g.edge_count == 1
+
+
+class TestToNetworkx:
+    def test_to_networkx_preserves_attributes(self):
+        g = Hypergraph()
+        a = Hypernode(label="alpha", weight=2.5, data={"kind": "test"})
+        b = Hypernode(label="beta", weight=1.0)
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="rel", weight=3.0))
+        G = g.to_networkx()
+        assert G.nodes[a.id]["label"] == "alpha"
+        assert G.nodes[a.id]["weight"] == 2.5
+        assert G.nodes[a.id]["data"]["kind"] == "test"
+        assert G.edges[a.id, b.id]["label"] == "rel"
+        assert G.edges[a.id, b.id]["weight"] == 3.0
+
+    def test_inverted_weights(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), weight=4.0))
+        G = g._to_networkx_inverted_weights()
+        cost = G.edges[a.id, b.id]["cost"]
+        assert cost == pytest.approx(0.25)
+
+
+class TestBetweennessSampling:
+    def test_sampling_with_many_nodes(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(10)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(9):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        bc = g.betweenness_centrality(max_samples=5)
+        assert len(bc) == 10
+        assert all(v >= 0.0 for v in bc.values())
+
+
+class TestSConnectedComponentsNoEdges:
+    def test_nodes_no_edges_single_component(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        comps = g.s_connected_components(s=1)
+        assert len(comps) == 1
+        assert comps[0] == {a.id, b.id, c.id}
+
+
+class TestCycleDetectionMaxCycles:
+    def test_max_cycles_stops_early(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id}), target_ids=frozenset({nodes[0].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[5].id}), target_ids=frozenset({nodes[2].id})))
+        all_cycles = g.detect_cycles()
+        assert len(all_cycles) >= 2
+        limited = g.detect_cycles(max_cycles=1)
+        assert len(limited) < len(all_cycles)
+
+
+class TestShortestPathRevisit:
+    def test_weighted_prefers_high_weight_path(self):
+        g = Hypergraph()
+        a, b, c, d = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c"), Hypernode(label="d")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({d.id}), weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({d.id}), weight=10.0))
+        path = g.shortest_path(a.id, d.id, weighted=True)
+        assert path is not None
+        assert len(path) == 2
+        assert path[0] == a.id
+        assert path[-1] == d.id
+
+
+class TestSpectralEmbeddingSingle:
+    def test_single_node_returns_default(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="only"))
+        se = g.spectral_embedding(dimensions=2)
+        assert len(se.node_ids) == 1
+        assert se.embeddings.shape == (1, 1)
+        assert se.embeddings[0, 0] == 0.0
+
+
+class TestHyperedgeSimilarityEdgeCases:
+    def test_missing_edge_id_returns_empty(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        result = g.hyperedge_similarity("nonexistent_id")
+        assert len(result.similar_edges) == 0
+
+    def test_overlap_coefficient_metric(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        edges = list(g._edges.values())
+        result = g.hyperedge_similarity(edges[0].id, metric="overlap_coefficient")
+        assert len(result.similar_edges) == 2
+
+    def test_unknown_metric_defaults_to_jaccard(self):
+        g, a, b, c, d, e = _make_hyperedge_graph()
+        edges = list(g._edges.values())
+        result_jaccard = g.hyperedge_similarity(edges[0].id, metric="jaccard")
+        result_unknown = g.hyperedge_similarity(edges[0].id, metric="nonexistent")
+        assert len(result_jaccard.similar_edges) == len(result_unknown.similar_edges)
+        for (eid_j, score_j), (eid_u, score_u) in zip(
+            result_jaccard.similar_edges, result_unknown.similar_edges, strict=True
+        ):
+            assert eid_j == eid_u
+            assert score_j == pytest.approx(score_u)
+
+
+class TestPageRankNoEdges:
+    def test_single_node_no_edges_uniform(self):
+        g = Hypergraph()
+        n = Hypernode(label="solo")
+        g.add_node(n)
+        pr = g.pagerank()
+        assert pr[n.id] == pytest.approx(1.0)
+
+
+class TestMergeNodeRewireEdgeRemoved:
+    def test_merge_when_edge_already_removed(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", data="same")
+        b = Hypernode(label="b", data="same")
+        c = Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        e1 = Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="e")
+        g.add_edge(e1)
+        g.remove_edge(e1.id)
+        g.merge_node(a.id, b.id)
+        assert g.node_count == 2
+        assert g.get_node_by_label("a") is not None
 
