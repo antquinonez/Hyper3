@@ -507,11 +507,11 @@ def main():
         max_total_states=50,
     )
 
-    expansion = reason_result.get("expansion", {})
+    expansion = reason_result.expansion
     if expansion:
-        print(f"  Expansion: {expansion.get('states_created', 0)} states, "
-              f"{expansion.get('rules_applied', 0)} rules applied, "
-              f"depth={expansion.get('max_depth', 0)}")
+        print(f"  States created:     {expansion.states_created}")
+        print(f"  Rules applied:      {expansion.rules_applied}")
+        print(f"  Max depth reached:  {expansion.max_depth}")
     print()
 
     indirect_edges = mem.pattern_match(edge_label="transfers_indirectly")

@@ -335,7 +335,7 @@ def main() -> None:
         print(f"    {basis:15s}  {count:3d}  {bar}")
 
     problem_sets = [
-        (["api-gateway-01", "api-gateway-02", "load-balancer-01"], "infrastructure-triage"),
+        (["api-gateway-01", "api-gateway-02", "load-balancer"], "infrastructure-triage"),
         (["high-latency", "timeout-cascade", "error-rate-surge"], "alert-correlation"),
         (["payment-service-01", "payment-service-02", "database-layer"], "dependency-trace"),
     ]
@@ -413,32 +413,32 @@ def main() -> None:
     print("=" * 70)
 
     report = mem.introspect()
-    system_health = report.get("system_health", {})
-    graph_health = report.get("graph_health", {})
-    evolution_health = report.get("evolution_health", {})
-    discovery_health = report.get("discovery_health", {})
-    anti_patterns = report.get("anti_patterns", [])
-    recommendations = report.get("recommendations", [])
+    system_health = report.system_health
+    graph_health = report.graph_health
+    evolution_health = report.evolution_health
+    discovery_health = report.discovery_health
+    anti_patterns = report.anti_patterns
+    recommendations = report.recommendations
 
     print("  Cognitive State:")
-    print(f"    Fitness:            {system_health.get('fitness', 0.0):.3f}")
-    print(f"    Reasoning mode:     {system_health.get('mode', 'unknown')}")
-    print(f"    Meta-computational:  level {system_health.get('meta_level', 0)}")
-    print(f"    Rulial insight count: {system_health.get('rulial_insight_count', system_health.get('transcendental_yield', 0))}")
+    print(f"    Fitness:            {system_health.fitness:.3f}")
+    print(f"    Reasoning mode:     {system_health.mode or 'unknown'}")
+    print(f"    Meta-computational:  level {system_health.meta_level}")
+    print(f"    Rulial insight count: {system_health.rulial_insight_count}")
 
     print("\n  Graph Health:")
-    print(f"    Nodes:      {graph_health.get('nodes', 0)}")
-    print(f"    Edges:      {graph_health.get('edges', 0)}")
-    print(f"    Avg degree: {graph_health.get('avg_degree', 0.0):.2f}")
+    print(f"    Nodes:      {graph_health.nodes}")
+    print(f"    Edges:      {graph_health.edges}")
+    print(f"    Avg degree: {graph_health.avg_degree:.2f}")
 
     print("\n  Evolution Health:")
-    print(f"    Merges:      {evolution_health.get('merges', 0)}")
-    print(f"    Prunes:      {evolution_health.get('prunes', 0)}")
-    print(f"    Refinements: {evolution_health.get('refinements', 0)}")
+    print(f"    Merges:      {evolution_health.merges}")
+    print(f"    Prunes:      {evolution_health.prunes}")
+    print(f"    Refinements: {evolution_health.refinements}")
 
     print("\n  Discovery Health:")
-    print(f"    Patterns:     {discovery_health.get('patterns', 0)}")
-    print(f"    Active rules: {discovery_health.get('active_rules', 0)}")
+    print(f"    Patterns:     {discovery_health.patterns}")
+    print(f"    Active rules: {discovery_health.active_rules}")
 
     if anti_patterns:
         print(f"\n  Anti-patterns detected ({len(anti_patterns)}):")
@@ -500,7 +500,7 @@ def main() -> None:
         print(f"\n  Optimal frame: {best_frame} "
               f"(effectiveness={frame_eff[best_frame]:.2f})")
 
-    print(f"\n  System fitness: {system_health.get('fitness', 0.0):.3f}")
+    print(f"\n  System fitness: {system_health.fitness:.3f}")
     if triggers:
         print(f"  Self-repair: {len(triggers)} trigger(s) detected, actions recommended")
     else:

@@ -474,11 +474,13 @@ def main() -> None:
     print("SECTION 4: HubInferenceRule — Co-Occurrence Patterns")
     print("=" * 70)
 
-    causal = HubInferenceRule(min_support=2, confidence_threshold=0.6, causes_label="causes")
+    min_support = 2
+    confidence_threshold = 0.6
+    causal = HubInferenceRule(min_support=min_support, confidence_threshold=confidence_threshold, causes_label="causes")
     c_matches = causal.find_matches(mem.graph, all_ids)
 
     print(f"  Found {len(c_matches)} causal relationships")
-    print(f"  (min_support={causal._min_support}, confidence_threshold={causal._confidence_threshold})")
+    print(f"  (min_support={min_support}, confidence_threshold={confidence_threshold})")
     print()
 
     for m in c_matches:

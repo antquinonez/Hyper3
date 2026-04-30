@@ -521,10 +521,12 @@ def main():
         max_total_states=50,
     )
     new_count = sum(1 for e in mem.graph.edges if e.label == "indirectly_depends_on")
-    expansion = result.get("expansion", {})
     print(f"  TransitiveRule applied: {new_count} indirect dependencies discovered")
-    print(f"  Multiway states explored: {expansion.get('states_created', 0)}")
-    print(f"  Rules applied: {expansion.get('rules_applied', 0)}")
+    expansion = result.expansion
+    if expansion:
+        print(f"  States created:     {expansion.states_created}")
+        print(f"  Rules applied:      {expansion.rules_applied}")
+        print(f"  Max depth reached:  {expansion.max_depth}")
     if new_count > 0:
         for e in mem.pattern_match(edge_label="indirectly_depends_on")[:5]:
             s = e.source_labels[0] if e.source_labels else "?"
