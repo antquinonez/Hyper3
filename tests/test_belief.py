@@ -1050,3 +1050,31 @@ class TestAdaptiveCoherenceTime:
         qs = qcl.create_distribution(ids)
         assert qs.coherence_time != qs.base_coherence_time
 
+
+class TestSamplingTriggerDataclass:
+    def test_defaults(self):
+        t = SamplingTrigger(trigger_type="staleness_timeout", confidence=0.5)
+        assert t.trigger_type == "staleness_timeout"
+        assert t.confidence == 0.5
+        assert t.details == {}
+
+    def test_with_details(self):
+        t = SamplingTrigger(
+            trigger_type="single_outcome",
+            confidence=1.0,
+            details={"outcome": "cat", "amplitude": 0.95},
+        )
+        assert t.details["outcome"] == "cat"
+        assert t.details["amplitude"] == 0.95
+
+    def test_confidence_bounds(self):
+        low = SamplingTrigger(trigger_type="x", confidence=0.0)
+        high = SamplingTrigger(trigger_type="x", confidence=1.0)
+        assert low.confidence == 0.0
+        assert high.confidence == 1.0
+
+    def test_details_not_shared(self):
+        t1 = SamplingTrigger(trigger_type="a", confidence=0.5, details={"k": "v1"})
+        t2 = SamplingTrigger(trigger_type="b", confidence=0.5, details={"k": "v2"})
+        assert t1.details is not t2.details
+

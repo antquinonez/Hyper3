@@ -1293,3 +1293,21 @@ class TestSemanticRules:
         rule.apply(g, match)
         assert g.edge_count == 2
 
+
+class TestRuleMatchDataclass:
+    def test_required_fields(self):
+        m = RuleMatch(rule_name="test", bindings={"x": "y"})
+        assert m.rule_name == "test"
+        assert m.bindings == {"x": "y"}
+        assert m.context == {}
+
+    def test_with_context(self):
+        m = RuleMatch(rule_name="transitive", bindings={"A": "a"}, context={"depth": 2, "confidence": 0.9})
+        assert m.context["depth"] == 2
+        assert m.context["confidence"] == 0.9
+
+    def test_empty_bindings(self):
+        m = RuleMatch(rule_name="empty", bindings={})
+        assert m.bindings == {}
+        assert m.context == {}
+
