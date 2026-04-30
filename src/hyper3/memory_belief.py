@@ -20,7 +20,7 @@ class BeliefMixin(_MemoryBase):
         concepts: list[str],
         *,
         amplitudes: list[float] | None = None,
-        use_context_field: bool = False,
+        use_context_field: bool = True,
     ) -> BeliefState:
         """Create a belief distribution over the given concepts.
 
@@ -30,10 +30,11 @@ class BeliefMixin(_MemoryBase):
         Args:
             concepts: Labels of the nodes to include in the distribution.
             amplitudes: Optional amplitude list; uniform if not provided.
-            use_context_field: If True, evolve the state using activation context.
-                This biases the probability distribution toward structurally
-                prominent nodes (higher degree, more connections). Default is
-                False, which applies the raw Born rule to the provided amplitudes.
+            use_context_field: If True (default), evolve the state using
+                activation context. This biases the probability distribution
+                toward structurally prominent nodes (higher degree, more
+                connections). Set to False to apply the raw Born rule to the
+                provided amplitudes without structural bias.
 
         Returns:
             The created BeliefState.

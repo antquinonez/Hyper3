@@ -426,7 +426,7 @@ If `reason(use_overlay=True)` is called while an overlay already exists (from a 
 After unitary evolution, amplitudes can be complex numbers. Code that consumes amplitudes should use `abs()` for magnitude comparisons. `probability` property already uses `abs()`.
 
 ### `create_distribution()` context field is opt-in
-`use_context_field` defaults to `False`. The raw Born rule is applied to the provided amplitudes. Pass `use_context_field=True` to evolve the distribution using spreading activation values and structural prominence -- this biases the distribution toward well-connected nodes but changes the probabilities from what the raw amplitudes would produce.
+`use_context_field` defaults to `True`. The distribution is evolved using spreading activation values and structural prominence, biasing toward well-connected nodes. Pass `use_context_field=False` to apply the raw Born rule to the provided amplitudes without structural bias.
 
 ### `EquivalenceEngine` uses combined similarity
 `find_equivalences()` combines data similarity (`node.matches()`) with structural similarity (Jaccard overlap of neighborhoods). If data similarity meets the threshold, it's returned directly. Otherwise, a weighted combination (40% data + 60% structural) is used, taking the max with pure data similarity. Blocking is data-type-only (not edge labels) to avoid over-splitting. Nodes with empty neighborhoods get structural similarity 0.0 (no evidence of equivalence), not 1.0.
