@@ -229,3 +229,78 @@ class TestAbstractionCoverage:
         nav.collapse_subgraph({"A", "B"}, summary_label="AB")
         children = nav.get_summary_children("AB")
         assert children == ["A", "B"]
+
+
+class TestExpandResultDataclass:
+    def test_defaults(self) -> None:
+        from hyper3.abstraction import ExpandResult
+
+        r = ExpandResult()
+        assert r.expanded_nodes == []
+        assert r.expanded_edges == []
+        assert r.summary_removed is False
+
+    def test_with_values(self) -> None:
+        from hyper3.abstraction import ExpandResult
+
+        r = ExpandResult(
+            expanded_nodes=["n1", "n2"],
+            expanded_edges=["e1"],
+            summary_removed=True,
+        )
+        assert r.expanded_nodes == ["n1", "n2"]
+        assert r.expanded_edges == ["e1"]
+        assert r.summary_removed is True
+
+    def test_bracket_access(self) -> None:
+        from hyper3.abstraction import ExpandResult
+
+        r = ExpandResult(expanded_nodes=["x"], summary_removed=True)
+        assert r["expanded_nodes"] == ["x"]
+        assert r["summary_removed"] is True
+
+    def test_contains(self) -> None:
+        from hyper3.abstraction import ExpandResult
+
+        r = ExpandResult(summary_removed=False)
+        assert "summary_removed" in r
+        assert "expanded_nodes" in r
+
+    def test_keys(self) -> None:
+        from hyper3.abstraction import ExpandResult
+
+        r = ExpandResult()
+        assert set(r.keys()) == {"expanded_nodes", "expanded_edges", "summary_removed"}
+
+
+class TestAbstractionMappingDataclass:
+    def test_fields(self) -> None:
+        from hyper3.abstraction import AbstractionMapping
+        from hyper3.kernel import AbstractionLayer
+
+        m = AbstractionMapping(
+            summary_node_id="sum1",
+            summary_label="SUM",
+            detail_node_ids=["d1", "d2"],
+            detail_labels=["A", "B"],
+            layer=AbstractionLayer.SUMMARY,
+        )
+        assert m.summary_node_id == "sum1"
+        assert m.summary_label == "SUM"
+        assert m.detail_node_ids == ["d1", "d2"]
+        assert m.detail_labels == ["A", "B"]
+        assert m.layer == AbstractionLayer.SUMMARY
+
+    def test_bracket_access(self) -> None:
+        from hyper3.abstraction import AbstractionMapping
+        from hyper3.kernel import AbstractionLayer
+
+        m = AbstractionMapping(
+            summary_node_id="s",
+            summary_label="S",
+            detail_node_ids=[],
+            detail_labels=[],
+            layer=AbstractionLayer.DETAIL,
+        )
+        assert m["summary_label"] == "S"
+        assert m["layer"] == AbstractionLayer.DETAIL

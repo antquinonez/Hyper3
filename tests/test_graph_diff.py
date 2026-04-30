@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from hyper3 import HypergraphMemory, TransitiveRule
-from hyper3.graph_diff import GraphDiffer
+from hyper3.graph_diff import GraphDiffer, GraphHistoryResult, GraphVersion
 
 
 class TestGraphDiffBasic:
@@ -290,3 +290,33 @@ class TestResolveEdgeLabelsFallback:
         edata = {"source_ids": {"nonexistent_id"}, "target_ids": set()}
         result = differ._resolve_edge_labels(edata, "source", {})
         assert len(result) == 8
+
+
+class TestGraphHistoryResultDataclass:
+    def test_defaults(self) -> None:
+        r = GraphHistoryResult()
+        assert r.versions == []
+        assert r.total_versions == 0
+        assert r.current_version == 0
+
+    def test_with_values(self) -> None:
+        v = GraphVersion(version_id=0, timestamp=1.0, node_count=5, edge_count=3, snapshot={})
+        r = GraphHistoryResult(versions=[v], total_versions=1, current_version=0)
+        assert len(r.versions) == 1
+        assert r.versions[0].version_id == 0
+        assert r.total_versions == 1
+        assert r.current_version == 0
+
+    def test_bracket_access(self) -> None:
+        r = GraphHistoryResult(total_versions=3, current_version=2)
+        assert r["total_versions"] == 3
+        assert r["current_version"] == 2
+
+    def test_keys(self) -> None:
+        r = GraphHistoryResult()
+        assert set(r.keys()) == {"versions", "total_versions", "current_version"}
+
+    def test_contains(self) -> None:
+        r = GraphHistoryResult(total_versions=1)
+        assert "total_versions" in r
+        assert "current_version" in r
