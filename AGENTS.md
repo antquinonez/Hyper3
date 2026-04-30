@@ -322,9 +322,10 @@ These MUST be run after making code changes:
 ```bash
 .venv/bin/python -m pytest tests/ -q --tb=short
 .venv/bin/pyright src/hyper3/
+.venv/bin/ruff check src/hyper3/ tests/
 ```
 
-The test suite and type checker are both correctness gates.
+The test suite, type checker, and linter are all correctness gates.
 
 ## Architecture
 
@@ -773,11 +774,12 @@ for f in examples/basic/*.py examples/intermediate/*.py examples/advanced/*.py e
 done
 ```
 
-Also verify tests and type checker still pass:
+Also verify tests, type checker, and linter still pass:
 
 ```bash
 .venv/bin/python -m pytest tests/ -q --tb=short
 .venv/bin/pyright src/hyper3/
+.venv/bin/ruff check src/hyper3/ tests/
 ```
 
 ### Updating the examples index
@@ -869,6 +871,8 @@ After making substantive changes (new features, bug fixes, API changes), perform
 
 Current project metrics (update after changes):
 - **Tests**: 1700
-- **Coverage**: 95%
+- **Test files**: 38 (one per source module + integration)
+- **Coverage**: 93%
 - **Pyright**: 0 errors
+- **Ruff**: 0 errors
 - **Examples**: 51 (26 Hyper3: 3 basic, 6 intermediate, 6 advanced, 7 domain, 5 project pipelines; 20 comparison + 5 project comparisons)

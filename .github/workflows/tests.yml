@@ -29,6 +29,9 @@ jobs:
       - name: Run tests
         run: python -m pytest tests/ -q --tb=short
 
+      - name: Run linter
+        run: ruff check src/hyper3/ tests/
+
       - name: Run type checker
         run: pyright src/hyper3/
 
