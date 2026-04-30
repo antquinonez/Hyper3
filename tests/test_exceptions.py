@@ -18,10 +18,25 @@ from hyper3.exceptions import (
 )
 
 
-class TestExceptionHierarchy:
-    def test_hyper3_error_is_exception(self):
+class TestHyper3Error:
+    def test_is_exception_subclass(self):
         assert issubclass(Hyper3Error, Exception)
 
+    def test_instantiation_with_message(self):
+        e = Hyper3Error("something went wrong")
+        assert str(e) == "something went wrong"
+
+    def test_caught_as_exception(self):
+        with pytest.raises(Exception, match="base error"):
+            raise Hyper3Error("base error")
+
+    def test_not_caught_as_value_error(self):
+        with pytest.raises(Hyper3Error):
+            raise Hyper3Error("x")
+        assert not issubclass(Hyper3Error, ValueError)
+
+
+class TestExceptionHierarchy:
     def test_node_not_found_error(self):
         e = NodeNotFoundError("abc123")
         assert e.node_id == "abc123"

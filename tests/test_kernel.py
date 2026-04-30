@@ -24,6 +24,39 @@ from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.rules import TransitiveRule
 
 
+class TestAbstractionLayerEnum:
+    def test_three_members(self):
+        members = list(AbstractionLayer)
+        assert len(members) == 3
+
+    def test_member_values(self):
+        assert AbstractionLayer.DETAIL.value == "detail"
+        assert AbstractionLayer.INTERMEDIATE.value == "intermediate"
+        assert AbstractionLayer.SUMMARY.value == "summary"
+
+    def test_lookup_by_value(self):
+        assert AbstractionLayer("detail") is AbstractionLayer.DETAIL
+        assert AbstractionLayer("summary") is AbstractionLayer.SUMMARY
+
+    def test_ordering_from_detail_to_summary(self):
+        names = [m.value for m in AbstractionLayer]
+        assert names.index("detail") < names.index("intermediate") < names.index("summary")
+
+
+class TestModalityEnum:
+    def test_six_members(self):
+        members = list(Modality)
+        assert len(members) == 6
+
+    def test_member_values_are_strings(self):
+        for m in Modality:
+            assert isinstance(m.value, str)
+
+    def test_lookup_by_value(self):
+        assert Modality("textual") is Modality.TEXTUAL
+        assert Modality("convergence") is Modality.CAUSAL
+
+
 class TestHypernode:
     def test_default_creation(self):
         node = Hypernode()
