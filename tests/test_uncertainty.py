@@ -74,29 +74,41 @@ class TestUncertaintyEngine:
         mem.store("A")
         engine = UncertaintyEngine(mem.graph, mem._provenance, combination="geometric")
         result = engine.compute_all_confidences()
-        assert result is not None
+        assert len(result.node_scores) == 1
+        assert result.node_scores[0].confidence == 1.0
+        assert result.avg_confidence == 1.0
 
     def test_minimum_combination(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         engine = UncertaintyEngine(mem.graph, mem._provenance, combination="minimum")
         result = engine.compute_all_confidences()
-        assert result is not None
+        assert len(result.node_scores) == 1
+        assert result.min_confidence == 1.0
+        assert result.max_confidence == 1.0
 
     def test_avg_combination(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
         engine = UncertaintyEngine(mem.graph, mem._provenance, combination="average")
         result = engine.compute_all_confidences()
-        assert result is not None
+        assert result.avg_confidence == 1.0
+        assert result.node_scores[0].source == "observed"
 
     def test_depth_decay(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="implies")
+        mem.add_rules(TransitiveRule(edge_label="implies", new_label="inferred"))
+        mem.reason(seed_concepts={"A", "B"}, max_depth=2, max_total_states=20)
         engine = UncertaintyEngine(mem.graph, mem._provenance, depth_decay=0.5)
-        result = engine.compute_confidence("A")
-        assert result is not None
-        assert result.confidence == 1.0
+        score_b = engine.compute_confidence("B")
+        assert score_b is not None
+        score_a = engine.compute_confidence("A")
+        assert score_a is not None
+        assert score_a.confidence == 1.0
+        assert score_a.source == "observed"
 
 
 class TestUncertaintyIntegration:
@@ -105,17 +117,17 @@ class TestUncertaintyIntegration:
         for i in range(5):
             mem.store(f"node_{i}")
         result = mem.compute_all_confidences()
-        assert result.high_confidence_count + result.low_confidence_count >= 0
+        assert len(result.node_scores) == 5
+        assert result.high_confidence_count == 5
+        assert result.low_confidence_count == 0
+        assert result.min_confidence == 1.0
+        assert result.max_confidence == 1.0
 
     def test_uncertainty_property(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.uncertainty is None
         mem.compute_confidence("anything")
         assert mem.uncertainty is not None
-
-
-
-
 
 
 class TestUncertaintyEngineDeep:
@@ -178,10 +190,11 @@ class TestUncertaintyEngineDeep:
         mem.relate("B", "C", label="step", weight=0.8)
         engine = UncertaintyEngine(mem.graph, mem._provenance, combination="geometric")
         chain = engine.trace_chain("A", "C")
-        if chain:
-            assert chain.chain_confidence > 0
-            assert chain.chain_depth >= 2
-            assert len(chain.edges) >= 2
+        assert chain is not None
+        assert chain.chain_depth == 2
+        assert len(chain.edges) == 2
+        expected_conf = 0.9 * 0.8
+        assert chain.chain_confidence == pytest.approx(expected_conf, abs=0.01)
 
     def test_minimum_combination(self):
         engine = UncertaintyEngine.__new__(UncertaintyEngine)
@@ -215,5 +228,5 @@ class TestUncertaintyEngineDeep:
         mem.reason(seed_concepts={"A", "B"}, max_depth=2, max_total_states=20)
         engine = UncertaintyEngine(mem.graph, mem._provenance)
         chain = engine.trace_chain("A", "B")
-        if chain:
-            assert len(chain.rule_names) >= 0
+        assert chain is not None
+        assert len(chain.edges) >= 1
