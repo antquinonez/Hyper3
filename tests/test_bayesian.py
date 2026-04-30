@@ -477,3 +477,44 @@ class TestBayesianLayerEdgeCases:
         layer = BayesianLayer(g)
         with pytest.raises(ValueError, match="No belief"):
             layer.map_estimate("missing")
+
+
+class TestMemoryBayesianLazyInit:
+    def test_get_belief_missing_concept_returns_none(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.get_belief("nonexistent") is None
+
+    def test_bayes_factor_lazy_init_no_prior(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("test")
+        mem.store("h1")
+        mem.store("h2")
+        assert mem._bayesian is None
+        bf = mem.bayes_factor("test", hypothesis_a="h1", hypothesis_b="h2")
+        assert bf == 1.0
+        assert mem._bayesian is not None
+
+    def test_credible_set_lazy_init_no_prior(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("test")
+        assert mem._bayesian is None
+        cs = mem.credible_set("test", level=0.95)
+        assert cs == []
+        assert mem._bayesian is not None
+
+    def test_reset_belief_lazy_init_no_prior(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("test")
+        assert mem._bayesian is None
+        mem.reset_belief("test")
+        assert mem._bayesian is not None
+
+    def test_update_belief_lazy_init_no_prior_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("a")
+        mem.store("b")
+        mem.set_prior("x", outcomes=["a", "b"])
+        mem._bayesian = None
+        with pytest.raises(ValueError):
+            mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.8, "b": 0.2})
