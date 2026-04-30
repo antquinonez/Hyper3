@@ -4,9 +4,21 @@ from dataclasses import dataclass
 
 from hyper3.results import (
     CommitResult,
+    CorrelatedNodeInfo,
+    DerivationInfo,
+    DiscoverResult,
+    DiscoveryAnalysis,
     DiscoveryHealthInfo,
+    EvolutionHealthInfo,
+    EvolutionStats,
+    GraphHealthInfo,
+    HyperedgeSimilarityResult,
+    HypergraphCutResult,
     ImportResult,
+    PerspectiveAnalysis,
     RollbackResult,
+    SPersistenceLevel,
+    SPersistenceResult,
     SubgraphEdge,
     SubgraphNode,
     _SimpleResultBase,
@@ -237,3 +249,243 @@ class TestTopK:
     def test_empty_input(self):
         result = top_k({}, k=5)
         assert result == []
+
+
+class TestCorrelatedNodeInfo:
+    def test_defaults(self):
+        r = CorrelatedNodeInfo()
+        assert r.positive_rate == 0.0
+        assert r.signal_count == 0
+        assert r.signal_types == []
+
+    def test_with_values(self):
+        r = CorrelatedNodeInfo(positive_rate=0.8, signal_count=5, signal_types=["sampling", "retrieval"])
+        assert r.positive_rate == 0.8
+        assert r.signal_count == 5
+        assert r.signal_types == ["sampling", "retrieval"]
+
+    def test_bracket_access(self):
+        r = CorrelatedNodeInfo(positive_rate=0.6, signal_count=3)
+        assert r["positive_rate"] == 0.6
+        assert r["signal_count"] == 3
+
+    def test_contains(self):
+        r = CorrelatedNodeInfo(positive_rate=0.5, signal_count=2)
+        assert "positive_rate" in r
+        assert "signal_count" in r
+
+    def test_keys(self):
+        r = CorrelatedNodeInfo()
+        assert set(r.keys()) == {"positive_rate", "signal_count", "signal_types"}
+
+
+class TestDerivationInfo:
+    def test_defaults(self):
+        d = DerivationInfo()
+        assert d.rule == ""
+        assert d.bindings == {}
+        assert d.context == {}
+
+    def test_with_values(self):
+        d = DerivationInfo(rule="transitive", bindings={"A": "x", "B": "y"}, context={"depth": 2})
+        assert d.rule == "transitive"
+        assert d.bindings == {"A": "x", "B": "y"}
+        assert d.context == {"depth": 2}
+
+    def test_bracket_access(self):
+        d = DerivationInfo(rule="inverse", bindings={"X": "a"})
+        assert d["rule"] == "inverse"
+        assert d["bindings"] == {"X": "a"}
+
+    def test_keys(self):
+        d = DerivationInfo()
+        assert set(d.keys()) == {"rule", "bindings", "context"}
+
+
+class TestDiscoverResult:
+    def test_defaults(self):
+        r = DiscoverResult()
+        assert r.total_patterns == 0
+        assert r.new_rules_added == 0
+        assert r.analysis is None
+
+    def test_with_values(self):
+        analysis = DiscoveryAnalysis(total_patterns=10, new_patterns=3, active_rules=5)
+        r = DiscoverResult(total_patterns=10, new_rules_added=2, analysis=analysis)
+        assert r.total_patterns == 10
+        assert r.new_rules_added == 2
+        assert r.analysis is not None
+        assert r.analysis.total_patterns == 10
+
+    def test_bracket_access(self):
+        r = DiscoverResult(total_patterns=7, new_rules_added=1)
+        assert r["total_patterns"] == 7
+        assert r["new_rules_added"] == 1
+
+    def test_contains_with_none_analysis(self):
+        r = DiscoverResult(total_patterns=5)
+        assert "total_patterns" in r
+        assert "analysis" not in r
+
+
+class TestEvolutionHealthInfo:
+    def test_defaults(self):
+        r = EvolutionHealthInfo()
+        assert r.merges == 0
+        assert r.prunes == 0
+        assert r.refinements == 0
+
+    def test_with_values(self):
+        r = EvolutionHealthInfo(merges=10, prunes=5, refinements=3)
+        assert r.merges == 10
+        assert r.prunes == 5
+        assert r.refinements == 3
+
+    def test_keys_match_evolution_stats(self):
+        e = EvolutionHealthInfo()
+        assert set(e.keys()) == {"merges", "prunes", "refinements"}
+        s = EvolutionStats()
+        assert set(s.keys()) == {"merges", "prunes", "refinements"}
+
+
+class TestEvolutionStats:
+    def test_defaults(self):
+        r = EvolutionStats()
+        assert r.merges == 0
+        assert r.prunes == 0
+        assert r.refinements == 0
+
+    def test_with_values(self):
+        r = EvolutionStats(merges=8, prunes=15, refinements=4)
+        assert r.merges == 8
+        assert r.prunes == 15
+        assert r.refinements == 4
+
+    def test_bracket_access(self):
+        r = EvolutionStats(merges=3, prunes=7)
+        assert r["merges"] == 3
+        assert r["prunes"] == 7
+
+
+class TestGraphHealthInfo:
+    def test_defaults(self):
+        r = GraphHealthInfo()
+        assert r.nodes == 0
+        assert r.edges == 0
+        assert r.avg_degree == 0.0
+
+    def test_with_values(self):
+        r = GraphHealthInfo(nodes=100, edges=250, avg_degree=5.0)
+        assert r.nodes == 100
+        assert r.edges == 250
+        assert r.avg_degree == 5.0
+
+    def test_bracket_access(self):
+        r = GraphHealthInfo(nodes=50, edges=75, avg_degree=3.0)
+        assert r["nodes"] == 50
+        assert r["avg_degree"] == 3.0
+
+    def test_keys(self):
+        r = GraphHealthInfo()
+        assert set(r.keys()) == {"nodes", "edges", "avg_degree"}
+
+
+class TestPerspectiveAnalysis:
+    def test_defaults(self):
+        r = PerspectiveAnalysis()
+        assert r.available_frames == []
+        assert r.transformations_computed == 0
+        assert r.frame_effectiveness == {}
+
+    def test_with_values(self):
+        r = PerspectiveAnalysis(
+            available_frames=["classical", "quantum"],
+            transformations_computed=6,
+            frame_effectiveness={"classical": 0.8, "quantum": 0.6},
+        )
+        assert r.available_frames == ["classical", "quantum"]
+        assert r.transformations_computed == 6
+        assert r.frame_effectiveness["classical"] == 0.8
+
+    def test_bracket_access(self):
+        r = PerspectiveAnalysis(available_frames=["hypergraph"])
+        assert r["available_frames"] == ["hypergraph"]
+
+    def test_keys(self):
+        r = PerspectiveAnalysis()
+        assert set(r.keys()) == {"available_frames", "transformations_computed", "frame_effectiveness"}
+
+
+class TestSPersistenceResult:
+    def test_defaults(self):
+        r = SPersistenceResult()
+        assert r.levels == []
+        assert r.max_s == 1
+        assert r.total_edges == 0
+
+    def test_with_levels(self):
+        level = SPersistenceLevel(s=1, components=[frozenset({"a", "b"})], num_components=1, largest_component_size=2)
+        r = SPersistenceResult(levels=[level], max_s=3, total_edges=5)
+        assert len(r.levels) == 1
+        assert r.levels[0].s == 1
+        assert r.max_s == 3
+        assert r.total_edges == 5
+
+    def test_bracket_access(self):
+        r = SPersistenceResult(max_s=5, total_edges=10)
+        assert r["max_s"] == 5
+        assert r["total_edges"] == 10
+
+
+class TestHyperedgeSimilarityResult:
+    def test_defaults(self):
+        r = HyperedgeSimilarityResult()
+        assert r.query_edge_id == ""
+        assert r.similar_edges == []
+        assert r.metric == "jaccard"
+
+    def test_with_values(self):
+        r = HyperedgeSimilarityResult(
+            query_edge_id="e1",
+            similar_edges=[("e2", 0.8), ("e3", 0.5)],
+            metric="sorensen_dice",
+        )
+        assert r.query_edge_id == "e1"
+        assert len(r.similar_edges) == 2
+        assert r.similar_edges[0] == ("e2", 0.8)
+        assert r.metric == "sorensen_dice"
+
+    def test_bracket_access(self):
+        r = HyperedgeSimilarityResult(query_edge_id="abc")
+        assert r["query_edge_id"] == "abc"
+
+    def test_keys(self):
+        r = HyperedgeSimilarityResult()
+        assert set(r.keys()) == {"query_edge_id", "similar_edges", "metric"}
+
+
+class TestHypergraphCutResult:
+    def test_defaults(self):
+        r = HypergraphCutResult()
+        assert r.partitions == []
+        assert r.cut_value == 0.0
+        assert r.normalized_cut_value == 0.0
+
+    def test_with_values(self):
+        r = HypergraphCutResult(
+            partitions=[frozenset({"a", "b"}), frozenset({"c", "d"})],
+            cut_value=2.0,
+            normalized_cut_value=0.35,
+        )
+        assert len(r.partitions) == 2
+        assert frozenset({"a", "b"}) in r.partitions
+        assert r.cut_value == 2.0
+        assert r.normalized_cut_value == 0.35
+
+    def test_bracket_access(self):
+        r = HypergraphCutResult(cut_value=1.5)
+        assert r["cut_value"] == 1.5
+
+    def test_keys(self):
+        r = HypergraphCutResult()
+        assert set(r.keys()) == {"partitions", "cut_value", "normalized_cut_value"}
