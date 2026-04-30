@@ -18,10 +18,8 @@ from hyper3 import (
     HypergraphMemory,
     EmbeddingProvider,
     Modality,
-    ActivationConfig,
-    SpreadingActivation,
+    RetrievalEngine,
 )
-from hyper3.retrieval_engine import RetrievalEngine
 
 
 class SentenceTransformerProvider(EmbeddingProvider):

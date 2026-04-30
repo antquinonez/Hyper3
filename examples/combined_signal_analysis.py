@@ -16,8 +16,6 @@ from hyper3 import (
     HypergraphMemory,
     EmbeddingProvider,
     Modality,
-    TransitiveRule,
-    InverseRule,
 )
 
 
@@ -245,7 +243,7 @@ def run_query(
     mem.spread_activation(iterations=iterations)
     activated = mem.activate(concept, top_k=top_k * 2, iterations=iterations)
 
-    engine = mem._embedding_engine
+    engine = mem.embedding_engine
     seed_node = mem.graph.get_node_by_label(concept)
     if not seed_node:
         return []

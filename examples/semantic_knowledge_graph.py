@@ -210,8 +210,8 @@ def main() -> None:
             for r in activated[:8]:
                 sim = 0.0
                 if python_node and r.node_id != python_node.id:
-                    from hyper3.embedding import EmbeddingEngine
-                    engine = mem._embedding_engine
+                    from hyper3 import EmbeddingEngine
+                    engine = mem.embedding_engine
                     if engine:
                         sim = engine.compute_similarity(python_node.id, r.node_id)
                 print(f"  {r.label:<35} activation={r.activation:.3f}  semantic_sim={sim:.3f}")

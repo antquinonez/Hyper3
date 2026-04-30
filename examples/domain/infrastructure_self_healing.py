@@ -33,7 +33,7 @@ Run with:
 from __future__ import annotations
 
 from hyper3 import HypergraphMemory
-from hyper3.rules import TransitiveRule, InverseRule
+from hyper3 import TransitiveRule, InverseRule
 
 
 SERVERS = {
@@ -392,7 +392,12 @@ def main() -> None:
     from hyper3.multiway_causal import StateConvergenceEngine
 
     mw = MultiwayEngine(mem.graph)
-    rules = list(mem._rules)
+    rules = [
+        TransitiveRule(edge_label="calls"),
+        TransitiveRule(edge_label="routes_to"),
+        TransitiveRule(edge_label="blocks"),
+        InverseRule(edge_label="blocks", inverse_label="blocked_by"),
+    ]
     mw_result = mw.expand_from_labels(
         {"api-gw-01", "order-svc-01", "payment-svc-01", "db-pg-primary"},
         rules,
