@@ -551,10 +551,10 @@ class Hypergraph:
         single hops. Edge weights are not used; this is a structural
         (unweighted) metric.
 
-        Normalized by 1/n (where n is the number of source nodes), so
-        values can exceed 1.0 for dense graphs. With ``max_samples``, the
-        normalization is 1/max_samples and values are raw pairwise
-        dependency counts.
+        Normalized by 1/((n-1)(n-2)) for directed graphs with n >= 3, so
+        values are in [0, 1]. With ``max_samples``, normalization is
+        1/max_samples and values can exceed 1.0 (raw pairwise dependency
+        counts).
 
         Args:
             max_samples: If set, approximate using this many random
@@ -606,7 +606,13 @@ class Hypergraph:
                 if w != s:
                     centrality[w] += delta[w]
 
-        scale = 1.0 / len(sources) if sources else 1.0
+        n = len(self._nodes)
+        if max_samples is not None:
+            scale = 1.0 / max_samples if max_samples > 0 else 1.0
+        elif n >= 3:
+            scale = 1.0 / ((n - 1) * (n - 2))
+        else:
+            scale = 1.0
         return {nid: c * scale for nid, c in centrality.items()}
 
     def connected_components(self, *, s: int = 1) -> list[set[str]]:

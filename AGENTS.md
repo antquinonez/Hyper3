@@ -414,7 +414,7 @@ Do not use emojis in code or commit messages unless explicitly asked.
 - `betweenness_centrality`: unweighted (structural metric, ignores edge weights)
 - `degree_centrality`: unweighted (counts edges, not weights)
 
-Betweenness centrality is normalized by `1/n` (not `1/((n-1)(n-2))`), so values can exceed 1.0 for dense graphs. With `max_samples`, values are raw pairwise dependency counts.
+Betweenness centrality is normalized by `1/((n-1)(n-2))` for n >= 3, producing values in [0, 1]. With `max_samples`, normalization is `1/max_samples` and values are raw pairwise dependency counts that can exceed 1.0.
 
 ### `context` parameter in structural anomaly detection
 `StructuralAnomalyDetector` detection methods accept a `context` dict that supplements structural analysis. Supported keys: `cyclic_structure` (bool/float), `high_centrality` (bool/float), `contradiction` (bool/float), `structural_anomaly` (bool/float), and `contradictory` (bool). Pass `True` for a 0.3 boost, or a float in [0,1] to set a floor.
@@ -545,8 +545,8 @@ All graph algorithms in `kernel.py` now use hypergraph-native implementations in
 ### Hyperedge similarity search
 `mem.hyperedge_similarity("concept", metric="jaccard")` finds hyperedges similar to those containing a concept by node-set overlap. Metrics: `jaccard`, `sorensen_dice`, `overlap_coefficient`.
 
-### `betweenness_centrality(max_samples=N)` is not normalized
-When `max_samples` is set and less than the number of nodes, the result is raw pairwise dependency counts that can exceed 1.0. Without `max_samples`, the result is normalized to [0, 1]. Tests on sampled betweenness should not assert `<= 1.0`.
+### `betweenness_centrality(max_samples=N)` uses sampled normalization
+Without `max_samples`, betweenness is normalized by `1/((n-1)(n-2))` for n >= 3, producing values in [0, 1]. With `max_samples`, normalization is `1/max_samples` and values are raw pairwise dependency counts that can exceed 1.0. Tests on sampled betweenness should not assert `<= 1.0`.
 
 ### `detect_cycles(max_cycles=N)` is a soft limit
 The DFS checks `len(cycles) >= max_cycles` at function entry, not at the point of cycle discovery. The algorithm may produce more than `N` cycles. Tests should assert `len(limited) < len(all_cycles)`, not `len(limited) == N`.
