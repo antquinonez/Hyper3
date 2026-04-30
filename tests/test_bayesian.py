@@ -60,11 +60,11 @@ class TestEvidenceAndUpdateResult:
             kl_divergence=0.0,
         )
         assert result.concept == "c1"
-        assert result.prior is not None
-        assert result.posterior is not None
-        assert isinstance(result.evidence_applied, list)
-        assert isinstance(result.bayes_factors, dict)
-        assert isinstance(result.kl_divergence, float)
+        assert len(result.prior.outcomes) == 2
+        assert len(result.posterior.outcomes) == 2
+        assert result.evidence_applied == []
+        assert result.bayes_factors == {}
+        assert result.kl_divergence == 0.0
 
 
 class TestBayesianLayer:
@@ -98,7 +98,7 @@ class TestBayesianLayer:
         ev2 = Evidence(name="e2", likelihoods={"A": 0.7, "B": 0.3})
         result = layer.add_evidence_chain("c", [ev1, ev2])
         assert result.posterior is not None
-        assert result.posterior.outcomes["A"] > 0.5
+        assert abs(result.posterior.outcomes["A"] - 0.9032258065) < 1e-6
         assert len(result.evidence_applied) == 2
 
     def test_map_estimate_returns_most_likely(self) -> None:
@@ -126,7 +126,7 @@ class TestBayesianLayer:
         ev = Evidence(name="e1", likelihoods={"A": 0.9, "B": 0.1})
         layer.add_evidence("c", ev)
         bf = layer.bayes_factor("c", "A", "B")
-        assert bf > 1.0
+        assert abs(bf - 9.0) < 1e-6
 
     def test_posterior_odds(self) -> None:
         layer = self._make_layer()
@@ -135,7 +135,7 @@ class TestBayesianLayer:
         ev = Evidence(name="e1", likelihoods={"A": 0.9, "B": 0.1})
         layer.add_evidence("c", ev)
         odds = layer.posterior_odds("c", "A", "B")
-        assert odds > 1.0
+        assert abs(odds - 9.0) < 1e-6
 
     def test_credible_set_covers_level(self) -> None:
         layer = self._make_layer()
@@ -163,15 +163,14 @@ class TestBayesianLayer:
         layer.set_prior("c", dist)
         ev = Evidence(name="e1", likelihoods={"A": 0.95, "B": 0.05})
         ig = layer.information_gain("c", ev)
-        assert ig > 0.0
+        assert abs(ig - 0.3568015214) < 1e-6
 
     def test_tracked_concepts_list(self) -> None:
         layer = self._make_layer()
         layer.set_prior("c1", CategoricalDistribution.uniform(["a"]))
         layer.set_prior("c2", CategoricalDistribution.uniform(["b"]))
         tracked = layer.tracked_concepts
-        assert "c1" in tracked
-        assert "c2" in tracked
+        assert set(tracked) == {"c1", "c2"}
 
     def test_get_belief_returns_none_for_unknown(self) -> None:
         layer = self._make_layer()
@@ -183,7 +182,7 @@ class TestBayesianLayer:
         layer.set_prior("c", dist)
         ev = Evidence(name="e1", likelihoods={"A": 0.9, "B": 0.1})
         result = layer.add_evidence("c", ev)
-        assert result.kl_divergence > 0.0
+        assert abs(result.kl_divergence - 0.5310044064) < 1e-6
 
 
 class TestBayesianMixinFacade:
@@ -193,7 +192,7 @@ class TestBayesianMixinFacade:
         mem.store("a")
         mem.store("b")
         dist = mem.set_prior("x", outcomes=["a", "b"])
-        assert dist is not None
+        assert len(dist.outcomes) == 2
         belief = mem.get_belief("x")
         assert belief is not None
         assert len(belief.outcomes) == 2
@@ -231,7 +230,7 @@ class TestBayesianMixinFacade:
             likelihoods={"red": 0.95, "blue": 0.05},
         )
         result = mem.map_estimate("color")
-        assert isinstance(result, str)
+        assert result == "red"
 
     def test_facade_bayes_factor(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -245,8 +244,7 @@ class TestBayesianMixinFacade:
             likelihoods={"h1": 0.9, "h2": 0.1},
         )
         bf = mem.bayes_factor("test", hypothesis_a="h1", hypothesis_b="h2")
-        assert isinstance(bf, float)
-        assert bf > 1.0
+        assert abs(bf - 9.0) < 1e-6
 
     def test_facade_credible_set_returns_labels(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -256,8 +254,7 @@ class TestBayesianMixinFacade:
         mem.store("fish")
         mem.set_prior("animal", outcomes=["cat", "dog", "fish"])
         cs = mem.credible_set("animal", level=0.95)
-        assert all(isinstance(x, str) for x in cs)
-        assert len(cs) >= 1
+        assert set(cs) == {"cat", "dog", "fish"}
 
 
 
@@ -279,7 +276,9 @@ class TestBayesianMixinErrors:
         mem.store("a")
         mem.store("b")
         dist = mem.set_prior("x", outcomes=["a", "b"], weights=[3, 1])
-        assert abs(dist.outcomes.get(list(dist.outcomes.keys())[0]) - 0.75) < 1e-6 or True
+        values = sorted(dist.outcomes.values())
+        assert abs(values[0] - 0.25) < 1e-6
+        assert abs(values[1] - 0.75) < 1e-6
 
     def test_map_estimate_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -328,6 +327,7 @@ class TestBayesianMixinErrors:
         mem.set_prior("x", outcomes=["a", "b"])
         result = mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.8, "b": 0.2})
         assert result.posterior is not None
+        assert len(result.posterior.outcomes) == 2
 
     def test_bayes_factor_with_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -337,7 +337,8 @@ class TestBayesianMixinErrors:
         mem.set_prior("test", outcomes=["h1", "h2"])
         mem.update_belief("test", evidence_name="ev", likelihoods={"h1": 0.9, "h2": 0.1})
         bf = mem.bayes_factor("test", hypothesis_a="h1", hypothesis_b="h2")
-        assert bf is not None and bf > 1.0
+        assert bf is not None
+        assert abs(bf - 9.0) < 1e-6
 
     def test_credible_set_with_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -346,4 +347,133 @@ class TestBayesianMixinErrors:
         mem.store("dog")
         mem.set_prior("animal", outcomes=["cat", "dog"])
         cs = mem.credible_set("animal", level=0.5)
-        assert len(cs) >= 1
+        assert len(cs) == 1
+        assert cs[0] in {"cat", "dog"}
+
+
+class TestCategoricalDistributionEdgeCases:
+    def test_sample_empty_raises(self):
+        dist = CategoricalDistribution()
+        with pytest.raises(ValueError, match="empty"):
+            dist.sample()
+
+    def test_sample_zero_total_returns_first(self):
+        dist = CategoricalDistribution(outcomes={"a": 0.0, "b": 0.0})
+        import numpy as np
+        result = dist.sample(rng=np.random.default_rng(42))
+        assert result in {"a", "b"}
+
+    def test_entropy_empty_is_zero(self):
+        dist = CategoricalDistribution()
+        assert dist.entropy() == 0.0
+
+    def test_normalize_empty_noop(self):
+        dist = CategoricalDistribution()
+        dist.normalize()
+        assert dist.outcomes == {}
+
+    def test_normalize_zero_total_uniform(self):
+        dist = CategoricalDistribution(outcomes={"a": 0.0, "b": 0.0})
+        dist.normalize()
+        assert abs(dist.outcomes["a"] - 0.5) < 1e-9
+        assert abs(dist.outcomes["b"] - 0.5) < 1e-9
+
+    def test_uniform_empty(self):
+        dist = CategoricalDistribution.uniform([])
+        assert dist.outcomes == {}
+
+    def test_from_weights_empty(self):
+        dist = CategoricalDistribution.from_weights([], [])
+        assert dist.outcomes == {}
+
+    def test_from_weights_mismatched_length_raises(self):
+        with pytest.raises(ValueError, match="same length"):
+            CategoricalDistribution.from_weights(["a", "b"], [1.0])
+
+    def test_from_weights_zero_total_uniform(self):
+        dist = CategoricalDistribution.from_weights(["a", "b"], [0.0, 0.0])
+        assert abs(dist.outcomes["a"] - 0.5) < 1e-9
+        assert abs(dist.outcomes["b"] - 0.5) < 1e-9
+
+
+class TestBayesianLayerEdgeCases:
+    def test_add_evidence_no_prior_raises(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        with pytest.raises(ValueError, match="No prior"):
+            layer.add_evidence("x", Evidence(name="e", likelihoods={"a": 0.5}))
+
+    def test_add_evidence_zero_marginal(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.set_prior("c", CategoricalDistribution(outcomes={"A": 0.5, "B": 0.5}))
+        ev = Evidence(name="e", likelihoods={"A": 0.0, "B": 0.0})
+        result = layer.add_evidence("c", ev)
+        assert result.posterior is not None
+        total = sum(result.posterior.outcomes.values())
+        assert abs(total - 1.0) < 1e-9
+
+    def test_add_evidence_chain_empty(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.set_prior("c", CategoricalDistribution(outcomes={"A": 0.5, "B": 0.5}))
+        result = layer.add_evidence_chain("c", [])
+        assert result.evidence_applied == []
+        assert result.kl_divergence == 0.0
+
+    def test_add_evidence_chain_no_prior_raises(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        with pytest.raises(ValueError, match="No prior"):
+            layer.add_evidence_chain("x", [Evidence(name="e", likelihoods={"a": 0.5})])
+
+    def test_bayes_factor_no_evidence(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.set_prior("c", CategoricalDistribution(outcomes={"A": 0.5, "B": 0.5}))
+        assert layer.bayes_factor("c", "A", "B") == 1.0
+
+    def test_entropy_missing_concept(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        assert layer.entropy("missing") == 0.0
+
+    def test_information_gain_missing_concept(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        ev = Evidence(name="e", likelihoods={"A": 0.5})
+        assert layer.information_gain("missing", ev) == 0.0
+
+    def test_information_gain_empty_outcomes(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.set_prior("c", CategoricalDistribution(outcomes={}))
+        ev = Evidence(name="e", likelihoods={"A": 0.5})
+        assert layer.information_gain("c", ev) == 0.0
+
+    def test_posterior_odds_missing_concept(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        assert layer.posterior_odds("missing", "A", "B") == 1.0
+
+    def test_credible_set_missing_concept(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        assert layer.credible_set("missing") == []
+
+    def test_credible_set_empty_outcomes(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.set_prior("c", CategoricalDistribution(outcomes={}))
+        assert layer.credible_set("c") == []
+
+    def test_reset_missing_concept(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        layer.reset("missing")
+
+    def test_map_estimate_missing_raises(self):
+        g = Hypergraph()
+        layer = BayesianLayer(g)
+        with pytest.raises(ValueError, match="No belief"):
+            layer.map_estimate("missing")
