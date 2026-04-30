@@ -349,7 +349,7 @@ class Hypergraph:
         if len(path) > max_depth:
             return
         visited.add(current)
-        for edge in self.edges_for(current):
+        for edge in self.outgoing_edges(current):
             if edge_label is not None and edge.label != edge_label:
                 continue
             for next_id in edge.target_ids:
@@ -649,7 +649,7 @@ class Hypergraph:
         """s-connected components: build s-line graph on hyperedges, then find components."""
         edge_list = list(self._edges.values())
         if not edge_list:
-            return [set(self._nodes.keys())] if self._nodes else []
+            return [{nid} for nid in self._nodes]
 
         edge_node_sets = [e.source_ids | e.target_ids for e in edge_list]
         m = len(edge_list)
@@ -1227,6 +1227,8 @@ class Hypergraph:
         primary = self._nodes.get(primary_id)
         secondary = self._nodes.get(secondary_id)
         if not primary or not secondary:
+            return None
+        if primary_id == secondary_id:
             return None
         primary.access_count += secondary.access_count
         primary.weight = max(primary.weight, secondary.weight)

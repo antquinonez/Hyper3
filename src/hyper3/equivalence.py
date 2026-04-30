@@ -89,5 +89,6 @@ class EquivalenceEngine:
             result = self._graph.merge_node(primary_id, secondary_id)
             if result is not None:
                 merged.append(secondary_id)
+                used.add(primary_id)
                 used.add(secondary_id)
         return merged
