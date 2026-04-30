@@ -935,7 +935,8 @@ class TestRuleScoring:
         matches = rule.find_matches(g, frozenset({a.id, b.id, c.id}))
         assert len(matches) > 0
         score = rule.score_match(matches[0], g)
-        assert score > 1.0
+        assert 0.0 <= score <= 1.0
+        assert score == 1.0
 
     def test_default_score_is_one(self):
         rule = InverseRule(edge_label="x", inverse_label="y")

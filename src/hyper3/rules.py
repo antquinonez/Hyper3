@@ -198,7 +198,7 @@ class TransitiveRule(Rule):
         w_bc = edge_bc.weight if edge_bc else 1.0
         conf_ab = edge_ab.metadata.custom.get("confidence", 1.0) if edge_ab else 1.0
         conf_bc = edge_bc.metadata.custom.get("confidence", 1.0) if edge_bc else 1.0
-        return w_ab * w_bc * conf_ab * conf_bc
+        return min(w_ab * w_bc * conf_ab * conf_bc, 1.0)
 
     def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
         """Find two-hop chains A→B→target that could derive the target via transitivity.
@@ -327,7 +327,7 @@ class InverseRule(Rule):
         edge = graph.get_edge(match.context.get("original_edge", ""))
         w = edge.weight if edge else 1.0
         conf = edge.metadata.custom.get("confidence", 1.0) if edge else 1.0
-        return w * conf
+        return min(w * conf, 1.0)
 
     def find_derivation(self, target_node_id: str, graph: Hypergraph) -> list[RuleMatch]:
         """Find forward edges from *target_node_id* whose inverse could be inferred.
