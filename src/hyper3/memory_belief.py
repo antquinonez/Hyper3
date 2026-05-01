@@ -80,6 +80,46 @@ class BeliefMixin(_MemoryBase):
         self._log.record("create_distribution", concepts=concepts, state_id=qs.id, outcomes=qs.outcome_count)
         return qs
 
+    def sample_distribution(self, concept: str, *, context: dict[str, float] | None = None) -> Outcome | None:
+        """Sample a belief distribution by concept label.
+
+        Finds the distribution that includes the given concept and
+        samples from it using the Born rule. This is the label-accepting
+        counterpart to :meth:`sample` which requires a BeliefState.
+
+        Args:
+            concept: Label of a concept that is an outcome in a distribution.
+            context: Optional context weights influencing sampling probabilities.
+
+        Returns:
+            The selected Outcome (with ``label`` and ``node_id`` fields),
+            or None if no distribution contains this concept.
+
+        Raises:
+            NodeNotFoundError: If the concept does not exist in the graph.
+        """
+        node = self._find_node(concept)
+        if not node:
+            raise NodeNotFoundError(concept)
+        for qs in self._belief._states.values():
+            if any(o.node_id == node.id for o in qs.outcomes):
+                return self.sample(qs, context=context)
+        return None
+
+    def list_distributions(self) -> dict[str, str]:
+        """List all belief distributions keyed by their outcome concept labels.
+
+        Returns:
+            Dict mapping concept label to distribution ID. Each label
+            that participates as an outcome in a distribution is included.
+        """
+        result: dict[str, str] = {}
+        for qs in self._belief._states.values():
+            for o in qs.outcomes:
+                label = self._node_label(o.node_id)
+                result[label] = qs.id
+        return result
+
     def sample(self, qs: BeliefState, *, context: dict[str, float] | None = None) -> Outcome | None:
         """Sample a belief distribution to a single outcome via Born rule sampling.
 

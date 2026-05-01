@@ -1511,3 +1511,146 @@ class TestMaybeEvolveFeedback:
         result = mem.evolve_with_feedback()
         assert isinstance(result["decayed"], int)
 
+
+class TestSampleDistribution:
+    def test_sample_distribution_by_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("cat")
+        mem.store("dog")
+        mem.store("bird")
+        mem.create_distribution(["cat", "dog", "bird"], amplitudes=[0.8, 0.1, 0.1], use_context_field=False)
+        result = mem.sample_distribution("cat")
+        assert result is not None
+        node = mem.graph.get_node(result.node_id)
+        assert node is not None
+        assert node.label in {"cat", "dog", "bird"}
+
+    def test_sample_distribution_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        with pytest.raises(NodeNotFoundError):
+            mem.sample_distribution("nonexistent")
+
+    def test_sample_distribution_no_distribution(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("lonely")
+        result = mem.sample_distribution("lonely")
+        assert result is None
+
+    def test_list_distributions(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.create_distribution(["a", "b"], use_context_field=False)
+        dists = mem.list_distributions()
+        assert "a" in dists
+        assert "b" in dists
+
+
+class TestAllenRelation:
+    def test_allen_relation_before(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add_temporal_event("event_a", 0.0, 5.0)
+        mem.add_temporal_event("event_b", 10.0, 15.0)
+        from hyper3.temporal import AllenRelation
+        rel = mem.allen_relation("event_a", "event_b")
+        assert rel == AllenRelation.BEFORE
+
+    def test_allen_relation_overlapping(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add_temporal_event("a", 0.0, 10.0)
+        mem.add_temporal_event("b", 5.0, 15.0)
+        from hyper3.temporal import AllenRelation
+        rel = mem.allen_relation("a", "b")
+        assert rel == AllenRelation.OVERLAPS
+
+    def test_allen_relation_missing_event(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add_temporal_event("a", 0.0, 5.0)
+        assert mem.allen_relation("a", "missing") is None
+
+    def test_allen_relation_both_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.allen_relation("x", "y") is None
+
+
+class TestEdgesLabeled:
+    def test_edges_labeled_returns_labels(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="connects")
+        mem.relate("b", "c", label="links")
+        edges = mem.edges_labeled()
+        assert len(edges) == 2
+        labels = {e.source_labels[0] for e in edges}
+        assert "a" in labels or "b" in labels
+
+    def test_edges_labeled_filter_by_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="keep")
+        mem.relate("b", "c", label="drop")
+        edges = mem.edges_labeled(edge_label="keep")
+        assert len(edges) == 1
+        assert edges[0].source_labels[0] == "a"
+        assert edges[0].target_labels[0] == "b"
+
+    def test_edges_labeled_hyperedge(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        mem.store("z")
+        mem.relate_hyperedge(sources={"x", "y"}, targets={"z"}, label="joint")
+        edges = mem.edges_labeled(min_source_cardinality=2)
+        assert len(edges) == 1
+        assert set(edges[0].source_labels) == {"x", "y"}
+        assert edges[0].target_labels == ["z"]
+
+
+class TestDegreeMethods:
+    def test_degree_returns_raw_counts(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="x")
+        mem.relate("a", "c", label="y")
+        deg = mem.degree()
+        assert deg["a"] == 2
+        assert deg["b"] == 1
+        assert deg["c"] == 1
+
+    def test_degree_weighted(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="x", weight=3.0)
+        deg = mem.degree(weighted=True)
+        assert deg["a"] == 3.0
+        assert deg["b"] == 3.0
+
+    def test_in_degree(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b")
+        mem.relate("c", "b")
+        ind = mem.in_degree()
+        assert ind["b"] == 2
+        assert ind["a"] == 0
+
+    def test_out_degree(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b")
+        mem.relate("a", "c")
+        outd = mem.out_degree()
+        assert outd["a"] == 2
+        assert outd["b"] == 0
+

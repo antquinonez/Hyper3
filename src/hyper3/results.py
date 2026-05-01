@@ -488,5 +488,17 @@ class SpectralEmbeddingResult(_SimpleResultBase):
     dimensions: int = 0
 
 
+@dataclass
+class LabeledEdge(_SimpleResultBase):
+    """A hyperedge with source and target labels resolved from internal IDs."""
+    id: str = ""
+    label: str = ""
+    source_labels: list[str] = field(default_factory=list)
+    target_labels: list[str] = field(default_factory=list)
+    weight: float = 1.0
+    source_cardinality: int = 1
+    target_cardinality: int = 1
+
+
 def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
     return sorted(scores.items(), key=lambda x: -x[1])[:k]

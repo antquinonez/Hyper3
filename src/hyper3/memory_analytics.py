@@ -6,6 +6,7 @@ from typing import Any
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     GraphDescription,
+    LabeledEdge,
     PatternMatchInfo,
     SubgraphEdge,
     SubgraphNode,
@@ -405,4 +406,75 @@ class AnalyticsMixin(_MemoryBase):
             node = self._graph.get_node(nid)
             if node and se_result.embeddings is not None and i < se_result.embeddings.shape[0]:
                 result[node.label] = se_result.embeddings[i].tolist()
+        return result
+
+    def edges_labeled(
+        self,
+        *,
+        edge_label: str | None = None,
+        min_source_cardinality: int = 1,
+        min_target_cardinality: int = 1,
+    ) -> list[LabeledEdge]:
+        """Return edges with source/target IDs resolved to human-readable labels.
+
+        Args:
+            edge_label: Filter to edges with this label. None = all.
+            min_source_cardinality: Minimum number of source nodes.
+            min_target_cardinality: Minimum number of target nodes.
+
+        Returns:
+            List of LabeledEdge objects with resolved labels.
+        """
+        results: list[LabeledEdge] = []
+        for edge in self._graph.edges:
+            if edge_label is not None and edge.label != edge_label:
+                continue
+            if len(edge.source_ids) < min_source_cardinality:
+                continue
+            if len(edge.target_ids) < min_target_cardinality:
+                continue
+            results.append(
+                LabeledEdge(
+                    id=edge.id,
+                    label=edge.label,
+                    source_labels=[n.label for sid in edge.source_ids if (n := self._graph.get_node(sid))],
+                    target_labels=[n.label for tid in edge.target_ids if (n := self._graph.get_node(tid))],
+                    weight=edge.weight,
+                    source_cardinality=len(edge.source_ids),
+                    target_cardinality=len(edge.target_ids),
+                )
+            )
+        return results
+
+    def degree(self, *, weighted: bool = False) -> dict[str, int | float]:
+        """Compute raw degree counts for all nodes, keyed by label.
+
+        Unlike :meth:`degree_centrality` which returns normalized scores,
+        this returns the raw number of incident edges (or total weight
+        if ``weighted=True``).
+
+        Args:
+            weighted: If True, return sum of incident edge weights instead of count.
+
+        Returns:
+            Dict of concept labels to degree values.
+        """
+        result: dict[str, int | float] = {}
+        for node in self._graph.nodes:
+            edges = self._graph.incident_edges(node.id)
+            result[node.label] = sum(e.weight for e in edges) if weighted else len(edges)
+        return result
+
+    def in_degree(self) -> dict[str, int]:
+        """Compute in-degree (number of incoming edges) for all nodes."""
+        result: dict[str, int] = {}
+        for node in self._graph.nodes:
+            result[node.label] = len(self._graph.incoming_edges(node.id))
+        return result
+
+    def out_degree(self) -> dict[str, int]:
+        """Compute out-degree (number of outgoing edges) for all nodes."""
+        result: dict[str, int] = {}
+        for node in self._graph.nodes:
+            result[node.label] = len(self._graph.outgoing_edges(node.id))
         return result

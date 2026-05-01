@@ -189,6 +189,7 @@ from hyper3.results import (
     HypergraphCutResult,
     ImportResult,
     IterativeReasonResult,
+    LabeledEdge,
     LateralInferenceInsight,
     MemoryStats,
     MergeReport,

@@ -6,7 +6,7 @@ from typing import Any
 from hyper3.enrichment import ExtractionResult, LLMEnricher, LLMProvider
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import TemporalMatch
-from hyper3.temporal import TemporalEvent, TemporalReasoner
+from hyper3.temporal import AllenRelation, TemporalEvent, TemporalReasoner
 
 
 class TemporalMixin(_MemoryBase):
@@ -52,6 +52,23 @@ class TemporalMixin(_MemoryBase):
     def causal_chain(self, labels: list[str]) -> list[str]:
         """Find causal chains involving a concept."""
         return self._temporal.causal_order(labels)
+
+    def allen_relation(self, source: str, target: str) -> AllenRelation | None:
+        """Compute the Allen interval relation between two temporal events.
+
+        Args:
+            source: Label of the first concept with a temporal event.
+            target: Label of the second concept with a temporal event.
+
+        Returns:
+            The AllenRelation between the two events' intervals, or None
+            if either concept has no temporal event.
+        """
+        ea = self._temporal.get_event(source)
+        eb = self._temporal.get_event(target)
+        if not ea or not eb:
+            return None
+        return ea.interval.relate_to(eb.interval)
 
     @property
     def temporal(self) -> TemporalReasoner:
