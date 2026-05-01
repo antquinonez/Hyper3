@@ -99,6 +99,15 @@ from hyper3.frame_transform import (
     FrameTransformer,
     TransformedConfig,
 )
+from hyper3.generators import (
+    complete_hypergraph,
+    random_chung_lu,
+    random_hypergraph,
+    random_sbm,
+    random_uniform_hypergraph,
+    ring_lattice,
+    star_hypergraph,
+)
 from hyper3.graph_diff import (
     EdgeDelta,
     GraphDelta,

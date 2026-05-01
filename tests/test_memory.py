@@ -1654,3 +1654,157 @@ class TestDegreeMethods:
         assert outd["a"] == 2
         assert outd["b"] == 0
 
+
+class TestNewAnalyticsMethods:
+    def test_is_connected(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b")
+        assert mem.is_connected()
+
+    def test_not_connected(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        assert not mem.is_connected()
+
+    def test_density(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b")
+        assert mem.density() > 0
+
+    def test_unique_edge_sizes(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b")
+        assert mem.unique_edge_sizes() == [2]
+
+    def test_max_edge_order(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b")
+        assert mem.max_edge_order() == 1
+
+    def test_clustering_coefficient(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "a")
+        cc = mem.clustering_coefficient("a")
+        assert cc == 1.0
+
+    def test_clustering_coefficient_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.clustering_coefficient("missing") == 0.0
+
+    def test_average_clustering(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "a")
+        acc = mem.average_clustering_coefficient()
+        assert acc == 1.0
+
+    def test_katz_centrality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        kc = mem.katz_centrality()
+        assert len(kc) == 3
+        assert all(isinstance(v, float) for v in kc.values())
+
+    def test_katz_centrality_top_k(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcde":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        kc = mem.katz_centrality(top_k=2)
+        assert len(kc) == 2
+
+    def test_spectral_clustering(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcdef":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("d", "e")
+        mem.relate("e", "f")
+        clusters = mem.spectral_clustering(k=2)
+        assert len(clusters) == 2
+
+    def test_single_source_distances(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        dists = mem.single_source_distances("a", weighted=False)
+        assert dists["a"] == 0.0
+        assert dists["b"] == 1.0
+        assert dists["c"] == 2.0
+
+    def test_single_source_distances_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.single_source_distances("missing") == {}
+
+    def test_component_of(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        comp = mem.component_of("a")
+        assert "a" in comp
+        assert "b" in comp
+        assert "c" not in comp
+
+    def test_component_of_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.component_of("missing") == set()
+
+    def test_largest_connected_component(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        lcc = mem.largest_connected_component()
+        assert len(lcc) == 2
+
+    def test_shortest_path_lengths(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        all_dists = mem.shortest_path_lengths(weighted=False)
+        assert all_dists["a"]["c"] == 2.0
+
+    def test_to_dual(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        dual = mem.to_dual()
+        assert isinstance(dual, dict)
+
+    def test_to_line_graph(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        lg = mem.to_line_graph()
+        assert isinstance(lg, list)
+        assert len(lg) > 0
+

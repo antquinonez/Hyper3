@@ -478,3 +478,162 @@ class AnalyticsMixin(_MemoryBase):
         for node in self._graph.nodes:
             result[node.label] = len(self._graph.outgoing_edges(node.id))
         return result
+
+    def shortest_path_lengths(self, *, weighted: bool = True) -> dict[str, dict[str, float]]:
+        """Compute all-pairs shortest path lengths with labels.
+
+        Args:
+            weighted: If True (default), use edge weights for path cost.
+
+        Returns:
+            Nested dict mapping source labels to {target_label: distance}.
+        """
+        raw = self._graph.shortest_path_lengths(weighted=weighted)
+        result: dict[str, dict[str, float]] = {}
+        for src_id, targets in raw.items():
+            src_label = self._node_label(src_id)
+            result[src_label] = {self._node_label(tgt_id): d for tgt_id, d in targets.items()}
+        return result
+
+    def single_source_distances(self, concept: str, *, weighted: bool = True) -> dict[str, float]:
+        """Compute shortest distances from a single source concept.
+
+        Args:
+            concept: Label of the source node.
+            weighted: If True (default), use edge weights for path cost.
+
+        Returns:
+            Dict mapping target labels to distances.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return {}
+        raw = self._graph.single_source_shortest_path_lengths(node.id, weighted=weighted)
+        return {self._node_label(nid): d for nid, d in raw.items()}
+
+    def is_connected(self) -> bool:
+        """Check whether the graph is connected (single component)."""
+        return self._graph.is_connected()
+
+    def largest_connected_component(self) -> set[str]:
+        """Return labels of nodes in the largest connected component."""
+        return {self._node_label(nid) for nid in self._graph.largest_connected_component()}
+
+    def component_of(self, concept: str) -> set[str]:
+        """Return labels of nodes in the same component as a concept.
+
+        Returns empty set if the concept is not found.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return set()
+        return {self._node_label(nid) for nid in self._graph.component_of(node.id)}
+
+    def density(self) -> float:
+        """Compute graph density."""
+        return self._graph.density()
+
+    def unique_edge_sizes(self) -> list[int]:
+        """Return sorted list of unique edge cardinalities."""
+        return self._graph.unique_edge_sizes()
+
+    def max_edge_order(self) -> int:
+        """Return the maximum edge order (cardinality - 1) across all edges."""
+        return self._graph.max_edge_order()
+
+    def clustering_coefficient(self, concept: str) -> float:
+        """Compute the local clustering coefficient for a concept.
+
+        Returns 0.0 if the concept is not found.
+        """
+        node = self._find_node(concept)
+        if not node:
+            return 0.0
+        return self._graph.clustering_coefficient(node.id)
+
+    def average_clustering_coefficient(self) -> float:
+        """Compute the average clustering coefficient across all nodes."""
+        return self._graph.average_clustering_coefficient()
+
+    def katz_centrality(
+        self,
+        *,
+        alpha: float = 0.1,
+        beta: float = 1.0,
+        top_k: int | None = None,
+    ) -> dict[str, float]:
+        """Compute Katz centrality for all nodes.
+
+        Args:
+            alpha: Attenuation factor.
+            beta: Weight constant.
+            top_k: If set, return only the top-k highest-scoring nodes.
+
+        Returns:
+            Dict of concept labels to centrality scores.
+        """
+        scores = {
+            self._node_label(nid): score
+            for nid, score in self._graph.katz_centrality(alpha=alpha, beta=beta).items()
+        }
+        if top_k is not None:
+            return dict(_top_k(scores, top_k))
+        return scores
+
+    def spectral_clustering(self, *, k: int = 2) -> list[set[str]]:
+        """Partition nodes into k clusters using spectral clustering.
+
+        Args:
+            k: Number of clusters.
+
+        Returns:
+            List of sets of concept labels, one per cluster.
+        """
+        return [
+            {self._node_label(nid) for nid in cluster}
+            for cluster in self._graph.spectral_clustering(k=k)
+        ]
+
+    def to_dual(self) -> dict[str, list[str]]:
+        """Return the dual hypergraph adjacency as label-keyed dict.
+
+        Returns:
+            Dict mapping dual-node labels to lists of neighbor labels.
+        """
+        dual = self._graph.to_dual()
+        result: dict[str, list[str]] = {}
+        for node in dual.nodes:
+            nbrs = dual.neighbors(node.id)
+            result[node.label] = [
+                dn.label if (dn := dual.get_node(nid)) else nid for nid in nbrs
+            ]
+        return result
+
+    def to_line_graph(self) -> list[tuple[str, str]]:
+        """Return line graph edges as (edge_label_a, edge_label_b) pairs.
+
+        Returns:
+            List of label pairs representing adjacent edges in the original graph.
+        """
+        lg = self._graph.to_line_graph()
+        results: list[tuple[str, str]] = []
+        for u, v in lg.edges():
+            lbl_u = lg.nodes[u].get("label", u[:8])
+            lbl_v = lg.nodes[v].get("label", v[:8])
+            results.append((lbl_u, lbl_v))
+        return results
+
+    def to_bipartite_graph(self) -> list[tuple[str, str]]:
+        """Return bipartite graph edges as (node_label, edge_label) pairs.
+
+        Returns:
+            List of label pairs connecting original nodes to the edges
+            they participate in.
+        """
+        bg = self._graph.to_bipartite_graph()
+        results: list[tuple[str, str]] = []
+        for u, v in bg.edges():
+            lbl_u = bg.nodes[u].get("label", u[:8])
+            lbl_v = bg.nodes[v].get("label", v[:8])
+            results.append((lbl_u, lbl_v))
+        return results

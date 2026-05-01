@@ -1565,3 +1565,292 @@ class Hypergraph:
     def edges(self) -> list[Hyperedge]:
         """All edges in the graph."""
         return list(self._edges.values())
+
+    def adjacency_matrix(self) -> tuple[Any, list[str]]:
+        import numpy as np
+        import scipy.sparse as sp
+
+        H, node_list, _ = self.incidence_matrix_unsigned()
+        n = len(node_list)
+        if n == 0:
+            return sp.csr_matrix((0, 0)), []
+
+        H_sp = sp.csr_matrix(H)
+        A = H_sp @ H_sp.T
+        degrees = np.array(A.diagonal())
+        D = sp.diags(degrees)
+        A = A - D
+        return A.tocsr(), node_list
+
+    def normalized_laplacian(self) -> tuple[Any, list[str]]:
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return np.zeros((0, 0)), []
+
+        L = self.hypergraph_laplacian()
+
+        H, _, _ = self.incidence_matrix_unsigned()
+        edge_list = list(self._edges.values())
+        if edge_list:
+            W = np.array([e.weight for e in edge_list])
+            D_v = H @ W
+        else:
+            D_v = np.zeros(n)
+
+        D_v_inv_sqrt = np.zeros_like(D_v)
+        nonzero = D_v > 0
+        D_v_inv_sqrt[nonzero] = 1.0 / np.sqrt(D_v[nonzero])
+        D_inv_sqrt = np.diag(D_v_inv_sqrt)
+        L_norm = D_inv_sqrt @ L @ D_inv_sqrt
+        return L_norm, node_list
+
+    def shortest_path_lengths(self, *, weighted: bool = True) -> dict[str, dict[str, float]]:
+        result: dict[str, dict[str, float]] = {}
+        for nid in self._nodes:
+            result[nid] = self.single_source_shortest_path_lengths(nid, weighted=weighted)
+        return result
+
+    def single_source_shortest_path_lengths(self, source_id: str, *, weighted: bool = True) -> dict[str, float]:
+        if source_id not in self._nodes:
+            return {}
+        if weighted:
+            return self._dijkstra_all_distances(source_id)
+        return self._bfs_all_distances(source_id)
+
+    def _dijkstra_all_distances(self, source: str) -> dict[str, float]:
+        import heapq
+
+        dist: dict[str, float] = {source: 0.0}
+        heap: list[tuple[float, str]] = [(0.0, source)]
+        visited: set[str] = set()
+
+        while heap:
+            d, u = heapq.heappop(heap)
+            if u in visited:
+                continue
+            visited.add(u)
+            for edge in self.outgoing_edges(u):
+                cost = 1.0 / max(edge.weight, 1e-9)
+                for v in edge.target_ids:
+                    new_dist = d + cost
+                    if v not in dist or new_dist < dist[v]:
+                        dist[v] = new_dist
+                        heapq.heappush(heap, (new_dist, v))
+        return dist
+
+    def _bfs_all_distances(self, source: str) -> dict[str, float]:
+        dist: dict[str, float] = {source: 0.0}
+        queue: deque[str] = deque([source])
+        while queue:
+            current = queue.popleft()
+            for edge in self.outgoing_edges(current):
+                for tgt in edge.target_ids:
+                    if tgt not in dist:
+                        dist[tgt] = dist[current] + 1.0
+                        queue.append(tgt)
+        return dist
+
+    def is_connected(self) -> bool:
+        components = self.connected_components()
+        return len(components) == 1
+
+    def largest_connected_component(self) -> set[str]:
+        components = self.connected_components()
+        if not components:
+            return set()
+        return max(components, key=len)
+
+    def component_of(self, node_id: str) -> set[str]:
+        for comp in self.connected_components():
+            if node_id in comp:
+                return comp
+        return set()
+
+    def density(self) -> float:
+        n = len(self._nodes)
+        if n <= 1:
+            return 0.0
+        return len(self._edges) / (n * (n - 1))
+
+    def unique_edge_sizes(self) -> list[int]:
+        sizes: set[int] = set()
+        for edge in self._edges.values():
+            sizes.add(len(edge.node_ids))
+        return sorted(sizes)
+
+    def max_edge_order(self) -> int:
+        if not self._edges:
+            return 0
+        return max(len(e.node_ids) for e in self._edges.values()) - 1
+
+    def clustering_coefficient(self, node_id: str) -> float:
+        nbrs = self.neighbors(node_id)
+        k = len(nbrs)
+        if k < 2:
+            return 0.0
+        pairs_with_edge = 0
+        for i in range(len(nbrs)):
+            u_nbrs = set(self.neighbors(nbrs[i]))
+            for j in range(i + 1, len(nbrs)):
+                if nbrs[j] in u_nbrs:
+                    pairs_with_edge += 1
+        return 2.0 * pairs_with_edge / (k * (k - 1))
+
+    def average_clustering_coefficient(self) -> float:
+        coeffs = [
+            self.clustering_coefficient(nid)
+            for nid in self._nodes
+            if len(self.incident_edges(nid)) >= 2
+        ]
+        if not coeffs:
+            return 0.0
+        return sum(coeffs) / len(coeffs)
+
+    def katz_centrality(self, *, alpha: float = 0.1, beta: float = 1.0, max_iter: int = 100, tol: float = 1e-06) -> dict[str, float]:
+        import numpy as np
+
+        A_sp, node_list = self.adjacency_matrix()
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A_dense = A_sp.toarray() if hasattr(A_sp, "toarray") else np.asarray(A_sp)
+        x = np.ones(n) / n
+        ones = np.ones(n)
+
+        for _ in range(max_iter):
+            x_new = alpha * (A_dense @ x) + beta * ones
+            norm = np.linalg.norm(x_new)
+            if norm > 0:
+                x_new = x_new / norm
+            if np.linalg.norm(x_new - x) < tol:
+                x = x_new
+                break
+            x = x_new
+
+        return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
+    def spectral_clustering(self, k: int = 2) -> list[set[str]]:
+        import numpy as np
+        import scipy.sparse as sp
+        import scipy.sparse.linalg as sla
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return []
+
+        L_norm, _ = self.normalized_laplacian()
+        n_clusters = min(k, n)
+        n_eigenvectors = min(n_clusters, n)
+        if n_eigenvectors <= 0:
+            return []
+
+        try:
+            if n_eigenvectors < n:
+                eigenvalues, eigenvectors = sla.eigsh(sp.csr_matrix(L_norm), k=n_eigenvectors, which="SM")
+            else:
+                eigenvalues, eigenvectors = np.linalg.eigh(L_norm)
+                eigenvectors = eigenvectors[:, :n_eigenvectors]
+        except Exception:
+            return [set(node_list)]
+
+        if n_clusters == 1:
+            return [set(node_list)]
+
+        best_labels: np.ndarray | None = None
+        best_wcss = float("inf")
+        rng = np.random.RandomState(42)
+
+        for _ in range(20):
+            indices = rng.choice(n, n_clusters, replace=False)
+            centroids = eigenvectors[indices].copy()
+
+            for _ in range(100):
+                dists = np.linalg.norm(eigenvectors[:, None, :] - centroids[None, :, :], axis=2)
+                labels = np.argmin(dists, axis=1)
+                new_centroids = np.zeros_like(centroids)
+                for c in range(n_clusters):
+                    members = eigenvectors[labels == c]
+                    if len(members) > 0:
+                        new_centroids[c] = members.mean(axis=0)
+                    else:
+                        new_centroids[c] = eigenvectors[rng.randint(n)]
+                if np.allclose(centroids, new_centroids):
+                    break
+                centroids = new_centroids
+
+            wcss = sum(
+                np.sum((eigenvectors[labels == c] - centroids[c]) ** 2)
+                for c in range(n_clusters)
+            )
+            if wcss < best_wcss:
+                best_wcss = wcss
+                best_labels = labels.copy()
+
+        clusters: list[set[str]] = [set() for _ in range(n_clusters)]
+        if best_labels is not None:
+            for i, label in enumerate(best_labels):
+                clusters[label].add(node_list[i])
+        else:
+            clusters[0] = set(node_list)
+        return clusters
+
+    def to_dual(self) -> Hypergraph:
+        dual = Hypergraph()
+        edge_list = list(self._edges.values())
+        edge_to_dual_id: dict[str, str] = {}
+
+        for i, edge in enumerate(edge_list):
+            dual_node = Hypernode(label=f"e{i}")
+            dual.add_node(dual_node)
+            edge_to_dual_id[edge.id] = dual_node.id
+
+        for i, node in enumerate(self._nodes.values()):
+            incident = self.incident_edges(node.id)
+            if not incident:
+                continue
+            dual_node_ids = frozenset(
+                edge_to_dual_id[e.id] for e in incident if e.id in edge_to_dual_id
+            )
+            if not dual_node_ids:
+                continue
+            dual.add_edge(
+                Hyperedge(
+                    source_ids=dual_node_ids,
+                    target_ids=frozenset(),
+                    label=f"v{i}",
+                )
+            )
+
+        return dual
+
+    def to_line_graph(self) -> Any:
+        import networkx as nx
+
+        G = nx.Graph()
+        edge_list = list(self._edges.values())
+        for edge in edge_list:
+            G.add_node(edge.id, label=edge.label)
+        for i in range(len(edge_list)):
+            nodes_i = edge_list[i].node_ids
+            for j in range(i + 1, len(edge_list)):
+                if nodes_i & edge_list[j].node_ids:
+                    G.add_edge(edge_list[i].id, edge_list[j].id)
+        return G
+
+    def to_bipartite_graph(self) -> Any:
+        import networkx as nx
+
+        G = nx.Graph()
+        for node in self._nodes.values():
+            G.add_node(node.id, bipartite=0, label=node.label)
+        for edge in self._edges.values():
+            G.add_node(edge.id, bipartite=1, label=edge.label)
+            for nid in edge.node_ids:
+                if nid in self._nodes:
+                    G.add_edge(nid, edge.id)
+        return G
