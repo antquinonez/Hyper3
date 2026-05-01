@@ -196,6 +196,7 @@ class TestEmbeddingEngine:
         for nid, score in results:
             assert isinstance(nid, str)
             assert isinstance(score, float)
+            assert -1.0 <= score <= 1.0
 
     def test_invalidate_cache(self):
         g = _make_graph("cat")
@@ -281,6 +282,7 @@ class TestHypergraphMemoryIntegration:
         for label, score in results:
             assert isinstance(label, str)
             assert isinstance(score, float)
+            assert -1.0 <= score <= 1.0
 
     def test_analogy_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)

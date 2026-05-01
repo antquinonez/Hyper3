@@ -111,19 +111,25 @@ class TestAbstractionNavigator:
         assert len(a_edges) >= 1
 
     def test_abstraction_property(self) -> None:
+        from hyper3.abstraction import AbstractionNavigator
+
         mem = HypergraphMemory(evolve_interval=0)
+        mem.store("X")
         assert mem.abstraction is None
-        mem.collapse_subgraph({"anything"}, summary_label="S")
-        assert mem.abstraction is not None
+        mem.collapse_subgraph({"X"}, summary_label="SX")
+        assert isinstance(mem.abstraction, AbstractionNavigator)
 
     def test_nodes_at_layer(self) -> None:
         from hyper3.abstraction import AbstractionNavigator
-        from hyper3.kernel import AbstractionLayer
+        from hyper3.kernel import AbstractionLayer, Hypernode, Metadata
+
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("detail_node")
+        mem.store("detail_node", abstraction=AbstractionLayer.DETAIL)
         nav = AbstractionNavigator(mem.graph)
         result = nav.nodes_at_layer(AbstractionLayer.DETAIL)
         assert isinstance(result, list)
+        assert len(result) == 1
+        assert result[0].label == "detail_node"
 
     def test_multiple_collapses(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)

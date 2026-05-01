@@ -28,19 +28,23 @@ class TestValidationEngine:
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
-        assert isinstance(report, ValidationReport)
+        assert report.recommendation in ("enhanced", "simple", "equivalent")
+        assert report.simple_results is not None
+        assert report.enhanced_results is not None
 
     def test_simple_path_produces_results(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.simple_results, ReasoningSummary)
+        assert report.simple_results.edges_produced is not None
 
     def test_enhanced_path_produces_results(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.enhanced_results, ReasoningSummary)
+        assert report.enhanced_results.edges_produced is not None
 
     def test_agreement_metrics_computed(self):
         mem = _make_mem()
@@ -67,6 +71,8 @@ class TestValidationEngine:
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.novel_findings, list)
+        for f in report.novel_findings:
+            assert "type" in f
 
     def test_no_rules_returns_empty_report(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -89,6 +95,9 @@ class TestRunValidationSuite:
         engine = ValidationEngine(mem)
         reports = engine.run_validation_suite()
         assert isinstance(reports, list)
+        if reports:
+            for r in reports:
+                assert r.recommendation in ("enhanced", "simple", "equivalent")
 
     def test_suite_empty_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -111,6 +120,7 @@ class TestIsEnhancedReliable:
             engine.run_comparison({"a", "b", "c"})
         result = engine.is_enhanced_reliable()
         assert isinstance(result, bool)
+        assert isinstance(engine.is_enhanced_reliable(), bool)
 
 
 class TestMemoryValidateReasoning:
@@ -118,7 +128,9 @@ class TestMemoryValidateReasoning:
     def test_validate_reasoning_on_memory(self):
         mem = _make_mem()
         report = mem.validate_reasoning({"a", "b", "c"})
-        assert isinstance(report, ValidationReport)
+        assert report.recommendation in ("enhanced", "simple", "equivalent")
+        assert report.simple_results is not None
+        assert report.enhanced_results is not None
 
     def test_validate_comprehensive_on_memory(self):
         mem = _make_mem()
@@ -133,13 +145,15 @@ class TestContradictionDetection:
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.contradictions, list)
+        for c in report.contradictions:
+            assert "type" in c or "label" in c or len(c) > 0
 
     def test_confidence_computed(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
-        assert isinstance(report.simple_results.avg_confidence, float)
-        assert isinstance(report.enhanced_results.avg_confidence, float)
+        assert 0.0 <= report.simple_results.avg_confidence <= 1.0
+        assert 0.0 <= report.enhanced_results.avg_confidence <= 1.0
 
 
 class _NodeCreatorRule(Rule):
@@ -182,7 +196,8 @@ class TestValidationCoverage:
         mem._rules = [_NodeCreatorRule()]
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b"})
-        assert isinstance(report, ValidationReport)
+        assert report.recommendation in ("enhanced", "simple", "equivalent")
+        assert report.simple_results is not None
 
     def test_find_novel_resolves_node_labels(self):
         mem = _make_mem()
