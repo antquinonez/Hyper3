@@ -109,6 +109,7 @@ class TestDetectCapabilityMethod:
         mem._rules = [TransitiveRule(edge_label="rel")]
         level = mem.detect_capability()
         assert isinstance(level, CapabilityLevel)
+        assert level.value >= CapabilityLevel.MINIMAL.value
 
 
 
@@ -126,10 +127,7 @@ class TestProbeFunctions:
         assert _probe_rules(mem) is False
 
     def test_probe_rules_no_graph(self):
-        mem = HypergraphMemory(evolve_interval=0)
-        mem._rules = [TransitiveRule()]
-        delattr(mem, "_graph") if hasattr(mem, "_graph") else None
-        assert _probe_rules(mem) is False or True
+        assert _probe_rules(object()) is False
 
     def test_probe_rules_with_matches(self):
         mem = HypergraphMemory(evolve_interval=0)

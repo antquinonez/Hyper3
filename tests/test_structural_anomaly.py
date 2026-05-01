@@ -623,6 +623,8 @@ class TestExplorationReportGeneration:
         report = anomalous_results[0]["exploration_report"]
         assert "coverage_pct" in report
         assert "branches_explored" in report
+        assert isinstance(report["coverage_pct"], float)
+        assert 0.0 <= report["coverage_pct"] <= 100.0
 
     def test_boundary_aware_distinguishes_conclusions(self):
         g = Hypergraph()

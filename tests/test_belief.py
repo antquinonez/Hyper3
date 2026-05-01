@@ -174,6 +174,7 @@ class TestInterference:
         qs = ql.create_distribution(["cat", "dog", "bird"], [0.7, -0.5, 0.3])
         patterns = ql.compute_interactions(qs.id)
         assert isinstance(patterns, list)
+        assert len(patterns) == 0
 
     def test_evidence_interaction_properties(self):
         p = EvidenceInteraction(node_id="n1", constructive=0.8, destructive=0.0, net_amplitude=0.8)
@@ -300,7 +301,8 @@ class TestBeliefLayerDeep:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["a"])
         result = ql.sample_with_profile(qs.id, "nonexistent_profile")
-        assert result is not None
+        assert isinstance(result, Outcome)
+        assert result.node_id == "a"
 
     def test_sample_with_profile_empty_state(self):
         g = Hypergraph()
@@ -323,7 +325,9 @@ class TestBeliefLayerDeep:
     def test_evolve_amplitudes_missing(self):
         g = Hypergraph()
         ql = BeliefLayer(g)
+        state_count_before = len(ql._states)
         ql.evolve_amplitudes("nonexistent", {"a": 2.0})
+        assert len(ql._states) == state_count_before
 
     def test_correlation_predict_no_match(self):
         ent = ConceptCorrelation(
@@ -958,6 +962,7 @@ class TestUseContextField:
         total_ctx = sum(probs_ctx)
         assert total_plain > 0
         assert total_ctx > 0
+        assert probs_ctx[0] != probs_plain[0]
 
     def test_single_concept_context_field_no_effect(self):
         mem = HypergraphMemory(evolve_interval=0)

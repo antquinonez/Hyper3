@@ -604,6 +604,10 @@ class TestAutoCreateInferenceDistributions:
         result = mem.reason({"a"}, max_depth=2, auto_commit=False)
         if "auto_distributions" in result:
             assert isinstance(result["auto_distributions"], list)
+            for dist in result["auto_distributions"]:
+                assert hasattr(dist, "outcome_count")
+        else:
+            assert hasattr(result, "error")
 
 
 class TestFindNodeWithAlias:

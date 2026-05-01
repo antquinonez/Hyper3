@@ -418,6 +418,7 @@ class TestEdgeCases:
         provider = NeighborhoodFingerprintProvider(graph, dim=16)
         vec = provider.embed_node("nonexistent_id", "nonexistent")
         assert vec.shape == (16,)
+        assert np.allclose(vec, 0.0)
 
     def test_disconnected_nodes(self):
         graph = Hypergraph()
@@ -430,6 +431,7 @@ class TestEdgeCases:
         vb = provider.embed_node(b.id, "b")
         assert va.shape == (16,)
         assert vb.shape == (16,)
+        assert not np.allclose(va, vb)
 
     def test_hyperedge_random_walk(self):
         graph = Hypergraph()

@@ -243,6 +243,8 @@ class TestHypergraphMemoryIntegration:
         mem.reason({"a", "b", "c"}, max_depth=2)
         insights = mem.lateral_insights("a")
         assert isinstance(insights, list)
+        for insight in insights:
+            assert "branchial_distance" in insight
 
     def test_lateral_insights_no_multiway(self):
         mem = HypergraphMemory()

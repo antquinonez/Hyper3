@@ -510,6 +510,9 @@ class TestMultiwayEngine:
         engine.expand({"x", "y"}, rules, max_depth=1)
         convergences = engine.find_convergent_states()
         assert isinstance(convergences, list)
+        for c in convergences:
+            assert hasattr(c, "state_a_id")
+            assert hasattr(c, "state_b_id")
 
     def test_lateral_insights(self):
         g = Hypergraph()
@@ -529,6 +532,9 @@ class TestMultiwayEngine:
         if children:
             insights = engine.get_lateral_insights(children[0].id)
             assert isinstance(insights, list)
+            for insight in insights:
+                assert isinstance(insight, dict)
+                assert "branchial_distance" in insight
 
     def test_empty_rules_no_expansion(self):
         g = Hypergraph()
@@ -663,7 +669,7 @@ class TestExhaustiveReasoning:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         result = mem.reason({"x"}, exhaustive=True)
-        assert result.error is None or isinstance(result.error, str)
+        assert result.error == "no rules defined"
 
 
 class TestGraphIsomorphismForCausalInvariance:
@@ -942,7 +948,7 @@ class TestRuleScoring:
         rule = InverseRule(edge_label="x", inverse_label="y")
         match = RuleMatch(rule_name="test", bindings={"source": "a", "target": "b"})
         g = Hypergraph()
-        assert rule.score_match(match, g) >= 0.0
+        assert rule.score_match(match, g) == 1.0
 
 
 

@@ -110,7 +110,7 @@ class TestBranchialSpace:
         assert isinstance(clusters, list)
         for c in clusters:
             assert isinstance(c, BranchialCluster)
-            assert c.size >= 0
+            assert c.size >= 1
 
     def test_detect_correlations(self):
         g = Hypergraph()
@@ -787,6 +787,9 @@ class TestPlanPath:
         mem._branchial._coordinates.clear()
         path = mem._branchial.plan_path(states[0].id, states[-1].id)
         assert isinstance(path, list)
+        assert len(path) >= 2
+        assert path[0] == states[0].id
+        assert path[-1] == states[-1].id
 
 
 class TestNearestHighDensityRegion:
@@ -803,7 +806,7 @@ class TestNearestHighDensityRegion:
         if not states:
             return
         result = mem._branchial.nearest_high_density_region(states[0])
-        assert result is None or isinstance(result, str)
+        assert result is None or (isinstance(result, str) and len(result) > 0)
 
     def test_no_clusters_returns_none(self):
         mem = _setup_mem_0()
