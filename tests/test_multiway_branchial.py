@@ -1361,8 +1361,10 @@ class TestLateralInferenceDeep:
         root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
         child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"a", "c"}), depth=1, rule_applied="r1")
         child1.produced_edge_ids = []
+        child1.produced_node_ids = ["c"]
         child2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b", "d"}), depth=1, rule_applied="r2")
         child2.produced_edge_ids = []
+        child2.produced_node_ids = ["d"]
         mw.add_state(root)
         mw.add_state(child1)
         mw.add_state(child2)
@@ -1373,7 +1375,12 @@ class TestLateralInferenceDeep:
         bs.set_embedding_engine(emb)
         bs.assign_coordinates()
         insights = bs.lateral_inference(child1.id)
-        assert isinstance(insights, list)
+        assert len(insights) >= 1
+        for insight in insights:
+            assert "novel_in_source" in insight
+            assert "novel_in_lateral" in insight
+            assert "branchial_distance" in insight
+            assert insight["source_state"] == child1.id
 
     def test_rank_novel_by_similarity(self):
         g = _build_chain_graph()
@@ -1387,6 +1394,8 @@ class TestLateralInferenceDeep:
         bs.set_embedding_engine(emb)
         scores = bs._rank_novel_by_similarity(frozenset({"c", "d"}), frozenset({"a", "b"}))
         assert isinstance(scores, dict)
+        assert all(isinstance(v, float) for v in scores.values())
+        assert all(isinstance(k, str) for k in scores)
 
     def test_rank_novel_empty_inputs(self):
         g = _build_chain_graph()
@@ -1459,7 +1468,11 @@ class TestFindAnalogousStatesDeep:
         bs = BranchialSpace(g, mw)
         bs.assign_coordinates()
         results = bs.find_analogous_states(child1.id, min_distance=0.0, max_distance=100.0)
-        assert isinstance(results, list)
+        assert len(results) >= 1
+        for _sid, dist in results:
+            assert 0.0 <= dist <= 100.0
+        for i in range(1, len(results)):
+            assert results[i - 1][1] <= results[i][1]
 
     def test_find_analogous_auto_assigns(self):
         g = _build_chain_graph()
@@ -1471,6 +1484,10 @@ class TestFindAnalogousStatesDeep:
         bs = BranchialSpace(g, mw)
         results = bs.find_analogous_states(child1.id)
         assert isinstance(results, list)
+        for sid, dist in results:
+            assert isinstance(sid, str)
+            assert isinstance(dist, float)
+            assert dist >= 0.0
 
 
 class TestFindAllAnalogiesDeep:
@@ -1497,7 +1514,12 @@ class TestFindAllAnalogiesDeep:
         bs = BranchialSpace(g, mw)
         bs.assign_coordinates()
         proposals = bs.find_all_analogies(child1.id)
-        assert isinstance(proposals, list)
+        assert all(isinstance(p, AnalogyProposal) for p in proposals)
+        for p in proposals:
+            assert p.confidence > 0
+            assert p.source_state_id == child1.id
+        for i in range(1, len(proposals)):
+            assert proposals[i - 1].confidence >= proposals[i].confidence
 
 
 class TestPlanPathDeep:
@@ -1614,6 +1636,9 @@ class TestMultiScaleAnalysisDeep:
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
+        assert result.macro.n_clusters >= 0
+        assert result.meso.n_clusters >= 0
+        assert isinstance(result.cross_scale_insights, list)
 
     def test_empty_position_data(self):
         g = Hypergraph()
@@ -1629,6 +1654,7 @@ class TestMultiScaleAnalysisDeep:
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
+        assert result.macro.n_clusters >= 0
 
 
 class TestBuildSimultaneityGroups:
@@ -1644,6 +1670,12 @@ class TestBuildSimultaneityGroups:
         bs = BranchialSpace(g, mw)
         groups = bs.build_simultaneity_groups()
         assert isinstance(groups, list)
+        assert len(groups) >= 1
+        all_ids = set()
+        for grp in groups:
+            all_ids |= grp.state_ids
+        assert c1.id in all_ids
+        assert c2.id in all_ids
 
     def test_add_state_to_simultaneity(self):
         g = _build_chain_graph()

@@ -482,13 +482,17 @@ class TestBuildExplorationReport:
     def test_chernoff_bounds_in_report(self):
         mem = _make_cyclic_mem()
         report = mem._anomaly_detector._build_exploration_report("A")
-        assert report.coverage_lower > 0 or report.branches_explored == 0
+        assert 0.0 <= report.coverage_lower <= 100.0
+        assert 0.0 <= report.coverage_upper <= 100.0
         assert report.coverage_upper >= report.coverage_lower
 
     def test_branch_coverage(self):
         mem = _make_cyclic_mem()
         report = mem._anomaly_detector._build_exploration_report("A")
         assert isinstance(report.branch_coverage, dict)
+        for label, cov in report.branch_coverage.items():
+            assert isinstance(label, str)
+            assert 0.0 <= cov <= 1.0
 
     def test_nonexistent_concept(self):
         mem = _make_cyclic_mem()

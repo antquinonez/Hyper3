@@ -642,8 +642,8 @@ class TestMonitorStatsProperties:
         mem = HypergraphMemory(evolve_interval=0)
         state = mem.meta.state
         assert state is not None
-        assert hasattr(state, "architectural_fitness")
-        assert hasattr(state, "reasoning_mode")
+        assert state.architectural_fitness == 1.0
+        assert state.reasoning_mode == "standard"
 
     def test_analyze(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -655,6 +655,8 @@ class TestMonitorStatsProperties:
         assert "introspections" in analysis
         assert "metamorphoses" in analysis
         assert "rulial_insight_count" in analysis
+        assert isinstance(analysis["architectural_fitness"], float)
+        assert analysis["reasoning_mode"] in {"standard", "rich", "moderate", "sparse"}
 
     def test_reasoning_mode_setting(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -692,7 +694,8 @@ class TestIntrospectWithRecommendations:
         for i in range(150):
             mem.store(f"node_{i}")
         result = mem.introspect()
-        assert "anti_patterns" in result or "graph_health" in result
+        assert "graph_health" in result
+        assert result["graph_health"].nodes == 150
 
 
 

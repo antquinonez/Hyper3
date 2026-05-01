@@ -1300,6 +1300,10 @@ class TestSampleCorrelated:
         mem.correlate(["x"], ["y"], {("x", "y"): 0.9})
         result = mem.sample_correlated(qs, "x")
         assert isinstance(result, dict)
+        assert len(result) >= 1
+        for key, val in result.items():
+            assert isinstance(key, str)
+            assert isinstance(val, str)
 
     def test_sample_correlated_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1322,6 +1326,9 @@ class TestLateralInsightsNonBranchialFallback:
         mem._branchial = None
         insights = mem.lateral_insights("p")
         assert isinstance(insights, list)
+        for insight in insights:
+            assert "branchial_distance" in insight
+            assert "complementary_nodes" in insight
 
 
 class TestHasNode:
