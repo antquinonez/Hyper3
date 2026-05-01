@@ -124,6 +124,7 @@ class RulialSpace:
         return min(1.0, 0.5 * spectral + 0.5 * motif)
 
     def _compute_spectral_entropy(self) -> float:
+        """Compute spectral entropy from SVD of the adjacency matrix."""
         if not self._graph.edges:
             return 0.0
 
@@ -176,6 +177,7 @@ class RulialSpace:
         return float(min(diversity, 1.0))
 
     def _count_motif_types(self, edge_set: set[tuple[int, int]], n_limit: int) -> dict[str, int]:
+        """Count distinct edge-label motifs (2-paths) in the graph."""
         motif_counts: dict[str, int] = {}
         for i in range(n_limit):
             for j in range(i + 1, n_limit):
@@ -491,6 +493,7 @@ class RulialSpace:
     def _compute_label_mutual_information(
         self, node_labels: dict[str, set[str]], label_counts: dict[str, int], n_nodes: int
     ) -> list[tuple[str, str, float, int]]:
+        """Compute mutual information between edge labels and their targets."""
         label_list = sorted(label_counts.keys())[:20]
         results: list[tuple[str, str, float, int]] = []
         pairs_checked = 0

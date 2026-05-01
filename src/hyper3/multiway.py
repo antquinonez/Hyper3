@@ -512,6 +512,7 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
     ) -> str:
+        """Apply a single rule match to create a new multiway state."""
         new_nodes, new_edges = rule.apply(target_graph, match)
         new_active = state.active_node_ids | frozenset(new_nodes)
         child = MultiwayState(

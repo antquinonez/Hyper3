@@ -118,6 +118,7 @@ class StructuralMetrics:
 
     @property
     def information_dissipation(self) -> float:
+        """Compute information dissipation through the local graph structure."""
         return self.frame_information_loss
 
 
@@ -190,6 +191,7 @@ class RobustReachabilityDetector:
         graph: Hypergraph,
         frame_name: str,
     ) -> tuple[int, float]:
+        """Return frame-specific BFS parameters (max_depth, edge_label filter)."""
         max_depth = 3
         min_weight = 0.0
         if seed_ids:
@@ -213,6 +215,7 @@ class RobustReachabilityDetector:
         max_depth: int,
         min_weight: float,
     ) -> tuple[set[str], set[str]]:
+        """BFS that returns reachable nodes and the traversed edges."""
         reachable: set[str] = set(seed_ids)
         edges_used: set[str] = set()
         frontier = list(seed_ids)
@@ -438,6 +441,7 @@ class MultiPerspectiveAnalyzer:
         return merged
 
     def _rank_nodes_for_frame(self, frame_name: str, analysis: PresetAnalysis) -> list[str]:
+        """Rank nodes by importance within a given frame."""
         edges = self._graph.edges
         sorted_by_complexity = sorted(
             range(len(edges)),
@@ -459,6 +463,7 @@ class MultiPerspectiveAnalyzer:
         return ranked_nodes[:50]
 
     def _compute_rrf_scores(self, node_ranks: dict[str, dict[str, int]]) -> dict[str, float]:
+        """Compute Reciprocal Rank Fusion scores from per-frame rankings."""
         rrf_scores: dict[str, float] = {}
         for target, frame_ranks in node_ranks.items():
             score = sum(1.0 / (60 + r) for r in frame_ranks.values())
@@ -710,6 +715,7 @@ class MultiPerspectiveAnalyzer:
         )
 
     def _spectral_gap_complexity(self, node: Hypernode) -> float:
+        """Compute spectral gap complexity from local adjacency eigenvalues."""
         edges = self._graph.incident_edges(node.id)
         if not edges:
             return 0.0
@@ -1118,6 +1124,7 @@ class MultiPerspectiveAnalyzer:
         seed_ids: list[str],
         frame_name: str,
     ) -> tuple[int, float, PresetAnalysis | None]:
+        """Derive consensus parameters by averaging across frame analyses."""
         max_depth = 3
         min_weight = 0.0
         analysis = None
@@ -1141,6 +1148,7 @@ class MultiPerspectiveAnalyzer:
         max_depth: int,
         min_weight: float,
     ) -> set[str]:
+        """BFS reachable set of nodes from a seed within a frame."""
         reachable: set[str] = set(seed_ids)
         visited: set[str] = set(seed_ids)
         frontier = list(seed_ids)
@@ -1164,6 +1172,7 @@ class MultiPerspectiveAnalyzer:
         intersection: set[str],
         all_nodes: set[str],
     ) -> list[DisagreementRegion]:
+        """Find nodes where frames disagree on importance ranking."""
         disagreements: list[DisagreementRegion] = []
         for nid in all_nodes - intersection:
             agreeing = [f for f, nodes in frame_reachability.items() if nid in nodes]
@@ -1210,6 +1219,7 @@ class MultiPerspectiveAnalyzer:
         return set.intersection(*all_sets)
 
     def _resolve_majority(self, all_sets: list[set[str]]) -> set[str]:
+        """Resolve frame disagreements by majority vote."""
         n = len(all_sets)
         threshold = n // 2 + 1
         counts: dict[str, int] = {}
@@ -1219,6 +1229,7 @@ class MultiPerspectiveAnalyzer:
         return {nid for nid, c in counts.items() if c >= threshold}
 
     def _resolve_weighted(self, frame_reachability: dict[str, set[str]]) -> set[str]:
+        """Resolve frame disagreements by weighted average."""
         effectiveness = self.get_frame_effectiveness()
         weighted_counts: dict[str, float] = {}
         for frame_name, nodes in frame_reachability.items():
@@ -1313,6 +1324,7 @@ class MultiPerspectiveAnalyzer:
         return overlap / max(len(from_reachable), 1)
 
     def _overlap_min_weight(self, frame_name: str) -> float:
+        """Find edges shared by two reachable sets with minimum weight."""
         if frame_name == "probabilistic":
             return 0.3
         if frame_name == "hypergraph":

@@ -235,6 +235,7 @@ class BranchialSpace:
         return self._label_jaccard_distance(nodes_a, nodes_b)
 
     def _embedding_cosine_distance(self, a_id: str, b_id: str) -> float | None:
+        """Compute cosine distance between two state embedding vectors."""
         if self._embedding_engine is None:
             return None
         emb_a = self._get_state_embedding(a_id)
@@ -249,6 +250,7 @@ class BranchialSpace:
         return None
 
     def _label_jaccard_distance(self, nodes_a: frozenset[str], nodes_b: frozenset[str]) -> float:
+        """Compute Jaccard distance between the active-node label sets of two states."""
         labels_a: set[str] = set()
         labels_b: set[str] = set()
         for nid in nodes_a:
@@ -446,6 +448,7 @@ class BranchialSpace:
     def _build_correlation_constraint_map(
         self, a: MultiwayState, b: MultiwayState, shared: frozenset[str] | set[str]
     ) -> dict[str, str]:
+        """Build a map from belief outcome correlations to constraint info."""
         constraint_map: dict[str, str] = {}
         for nid in shared:
             node = self._graph.get_node(nid)
@@ -459,6 +462,7 @@ class BranchialSpace:
         self, edge_ids: frozenset[str] | list[str], source_nid: str, source_label: str,
         prefix: str, constraint_map: dict[str, str]
     ) -> None:
+        """Collect constraint info for all correlated states."""
         for eid in edge_ids:
             edge = self._graph.get_edge(eid)
             if edge and source_nid in edge.source_ids:
@@ -531,6 +535,7 @@ class BranchialSpace:
     def _build_peer_insight(
         self, state_id: str, current: MultiwayState, peer_id: str, peer: MultiwayState
     ) -> dict[str, Any] | None:
+        """Build a lateral inference insight from a nearby branchial peer."""
         novel_in_peer = set(peer.produced_node_ids) - set(current.produced_node_ids)
         novel_in_current = set(current.produced_node_ids) - set(peer.produced_node_ids)
         complementary = novel_in_peer & (set(n.id for n in self._graph.nodes) - set(current.produced_node_ids))
@@ -681,6 +686,7 @@ class BranchialSpace:
         )
 
     def _compute_node_mapping(self, source_nodes: list[str], target_nodes: list[str]) -> dict[str, str]:
+        """Compute best-match node mapping between two states."""
         def _neighborhood_signature(nid: str) -> frozenset[str]:
             """Return a frozenset of edge labels incident to *nid*."""
             labels: set[str] = set()
@@ -707,6 +713,7 @@ class BranchialSpace:
         self, s_sig: frozenset[str], target_nodes: list[str],
         target_sigs: dict[str, frozenset[str]], used_targets: set[str]
     ) -> tuple[str | None, float]:
+        """Find the best matching target node for a source node."""
         best_t: str | None = None
         best_overlap: float = -1.0
         for t_id in target_nodes:
@@ -719,6 +726,7 @@ class BranchialSpace:
         return best_t, best_overlap
 
     def _sig_overlap(self, a: frozenset[str], b: frozenset[str]) -> float:
+        """Compute signature overlap between two node sets."""
         if not a and not b:
             return 0.5
         if not a or not b:
@@ -728,6 +736,7 @@ class BranchialSpace:
     def _build_proposed_edges(
         self, source_patterns: list[str], target: MultiwayState, mapping: dict[str, str]
     ) -> list[dict[str, Any]]:
+        """Propose new edges by mapping source-state edges to target-state nodes."""
         existing = {e.label for eid in target.produced_edge_ids for e in [self._graph.get_edge(eid)] if e}
         proposed: list[dict[str, Any]] = []
         for label in source_patterns:
@@ -810,6 +819,7 @@ class BranchialSpace:
         return []
 
     def _reconstruct_path(self, came_from: dict[str, str], current: str) -> list[str]:
+        """Reconstruct the A* path from the came_from map."""
         path = [current]
         while current in came_from:
             current = came_from[current]
@@ -818,6 +828,7 @@ class BranchialSpace:
         return path
 
     def _get_astar_neighbors(self, state_id: str) -> list[str]:
+        """Get neighboring states for A* search within a distance bound."""
         children = self._multiway.get_children(state_id)
         state = self._multiway.get_state(state_id)
         if state and state.parent_id:
@@ -965,6 +976,7 @@ class BranchialSpace:
         return analysis
 
     def _build_coordinate_matrix(self, states: list[str]) -> np.ndarray | None:
+        """Build the coordinate matrix from state embeddings via MDS."""
         max_len = max(len(self._coordinates[s].position) for s in states)
         if max_len == 0:
             max_len = 1
@@ -979,6 +991,7 @@ class BranchialSpace:
         return data
 
     def _build_micro_scale(self) -> ScaleLevel:
+        """Build micro-scale clusters using agglomerative clustering."""
         groups = self.build_simultaneity_groups()
         micro_clusters_list: list[BranchialCluster] = []
         for group in groups:
@@ -994,6 +1007,7 @@ class BranchialSpace:
         )
 
     def _populate_cross_scale_insights(self, analysis: MultiScaleAnalysis) -> None:
+        """Generate cross-scale insights comparing micro and macro clusters."""
         if analysis.macro.n_clusters > 1:
             analysis.cross_scale_insights.append(f"Macro structure: {analysis.macro.n_clusters} major regions")
         if analysis.meso.n_clusters > analysis.macro.n_clusters:

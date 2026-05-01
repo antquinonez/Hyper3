@@ -89,6 +89,7 @@ class StateConvergenceEngine:
         return 0.7 * jaccard + 0.3 * edge_overlap
 
     def _build_state_graph(self, state: MultiwayState) -> nx.DiGraph:
+        """Build an internal graph representation of multiway states for matching."""
         g = nx.DiGraph()
         for eid in state.produced_edge_ids:
             edge = self._graph.get_edge(eid)
@@ -101,6 +102,7 @@ class StateConvergenceEngine:
         return g
 
     def _node_match(self, a: dict, b: dict) -> bool:
+        """Check whether two nodes have matching labels for isomorphism."""
         na = self._graph.get_node(a.get("nid", ""))
         nb = self._graph.get_node(b.get("nid", ""))
         if na and nb:
@@ -160,6 +162,7 @@ class StateConvergenceEngine:
         return 0.8
 
     def _compute_node_jaccard_matrix(self, leaves: list[MultiwayState]) -> np.ndarray:
+        """Compute pairwise node label Jaccard similarity between states."""
         all_node_ids = sorted(set().union(*(s.active_node_ids for s in leaves)))
         if not all_node_ids:
             return np.zeros((0, 0))
@@ -174,6 +177,7 @@ class StateConvergenceEngine:
         return np.where(union > 0, intersection / union, 0.0)
 
     def _compute_edge_similarity_matrix(self, leaves: list[MultiwayState]) -> np.ndarray:
+        """Compute pairwise edge label similarity between states."""
         all_edge_ids = sorted(set().union(*(set(s.produced_edge_ids) for s in leaves)))
         if not all_edge_ids:
             return np.ones((len(leaves), len(leaves)))
@@ -191,6 +195,7 @@ class StateConvergenceEngine:
     def _collect_similar_pairs(
         self, leaves: list[MultiwayState], similarity: np.ndarray
     ) -> list[tuple[str, str, float]]:
+        """Collect pairs of states above the similarity threshold."""
         pairs: list[tuple[str, str, float]] = []
         for i in range(len(leaves)):
             if leaves[i].id in self._consumed_states:
