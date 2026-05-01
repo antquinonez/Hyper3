@@ -7,6 +7,8 @@ from typing import Any
 
 @dataclass
 class TransformedConfig:
+    """Configuration produced by a frame-to-frame transformation, including algorithm, parameters, and information loss."""
+
     algorithm: str
     max_depth: int = 3
     max_branches: int = 10
@@ -259,6 +261,8 @@ _FRAMES = {"classical", "quantum", "hypergraph", "probabilistic"}
 
 
 class FrameTransformer:
+    """Applies pairwise transformation rules between classical, quantum, hypergraph, and probabilistic computational frames."""
+
     def transform(
         self,
         from_frame: str,

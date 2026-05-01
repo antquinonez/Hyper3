@@ -9,6 +9,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class ConfidenceScore(_SimpleResultBase):
+    """Confidence assessment for a single node, including depth and contributing inference edges."""
+
     node_id: str
     node_label: str
     confidence: float
@@ -19,6 +21,8 @@ class ConfidenceScore(_SimpleResultBase):
 
 @dataclass
 class ConfidenceChain(_SimpleResultBase):
+    """Highest-confidence inference path between two nodes, with cumulative confidence and rule provenance."""
+
     start_id: str
     end_id: str
     chain_depth: int
@@ -29,6 +33,8 @@ class ConfidenceChain(_SimpleResultBase):
 
 @dataclass
 class UncertaintyResult(_SimpleResultBase):
+    """Aggregate uncertainty report across all nodes, with high/low confidence counts."""
+
     node_scores: list[ConfidenceScore] = field(default_factory=list)
     chains: list[ConfidenceChain] = field(default_factory=list)
     avg_confidence: float = 0.0
@@ -41,6 +47,8 @@ class UncertaintyResult(_SimpleResultBase):
 
 
 class UncertaintyEngine:
+    """Propagates confidence through inference chains using provenance depth with geometric, minimum, or average combination."""
+
     def __init__(
         self,
         graph: Hypergraph,

@@ -17,6 +17,15 @@ from hyper3.structural_match import (
 
 
 class StructuralMixin(_MemoryBase):
+    """Structural pattern matching, community detection, belief revision, abstraction, and graph diff.
+
+    Provides template-based subgraph pattern matching (chains, diamonds,
+    fan-out, custom), community detection via label propagation and connected
+    components, contradiction detection and belief revision, subgraph
+    collapse/expand for hierarchical abstraction, and versioned graph
+    differencing with rollback support.
+    """
+
     def match_structural_pattern(
         self,
         *,

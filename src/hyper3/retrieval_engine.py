@@ -10,6 +10,8 @@ from hyper3.retrieval_activation import SpreadingActivation
 
 @dataclass
 class RetrievalResult:
+    """A retrieved node with combined activation, similarity, and RRF fusion scores."""
+
     node_id: str
     label: str
     activation: float
@@ -25,6 +27,8 @@ class RetrievalResult:
 
 @dataclass
 class FeedbackRecord:
+    """A single relevance judgment linking a query to a result node."""
+
     query: str
     node_id: str
     label: str
@@ -33,6 +37,8 @@ class FeedbackRecord:
 
 
 class FeedbackStore:
+    """Accumulates relevance judgments for training the learning-to-rank model."""
+
     def __init__(self) -> None:
         """Initialize an empty feedback store."""
         self._records: list[FeedbackRecord] = []
@@ -83,6 +89,8 @@ class FeedbackStore:
 
 
 class LearningToRank:
+    """Weighted linear ranker trained on relevance feedback via gradient descent."""
+
     def __init__(self, feature_names: list[str] | None = None) -> None:
         """Initialize the ranker with uniform feature weights.
 
@@ -159,6 +167,8 @@ def reciprocal_rank_fusion(
 
 
 class RetrievalEngine:
+    """Combines spreading activation and semantic similarity via Reciprocal Rank Fusion for concept retrieval."""
+
     def __init__(
         self,
         graph: Hypergraph,

@@ -5,6 +5,8 @@ from typing import Any
 
 
 class ConstraintCheck(ABC):
+    """Abstract base for edge constraints that validate edges against graph structure."""
+
     @abstractmethod
     def is_valid(self, edge: Any, graph: Any) -> bool:
         """Return ``True`` if the edge satisfies the constraint."""
@@ -17,6 +19,8 @@ class ConstraintCheck(ABC):
 
 
 class NoSelfLoopConstraint(ConstraintCheck):
+    """Rejects edges whose source and target node sets overlap."""
+
     def is_valid(self, edge: Any, graph: Any) -> bool:
         """Reject edges whose source and target sets overlap."""
         return not bool(edge.source_ids & edge.target_ids)
@@ -30,6 +34,8 @@ class NoSelfLoopConstraint(ConstraintCheck):
 
 
 class WeightInflationConstraint(ConstraintCheck):
+    """Rejects edges whose weight exceeds an absolute cap or grows too fast relative to neighbors."""
+
     def __init__(self, max_weight: float = 100.0, growth_factor: float = 2.0) -> None:
         """Initialize with an absolute weight cap and a neighborhood growth factor.
 
@@ -79,6 +85,8 @@ class WeightInflationConstraint(ConstraintCheck):
 
 
 class ProvenanceDepthConstraint(ConstraintCheck):
+    """Rejects edges whose provenance or inference chain depth exceeds a configurable limit."""
+
     def __init__(self, max_depth: int = 10) -> None:
         """Initialize with a maximum allowed inference chain depth.
 
@@ -124,6 +132,8 @@ class ProvenanceDepthConstraint(ConstraintCheck):
 
 
 class DuplicateEdgeConstraint(ConstraintCheck):
+    """Rejects edges that duplicate an existing edge's source, target, and label combination."""
+
     def is_valid(self, edge: Any, graph: Any) -> bool:
         """Reject edges that duplicate an existing edge's source, target, and label."""
         for src_id in edge.source_ids:
@@ -152,6 +162,8 @@ class DuplicateEdgeConstraint(ConstraintCheck):
 
 
 class BoundaryNavigator:
+    """Applies a configurable set of edge constraints to validate and filter graph edges."""
+
     def __init__(self, constraints: list[ConstraintCheck] | None = None) -> None:
         """Initialize with a list of constraints, defaulting to all built-in checks.
 

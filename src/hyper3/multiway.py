@@ -12,6 +12,8 @@ from hyper3.rules import Rule, RuleMatch
 
 @dataclass
 class MultiwayState:
+    """A single node in the multiway expansion DAG representing one computational state."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     parent_id: str | None = None
     active_node_ids: frozenset[str] = frozenset()
@@ -36,6 +38,8 @@ class MultiwayState:
 
 @dataclass
 class BranchialRelation:
+    """Recorded relationship between two sibling states in the multiway graph."""
+
     state_a_id: str
     state_b_id: str
     distance: float
@@ -43,6 +47,8 @@ class BranchialRelation:
 
 
 class MultiwayGraph:
+    """DAG of computational states produced by multiway rule expansion."""
+
     def __init__(self) -> None:
         """Initialize an empty multiway graph."""
         self._states: dict[str, MultiwayState] = {}
@@ -188,6 +194,8 @@ class MultiwayGraph:
 
 @dataclass
 class ExpansionReport:
+    """Summary statistics from a multiway expansion pass."""
+
     states_created: int = 0
     rules_applied: int = 0
     nodes_produced: int = 0
@@ -198,6 +206,8 @@ class ExpansionReport:
 
 
 class MultiwayEngine:
+    """Drives multiway expansion by applying inference rules to a hypergraph in breadth-first layers."""
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the engine with a base hypergraph.
 

@@ -17,6 +17,8 @@ from hyper3.rules import Rule
 
 @dataclass
 class RulialPosition:
+    """Snapshot of the system's position in rulial space along activity, rule-frequency, and complexity dimensions."""
+
     graph_activity_density: float = 0.0
     rule_application_frequency: dict[str, float] = field(default_factory=dict)
     structural_complexity: float = 0.0
@@ -37,6 +39,8 @@ class RulialPosition:
 
 @dataclass
 class DetectedPattern:
+    """A meta-computational pattern discovered by the rulial space analysis."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     pattern_type: str = ""
     description: str = ""
@@ -48,6 +52,8 @@ class DetectedPattern:
 
 @dataclass
 class HighLevelInsight:
+    """An abstract principle derived from meta-patterns and graph statistics."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     principle: str = ""
     domain: str = "meta"
@@ -57,6 +63,8 @@ class HighLevelInsight:
 
 
 class RulialSpace:
+    """Tracks the computational universe of the system including rule effectiveness, meta-patterns, and high-level insights."""
+
     def __init__(self, graph: Hypergraph, multiway: MultiwayEngine | None = None) -> None:
         """Initialize the rulial space.
 

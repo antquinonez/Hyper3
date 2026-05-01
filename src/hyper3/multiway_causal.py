@@ -13,6 +13,8 @@ from hyper3.results import MergeReport
 
 @dataclass
 class MergeInsight:
+    """Unique contributions (nodes and edges) from one partner in a state merge."""
+
     state_id: str
     unique_nodes: list[str] = field(default_factory=list)
     unique_edges: list[str] = field(default_factory=list)
@@ -23,6 +25,8 @@ class MergeInsight:
 
 @dataclass
 class ConvergenceRecord:
+    """Record of two multiway states merged due to high similarity."""
+
     state_a_id: str
     state_b_id: str
     similarity: float
@@ -31,6 +35,8 @@ class ConvergenceRecord:
 
 
 class StateConvergenceEngine:
+    """Detects and merges convergent multiway states using node and edge similarity."""
+
     def __init__(self, graph: Hypergraph, multiway: MultiwayGraph, *, threshold: float = 0.7) -> None:
         """Initialize the state convergence engine.
 

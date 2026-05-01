@@ -9,6 +9,12 @@ from hyper3.kernel import (
 
 
 class HypergraphOverlay:
+    """A temporary graph layer on top of a base hypergraph for staging inference results.
+
+    Supports add/remove of nodes and edges, confidence tracking, and
+    commit/rollback to merge or discard the overlay.
+    """
+
     def __init__(self, base: Hypergraph) -> None:
         """Initialize an overlay on top of the given base graph.
 

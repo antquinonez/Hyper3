@@ -6,6 +6,13 @@ from hyper3.provenance import Explanation, ProvenanceTracker
 
 
 class ProvenanceMixin(_MemoryBase):
+    """Inference provenance tracking: explanation, retraction, and overlay access.
+
+    Provides recursive explanation of inferred edges and cascading retraction
+    of inferences and their dependents. Exposes the current
+    :class:`HypergraphOverlay` for manual inspection.
+    """
+
     def explain(self, source: str, target: str, *, edge_label: str | None = None) -> Explanation | None:
         node_a = self._find_node(source)
         node_b = self._find_node(target)

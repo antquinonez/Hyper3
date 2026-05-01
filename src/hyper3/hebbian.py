@@ -10,6 +10,8 @@ from hyper3.retrieval_activation import SpreadingActivation
 
 @dataclass
 class HebbianConfig(_SimpleResultBase):
+    """Configuration parameters controlling Hebbian learning rates, decay, and weight bounds."""
+
     learning_rate: float = 0.1
     decay_rate: float = 0.01
     activation_threshold: float = 0.3
@@ -20,6 +22,8 @@ class HebbianConfig(_SimpleResultBase):
 
 @dataclass
 class HebbianUpdate(_SimpleResultBase):
+    """Records a single edge weight change produced by Hebbian reinforcement or decay."""
+
     source_id: str
     target_id: str
     edge_id: str
@@ -30,6 +34,8 @@ class HebbianUpdate(_SimpleResultBase):
 
 @dataclass
 class HebbianResult(_SimpleResultBase):
+    """Aggregate result of a Hebbian reinforcement cycle, listing all edge updates and statistics."""
+
     updates: list[HebbianUpdate] = field(default_factory=list)
     edges_strengthened: int = 0
     edges_weakened: int = 0
@@ -38,6 +44,8 @@ class HebbianResult(_SimpleResultBase):
 
 
 class HebbianLearner:
+    """Strengthens edges between co-activated nodes and decays unused edges, implementing Hebbian learning."""
+
     def __init__(
         self,
         graph: Hypergraph,

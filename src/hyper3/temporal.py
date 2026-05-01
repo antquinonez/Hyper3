@@ -9,6 +9,8 @@ from hyper3.results import _SimpleResultBase
 
 
 class AllenRelation(Enum):
+    """The 13 Allen interval algebra relations for comparing time intervals."""
+
     BEFORE = "before"
     AFTER = "after"
     MEETS = "meets"
@@ -43,6 +45,8 @@ INVERSE_RELATIONS: dict[AllenRelation, AllenRelation] = {
 
 @dataclass
 class TimeInterval:
+    """A closed time interval [start, end] with Allen relation classification."""
+
     start: float
     end: float
 
@@ -133,6 +137,8 @@ class TimeInterval:
 
 @dataclass
 class TemporalEvent(_SimpleResultBase):
+    """A named event anchored to a time interval with optional metadata."""
+
     event_id: str
     label: str
     interval: TimeInterval
@@ -141,6 +147,8 @@ class TemporalEvent(_SimpleResultBase):
 
 @dataclass
 class TemporalConstraint(_SimpleResultBase):
+    """An explicit or inferred temporal relation between two events."""
+
     event_a_id: str
     event_b_id: str
     relation: AllenRelation
@@ -190,6 +198,12 @@ def _deduplicate_chains(chains: list[list[str]]) -> list[list[str]]:
 
 
 class TemporalReasoner:
+    """Temporal reasoning engine using Allen interval algebra.
+
+    Supports event registration, pairwise Allen relation inference,
+    causal chain detection, proximity queries, and edge consistency checks.
+    """
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the reasoner with a hypergraph.
 

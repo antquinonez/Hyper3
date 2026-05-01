@@ -10,6 +10,13 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class Contradiction(_SimpleResultBase):
+    """A pair of edges that logically contradict each other.
+
+    Records the two edge IDs, their labels, the source/target concept labels,
+    the contradiction type (e.g. ``"negation"``, ``"self_negation"``), and a
+    severity score in [0, 1].
+    """
+
     edge_a_id: str
     edge_b_id: str
     edge_a_label: str
@@ -22,6 +29,12 @@ class Contradiction(_SimpleResultBase):
 
 @dataclass
 class RevisionAction(_SimpleResultBase):
+    """A single action taken during belief revision.
+
+    Describes the action type (``"remove"`` or ``"cascade_retract"``), the
+    affected edge, the reason, and confidence before and after the action.
+    """
+
     action_type: str
     edge_id: str
     reason: str
@@ -31,6 +44,12 @@ class RevisionAction(_SimpleResultBase):
 
 @dataclass
 class RevisionPlan(_SimpleResultBase):
+    """A plan for resolving detected contradictions.
+
+    Contains the contradictions found, the resolution actions to take, the
+    edges to remove and keep, and the strategy used for resolution.
+    """
+
     contradictions_found: list[Contradiction] = field(default_factory=list)
     actions: list[RevisionAction] = field(default_factory=list)
     edges_removed: list[str] = field(default_factory=list)
@@ -40,6 +59,12 @@ class RevisionPlan(_SimpleResultBase):
 
 @dataclass
 class RevisionResult(_SimpleResultBase):
+    """Outcome of a belief revision pass.
+
+    Wraps a ``RevisionPlan`` with aggregate counts of contradictions detected,
+    edges revised, removed, and kept.
+    """
+
     plan: RevisionPlan = field(default_factory=RevisionPlan)
     contradictions_detected: int = 0
     edges_revised: int = 0
@@ -48,6 +73,16 @@ class RevisionResult(_SimpleResultBase):
 
 
 class ContradictionResolver:
+    """Detects and resolves contradictory edges in the hypergraph.
+
+    Uses a built-in negation map (e.g. ``"causes"/"prevents"``,
+    ``"supports"/"opposes"``) with optional custom extensions to identify
+    contradictory edge pairs sharing the same endpoints. Resolution strategies
+    include ``higher_confidence``, ``higher_weight``,
+    ``observed_over_inferred``, and ``newer``. Resolved edges are removed and
+    their provenance cascadingly retracted.
+    """
+
     NEGATION_MAP: dict[str, str] = {
         "is": "is_not",
         "is_not": "is",

@@ -30,6 +30,15 @@ from hyper3.rules_discovery import DiscoveredRule
 
 
 class ReasoningMixin(_MemoryBase):
+    """Rule-based multiway expansion and inference management.
+
+    Provides full and incremental multiway expansion via ``reason`` and
+    ``reason_incremental``, iterative convergence-driven reasoning,
+    frame-parameterized reasoning, inference overlay commit/rollback,
+    derivation queries, rule discovery and auto-application, rulial/branchial
+    post-expansion analysis, and computational bias profiling.
+    """
+
     def _ensure_multiway(self) -> None:
         """Lazily initialize the multiway engine and related subsystems."""
         if self._multiway_engine is not None:

@@ -62,6 +62,35 @@ class HypergraphMemory(
     StructuralMixin,
     MonitoringMixin,
 ):
+    """Unified facade for the Hyper3 self-evolving hypergraph knowledge graph.
+
+    Composes from twelve focused mixins, each providing a coherent domain of
+    functionality:
+
+    - **CoreMixin**: store, recall, relate, query, evolve, ensure, node lookup
+    - **ReasoningMixin**: multiway expansion, iterative/incremental reasoning,
+      overlay commit/rollback, rule management, bias profiling
+    - **BeliefMixin**: Born-rule distributions, sampling, correlations,
+      lateral insights, structural anomaly detection
+    - **BayesianMixin**: prior setting, belief updating, MAP estimates,
+      Bayes factors, credible sets
+    - **AnalyticsMixin**: paths, centrality, cycles, components, pattern
+      matching, spectral embedding, hypergraph algorithms
+    - **PersistenceMixin**: save/load, JSON/edgelist import/export,
+      snapshots, stats
+    - **RetrievalMixin**: spreading activation, semantic similarity,
+      embedding providers, FAISS, learning-to-rank, prefetch
+    - **TemporalMixin**: Allen interval algebra, causal chains, text
+      ingestion, LLM enrichment
+    - **ProvenanceMixin**: inference explanation, retraction, overlay access
+    - **CognitiveMixin**: backward chaining, Hebbian learning, uncertainty
+      quantification, confidence propagation
+    - **StructuralMixin**: structural pattern matching, community detection,
+      belief revision, abstraction collapse/expand, graph diff
+    - **MonitoringMixin**: introspection, metamorphosis, multi-frame analysis,
+      reasoning validation, capability detection
+    """
+
     def __contains__(self, concept: object) -> bool:
         if not isinstance(concept, str):
             return False

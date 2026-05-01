@@ -12,6 +12,13 @@ from hyper3.rules import InverseRule, Rule, TransitiveRule
 
 @dataclass
 class DiscoveredRule:
+    """A rule pattern discovered by analysis of graph structure.
+
+    Stores the pattern type (transitive, inverse, hub), the specific pattern
+    parameters, an effectiveness score, and optionally a concrete ``Rule``
+    instance ready for registration with the multiway engine.
+    """
+
     pattern_type: str
     pattern: dict[str, Any]
     effectiveness: int = 0
@@ -25,6 +32,15 @@ class DiscoveredRule:
 
 
 class RuleDiscoveryEngine:
+    """Scan a hypergraph for recurring structural patterns and emit candidate rules.
+
+    Discovers three pattern types: *transitive* chains (two-hop same-label
+    paths), *inverse* label pairs (mutual reverse edges between the same
+    nodes), and *hub* patterns (nodes with high fan-out under a single label).
+    Discovered patterns are accumulated and can be converted into concrete
+    ``Rule`` instances for use in reasoning.
+    """
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the discovery engine with a hypergraph.
 

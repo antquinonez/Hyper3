@@ -25,6 +25,8 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 
 @dataclass
 class SystemHealthModel:
+    """Snapshot of system health: fitness, efficiency metrics, reasoning activity, and complexity level."""
+
     architectural_fitness: float = 1.0
     computational_efficiency: dict[str, float] = field(default_factory=dict)
     rulial_insight_count: int = 0
@@ -36,6 +38,8 @@ class SystemHealthModel:
 
 @dataclass
 class TuningTrigger:
+    """A condition that may warrant a tuning action."""
+
     trigger_type: str
     description: str
     urgency: float = 0.0
@@ -44,6 +48,8 @@ class TuningTrigger:
 
 @dataclass
 class TuningPlan:
+    """A planned set of tuning actions derived from one or more triggers."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     triggers: list[TuningTrigger] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
@@ -52,6 +58,9 @@ class TuningPlan:
 
 
 class SystemMonitor:
+    """Introspection and self-tuning layer: monitors health, detects anti-patterns,
+    proposes and executes validated tuning plans with optional rollback."""
+
     def __init__(
         self,
         graph: Hypergraph,

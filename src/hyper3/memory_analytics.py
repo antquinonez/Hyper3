@@ -17,6 +17,14 @@ from hyper3.results import (
 
 
 class AnalyticsMixin(_MemoryBase):
+    """Graph analytics and algorithmic queries.
+
+    Provides path finding, centrality measures (degree, betweenness, PageRank),
+    cycle detection, connected components, pattern matching, subgraph
+    extraction, structural description, spectral embedding, s-persistence
+    filtration, and hyperedge similarity search.
+    """
+
     def find_paths(
         self,
         source: str,

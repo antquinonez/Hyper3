@@ -11,12 +11,22 @@ from hyper3.kernel import Hyperedge, Hypergraph, Hypernode, Metadata, Modality
 
 @dataclass
 class RuleMatch:
+    """A single match found by a rule, binding node IDs to named roles."""
+
     rule_name: str
     bindings: dict[str, str]
     context: dict[str, Any] = field(default_factory=dict)
 
 
 class Rule(ABC):
+    """Abstract base class for inference rules.
+
+    Subclasses implement ``find_matches`` to discover pattern instances in the
+    graph and ``apply`` to materialize new edges (or nodes) for a given match.
+    The multiway engine calls these two phases separately so that matches can be
+    scored, deduplicated, and explored across many branches before commit.
+    """
+
     @property
     @abstractmethod
     def name(self) -> str:
@@ -102,6 +112,14 @@ class Rule(ABC):
 
 
 class TransitiveRule(Rule):
+    """Detect two-hop chains A-[label]->B-[label]->C and infer a direct edge A->C.
+
+    This is the graph-theoretic transitive closure applied to edges of a
+    specific label.  By default, inferred edges receive the label
+    ``"inferred"``; set ``new_label`` equal to ``edge_label`` to enable
+    multi-hop chaining at deeper reasoning depths.
+    """
+
     def __init__(self, *, edge_label: str | None = None, new_label: str = "") -> None:
         """Initialize the transitive rule.
 
@@ -264,6 +282,13 @@ class TransitiveRule(Rule):
 
 
 class InverseRule(Rule):
+    """Detect forward edges and infer the corresponding reverse edge.
+
+    For every edge with ``edge_label`` from S to T, this rule infers an edge
+    with ``inverse_label`` from T back to S (if it does not already exist).
+    Useful for bidirectional relationships like ``parent_of``/``child_of``.
+    """
+
     def __init__(self, *, edge_label: str, inverse_label: str) -> None:
         """Initialize the inverse rule.
 
@@ -380,6 +405,14 @@ class InverseRule(Rule):
 
 
 class GeneralizationRule(Rule):
+    """Detect pairs of data-similar nodes and create an abstract summary node.
+
+    When two nodes exceed the similarity threshold and share no existing
+    ``"generalizes"`` link, this rule creates an abstract node connected to
+    both via a single hyperedge, enabling higher-level reasoning over
+    categories.
+    """
+
     def __init__(self, *, similarity_threshold: float = 0.8, label_prefix: str = "abstract_") -> None:
         """Initialize the generalization rule.
 
@@ -490,6 +523,14 @@ class GeneralizationRule(Rule):
 
 
 class AbductiveRule(Rule):
+    """Perform abductive reasoning: propose a hypothesis node for observed effects.
+
+    When a node B has an incoming edge from A, this rule creates a hypothesis
+    node representing a possible causal explanation and links it to B with a
+    ``cause_label`` edge.  Confidence is set conservatively (0.5) since
+    abduction produces plausible but unverified explanations.
+    """
+
     def __init__(self, *, effect_label: str = "", cause_label: str = "possible_cause") -> None:
         """Initialize the abductive rule.
 
@@ -619,6 +660,14 @@ class AbductiveRule(Rule):
 
 
 class PropertyPropagationRule(Rule):
+    """Copy a named metadata property from source nodes to their edge neighbors.
+
+    For each node that carries ``property_key`` in its metadata, the rule
+    finds neighbors reachable via outgoing edges and propagates the property
+    value to any neighbor that lacks it.  No new edges are created; existing
+    node metadata is updated in place.
+    """
+
     def __init__(self, *, property_key: str, edge_label: str | None = None) -> None:
         """Initialize the property propagation rule.
 
@@ -730,6 +779,15 @@ class PropertyPropagationRule(Rule):
 
 
 class StructuralProjectionRule(Rule):
+    """Perform analogical reasoning via embedding arithmetic (A:B :: C:D).
+
+    Given node embeddings, the rule computes ``vec(B) - vec(A) + vec(C)`` and
+    finds the node D whose embedding is most similar to the result.  If the
+    similarity exceeds the threshold, an edge mirroring the A-to-B relationship
+    is created from C to D.  Requires an external embedding engine set via
+    ``set_embedding_engine``.
+    """
+
     def __init__(self, *, edge_label: str | None = None, similarity_threshold: float = 0.7) -> None:
         """Initialize the analogical reasoning rule.
 
@@ -913,6 +971,14 @@ class StructuralProjectionRule(Rule):
 
 
 class HubInferenceRule(Rule):
+    """Infer causal-style edges from frequent co-occurrence patterns.
+
+    The rule counts how often each source-target pair appears together across
+    labeled edges.  Pairs exceeding ``min_support`` and ``confidence_threshold``
+    (conditional probability) receive a new edge with ``causes_label``,
+    capturing the intuition that frequent co-occurrence suggests a causal link.
+    """
+
     def __init__(
         self, *, min_support: int = 2, confidence_threshold: float = 0.6, causes_label: str = "causes"
     ) -> None:
@@ -1034,6 +1100,14 @@ class HubInferenceRule(Rule):
 
 
 class ContextualSubstitutionRule(Rule):
+    """Detect data-similar node pairs and create bidirectional substitution edges.
+
+    When two nodes exceed the similarity threshold and lack an existing
+    substitution link, this rule creates edges in both directions labeled
+    ``substitution_label``, indicating that either node can serve as a
+    stand-in for the other in reasoning.
+    """
+
     def __init__(self, *, similarity_threshold: float = 0.8, substitution_label: str = "substitutes_for") -> None:
         """Initialize the contextual substitution rule.
 

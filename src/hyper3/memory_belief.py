@@ -16,6 +16,14 @@ from hyper3.structural_anomaly import AnomalyDetectionResult, BoundaryRegion
 
 
 class BeliefMixin(_MemoryBase):
+    """Quantum-inspired belief distributions, sampling, and structural anomaly detection.
+
+    Provides Born-rule distribution creation and sampling, concept correlation,
+    lateral insights from branchial space, structural anomaly and boundary
+    detection, and evidence interaction analysis. Delegates to
+    :class:`BeliefLayer` and :class:`StructuralAnomalyDetector`.
+    """
+
     def create_distribution(
         self,
         concepts: list[str],

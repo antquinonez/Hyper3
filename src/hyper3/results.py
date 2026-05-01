@@ -5,6 +5,8 @@ from typing import Any
 
 
 class _SimpleResultBase:
+    """Base class for all result dataclasses, providing dict-like bracket access, ``keys()``, ``items()``, and ``get()`` alongside standard attribute access."""
+
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
 
@@ -31,6 +33,7 @@ class _SimpleResultBase:
 
 @dataclass
 class ExpansionInfo(_SimpleResultBase):
+    """Summary of a single multiway expansion step: states created, rules applied, and nodes/edges produced."""
     states_created: int = 0
     rules_applied: int = 0
     nodes_produced: int = 0
@@ -41,6 +44,7 @@ class ExpansionInfo(_SimpleResultBase):
 
 @dataclass
 class ReasonResult(_SimpleResultBase):
+    """Aggregated result of a reasoning pass: expansion statistics, state convergence, branchial/rulial analysis, overlay state, and per-node confidence."""
     expansion: ExpansionInfo | None = None
     state_convergence: MergeReport | None = None
     branchial: BranchialAnalysis | None = None
@@ -56,6 +60,7 @@ class ReasonResult(_SimpleResultBase):
 
 @dataclass
 class IterativeReasonResult(_SimpleResultBase):
+    """Result of iterative reasoning over multiple rounds, with per-iteration details and cumulative edge production."""
     iterations: int = 0
     total_edges_produced: int = 0
     iteration_details: list[ReasonResult] = field(default_factory=list)
@@ -65,6 +70,7 @@ class IterativeReasonResult(_SimpleResultBase):
 
 @dataclass
 class ConsensusReasonResult(_SimpleResultBase):
+    """Result of consensus reasoning across multiple computational frames, reporting nodes/edges invariant under all frames."""
     invariant_nodes: int = 0
     invariant_edges: int = 0
     confidence: float = 0.0
@@ -76,6 +82,7 @@ class ConsensusReasonResult(_SimpleResultBase):
 
 @dataclass
 class MergeReport(_SimpleResultBase):
+    """Report from state convergence: number of merges, states before/after, and total reduction."""
     merges_performed: int = 0
     states_before: int = 0
     states_after: int = 0
@@ -84,6 +91,7 @@ class MergeReport(_SimpleResultBase):
 
 @dataclass
 class EvolveResult(_SimpleResultBase):
+    """Result of a graph maintenance cycle: counts of decayed, pruned, merged, reinforced, and suppressed elements."""
     decayed: int = 0
     pruned: int = 0
     merged: int = 0
@@ -96,6 +104,7 @@ class EvolveResult(_SimpleResultBase):
 
 @dataclass
 class BranchialAnalysis(_SimpleResultBase):
+    """Summary of branchial space mapping: states mapped, cluster/correlation counts, and average cluster size."""
     states_mapped: int = 0
     clusters: int = 0
     correlations: int = 0
@@ -107,6 +116,7 @@ class BranchialAnalysis(_SimpleResultBase):
 
 @dataclass
 class RulialAnalysis(_SimpleResultBase):
+    """Analysis of the rulial (rule-universe) space: activity density, structural complexity, spectral entropy, rule diversity, and effectiveness tracking."""
     graph_activity_density: float = 0.0
     structural_complexity: float = 0.0
     spectral_entropy: float = 0.0
@@ -120,6 +130,7 @@ class RulialAnalysis(_SimpleResultBase):
 
 @dataclass
 class PerspectiveAnalysis(_SimpleResultBase):
+    """Summary of multi-perspective analysis: available computational frames, transformations computed, and per-frame effectiveness."""
     available_frames: list[str] = field(default_factory=list)
     transformations_computed: int = 0
     frame_effectiveness: dict[str, float] = field(default_factory=dict)
@@ -127,6 +138,7 @@ class PerspectiveAnalysis(_SimpleResultBase):
 
 @dataclass
 class AnomalyAnalysis(_SimpleResultBase):
+    """Structural anomaly detection summary: counts of mapped regions classified as low_risk, boundary, or anomalous."""
     mapped_regions: int = 0
     low_risk: int = 0
     boundary: int = 0
@@ -136,6 +148,7 @@ class AnomalyAnalysis(_SimpleResultBase):
 
 @dataclass
 class DiscoveryAnalysis(_SimpleResultBase):
+    """Result of rule discovery analysis: total and new patterns found, active rules, and breakdowns by edge label and pattern type."""
     total_patterns: int = 0
     new_patterns: int = 0
     active_rules: int = 0
@@ -145,6 +158,7 @@ class DiscoveryAnalysis(_SimpleResultBase):
 
 @dataclass
 class LateralInferenceInsight(_SimpleResultBase):
+    """Insight from lateral inference between two branchial states: novel elements, complementary nodes, transferable patterns, and branchial distance."""
     source_state: str = ""
     lateral_state: str = ""
     rule_used: str | None = None
@@ -158,6 +172,7 @@ class LateralInferenceInsight(_SimpleResultBase):
 
 @dataclass
 class RuleNeighborhoodResult(_SimpleResultBase):
+    """Result of exploring the rulial neighborhood around the current rule set: explored rules, diversity, coverage, and unexplored regions."""
     explored_rules: list[str] = field(default_factory=list)
     rule_diversity: int = 0
     graph_activity_density: float = 0.0
@@ -168,6 +183,7 @@ class RuleNeighborhoodResult(_SimpleResultBase):
 
 @dataclass
 class TemporalConsistencyResult(_SimpleResultBase):
+    """Result of checking temporal consistency between two edges: whether they are consistent, the Allen relation, and interval endpoints."""
     consistent: bool = True
     relation: str = ""
     edge_a_interval_start: float = 0.0
@@ -179,6 +195,7 @@ class TemporalConsistencyResult(_SimpleResultBase):
 
 @dataclass
 class TemporalInconsistency(_SimpleResultBase):
+    """Record of a temporal inconsistency between two events: the actual vs. expected Allen relation."""
     event_a: str = ""
     event_b: str = ""
     actual_relation: str = ""
@@ -187,6 +204,7 @@ class TemporalInconsistency(_SimpleResultBase):
 
 @dataclass
 class EvolutionStats(_SimpleResultBase):
+    """Cumulative evolution statistics: total merges, prunes, and refinements performed."""
     merges: int = 0
     prunes: int = 0
     refinements: int = 0
@@ -194,6 +212,7 @@ class EvolutionStats(_SimpleResultBase):
 
 @dataclass
 class MonitorStats(_SimpleResultBase):
+    """System monitor statistics: architectural fitness, reasoning mode, meta level, and operation counts."""
     architectural_fitness: float = 0.0
     reasoning_mode: str = ""
     meta_level: int = 0
@@ -204,6 +223,7 @@ class MonitorStats(_SimpleResultBase):
 
 @dataclass
 class MemoryStats(_SimpleResultBase):
+    """Comprehensive memory subsystem statistics: graph size, log/cache/operation counts, multiway/belief/overlay state, evolution stats, and monitor stats."""
     nodes: int = 0
     edges: int = 0
     log_size: int = 0
@@ -226,6 +246,7 @@ class MemoryStats(_SimpleResultBase):
 
 @dataclass
 class DiscoverResult(_SimpleResultBase):
+    """Result of rule discovery: total patterns found, new rules added, and detailed discovery analysis."""
     total_patterns: int = 0
     new_rules_added: int = 0
     analysis: DiscoveryAnalysis | None = None
@@ -233,6 +254,7 @@ class DiscoverResult(_SimpleResultBase):
 
 @dataclass
 class TrainResult(_SimpleResultBase):
+    """Result of training a retrieval/ranking model: whether training occurred, learned weights, sample count, and reason."""
     trained: bool = False
     weights: dict[str, float] = field(default_factory=dict)
     samples: int = 0
@@ -241,18 +263,21 @@ class TrainResult(_SimpleResultBase):
 
 @dataclass
 class CommitResult(_SimpleResultBase):
+    """Result of committing an overlay: counts of nodes and edges merged into the base graph."""
     committed_nodes: int = 0
     committed_edges: int = 0
 
 
 @dataclass
 class RollbackResult(_SimpleResultBase):
+    """Result of rolling back an overlay: counts of nodes and edges discarded."""
     rolled_back_nodes: int = 0
     rolled_back_edges: int = 0
 
 
 @dataclass
 class DerivationInfo(_SimpleResultBase):
+    """Provenance record for an inferred edge: the rule name, variable bindings, and context used during inference."""
     rule: str = ""
     bindings: dict[str, str] = field(default_factory=dict)
     context: dict[str, Any] = field(default_factory=dict)
@@ -260,6 +285,7 @@ class DerivationInfo(_SimpleResultBase):
 
 @dataclass
 class PatternMatchInfo(_SimpleResultBase):
+    """Details of a pattern match: the matched edge ID, label, resolved source/target labels, and variable bindings."""
     edge_id: str = ""
     label: str = ""
     source_labels: list[str] = field(default_factory=list)
@@ -269,12 +295,14 @@ class PatternMatchInfo(_SimpleResultBase):
 
 @dataclass
 class SubgraphNode(_SimpleResultBase):
+    """Lightweight representation of a node in a subgraph result, carrying ID and label."""
     id: str = ""
     label: str = ""
 
 
 @dataclass
 class SubgraphEdge(_SimpleResultBase):
+    """Lightweight representation of an edge in a subgraph result, carrying ID, label, resolved source/target labels, and weight."""
     id: str = ""
     label: str = ""
     source_labels: list[str] = field(default_factory=list)
@@ -284,6 +312,7 @@ class SubgraphEdge(_SimpleResultBase):
 
 @dataclass
 class SubgraphResult(_SimpleResultBase):
+    """Extracted subgraph with resolved label-based node and edge representations and counts."""
     nodes: list[SubgraphNode] = field(default_factory=list)
     edges: list[SubgraphEdge] = field(default_factory=list)
     node_count: int = 0
@@ -292,6 +321,7 @@ class SubgraphResult(_SimpleResultBase):
 
 @dataclass
 class TemporalMatch(_SimpleResultBase):
+    """A temporal pattern match: the matched label, interval [start, end], and optional gap to the next event."""
     label: str = ""
     start: float = 0.0
     end: float = 0.0
@@ -300,12 +330,14 @@ class TemporalMatch(_SimpleResultBase):
 
 @dataclass
 class ImportResult(_SimpleResultBase):
+    """Result of importing data into the graph: counts of nodes and edges added."""
     nodes: int = 0
     edges: int = 0
 
 
 @dataclass
 class HealthInfo(_SimpleResultBase):
+    """System-level health metrics: architectural fitness, reasoning mode, meta level, and rulial insight count."""
     fitness: float = 0.0
     mode: str = ""
     meta_level: int = 0
@@ -314,6 +346,7 @@ class HealthInfo(_SimpleResultBase):
 
 @dataclass
 class GraphHealthInfo(_SimpleResultBase):
+    """Graph structural health metrics: node/edge counts and average degree."""
     nodes: int = 0
     edges: int = 0
     avg_degree: float = 0.0
@@ -321,6 +354,7 @@ class GraphHealthInfo(_SimpleResultBase):
 
 @dataclass
 class EvolutionHealthInfo(_SimpleResultBase):
+    """Evolution subsystem health metrics: cumulative merges, prunes, and refinements."""
     merges: int = 0
     prunes: int = 0
     refinements: int = 0
@@ -328,12 +362,14 @@ class EvolutionHealthInfo(_SimpleResultBase):
 
 @dataclass
 class DiscoveryHealthInfo(_SimpleResultBase):
+    """Rule discovery subsystem health metrics: discovered patterns and active rule count."""
     patterns: int = 0
     active_rules: int = 0
 
 
 @dataclass
 class HealthReport(_SimpleResultBase):
+    """Comprehensive system health report aggregating system, graph, evolution, discovery, and rulial health with recommendations."""
     system_health: HealthInfo = field(default_factory=HealthInfo)
     graph_health: GraphHealthInfo = field(default_factory=GraphHealthInfo)
     evolution_health: EvolutionHealthInfo = field(default_factory=EvolutionHealthInfo)
@@ -345,6 +381,7 @@ class HealthReport(_SimpleResultBase):
 
 @dataclass
 class CorrelatedNodeInfo(_SimpleResultBase):
+    """Cross-operation correlation info for a node: positive signal rate, signal count, and contributing signal types."""
     positive_rate: float = 0.0
     signal_count: int = 0
     signal_types: list[str] = field(default_factory=list)
@@ -352,6 +389,7 @@ class CorrelatedNodeInfo(_SimpleResultBase):
 
 @dataclass
 class FeedbackSummaryResult(_SimpleResultBase):
+    """Aggregate feedback across sampling, retrieval, inference, and evolution operations with overall health and correlated nodes."""
     collapse_accuracy: float = 0.5
     retrieval_precision: float = 0.5
     inference_acceptance_rate: float = 0.5
@@ -364,6 +402,7 @@ class FeedbackSummaryResult(_SimpleResultBase):
 
 @dataclass
 class BiasProfileResult(_SimpleResultBase):
+    """Reasoning bias profile: dominant and underused rules, reasoning style, position trajectory, and average effectiveness."""
     dominant_rules: list[str] = field(default_factory=list)
     underused_rules: list[str] = field(default_factory=list)
     reasoning_style: str = "unknown"
@@ -375,6 +414,7 @@ class BiasProfileResult(_SimpleResultBase):
 
 @dataclass
 class TuningResult(_SimpleResultBase):
+    """Result of an auto-tuning or metamorphosis operation: actions taken, fitness before/after, improvement, and optional rollback state."""
     results: dict[str, Any] = field(default_factory=dict)
     validated: bool = False
     rolled_back: bool = False
@@ -387,6 +427,7 @@ class TuningResult(_SimpleResultBase):
 
 @dataclass
 class GraphDescription(_SimpleResultBase):
+    """Descriptive summary of a graph: node/edge counts, type and label distributions, degree statistics, isolated nodes, components, and density."""
     node_count: int = 0
     edge_count: int = 0
     node_types: dict[str, int] = field(default_factory=dict)
@@ -402,6 +443,7 @@ class GraphDescription(_SimpleResultBase):
 
 @dataclass
 class SPersistenceLevel(_SimpleResultBase):
+    """One level of the s-persistence filtration: the s value, s-connected components, component count, and largest component size."""
     s: int = 1
     components: list[frozenset[str]] = field(default_factory=list)
     num_components: int = 0
@@ -410,6 +452,7 @@ class SPersistenceLevel(_SimpleResultBase):
 
 @dataclass
 class SPersistenceResult(_SimpleResultBase):
+    """Complete s-persistence filtration: list of SPersistenceLevel entries from s=1 to max_s, with total edge count."""
     levels: list[SPersistenceLevel] = field(default_factory=list)
     max_s: int = 1
     total_edges: int = 0
@@ -417,6 +460,7 @@ class SPersistenceResult(_SimpleResultBase):
 
 @dataclass
 class HyperedgeSimilarityResult(_SimpleResultBase):
+    """Result of hyperedge similarity search: the query edge ID, ranked list of similar (edge_id, score) pairs, and the metric used."""
     query_edge_id: str = ""
     similar_edges: list[tuple[str, float]] = field(default_factory=list)
     metric: str = "jaccard"
@@ -424,6 +468,7 @@ class HyperedgeSimilarityResult(_SimpleResultBase):
 
 @dataclass
 class HypergraphCutResult(_SimpleResultBase):
+    """Result of a hypergraph partitioning cut: the partitions, raw cut value, and normalized cut value."""
     partitions: list[frozenset[str]] = field(default_factory=list)
     cut_value: float = 0.0
     normalized_cut_value: float = 0.0
@@ -431,6 +476,7 @@ class HypergraphCutResult(_SimpleResultBase):
 
 @dataclass
 class SpectralEmbeddingResult(_SimpleResultBase):
+    """Result of spectral embedding computation: node IDs, embedding vectors, eigenvalues, and requested dimensions."""
     node_ids: list[str] = field(default_factory=list)
     embeddings: Any = None
     eigenvalues: Any = None

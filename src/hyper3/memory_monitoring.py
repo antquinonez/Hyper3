@@ -13,6 +13,14 @@ from hyper3.validation import ValidationReport
 
 
 class MonitoringMixin(_MemoryBase):
+    """System introspection, metamorphosis tuning, multi-frame analysis, and validation.
+
+    Provides health introspection, metamorphosis trigger detection and
+    validated plan execution, per-frame and multi-frame perspective analysis,
+    reasoning validation (simple vs enhanced A/B comparison), comprehensive
+    validation suites, and capability level detection.
+    """
+
     def introspect(self) -> HealthReport:
         return self._meta.introspect(self._rules)
 

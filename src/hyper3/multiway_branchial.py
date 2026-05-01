@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class BranchialCoordinates:
+    """Position vector for a multiway state in branchial coordinate space."""
+
     state_id: str
     position: list[float] = field(default_factory=list)
     depth: int = 0
@@ -38,6 +40,8 @@ class BranchialCoordinates:
 
 @dataclass
 class BranchialCluster:
+    """A group of multiway states that are close in branchial coordinate space."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     state_ids: set[str] = field(default_factory=set)
     centroid: BranchialCoordinates | None = None
@@ -51,6 +55,8 @@ class BranchialCluster:
 
 @dataclass
 class BranchialCorrelation:
+    """Correlation record linking two multiway states with shared active nodes."""
+
     state_a_id: str
     state_b_id: str
     correlation: float
@@ -60,6 +66,8 @@ class BranchialCorrelation:
 
 @dataclass
 class BranchialDistanceMetrics:
+    """Multi-faceted distance between two multiway states across four dimensions."""
+
     structural: float = 0.0
     conceptual: float = 0.0
     computational: float = 0.0
@@ -73,6 +81,8 @@ class BranchialDistanceMetrics:
 
 @dataclass
 class SimultaneityGroup:
+    """Group of states that share the same parent in the multiway graph."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     state_ids: set[str] = field(default_factory=set)
     common_ancestor_id: str = ""
@@ -81,6 +91,8 @@ class SimultaneityGroup:
 
 @dataclass
 class ScaleLevel:
+    """Clustering results at a single granularity level in multi-scale analysis."""
+
     name: str
     n_clusters: int
     clusters: list[BranchialCluster] = field(default_factory=list)
@@ -89,6 +101,8 @@ class ScaleLevel:
 
 @dataclass
 class MultiScaleAnalysis:
+    """Hierarchical clustering results at macro, meso, and micro scales."""
+
     macro: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="macro", n_clusters=0))
     meso: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="meso", n_clusters=0))
     micro: ScaleLevel = field(default_factory=lambda: ScaleLevel(name="micro", n_clusters=0))
@@ -97,6 +111,8 @@ class MultiScaleAnalysis:
 
 @dataclass
 class AnalogyProposal:
+    """A proposed analogy-based transfer of edges from one state to another."""
+
     source_state_id: str
     target_state_id: str
     source_patterns: list[str] = field(default_factory=list)
@@ -106,6 +122,8 @@ class AnalogyProposal:
 
 
 class BranchialSpace:
+    """Maps multiway expansion states into a coordinate space for distance, clustering, and lateral inference."""
+
     def __init__(
         self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None
     ) -> None:

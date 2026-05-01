@@ -11,6 +11,8 @@ from hyper3.results import AnomalyAnalysis
 
 
 class BoundaryIndicator:
+    """Multi-dimensional anomaly indicator scores for a single concept node."""
+
     cyclic_structure: float = 0.0
     high_centrality: float = 0.0
     contradiction_risk: float = 0.0
@@ -51,6 +53,8 @@ class BoundaryIndicator:
 
 @dataclass
 class BoundaryRegion:
+    """A named region of the graph classified by its anomaly status."""
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     description: str = ""
     boundary_score: float = 0.0
@@ -60,6 +64,8 @@ class BoundaryRegion:
 
 @dataclass
 class AnomalyDetectionResult:
+    """Outcome of multi-level anomaly analysis on a concept."""
+
     anomaly_status: str = "unknown"
     boundary_score: float = 0.0
     partial_results: list[dict[str, Any]] = field(default_factory=list)
@@ -71,6 +77,8 @@ class AnomalyDetectionResult:
 
 @dataclass
 class ExplorationAssumption:
+    """A single bridging assumption used to expand exploration coverage."""
+
     name: str
     description: str
     assumption: str
@@ -80,6 +88,8 @@ class ExplorationAssumption:
 
 @dataclass
 class AssumptionSet:
+    """A named collection of exploration assumptions with provenance tracking."""
+
     assumptions: dict[str, ExplorationAssumption] = field(default_factory=dict)
     provenance: dict[str, str] = field(default_factory=dict)
 
@@ -100,6 +110,8 @@ ANOMALY_PATTERNS: list[dict[str, Any]] = [
 
 @dataclass
 class ExplorationReport:
+    """Coverage report for two-hop neighborhood exploration around a concept."""
+
     concept: str
     expanded_nodes: list[str] = field(default_factory=list)
     total_branches_estimated: int = 0
@@ -121,6 +133,9 @@ class ExplorationReport:
 
 
 class StructuralAnomalyDetector:
+    """Detects structural anomalies (cycles, centrality, contradictions, unusual connectivity)
+    and classifies concepts along a low_risk / boundary / anomalous spectrum."""
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the detector with a hypergraph.
 

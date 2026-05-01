@@ -7,6 +7,8 @@ from hyper3.kernel import Hypergraph
 
 @dataclass
 class ActivationResult:
+    """A node's activation level and propagation depth after spreading energy."""
+
     node_id: str
     label: str
     activation: float
@@ -19,6 +21,8 @@ class ActivationResult:
 
 @dataclass
 class ActivationConfig:
+    """Configuration parameters controlling how activation energy spreads through the graph."""
+
     decay_factor: float = 0.85
     edge_weight_scale: float = 1.0
     label_rates: dict[str, float] = field(default_factory=dict)
@@ -30,6 +34,8 @@ class ActivationConfig:
 
 
 class SpreadingActivation:
+    """Associative recall engine that propagates energy from seed nodes through graph edges."""
+
     def __init__(self, graph: Hypergraph, *, config: ActivationConfig | None = None) -> None:
         """Initialize the spreading activation engine.
 

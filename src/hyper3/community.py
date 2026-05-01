@@ -9,6 +9,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class Community(_SimpleResultBase):
+    """A single community detected in the hypergraph, with membership and modularity stats."""
+
     community_id: int
     member_ids: list[str] = field(default_factory=list)
     member_labels: list[str] = field(default_factory=list)
@@ -20,6 +22,8 @@ class Community(_SimpleResultBase):
 
 @dataclass
 class CommunityResult(_SimpleResultBase):
+    """Aggregate result of community detection, listing all communities and overall metrics."""
+
     communities: list[Community] = field(default_factory=list)
     community_count: int = 0
     modularity: float = 0.0
@@ -29,6 +33,8 @@ class CommunityResult(_SimpleResultBase):
 
 
 class CommunityDetector:
+    """Identifies communities (clusters) in a hypergraph via label propagation and connected-components algorithms."""
+
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
 

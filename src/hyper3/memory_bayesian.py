@@ -5,6 +5,14 @@ from hyper3.memory_base import _MemoryBase
 
 
 class BayesianMixin(_MemoryBase):
+    """Bayesian belief updating over categorical distributions.
+
+    Provides ``set_prior``, ``update_belief``, ``get_belief``,
+    ``map_estimate``, ``bayes_factor``, ``credible_set``, and ``reset_belief``.
+    Delegates to :class:`BayesianLayer` after resolving concept labels to
+    node IDs.
+    """
+
     _bayesian: BayesianLayer | None = None
 
     def set_prior(

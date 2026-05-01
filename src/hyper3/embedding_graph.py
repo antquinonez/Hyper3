@@ -10,6 +10,8 @@ from hyper3.kernel import Hypergraph
 
 
 class RandomWalkEmbeddingProvider(EmbeddingProvider):
+    """Node2Vec-style skip-gram embedding provider that learns vectors from random walks over graph structure."""
+
     def __init__(
         self,
         graph: Hypergraph,
@@ -293,6 +295,8 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
 
 
 class NeighborhoodFingerprintProvider(EmbeddingProvider):
+    """TF-IDF-weighted neighborhood fingerprint provider using 1-hop/2-hop edge labels and random projection."""
+
     def __init__(
         self,
         graph: Hypergraph,
@@ -477,6 +481,8 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
 
 
 class CompositeEmbeddingProvider(EmbeddingProvider):
+    """Combines multiple embedding providers via weighted concatenation with optional PCA dimensionality reduction."""
+
     def __init__(
         self,
         providers: list[EmbeddingProvider],

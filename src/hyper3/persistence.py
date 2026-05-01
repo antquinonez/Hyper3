@@ -16,6 +16,8 @@ from hyper3.kernel import (
 
 
 class Serializer:
+    """Serialize and deserialize hypergraphs, event logs, and rules to/from JSON."""
+
     def serialize_graph(self, graph: Hypergraph) -> dict[str, Any]:
         """Serialize a hypergraph to a JSON-compatible dict.
 

@@ -13,6 +13,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class ExtractedEntity(_SimpleResultBase):
+    """An entity extracted from text, with an optional type and confidence score."""
+
     label: str
     entity_type: str = ""
     data: dict[str, Any] = field(default_factory=dict)
@@ -21,6 +23,8 @@ class ExtractedEntity(_SimpleResultBase):
 
 @dataclass
 class ExtractedRelation(_SimpleResultBase):
+    """A directed relation between two extracted entities."""
+
     source_label: str
     target_label: str
     relation_label: str
@@ -30,6 +34,8 @@ class ExtractedRelation(_SimpleResultBase):
 
 @dataclass
 class ExtractionResult(_SimpleResultBase):
+    """The combined result of extracting entities and relations from text."""
+
     entities: list[ExtractedEntity] = field(default_factory=list)
     relations: list[ExtractedRelation] = field(default_factory=list)
     raw_text: str = ""
@@ -37,6 +43,8 @@ class ExtractionResult(_SimpleResultBase):
 
 
 class LLMProvider(ABC):
+    """Abstract base class for LLM providers used by LLMEnricher."""
+
     @abstractmethod
     def complete(self, prompt: str) -> str:
         """Send a prompt to the LLM and return its text completion."""
@@ -276,6 +284,12 @@ PRONOUNS = frozenset(
 
 
 class RegexExtractor:
+    """Extract entities and relations from plain text using pattern matching.
+
+    Detects active/passive voice patterns, noun phrases, appositions,
+    list constructions, and pronoun coreferences without requiring an LLM.
+    """
+
     RELATION_PATTERNS = [p[0] for p in ACTIVE_PATTERNS]
 
     def __init__(self) -> None:
@@ -539,6 +553,8 @@ class RegexExtractor:
 
 
 class LLMEnricher:
+    """Enrich text into structured entities and relations using an LLM or regex fallback."""
+
     def __init__(self, *, llm: LLMProvider | None = None) -> None:
         """Initialize the enricher with an optional LLM provider.
 

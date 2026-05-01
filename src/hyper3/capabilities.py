@@ -4,6 +4,8 @@ from enum import Enum
 
 
 class CapabilityLevel(Enum):
+    """Staged capability levels classifying the operational depth of a HypergraphMemory instance."""
+
     MINIMAL = "minimal"
     STANDARD = "standard"
     ENHANCED = "enhanced"

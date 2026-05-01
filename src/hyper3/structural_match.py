@@ -9,6 +9,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class PatternNode(_SimpleResultBase):
+    """A node role template within a structural pattern."""
+
     role: str
     data_type: str | None = None
     label_pattern: str | None = None
@@ -17,6 +19,8 @@ class PatternNode(_SimpleResultBase):
 
 @dataclass
 class PatternEdge(_SimpleResultBase):
+    """An edge template connecting two node roles in a pattern."""
+
     source_role: str
     target_role: str
     label: str | None = None
@@ -25,6 +29,8 @@ class PatternEdge(_SimpleResultBase):
 
 @dataclass
 class PatternTemplate(_SimpleResultBase):
+    """A reusable subgraph pattern defined by node roles and edge constraints."""
+
     name: str
     nodes: list[PatternNode] = field(default_factory=list)
     edges: list[PatternEdge] = field(default_factory=list)
@@ -33,6 +39,8 @@ class PatternTemplate(_SimpleResultBase):
 
 @dataclass
 class StructuralMatch(_SimpleResultBase):
+    """A single instantiation of a pattern template against graph nodes."""
+
     pattern_name: str
     bindings: dict[str, str]
     matched_edges: list[str] = field(default_factory=list)
@@ -42,6 +50,8 @@ class StructuralMatch(_SimpleResultBase):
 
 @dataclass
 class StructuralMatchResult(_SimpleResultBase):
+    """Aggregate result of matching a pattern template against the graph."""
+
     pattern_name: str
     matches: list[StructuralMatch] = field(default_factory=list)
     total_match_count: int = 0
@@ -50,6 +60,9 @@ class StructuralMatchResult(_SimpleResultBase):
 
 
 class StructuralPatternEngine:
+    """Finds structural patterns (chains, diamonds, fan-outs, arbitrary templates)
+    in a hypergraph via role-based subgraph matching."""
+
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
 

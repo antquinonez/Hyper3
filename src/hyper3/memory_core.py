@@ -18,6 +18,14 @@ from hyper3.results import EvolveResult, MergeReport
 
 
 class CoreMixin(_MemoryBase):
+    """Core graph operations: store, recall, relate, query, evolve, and node lookup.
+
+    Provides the fundamental CRUD-style interactions with the hypergraph
+    including concept storage, edge creation, graph evolution (decay/prune/
+    merge/reinforce), idempotent node creation via ``ensure()``, and
+    label-to-ID resolution helpers.
+    """
+
     @property
     def graph(self) -> Hypergraph:
         """The underlying hypergraph data structure."""

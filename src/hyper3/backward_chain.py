@@ -9,6 +9,8 @@ from hyper3.rules import Rule, RuleMatch
 
 @dataclass
 class ProofStep(_SimpleResultBase):
+    """A single step in a backward-chaining proof, recording the rule, target, premises, and confidence."""
+
     rule_name: str
     target_id: str
     required_premises: list[str]
@@ -18,6 +20,8 @@ class ProofStep(_SimpleResultBase):
 
 @dataclass
 class ProofTree(_SimpleResultBase):
+    """A proof tree rooted at a goal node, tracking achievement status, steps, and unresolved premises."""
+
     goal_id: str
     goal_label: str
     achieved: bool = False
@@ -29,6 +33,8 @@ class ProofTree(_SimpleResultBase):
 
 @dataclass
 class BackwardChainResult(_SimpleResultBase):
+    """Result of backward-chaining proof attempt, with proof tree, missing premises, and alternative plans."""
+
     goal_id: str = ""
     goal_label: str = ""
     achievable: bool = False
@@ -41,6 +47,8 @@ class BackwardChainResult(_SimpleResultBase):
 
 
 class BackwardChainEngine:
+    """Goal-directed reasoning engine that proves targets by chaining backward through inference rules."""
+
     def __init__(
         self,
         graph: Hypergraph,

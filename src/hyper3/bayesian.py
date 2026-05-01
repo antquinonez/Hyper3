@@ -12,6 +12,13 @@ _EPS = 1e-12
 
 @dataclass
 class CategoricalDistribution(_SimpleResultBase):
+    """A discrete probability distribution over named outcomes.
+
+    Supports sampling, entropy computation, normalization, and construction
+    from uniform or weighted inputs. Used as the primary distribution type
+    for Bayesian belief tracking.
+    """
+
     outcomes: dict[str, float] = field(default_factory=dict)
 
     def sample(self, *, rng: np.random.Generator | None = None) -> str:
@@ -73,12 +80,24 @@ class CategoricalDistribution(_SimpleResultBase):
 
 @dataclass
 class Evidence(_SimpleResultBase):
+    """A piece of evidence with per-hypothesis likelihoods.
+
+    Maps each hypothesis name to a likelihood value used during Bayesian
+    updating to produce a posterior distribution.
+    """
+
     name: str = ""
     likelihoods: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
 class UpdateResult(_SimpleResultBase):
+    """Result of applying one or more pieces of evidence to a belief.
+
+    Carries the prior and posterior distributions, the evidence applied,
+    per-hypothesis Bayes factors, and the KL divergence from prior to posterior.
+    """
+
     concept: str = ""
     prior: CategoricalDistribution | None = None
     posterior: CategoricalDistribution | None = None
@@ -88,6 +107,14 @@ class UpdateResult(_SimpleResultBase):
 
 
 class BayesianLayer:
+    """Proper Bayesian prior-to-posterior updating over categorical distributions.
+
+    Provides ``set_prior``, ``add_evidence`` (single or chained), MAP
+    estimation, Bayes factors, credible sets, posterior odds, information
+    gain, entropy measurement, and belief reset. All updates follow the
+    standard rule: posterior ∝ prior × likelihood.
+    """
+
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
         self._beliefs: dict[str, CategoricalDistribution] = {}

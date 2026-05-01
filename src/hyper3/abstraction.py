@@ -15,6 +15,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class AbstractionMapping(_SimpleResultBase):
+    """Tracks the relationship between a summary node and the detail nodes it represents."""
+
     summary_node_id: str
     summary_label: str
     detail_node_ids: list[str]
@@ -24,6 +26,8 @@ class AbstractionMapping(_SimpleResultBase):
 
 @dataclass
 class AbstractionSummary(_SimpleResultBase):
+    """Result of collapsing a subgraph into a single summary node."""
+
     summary_node: Hypernode
     mapping: AbstractionMapping
     edges_collapsed: int
@@ -33,12 +37,16 @@ class AbstractionSummary(_SimpleResultBase):
 
 @dataclass
 class ExpandResult(_SimpleResultBase):
+    """Result of expanding a summary node back into its original detail nodes and edges."""
+
     expanded_nodes: list[str] = field(default_factory=list)
     expanded_edges: list[str] = field(default_factory=list)
     summary_removed: bool = False
 
 
 class AbstractionNavigator:
+    """Collapses subgraphs into summary nodes and expands them back, enabling hierarchical abstraction."""
+
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
         self._mappings: dict[str, AbstractionMapping] = {}

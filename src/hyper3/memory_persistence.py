@@ -34,6 +34,13 @@ from hyper3.traversal import ObserverSlice, TraversalEngine
 
 
 class PersistenceMixin(_MemoryBase):
+    """Serialization, import/export, save/load, snapshots, and statistics.
+
+    Provides batch record loading, JSON and edgelist import/export,
+    graph + event log save/load with optional rule serialization,
+    full system snapshot save/restore, and typed memory statistics.
+    """
+
     def load_records(
         self,
         nodes: list[dict[str, Any]],

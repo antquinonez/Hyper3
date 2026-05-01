@@ -10,6 +10,14 @@ from hyper3.temporal import TemporalEvent, TemporalReasoner
 
 
 class TemporalMixin(_MemoryBase):
+    """Temporal reasoning with Allen interval algebra, causal chains, and text ingestion.
+
+    Provides temporal event creation, Allen-relation queries (before, after,
+    overlapping, containing, proximity), causal chain ordering, text
+    ingestion with entity/relation extraction via pluggable LLM providers,
+    and batch ingestion with optional deduplication.
+    """
+
     def add_temporal_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
         event = self._temporal.add_event(label, label, start, end, **metadata)
         self.store(label, data={"start": start, "end": end})

@@ -7,6 +7,14 @@ from hyper3.uncertainty import ConfidenceChain, ConfidenceScore, UncertaintyEngi
 
 
 class CognitiveMixin(_MemoryBase):
+    """Goal-directed reasoning, co-activation learning, and uncertainty quantification.
+
+    Provides backward-chaining proofs (``prove``, ``prove_batch``), Hebbian
+    co-activation reinforcement and decay, strongest-association queries,
+    per-node confidence scoring, low-confidence flagging, and confidence-chain
+    tracing between concepts.
+    """
+
     def prove(
         self,
         concept: str,

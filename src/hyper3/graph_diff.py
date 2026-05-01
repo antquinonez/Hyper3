@@ -10,6 +10,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class NodeDelta(_SimpleResultBase):
+    """Records a change (addition, removal, or modification) to a single node between graph versions."""
+
     node_id: str
     node_label: str
     change_type: str
@@ -21,6 +23,8 @@ class NodeDelta(_SimpleResultBase):
 
 @dataclass
 class EdgeDelta(_SimpleResultBase):
+    """Records a change (addition, removal, or modification) to a single edge between graph versions."""
+
     edge_id: str
     change_type: str
     old_label: str = ""
@@ -33,6 +37,8 @@ class EdgeDelta(_SimpleResultBase):
 
 @dataclass
 class GraphDelta(_SimpleResultBase):
+    """Complete diff between two graph snapshots, listing all node and edge changes."""
+
     nodes_added: list[NodeDelta] = field(default_factory=list)
     nodes_removed: list[NodeDelta] = field(default_factory=list)
     nodes_modified: list[NodeDelta] = field(default_factory=list)
@@ -48,6 +54,8 @@ class GraphDelta(_SimpleResultBase):
 
 @dataclass
 class GraphVersion(_SimpleResultBase):
+    """A point-in-time snapshot of the graph, stored as a versioned checkpoint for diffing and rollback."""
+
     version_id: int
     timestamp: float
     node_count: int
@@ -57,12 +65,16 @@ class GraphVersion(_SimpleResultBase):
 
 @dataclass
 class GraphHistoryResult(_SimpleResultBase):
+    """Summary of all captured graph versions with the current version pointer."""
+
     versions: list[GraphVersion] = field(default_factory=list)
     total_versions: int = 0
     current_version: int = 0
 
 
 class GraphDiffer:
+    """Captures graph versions, computes deltas between snapshots, and supports rollback to prior versions."""
+
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
         self._history: list[GraphVersion] = []

@@ -13,6 +13,13 @@ from hyper3.kernel import Hypergraph
 
 @dataclass
 class ConceptCorrelation:
+    """Pairwise correlation between two groups of concept nodes.
+
+    Stores a correlation matrix mapping ``(node_a_id, node_b_id)`` pairs to
+    float values in [-1, 1]. Used by the belief layer to propagate sampling
+    outcomes across correlated concepts via the ``predict()`` method.
+    """
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     group_a_node_ids: frozenset[str] = frozenset()
     group_b_node_ids: frozenset[str] = frozenset()
@@ -48,6 +55,13 @@ class ConceptCorrelation:
 
 @dataclass
 class EvidenceInteraction:
+    """Interference pattern for a single node's outcomes within a belief state.
+
+    Distinguishes constructive interference (amplitudes reinforce) from
+    destructive interference (amplitudes cancel), used to detect sampling
+    triggers and coherence effects.
+    """
+
     node_id: str
     constructive: float = 0.0
     destructive: float = 0.0
@@ -66,6 +80,13 @@ class EvidenceInteraction:
 
 @dataclass
 class SamplingProfile:
+    """Named configuration for profile-guided Born-rule sampling.
+
+    Defines a set of dimensions with associated weights that bias the
+    probability distribution when sampling from a belief state. Registered
+    profiles are selected at runtime via Thompson sampling.
+    """
+
     name: str
     dimensions: list[str] = field(default_factory=list)
     weights: dict[str, float] = field(default_factory=dict)
@@ -77,6 +98,13 @@ class SamplingProfile:
 
 @dataclass
 class SamplingTrigger:
+    """A condition that may prompt automatic sampling of a belief state.
+
+    Carries a trigger type (e.g. ``"staleness_timeout"``, ``"single_outcome"``,
+    ``"dominant_outcome"``, ``"interference_maxima"``), a confidence score,
+    and optional details about the triggering condition.
+    """
+
     trigger_type: str
     confidence: float
     details: dict[str, Any] = field(default_factory=dict)
@@ -84,6 +112,13 @@ class SamplingTrigger:
 
 @dataclass
 class Outcome:
+    """A single outcome within a belief distribution.
+
+    Associates a node ID with a complex amplitude whose squared magnitude
+    gives the Born-rule probability. Amplitudes may become complex after
+    unitary evolution.
+    """
+
     node_id: str
     amplitude: float | complex
     metadata: dict[str, Any] = field(default_factory=dict)
@@ -97,6 +132,13 @@ class Outcome:
 
 @dataclass
 class BeliefState:
+    """A probability distribution over a set of concept outcomes.
+
+    Manages a list of ``Outcome`` objects with complex amplitudes, Born-rule
+    sampling, adaptive coherence time, and staleness tracking. Supports
+    normalization, amplitude evolution, and correlation linkage.
+    """
+
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     outcomes: list[Outcome] = field(default_factory=list)
     created_at: float = 0.0
@@ -187,6 +229,13 @@ class BeliefState:
 
 @dataclass
 class PotentialFieldConfig:
+    """Weights for the five components of the belief potential field.
+
+    The potential field combines node weight, structural degree, recency,
+    spreading activation, and incident edge-weight signals to bias outcome
+    amplitudes during context evolution.
+    """
+
     weight_field: float = 0.3
     structural_field: float = 0.2
     recency_field: float = 0.2
@@ -220,6 +269,15 @@ BUILTIN_PROFILES: dict[str, SamplingProfile] = {
 
 
 class BeliefLayer:
+    """Quantum-inspired belief engine for ambiguous concept resolution.
+
+    Manages belief states (superpositions of outcomes with complex amplitudes),
+    Born-rule sampling, concept correlations with outcome propagation,
+    constructive/destructive interference detection, unitary evolution,
+    density-matrix computation, von Neumann entropy, partial traces, and
+    adaptive sampling profiles selected via Thompson sampling.
+    """
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the belief layer backed by the given graph.
 

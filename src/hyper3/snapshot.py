@@ -39,6 +39,8 @@ SNAPSHOT_VERSION = 1
 
 @dataclass
 class SystemSnapshot:
+    """Immutable cross-session snapshot of all subsystem state for save/restore operations."""
+
     version: int = SNAPSHOT_VERSION
     saved_at: float = 0.0
 

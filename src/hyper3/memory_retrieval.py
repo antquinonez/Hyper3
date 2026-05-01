@@ -10,6 +10,15 @@ from hyper3.retrieval_engine import FeedbackStore, RetrievalEngine, RetrievalRes
 
 
 class RetrievalMixin(_MemoryBase):
+    """Spreading activation, semantic retrieval, embedding management, and caching.
+
+    Provides spreading activation (stimulate, spread, clear), semantic
+    similarity search via pluggable embedding providers, FAISS-accelerated
+    search, analogy queries, Reciprocal Rank Fusion retrieval with
+    learning-to-rank feedback, Markov-model prefetching, hyperedge diffusion,
+    and cross-operation feedback summaries.
+    """
+
     def set_embedding_provider(self, provider: EmbeddingProvider) -> None:
         self._embedding_engine = EmbeddingEngine(self._graph, provider=provider)
         self._retrieval._embedding = self._embedding_engine

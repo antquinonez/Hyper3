@@ -10,6 +10,8 @@ from hyper3.kernel import Hypergraph
 
 
 class EmbeddingProvider(ABC):
+    """Abstract base class for pluggable embedding providers that map text to vectors."""
+
     @abstractmethod
     def embed(self, text: str) -> np.ndarray:
         """Return a unit-normalized embedding vector for the given text."""
@@ -45,6 +47,8 @@ class EmbeddingProvider(ABC):
 
 
 class HashEmbeddingProvider(EmbeddingProvider):
+    """Zero-dependency embedding provider that produces deterministic vectors from text hashes."""
+
     def __init__(self, dim: int = 64, seed: int = 42) -> None:
         """Initialize the hash-based embedding provider.
 
@@ -72,6 +76,8 @@ class HashEmbeddingProvider(EmbeddingProvider):
 
 @dataclass
 class SimilarityResult:
+    """A pair of nodes with their cosine similarity and embedding distance."""
+
     node_a_id: str
     node_b_id: str
     label_a: str
@@ -81,6 +87,8 @@ class SimilarityResult:
 
 
 class EmbeddingEngine:
+    """Computes and caches node embeddings, providing cosine similarity search, distance computation, analogy queries, and optional FAISS acceleration."""
+
     def __init__(
         self,
         graph: Hypergraph,

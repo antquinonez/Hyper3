@@ -18,6 +18,7 @@ from hyper3.results import (
 
 
 class Modality(Enum):
+    """Information modality used to tag hypernodes and hyperedges (textual, conceptual, temporal, causal, sensory, abstract)."""
     TEXTUAL = "textual"
     CONCEPTUAL = "conceptual"
     TEMPORAL = "temporal"
@@ -27,6 +28,7 @@ class Modality(Enum):
 
 
 class AbstractionLayer(Enum):
+    """Abstraction level of a node or edge in the knowledge hierarchy (detail, intermediate, summary)."""
     DETAIL = "detail"
     INTERMEDIATE = "intermediate"
     SUMMARY = "summary"
@@ -34,6 +36,7 @@ class AbstractionLayer(Enum):
 
 @dataclass
 class Metadata:
+    """Auxiliary metadata for hypernodes and hyperedges: temporal tags, modality tags, abstraction layer, and custom key-value pairs."""
     temporal_tags: dict[str, Any] = field(default_factory=dict)
     modality_tags: set[Modality] = field(default_factory=set)
     abstraction_layer: AbstractionLayer = AbstractionLayer.INTERMEDIATE
@@ -42,6 +45,7 @@ class Metadata:
 
 @dataclass
 class Hypernode:
+    """A vertex in the hypergraph carrying a label, arbitrary data payload, access statistics, weight, and metadata."""
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     label: str = ""
     data: Any = None
@@ -90,6 +94,7 @@ class Hypernode:
 
 @dataclass
 class Hyperedge:
+    """A directed hyperedge connecting a frozenset of source node IDs to a frozenset of target node IDs, with a semantic label, weight, and metadata."""
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     source_ids: frozenset[str] = field(default_factory=frozenset)
     target_ids: frozenset[str] = field(default_factory=frozenset)
@@ -105,6 +110,8 @@ class Hyperedge:
 
 
 class Hypergraph:
+    """Directed hypergraph with n-ary edges, label/dimension indexes, lazy neighbor caching, batch mutation support, and native algorithms for paths, centrality, PageRank, spectral embedding, and s-persistence."""
+
     def __init__(self) -> None:
         """Initialize an empty hypergraph with fresh indexes."""
         self._nodes: dict[str, Hypernode] = {}

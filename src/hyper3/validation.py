@@ -12,6 +12,8 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class ReasoningSummary(_SimpleResultBase):
+    """Summary of a reasoning run, capturing produced nodes/edges, confidence, coverage, and timing."""
+
     nodes_produced: set[str] = field(default_factory=set)
     edges_produced: set[str] = field(default_factory=set)
     avg_confidence: float = 0.0
@@ -21,6 +23,8 @@ class ReasoningSummary(_SimpleResultBase):
 
 @dataclass
 class AgreementMetrics(_SimpleResultBase):
+    """Jaccard-based agreement metrics comparing simple and enhanced reasoning outputs."""
+
     node_jaccard: float = 0.0
     edge_jaccard: float = 0.0
     consistency: float = 0.0
@@ -31,6 +35,8 @@ class AgreementMetrics(_SimpleResultBase):
 
 @dataclass
 class ValidationReport(_SimpleResultBase):
+    """Result of an A/B comparison between simple and enhanced reasoning, with agreement metrics and recommendation."""
+
     simple_results: ReasoningSummary = field(default_factory=ReasoningSummary)
     enhanced_results: ReasoningSummary = field(default_factory=ReasoningSummary)
     agreement: AgreementMetrics = field(default_factory=AgreementMetrics)
@@ -41,6 +47,8 @@ class ValidationReport(_SimpleResultBase):
 
 
 class ValidationEngine:
+    """Compares simple vs. enhanced reasoning on the same seeds and reports agreement, novel findings, and contradictions."""
+
     def __init__(self, memory: Any) -> None:
         """Initialize the validation engine bound to a HypergraphMemory instance."""
         self._memory = memory

@@ -13,6 +13,8 @@ from hyper3.results import PerspectiveAnalysis
 
 @dataclass
 class ProblemFeatures:
+    """Structural feature vector extracted from the subgraph around seed nodes."""
+
     graph_density: float = 0.0
     seed_degree: float = 0.0
     modality_diversity: float = 0.0
@@ -36,6 +38,8 @@ class ProblemFeatures:
 
 @dataclass
 class AnalysisPreset:
+    """A named computational frame configuration with metrics and constraints."""
+
     name: str
     frame_type: str = "classical"
     metrics: dict[str, float] = field(default_factory=dict)
@@ -50,6 +54,8 @@ class AnalysisPreset:
 
 @dataclass
 class PresetAnalysis:
+    """Analysis result for a concept under a single computational frame."""
+
     frame_name: str
     complexity: float
     solution_approach: str
@@ -60,6 +66,8 @@ class PresetAnalysis:
 
 @dataclass
 class FrameTransformation:
+    """Record of the cost and information loss when switching between frames."""
+
     source_frame: str
     target_frame: str
     transformation_cost: float = 0.0
@@ -69,6 +77,8 @@ class FrameTransformation:
 
 @dataclass
 class RobustReachabilitySet:
+    """Nodes and edges reachable under all computational frames simultaneously."""
+
     invariant_nodes: set[str] = field(default_factory=set)
     invariant_edges: set[str] = field(default_factory=set)
     frame_unique: dict[str, set[str]] = field(default_factory=dict)
@@ -78,6 +88,8 @@ class RobustReachabilitySet:
 
 @dataclass
 class DisagreementRegion:
+    """A node where different computational frames disagree on reachability."""
+
     center_node: str
     frames_agreeing: list[str] = field(default_factory=list)
     frames_disagreeing: list[str] = field(default_factory=list)
@@ -86,6 +98,8 @@ class DisagreementRegion:
 
 @dataclass
 class ConsensusResult:
+    """Result of merging reachability sets across multiple computational frames."""
+
     agreed_nodes: set[str] = field(default_factory=set)
     agreed_edges: set[str] = field(default_factory=set)
     frame_results: dict[str, PresetAnalysis] = field(default_factory=dict)
@@ -96,6 +110,8 @@ class ConsensusResult:
 
 @dataclass
 class StructuralMetrics:
+    """Composite structural metrics: local clustering, perspective overlap, and information loss."""
+
     local_clustering: float = 0.0
     perspective_overlap: float = 0.0
     frame_information_loss: float = 0.0
@@ -106,6 +122,8 @@ class StructuralMetrics:
 
 
 class RobustReachabilityDetector:
+    """Finds nodes and edges invariant under all registered computational frames."""
+
     def __init__(self, perspective: MultiPerspectiveAnalyzer) -> None:
         """Bind the detector to a parent multi-perspective analyzer.
 
@@ -263,6 +281,9 @@ FRAME_TEMPLATES: dict[str, AnalysisPreset] = {
 
 
 class MultiPerspectiveAnalyzer:
+    """Analyzes concepts through multiple computational frames (classical, quantum,
+    hypergraph, probabilistic) with Thompson-sampling-based frame selection."""
+
     def __init__(self, graph: Hypergraph) -> None:
         """Initialize the multi-perspective analyzer with a hypergraph.
 
