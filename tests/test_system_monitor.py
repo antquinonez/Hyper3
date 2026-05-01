@@ -514,7 +514,7 @@ class TestAutoMetamorphosis:
         mem.store("x")
         mem.meta._state.architectural_fitness = 0.2
         mem.meta.auto_tune()
-        assert mem.meta._state.architectural_fitness <= 1.0
+        assert 0.0 <= mem.meta._state.architectural_fitness <= 1.0
 
     def test_auto_tune_high_fitness_no_action(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -527,6 +527,8 @@ class TestAutoMetamorphosis:
         mem.meta.auto_tune()
         result = mem.meta.auto_tune()
         assert "fitness_before" in result
+        assert isinstance(result["fitness_before"], float)
+        assert result["actions_taken"] == 0
 
 
 class TestProposeMetamorphosisMultipleTriggers:
