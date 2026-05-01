@@ -418,6 +418,7 @@ class SystemMonitor:
         return results
 
     def _execute_single_action(self, action_type: str) -> tuple[str, Any]:
+        """Execute a single tuning action from a metamorphosis plan."""
         dispatch: dict[str, tuple[str, Any]] = {
             "adjust_evolution_parameters": ("adjust_evolution", self._adjust_evolution),
             "run_rule_discovery": ("rule_discovery", self._run_rule_discovery),
@@ -694,6 +695,7 @@ class SystemMonitor:
         return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
 
     def _collect_modality_weights(self) -> dict[Any, list[float]]:
+        """Collect modality weight distribution across all edges."""
         from hyper3.kernel import Modality
 
         weight_by_modality: dict[Modality, list[float]] = {}
@@ -706,6 +708,7 @@ class SystemMonitor:
         return weight_by_modality
 
     def _adjust_edges_for_outlier_modality(self, mod: Any, global_mean: float) -> int:
+        """Adjust edge weights for outlier modalities."""
         adjusted = 0
         for edge in self._graph.edges:
             for source_id in edge.source_ids:

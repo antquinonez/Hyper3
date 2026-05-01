@@ -153,6 +153,7 @@ class TransitiveRule(Rule):
         return self._find_transitive_chains(graph, active_nodes, edge_set)
 
     def _build_edge_set(self, graph: Hypergraph) -> set[tuple[str, str]]:
+        """Pre-build a set of (source, target) pairs for O(1) edge-existence checks."""
         edge_set: set[tuple[str, str]] = set()
         for edge in graph.edges:
             for src in edge.source_ids:
@@ -161,6 +162,7 @@ class TransitiveRule(Rule):
         return edge_set
 
     def _find_transitive_chains(self, graph: Hypergraph, active_nodes: frozenset[str], edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        """Find transitive chains matching the configured edge label."""
         matches: list[RuleMatch] = []
         for nid_a in active_nodes:
             for e1 in graph.incident_edges(nid_a):
@@ -173,6 +175,7 @@ class TransitiveRule(Rule):
         return matches
 
     def _find_second_hop(self, graph: Hypergraph, nid_a: str, nid_b: str, active_nodes: frozenset[str], edge_set: set[tuple[str, str]], e1_id: str) -> list[RuleMatch]:
+        """Find second-hop targets for a given intermediate node."""
         results: list[RuleMatch] = []
         for e2 in graph.incident_edges(nid_b):
             if self._edge_label and e2.label != self._edge_label:
@@ -243,6 +246,7 @@ class TransitiveRule(Rule):
         return self._scan_derivation_chains(graph, target_node_id, incoming_to_c, edge_set)
 
     def _scan_derivation_chains(self, graph: Hypergraph, target_node_id: str, incoming_to_c: list, edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        """Scan for derivation chains through intermediate nodes."""
         derivations: list[RuleMatch] = []
         for e_bc in incoming_to_c:
             if self._edge_label and e_bc.label and e_bc.label != self._edge_label:
@@ -252,6 +256,7 @@ class TransitiveRule(Rule):
         return derivations
 
     def _scan_first_hop(self, graph: Hypergraph, target_node_id: str, nid_b: str, e_bc_id: str, edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        """Scan for first-hop edges from active nodes."""
         results: list[RuleMatch] = []
         incoming_to_b = [e for e in graph.incident_edges(nid_b) if nid_b in e.target_ids]
         for e_ab in incoming_to_b:
@@ -565,6 +570,7 @@ class AbductiveRule(Rule):
         return matches
 
     def _build_existing_pairs(self, graph: Hypergraph) -> set[tuple[str, str]]:
+        """Build a set of existing source-target pairs for duplicate filtering."""
         existing_pairs: set[tuple[str, str]] = set()
         for edge in graph.edges:
             if edge.label == self._cause_label and edge.metadata.custom.get("rule") == self.name:
@@ -577,6 +583,7 @@ class AbductiveRule(Rule):
         return existing_pairs
 
     def _find_causes_for_effect(self, graph: Hypergraph, nid_b: str, active_nodes: frozenset[str], existing_pairs: set[tuple[str, str]]) -> list[RuleMatch]:
+        """Find candidate causes that could explain an observed effect."""
         node_b = graph.get_node(nid_b)
         if not node_b:
             return []
@@ -849,6 +856,7 @@ class StructuralProjectionRule(Rule):
         return matches
 
     def _prepare_embedding_data(self, active_nodes: frozenset[str]) -> tuple[Any, list[str], dict[str, int], frozenset[str]] | None:
+        """Prepare embedding vectors for nodes involved in pattern matching."""
         if self._embedding_engine is None:
             return None
         emb_map: dict[str, Any] = {}
@@ -868,6 +876,7 @@ class StructuralProjectionRule(Rule):
         return normed, active_list, node_to_idx, active_with_emb
 
     def _compute_analogy_scores(self, graph: Hypergraph, nid_a: str, active_with_emb: frozenset[str], normed: Any, active_list: list[str], node_to_idx: dict[str, int], seen_analogies: set[tuple[str, str, str, str]]) -> list[RuleMatch]:
+        """Compute analogy scores between source and target substructures."""
         results: list[RuleMatch] = []
         idx_a = node_to_idx[nid_a]
         for e1 in graph.incident_edges(nid_a):
@@ -882,6 +891,7 @@ class StructuralProjectionRule(Rule):
         return results
 
     def _find_analogy_targets(self, nid_a: str, nid_b: str, analogy_vec: Any, e1_id: str, active_with_emb: frozenset[str], normed: Any, active_list: list[str], node_to_idx: dict[str, int], seen_analogies: set[tuple[str, str, str, str]]) -> list[RuleMatch]:
+        """Find candidate target substructures for analogical projection."""
         results: list[RuleMatch] = []
         for nid_c in active_with_emb:
             if nid_c in (nid_a, nid_b):
@@ -1029,6 +1039,7 @@ class HubInferenceRule(Rule):
         return matches
 
     def _build_pair_counts(self, graph: Hypergraph, active_nodes: frozenset[str]) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
+        """Count co-occurrence of node pairs across hub edges."""
         edge_pairs: dict[tuple[str, str], int] = {}
         source_totals: dict[str, int] = {}
         for edge in graph.edges:
@@ -1046,6 +1057,7 @@ class HubInferenceRule(Rule):
         return edge_pairs, source_totals
 
     def _existing_cause_edge(self, graph: Hypergraph, src: str, tgt: str) -> bool:
+        """Check whether a cause edge already exists between two nodes."""
         return any(e.label == self._causes_label and tgt in e.target_ids for e in graph.incident_edges(src))
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
@@ -1183,6 +1195,7 @@ class ContextualSubstitutionRule(Rule):
         return [], [edge_ab.id, edge_ba.id]
 
     def _substitution_exists(self, graph: Hypergraph, a_id: str, b_id: str) -> bool:
+        """Check whether a substitution edge already exists."""
         for edge in graph.incident_edges(a_id):
             if edge.label != self._label:
                 continue

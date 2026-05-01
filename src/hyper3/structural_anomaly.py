@@ -156,6 +156,7 @@ class StructuralAnomalyDetector:
         self._cache_graph_ver: int = 0
 
     def _graph_version(self) -> int:
+        """Return a hash-based version string of the current graph state."""
         return self._graph.node_count * 10000 + self._graph.edge_count
 
     def assess_anomaly(self, concept: str, context: dict[str, Any] | None = None) -> BoundaryIndicator:
@@ -219,6 +220,7 @@ class StructuralAnomalyDetector:
         lowlinks: dict[str, int],
         scc_map: dict[str, list[str]],
     ) -> None:
+        """Tarjan's strong-connect algorithm for SCC detection."""
         indices[v] = index_counter[0]
         lowlinks[v] = index_counter[0]
         index_counter[0] += 1
@@ -242,6 +244,7 @@ class StructuralAnomalyDetector:
                 scc_map[w] = component
 
     def _compute_scc(self) -> dict[str, list[str]]:
+        """Compute strongly connected components via Tarjan's algorithm."""
         adj = self._build_adjacency()
         index_counter = [0]
         stack: list[str] = []
@@ -267,6 +270,7 @@ class StructuralAnomalyDetector:
     def _dfs_check_outgoing(
         self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None
     ) -> bool:
+        """DFS helper that checks whether a node can reach beyond its SCC."""
         for edge in self._graph.incident_edges(current):
             if current not in edge.source_ids:
                 continue
@@ -317,6 +321,7 @@ class StructuralAnomalyDetector:
         return self._context_boost(context, "high_centrality", base)
 
     def _build_adjacency(self) -> dict[str, list[str]]:
+        """Build an adjacency list for the graph."""
         adj: dict[str, list[str]] = {}
         for node in self._graph.nodes:
             targets: list[str] = []
@@ -327,6 +332,7 @@ class StructuralAnomalyDetector:
 
     @staticmethod
     def _run_power_iteration(adj: dict[str, list[str]], id_idx: dict[str, int], n: int) -> list[float]:
+        """Run power iteration to approximate the dominant eigenvector."""
         x = [1.0 / n] * n
         for _ in range(50):
             x_new = [0.0] * n
@@ -393,6 +399,7 @@ class StructuralAnomalyDetector:
         return self._context_boost(context, "contradiction", base)
 
     def _build_label_node_sets(self, labels: list[str]) -> dict[str, set[str]]:
+        """Build a map from edge label to sets of connected node IDs."""
         label_node_sets: dict[str, set[str]] = {}
         for edge in self._graph.edges:
             if edge.label in labels:
@@ -401,6 +408,7 @@ class StructuralAnomalyDetector:
         return label_node_sets
 
     def _check_label_pair_opposition(self, label_node_sets: dict[str, set[str]], labels: list[str]) -> float:
+        """Check if two labels form a negation pair."""
         for i, la in enumerate(labels):
             for lb in labels[i + 1 :]:
                 set_a = label_node_sets.get(la, set())

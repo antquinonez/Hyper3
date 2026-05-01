@@ -66,6 +66,7 @@ class TimeInterval:
 
     @staticmethod
     def _check_point_relations(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        """Check Allen relations between a time point and an interval."""
         if a_s == b_s and a_e == b_e:
             return AllenRelation.EQUALS
         if a_e == b_s:
@@ -80,6 +81,7 @@ class TimeInterval:
 
     @staticmethod
     def _check_endpoint_shared(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        """Check relations when one interval endpoint equals the other interval boundary."""
         if a_s == b_s:
             if a_e < b_e:
                 return AllenRelation.STARTS
@@ -92,6 +94,7 @@ class TimeInterval:
 
     @staticmethod
     def _check_containment(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        """Check containment relations between two intervals."""
         if a_s < b_s and a_e > b_e:
             return AllenRelation.CONTAINS
         if a_s > b_s and a_e < b_e:
@@ -100,6 +103,7 @@ class TimeInterval:
 
     @staticmethod
     def _check_overlap(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        """Check overlap relations between two intervals."""
         if a_s < b_s and a_e > b_s and a_e < b_e:
             return AllenRelation.OVERLAPS
         if a_s > b_s and a_s < b_e and a_e > b_e:
@@ -156,6 +160,7 @@ class TemporalConstraint(_SimpleResultBase):
 
     @property
     def inverse(self) -> TemporalConstraint:
+        """Return the inverse Allen relation."""
         return TemporalConstraint(
             event_a_id=self.event_b_id,
             event_b_id=self.event_a_id,
@@ -364,6 +369,7 @@ class TemporalReasoner:
         return [eid for eid, _ in events]
 
     def _build_causal_adjacency(self) -> dict[str, set[str]]:
+        """Build an adjacency map of causally linked events."""
         adj: dict[str, set[str]] = {eid: set() for eid in self._events}
         for a_id, a in self._events.items():
             for b_id, b in self._events.items():
@@ -377,6 +383,7 @@ class TemporalReasoner:
     def _enumerate_chains(
         self, adj: dict[str, set[str]], min_chain_length: int, max_chains: int
     ) -> list[list[str]]:
+        """Enumerate all causal chains starting from a given event."""
         all_chains: list[list[str]] = []
         memo: dict[str, list[list[str]]] = {}
 

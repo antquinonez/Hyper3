@@ -132,6 +132,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         node_idx: dict[str, int],
         n_nodes: int,
     ) -> None:
+        """Initialize negative sampling probability distribution."""
         degree_counts = np.ones(n_nodes, dtype=np.float64)
         for node in nodes:
             degree = len(self._graph.incident_edges(node.id))
@@ -142,6 +143,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
     def _init_weights(
         self, n_nodes: int
     ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray]]:
+        """Initialize embedding weight matrices."""
         w_in: dict[int, np.ndarray] = {}
         w_out: dict[int, np.ndarray] = {}
         scale = (2.0 / self._dim) ** 0.5
@@ -158,6 +160,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         node_idx: dict[str, int],
         n_nodes: int,
     ) -> None:
+        """Run training epochs of skip-gram with negative sampling."""
         for _epoch in range(self._epochs):
             lr = self._learning_rate * (1.0 - _epoch / self._epochs)
             lr = max(lr, self._learning_rate * 0.01)
@@ -174,6 +177,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         n_nodes: int,
         lr: float,
     ) -> None:
+        """Process a single random walk for skip-gram training."""
         for pos, target_idx in enumerate(indices):
             win_start = max(0, pos - self._window_size)
             win_end = min(len(indices), pos + self._window_size + 1)
@@ -191,6 +195,7 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
                 )
 
     def _finalize_embeddings(self, w_in: dict[int, np.ndarray]) -> None:
+        """Average context and target embeddings into final vectors."""
         for idx, nid in enumerate(self._node_list):
             vec = w_in[idx].copy()
             norm = np.linalg.norm(vec)
@@ -393,6 +398,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         edges: list[Any],
         node_id: str,
     ) -> None:
+        """Accumulate 1-hop edge label features into the fingerprint."""
         for edge in edges:
             is_source = node_id in edge.source_ids
             direction = 1.0 if is_source else -1.0
@@ -413,6 +419,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         edges: list[Any],
         node_id: str,
     ) -> None:
+        """Accumulate 2-hop edge label features into the fingerprint."""
         two_hop_edges: list[Any] = []
         for edge in edges:
             neighbors = edge.target_ids if node_id in edge.source_ids else edge.source_ids
@@ -433,6 +440,7 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         sparse: np.ndarray,
         node_id: str,
     ) -> None:
+        """Accumulate node metadata features into the fingerprint."""
         node = self._graph.get_node(node_id)
         if not node:
             return

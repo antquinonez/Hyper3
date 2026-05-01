@@ -159,6 +159,7 @@ class ValidationEngine:
         rules: list[Rule],
         active_nodes: frozenset[str],
     ) -> tuple[set[str], set[str]]:
+        """Apply rules to the graph and collect results, then clean up."""
         nodes: set[str] = set()
         edges: set[str] = set()
         for rule in rules:
@@ -176,6 +177,7 @@ class ValidationEngine:
         pre_edges: set[str],
         pre_nodes: set[str],
     ) -> None:
+        """Remove temporarily added inference edges."""
         for eid in list({e.id for e in self._memory._graph.edges} - pre_edges):
             self._memory._graph.remove_edge(eid)
         for nid in list({n.id for n in self._memory._graph.nodes} - pre_nodes):
@@ -339,6 +341,7 @@ class ValidationEngine:
         return contradictions
 
     def _group_edges_by_nodes(self, edge_ids: set[str]) -> dict[frozenset[str], list[Any]]:
+        """Group edges by their source/target node pairs."""
         groups: dict[frozenset[str], list[Any]] = {}
         for eid in edge_ids:
             edge = self._memory._graph.get_edge(eid)
@@ -352,6 +355,7 @@ class ValidationEngine:
         simple_groups: dict[frozenset[str], list[Any]],
         enhanced_groups: dict[frozenset[str], list[Any]],
     ) -> list[dict[str, Any]]:
+        """Check for edge label and weight conflicts."""
         contradictions: list[dict[str, Any]] = []
         shared_keys = set(simple_groups.keys()) & set(enhanced_groups.keys())
         for key in shared_keys:
@@ -388,6 +392,7 @@ class ValidationEngine:
         simple_edge_ids: set[str],
         enhanced_edge_ids: set[str],
     ) -> list[dict[str, Any]]:
+        """Check for direction conflicts between edges."""
         contradictions: list[dict[str, Any]] = []
         simple_labels: dict[str, list[str]] = {}
         for eid in simple_edge_ids:

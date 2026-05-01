@@ -76,6 +76,7 @@ class SpreadingActivation:
             self.stimulate(node.id, energy)
 
     def _compute_spread_for_node(self, node_id: str, activation: float) -> tuple[dict[str, float], dict[str, int]]:
+        """Compute activation energy spread from a single node."""
         delta: dict[str, float] = {}
         delta_depth: dict[str, int] = {}
         edges = self._graph.incident_edges(node_id)
@@ -101,6 +102,7 @@ class SpreadingActivation:
         return delta, delta_depth
 
     def _apply_normalization(self, current_max: float) -> None:
+        """Normalize activation values after a spread step."""
         if self._config.normalize_per_step and current_max > 0:
             new_max = max(self._activations.values()) if self._activations else 0.0
             if new_max > 0:
@@ -226,6 +228,7 @@ class SpreadingActivation:
         activated_sources: int,
         total_sources: int,
     ) -> float | None:
+        """Compute gated activation energy for an n-ary hyperedge."""
         if mode == "and":
             if activated_sources < total_sources:
                 return None
@@ -242,6 +245,7 @@ class SpreadingActivation:
             return sum(source_activations) / total_sources
 
     def _compute_hyperedge_delta(self, edge, mode: str, delta: dict[str, float], delta_depth: dict[str, int]) -> None:
+        """Compute the activation delta for hyperedge-aware spreading."""
         if not edge.source_ids or not edge.target_ids:
             return
         rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale

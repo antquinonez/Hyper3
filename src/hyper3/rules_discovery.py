@@ -204,6 +204,7 @@ class RuleDiscoveryEngine:
         return count
 
     def _find_inverse_pair_counts(self) -> tuple[Counter[str], dict[str, list[tuple[str, str]]]]:
+        """Count inverse edge pairs (A->B, B->A) by label."""
         label_pairs: Counter[str] = Counter()
         pair_edges: dict[str, list[tuple[str, str]]] = {}
         for edge_a in self._graph.edges:
