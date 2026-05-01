@@ -1066,6 +1066,8 @@ demos/               Runnable demo scripts
 benchmarks/          Performance microbenchmarks and evaluation suite
 pyproject.toml       Project config (hatchling build backend)
 resources/           Reference patent documents (architecture spec)
+ai/                  AI utility scripts for bulk operations
+  add_docstrings.py  Bulk docstring insertion via AST
 ```
 
 ## Housekeeping
@@ -1081,6 +1083,37 @@ After making substantive changes (new features, bug fixes, API changes), perform
 7. **Update the Extracted Modules or New Modules sections** if new result dataclasses were added to `results.py`.
 8. **Update `src/hyper3/__init__.py`** if new public classes were added.
 9. **Run full validation**: tests + pyright + all examples.
+
+## AI Utilities
+
+Reusable scripts for common bulk operations live in `ai/`. Run them with `.venv/bin/python ai/<script>.py`.
+
+### Adding docstrings (`ai/add_docstrings.py`)
+
+Bulk-inserts docstrings into methods that are missing them. Uses AST to find exact insertion points, avoiding text-editing pitfalls (eating body lines, wrong indentation).
+
+**CLI usage** (one method at a time):
+```bash
+.venv/bin/python ai/add_docstrings.py \
+    --map "kernel.py:Hypergraph._betweenness_bfs=BFS helper returning (delta, stack, sigma) for Brandes betweenness." \
+    --map "kernel.py:Hypergraph._build_pagerank_transition=Build the incidence-based transition structure." \
+    --dry-run  # preview without writing
+```
+
+**Programmatic usage** (batch of methods):
+```bash
+.venv/bin/python -c "
+from ai.add_docstrings import apply_docstrings
+apply_docstrings({
+    ('abstraction.py', 'AbstractionNavigator', 'collapse_subgraph'): 'Collapse nodes into a summary.',
+    ('community.py', 'CommunityDetector', 'detect_label_propagation'): 'Detect communities via label propagation.',
+})
+"
+```
+
+**How it works**: For each target method, the script parses the file with AST, finds the first body statement's line number and indentation, and inserts a `"""docstring"""` line immediately before it. Inserts are applied in reverse line-number order so earlier offsets stay valid.
+
+**When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
 - **Tests**: 2129
