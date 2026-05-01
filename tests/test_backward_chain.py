@@ -79,7 +79,9 @@ class TestBackwardChainBasic:
         mem.add_rules(TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"))
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         result = mem.prove("C", known_facts={"A"}, edge_label="depends_on")
-        assert isinstance(result.missing_premises, list)
+        assert not result.achievable
+        assert result.goal_label == "C"
+        assert len(result.proof_tree.unresolved_premises) >= 1
 
     def test_prove_batch_accumulates(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -152,6 +154,8 @@ class TestBackwardChainIntegration:
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3)
         result = mem.prove("C", known_facts={"A"})
         assert result is not None
+        assert result.goal_label == "C"
+        assert isinstance(result.achievable, bool)
 
     def test_with_abductive_rule(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -163,6 +167,8 @@ class TestBackwardChainIntegration:
         mem.add_rules(AbductiveRule(effect_label="causes", cause_label="possible_cause"))
         result = mem.prove("root_cause", known_facts={"symptom_a", "symptom_b"})
         assert result is not None
+        assert result.goal_label == "root_cause"
+        assert isinstance(result.achievable, bool)
 
 
 class TestBackwardChainProveBatch:
@@ -178,6 +184,9 @@ class TestBackwardChainProveBatch:
         results = mem.prove_batch(["B", "C"], known_facts={"A"})
         assert len(results) == 2
         assert isinstance(results[0].achievable, bool)
+        assert isinstance(results[1].achievable, bool)
+        assert results[0].goal_label == "B"
+        assert results[1].goal_label == "C"
 
     def test_prove_batch_empty_targets(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -197,7 +206,9 @@ class TestBackwardChainEngineAdvanced:
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("C", known_facts=set())
-        assert isinstance(result.missing_premises, list)
+        assert not result.achievable
+        assert result.goal_label == "C"
+        assert len(result.proof_tree.unresolved_premises) >= 1
 
     def test_alternative_proofs(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -211,6 +222,8 @@ class TestBackwardChainEngineAdvanced:
         engine = BackwardChainEngine(mem.graph, mem._rules, max_alternatives=5)
         result = engine.prove("B", known_facts={"A"})
         assert result is not None
+        assert result.goal_label == "B"
+        assert isinstance(result.achievable, bool)
 
     def test_prove_with_edge_label_filter(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -222,6 +235,8 @@ class TestBackwardChainEngineAdvanced:
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("B", known_facts={"A"}, edge_label="causes")
         assert result is not None
+        assert result.goal_label == "B"
+        assert isinstance(result.achievable, bool)
 
     def test_prove_unknown_target(self):
         mem = HypergraphMemory(evolve_interval=0)
