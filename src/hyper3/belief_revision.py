@@ -120,9 +120,11 @@ class ContradictionResolver:
 
     @property
     def negation_map(self) -> dict[str, str]:
+        """Return a copy of the active negation map (built-in plus custom pairs)."""
         return dict(self._negation_map)
 
     def detect_contradictions(self) -> list[Contradiction]:
+        """Scan the graph for all pairs of contradictory edges."""
         contradictions: list[Contradiction] = []
         seen_pairs: set[frozenset[str]] = set()
 
@@ -167,6 +169,7 @@ class ContradictionResolver:
         return contradictions
 
     def revise(self, *, strategy: str | None = None) -> RevisionResult:
+        """Detect contradictions and resolve them, removing losing edges and cascading retraction."""
         effective_strategy = strategy or self._resolution_strategy
         contradictions = self.detect_contradictions()
 
@@ -225,6 +228,7 @@ class ContradictionResolver:
         )
 
     def check_consistency(self, source_label: str, target_label: str) -> list[Contradiction]:
+        """Check for contradictions specifically between two labeled concepts."""
         src = self._graph.get_node_by_label(source_label)
         tgt = self._graph.get_node_by_label(target_label)
         if not src or not tgt:
@@ -268,11 +272,13 @@ class ContradictionResolver:
         return contradictions
 
     def _are_contradictory(self, label_a: str, label_b: str) -> bool:
+        """Return True if *label_a* and *label_b* are negation pairs."""
         if label_a == label_b:
             return False
         return self._negation_map.get(label_a) == label_b
 
     def _detect_self_contradictions(self, seen_pairs: set[frozenset[str]]) -> list[Contradiction]:
+        """Find self-contradictions: a node with both X and neg(X) labels on incident edges."""
         results: list[Contradiction] = []
         for node in self._graph.nodes:
             edges = self._graph.incident_edges(node.id)
@@ -314,6 +320,7 @@ class ContradictionResolver:
         contradiction: Contradiction,
         strategy: str,
     ) -> tuple[str | None, str | None]:
+        """Return ``(winner_id, loser_id)`` for the given contradiction using *strategy*."""
         edge_a = self._graph.get_edge(contradiction.edge_a_id)
         edge_b = self._graph.get_edge(contradiction.edge_b_id)
         if not edge_a or not edge_b:
@@ -330,6 +337,7 @@ class ContradictionResolver:
         return edge_a.id, edge_b.id
 
     def _resolve_by_confidence(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        """Resolve by provenance-based confidence (higher wins)."""
         conf_a = self._edge_confidence(edge_a.id)
         conf_b = self._edge_confidence(edge_b.id)
         if conf_a >= conf_b:
@@ -337,11 +345,13 @@ class ContradictionResolver:
         return edge_b.id, edge_a.id
 
     def _resolve_by_weight(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        """Resolve by edge weight (higher wins)."""
         if edge_a.weight >= edge_b.weight:
             return edge_a.id, edge_b.id
         return edge_b.id, edge_a.id
 
     def _resolve_by_observation(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        """Resolve preferring observed (non-inferred) edges; tie-break on weight."""
         a_inferred = self._provenance.is_inferred(edge_a.id)
         b_inferred = self._provenance.is_inferred(edge_b.id)
         if a_inferred and not b_inferred:
@@ -353,6 +363,7 @@ class ContradictionResolver:
         return edge_b.id, edge_a.id
 
     def _resolve_by_recency(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        """Resolve preferring the newer edge based on provenance timestamp."""
         a_prov = self._provenance.get_provenance(edge_a.id)
         b_prov = self._provenance.get_provenance(edge_b.id)
         a_time = a_prov.timestamp if a_prov else 0
@@ -362,6 +373,7 @@ class ContradictionResolver:
         return edge_b.id, edge_a.id
 
     def _edge_confidence(self, edge_id: str) -> float:
+        """Compute confidence for an edge from provenance depth: ``0.9 ** depth``."""
         prov = self._provenance.get_provenance(edge_id)
         if not prov:
             return 1.0
@@ -369,5 +381,6 @@ class ContradictionResolver:
         return 0.9**depth
 
     def _compute_severity(self, edge_a: Any, edge_b: Any) -> float:
+        """Compute contradiction severity from weight difference (more similar weights = more severe)."""
         weight_diff = abs(edge_a.weight - edge_b.weight)
         return 1.0 - (weight_diff / max(edge_a.weight + edge_b.weight, 0.001))

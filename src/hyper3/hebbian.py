@@ -60,13 +60,16 @@ class HebbianLearner:
 
     @property
     def config(self) -> HebbianConfig:
+        """Return the current Hebbian configuration."""
         return self._config
 
     @property
     def history(self) -> list[HebbianResult]:
+        """Return a copy of the reinforcement history."""
         return list(self._history)
 
     def reinforce_from_activation(self) -> HebbianResult:
+        """Run a full Hebbian cycle from current activation state, strengthening co-activated edges."""
         activated = self._activation.get_activated()
         if not activated:
             result = HebbianResult()
@@ -132,6 +135,7 @@ class HebbianLearner:
         target_label: str,
         strength: float = 1.0,
     ) -> HebbianUpdate | None:
+        """Manually reinforce the first connecting edge between two labeled nodes."""
         src_node = self._graph.get_node_by_label(source_label)
         tgt_node = self._graph.get_node_by_label(target_label)
         if not src_node or not tgt_node:
@@ -159,6 +163,7 @@ class HebbianLearner:
         )
 
     def decay_unused(self, threshold_access_count: int = 0) -> list[HebbianUpdate]:
+        """Reduce weight of edges whose endpoint nodes have low access counts."""
         updates: list[HebbianUpdate] = []
         for edge in self._graph.edges:
             all_low_access = True
@@ -189,6 +194,7 @@ class HebbianLearner:
         return updates
 
     def get_strongest_associations(self, node_label: str, top_k: int = 10) -> list[tuple[str, float]]:
+        """Return the top-k neighbors by edge weight for a labeled node."""
         node = self._graph.get_node_by_label(node_label)
         if not node:
             return []
@@ -208,6 +214,7 @@ class HebbianLearner:
         self,
         active_ids: dict[str, float],
     ) -> list[tuple[str, str, float]]:
+        """Return pairs of co-activated nodes connected by at least one edge, sorted by co-activation."""
         pairs: list[tuple[str, str, float]] = []
         ids = list(active_ids.keys())
         for i in range(len(ids)):
@@ -221,6 +228,7 @@ class HebbianLearner:
         return pairs
 
     def _find_connecting_edges(self, node_a: str, node_b: str) -> list[Any]:
+        """Return edges incident to *node_a* that also touch *node_b*."""
         return [
             edge
             for edge in self._graph.incident_edges(node_a)

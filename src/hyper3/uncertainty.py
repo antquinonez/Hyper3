@@ -69,12 +69,14 @@ class UncertaintyEngine:
         self._low_threshold = low_threshold
 
     def compute_confidence(self, node_label: str) -> ConfidenceScore | None:
+        """Compute confidence for a single node; returns ``None`` if the label is not found."""
         node = self._graph.get_node_by_label(node_label)
         if not node:
             return None
         return self._compute_node_confidence(node.id)
 
     def compute_all_confidences(self) -> UncertaintyResult:
+        """Compute confidence scores for every node in the graph."""
         scores: list[ConfidenceScore] = []
         for node in self._graph.nodes:
             score = self._compute_node_confidence(node.id)
@@ -111,6 +113,7 @@ class UncertaintyEngine:
         target_label: str,
         max_depth: int = 10,
     ) -> ConfidenceChain | None:
+        """Find the highest-confidence inference path between two nodes."""
         source = self._graph.get_node_by_label(source_label)
         target = self._graph.get_node_by_label(target_label)
         if not source or not target:
@@ -129,6 +132,7 @@ class UncertaintyEngine:
         return best_chain
 
     def flag_low_confidence(self, threshold: float | None = None) -> list[ConfidenceScore]:
+        """Return nodes whose confidence is below *threshold*, sorted ascending."""
         thr = threshold or self._low_threshold
         result: list[ConfidenceScore] = []
         for node in self._graph.nodes:
@@ -139,6 +143,7 @@ class UncertaintyEngine:
         return result
 
     def _compute_node_confidence(self, node_id: str) -> ConfidenceScore | None:
+        """Compute confidence for a node based on incoming inferred edges and provenance depth."""
         node = self._graph.get_node(node_id)
         if not node:
             return None
@@ -198,6 +203,7 @@ class UncertaintyEngine:
         max_depth: int,
         visited: set[str],
     ) -> ConfidenceChain | None:
+        """DFS search for the highest-confidence chain from *current* to *target*."""
         if current == target:
             confidences = []
             for eid in path_edges:
@@ -244,6 +250,7 @@ class UncertaintyEngine:
         max_depth: int,
         visited: set[str],
     ) -> ConfidenceChain | None:
+        """Explore all neighbors of *current* and return the best chain found."""
         best: ConfidenceChain | None = None
         for edge in self._graph.incident_edges(current):
             for nxt in edge.target_ids:
@@ -268,6 +275,7 @@ class UncertaintyEngine:
         return best
 
     def _combine(self, confidences: list[float]) -> float:
+        """Combine a list of confidences using the configured strategy (geometric, minimum, or average)."""
         if not confidences:
             return 0.0
         if self._combination == "geometric":
