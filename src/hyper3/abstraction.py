@@ -53,6 +53,7 @@ class AbstractionNavigator:
 
     @property
     def mappings(self) -> dict[str, AbstractionMapping]:
+        """Return a copy of all active summary-to-detail mappings."""
         return dict(self._mappings)
 
     def _classify_edges(
@@ -62,6 +63,7 @@ class AbstractionNavigator:
         dict[str, list[tuple[str, float, Any]]],
         int,
     ]:
+        """Partition edges into internal, incoming-external, and outgoing-external relative to *node_ids*."""
         external_edges_in: dict[str, list[tuple[str, float, Any]]] = {}
         external_edges_out: dict[str, list[tuple[str, float, Any]]] = {}
         internal_count = 0
@@ -93,6 +95,7 @@ class AbstractionNavigator:
         external_edges_out: dict[str, list[tuple[str, float, Any]]],
         summary_node_id: str,
     ) -> None:
+        """Create new edges connecting external nodes to the summary node."""
         for ext_src, edge_infos in external_edges_in.items():
             edge_labels_seen: set[str] = set()
             for elabel, eweight, edata in edge_infos:
@@ -126,6 +129,7 @@ class AbstractionNavigator:
     def _collect_expanded_nodes(
         self, mapping: AbstractionMapping
     ) -> list[str]:
+        """Collect IDs of detail nodes that still exist for an expansion."""
         expanded_nodes: list[str] = []
         for nid in mapping.detail_node_ids:
             existing = self._graph.get_node(nid)
@@ -142,6 +146,7 @@ class AbstractionNavigator:
     def _expand_summary_edges(
         self, summary_node: Hypernode, mapping: AbstractionMapping
     ) -> list[str]:
+        """Recreate edges from external nodes to detail nodes, then remove summary edges."""
         expanded_edges: list[str] = []
         summary_edges = list(self._graph.incident_edges(summary_node.id))
         for edge in summary_edges:
@@ -183,6 +188,7 @@ class AbstractionNavigator:
         summary_data: Any = None,
         layer: AbstractionLayer = AbstractionLayer.SUMMARY,
     ) -> AbstractionSummary | None:
+        """Collapse a set of nodes into a single summary node, rewiring external edges."""
         node_ids: set[str] = set()
         for lbl in node_labels:
             node = self._graph.get_node_by_label(lbl)
@@ -230,6 +236,7 @@ class AbstractionNavigator:
         )
 
     def expand_node(self, summary_label: str) -> ExpandResult | None:
+        """Expand a summary node back into its original detail nodes and edges."""
         summary_node = self._graph.get_node_by_label(summary_label)
         if not summary_node:
             return None
@@ -251,19 +258,23 @@ class AbstractionNavigator:
         )
 
     def get_summary_for(self, label: str) -> AbstractionMapping | None:
+        """Return the abstraction mapping for a node, or ``None``."""
         node = self._graph.get_node_by_label(label)
         if not node:
             return None
         return self._mappings.get(node.id)
 
     def get_summary_children(self, summary_label: str) -> list[str]:
+        """Return the detail labels hidden under a summary node."""
         mapping = self.get_summary_for(summary_label)
         if not mapping:
             return []
         return mapping.detail_labels
 
     def list_summaries(self) -> list[AbstractionMapping]:
+        """Return all active abstraction mappings."""
         return list(self._mappings.values())
 
     def nodes_at_layer(self, layer: AbstractionLayer) -> list[Hypernode]:
+        """Return all nodes at a given abstraction layer."""
         return [n for n in self._graph.nodes if n.metadata.abstraction_layer == layer]

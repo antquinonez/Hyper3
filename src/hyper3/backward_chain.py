@@ -69,6 +69,7 @@ class BackwardChainEngine:
         known_facts: set[str] | None = None,
         edge_label: str | None = None,
     ) -> BackwardChainResult:
+        """Attempt to prove *target_label* from *known_facts* by chaining backward through rules."""
         target = self._graph.get_node_by_label(target_label)
         if not target:
             return BackwardChainResult(goal_id="", goal_label=target_label)
@@ -126,6 +127,7 @@ class BackwardChainEngine:
         known_facts: set[str] | None = None,
         edge_label: str | None = None,
     ) -> list[BackwardChainResult]:
+        """Prove multiple targets sequentially, accumulating proven facts."""
         results: list[BackwardChainResult] = []
         known = known_facts or set()
         for label in target_labels:
@@ -148,6 +150,7 @@ class BackwardChainEngine:
         depth: int,
         visited: set[str],
     ) -> ProofTree:
+        """Recursively build a proof tree for *target_id*."""
         target_node = self._graph.get_node(target_id)
         goal_label = target_node.label if target_node else target_id[:8]
 
@@ -209,6 +212,7 @@ class BackwardChainEngine:
         visited: set[str],
         rule: Rule,
     ) -> tuple[ProofTree, float]:
+        """Evaluate a single rule derivation and build a sub-proof tree."""
         premise_ids = set(derivation.bindings.values())
         all_premises_satisfied = True
         sub_trees: list[ProofTree] = []
@@ -264,6 +268,7 @@ class BackwardChainEngine:
         edge_label: str | None,
         exclude_steps: list[ProofStep],
     ) -> list[ProofTree]:
+        """Search for alternative proof paths excluding already-found steps."""
         exclude_rule_targets: set[tuple[str, str]] = set()
         for step in exclude_steps:
             exclude_rule_targets.add((step.rule_name, step.target_id))

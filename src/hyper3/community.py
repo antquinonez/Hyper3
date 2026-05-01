@@ -46,6 +46,7 @@ class CommunityDetector:
         edge_label: str | None = None,
         weighted_fallback: bool = True,
     ) -> CommunityResult:
+        """Detect communities using label propagation; optionally retries with weighted propagation."""
         if seed is not None:
             random.seed(seed)
 
@@ -89,6 +90,7 @@ class CommunityDetector:
         seed: int | None = None,
         edge_label: str | None = None,
     ) -> CommunityResult:
+        """Detect communities using weighted label propagation."""
         if seed is not None:
             random.seed(seed)
 
@@ -125,6 +127,7 @@ class CommunityDetector:
         return self._build_result(labels, neighbor_map)
 
     def detect_connected_components(self) -> CommunityResult:
+        """Detect communities using structural connected components."""
         components = self._graph.connected_components()
         labels: dict[str, int] = {}
         for i, comp in enumerate(components):
@@ -138,6 +141,7 @@ class CommunityDetector:
         self,
         edge_label: str | None,
     ) -> dict[str, list[tuple[str, float]]]:
+        """Build a map from node ID to list of (neighbor_id, weight) pairs."""
         neighbor_map: dict[str, list[tuple[str, float]]] = {}
         for node in self._graph.nodes:
             node_id = node.id
@@ -159,6 +163,7 @@ class CommunityDetector:
         labels: dict[str, int],
         neighbor_map: dict[str, list[tuple[str, float]]],
     ) -> int | None:
+        """Pick the most frequent label among neighbors for label propagation."""
         neighbors = neighbor_map.get(nid, [])
         if not neighbors:
             return None
@@ -177,6 +182,7 @@ class CommunityDetector:
         labels: dict[str, int],
         neighbor_map: dict[str, list[tuple[str, float]]],
     ) -> CommunityResult:
+        """Convert label assignments into a ``CommunityResult`` with modularity."""
         communities_dict: dict[int, list[str]] = {}
         for nid, label in labels.items():
             communities_dict.setdefault(label, []).append(nid)

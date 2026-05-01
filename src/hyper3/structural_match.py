@@ -73,6 +73,7 @@ class StructuralPatternEngine:
         pedge: PatternEdge,
         next_bindings: list[dict[str, str]],
     ) -> None:
+        """Extend pattern bindings by following outgoing edges from a source role."""
         for e in self._graph.incident_edges(src_id):
             if pedge.label and e.label != pedge.label:
                 continue
@@ -90,6 +91,7 @@ class StructuralPatternEngine:
         pedge: PatternEdge,
         next_bindings: list[dict[str, str]],
     ) -> None:
+        """Extend pattern bindings by following incoming edges to a target role."""
         for e in self._graph.edges:
             if tgt_id not in e.target_ids:
                 continue
@@ -107,6 +109,7 @@ class StructuralPatternEngine:
         pedge: PatternEdge,
         binding_queue: list[dict[str, str]],
     ) -> list[dict[str, str]]:
+        """Update bindings with the node/edge of a matched edge."""
         next_bindings: list[dict[str, str]] = []
         for bindings in binding_queue:
             src_id = bindings.get(pedge.source_role)
@@ -129,6 +132,7 @@ class StructuralPatternEngine:
         *,
         max_matches: int = 100,
     ) -> StructuralMatchResult:
+        """Match an arbitrary pattern template against the graph."""
         if not pattern.nodes or not pattern.edges:
             return StructuralMatchResult(pattern_name=pattern.name)
 
@@ -185,6 +189,7 @@ class StructuralPatternEngine:
         max_length: int = 5,
         max_chains: int = 50,
     ) -> list[list[str]]:
+        """Find linear chains of the given length."""
         chains: list[list[str]] = []
         all_targets: set[str] = set()
         for edge in self._graph.edges:
@@ -218,6 +223,7 @@ class StructuralPatternEngine:
         min_fan: int = 3,
         max_results: int = 50,
     ) -> list[tuple[str, list[str]]]:
+        """Find hub nodes with at least *min_targets* outgoing edges."""
         fan_outs: list[tuple[str, list[str]]] = []
         for node in self._graph.nodes:
             targets: list[str] = []
@@ -237,6 +243,7 @@ class StructuralPatternEngine:
         self,
         edge_label: str | None,
     ) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+        """Pre-compute maps of source/target roles to candidate node IDs."""
         source_to_targets: dict[str, set[str]] = {}
         for edge in self._graph.edges:
             if edge_label and edge.label != edge_label:
@@ -256,6 +263,7 @@ class StructuralPatternEngine:
         target_to_sources: dict[str, set[str]],
         max_matches: int,
     ) -> list[StructuralMatch]:
+        """Find diamond patterns (two source nodes sharing two target nodes)."""
         matches: list[StructuralMatch] = []
         seen: set[frozenset[str]] = set()
         for tgt, sources in target_to_sources.items():
@@ -300,6 +308,7 @@ class StructuralPatternEngine:
         edge_label: str | None = None,
         max_matches: int = 50,
     ) -> list[StructuralMatch]:
+        """Find convergence patterns (two paths merging into one node)."""
         source_to_targets, target_to_sources = self._build_source_target_maps(edge_label)
         return self._find_diamond_matches(source_to_targets, target_to_sources, max_matches)
 
@@ -307,6 +316,7 @@ class StructuralPatternEngine:
         self,
         pattern_edge: PatternEdge,
     ) -> list[tuple[Hyperedge, dict[str, str]]]:
+        """Collect edges matching source/target role constraints."""
         candidates: list[tuple[Hyperedge, dict[str, str]]] = []
         for edge in self._graph.edges:
             if pattern_edge.label and edge.label != pattern_edge.label:
@@ -329,6 +339,7 @@ class StructuralPatternEngine:
         label: str | None,
         min_weight: float,
     ) -> bool:
+        """Check whether an edge exists between two nodes with the given label."""
         for edge in self._graph.incident_edges(src_id):
             if label and edge.label != label:
                 continue
@@ -343,6 +354,7 @@ class StructuralPatternEngine:
         bindings: dict[str, str],
         pattern: PatternTemplate,
     ) -> bool:
+        """Filter bindings by node data-type and label-pattern constraints."""
         for pnode in pattern.nodes:
             node_id = bindings.get(pnode.role)
             if not node_id:
@@ -369,6 +381,7 @@ class StructuralPatternEngine:
         bindings: dict[str, str],
         pattern: PatternTemplate,
     ) -> float:
+        """Compute a match quality score based on edge weights and binding coverage."""
         total_weight = 0.0
         count = 0
         for pedge in pattern.edges:
@@ -387,6 +400,7 @@ class StructuralPatternEngine:
         bindings: dict[str, str],
         pattern: PatternTemplate,
     ) -> list[str]:
+        """Collect edge objects for all bindings in a match."""
         matched: list[str] = []
         for pedge in pattern.edges:
             src_id = bindings.get(pedge.source_role)
@@ -409,6 +423,7 @@ class StructuralPatternEngine:
         results: list[list[str]],
         max_chains: int,
     ) -> None:
+        """DFS helper that extends chains through outgoing edges."""
         if len(results) >= max_chains:
             return
         if len(path) - 1 >= max_length:

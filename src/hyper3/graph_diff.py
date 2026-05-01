@@ -81,6 +81,7 @@ class GraphDiffer:
         self._version_counter = 0
 
     def capture(self) -> GraphVersion:
+        """Snapshot the current graph state as a versioned capture."""
         snapshot = self._graph_snapshot()
         version = GraphVersion(
             version_id=self._version_counter,
@@ -94,6 +95,7 @@ class GraphDiffer:
         return version
 
     def diff_from_version(self, version_id: int) -> GraphDelta | None:
+        """Compute delta between a stored version and the live graph."""
         version = self._find_version(version_id)
         if not version:
             return None
@@ -101,6 +103,7 @@ class GraphDiffer:
         return self._compute_delta(version.snapshot, current)
 
     def diff_between_versions(self, v1: int, v2: int) -> GraphDelta | None:
+        """Compute delta between two stored versions."""
         version_a = self._find_version(v1)
         version_b = self._find_version(v2)
         if not version_a or not version_b:
@@ -108,10 +111,12 @@ class GraphDiffer:
         return self._compute_delta(version_a.snapshot, version_b.snapshot)
 
     def diff_from_snapshot(self, snapshot: dict[str, Any]) -> GraphDelta:
+        """Compute delta between a snapshot and the live graph."""
         current = self._graph_snapshot()
         return self._compute_delta(snapshot, current)
 
     def rollback_to_version(self, version_id: int) -> GraphDelta | None:
+        """Restore the graph to a previously captured version."""
         version = self._find_version(version_id)
         if not version:
             return None
@@ -129,12 +134,14 @@ class GraphDiffer:
         return delta
 
     def _remove_extra_edges(self, snapshot: dict[str, Any]) -> None:
+        """Remove edges present in the target but not the current state."""
         snapshot_edges = set(snapshot.get("edges", {}).keys())
         for edge in list(self._graph.edges):
             if edge.id not in snapshot_edges:
                 self._graph.remove_edge(edge.id)
 
     def _revert_modified_nodes(self, delta: GraphDelta) -> None:
+        """Revert nodes whose data differs from the target state."""
         for nd in delta.nodes_modified:
             node = self._graph.get_node(nd.node_id)
             if node:
@@ -142,6 +149,7 @@ class GraphDiffer:
                 node.data = nd.old_data
 
     def _revert_modified_edges(self, delta: GraphDelta) -> None:
+        """Revert edges whose attributes differ from the target state."""
         for ed in delta.edges_modified:
             edge = self._graph.get_edge(ed.edge_id)
             if edge:
@@ -149,12 +157,14 @@ class GraphDiffer:
                 edge.label = ed.old_label
 
     def _remove_extra_nodes(self, snapshot: dict[str, Any]) -> None:
+        """Remove nodes present in the current state but not the target."""
         snapshot_nodes = snapshot.get("nodes", {})
         for node in list(self._graph.nodes):
             if node.id not in snapshot_nodes:
                 self._graph.remove_node(node.id)
 
     def _restore_missing_nodes(self, snapshot: dict[str, Any]) -> None:
+        """Re-add nodes present in the target but missing from the current state."""
         snapshot_nodes = snapshot.get("nodes", {})
         for nid, ndata in snapshot_nodes.items():
             if not self._graph.get_node(nid):
@@ -167,6 +177,7 @@ class GraphDiffer:
                 self._graph.add_node(restored)
 
     def _restore_missing_edges(self, snapshot: dict[str, Any]) -> None:
+        """Re-add edges present in the target but missing from the current state."""
         for eid, edata in snapshot.get("edges", {}).items():
             if not self._graph.get_edge(eid):
                 self._graph.add_edge(
@@ -182,6 +193,7 @@ class GraphDiffer:
 
     @property
     def history(self) -> GraphHistoryResult:
+        """Return the list of captured version identifiers."""
         return GraphHistoryResult(
             versions=list(self._history),
             total_versions=len(self._history),
@@ -189,6 +201,7 @@ class GraphDiffer:
         )
 
     def _graph_snapshot(self) -> dict[str, Any]:
+        """Capture a full snapshot of node and edge state."""
         nodes: dict[str, dict[str, Any]] = {}
         for node in self._graph.nodes:
             nodes[node.id] = {
@@ -220,6 +233,7 @@ class GraphDiffer:
         before: dict[str, Any],
         after: dict[str, Any],
     ) -> GraphDelta:
+        """Compare two snapshots and produce a ``GraphDelta``."""
         before_nodes = before.get("nodes", {})
         after_nodes = after.get("nodes", {})
         before_edges = before.get("edges", {})
@@ -260,6 +274,7 @@ class GraphDiffer:
         before_nodes: dict[str, Any],
         after_nodes: dict[str, Any],
     ) -> tuple[list[NodeDelta], list[NodeDelta], list[NodeDelta]]:
+        """Compute node-level additions, removals, and modifications."""
         added: list[NodeDelta] = []
         removed: list[NodeDelta] = []
         modified: list[NodeDelta] = []
@@ -311,6 +326,7 @@ class GraphDiffer:
         after_nodes: dict[str, Any],
         before_nodes: dict[str, Any],
     ) -> tuple[list[EdgeDelta], list[EdgeDelta], list[EdgeDelta]]:
+        """Compute edge-level additions, removals, and modifications."""
         added: list[EdgeDelta] = []
         removed: list[EdgeDelta] = []
         modified: list[EdgeDelta] = []
@@ -362,6 +378,7 @@ class GraphDiffer:
         direction: str,
         node_map: dict[str, Any],
     ) -> str:
+        """Resolve edge node IDs to labels for readability."""
         ids = edata.get(f"{direction}_ids", set())
         labels: list[str] = []
         for nid in ids:
@@ -373,10 +390,12 @@ class GraphDiffer:
         return ",".join(labels)
 
     def _find_version(self, version_id: int) -> GraphVersion | None:
+        """Look up a version by index or ID; raises ``ValueError`` if not found."""
         for v in self._history:
             if v.version_id == version_id:
                 return v
         return None
 
     def _now(self) -> float:
+        """Return the current timestamp as a float."""
         return time.time()
