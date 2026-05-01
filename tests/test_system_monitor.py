@@ -308,6 +308,7 @@ class TestSystemMonitorTuning:
         result = mem._meta._adjust_evolution()
         assert "decay_threshold" in result
         assert "merge_threshold" in result
+        assert isinstance(result["decay_threshold"], float)
 
     def test_run_rule_discovery(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -316,6 +317,7 @@ class TestSystemMonitorTuning:
         mem.relate("a", "b", label="rel")
         result = mem._meta._run_rule_discovery()
         assert "discovered_patterns" in result
+        assert isinstance(result["discovered_patterns"], int)
 
     def test_increase_connectivity(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -341,6 +343,7 @@ class TestSystemMonitorTuning:
         result = mem._meta._optimize_weights()
         assert "reinforced" in result
         assert "smoothed" in result
+        assert result["reinforced"] >= 1
 
     def test_increase_merge_threshold(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -401,6 +404,7 @@ class TestSystemMonitorTuning:
         result = mem._meta._recalibrate_modality_weights()
         assert "modalities_found" in result
         assert "adjusted_edges" in result
+        assert result["modalities_found"] >= 2
 
     def test_auto_tune_low_fitness(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -408,6 +412,7 @@ class TestSystemMonitorTuning:
         mem._meta._state.architectural_fitness = 0.1
         result = mem._meta.auto_tune()
         assert result is not None
+        assert isinstance(result.fitness_before, float)
 
     def test_auto_tune_healthy(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -440,6 +445,7 @@ class TestComputeFitnessWithRecallEvents:
             mem.log,
         )
         assert 0.0 <= fitness <= 1.0
+        assert fitness > 0.0
 
     def test_fitness_with_failed_recall_events(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -451,6 +457,7 @@ class TestComputeFitnessWithRecallEvents:
             mem.log,
         )
         assert 0.0 <= fitness <= 1.0
+        assert fitness < 1.0
 
 
 class TestAssessStateReasoningModes:
@@ -464,9 +471,9 @@ class TestAssessStateReasoningModes:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         state = mem.meta.assess_state([])
-        assert hasattr(state, "architectural_fitness")
-        assert hasattr(state, "reasoning_mode")
-        assert hasattr(state, "complexity_level")
+        assert isinstance(state.architectural_fitness, float)
+        assert isinstance(state.reasoning_mode, str)
+        assert isinstance(state.complexity_level, int)
 
 
 class TestExecuteMetamorphosisEmptyPlan:
