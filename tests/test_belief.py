@@ -975,6 +975,7 @@ class TestSampleContextLabelRemapping:
         qs = mem.create_distribution(["cat", "dog", "bird"])
         result = mem.sample(qs, context={"dog": 10.0})
         assert result is not None
+        assert result.node_id is not None
 
     def test_context_with_mixed_labels_and_ids(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -985,6 +986,7 @@ class TestSampleContextLabelRemapping:
         assert x_node is not None
         result = mem.sample(qs, context={"x": 5.0, x_node.id: 5.0})
         assert result is not None
+        assert result.node_id is not None
 
     def test_context_with_nonexistent_label_passes_through(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -993,6 +995,7 @@ class TestSampleContextLabelRemapping:
         qs = mem.create_distribution(["a", "b"])
         result = mem.sample(qs, context={"nonexistent_key": 5.0})
         assert result is not None
+        assert qs.resolved
 
 
 class TestSamplingProfileLearning:
