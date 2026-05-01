@@ -48,6 +48,7 @@ class TestSystemMonitor:
         assert "evolution_health" in result
         assert "discovery_health" in result
         assert "avg_degree" in result["graph_health"]
+        assert result["graph_health"]["nodes"] == 3
 
     def test_introspect_with_anti_patterns(self):
         g = Hypergraph()
@@ -61,11 +62,14 @@ class TestSystemMonitor:
         has_anti = "anti_patterns" in result
         has_recommendations = "recommendations" in result
         assert has_anti or has_recommendations
+        assert "graph_health" in result
 
     def test_check_tuning_triggers(self):
         layer, _ = self._build_layer()
         triggers = layer.check_tuning_triggers()
         assert isinstance(triggers, list)
+        for t in triggers:
+            assert isinstance(t.trigger_type, str)
 
     def test_propose_tuning_no_triggers(self):
         layer, _ = self._build_layer()
@@ -95,6 +99,7 @@ class TestSystemMonitor:
         assert "architectural_fitness" in report
         assert "reasoning_mode" in report
         assert "meta_level" in report
+        assert isinstance(report["architectural_fitness"], float)
 
 
 class TestHypergraphMemoryNewFeatures:
