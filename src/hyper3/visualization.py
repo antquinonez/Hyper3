@@ -48,32 +48,8 @@ def plot_hypergraph(
     plt = _import_pyplot()
     import networkx as nx
 
-    G = nx.DiGraph()
-    for node in graph.nodes:
-        G.add_node(node.id, label=node.label or node.id[:8], weight=node.weight)
-    for edge in graph.edges:
-        for src in edge.source_ids:
-            for tgt in edge.target_ids:
-                G.add_edge(
-                    src,
-                    tgt,
-                    label=edge.label or "",
-                    weight=edge.weight,
-                )
-
-    if layout == "spring":
-        pos = nx.spring_layout(G, seed=42)
-    elif layout == "circular":
-        pos = nx.circular_layout(G)
-    elif layout == "shell":
-        pos = nx.shell_layout(G)
-    elif layout == "kamada_kawai":
-        try:
-            pos = nx.kamada_kawai_layout(G)
-        except nx.NetworkXError:
-            pos = nx.spring_layout(G, seed=42)
-    else:
-        pos = nx.spring_layout(G, seed=42)
+    G = _build_nx_digraph(graph)
+    pos = _compute_graph_layout(G, layout)
 
     fig, ax = plt.subplots(figsize=figsize)
     weights = [G.nodes[n].get("weight", 1.0) for n in G.nodes]
@@ -96,13 +72,7 @@ def plot_hypergraph(
         labels = {n: G.nodes[n].get("label", n[:8]) for n in G.nodes}
         nx.draw_networkx_labels(G, pos, labels, ax=ax, font_size=font_size)
 
-    edge_labels = {}
-    for u, v, data in G.edges(data=True):
-        label = data.get("label", "")
-        if show_weights and data.get("weight", 1.0) != 1.0:
-            label = f"{label} ({data['weight']:.1f})" if label else f"{data['weight']:.1f}"
-        if label:
-            edge_labels[(u, v)] = label
+    edge_labels = _build_edge_labels(G, show_weights)
 
     nx.draw_networkx_edges(
         G,
@@ -121,6 +91,52 @@ def plot_hypergraph(
     ax.axis("off")
     fig.tight_layout()
     return fig
+
+
+def _build_nx_digraph(graph: Hypergraph):
+    import networkx as nx
+
+    G = nx.DiGraph()
+    for node in graph.nodes:
+        G.add_node(node.id, label=node.label or node.id[:8], weight=node.weight)
+    for edge in graph.edges:
+        for src in edge.source_ids:
+            for tgt in edge.target_ids:
+                G.add_edge(
+                    src,
+                    tgt,
+                    label=edge.label or "",
+                    weight=edge.weight,
+                )
+    return G
+
+
+def _compute_graph_layout(G, layout: str):
+    import networkx as nx
+
+    if layout == "spring":
+        return nx.spring_layout(G, seed=42)
+    if layout == "circular":
+        return nx.circular_layout(G)
+    if layout == "shell":
+        return nx.shell_layout(G)
+    if layout == "kamada_kawai":
+        try:
+            return nx.kamada_kawai_layout(G)
+        except nx.NetworkXError:
+            return nx.spring_layout(G, seed=42)
+    return nx.spring_layout(G, seed=42)
+
+
+def _build_edge_labels(G, show_weights: bool) -> dict:
+    edge_labels = {}
+    for u, v, data in G.edges(data=True):
+        label = data.get("label", "")
+        if show_weights and data.get("weight", 1.0) != 1.0:
+            label = f"{label} ({data['weight']:.1f})" if label else f"{data['weight']:.1f}"
+        if label:
+            edge_labels[(u, v)] = label
+    return edge_labels
 
 
 def plot_branchial_space(
@@ -152,13 +168,7 @@ def plot_branchial_space(
         ax.set_title(title)
         return fig
 
-    positions = {}
-    for sid, coord in coords.items():
-        if coord.position:
-            if len(coord.position) >= 2:
-                positions[sid] = (coord.position[0], coord.position[1])
-            else:
-                positions[sid] = (coord.position[0], float(coord.depth))
+    positions = _extract_branchial_positions(coords)
 
     if not positions:
         fig, ax = plt.subplots(figsize=figsize)
@@ -166,17 +176,37 @@ def plot_branchial_space(
         ax.set_title(title)
         return fig
 
-    xs = [p[0] for p in positions.values()]
-    ys = [p[1] for p in positions.values()]
+    fig, ax = plt.subplots(figsize=figsize)
 
+    _draw_branchial_scatter(ax, plt, positions, branchial, show_clusters)
+    _draw_branchial_correlations(ax, positions, branchial, show_correlations)
+
+    ax.set_xlabel("Dimension 1")
+    ax.set_ylabel("Dimension 2")
+    ax.set_title(title)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return fig
+
+
+def _extract_branchial_positions(coords: dict) -> dict[str, tuple[float, float]]:
+    positions: dict[str, tuple[float, float]] = {}
+    for sid, coord in coords.items():
+        if coord.position:
+            if len(coord.position) >= 2:
+                positions[sid] = (coord.position[0], coord.position[1])
+            else:
+                positions[sid] = (coord.position[0], float(coord.depth))
+    return positions
+
+
+def _draw_branchial_scatter(ax, plt, positions: dict, branchial: BranchialSpace, show_clusters: bool) -> None:
     cluster_map: dict[str, int] = {}
     clusters = branchial.clusters
     if show_clusters and clusters:
         for ci, cluster in enumerate(clusters):
             for sid in cluster.state_ids:
                 cluster_map[sid] = ci
-
-    fig, ax = plt.subplots(figsize=figsize)
 
     if cluster_map:
         n_clusters = len(clusters)
@@ -186,31 +216,29 @@ def plot_branchial_space(
             color = cmap(ci / max(n_clusters - 1, 1)) if ci >= 0 else "#cccccc"
             ax.scatter(x, y, c=[color], s=120, edgecolors="#333333", linewidths=1.0, zorder=3)
     else:
+        xs = [p[0] for p in positions.values()]
+        ys = [p[1] for p in positions.values()]
         ax.scatter(xs, ys, s=120, c="#4477AA", edgecolors="#333333", linewidths=1.0, zorder=3)
 
-    correlations = branchial.correlations
-    if show_correlations and correlations:
-        for corr in correlations:
-            a_pos = positions.get(corr.state_a_id)
-            b_pos = positions.get(corr.state_b_id)
-            if a_pos and b_pos:
-                alpha = min(corr.correlation, 1.0) * 0.6 + 0.1
-                ax.plot(
-                    [a_pos[0], b_pos[0]],
-                    [a_pos[1], b_pos[1]],
-                    "--",
-                    color="#cc4400",
-                    alpha=alpha,
-                    linewidth=1.0,
-                    zorder=2,
-                )
 
-    ax.set_xlabel("Dimension 1")
-    ax.set_ylabel("Dimension 2")
-    ax.set_title(title)
-    ax.grid(True, alpha=0.2)
-    fig.tight_layout()
-    return fig
+def _draw_branchial_correlations(ax, positions: dict, branchial: BranchialSpace, show_correlations: bool) -> None:
+    correlations = branchial.correlations
+    if not show_correlations or not correlations:
+        return
+    for corr in correlations:
+        a_pos = positions.get(corr.state_a_id)
+        b_pos = positions.get(corr.state_b_id)
+        if a_pos and b_pos:
+            alpha = min(corr.correlation, 1.0) * 0.6 + 0.1
+            ax.plot(
+                [a_pos[0], b_pos[0]],
+                [a_pos[1], b_pos[1]],
+                "--",
+                color="#cc4400",
+                alpha=alpha,
+                linewidth=1.0,
+                zorder=2,
+            )
 
 
 def plot_belief_state(

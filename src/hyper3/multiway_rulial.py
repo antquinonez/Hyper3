@@ -154,8 +154,21 @@ class RulialSpace:
                 for tgt in edge.target_ids:
                     if src in idx and tgt in idx:
                         edge_set.add((idx[src], idx[tgt]))
+        motif_counts = self._count_motif_types(edge_set, min(n, 50))
+        if not motif_counts:
+            return 0.0
+        n_types = len(motif_counts)
+        total_count = sum(motif_counts.values())
+        if total_count == 0:
+            return 0.0
+        counts = np.array(list(motif_counts.values()), dtype=float)
+        motif_entropy = float(scipy_entropy(counts, base=2))
+        max_motif_entropy = math.log2(max(n_types, 1))
+        diversity = motif_entropy / max(max_motif_entropy, 1.0) if max_motif_entropy > 0 else 0.0
+        return float(min(diversity, 1.0))
+
+    def _count_motif_types(self, edge_set: set[tuple[int, int]], n_limit: int) -> dict[str, int]:
         motif_counts: dict[str, int] = {}
-        n_limit = min(n, 50)
         for i in range(n_limit):
             for j in range(i + 1, n_limit):
                 has_ij = (i, j) in edge_set
@@ -175,17 +188,7 @@ class RulialSpace:
                     motif_counts["convergent_out"] = motif_counts.get("convergent_out", 0) + len(shared_out)
                 if shared_in:
                     motif_counts["convergent_in"] = motif_counts.get("convergent_in", 0) + len(shared_in)
-        if not motif_counts:
-            return 0.0
-        n_types = len(motif_counts)
-        total_count = sum(motif_counts.values())
-        if total_count == 0:
-            return 0.0
-        counts = np.array(list(motif_counts.values()), dtype=float)
-        motif_entropy = float(scipy_entropy(counts, base=2))
-        max_motif_entropy = math.log2(max(n_types, 1))
-        diversity = motif_entropy / max(max_motif_entropy, 1.0) if max_motif_entropy > 0 else 0.0
-        return float(min(diversity, 1.0))
+        return motif_counts
 
     def _compute_branchial_coords(self) -> list[float]:
         """Compute a 6-dimensional branchial coordinate vector.
@@ -460,7 +463,28 @@ class RulialSpace:
         n_nodes = self._graph.node_count
         if n_nodes < 2 or len(label_counts) < 2:
             return
+        mi_results = self._compute_label_mutual_information(node_labels, label_counts, n_nodes)
+        for la, lb, mi, both in mi_results:
+            self._meta_patterns.append(
+                DetectedPattern(
+                    pattern_type="mutual_information",
+                    description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
+                    occurrence_count=both,
+                    abstract_structure={
+                        "label_a": la,
+                        "label_b": lb,
+                        "mi": mi,
+                        "co_occurrence": both,
+                    },
+                    significance=min(1.0, mi),
+                )
+            )
+
+    def _compute_label_mutual_information(
+        self, node_labels: dict[str, set[str]], label_counts: dict[str, int], n_nodes: int
+    ) -> list[tuple[str, str, float, int]]:
         label_list = sorted(label_counts.keys())[:20]
+        results: list[tuple[str, str, float, int]] = []
         pairs_checked = 0
         for i, la in enumerate(label_list):
             for lb in label_list[i + 1 :]:
@@ -475,23 +499,11 @@ class RulialSpace:
                 if pa > 0 and pb > 0 and pab > 0:
                     mi = pab * math.log2(pab / (pa * pb))
                     if mi > 0.3:
-                        self._meta_patterns.append(
-                            DetectedPattern(
-                                pattern_type="mutual_information",
-                                description=f"Labels '{la}' and '{lb}' co-occur with MI={mi:.2f}",
-                                occurrence_count=both,
-                                abstract_structure={
-                                    "label_a": la,
-                                    "label_b": lb,
-                                    "mi": mi,
-                                    "co_occurrence": both,
-                                },
-                                significance=min(1.0, mi),
-                            )
-                        )
+                        results.append((la, lb, mi, both))
                         pairs_checked += 1
                 if pairs_checked >= 5:
-                    return
+                    return results
+        return results
 
     def _find_structural_motifs(self) -> None:
         """Detect hub nodes (degree >= 3) and transitive chain patterns."""

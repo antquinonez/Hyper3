@@ -56,19 +56,8 @@ class CommunityDetector:
             order = list(node_ids)
             random.shuffle(order)
             for nid in order:
-                neighbors = neighbor_map.get(nid, [])
-                if not neighbors:
-                    continue
-                label_counts: dict[int, int] = {}
-                for nb_id, _weight in neighbors:
-                    nb_label = labels.get(nb_id, 0)
-                    label_counts[nb_label] = label_counts.get(nb_label, 0) + 1
-                if not label_counts:
-                    continue
-                max_count = max(label_counts.values())
-                best_labels = [l for l, c in label_counts.items() if c == max_count]
-                new_label = random.choice(best_labels)
-                if new_label != labels[nid]:
+                new_label = self._update_node_label(nid, labels, neighbor_map)
+                if new_label is not None and new_label != labels[nid]:
                     labels[nid] = new_label
                     changed = True
             if not changed:
@@ -157,6 +146,25 @@ class CommunityDetector:
                 for src in edge.source_ids:
                     neighbor_map.setdefault(node_id, []).append((src, edge.weight))
         return neighbor_map
+
+    def _update_node_label(
+        self,
+        nid: str,
+        labels: dict[str, int],
+        neighbor_map: dict[str, list[tuple[str, float]]],
+    ) -> int | None:
+        neighbors = neighbor_map.get(nid, [])
+        if not neighbors:
+            return None
+        label_counts: dict[int, int] = {}
+        for nb_id, _weight in neighbors:
+            nb_label = labels.get(nb_id, 0)
+            label_counts[nb_label] = label_counts.get(nb_label, 0) + 1
+        if not label_counts:
+            return None
+        max_count = max(label_counts.values())
+        best_labels = [l for l, c in label_counts.items() if c == max_count]
+        return random.choice(best_labels)
 
     def _build_result(
         self,

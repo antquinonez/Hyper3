@@ -404,29 +404,27 @@ class SystemMonitor:
         results: dict[str, Any] = {}
         for action in plan.actions:
             action_type = action.get("action", "") if isinstance(action, dict) else str(action)
-            if action_type == "adjust_evolution_parameters":
-                results["adjust_evolution"] = self._adjust_evolution()
-            elif action_type == "run_rule_discovery":
-                results["rule_discovery"] = self._run_rule_discovery()
-            elif action_type == "increase_connectivity":
-                results["increase_connectivity"] = self._increase_connectivity()
-            elif action_type == "optimize_weights":
-                results["optimize_weights"] = self._optimize_weights()
-            elif action_type == "increase_merge_threshold":
-                results["increase_merge_threshold"] = self._increase_merge_threshold()
-            elif action_type == "expand_seed_set":
-                results["expand_seed_set"] = self._expand_seed_set()
-            elif action_type == "promote_pattern_to_rule":
-                results["promote_pattern_to_rule"] = self._promote_pattern_to_rule()
-            elif action_type == "update_rulial_position":
-                results["update_rulial_position"] = self._update_rulial_position()
-            elif action_type == "restructure_graph_dimensions":
-                results["restructure_graph_dimensions"] = self._restructure_graph_dimensions()
-            elif action_type == "recalibrate_modality_weights":
-                results["recalibrate_modality_weights"] = self._recalibrate_modality_weights()
-            else:
-                results[action_type] = "unknown_action"
+            key, result = self._execute_single_action(action_type)
+            results[key] = result
         return results
+
+    def _execute_single_action(self, action_type: str) -> tuple[str, Any]:
+        dispatch: dict[str, tuple[str, Any]] = {
+            "adjust_evolution_parameters": ("adjust_evolution", self._adjust_evolution),
+            "run_rule_discovery": ("rule_discovery", self._run_rule_discovery),
+            "increase_connectivity": ("increase_connectivity", self._increase_connectivity),
+            "optimize_weights": ("optimize_weights", self._optimize_weights),
+            "increase_merge_threshold": ("increase_merge_threshold", self._increase_merge_threshold),
+            "expand_seed_set": ("expand_seed_set", self._expand_seed_set),
+            "promote_pattern_to_rule": ("promote_pattern_to_rule", self._promote_pattern_to_rule),
+            "update_rulial_position": ("update_rulial_position", self._update_rulial_position),
+            "restructure_graph_dimensions": ("restructure_graph_dimensions", self._restructure_graph_dimensions),
+            "recalibrate_modality_weights": ("recalibrate_modality_weights", self._recalibrate_modality_weights),
+        }
+        entry = dispatch.get(action_type)
+        if entry:
+            return entry[0], entry[1]()
+        return action_type, "unknown_action"
 
     def execute_tuning_validated(
         self,
@@ -674,6 +672,19 @@ class SystemMonitor:
 
     def _recalibrate_modality_weights(self) -> dict[str, Any]:
         """Blend outlier modality edge weights toward the global mean."""
+        weight_by_modality = self._collect_modality_weights()
+        adjusted = 0
+        if weight_by_modality:
+            global_mean = sum(sum(ws) for ws in weight_by_modality.values()) / max(
+                sum(len(ws) for ws in weight_by_modality.values()), 1
+            )
+            for mod, weights in weight_by_modality.items():
+                mod_mean = sum(weights) / max(len(weights), 1)
+                if abs(mod_mean - global_mean) > 0.5:
+                    adjusted += self._adjust_edges_for_outlier_modality(mod, global_mean)
+        return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
+
+    def _collect_modality_weights(self) -> dict[Any, list[float]]:
         from hyper3.kernel import Modality
 
         weight_by_modality: dict[Modality, list[float]] = {}
@@ -683,21 +694,17 @@ class SystemMonitor:
                 if node:
                     for mod in node.metadata.modality_tags:
                         weight_by_modality.setdefault(mod, []).append(edge.weight)
+        return weight_by_modality
+
+    def _adjust_edges_for_outlier_modality(self, mod: Any, global_mean: float) -> int:
         adjusted = 0
-        if weight_by_modality:
-            global_mean = sum(sum(ws) for ws in weight_by_modality.values()) / max(
-                sum(len(ws) for ws in weight_by_modality.values()), 1
-            )
-            for mod, weights in weight_by_modality.items():
-                mod_mean = sum(weights) / max(len(weights), 1)
-                if abs(mod_mean - global_mean) > 0.5:
-                    for edge in self._graph.edges:
-                        for source_id in edge.source_ids:
-                            node = self._graph.get_node(source_id)
-                            if node and mod in node.metadata.modality_tags:
-                                edge.weight = edge.weight * 0.8 + global_mean * 0.2
-                                adjusted += 1
-        return {"modalities_found": len(weight_by_modality), "adjusted_edges": adjusted}
+        for edge in self._graph.edges:
+            for source_id in edge.source_ids:
+                node = self._graph.get_node(source_id)
+                if node and mod in node.metadata.modality_tags:
+                    edge.weight = edge.weight * 0.8 + global_mean * 0.2
+                    adjusted += 1
+        return adjusted
 
     def auto_tune(self) -> TuningResult:
         """Check fitness and automatically trigger a validated tuning if below threshold.

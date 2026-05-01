@@ -171,54 +171,10 @@ class BackwardChainEngine:
             for derivation in derivations:
                 if edge_label and derivation.context.get("edge_label") != edge_label:
                     continue
-
-                premise_ids = set(derivation.bindings.values())
-                all_premises_satisfied = True
-                sub_trees: list[ProofTree] = []
-                sub_confidences: list[float] = []
-                unresolved: list[str] = []
-
-                for pid in premise_ids:
-                    sub = self._build_proof_tree(
-                        pid,
-                        known_ids,
-                        edge_label,
-                        depth + 1,
-                        visited,
-                    )
-                    sub_trees.append(sub)
-                    sub_confidences.append(sub.confidence)
-                    if not sub.achieved:
-                        all_premises_satisfied = False
-                        unresolved.extend(sub.unresolved_premises)
-
-                rule_score = rule.score_match(derivation, self._graph)
-                combined_conf = rule_score
-                if sub_confidences:
-                    combined_conf *= min(sub_confidences)
-
-                step = ProofStep(
-                    rule_name=rule.name,
-                    target_id=target_id,
-                    required_premises=list(premise_ids),
-                    match=derivation,
-                    confidence=combined_conf,
+                tree, combined_conf = self._evaluate_derivation(
+                    derivation, target_id, goal_label, known_ids,
+                    edge_label, depth, visited, rule,
                 )
-
-                steps_flat: list[ProofStep] = [step]
-                for st in sub_trees:
-                    steps_flat.extend(st.steps)
-
-                tree = ProofTree(
-                    goal_id=target_id,
-                    goal_label=goal_label,
-                    achieved=all_premises_satisfied,
-                    steps=steps_flat,
-                    unresolved_premises=unresolved if not all_premises_satisfied else [],
-                    depth=depth,
-                    confidence=combined_conf,
-                )
-
                 if combined_conf > best_conf:
                     best_conf = combined_conf
                     best_tree = tree
@@ -233,6 +189,65 @@ class BackwardChainEngine:
             unresolved_premises=[target_id],
             depth=depth,
         )
+
+    def _evaluate_derivation(
+        self,
+        derivation: RuleMatch,
+        target_id: str,
+        goal_label: str,
+        known_ids: set[str],
+        edge_label: str | None,
+        depth: int,
+        visited: set[str],
+        rule: Rule,
+    ) -> tuple[ProofTree, float]:
+        premise_ids = set(derivation.bindings.values())
+        all_premises_satisfied = True
+        sub_trees: list[ProofTree] = []
+        sub_confidences: list[float] = []
+        unresolved: list[str] = []
+
+        for pid in premise_ids:
+            sub = self._build_proof_tree(
+                pid,
+                known_ids,
+                edge_label,
+                depth + 1,
+                visited,
+            )
+            sub_trees.append(sub)
+            sub_confidences.append(sub.confidence)
+            if not sub.achieved:
+                all_premises_satisfied = False
+                unresolved.extend(sub.unresolved_premises)
+
+        rule_score = rule.score_match(derivation, self._graph)
+        combined_conf = rule_score
+        if sub_confidences:
+            combined_conf *= min(sub_confidences)
+
+        step = ProofStep(
+            rule_name=rule.name,
+            target_id=target_id,
+            required_premises=list(premise_ids),
+            match=derivation,
+            confidence=combined_conf,
+        )
+
+        steps_flat: list[ProofStep] = [step]
+        for st in sub_trees:
+            steps_flat.extend(st.steps)
+
+        tree = ProofTree(
+            goal_id=target_id,
+            goal_label=goal_label,
+            achieved=all_premises_satisfied,
+            steps=steps_flat,
+            unresolved_premises=unresolved if not all_premises_satisfied else [],
+            depth=depth,
+            confidence=combined_conf,
+        )
+        return tree, combined_conf
 
     def _find_alternative_proofs(
         self,

@@ -578,31 +578,8 @@ class Hypergraph:
             sources = node_ids
 
         for s in sources:
-            pred: dict[str, list[str]] = {}
-            dist: dict[str, float] = {nid: -1.0 for nid in node_ids}
-            sigma: dict[str, float] = {nid: 0.0 for nid in node_ids}
-            dist[s] = 0.0
-            sigma[s] = 1.0
-            stack: list[str] = []
-            queue: deque[str] = deque([s])
-
-            while queue:
-                v = queue.popleft()
-                stack.append(v)
-                for edge in self.outgoing_edges(v):
-                    for w in edge.target_ids:
-                        if dist[w] < 0:
-                            queue.append(w)
-                            dist[w] = dist[v] + 1
-                        if dist[w] == dist[v] + 1:
-                            sigma[w] += sigma[v]
-                            pred.setdefault(w, []).append(v)
-
-            delta: dict[str, float] = {nid: 0.0 for nid in node_ids}
-            while stack:
-                w = stack.pop()
-                for v in pred.get(w, []):
-                    delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w])
+            sigma, stack, delta = self._betweenness_bfs(s, node_ids)
+            for w in stack:
                 if w != s:
                     centrality[w] += delta[w]
 
@@ -614,6 +591,35 @@ class Hypergraph:
         else:
             scale = 1.0
         return {nid: c * scale for nid, c in centrality.items()}
+
+    def _betweenness_bfs(
+        self, source: str, node_ids: list[str]
+    ) -> tuple[dict[str, float], list[str], dict[str, float]]:
+        pred: dict[str, list[str]] = {}
+        dist: dict[str, float] = {nid: -1.0 for nid in node_ids}
+        sigma: dict[str, float] = {nid: 0.0 for nid in node_ids}
+        dist[source] = 0.0
+        sigma[source] = 1.0
+        stack: list[str] = []
+        queue: deque[str] = deque([source])
+
+        while queue:
+            v = queue.popleft()
+            stack.append(v)
+            for edge in self.outgoing_edges(v):
+                for w in edge.target_ids:
+                    if dist[w] < 0:
+                        queue.append(w)
+                        dist[w] = dist[v] + 1
+                    if dist[w] == dist[v] + 1:
+                        sigma[w] += sigma[v]
+                        pred.setdefault(w, []).append(v)
+
+        delta: dict[str, float] = {nid: 0.0 for nid in node_ids}
+        for w in reversed(stack):
+            for v in pred.get(w, []):
+                delta[v] += (sigma[v] / sigma[w]) * (1.0 + delta[w])
+        return sigma, stack, delta
 
     def connected_components(self, *, s: int = 1) -> list[set[str]]:
         """Find connected components using hyperedge-native union-find.
@@ -687,16 +693,33 @@ class Hypergraph:
             if ra != rb:
                 edge_parent[ra] = rb
 
-        for i in range(m):
-            for j in range(i + 1, m):
-                if len(edge_node_sets[i] & edge_node_sets[j]) >= s:
-                    union(i, j)
+        self._union_s_adjacent_edges(m, edge_node_sets, s, find, union)
 
         edge_components: dict[int, set[int]] = {}
         for i in range(m):
             root = find(i)
             edge_components.setdefault(root, set()).add(i)
 
+        return self._build_node_components_from_edge_groups(edge_components, edge_node_sets)
+
+    def _union_s_adjacent_edges(
+        self,
+        m: int,
+        edge_node_sets: list[frozenset[str]],
+        s: int,
+        find: Any,
+        union: Any,
+    ) -> None:
+        for i in range(m):
+            for j in range(i + 1, m):
+                if len(edge_node_sets[i] & edge_node_sets[j]) >= s:
+                    union(i, j)
+
+    def _build_node_components_from_edge_groups(
+        self,
+        edge_components: dict[int, set[int]],
+        edge_node_sets: list[frozenset[str]],
+    ) -> list[set[str]]:
         node_components: list[set[str]] = []
         for comp_edge_indices in edge_components.values():
             node_set: set[str] = set()
@@ -757,36 +780,40 @@ class Hypergraph:
         cycles: list[list[str]] = []
         visited_global: set[str] = set()
 
-        def dfs(
-            node: str,
-            path: list[str],
-            path_pos: dict[str, int],
-        ) -> None:
-            if len(cycles) >= max_cycles:
-                return
-            for edge in self.outgoing_edges(node):
-                for tgt in edge.target_ids:
-                    if tgt in path_pos:
-                        idx = path_pos[tgt]
-                        cycles.append(path[idx:] + [tgt])
-                        if len(cycles) >= max_cycles:
-                            return
-                    elif tgt not in visited_global:
-                        path.append(tgt)
-                        path_pos[tgt] = len(path) - 1
-                        dfs(tgt, path, path_pos)
-                        path.pop()
-                        del path_pos[tgt]
-
         for nid in self._nodes:
             if nid not in visited_global:
                 path_pos = {nid: 0}
-                dfs(nid, [nid], path_pos)
+                self._detect_cycles_dfs(nid, [nid], path_pos, cycles, max_cycles, visited_global)
                 visited_global.add(nid)
                 if len(cycles) >= max_cycles:
                     break
 
         return cycles
+
+    def _detect_cycles_dfs(
+        self,
+        node: str,
+        path: list[str],
+        path_pos: dict[str, int],
+        cycles: list[list[str]],
+        max_cycles: int,
+        visited_global: set[str],
+    ) -> None:
+        if len(cycles) >= max_cycles:
+            return
+        for edge in self.outgoing_edges(node):
+            for tgt in edge.target_ids:
+                if tgt in path_pos:
+                    idx = path_pos[tgt]
+                    cycles.append(path[idx:] + [tgt])
+                    if len(cycles) >= max_cycles:
+                        return
+                elif tgt not in visited_global:
+                    path.append(tgt)
+                    path_pos[tgt] = len(path) - 1
+                    self._detect_cycles_dfs(tgt, path, path_pos, cycles, max_cycles, visited_global)
+                    path.pop()
+                    del path_pos[tgt]
 
     def shortest_path(
         self,
@@ -899,9 +926,18 @@ class Hypergraph:
             return {nid: 1.0 / n for nid in self._nodes}
 
         node_ids = [n.id for n in self._nodes.values()]
-        node_idx = {nid: i for i, nid in enumerate(node_ids)}
+        vertex_degree, outgoing = self._build_pagerank_transition(node_ids)
         n = len(node_ids)
 
+        pr = self._pagerank_iterate([1.0 / n] * n, alpha, n, vertex_degree, outgoing, max_iterations, tol)
+
+        return {nid: pr[i] for i, nid in enumerate(node_ids)}
+
+    def _build_pagerank_transition(
+        self, node_ids: list[str]
+    ) -> tuple[list[float], list[list[tuple[int, float]]]]:
+        node_idx = {nid: i for i, nid in enumerate(node_ids)}
+        n = len(node_ids)
         vertex_degree = [0.0] * n
         outgoing: list[list[tuple[int, float]]] = [[] for _ in range(n)]
 
@@ -916,8 +952,18 @@ class Hypergraph:
                 vertex_degree[si] += edge.weight
                 for ti in tgt_list:
                     outgoing[si].append((ti, w))
+        return vertex_degree, outgoing
 
-        pr = [1.0 / n] * n
+    def _pagerank_iterate(
+        self,
+        pr: list[float],
+        alpha: float,
+        n: int,
+        vertex_degree: list[float],
+        outgoing: list[list[tuple[int, float]]],
+        max_iterations: int,
+        tol: float,
+    ) -> list[float]:
         for _ in range(max_iterations):
             new_pr = [alpha / n] * n
             for i in range(n):
@@ -933,8 +979,7 @@ class Hypergraph:
             pr = new_pr
             if diff < tol:
                 break
-
-        return {nid: pr[i] for i, nid in enumerate(node_ids)}
+        return pr
 
     def spectral_embedding(self, *, dimensions: int = 8) -> SpectralEmbeddingResult:
         """Compute spectral embeddings from the normalized hypergraph Laplacian.
@@ -1079,8 +1124,28 @@ class Hypergraph:
             return SPersistenceResult()
 
         edge_node_sets = [e.source_ids | e.target_ids for e in edge_list]
-        m = len(edge_list)
 
+        overlaps, max_overlap = self._compute_edge_overlaps(edge_node_sets)
+
+        effective_max = max_s if max_s is not None else max_overlap
+        if effective_max < 1:
+            effective_max = 1
+
+        levels = [
+            self._compute_s_level(s_val, len(edge_list), overlaps, edge_node_sets)
+            for s_val in range(1, effective_max + 1)
+        ]
+
+        return SPersistenceResult(
+            levels=levels,
+            max_s=effective_max,
+            total_edges=len(edge_list),
+        )
+
+    def _compute_edge_overlaps(
+        self, edge_node_sets: list[frozenset[str]]
+    ) -> tuple[dict[tuple[int, int], int], int]:
+        m = len(edge_node_sets)
         overlaps: dict[tuple[int, int], int] = {}
         max_overlap = 0
         for i in range(m):
@@ -1089,62 +1154,54 @@ class Hypergraph:
                 if ov > 0:
                     overlaps[(i, j)] = ov
                     max_overlap = max(max_overlap, ov)
+        return overlaps, max_overlap
 
-        effective_max = max_s if max_s is not None else max_overlap
-        if effective_max < 1:
-            effective_max = 1
+    def _compute_s_level(
+        self,
+        s_val: int,
+        m: int,
+        overlaps: dict[tuple[int, int], int],
+        edge_node_sets: list[frozenset[str]],
+    ) -> SPersistenceLevel:
+        edge_components = self._union_overlapping_edges(m, overlaps, s_val)
+        node_sets = self._build_node_components_from_edge_groups(edge_components, edge_node_sets)
+        node_components = [frozenset(ns) for ns in node_sets]
 
-        levels: list[SPersistenceLevel] = []
-        for s_val in range(1, effective_max + 1):
-            edge_parent = list(range(m))
-
-            def find(x: int) -> int:  # noqa: B023
-                while edge_parent[x] != x:  # noqa: B023
-                    edge_parent[x] = edge_parent[edge_parent[x]]  # noqa: B023
-                    x = edge_parent[x]  # noqa: B023
-                return x
-
-            def union(a: int, b: int) -> None:
-                ra, rb = find(a), find(b)
-                if ra != rb:
-                    edge_parent[ra] = rb  # noqa: B023
-
-            for (i, j), ov in overlaps.items():
-                if ov >= s_val:
-                    union(i, j)
-
-            edge_components: dict[int, set[int]] = {}
-            for i in range(m):
-                root = find(i)
-                edge_components.setdefault(root, set()).add(i)
-
-            node_components: list[frozenset[str]] = []
-            for comp_indices in edge_components.values():
-                node_set: set[str] = set()
-                for idx in comp_indices:
-                    node_set.update(edge_node_sets[idx])
-                node_components.append(frozenset(node_set))
-
-            covered: set[str] = set()
-            for comp in node_components:
-                covered.update(comp)
-            isolated = set(self._nodes.keys()) - covered
-            node_components.extend(frozenset({nid}) for nid in isolated)
-
-            levels.append(
-                SPersistenceLevel(
-                    s=s_val,
-                    components=node_components,
-                    num_components=len(node_components),
-                    largest_component_size=max(len(c) for c in node_components) if node_components else 0,
-                )
-            )
-
-        return SPersistenceResult(
-            levels=levels,
-            max_s=effective_max,
-            total_edges=len(edge_list),
+        return SPersistenceLevel(
+            s=s_val,
+            components=node_components,
+            num_components=len(node_components),
+            largest_component_size=max(len(c) for c in node_components) if node_components else 0,
         )
+
+    def _union_overlapping_edges(
+        self,
+        m: int,
+        overlaps: dict[tuple[int, int], int],
+        s_val: int,
+    ) -> dict[int, set[int]]:
+        edge_parent = list(range(m))
+
+        def find(x: int) -> int:
+            while edge_parent[x] != x:
+                edge_parent[x] = edge_parent[edge_parent[x]]
+                x = edge_parent[x]
+            return x
+
+        def union(a: int, b: int) -> None:
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                edge_parent[ra] = rb
+
+        for (i, j), ov in overlaps.items():
+            if ov >= s_val:
+                union(i, j)
+
+        edge_components: dict[int, set[int]] = {}
+        for i in range(m):
+            root = find(i)
+            edge_components.setdefault(root, set()).add(i)
+        return edge_components
 
     def hyperedge_similarity(
         self,
@@ -1171,9 +1228,26 @@ class Hypergraph:
         if not query_nodes:
             return HyperedgeSimilarityResult(query_edge_id=edge_id, metric=metric)
 
+        scores = self._compute_similarity_scores(query_nodes, edge_id, metric)
+
+        scores.sort(key=lambda x: -x[1])
+        if top_k is not None:
+            scores = scores[:top_k]
+        return HyperedgeSimilarityResult(
+            query_edge_id=edge_id,
+            similar_edges=scores,
+            metric=metric,
+        )
+
+    def _compute_similarity_scores(
+        self,
+        query_nodes: frozenset[str],
+        exclude_edge_id: str,
+        metric: str,
+    ) -> list[tuple[str, float]]:
         scores: list[tuple[str, float]] = []
         for eid, edge in self._edges.items():
-            if eid == edge_id:
+            if eid == exclude_edge_id:
                 continue
             edge_nodes = edge.source_ids | edge.target_ids
             if not edge_nodes:
@@ -1190,15 +1264,7 @@ class Hypergraph:
             else:
                 score = intersection / len(query_nodes | edge_nodes)
             scores.append((eid, score))
-
-        scores.sort(key=lambda x: -x[1])
-        if top_k is not None:
-            scores = scores[:top_k]
-        return HyperedgeSimilarityResult(
-            query_edge_id=edge_id,
-            similar_edges=scores,
-            metric=metric,
-        )
+        return scores
 
     def node_degree(self, node_id: str) -> int:
         """Return the number of edges connected to a node.

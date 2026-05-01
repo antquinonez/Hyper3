@@ -114,6 +114,22 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         node_idx = {nid: i for i, nid in enumerate(self._node_list)}
         n_nodes = len(self._node_list)
 
+        self._init_neg_sampling_probs(nodes, node_idx, n_nodes)
+        w_in, w_out = self._init_weights(n_nodes)
+
+        walks = self._generate_walks()
+        self._run_epochs(w_in, w_out, walks, node_idx, n_nodes)
+        self._finalize_embeddings(w_in)
+
+        self._trained = True
+        self._dirty.clear()
+
+    def _init_neg_sampling_probs(
+        self,
+        nodes: list[Any],
+        node_idx: dict[str, int],
+        n_nodes: int,
+    ) -> None:
         degree_counts = np.ones(n_nodes, dtype=np.float64)
         for node in nodes:
             degree = len(self._graph.incident_edges(node.id))
@@ -121,46 +137,64 @@ class RandomWalkEmbeddingProvider(EmbeddingProvider):
         self._neg_sampling_probs = degree_counts**0.75
         self._neg_sampling_probs /= self._neg_sampling_probs.sum()
 
+    def _init_weights(
+        self, n_nodes: int
+    ) -> tuple[dict[int, np.ndarray], dict[int, np.ndarray]]:
         w_in: dict[int, np.ndarray] = {}
         w_out: dict[int, np.ndarray] = {}
         scale = (2.0 / self._dim) ** 0.5
         for idx in range(n_nodes):
             w_in[idx] = self._rng.randn(self._dim).astype(np.float64) * scale
             w_out[idx] = np.zeros(self._dim, dtype=np.float64)
+        return w_in, w_out
 
-        walks = self._generate_walks()
-
+    def _run_epochs(
+        self,
+        w_in: dict[int, np.ndarray],
+        w_out: dict[int, np.ndarray],
+        walks: list[list[str]],
+        node_idx: dict[str, int],
+        n_nodes: int,
+    ) -> None:
         for _epoch in range(self._epochs):
             lr = self._learning_rate * (1.0 - _epoch / self._epochs)
             lr = max(lr, self._learning_rate * 0.01)
             self._rng.shuffle(walks)
             for walk in walks:
                 indices = [node_idx[nid] for nid in walk if nid in node_idx]
-                for pos, target_idx in enumerate(indices):
-                    win_start = max(0, pos - self._window_size)
-                    win_end = min(len(indices), pos + self._window_size + 1)
-                    for ctx_pos in range(win_start, win_end):
-                        if ctx_pos == pos:
-                            continue
-                        ctx_idx = indices[ctx_pos]
-                        self._sgns_update(
-                            w_in,
-                            w_out,
-                            target_idx,
-                            ctx_idx,
-                            n_nodes,
-                            lr,
-                        )
+                self._process_walk(w_in, w_out, indices, n_nodes, lr)
 
+    def _process_walk(
+        self,
+        w_in: dict[int, np.ndarray],
+        w_out: dict[int, np.ndarray],
+        indices: list[int],
+        n_nodes: int,
+        lr: float,
+    ) -> None:
+        for pos, target_idx in enumerate(indices):
+            win_start = max(0, pos - self._window_size)
+            win_end = min(len(indices), pos + self._window_size + 1)
+            for ctx_pos in range(win_start, win_end):
+                if ctx_pos == pos:
+                    continue
+                ctx_idx = indices[ctx_pos]
+                self._sgns_update(
+                    w_in,
+                    w_out,
+                    target_idx,
+                    ctx_idx,
+                    n_nodes,
+                    lr,
+                )
+
+    def _finalize_embeddings(self, w_in: dict[int, np.ndarray]) -> None:
         for idx, nid in enumerate(self._node_list):
             vec = w_in[idx].copy()
             norm = np.linalg.norm(vec)
             if norm > 0:
                 vec /= norm
             self._embeddings[nid] = vec
-
-        self._trained = True
-        self._dirty.clear()
 
     def _generate_walks(self) -> list[list[str]]:
         """Generate random walks starting from every node.
@@ -338,6 +372,23 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
         sparse = np.zeros(1024, dtype=np.float64)
 
         edges = self._graph.incident_edges(node_id)
+        self._accumulate_1hop_features(sparse, edges, node_id)
+        self._accumulate_2hop_features(sparse, edges, node_id)
+        self._accumulate_node_metadata(sparse, node_id)
+
+        result = sparse @ self._projection if self._projection is not None else sparse[: self._dim]
+
+        norm = np.linalg.norm(result)
+        if norm > 0:
+            result /= norm
+        return result
+
+    def _accumulate_1hop_features(
+        self,
+        sparse: np.ndarray,
+        edges: list[Any],
+        node_id: str,
+    ) -> None:
         for edge in edges:
             is_source = node_id in edge.source_ids
             direction = 1.0 if is_source else -1.0
@@ -345,19 +396,19 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
             feature_idx = self._hash_feature(edge.label, "outgoing" if is_source else "incoming")
             sparse[feature_idx] += direction * edge.weight * label_idf
 
-            if is_source:
-                for tid in edge.target_ids:
-                    tn = self._graph.get_node(tid)
-                    if tn:
-                        neighbor_feat = self._hash_feature(f"neighbor:{tn.label}", "1hop")
-                        sparse[neighbor_feat] += edge.weight * 0.5
-            else:
-                for sid in edge.source_ids:
-                    sn = self._graph.get_node(sid)
-                    if sn:
-                        neighbor_feat = self._hash_feature(f"neighbor:{sn.label}", "1hop")
-                        sparse[neighbor_feat] += edge.weight * 0.5
+            peer_ids = edge.target_ids if is_source else edge.source_ids
+            for pid in peer_ids:
+                peer = self._graph.get_node(pid)
+                if peer:
+                    neighbor_feat = self._hash_feature(f"neighbor:{peer.label}", "1hop")
+                    sparse[neighbor_feat] += edge.weight * 0.5
 
+    def _accumulate_2hop_features(
+        self,
+        sparse: np.ndarray,
+        edges: list[Any],
+        node_id: str,
+    ) -> None:
         two_hop_edges: list[Any] = []
         for edge in edges:
             neighbors = edge.target_ids if node_id in edge.source_ids else edge.source_ids
@@ -373,21 +424,20 @@ class NeighborhoodFingerprintProvider(EmbeddingProvider):
             feature_idx = self._hash_feature(e2.label, "2hop")
             sparse[feature_idx] += e2.weight * label_idf * 0.3
 
+    def _accumulate_node_metadata(
+        self,
+        sparse: np.ndarray,
+        node_id: str,
+    ) -> None:
         node = self._graph.get_node(node_id)
-        if node:
-            for tag in node.metadata.modality_tags:
-                tag_feat = self._hash_feature(f"modality:{tag.value}", "meta")
-                sparse[tag_feat] += 1.0
-            if node.metadata.abstraction_layer:
-                layer_feat = self._hash_feature(f"layer:{node.metadata.abstraction_layer.value}", "meta")
-                sparse[layer_feat] += 1.0
-
-        result = sparse @ self._projection if self._projection is not None else sparse[: self._dim]
-
-        norm = np.linalg.norm(result)
-        if norm > 0:
-            result /= norm
-        return result
+        if not node:
+            return
+        for tag in node.metadata.modality_tags:
+            tag_feat = self._hash_feature(f"modality:{tag.value}", "meta")
+            sparse[tag_feat] += 1.0
+        if node.metadata.abstraction_layer:
+            layer_feat = self._hash_feature(f"layer:{node.metadata.abstraction_layer.value}", "meta")
+            sparse[layer_feat] += 1.0
 
     def _hash_feature(self, feature: str, category: str) -> int:
         """Deterministically map a feature string and category to a sparse bucket index.

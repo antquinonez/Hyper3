@@ -285,38 +285,46 @@ class ContradictionResolver:
             return None, None
 
         if strategy == "higher_confidence":
-            conf_a = self._edge_confidence(edge_a.id)
-            conf_b = self._edge_confidence(edge_b.id)
-            if conf_a >= conf_b:
-                return edge_a.id, edge_b.id
-            return edge_b.id, edge_a.id
-
+            return self._resolve_by_confidence(edge_a, edge_b)
         if strategy == "higher_weight":
-            if edge_a.weight >= edge_b.weight:
-                return edge_a.id, edge_b.id
-            return edge_b.id, edge_a.id
-
+            return self._resolve_by_weight(edge_a, edge_b)
         if strategy == "observed_over_inferred":
-            a_inferred = self._provenance.is_inferred(edge_a.id)
-            b_inferred = self._provenance.is_inferred(edge_b.id)
-            if a_inferred and not b_inferred:
-                return edge_b.id, edge_a.id
-            if b_inferred and not a_inferred:
-                return edge_a.id, edge_b.id
-            if edge_a.weight >= edge_b.weight:
-                return edge_a.id, edge_b.id
-            return edge_b.id, edge_a.id
-
+            return self._resolve_by_observation(edge_a, edge_b)
         if strategy == "newer":
-            a_prov = self._provenance.get_provenance(edge_a.id)
-            b_prov = self._provenance.get_provenance(edge_b.id)
-            a_time = a_prov.timestamp if a_prov else 0
-            b_time = b_prov.timestamp if b_prov else 0
-            if a_time >= b_time:
-                return edge_a.id, edge_b.id
-            return edge_b.id, edge_a.id
-
+            return self._resolve_by_recency(edge_a, edge_b)
         return edge_a.id, edge_b.id
+
+    def _resolve_by_confidence(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        conf_a = self._edge_confidence(edge_a.id)
+        conf_b = self._edge_confidence(edge_b.id)
+        if conf_a >= conf_b:
+            return edge_a.id, edge_b.id
+        return edge_b.id, edge_a.id
+
+    def _resolve_by_weight(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        if edge_a.weight >= edge_b.weight:
+            return edge_a.id, edge_b.id
+        return edge_b.id, edge_a.id
+
+    def _resolve_by_observation(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        a_inferred = self._provenance.is_inferred(edge_a.id)
+        b_inferred = self._provenance.is_inferred(edge_b.id)
+        if a_inferred and not b_inferred:
+            return edge_b.id, edge_a.id
+        if b_inferred and not a_inferred:
+            return edge_a.id, edge_b.id
+        if edge_a.weight >= edge_b.weight:
+            return edge_a.id, edge_b.id
+        return edge_b.id, edge_a.id
+
+    def _resolve_by_recency(self, edge_a: Any, edge_b: Any) -> tuple[str, str]:
+        a_prov = self._provenance.get_provenance(edge_a.id)
+        b_prov = self._provenance.get_provenance(edge_b.id)
+        a_time = a_prov.timestamp if a_prov else 0
+        b_time = b_prov.timestamp if b_prov else 0
+        if a_time >= b_time:
+            return edge_a.id, edge_b.id
+        return edge_b.id, edge_a.id
 
     def _edge_confidence(self, edge_id: str) -> float:
         prov = self._provenance.get_provenance(edge_id)

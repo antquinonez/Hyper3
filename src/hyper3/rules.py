@@ -131,39 +131,49 @@ class TransitiveRule(Rule):
             Matches with bindings ``{A, B, C}`` and context keys
             ``edge_ab`` and ``edge_bc``.
         """
-        matches: list[RuleMatch] = []
+        edge_set = self._build_edge_set(graph)
+        return self._find_transitive_chains(graph, active_nodes, edge_set)
+
+    def _build_edge_set(self, graph: Hypergraph) -> set[tuple[str, str]]:
         edge_set: set[tuple[str, str]] = set()
         for edge in graph.edges:
             for src in edge.source_ids:
                 for tgt in edge.target_ids:
                     edge_set.add((src, tgt))
+        return edge_set
+
+    def _find_transitive_chains(self, graph: Hypergraph, active_nodes: frozenset[str], edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        matches: list[RuleMatch] = []
         for nid_a in active_nodes:
             for e1 in graph.incident_edges(nid_a):
                 if self._edge_label and e1.label != self._edge_label:
                     continue
                 if nid_a not in e1.source_ids:
                     continue
-                targets_b = e1.target_ids & active_nodes
-                for nid_b in targets_b:
-                    for e2 in graph.incident_edges(nid_b):
-                        if self._edge_label and e2.label != self._edge_label:
-                            continue
-                        if nid_b not in e2.source_ids:
-                            continue
-                        targets_c = e2.target_ids & active_nodes
-                        for nid_c in targets_c:
-                            if nid_a == nid_c:
-                                continue
-                            if (nid_a, nid_c) in edge_set:
-                                continue
-                            matches.append(
-                                RuleMatch(
-                                    rule_name=self.name,
-                                    bindings={"A": nid_a, "B": nid_b, "C": nid_c},
-                                    context={"edge_ab": e1.id, "edge_bc": e2.id},
-                                )
-                            )
+                for nid_b in e1.target_ids & active_nodes:
+                    matches.extend(self._find_second_hop(graph, nid_a, nid_b, active_nodes, edge_set, e1.id))
         return matches
+
+    def _find_second_hop(self, graph: Hypergraph, nid_a: str, nid_b: str, active_nodes: frozenset[str], edge_set: set[tuple[str, str]], e1_id: str) -> list[RuleMatch]:
+        results: list[RuleMatch] = []
+        for e2 in graph.incident_edges(nid_b):
+            if self._edge_label and e2.label != self._edge_label:
+                continue
+            if nid_b not in e2.source_ids:
+                continue
+            for nid_c in e2.target_ids & active_nodes:
+                if nid_a == nid_c:
+                    continue
+                if (nid_a, nid_c) in edge_set:
+                    continue
+                results.append(
+                    RuleMatch(
+                        rule_name=self.name,
+                        bindings={"A": nid_a, "B": nid_b, "C": nid_c},
+                        context={"edge_ab": e1_id, "edge_bc": e2.id},
+                    )
+                )
+        return results
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create an inferred edge from A to C.
@@ -210,34 +220,38 @@ class TransitiveRule(Rule):
         Returns:
             Matches with bindings ``{A, B, C}`` where ``C`` is *target_node_id*.
         """
-        derivations: list[RuleMatch] = []
-        edge_set: set[tuple[str, str]] = set()
-        for edge in graph.edges:
-            for src in edge.source_ids:
-                for tgt in edge.target_ids:
-                    edge_set.add((src, tgt))
+        edge_set = self._build_edge_set(graph)
         incoming_to_c = [e for e in graph.incident_edges(target_node_id) if target_node_id in e.target_ids]
+        return self._scan_derivation_chains(graph, target_node_id, incoming_to_c, edge_set)
+
+    def _scan_derivation_chains(self, graph: Hypergraph, target_node_id: str, incoming_to_c: list, edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        derivations: list[RuleMatch] = []
         for e_bc in incoming_to_c:
             if self._edge_label and e_bc.label and e_bc.label != self._edge_label:
                 continue
             for nid_b in e_bc.source_ids:
-                incoming_to_b = [e for e in graph.incident_edges(nid_b) if nid_b in e.target_ids]
-                for e_ab in incoming_to_b:
-                    if self._edge_label and e_ab.label and e_ab.label != self._edge_label:
-                        continue
-                    for nid_a in e_ab.source_ids:
-                        if nid_a == target_node_id:
-                            continue
-                        if (nid_a, target_node_id) in edge_set:
-                            continue
-                        derivations.append(
-                            RuleMatch(
-                                rule_name=self.name,
-                                bindings={"A": nid_a, "B": nid_b, "C": target_node_id},
-                                context={"edge_ab": e_ab.id, "edge_bc": e_bc.id},
-                            )
-                        )
+                derivations.extend(self._scan_first_hop(graph, target_node_id, nid_b, e_bc.id, edge_set))
         return derivations
+
+    def _scan_first_hop(self, graph: Hypergraph, target_node_id: str, nid_b: str, e_bc_id: str, edge_set: set[tuple[str, str]]) -> list[RuleMatch]:
+        results: list[RuleMatch] = []
+        incoming_to_b = [e for e in graph.incident_edges(nid_b) if nid_b in e.target_ids]
+        for e_ab in incoming_to_b:
+            if self._edge_label and e_ab.label and e_ab.label != self._edge_label:
+                continue
+            for nid_a in e_ab.source_ids:
+                if nid_a == target_node_id:
+                    continue
+                if (nid_a, target_node_id) in edge_set:
+                    continue
+                results.append(
+                    RuleMatch(
+                        rule_name=self.name,
+                        bindings={"A": nid_a, "B": nid_b, "C": target_node_id},
+                        context={"edge_ab": e_ab.id, "edge_bc": e_bc_id},
+                    )
+                )
+        return results
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize the transitive rule configuration."""
@@ -504,40 +518,49 @@ class AbductiveRule(Rule):
             keys ``via_edge`` and ``edge_label``.
         """
         matches: list[RuleMatch] = []
+        existing_pairs = self._build_existing_pairs(graph)
+        for nid_b in active_nodes:
+            matches.extend(self._find_causes_for_effect(graph, nid_b, active_nodes, existing_pairs))
+        return matches
+
+    def _build_existing_pairs(self, graph: Hypergraph) -> set[tuple[str, str]]:
         existing_pairs: set[tuple[str, str]] = set()
         for edge in graph.edges:
             if edge.label == self._cause_label and edge.metadata.custom.get("rule") == self.name:
                 for src in edge.source_ids:
                     for tgt in edge.target_ids:
-                        src_label = graph.get_node(src)
-                        tgt_label = graph.get_node(tgt)
-                        if src_label and tgt_label:
-                            existing_pairs.add((src_label.label, tgt_label.label))
-        for nid_b in active_nodes:
-            node_b = graph.get_node(nid_b)
-            if not node_b:
-                continue
-            incoming = [
-                e
-                for e in graph.incident_edges(nid_b)
-                if nid_b in e.target_ids and (not self._effect_label or e.label == self._effect_label)
-            ]
-            for edge in incoming:
-                for nid_a in edge.source_ids & active_nodes:
-                    node_a = graph.get_node(nid_a)
-                    if not node_a:
-                        continue
-                    pair_key = (node_a.label, node_b.label)
-                    if pair_key in existing_pairs:
-                        continue
-                    matches.append(
-                        RuleMatch(
-                            rule_name=self.name,
-                            bindings={"observed": nid_b, "potential_cause": nid_a},
-                            context={"via_edge": edge.id, "edge_label": edge.label},
-                        )
+                        src_node = graph.get_node(src)
+                        tgt_node = graph.get_node(tgt)
+                        if src_node and tgt_node:
+                            existing_pairs.add((src_node.label, tgt_node.label))
+        return existing_pairs
+
+    def _find_causes_for_effect(self, graph: Hypergraph, nid_b: str, active_nodes: frozenset[str], existing_pairs: set[tuple[str, str]]) -> list[RuleMatch]:
+        node_b = graph.get_node(nid_b)
+        if not node_b:
+            return []
+        results: list[RuleMatch] = []
+        incoming = [
+            e
+            for e in graph.incident_edges(nid_b)
+            if nid_b in e.target_ids and (not self._effect_label or e.label == self._effect_label)
+        ]
+        for edge in incoming:
+            for nid_a in edge.source_ids & active_nodes:
+                node_a = graph.get_node(nid_a)
+                if not node_a:
+                    continue
+                pair_key = (node_a.label, node_b.label)
+                if pair_key in existing_pairs:
+                    continue
+                results.append(
+                    RuleMatch(
+                        rule_name=self.name,
+                        bindings={"observed": nid_b, "potential_cause": nid_a},
+                        context={"via_edge": edge.id, "edge_label": edge.label},
                     )
-        return matches
+                )
+        return results
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create a hypothesis node and link it to the observed node.
@@ -757,7 +780,19 @@ class StructuralProjectionRule(Rule):
         """
         if self._embedding_engine is None:
             return []
+        emb_data = self._prepare_embedding_data(active_nodes)
+        if emb_data is None:
+            return []
+        normed, active_list, node_to_idx, active_with_emb = emb_data
+        seen_analogies: set[tuple[str, str, str, str]] = set()
         matches: list[RuleMatch] = []
+        for nid_a in active_with_emb:
+            matches.extend(self._compute_analogy_scores(graph, nid_a, active_with_emb, normed, active_list, node_to_idx, seen_analogies))
+        return matches
+
+    def _prepare_embedding_data(self, active_nodes: frozenset[str]) -> tuple[Any, list[str], dict[str, int], frozenset[str]] | None:
+        if self._embedding_engine is None:
+            return None
         emb_map: dict[str, Any] = {}
         for nid in active_nodes:
             e = self._embedding_engine.get_embedding(nid)
@@ -765,54 +800,60 @@ class StructuralProjectionRule(Rule):
                 emb_map[nid] = e
         active_with_emb = frozenset(emb_map.keys())
         if len(active_with_emb) < 4:
-            return matches
+            return None
         active_list = list(active_with_emb)
         emb_matrix = np.array([emb_map[nid] for nid in active_list])
         norms = np.linalg.norm(emb_matrix, axis=1, keepdims=True)
         norms = np.where(norms == 0, 1.0, norms)
         normed = emb_matrix / norms
         node_to_idx = {nid: i for i, nid in enumerate(active_list)}
-        seen_analogies: set[tuple[str, str, str, str]] = set()
-        for nid_a in active_with_emb:
-            for e1 in graph.incident_edges(nid_a):
-                if self._edge_label and e1.label != self._edge_label:
+        return normed, active_list, node_to_idx, active_with_emb
+
+    def _compute_analogy_scores(self, graph: Hypergraph, nid_a: str, active_with_emb: frozenset[str], normed: Any, active_list: list[str], node_to_idx: dict[str, int], seen_analogies: set[tuple[str, str, str, str]]) -> list[RuleMatch]:
+        results: list[RuleMatch] = []
+        idx_a = node_to_idx[nid_a]
+        for e1 in graph.incident_edges(nid_a):
+            if self._edge_label and e1.label != self._edge_label:
+                continue
+            if nid_a not in e1.source_ids:
+                continue
+            for nid_b in e1.target_ids & active_with_emb:
+                idx_b = node_to_idx[nid_b]
+                analogy_vec = normed[idx_b] - normed[idx_a]
+                results.extend(self._find_analogy_targets(nid_a, nid_b, analogy_vec, e1.id, active_with_emb, normed, active_list, node_to_idx, seen_analogies))
+        return results
+
+    def _find_analogy_targets(self, nid_a: str, nid_b: str, analogy_vec: Any, e1_id: str, active_with_emb: frozenset[str], normed: Any, active_list: list[str], node_to_idx: dict[str, int], seen_analogies: set[tuple[str, str, str, str]]) -> list[RuleMatch]:
+        results: list[RuleMatch] = []
+        for nid_c in active_with_emb:
+            if nid_c in (nid_a, nid_b):
+                continue
+            idx_c = node_to_idx[nid_c]
+            target_vec = analogy_vec + normed[idx_c]
+            target_norm = np.linalg.norm(target_vec)
+            if target_norm == 0:
+                continue
+            target_normed = target_vec / target_norm
+            sims = normed @ target_normed
+            for i_cand in np.argsort(-sims):
+                nid_d = active_list[i_cand]
+                if nid_d in (nid_a, nid_b, nid_c):
                     continue
-                if nid_a not in e1.source_ids:
-                    continue
-                targets_b = e1.target_ids & active_with_emb
-                for nid_b in targets_b:
-                    idx_a = node_to_idx[nid_a]
-                    idx_b = node_to_idx[nid_b]
-                    analogy_vec = normed[idx_b] - normed[idx_a]
-                    for nid_c in active_with_emb:
-                        if nid_c in (nid_a, nid_b):
-                            continue
-                        idx_c = node_to_idx[nid_c]
-                        target_vec = analogy_vec + normed[idx_c]
-                        target_norm = np.linalg.norm(target_vec)
-                        if target_norm == 0:
-                            continue
-                        target_normed = target_vec / target_norm
-                        sims = normed @ target_normed
-                        for i_cand in np.argsort(-sims):
-                            nid_d = active_list[i_cand]
-                            if nid_d in (nid_a, nid_b, nid_c):
-                                continue
-                            sim = float(sims[i_cand])
-                            if sim < self._threshold:
-                                break
-                            key = (nid_a, nid_b, nid_c, nid_d)
-                            if key not in seen_analogies:
-                                seen_analogies.add(key)
-                                matches.append(
-                                    RuleMatch(
-                                        rule_name=self.name,
-                                        bindings={"A": nid_a, "B": nid_b, "C": nid_c, "D": nid_d},
-                                        context={"analogy_score": sim, "edge_ab": e1.id},
-                                    )
-                                )
-                            break
-        return matches
+                sim = float(sims[i_cand])
+                if sim < self._threshold:
+                    break
+                key = (nid_a, nid_b, nid_c, nid_d)
+                if key not in seen_analogies:
+                    seen_analogies.add(key)
+                    results.append(
+                        RuleMatch(
+                            rule_name=self.name,
+                            bindings={"A": nid_a, "B": nid_b, "C": nid_c, "D": nid_d},
+                            context={"analogy_score": sim, "edge_ab": e1_id},
+                        )
+                    )
+                break
+        return results
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create an analogical edge from C to D mirroring the A-to-B relationship.
@@ -904,6 +945,24 @@ class HubInferenceRule(Rule):
             ``support`` and ``confidence``.
         """
         matches: list[RuleMatch] = []
+        edge_pairs, source_totals = self._build_pair_counts(graph, active_nodes)
+        for (src, tgt), pair_count in edge_pairs.items():
+            total_from_src = source_totals.get(src, 0)
+            if total_from_src == 0:
+                continue
+            support = pair_count
+            confidence = pair_count / total_from_src
+            if support >= self._min_support and confidence >= self._confidence_threshold and not self._existing_cause_edge(graph, src, tgt):
+                matches.append(
+                    RuleMatch(
+                        rule_name=self.name,
+                        bindings={"cause": src, "effect": tgt},
+                        context={"support": support, "confidence": confidence},
+                    )
+                )
+        return matches
+
+    def _build_pair_counts(self, graph: Hypergraph, active_nodes: frozenset[str]) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
         edge_pairs: dict[tuple[str, str], int] = {}
         source_totals: dict[str, int] = {}
         for edge in graph.edges:
@@ -918,27 +977,10 @@ class HubInferenceRule(Rule):
                         continue
                     pair = (src, tgt)
                     edge_pairs[pair] = edge_pairs.get(pair, 0) + 1
-        for (src, tgt), pair_count in edge_pairs.items():
-            total_from_src = source_totals.get(src, 0)
-            if total_from_src == 0:
-                continue
-            support = pair_count
-            confidence = pair_count / total_from_src
-            if support >= self._min_support and confidence >= self._confidence_threshold:
-                existing = False
-                for e in graph.incident_edges(src):
-                    if e.label == self._causes_label and tgt in e.target_ids:
-                        existing = True
-                        break
-                if not existing:
-                    matches.append(
-                        RuleMatch(
-                            rule_name=self.name,
-                            bindings={"cause": src, "effect": tgt},
-                            context={"support": support, "confidence": confidence},
-                        )
-                    )
-        return matches
+        return edge_pairs, source_totals
+
+    def _existing_cause_edge(self, graph: Hypergraph, src: str, tgt: str) -> bool:
+        return any(e.label == self._causes_label and tgt in e.target_ids for e in graph.incident_edges(src))
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create a ``"causes"`` edge from cause to effect.

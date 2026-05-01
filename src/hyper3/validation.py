@@ -112,8 +112,6 @@ class ValidationEngine:
             confidence, coverage, and elapsed time.
         """
         start = time.perf_counter()
-        nodes: set[str] = set()
-        edges: set[str] = set()
 
         seed_ids: set[str] = set()
         for concept in seed_concepts:
@@ -126,21 +124,9 @@ class ValidationEngine:
         pre_nodes = {n.id for n in self._memory._graph.nodes}
 
         try:
-            for rule in rules:
-                matches = rule.find_matches(self._memory._graph, active_nodes)
-                for match in matches:
-                    node_ids, edge_ids_list = rule.apply(self._memory._graph, match)
-                    for eid in edge_ids_list:
-                        edges.add(eid)
-                    for nid in node_ids:
-                        nodes.add(nid)
-
+            nodes, edges = self._apply_rules_to_graph(rules, active_nodes)
         finally:
-            for eid in list({e.id for e in self._memory._graph.edges} - pre_edges):
-                self._memory._graph.remove_edge(eid)
-            for nid in list({n.id for n in self._memory._graph.nodes} - pre_nodes):
-                if not self._memory._graph.incident_edges(nid):
-                    self._memory._graph.remove_node(nid)
+            self._cleanup_temp_edges(pre_edges, pre_nodes)
 
         elapsed = (time.perf_counter() - start) * 1000.0
 
@@ -159,6 +145,34 @@ class ValidationEngine:
             coverage=coverage,
             time_ms=elapsed,
         )
+
+    def _apply_rules_to_graph(
+        self,
+        rules: list[Rule],
+        active_nodes: frozenset[str],
+    ) -> tuple[set[str], set[str]]:
+        nodes: set[str] = set()
+        edges: set[str] = set()
+        for rule in rules:
+            matches = rule.find_matches(self._memory._graph, active_nodes)
+            for match in matches:
+                node_ids, edge_ids_list = rule.apply(self._memory._graph, match)
+                for eid in edge_ids_list:
+                    edges.add(eid)
+                for nid in node_ids:
+                    nodes.add(nid)
+        return nodes, edges
+
+    def _cleanup_temp_edges(
+        self,
+        pre_edges: set[str],
+        pre_nodes: set[str],
+    ) -> None:
+        for eid in list({e.id for e in self._memory._graph.edges} - pre_edges):
+            self._memory._graph.remove_edge(eid)
+        for nid in list({n.id for n in self._memory._graph.nodes} - pre_nodes):
+            if not self._memory._graph.incident_edges(nid):
+                self._memory._graph.remove_node(nid)
 
     def _run_enhanced(
         self,
@@ -310,28 +324,31 @@ class ValidationEngine:
            labels per source are collected (not just the first) so that
            partial overlaps are correctly handled.
         """
+        simple_groups = self._group_edges_by_nodes(simple.edges_produced)
+        enhanced_groups = self._group_edges_by_nodes(enhanced.edges_produced)
+        contradictions = self._check_label_and_weight_conflicts(simple_groups, enhanced_groups)
+        contradictions.extend(self._check_direction_conflicts(simple.edges_produced, enhanced.edges_produced))
+        return contradictions
+
+    def _group_edges_by_nodes(self, edge_ids: set[str]) -> dict[frozenset[str], list[Any]]:
+        groups: dict[frozenset[str], list[Any]] = {}
+        for eid in edge_ids:
+            edge = self._memory._graph.get_edge(eid)
+            if edge:
+                key = edge.source_ids | edge.target_ids
+                groups.setdefault(key, []).append(edge)
+        return groups
+
+    def _check_label_and_weight_conflicts(
+        self,
+        simple_groups: dict[frozenset[str], list[Any]],
+        enhanced_groups: dict[frozenset[str], list[Any]],
+    ) -> list[dict[str, Any]]:
         contradictions: list[dict[str, Any]] = []
-
-        se = simple.edges_produced
-        ee = enhanced.edges_produced
-        simple_edges_by_src_tgt: dict[frozenset[str], list[Any]] = {}
-        for eid in se:
-            edge = self._memory._graph.get_edge(eid)
-            if edge:
-                key = edge.source_ids | edge.target_ids
-                simple_edges_by_src_tgt.setdefault(key, []).append(edge)
-
-        enhanced_edges_by_src_tgt: dict[frozenset[str], list[Any]] = {}
-        for eid in ee:
-            edge = self._memory._graph.get_edge(eid)
-            if edge:
-                key = edge.source_ids | edge.target_ids
-                enhanced_edges_by_src_tgt.setdefault(key, []).append(edge)
-
-        shared_keys = set(simple_edges_by_src_tgt.keys()) & set(enhanced_edges_by_src_tgt.keys())
+        shared_keys = set(simple_groups.keys()) & set(enhanced_groups.keys())
         for key in shared_keys:
-            for s_edge in simple_edges_by_src_tgt[key]:
-                for e_edge in enhanced_edges_by_src_tgt[key]:
+            for s_edge in simple_groups[key]:
+                for e_edge in enhanced_groups[key]:
                     if s_edge.label and e_edge.label and s_edge.label != e_edge.label:
                         contradictions.append(
                             {
@@ -356,15 +373,22 @@ class ValidationEngine:
                                     "divergence": weight_diff,
                                 }
                             )
+        return contradictions
 
+    def _check_direction_conflicts(
+        self,
+        simple_edge_ids: set[str],
+        enhanced_edge_ids: set[str],
+    ) -> list[dict[str, Any]]:
+        contradictions: list[dict[str, Any]] = []
         simple_labels: dict[str, list[str]] = {}
-        for eid in se:
+        for eid in simple_edge_ids:
             edge = self._memory._graph.get_edge(eid)
             if edge and edge.label:
                 for src in edge.source_ids:
                     simple_labels.setdefault(src, []).append(edge.label)
         enhanced_labels: dict[str, list[str]] = {}
-        for eid in ee:
+        for eid in enhanced_edge_ids:
             edge = self._memory._graph.get_edge(eid)
             if edge and edge.label:
                 for src in edge.source_ids:
@@ -381,7 +405,6 @@ class ValidationEngine:
                         "enhanced_direction": enhanced_labels[node_id][0],
                     }
                 )
-
         return contradictions
 
     def _recommend(

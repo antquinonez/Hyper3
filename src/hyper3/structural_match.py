@@ -53,6 +53,63 @@ class StructuralPatternEngine:
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
 
+    def _extend_from_source(
+        self,
+        src_id: str,
+        bindings: dict[str, str],
+        pedge: PatternEdge,
+        next_bindings: list[dict[str, str]],
+    ) -> None:
+        for e in self._graph.incident_edges(src_id):
+            if pedge.label and e.label != pedge.label:
+                continue
+            if e.weight < pedge.min_weight:
+                continue
+            for tid in e.target_ids:
+                new_b = dict(bindings)
+                new_b[pedge.target_role] = tid
+                next_bindings.append(new_b)
+
+    def _extend_from_target(
+        self,
+        tgt_id: str,
+        bindings: dict[str, str],
+        pedge: PatternEdge,
+        next_bindings: list[dict[str, str]],
+    ) -> None:
+        for e in self._graph.edges:
+            if tgt_id not in e.target_ids:
+                continue
+            if pedge.label and e.label != pedge.label:
+                continue
+            if e.weight < pedge.min_weight:
+                continue
+            for sid in e.source_ids:
+                new_b = dict(bindings)
+                new_b[pedge.source_role] = sid
+                next_bindings.append(new_b)
+
+    def _extend_bindings_for_edge(
+        self,
+        pedge: PatternEdge,
+        binding_queue: list[dict[str, str]],
+    ) -> list[dict[str, str]]:
+        next_bindings: list[dict[str, str]] = []
+        for bindings in binding_queue:
+            src_id = bindings.get(pedge.source_role)
+            tgt_id = bindings.get(pedge.target_role)
+            if src_id and tgt_id:
+                if self._edge_exists(src_id, tgt_id, pedge.label, pedge.min_weight):
+                    next_bindings.append(bindings)
+            elif src_id:
+                self._extend_from_source(src_id, bindings, pedge, next_bindings)
+            elif tgt_id:
+                self._extend_from_target(tgt_id, bindings, pedge, next_bindings)
+            else:
+                next_bindings.extend(binding_queue)
+                return next_bindings
+        return next_bindings
+
     def match_pattern(
         self,
         pattern: PatternTemplate,
@@ -69,39 +126,7 @@ class StructuralPatternEngine:
         for _edge, initial_bindings in candidates:
             binding_queue: list[dict[str, str]] = [initial_bindings]
             for pedge in pattern.edges[1:]:
-                next_bindings: list[dict[str, str]] = []
-                for bindings in binding_queue:
-                    src_id = bindings.get(pedge.source_role)
-                    tgt_id = bindings.get(pedge.target_role)
-                    if src_id and tgt_id:
-                        if self._edge_exists(src_id, tgt_id, pedge.label, pedge.min_weight):
-                            next_bindings.append(bindings)
-                    elif src_id:
-                        for e in self._graph.incident_edges(src_id):
-                            if pedge.label and e.label != pedge.label:
-                                continue
-                            if e.weight < pedge.min_weight:
-                                continue
-                            for tid in e.target_ids:
-                                new_b = dict(bindings)
-                                new_b[pedge.target_role] = tid
-                                next_bindings.append(new_b)
-                    elif tgt_id:
-                        for e in self._graph.edges:
-                            if tgt_id not in e.target_ids:
-                                continue
-                            if pedge.label and e.label != pedge.label:
-                                continue
-                            if e.weight < pedge.min_weight:
-                                continue
-                            for sid in e.source_ids:
-                                new_b = dict(bindings)
-                                new_b[pedge.source_role] = sid
-                                next_bindings.append(new_b)
-                    else:
-                        next_bindings.extend(binding_queue)
-                        break
-                binding_queue = next_bindings
+                binding_queue = self._extend_bindings_for_edge(pedge, binding_queue)
                 if not binding_queue:
                     break
 
@@ -195,12 +220,10 @@ class StructuralPatternEngine:
         fan_outs.sort(key=lambda x: len(x[1]), reverse=True)
         return fan_outs
 
-    def match_diamond(
+    def _build_source_target_maps(
         self,
-        *,
-        edge_label: str | None = None,
-        max_matches: int = 50,
-    ) -> list[StructuralMatch]:
+        edge_label: str | None,
+    ) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
         source_to_targets: dict[str, set[str]] = {}
         for edge in self._graph.edges:
             if edge_label and edge.label != edge_label:
@@ -208,12 +231,18 @@ class StructuralPatternEngine:
             for src in edge.source_ids:
                 for tgt in edge.target_ids:
                     source_to_targets.setdefault(src, set()).add(tgt)
-
         target_to_sources: dict[str, set[str]] = {}
         for src, tgts in source_to_targets.items():
             for tgt in tgts:
                 target_to_sources.setdefault(tgt, set()).add(src)
+        return source_to_targets, target_to_sources
 
+    def _find_diamond_matches(
+        self,
+        source_to_targets: dict[str, set[str]],
+        target_to_sources: dict[str, set[str]],
+        max_matches: int,
+    ) -> list[StructuralMatch]:
         matches: list[StructuralMatch] = []
         seen: set[frozenset[str]] = set()
         for tgt, sources in target_to_sources.items():
@@ -251,6 +280,15 @@ class StructuralPatternEngine:
                             if len(matches) >= max_matches:
                                 return matches
         return matches
+
+    def match_diamond(
+        self,
+        *,
+        edge_label: str | None = None,
+        max_matches: int = 50,
+    ) -> list[StructuralMatch]:
+        source_to_targets, target_to_sources = self._build_source_target_maps(edge_label)
+        return self._find_diamond_matches(source_to_targets, target_to_sources, max_matches)
 
     def _find_edge_candidates(
         self,

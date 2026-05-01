@@ -107,28 +107,43 @@ class GraphDiffer:
         current = self._graph_snapshot()
         delta = self._compute_delta(version.snapshot, current)
 
-        snapshot_edges = set(version.snapshot.get("edges", {}).keys())
+        self._remove_extra_edges(version.snapshot)
+        self._revert_modified_nodes(delta)
+        self._revert_modified_edges(delta)
+        self._remove_extra_nodes(version.snapshot)
+        self._restore_missing_nodes(version.snapshot)
+        self._restore_missing_edges(version.snapshot)
+
+        return delta
+
+    def _remove_extra_edges(self, snapshot: dict[str, Any]) -> None:
+        snapshot_edges = set(snapshot.get("edges", {}).keys())
         for edge in list(self._graph.edges):
             if edge.id not in snapshot_edges:
                 self._graph.remove_edge(edge.id)
 
+    def _revert_modified_nodes(self, delta: GraphDelta) -> None:
         for nd in delta.nodes_modified:
             node = self._graph.get_node(nd.node_id)
             if node:
                 node.weight = nd.old_weight
                 node.data = nd.old_data
 
+    def _revert_modified_edges(self, delta: GraphDelta) -> None:
         for ed in delta.edges_modified:
             edge = self._graph.get_edge(ed.edge_id)
             if edge:
                 edge.weight = ed.old_weight
                 edge.label = ed.old_label
 
-        snapshot_nodes = version.snapshot.get("nodes", {})
+    def _remove_extra_nodes(self, snapshot: dict[str, Any]) -> None:
+        snapshot_nodes = snapshot.get("nodes", {})
         for node in list(self._graph.nodes):
             if node.id not in snapshot_nodes:
                 self._graph.remove_node(node.id)
 
+    def _restore_missing_nodes(self, snapshot: dict[str, Any]) -> None:
+        snapshot_nodes = snapshot.get("nodes", {})
         for nid, ndata in snapshot_nodes.items():
             if not self._graph.get_node(nid):
                 restored = Hypernode(
@@ -139,7 +154,8 @@ class GraphDiffer:
                 )
                 self._graph.add_node(restored)
 
-        for eid, edata in version.snapshot.get("edges", {}).items():
+    def _restore_missing_edges(self, snapshot: dict[str, Any]) -> None:
+        for eid, edata in snapshot.get("edges", {}).items():
             if not self._graph.get_edge(eid):
                 self._graph.add_edge(
                     Hyperedge(
@@ -151,8 +167,6 @@ class GraphDiffer:
                         data=edata.get("data"),
                     )
                 )
-
-        return delta
 
     @property
     def history(self) -> GraphHistoryResult:
@@ -199,90 +213,12 @@ class GraphDiffer:
         before_edges = before.get("edges", {})
         after_edges = after.get("edges", {})
 
-        nodes_added: list[NodeDelta] = []
-        nodes_removed: list[NodeDelta] = []
-        nodes_modified: list[NodeDelta] = []
-
-        for nid, ndata in after_nodes.items():
-            if nid not in before_nodes:
-                nodes_added.append(
-                    NodeDelta(
-                        node_id=nid,
-                        node_label=ndata.get("label", ""),
-                        change_type="added",
-                        new_data=ndata.get("data"),
-                        new_weight=ndata.get("weight", 0.0),
-                    )
-                )
-            else:
-                old = before_nodes[nid]
-                if old.get("weight") != ndata.get("weight") or old.get("data") != ndata.get("data"):
-                    nodes_modified.append(
-                        NodeDelta(
-                            node_id=nid,
-                            node_label=ndata.get("label", ""),
-                            change_type="modified",
-                            old_data=old.get("data"),
-                            new_data=ndata.get("data"),
-                            old_weight=old.get("weight", 0.0),
-                            new_weight=ndata.get("weight", 0.0),
-                        )
-                    )
-
-        for nid, ndata in before_nodes.items():
-            if nid not in after_nodes:
-                nodes_removed.append(
-                    NodeDelta(
-                        node_id=nid,
-                        node_label=ndata.get("label", ""),
-                        change_type="removed",
-                        old_data=ndata.get("data"),
-                        old_weight=ndata.get("weight", 0.0),
-                    )
-                )
-
-        edges_added: list[EdgeDelta] = []
-        edges_removed: list[EdgeDelta] = []
-        edges_modified: list[EdgeDelta] = []
-
-        for eid, edata in after_edges.items():
-            if eid not in before_edges:
-                edges_added.append(
-                    EdgeDelta(
-                        edge_id=eid,
-                        change_type="added",
-                        new_label=edata.get("label", ""),
-                        new_weight=edata.get("weight", 0.0),
-                        source_label=self._resolve_edge_labels(edata, "source", after_nodes),
-                        target_label=self._resolve_edge_labels(edata, "target", after_nodes),
-                    )
-                )
-            else:
-                old = before_edges[eid]
-                if old.get("weight") != edata.get("weight") or old.get("label") != edata.get("label"):
-                    edges_modified.append(
-                        EdgeDelta(
-                            edge_id=eid,
-                            change_type="modified",
-                            old_label=old.get("label", ""),
-                            new_label=edata.get("label", ""),
-                            old_weight=old.get("weight", 0.0),
-                            new_weight=edata.get("weight", 0.0),
-                        )
-                    )
-
-        for eid, edata in before_edges.items():
-            if eid not in after_edges:
-                edges_removed.append(
-                    EdgeDelta(
-                        edge_id=eid,
-                        change_type="removed",
-                        old_label=edata.get("label", ""),
-                        old_weight=edata.get("weight", 0.0),
-                        source_label=self._resolve_edge_labels(edata, "source", before_nodes),
-                        target_label=self._resolve_edge_labels(edata, "target", before_nodes),
-                    )
-                )
+        nodes_added, nodes_removed, nodes_modified = self._compute_node_deltas(
+            before_nodes, after_nodes,
+        )
+        edges_added, edges_removed, edges_modified = self._compute_edge_deltas(
+            before_edges, after_edges, after_nodes, before_nodes,
+        )
 
         total = (
             len(nodes_added)
@@ -306,6 +242,107 @@ class GraphDiffer:
             edge_count_before=len(before_edges),
             edge_count_after=len(after_edges),
         )
+
+    def _compute_node_deltas(
+        self,
+        before_nodes: dict[str, Any],
+        after_nodes: dict[str, Any],
+    ) -> tuple[list[NodeDelta], list[NodeDelta], list[NodeDelta]]:
+        added: list[NodeDelta] = []
+        removed: list[NodeDelta] = []
+        modified: list[NodeDelta] = []
+
+        for nid, ndata in after_nodes.items():
+            if nid not in before_nodes:
+                added.append(
+                    NodeDelta(
+                        node_id=nid,
+                        node_label=ndata.get("label", ""),
+                        change_type="added",
+                        new_data=ndata.get("data"),
+                        new_weight=ndata.get("weight", 0.0),
+                    )
+                )
+            else:
+                old = before_nodes[nid]
+                if old.get("weight") != ndata.get("weight") or old.get("data") != ndata.get("data"):
+                    modified.append(
+                        NodeDelta(
+                            node_id=nid,
+                            node_label=ndata.get("label", ""),
+                            change_type="modified",
+                            old_data=old.get("data"),
+                            new_data=ndata.get("data"),
+                            old_weight=old.get("weight", 0.0),
+                            new_weight=ndata.get("weight", 0.0),
+                        )
+                    )
+
+        for nid, ndata in before_nodes.items():
+            if nid not in after_nodes:
+                removed.append(
+                    NodeDelta(
+                        node_id=nid,
+                        node_label=ndata.get("label", ""),
+                        change_type="removed",
+                        old_data=ndata.get("data"),
+                        old_weight=ndata.get("weight", 0.0),
+                    )
+                )
+
+        return added, removed, modified
+
+    def _compute_edge_deltas(
+        self,
+        before_edges: dict[str, Any],
+        after_edges: dict[str, Any],
+        after_nodes: dict[str, Any],
+        before_nodes: dict[str, Any],
+    ) -> tuple[list[EdgeDelta], list[EdgeDelta], list[EdgeDelta]]:
+        added: list[EdgeDelta] = []
+        removed: list[EdgeDelta] = []
+        modified: list[EdgeDelta] = []
+
+        for eid, edata in after_edges.items():
+            if eid not in before_edges:
+                added.append(
+                    EdgeDelta(
+                        edge_id=eid,
+                        change_type="added",
+                        new_label=edata.get("label", ""),
+                        new_weight=edata.get("weight", 0.0),
+                        source_label=self._resolve_edge_labels(edata, "source", after_nodes),
+                        target_label=self._resolve_edge_labels(edata, "target", after_nodes),
+                    )
+                )
+            else:
+                old = before_edges[eid]
+                if old.get("weight") != edata.get("weight") or old.get("label") != edata.get("label"):
+                    modified.append(
+                        EdgeDelta(
+                            edge_id=eid,
+                            change_type="modified",
+                            old_label=old.get("label", ""),
+                            new_label=edata.get("label", ""),
+                            old_weight=old.get("weight", 0.0),
+                            new_weight=edata.get("weight", 0.0),
+                        )
+                    )
+
+        for eid, edata in before_edges.items():
+            if eid not in after_edges:
+                removed.append(
+                    EdgeDelta(
+                        edge_id=eid,
+                        change_type="removed",
+                        old_label=edata.get("label", ""),
+                        old_weight=edata.get("weight", 0.0),
+                        source_label=self._resolve_edge_labels(edata, "source", before_nodes),
+                        target_label=self._resolve_edge_labels(edata, "target", before_nodes),
+                    )
+                )
+
+        return added, removed, modified
 
     def _resolve_edge_labels(
         self,

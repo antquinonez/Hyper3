@@ -210,16 +210,27 @@ class BranchialSpace:
         if not nodes_a or not nodes_b:
             return float("inf")
 
-        if self._embedding_engine is not None:
-            emb_a = self._get_state_embedding(a_id)
-            emb_b = self._get_state_embedding(b_id)
-            if emb_a is not None and emb_b is not None:
-                norm_a = np.linalg.norm(emb_a)
-                norm_b = np.linalg.norm(emb_b)
-                if norm_a > 0 and norm_b > 0:
-                    cosine_sim = float(np.dot(emb_a, emb_b) / (norm_a * norm_b))
-                    return float(1.0 - cosine_sim)
+        result = self._embedding_cosine_distance(a_id, b_id)
+        if result is not None:
+            return result
 
+        return self._label_jaccard_distance(nodes_a, nodes_b)
+
+    def _embedding_cosine_distance(self, a_id: str, b_id: str) -> float | None:
+        if self._embedding_engine is None:
+            return None
+        emb_a = self._get_state_embedding(a_id)
+        emb_b = self._get_state_embedding(b_id)
+        if emb_a is None or emb_b is None:
+            return None
+        norm_a = np.linalg.norm(emb_a)
+        norm_b = np.linalg.norm(emb_b)
+        if norm_a > 0 and norm_b > 0:
+            cosine_sim = float(np.dot(emb_a, emb_b) / (norm_a * norm_b))
+            return float(1.0 - cosine_sim)
+        return None
+
+    def _label_jaccard_distance(self, nodes_a: frozenset[str], nodes_b: frozenset[str]) -> float:
         labels_a: set[str] = set()
         labels_b: set[str] = set()
         for nid in nodes_a:
@@ -401,35 +412,42 @@ class BranchialSpace:
                 if total_a == 0 or total_b == 0:
                     continue
                 correlation = 2.0 * len(shared) / (total_a + total_b)
-                if correlation >= min_correlation:
-                    constraint_map: dict[str, str] = {}
-                    for nid in shared:
-                        node = self._graph.get_node(nid)
-                        if node:
-                            for eid in a.produced_edge_ids:
-                                edge = self._graph.get_edge(eid)
-                                if edge and nid in edge.source_ids:
-                                    for tid in edge.target_ids:
-                                        tn = self._graph.get_node(tid)
-                                        if tn:
-                                            constraint_map[f"state_a:{node.label}"] = tn.label
-                            for eid in b.produced_edge_ids:
-                                edge = self._graph.get_edge(eid)
-                                if edge and nid in edge.source_ids:
-                                    for tid in edge.target_ids:
-                                        tn = self._graph.get_node(tid)
-                                        if tn:
-                                            constraint_map[f"state_b:{node.label}"] = tn.label
-
-                    corr = BranchialCorrelation(
-                        state_a_id=a.id,
-                        state_b_id=b.id,
-                        correlation=correlation,
-                        shared_concept_ids=shared,
-                        constraint_map=constraint_map,
-                    )
-                    self._correlations.append(corr)
+                if correlation < min_correlation:
+                    continue
+                constraint_map = self._build_correlation_constraint_map(a, b, shared)
+                corr = BranchialCorrelation(
+                    state_a_id=a.id,
+                    state_b_id=b.id,
+                    correlation=correlation,
+                    shared_concept_ids=shared,
+                    constraint_map=constraint_map,
+                )
+                self._correlations.append(corr)
         return self._correlations
+
+    def _build_correlation_constraint_map(
+        self, a: MultiwayState, b: MultiwayState, shared: frozenset[str] | set[str]
+    ) -> dict[str, str]:
+        constraint_map: dict[str, str] = {}
+        for nid in shared:
+            node = self._graph.get_node(nid)
+            if not node:
+                continue
+            self._collect_state_constraints(a.produced_edge_ids, nid, node.label, "state_a", constraint_map)
+            self._collect_state_constraints(b.produced_edge_ids, nid, node.label, "state_b", constraint_map)
+        return constraint_map
+
+    def _collect_state_constraints(
+        self, edge_ids: frozenset[str] | list[str], source_nid: str, source_label: str,
+        prefix: str, constraint_map: dict[str, str]
+    ) -> None:
+        for eid in edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge and source_nid in edge.source_ids:
+                for tid in edge.target_ids:
+                    tn = self._graph.get_node(tid)
+                    if tn:
+                        constraint_map[f"{prefix}:{source_label}"] = tn.label
 
     def find_neighbors(self, state_id: str, max_distance: float = 2.0) -> list[tuple[str, float]]:
         """Find states within a coordinate distance radius.
@@ -487,27 +505,35 @@ class BranchialSpace:
             peer = self._multiway.get_state(peer_id)
             if not peer:
                 continue
-            novel_in_peer = set(peer.produced_node_ids) - set(current.produced_node_ids)
-            novel_in_current = set(current.produced_node_ids) - set(peer.produced_node_ids)
-            complementary = novel_in_peer & (set(n.id for n in self._graph.nodes) - set(current.produced_node_ids))
-            if novel_in_peer or novel_in_current:
-                insight: dict[str, Any] = {
-                    "source_state": state_id,
-                    "lateral_state": peer_id,
-                    "rule_used": peer.rule_applied,
-                    "novel_in_source": list(novel_in_current),
-                    "novel_in_lateral": list(novel_in_peer),
-                    "complementary_nodes": list(complementary),
-                    "transferable_patterns": self._find_transferable(current, peer),
-                    "branchial_distance": 0.0,
-                }
-                if self._embedding_engine is not None:
-                    insight["semantic_novelty_scores"] = self._rank_novel_by_similarity(
-                        novel_in_peer,
-                        current.active_node_ids,
-                    )
+            insight = self._build_peer_insight(state_id, current, peer_id, peer)
+            if insight is not None:
                 insights.append(insight)
         return insights
+
+    def _build_peer_insight(
+        self, state_id: str, current: MultiwayState, peer_id: str, peer: MultiwayState
+    ) -> dict[str, Any] | None:
+        novel_in_peer = set(peer.produced_node_ids) - set(current.produced_node_ids)
+        novel_in_current = set(current.produced_node_ids) - set(peer.produced_node_ids)
+        complementary = novel_in_peer & (set(n.id for n in self._graph.nodes) - set(current.produced_node_ids))
+        if not novel_in_peer and not novel_in_current:
+            return None
+        insight: dict[str, Any] = {
+            "source_state": state_id,
+            "lateral_state": peer_id,
+            "rule_used": peer.rule_applied,
+            "novel_in_source": list(novel_in_current),
+            "novel_in_lateral": list(novel_in_peer),
+            "complementary_nodes": list(complementary),
+            "transferable_patterns": self._find_transferable(current, peer),
+            "branchial_distance": 0.0,
+        }
+        if self._embedding_engine is not None:
+            insight["semantic_novelty_scores"] = self._rank_novel_by_similarity(
+                novel_in_peer,
+                current.active_node_ids,
+            )
+        return insight
 
     def _rank_novel_by_similarity(
         self,
@@ -616,55 +642,11 @@ class BranchialSpace:
         target_coord = self._coordinates.get(target_state_id)
         distance = source_coord.distance_to(target_coord) if source_coord and target_coord else float("inf")
 
-        mapping: dict[str, str] = {}
-        source_nodes = list(source.active_node_ids)
-        target_nodes = list(target.active_node_ids)
+        mapping = self._compute_node_mapping(
+            list(source.active_node_ids), list(target.active_node_ids)
+        )
 
-        def _neighborhood_signature(nid: str) -> frozenset[str]:
-            """Return a frozenset of edge labels incident to *nid*."""
-            labels: set[str] = set()
-            for edge in self._graph.incident_edges(nid):
-                if edge.label:
-                    labels.add(edge.label)
-            return frozenset(labels)
-
-        source_sigs = {s: _neighborhood_signature(s) for s in source_nodes}
-        target_sigs = {t: _neighborhood_signature(t) for t in target_nodes}
-
-        used_targets: set[str] = set()
-        for s_id in source_nodes:
-            s_sig = source_sigs[s_id]
-            best_t: str | None = None
-            best_overlap: float = -1.0
-            for t_id in target_nodes:
-                if t_id in used_targets:
-                    continue
-                t_sig = target_sigs[t_id]
-                if not s_sig and not t_sig:
-                    overlap = 0.5
-                elif not s_sig or not t_sig:
-                    overlap = 0.0
-                else:
-                    overlap = len(s_sig & t_sig) / len(s_sig | t_sig)
-                if overlap > best_overlap:
-                    best_overlap = overlap
-                    best_t = t_id
-            if best_t is not None and best_overlap > 0:
-                mapping[s_id] = best_t
-                used_targets.add(best_t)
-
-        proposed: list[dict[str, Any]] = []
-        for label in source_patterns:
-            existing = {e.label for eid in target.produced_edge_ids for e in [self._graph.get_edge(eid)] if e}
-            if label not in existing:
-                for s_src, t_src in mapping.items():
-                    proposed.append(
-                        {
-                            "source_node": s_src,
-                            "target_node": t_src,
-                            "edge_label": label,
-                        }
-                    )
+        proposed = self._build_proposed_edges(source_patterns, target, mapping)
 
         structural_overlap = len(set(source.produced_edge_ids) & set(target.produced_edge_ids)) / max(
             len(set(source.produced_edge_ids) | set(target.produced_edge_ids)), 1
@@ -679,6 +661,68 @@ class BranchialSpace:
             confidence=min(conf, 1.0),
             mapping=mapping,
         )
+
+    def _compute_node_mapping(self, source_nodes: list[str], target_nodes: list[str]) -> dict[str, str]:
+        def _neighborhood_signature(nid: str) -> frozenset[str]:
+            """Return a frozenset of edge labels incident to *nid*."""
+            labels: set[str] = set()
+            for edge in self._graph.incident_edges(nid):
+                if edge.label:
+                    labels.add(edge.label)
+            return frozenset(labels)
+
+        source_sigs = {s: _neighborhood_signature(s) for s in source_nodes}
+        target_sigs = {t: _neighborhood_signature(t) for t in target_nodes}
+
+        mapping: dict[str, str] = {}
+        used_targets: set[str] = set()
+        for s_id in source_nodes:
+            best_t, best_overlap = self._find_best_target(
+                source_sigs[s_id], target_nodes, target_sigs, used_targets
+            )
+            if best_t is not None and best_overlap > 0:
+                mapping[s_id] = best_t
+                used_targets.add(best_t)
+        return mapping
+
+    def _find_best_target(
+        self, s_sig: frozenset[str], target_nodes: list[str],
+        target_sigs: dict[str, frozenset[str]], used_targets: set[str]
+    ) -> tuple[str | None, float]:
+        best_t: str | None = None
+        best_overlap: float = -1.0
+        for t_id in target_nodes:
+            if t_id in used_targets:
+                continue
+            overlap = self._sig_overlap(s_sig, target_sigs[t_id])
+            if overlap > best_overlap:
+                best_overlap = overlap
+                best_t = t_id
+        return best_t, best_overlap
+
+    def _sig_overlap(self, a: frozenset[str], b: frozenset[str]) -> float:
+        if not a and not b:
+            return 0.5
+        if not a or not b:
+            return 0.0
+        return len(a & b) / len(a | b)
+
+    def _build_proposed_edges(
+        self, source_patterns: list[str], target: MultiwayState, mapping: dict[str, str]
+    ) -> list[dict[str, Any]]:
+        existing = {e.label for eid in target.produced_edge_ids for e in [self._graph.get_edge(eid)] if e}
+        proposed: list[dict[str, Any]] = []
+        for label in source_patterns:
+            if label not in existing:
+                for s_src, t_src in mapping.items():
+                    proposed.append(
+                        {
+                            "source_node": s_src,
+                            "target_node": t_src,
+                            "edge_label": label,
+                        }
+                    )
+        return proposed
 
     def find_all_analogies(
         self,
@@ -731,34 +775,37 @@ class BranchialSpace:
         while open_set:
             _, current = heapq.heappop(open_set)
             if current == target_state_id:
-                path = [current]
-                while current in came_from:
-                    current = came_from[current]
-                    path.append(current)
-                path.reverse()
-                return path
+                return self._reconstruct_path(came_from, current)
             if current in closed:
                 continue
             closed.add(current)
-            children = self._multiway.get_children(current)
-            parent = self._multiway.get_state(current)
-            if parent and parent.parent_id:
-                siblings = self._multiway.get_children(parent.parent_id)
-                neighbors = [c.id for c in children] + [parent.parent_id] + [s.id for s in siblings if s.id != current]
-            else:
-                neighbors = [c.id for c in children]
-            for neighbor in neighbors:
+            for neighbor in self._get_astar_neighbors(current):
                 if neighbor in closed or neighbor not in self._coordinates:
                     continue
-                coord = self._coordinates[neighbor]
                 edge_cost = 1.0
                 tentative_g = g_score[current] + edge_cost
                 if tentative_g < g_score.get(neighbor, float("inf")):
                     came_from[neighbor] = current
                     g_score[neighbor] = tentative_g
-                    h = coord.distance_to(target_pos)
+                    h = self._coordinates[neighbor].distance_to(target_pos)
                     heapq.heappush(open_set, (tentative_g + h, neighbor))
         return []
+
+    def _reconstruct_path(self, came_from: dict[str, str], current: str) -> list[str]:
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        path.reverse()
+        return path
+
+    def _get_astar_neighbors(self, state_id: str) -> list[str]:
+        children = self._multiway.get_children(state_id)
+        state = self._multiway.get_state(state_id)
+        if state and state.parent_id:
+            siblings = self._multiway.get_children(state.parent_id)
+            return [c.id for c in children] + [state.parent_id] + [s.id for s in siblings if s.id != state_id]
+        return [c.id for c in children]
 
     def nearest_high_density_region(self, state_id: str) -> str | None:
         """Find the nearest state in the largest cluster."""
@@ -874,19 +921,11 @@ class BranchialSpace:
         if len(states) < 3:
             return MultiScaleAnalysis()
 
-        max_len = max(len(self._coordinates[s].position) for s in states)
-        if max_len == 0:
-            max_len = 1
-        data = np.zeros((len(states), max_len))
-        for i, sid in enumerate(states):
-            coord = self._coordinates[sid]
-            if coord.position:
-                arr = np.array(coord.position)
-                data[i, : len(arr)] = arr
-
-        if data.shape[1] == 0:
+        result = self._build_coordinate_matrix(states)
+        if result is None:
             return MultiScaleAnalysis()
 
+        data = result
         Z = linkage(data, method="ward")
 
         analysis = MultiScaleAnalysis()
@@ -901,6 +940,27 @@ class BranchialSpace:
         meso_labels = fcluster(Z, t=meso_k, criterion="maxclust")
         analysis.meso = self._build_scale_level("meso", states, meso_labels)
 
+        analysis.micro = self._build_micro_scale()
+
+        self._populate_cross_scale_insights(analysis)
+
+        return analysis
+
+    def _build_coordinate_matrix(self, states: list[str]) -> np.ndarray | None:
+        max_len = max(len(self._coordinates[s].position) for s in states)
+        if max_len == 0:
+            max_len = 1
+        data = np.zeros((len(states), max_len))
+        for i, sid in enumerate(states):
+            coord = self._coordinates[sid]
+            if coord.position:
+                arr = np.array(coord.position)
+                data[i, : len(arr)] = arr
+        if data.shape[1] == 0:
+            return None
+        return data
+
+    def _build_micro_scale(self) -> ScaleLevel:
         groups = self.build_simultaneity_groups()
         micro_clusters_list: list[BranchialCluster] = []
         for group in groups:
@@ -909,12 +969,13 @@ class BranchialSpace:
                 label=f"simultaneous_{group.depth}",
             )
             micro_clusters_list.append(cluster)
-        analysis.micro = ScaleLevel(
+        return ScaleLevel(
             name="micro",
             n_clusters=len(micro_clusters_list),
             clusters=micro_clusters_list,
         )
 
+    def _populate_cross_scale_insights(self, analysis: MultiScaleAnalysis) -> None:
         if analysis.macro.n_clusters > 1:
             analysis.cross_scale_insights.append(f"Macro structure: {analysis.macro.n_clusters} major regions")
         if analysis.meso.n_clusters > analysis.macro.n_clusters:
@@ -925,8 +986,6 @@ class BranchialSpace:
             analysis.cross_scale_insights.append(
                 f"Micro structure: {analysis.micro.n_clusters} simultaneous state groups"
             )
-
-        return analysis
 
     def _build_scale_level(self, name: str, states: list[str], labels: np.ndarray) -> ScaleLevel:
         """Build a ScaleLevel from cluster label assignments, including balance insights."""

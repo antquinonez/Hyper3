@@ -69,6 +69,39 @@ class SpreadingActivation:
         if node:
             self.stimulate(node.id, energy)
 
+    def _compute_spread_for_node(self, node_id: str, activation: float) -> tuple[dict[str, float], dict[str, int]]:
+        delta: dict[str, float] = {}
+        delta_depth: dict[str, int] = {}
+        edges = self._graph.incident_edges(node_id)
+        for edge in edges:
+            rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
+            if self._config.directional:
+                if node_id in edge.source_ids:
+                    neighbors = edge.target_ids
+                else:
+                    neighbors = edge.source_ids
+                    rate *= 0.3
+            else:
+                neighbors = edge.node_ids - {node_id}
+            spread_energy = activation * rate * self._config.decay_factor
+            per_neighbor = spread_energy / len(neighbors) if neighbors else 0.0
+            for neighbor_id in neighbors:
+                delta[neighbor_id] = delta.get(neighbor_id, 0.0) + per_neighbor
+                current_depth = self._depth_map.get(node_id, 0)
+                existing_depth = self._depth_map.get(neighbor_id)
+                new_depth = current_depth + 1
+                if existing_depth is None or new_depth < existing_depth:
+                    delta_depth[neighbor_id] = new_depth
+        return delta, delta_depth
+
+    def _apply_normalization(self, current_max: float) -> None:
+        if self._config.normalize_per_step and current_max > 0:
+            new_max = max(self._activations.values()) if self._activations else 0.0
+            if new_max > 0:
+                scale = current_max / new_max
+                self._activations = {nid: a * scale for nid, a in self._activations.items()}
+        self._activations = {nid: a for nid, a in self._activations.items() if a >= self._config.min_activation}
+
     def spread(self, iterations: int | None = None) -> dict[str, float]:
         """Spread activation energy across graph edges for the given number of iterations.
 
@@ -85,37 +118,19 @@ class SpreadingActivation:
             delta_depth: dict[str, int] = {}
             current_max = max(self._activations.values()) if self._activations else 0.0
             for node_id, activation in list(self._activations.items()):
-                edges = self._graph.incident_edges(node_id)
-                for edge in edges:
-                    rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
-                    if self._config.directional:
-                        if node_id in edge.source_ids:
-                            neighbors = edge.target_ids
-                        else:
-                            neighbors = edge.source_ids
-                            rate *= 0.3
-                    else:
-                        neighbors = edge.node_ids - {node_id}
-                    spread_energy = activation * rate * self._config.decay_factor
-                    per_neighbor = spread_energy / len(neighbors) if neighbors else 0.0
-                    for neighbor_id in neighbors:
-                        delta[neighbor_id] = delta.get(neighbor_id, 0.0) + per_neighbor
-                        current_depth = self._depth_map.get(node_id, 0)
-                        existing_depth = self._depth_map.get(neighbor_id)
-                        new_depth = current_depth + 1
-                        if existing_depth is None or new_depth < existing_depth:
-                            delta_depth[neighbor_id] = new_depth
+                node_delta, node_depth = self._compute_spread_for_node(node_id, activation)
+                for nid, energy in node_delta.items():
+                    delta[nid] = delta.get(nid, 0.0) + energy
+                for nid, depth in node_depth.items():
+                    existing = delta_depth.get(nid)
+                    if existing is None or depth < existing:
+                        delta_depth[nid] = depth
             for nid, energy in delta.items():
                 self._activations[nid] = self._activations.get(nid, 0.0) + energy
             for nid, depth in delta_depth.items():
                 if nid not in self._depth_map or depth < self._depth_map[nid]:
                     self._depth_map[nid] = depth
-            if self._config.normalize_per_step and current_max > 0:
-                new_max = max(self._activations.values()) if self._activations else 0.0
-                if new_max > 0:
-                    scale = current_max / new_max
-                    self._activations = {nid: a * scale for nid, a in self._activations.items()}
-            self._activations = {nid: a for nid, a in self._activations.items() if a >= self._config.min_activation}
+            self._apply_normalization(current_max)
         return dict(self._activations)
 
     def get_activated(
@@ -198,6 +213,49 @@ class SpreadingActivation:
         results = [r for r in results if r.node_id != seed_node.id]
         return results[:top_k]
 
+    def _compute_gate_energy(
+        self,
+        mode: str,
+        source_activations: list[float],
+        activated_sources: int,
+        total_sources: int,
+    ) -> float | None:
+        if mode == "and":
+            if activated_sources < total_sources:
+                return None
+            return sum(source_activations) / total_sources
+        elif mode == "or":
+            if activated_sources == 0:
+                return None
+            return max(source_activations)
+        elif mode == "majority":
+            if activated_sources <= total_sources // 2:
+                return None
+            return sum(a for a in source_activations if a > 0) / max(activated_sources, 1)
+        else:
+            return sum(source_activations) / total_sources
+
+    def _compute_hyperedge_delta(self, edge, mode: str, delta: dict[str, float], delta_depth: dict[str, int]) -> None:
+        if not edge.source_ids or not edge.target_ids:
+            return
+        rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
+        source_activations = [self._activations.get(sid, 0.0) for sid in edge.source_ids]
+        activated_sources = sum(1 for a in source_activations if a > 0)
+        gate_energy = self._compute_gate_energy(mode, source_activations, activated_sources, len(edge.source_ids))
+        if gate_energy is None:
+            return
+        spread_energy = gate_energy * rate * self._config.decay_factor
+        per_target = spread_energy / len(edge.target_ids)
+        for tid in edge.target_ids:
+            delta[tid] = delta.get(tid, 0.0) + per_target
+            for sid in edge.source_ids:
+                if sid in self._depth_map:
+                    new_depth = self._depth_map[sid] + 1
+                    existing = delta_depth.get(tid)
+                    if existing is None or new_depth < existing:
+                        delta_depth[tid] = new_depth
+                    break
+
     def spread_hyperedge(
         self,
         *,
@@ -235,40 +293,7 @@ class SpreadingActivation:
             delta_depth: dict[str, int] = {}
 
             for edge in self._graph.edges:
-                if not edge.source_ids or not edge.target_ids:
-                    continue
-                rate = self._config.label_rates.get(edge.label, 1.0) * edge.weight * self._config.edge_weight_scale
-
-                source_activations = [self._activations.get(sid, 0.0) for sid in edge.source_ids]
-                activated_sources = sum(1 for a in source_activations if a > 0)
-
-                if mode == "and":
-                    if activated_sources < len(edge.source_ids):
-                        continue
-                    gate_energy = sum(source_activations) / len(edge.source_ids)
-                elif mode == "or":
-                    if activated_sources == 0:
-                        continue
-                    gate_energy = max(source_activations)
-                elif mode == "majority":
-                    if activated_sources <= len(edge.source_ids) // 2:
-                        continue
-                    gate_energy = sum(a for a in source_activations if a > 0) / max(activated_sources, 1)
-                else:
-                    gate_energy = sum(source_activations) / len(edge.source_ids)
-
-                spread_energy = gate_energy * rate * self._config.decay_factor
-                per_target = spread_energy / len(edge.target_ids)
-
-                for tid in edge.target_ids:
-                    delta[tid] = delta.get(tid, 0.0) + per_target
-                    for sid in edge.source_ids:
-                        if sid in self._depth_map:
-                            new_depth = self._depth_map[sid] + 1
-                            existing = delta_depth.get(tid)
-                            if existing is None or new_depth < existing:
-                                delta_depth[tid] = new_depth
-                            break
+                self._compute_hyperedge_delta(edge, mode, delta, delta_depth)
 
             for nid, energy in delta.items():
                 self._activations[nid] = self._activations.get(nid, 0.0) + energy

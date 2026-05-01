@@ -492,6 +492,42 @@ class MultiwayEngine:
                 )
         return insights
 
+    def _apply_single_match(
+        self,
+        state: MultiwayState,
+        rule: Rule,
+        match: RuleMatch,
+        target_graph: Any,
+        report: ExpansionReport,
+        overlay: Any | None = None,
+        confidence_decay: float = 0.9,
+    ) -> str:
+        new_nodes, new_edges = rule.apply(target_graph, match)
+        new_active = state.active_node_ids | frozenset(new_nodes)
+        child = MultiwayState(
+            parent_id=state.id,
+            active_node_ids=new_active,
+            rule_applied=rule.name,
+            match_bindings=match.bindings,
+            depth=state.depth + 1,
+            produced_node_ids=new_nodes,
+            produced_edge_ids=new_edges,
+            timestamp=time.time(),
+        )
+        self._multiway.add_state(child)
+        report.rules_applied += 1
+        report.nodes_produced += len(new_nodes)
+        report.edges_produced += len(new_edges)
+        if overlay is not None and hasattr(overlay, "set_confidence"):
+            parent_conf = 1.0
+            for eid in state.produced_edge_ids:
+                if hasattr(overlay, "get_confidence"):
+                    parent_conf = min(parent_conf, overlay.get_confidence(eid))
+            for eid in new_edges:
+                overlay.set_confidence(eid, parent_conf * confidence_decay)
+            report.confidence_map.update({eid: overlay.get_confidence(eid) for eid in new_edges})
+        return child.id
+
     def _expand_state(
         self,
         state: MultiwayState,
@@ -531,30 +567,8 @@ class MultiwayEngine:
 
         new_state_ids: list[str] = []
         for rule, match in all_matches:
-            new_nodes, new_edges = rule.apply(target_graph, match)
-            new_active = state.active_node_ids | frozenset(new_nodes)
-            child = MultiwayState(
-                parent_id=state.id,
-                active_node_ids=new_active,
-                rule_applied=rule.name,
-                match_bindings=match.bindings,
-                depth=state.depth + 1,
-                produced_node_ids=new_nodes,
-                produced_edge_ids=new_edges,
-                timestamp=time.time(),
+            child_id = self._apply_single_match(
+                state, rule, match, target_graph, report, overlay, confidence_decay
             )
-            self._multiway.add_state(child)
-            new_state_ids.append(child.id)
-            report.rules_applied += 1
-            report.nodes_produced += len(new_nodes)
-            report.edges_produced += len(new_edges)
-            if overlay is not None and hasattr(overlay, "set_confidence"):
-                parent_conf = 1.0
-                for eid in state.produced_edge_ids:
-                    if hasattr(overlay, "get_confidence"):
-                        parent_conf = min(parent_conf, overlay.get_confidence(eid))
-                for eid in new_edges:
-                    overlay.set_confidence(eid, parent_conf * confidence_decay)
-                report.confidence_map.update({eid: overlay.get_confidence(eid) for eid in new_edges})
-
+            new_state_ids.append(child_id)
         return new_state_ids

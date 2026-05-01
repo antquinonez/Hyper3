@@ -139,37 +139,8 @@ class RobustReachabilityDetector:
         frame_edges: dict[str, set[str]] = {}
         all_frames = list(self._perspective._frames.keys())
         for frame_name in all_frames:
-            max_depth = 3
-            min_weight = 0.0
-            if seed_ids:
-                concept_node = graph.get_node(seed_ids[0])
-                concept = concept_node.label if concept_node else ""
-                analysis = self._perspective.analyze_in_frame(concept, frame_name)
-                params = analysis.parameters or {}
-                max_depth = int(params.get("max_depth", 3))
-                if frame_name == "probabilistic":
-                    min_weight = 0.3
-                elif frame_name == "quantum":
-                    max_depth = max(max_depth, 4)
-                elif frame_name == "hypergraph":
-                    min_weight = 0.1
-            reachable: set[str] = set(seed_ids)
-            edges_used: set[str] = set()
-            frontier = list(seed_ids)
-            visited: set[str] = set(seed_ids)
-            for _ in range(max_depth):
-                next_frontier: list[str] = []
-                for nid in frontier:
-                    for edge in graph.incident_edges(nid):
-                        if edge.weight < min_weight:
-                            continue
-                        for tgt in edge.target_ids:
-                            if tgt not in visited:
-                                visited.add(tgt)
-                                next_frontier.append(tgt)
-                            reachable.add(tgt)
-                        edges_used.add(edge.id)
-                frontier = next_frontier
+            max_depth, min_weight = self._frame_traversal_params(seed_ids, graph, frame_name)
+            reachable, edges_used = self._bfs_reachable_with_edges(seed_ids, graph, max_depth, min_weight)
             frame_reachability[frame_name] = reachable
             frame_edges[frame_name] = edges_used
 
@@ -194,6 +165,54 @@ class RobustReachabilityDetector:
             confidence=confidence,
             frame_count=len(all_frames),
         )
+
+    def _frame_traversal_params(
+        self,
+        seed_ids: list[str],
+        graph: Hypergraph,
+        frame_name: str,
+    ) -> tuple[int, float]:
+        max_depth = 3
+        min_weight = 0.0
+        if seed_ids:
+            concept_node = graph.get_node(seed_ids[0])
+            concept = concept_node.label if concept_node else ""
+            analysis = self._perspective.analyze_in_frame(concept, frame_name)
+            params = analysis.parameters or {}
+            max_depth = int(params.get("max_depth", 3))
+            if frame_name == "probabilistic":
+                min_weight = 0.3
+            elif frame_name == "quantum":
+                max_depth = max(max_depth, 4)
+            elif frame_name == "hypergraph":
+                min_weight = 0.1
+        return max_depth, min_weight
+
+    def _bfs_reachable_with_edges(
+        self,
+        seed_ids: list[str],
+        graph: Hypergraph,
+        max_depth: int,
+        min_weight: float,
+    ) -> tuple[set[str], set[str]]:
+        reachable: set[str] = set(seed_ids)
+        edges_used: set[str] = set()
+        frontier = list(seed_ids)
+        visited: set[str] = set(seed_ids)
+        for _ in range(max_depth):
+            next_frontier: list[str] = []
+            for nid in frontier:
+                for edge in graph.incident_edges(nid):
+                    if edge.weight < min_weight:
+                        continue
+                    for tgt in edge.target_ids:
+                        if tgt not in visited:
+                            visited.add(tgt)
+                            next_frontier.append(tgt)
+                        reachable.add(tgt)
+                    edges_used.add(edge.id)
+            frontier = next_frontier
+        return reachable, edges_used
 
     def mark_invariants(self, invariant_set: RobustReachabilitySet, graph: Hypergraph) -> None:
         """Annotate graph nodes and edges with invariant metadata.
@@ -374,35 +393,15 @@ class MultiPerspectiveAnalyzer:
             :class:`PresetAnalysis` with RRF-augmented fields.
         """
         node_ranks: dict[str, dict[str, int]] = {}
-        for _rank_idx, frame_name in enumerate(top2):
+        for frame_name in top2:
             analysis = analyses[frame_name]
-            edges = self._graph.edges
-            sorted_by_complexity = sorted(
-                range(len(edges)),
-                key=lambda i: edges[i].weight,
-                reverse=True,
-            )
-            ranked_nodes: list[str] = []
-            seen: set[str] = set()
-            for idx in sorted_by_complexity:
-                for nid in edges[idx].target_ids:
-                    if nid not in seen:
-                        ranked_nodes.append(nid)
-                        seen.add(nid)
-            params = analysis.parameters or {}
-            if params.get("strategy") == "bfs":
-                pass
-            if frame_name == "probabilistic":
-                ranked_nodes = [n for n in ranked_nodes if any(e.weight >= 0.3 for e in self._graph.incident_edges(n))]
-            for rank, target in enumerate(ranked_nodes[:50]):
+            ranked_nodes = self._rank_nodes_for_frame(frame_name, analysis)
+            for rank, target in enumerate(ranked_nodes):
                 if target not in node_ranks:
                     node_ranks[target] = {}
                 node_ranks[target][frame_name] = rank + 1
 
-        rrf_scores: dict[str, float] = {}
-        for target, frame_ranks in node_ranks.items():
-            score = sum(1.0 / (60 + r) for r in frame_ranks.values())
-            rrf_scores[target] = score
+        rrf_scores = self._compute_rrf_scores(node_ranks)
 
         merged: dict[str, PresetAnalysis] = {}
         for frame_name in top2:
@@ -416,6 +415,34 @@ class MultiPerspectiveAnalyzer:
                 parameters={**(analysis.parameters or {}), "rrf_score": rrf_scores.get(frame_name, 0.0)},
             )
         return merged
+
+    def _rank_nodes_for_frame(self, frame_name: str, analysis: PresetAnalysis) -> list[str]:
+        edges = self._graph.edges
+        sorted_by_complexity = sorted(
+            range(len(edges)),
+            key=lambda i: edges[i].weight,
+            reverse=True,
+        )
+        ranked_nodes: list[str] = []
+        seen: set[str] = set()
+        for idx in sorted_by_complexity:
+            for nid in edges[idx].target_ids:
+                if nid not in seen:
+                    ranked_nodes.append(nid)
+                    seen.add(nid)
+        params = analysis.parameters or {}
+        if params.get("strategy") == "bfs":
+            pass
+        if frame_name == "probabilistic":
+            ranked_nodes = [n for n in ranked_nodes if any(e.weight >= 0.3 for e in self._graph.incident_edges(n))]
+        return ranked_nodes[:50]
+
+    def _compute_rrf_scores(self, node_ranks: dict[str, dict[str, int]]) -> dict[str, float]:
+        rrf_scores: dict[str, float] = {}
+        for target, frame_ranks in node_ranks.items():
+            score = sum(1.0 / (60 + r) for r in frame_ranks.values())
+            rrf_scores[target] = score
+        return rrf_scores
 
     def select_optimal_frame(self, concept: str) -> tuple[str, PresetAnalysis]:
         """Choose the frame with the lowest complexity for a concept.
@@ -1035,36 +1062,10 @@ class MultiPerspectiveAnalyzer:
         frame_reachability: dict[str, set[str]] = {}
         frame_analyses: dict[str, PresetAnalysis] = {}
         for frame_name in self._frames:
-            max_depth = 3
-            min_weight = 0.0
-            if seed_ids:
-                concept_node = self._graph.get_node(seed_ids[0])
-                concept = concept_node.label if concept_node else ""
-                analysis = self.analyze_in_frame(concept, frame_name)
+            max_depth, min_weight, analysis = self._consensus_frame_params(seed_ids, frame_name)
+            if analysis is not None:
                 frame_analyses[frame_name] = analysis
-                params = analysis.parameters or {}
-                max_depth = int(params.get("max_depth", 3))
-                if frame_name == "probabilistic":
-                    min_weight = 0.3
-                elif frame_name == "quantum":
-                    max_depth = max(max_depth, 4)
-                elif frame_name == "hypergraph":
-                    min_weight = 0.1
-            reachable: set[str] = set(seed_ids)
-            frontier = list(seed_ids)
-            visited: set[str] = set(seed_ids)
-            for _ in range(max_depth):
-                next_frontier: list[str] = []
-                for nid in frontier:
-                    for edge in self._graph.incident_edges(nid):
-                        if edge.weight < min_weight:
-                            continue
-                        for tgt in edge.target_ids:
-                            if tgt not in visited:
-                                visited.add(tgt)
-                                next_frontier.append(tgt)
-                            reachable.add(tgt)
-                frontier = next_frontier
+            reachable = self._bfs_reachable_set(seed_ids, max_depth, min_weight)
             frame_reachability[frame_name] = reachable
 
         if not frame_reachability:
@@ -1073,19 +1074,7 @@ class MultiPerspectiveAnalyzer:
         all_nodes = set.union(*frame_reachability.values()) if frame_reachability else set()
         intersection = set.intersection(*frame_reachability.values()) if frame_reachability else set()
 
-        disagreements: list[DisagreementRegion] = []
-        for nid in all_nodes - intersection:
-            agreeing = [f for f, nodes in frame_reachability.items() if nid in nodes]
-            disagreeing = [f for f in frame_reachability if f not in agreeing]
-            node_obj = self._graph.get_node(nid)
-            label = node_obj.label if node_obj else nid[:8]
-            disagreements.append(
-                DisagreementRegion(
-                    center_node=label,
-                    frames_agreeing=agreeing,
-                    frames_disagreeing=disagreeing,
-                )
-            )
+        disagreements = self._find_disagreement_regions(frame_reachability, intersection, all_nodes)
 
         resolved = self.resolve_disagreement(
             frame_reachability,
@@ -1102,6 +1091,72 @@ class MultiPerspectiveAnalyzer:
             confidence=confidence,
             strategy_used=strategy,
         )
+
+    def _consensus_frame_params(
+        self,
+        seed_ids: list[str],
+        frame_name: str,
+    ) -> tuple[int, float, PresetAnalysis | None]:
+        max_depth = 3
+        min_weight = 0.0
+        analysis = None
+        if seed_ids:
+            concept_node = self._graph.get_node(seed_ids[0])
+            concept = concept_node.label if concept_node else ""
+            analysis = self.analyze_in_frame(concept, frame_name)
+            params = analysis.parameters or {}
+            max_depth = int(params.get("max_depth", 3))
+            if frame_name == "probabilistic":
+                min_weight = 0.3
+            elif frame_name == "quantum":
+                max_depth = max(max_depth, 4)
+            elif frame_name == "hypergraph":
+                min_weight = 0.1
+        return max_depth, min_weight, analysis
+
+    def _bfs_reachable_set(
+        self,
+        seed_ids: list[str],
+        max_depth: int,
+        min_weight: float,
+    ) -> set[str]:
+        reachable: set[str] = set(seed_ids)
+        visited: set[str] = set(seed_ids)
+        frontier = list(seed_ids)
+        for _ in range(max_depth):
+            next_frontier: list[str] = []
+            for nid in frontier:
+                for edge in self._graph.incident_edges(nid):
+                    if edge.weight < min_weight:
+                        continue
+                    for tgt in edge.target_ids:
+                        if tgt not in visited:
+                            visited.add(tgt)
+                            next_frontier.append(tgt)
+                        reachable.add(tgt)
+            frontier = next_frontier
+        return reachable
+
+    def _find_disagreement_regions(
+        self,
+        frame_reachability: dict[str, set[str]],
+        intersection: set[str],
+        all_nodes: set[str],
+    ) -> list[DisagreementRegion]:
+        disagreements: list[DisagreementRegion] = []
+        for nid in all_nodes - intersection:
+            agreeing = [f for f, nodes in frame_reachability.items() if nid in nodes]
+            disagreeing = [f for f in frame_reachability if f not in agreeing]
+            node_obj = self._graph.get_node(nid)
+            label = node_obj.label if node_obj else nid[:8]
+            disagreements.append(
+                DisagreementRegion(
+                    center_node=label,
+                    frames_agreeing=agreeing,
+                    frames_disagreeing=disagreeing,
+                )
+            )
+        return disagreements
 
     def resolve_disagreement(
         self,
@@ -1128,25 +1183,31 @@ class MultiPerspectiveAnalyzer:
         elif strategy == "union":
             return set.union(*all_sets)
         elif strategy == "majority":
-            n = len(all_sets)
-            threshold = n // 2 + 1
-            counts: dict[str, int] = {}
-            for s in all_sets:
-                for nid in s:
-                    counts[nid] = counts.get(nid, 0) + 1
-            return {nid for nid, c in counts.items() if c >= threshold}
+            return self._resolve_majority(all_sets)
         elif strategy == "weighted":
-            effectiveness = self.get_frame_effectiveness()
-            weighted_counts: dict[str, float] = {}
-            for frame_name, nodes in frame_reachability.items():
-                weight = effectiveness.get(frame_name, 0.5)
-                for nid in nodes:
-                    weighted_counts[nid] = weighted_counts.get(nid, 0.0) + weight
-            if not weighted_counts:
-                return set()
-            threshold = sum(effectiveness.get(f, 0.5) for f in frame_reachability) / 2
-            return {nid for nid, s in weighted_counts.items() if s >= threshold}
+            return self._resolve_weighted(frame_reachability)
         return set.intersection(*all_sets)
+
+    def _resolve_majority(self, all_sets: list[set[str]]) -> set[str]:
+        n = len(all_sets)
+        threshold = n // 2 + 1
+        counts: dict[str, int] = {}
+        for s in all_sets:
+            for nid in s:
+                counts[nid] = counts.get(nid, 0) + 1
+        return {nid for nid, c in counts.items() if c >= threshold}
+
+    def _resolve_weighted(self, frame_reachability: dict[str, set[str]]) -> set[str]:
+        effectiveness = self.get_frame_effectiveness()
+        weighted_counts: dict[str, float] = {}
+        for frame_name, nodes in frame_reachability.items():
+            weight = effectiveness.get(frame_name, 0.5)
+            for nid in nodes:
+                weighted_counts[nid] = weighted_counts.get(nid, 0.0) + weight
+        if not weighted_counts:
+            return set()
+        threshold = sum(effectiveness.get(f, 0.5) for f in frame_reachability) / 2
+        return {nid for nid, s in weighted_counts.items() if s >= threshold}
 
     def compute_local_clustering(self, seed_ids: list[str]) -> float:
         """Compute a local clustering metric based on triangle density among shared neighbors.
@@ -1217,46 +1278,25 @@ class MultiPerspectiveAnalyzer:
             concept_label = concept_node.label
         from_params = self.analyze_in_frame(concept_label, from_frame).parameters or {}
         from_max_depth = int(from_params.get("max_depth", 3))
-        from_min_weight = 0.3 if from_frame == "probabilistic" else 0.1 if from_frame == "hypergraph" else 0.0
-        from_reachable: set[str] = set(seed_ids)
-        from_visited: set[str] = set(seed_ids)
-        frontier = list(seed_ids)
-        for _ in range(from_max_depth):
-            next_f: list[str] = []
-            for nid in frontier:
-                for edge in self._graph.incident_edges(nid):
-                    if edge.weight < from_min_weight:
-                        continue
-                    for tgt in edge.target_ids:
-                        if tgt not in from_visited:
-                            from_visited.add(tgt)
-                            next_f.append(tgt)
-                        from_reachable.add(tgt)
-            frontier = next_f
+        from_min_weight = self._overlap_min_weight(from_frame)
+        from_reachable = self._bfs_reachable_set(seed_ids, from_max_depth, from_min_weight)
 
         to_params = self.analyze_in_frame(concept_label, to_frame).parameters or {}
         to_max_depth = int(to_params.get("max_depth", 3))
-        to_min_weight = 0.3 if to_frame == "probabilistic" else 0.1 if to_frame == "hypergraph" else 0.0
-        to_reachable: set[str] = set(seed_ids)
-        to_visited: set[str] = set(seed_ids)
-        frontier = list(seed_ids)
-        for _ in range(to_max_depth):
-            next_f: list[str] = []
-            for nid in frontier:
-                for edge in self._graph.incident_edges(nid):
-                    if edge.weight < to_min_weight:
-                        continue
-                    for tgt in edge.target_ids:
-                        if tgt not in to_visited:
-                            to_visited.add(tgt)
-                            next_f.append(tgt)
-                        to_reachable.add(tgt)
-            frontier = next_f
+        to_min_weight = self._overlap_min_weight(to_frame)
+        to_reachable = self._bfs_reachable_set(seed_ids, to_max_depth, to_min_weight)
 
         if not from_reachable:
             return 0.0
         overlap = len(from_reachable & to_reachable)
         return overlap / max(len(from_reachable), 1)
+
+    def _overlap_min_weight(self, frame_name: str) -> float:
+        if frame_name == "probabilistic":
+            return 0.3
+        if frame_name == "hypergraph":
+            return 0.1
+        return 0.0
 
     def compute_frame_information_loss(self, seed_ids: list[str], frame: str) -> float:
         """Estimate information loss when viewing from a given perspective.

@@ -83,22 +83,8 @@ class RuleDiscoveryEngine:
         Returns:
             Newly discovered inverse rules.
         """
+        label_pairs, _pair_edges = self._find_inverse_pair_counts()
         discovered: list[DiscoveredRule] = []
-        label_pairs: Counter[str] = Counter()
-        pair_edges: dict[str, list[tuple[str, str]]] = {}
-        for edge_a in self._graph.edges:
-            if not edge_a.label:
-                continue
-            for nid in edge_a.target_ids:
-                for edge_b in self._graph.incident_edges(nid):
-                    if not edge_b.label or edge_b.label == edge_a.label:
-                        continue
-                    if nid in edge_b.source_ids:
-                        for target in edge_b.target_ids:
-                            if target in edge_a.source_ids:
-                                pair_key = f"{edge_a.label}::{edge_b.label}"
-                                label_pairs[pair_key] += 1
-                                pair_edges.setdefault(pair_key, []).append((edge_a.label, edge_b.label))
         for pair_key, count in label_pairs.items():
             if count < min_pair_count:
                 continue
@@ -200,3 +186,21 @@ class RuleDiscoveryEngine:
                             if end_id not in edge_a.source_ids:
                                 count += 1
         return count
+
+    def _find_inverse_pair_counts(self) -> tuple[Counter[str], dict[str, list[tuple[str, str]]]]:
+        label_pairs: Counter[str] = Counter()
+        pair_edges: dict[str, list[tuple[str, str]]] = {}
+        for edge_a in self._graph.edges:
+            if not edge_a.label:
+                continue
+            for nid in edge_a.target_ids:
+                for edge_b in self._graph.incident_edges(nid):
+                    if not edge_b.label or edge_b.label == edge_a.label:
+                        continue
+                    if nid in edge_b.source_ids:
+                        for target in edge_b.target_ids:
+                            if target in edge_a.source_ids:
+                                pair_key = f"{edge_a.label}::{edge_b.label}"
+                                label_pairs[pair_key] += 1
+                                pair_edges.setdefault(pair_key, []).append((edge_a.label, edge_b.label))
+        return label_pairs, pair_edges

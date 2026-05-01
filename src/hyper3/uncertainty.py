@@ -210,8 +210,33 @@ class UncertaintyEngine:
             return None
 
         visited.add(current)
-        best: ConfidenceChain | None = None
+        best = self._explore_neighbor_chains(current, target, path_edges, path_rules, depth, max_depth, visited)
 
+        visited.discard(current)
+
+        if best:
+            self._graph.get_node(current)
+            return ConfidenceChain(
+                start_id=current,
+                end_id=best.end_id,
+                chain_depth=best.chain_depth,
+                chain_confidence=best.chain_confidence,
+                edges=best.edges,
+                rule_names=best.rule_names,
+            )
+        return best
+
+    def _explore_neighbor_chains(
+        self,
+        current: str,
+        target: str,
+        path_edges: list[str],
+        path_rules: list[str],
+        depth: int,
+        max_depth: int,
+        visited: set[str],
+    ) -> ConfidenceChain | None:
+        best: ConfidenceChain | None = None
         for edge in self._graph.incident_edges(current):
             for nxt in edge.target_ids:
                 new_edges = path_edges + [edge.id]
@@ -232,19 +257,6 @@ class UncertaintyEngine:
                 )
                 if result and (best is None or result.chain_confidence > best.chain_confidence):
                     best = result
-
-        visited.discard(current)
-
-        if best:
-            self._graph.get_node(current)
-            return ConfidenceChain(
-                start_id=current,
-                end_id=best.end_id,
-                chain_depth=best.chain_depth,
-                chain_confidence=best.chain_confidence,
-                edges=best.edges,
-                rule_names=best.rule_names,
-            )
         return best
 
     def _combine(self, confidences: list[float]) -> float:

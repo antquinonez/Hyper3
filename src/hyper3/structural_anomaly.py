@@ -193,63 +193,65 @@ class StructuralAnomalyDetector:
             base = 0.3
         return self._context_boost(context, "cyclic_structure", base)
 
-    def _scc_cycle_check(self, node_id: str) -> float:
-        """Return 0.7 if the node is in a strongly connected component of size > 1."""
-        if self._cached_scc is not None and self._cache_graph_ver == self._graph_version():
-            return 0.7 if node_id in self._cached_scc and len(self._cached_scc[node_id]) > 1 else 0.0
+    def _strongconnect(
+        self,
+        v: str,
+        adj: dict[str, list[str]],
+        index_counter: list[int],
+        stack: list[str],
+        on_stack: set[str],
+        indices: dict[str, int],
+        lowlinks: dict[str, int],
+        scc_map: dict[str, list[str]],
+    ) -> None:
+        indices[v] = index_counter[0]
+        lowlinks[v] = index_counter[0]
+        index_counter[0] += 1
+        stack.append(v)
+        on_stack.add(v)
+        for w in adj.get(v, []):
+            if w not in indices:
+                self._strongconnect(w, adj, index_counter, stack, on_stack, indices, lowlinks, scc_map)
+                lowlinks[v] = min(lowlinks[v], lowlinks[w])
+            elif w in on_stack:
+                lowlinks[v] = min(lowlinks[v], indices[w])
+        if lowlinks[v] == indices[v]:
+            component: list[str] = []
+            while True:
+                w = stack.pop()
+                on_stack.discard(w)
+                component.append(w)
+                if w == v:
+                    break
+            for w in component:
+                scc_map[w] = component
 
-        adj: dict[str, list[str]] = {}
-        for node in self._graph.nodes:
-            targets: list[str] = []
-            for edge in self._graph.outgoing_edges(node.id):
-                targets.extend(edge.target_ids)
-            adj[node.id] = targets
+    def _compute_scc(self) -> dict[str, list[str]]:
+        adj = self._build_adjacency()
         index_counter = [0]
         stack: list[str] = []
         on_stack: set[str] = set()
         indices: dict[str, int] = {}
         lowlinks: dict[str, int] = {}
         scc_map: dict[str, list[str]] = {}
-
-        def _strongconnect(v: str) -> None:
-            indices[v] = index_counter[0]
-            lowlinks[v] = index_counter[0]
-            index_counter[0] += 1
-            stack.append(v)
-            on_stack.add(v)
-            for w in adj.get(v, []):
-                if w not in indices:
-                    _strongconnect(w)
-                    lowlinks[v] = min(lowlinks[v], lowlinks[w])
-                elif w in on_stack:
-                    lowlinks[v] = min(lowlinks[v], indices[w])
-            if lowlinks[v] == indices[v]:
-                component: list[str] = []
-                while True:
-                    w = stack.pop()
-                    on_stack.discard(w)
-                    component.append(w)
-                    if w == v:
-                        break
-                for w in component:
-                    scc_map[w] = component
-
         for n in adj:
             if n not in indices:
-                _strongconnect(n)
+                self._strongconnect(n, adj, index_counter, stack, on_stack, indices, lowlinks, scc_map)
+        return scc_map
 
-        self._cached_scc = scc_map
+    def _scc_cycle_check(self, node_id: str) -> float:
+        """Return 0.7 if the node is in a strongly connected component of size > 1."""
+        if self._cached_scc is not None and self._cache_graph_ver == self._graph_version():
+            scc = self._cached_scc
+            return 0.7 if node_id in scc and len(scc[node_id]) > 1 else 0.0
+        self._cached_scc = self._compute_scc()
         self._cache_graph_ver = self._graph_version()
-        return 0.7 if node_id in scc_map and len(scc_map[node_id]) > 1 else 0.0
+        scc = self._cached_scc
+        return 0.7 if node_id in scc and len(scc[node_id]) > 1 else 0.0
 
-    def _dfs_cycle_check(
-        self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None = None
+    def _dfs_check_outgoing(
+        self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None
     ) -> bool:
-        """Check whether a directed path exists from current back to start within max_depth."""
-        if max_depth <= 0:
-            return False
-        if budget is not None and budget[0] <= 0:
-            return False
         for edge in self._graph.incident_edges(current):
             if current not in edge.source_ids:
                 continue
@@ -266,6 +268,16 @@ class StructuralAnomalyDetector:
                         return True
                     visited.discard(tgt)
         return False
+
+    def _dfs_cycle_check(
+        self, start: str, current: str, visited: set[str], max_depth: int, budget: list[int] | None = None
+    ) -> bool:
+        """Check whether a directed path exists from current back to start within max_depth."""
+        if max_depth <= 0:
+            return False
+        if budget is not None and budget[0] <= 0:
+            return False
+        return self._dfs_check_outgoing(start, current, visited, max_depth, budget)
 
     def _detect_high_centrality(self, concept: str, context: dict[str, Any] | None) -> float:
         """Score centrality risk based on degree and eigenvector centrality.
@@ -289,27 +301,17 @@ class StructuralAnomalyDetector:
         base = score * 0.5
         return self._context_boost(context, "high_centrality", base)
 
-    def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
-        """Compute eigenvector centrality for a single node via power iteration.
-
-        Operates on the full graph adjacency for correctness but caches
-        the result so repeated calls during a batch of anomaly checks
-        reuse the same computation.
-        """
-        if total <= 1:
-            return 0.0
-        if self._cached_centrality is not None and self._cache_graph_ver == self._graph_version():
-            return self._cached_centrality.get(node_id, 0.0)
-
-        all_ids = [n.id for n in self._graph.nodes]
-        id_idx = {nid: i for i, nid in enumerate(all_ids)}
-        n = len(all_ids)
+    def _build_adjacency(self) -> dict[str, list[str]]:
         adj: dict[str, list[str]] = {}
         for node in self._graph.nodes:
             targets: list[str] = []
             for edge in self._graph.outgoing_edges(node.id):
                 targets.extend(edge.target_ids)
             adj[node.id] = targets
+        return adj
+
+    @staticmethod
+    def _run_power_iteration(adj: dict[str, list[str]], id_idx: dict[str, int], n: int) -> list[float]:
         x = [1.0 / n] * n
         for _ in range(50):
             x_new = [0.0] * n
@@ -325,6 +327,25 @@ class StructuralAnomalyDetector:
             if norm < 1e-12:
                 break
             x = [v / norm for v in x_new]
+        return x
+
+    def _eigenvector_centrality_local(self, node_id: str, total: int) -> float:
+        """Compute eigenvector centrality for a single node via power iteration.
+
+        Operates on the full graph adjacency for correctness but caches
+        the result so repeated calls during a batch of anomaly checks
+        reuse the same computation.
+        """
+        if total <= 1:
+            return 0.0
+        if self._cached_centrality is not None and self._cache_graph_ver == self._graph_version():
+            return self._cached_centrality.get(node_id, 0.0)
+
+        all_ids = [n.id for n in self._graph.nodes]
+        id_idx = {nid: i for i, nid in enumerate(all_ids)}
+        n = len(all_ids)
+        adj = self._build_adjacency()
+        x = self._run_power_iteration(adj, id_idx, n)
 
         self._cached_centrality = {nid: x[i] for i, nid in enumerate(all_ids)}
         self._cache_graph_ver = self._graph_version()
@@ -356,23 +377,15 @@ class StructuralAnomalyDetector:
             base = 0.3
         return self._context_boost(context, "contradiction", base)
 
-    def _learned_opposition_score(self, node_id: str, labels: list[str]) -> float:
-        """Detect opposition between labels via near-disjoint source node sets."""
-        if len(labels) < 2:
-            return 0.0
-        source_nodes: dict[str, int] = {}
-        for label in labels:
-            for edge in self._graph.edges:
-                if edge.label == label:
-                    for src in edge.source_ids:
-                        source_nodes.setdefault(src, 0)
-                        key = f"{label}:{src}"
-                        source_nodes[key] = 1
+    def _build_label_node_sets(self, labels: list[str]) -> dict[str, set[str]]:
         label_node_sets: dict[str, set[str]] = {}
         for edge in self._graph.edges:
             if edge.label in labels:
                 for src in edge.source_ids:
                     label_node_sets.setdefault(edge.label, set()).add(src)
+        return label_node_sets
+
+    def _check_label_pair_opposition(self, label_node_sets: dict[str, set[str]], labels: list[str]) -> float:
         for i, la in enumerate(labels):
             for lb in labels[i + 1 :]:
                 set_a = label_node_sets.get(la, set())
@@ -383,6 +396,20 @@ class StructuralAnomalyDetector:
                     if total > 0 and overlap / total < 0.1 and len(set_a) >= 2 and len(set_b) >= 2:
                         return 0.6
         return 0.0
+
+    def _learned_opposition_score(self, node_id: str, labels: list[str]) -> float:
+        """Detect opposition between labels via near-disjoint source node sets."""
+        if len(labels) < 2:
+            return 0.0
+        source_nodes: dict[str, int] = {}
+        for label in labels:
+            for edge in self._graph.edges:
+                if edge.label == label:
+                    for src in edge.source_ids:
+                        source_nodes.setdefault(src, 0)
+                        source_nodes[f"{label}:{src}"] = 1
+        label_node_sets = self._build_label_node_sets(labels)
+        return self._check_label_pair_opposition(label_node_sets, labels)
 
     def _are_contradictory(self, label_a: str, label_b: str) -> bool:
         """Return True if the two edge labels form a known contradictory pair."""

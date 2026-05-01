@@ -47,31 +47,13 @@ class AbstractionNavigator:
     def mappings(self) -> dict[str, AbstractionMapping]:
         return dict(self._mappings)
 
-    def collapse_subgraph(
-        self,
-        node_labels: set[str],
-        *,
-        summary_label: str | None = None,
-        summary_data: Any = None,
-        layer: AbstractionLayer = AbstractionLayer.SUMMARY,
-    ) -> AbstractionSummary | None:
-        node_ids: set[str] = set()
-        for lbl in node_labels:
-            node = self._graph.get_node_by_label(lbl)
-            if node:
-                node_ids.add(node.id)
-
-        if not node_ids:
-            return None
-
-        label = summary_label or "+".join(sorted(node_labels)[:3])
-        summary_node = Hypernode(
-            label=label,
-            data=summary_data,
-            metadata=Metadata(abstraction_layer=layer),
-        )
-        self._graph.add_node(summary_node)
-
+    def _classify_edges(
+        self, node_ids: set[str]
+    ) -> tuple[
+        dict[str, list[tuple[str, float, Any]]],
+        dict[str, list[tuple[str, float, Any]]],
+        int,
+    ]:
         external_edges_in: dict[str, list[tuple[str, float, Any]]] = {}
         external_edges_out: dict[str, list[tuple[str, float, Any]]] = {}
         internal_count = 0
@@ -95,10 +77,14 @@ class AbstractionNavigator:
                         (edge.label, edge.weight, edge.data),
                     )
 
-        for edge in list(self._graph.edges):
-            if edge.source_ids & node_ids or edge.target_ids & node_ids:
-                self._graph.remove_edge(edge.id)
+        return external_edges_in, external_edges_out, internal_count
 
+    def _rewire_external_edges(
+        self,
+        external_edges_in: dict[str, list[tuple[str, float, Any]]],
+        external_edges_out: dict[str, list[tuple[str, float, Any]]],
+        summary_node_id: str,
+    ) -> None:
         for ext_src, edge_infos in external_edges_in.items():
             edge_labels_seen: set[str] = set()
             for elabel, eweight, edata in edge_infos:
@@ -106,7 +92,7 @@ class AbstractionNavigator:
                     self._graph.add_edge(
                         Hyperedge(
                             source_ids=frozenset({ext_src}),
-                            target_ids=frozenset({summary_node.id}),
+                            target_ids=frozenset({summary_node_id}),
                             label=elabel,
                             weight=eweight,
                             data=edata,
@@ -120,7 +106,7 @@ class AbstractionNavigator:
                 if elabel not in edge_labels_seen:
                     self._graph.add_edge(
                         Hyperedge(
-                            source_ids=frozenset({summary_node.id}),
+                            source_ids=frozenset({summary_node_id}),
                             target_ids=frozenset({ext_tgt}),
                             label=elabel,
                             weight=eweight,
@@ -129,35 +115,10 @@ class AbstractionNavigator:
                     )
                     edge_labels_seen.add(elabel)
 
-        mapping = AbstractionMapping(
-            summary_node_id=summary_node.id,
-            summary_label=label,
-            detail_node_ids=sorted(node_ids),
-            detail_labels=sorted(node_labels),
-            layer=layer,
-        )
-        self._mappings[summary_node.id] = mapping
-
-        return AbstractionSummary(
-            summary_node=summary_node,
-            mapping=mapping,
-            edges_collapsed=internal_count + len(external_edges_in) + len(external_edges_out),
-            internal_edge_count=internal_count,
-            external_connections=len(external_edges_in) + len(external_edges_out),
-        )
-
-    def expand_node(self, summary_label: str) -> ExpandResult | None:
-        summary_node = self._graph.get_node_by_label(summary_label)
-        if not summary_node:
-            return None
-
-        mapping = self._mappings.get(summary_node.id)
-        if not mapping:
-            return None
-
+    def _collect_expanded_nodes(
+        self, mapping: AbstractionMapping
+    ) -> list[str]:
         expanded_nodes: list[str] = []
-        expanded_edges: list[str] = []
-
         for nid in mapping.detail_node_ids:
             existing = self._graph.get_node(nid)
             if not existing:
@@ -168,7 +129,12 @@ class AbstractionNavigator:
                         break
             else:
                 expanded_nodes.append(nid)
+        return expanded_nodes
 
+    def _expand_summary_edges(
+        self, summary_node: Hypernode, mapping: AbstractionMapping
+    ) -> list[str]:
+        expanded_edges: list[str] = []
         summary_edges = list(self._graph.incident_edges(summary_node.id))
         for edge in summary_edges:
             is_incoming = summary_node.id in edge.target_ids
@@ -197,9 +163,76 @@ class AbstractionNavigator:
                         )
                     self._graph.add_edge(new_edge)
                     expanded_edges.append(new_edge.id)
-
         for edge in summary_edges:
             self._graph.remove_edge(edge.id)
+        return expanded_edges
+
+    def collapse_subgraph(
+        self,
+        node_labels: set[str],
+        *,
+        summary_label: str | None = None,
+        summary_data: Any = None,
+        layer: AbstractionLayer = AbstractionLayer.SUMMARY,
+    ) -> AbstractionSummary | None:
+        node_ids: set[str] = set()
+        for lbl in node_labels:
+            node = self._graph.get_node_by_label(lbl)
+            if node:
+                node_ids.add(node.id)
+
+        if not node_ids:
+            return None
+
+        label = summary_label or "+".join(sorted(node_labels)[:3])
+        summary_node = Hypernode(
+            label=label,
+            data=summary_data,
+            metadata=Metadata(abstraction_layer=layer),
+        )
+        self._graph.add_node(summary_node)
+
+        external_edges_in, external_edges_out, internal_count = (
+            self._classify_edges(node_ids)
+        )
+
+        for edge in list(self._graph.edges):
+            if edge.source_ids & node_ids or edge.target_ids & node_ids:
+                self._graph.remove_edge(edge.id)
+
+        self._rewire_external_edges(
+            external_edges_in, external_edges_out, summary_node.id
+        )
+
+        mapping = AbstractionMapping(
+            summary_node_id=summary_node.id,
+            summary_label=label,
+            detail_node_ids=sorted(node_ids),
+            detail_labels=sorted(node_labels),
+            layer=layer,
+        )
+        self._mappings[summary_node.id] = mapping
+
+        return AbstractionSummary(
+            summary_node=summary_node,
+            mapping=mapping,
+            edges_collapsed=internal_count + len(external_edges_in) + len(external_edges_out),
+            internal_edge_count=internal_count,
+            external_connections=len(external_edges_in) + len(external_edges_out),
+        )
+
+    def expand_node(self, summary_label: str) -> ExpandResult | None:
+        summary_node = self._graph.get_node_by_label(summary_label)
+        if not summary_node:
+            return None
+
+        mapping = self._mappings.get(summary_node.id)
+        if not mapping:
+            return None
+
+        expanded_nodes = self._collect_expanded_nodes(mapping)
+        expanded_edges = self._expand_summary_edges(summary_node, mapping)
+
         self._graph.remove_node(summary_node.id)
         del self._mappings[summary_node.id]
 

@@ -82,6 +82,25 @@ class StateConvergenceEngine:
 
         return 0.7 * jaccard + 0.3 * edge_overlap
 
+    def _build_state_graph(self, state: MultiwayState) -> nx.DiGraph:
+        g = nx.DiGraph()
+        for eid in state.produced_edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge:
+                for src in edge.source_ids:
+                    g.add_node(src, nid=src)
+                    for tgt in edge.target_ids:
+                        g.add_node(tgt, nid=tgt)
+                        g.add_edge(src, tgt)
+        return g
+
+    def _node_match(self, a: dict, b: dict) -> bool:
+        na = self._graph.get_node(a.get("nid", ""))
+        nb = self._graph.get_node(b.get("nid", ""))
+        if na and nb:
+            return na.matches(nb) > 0.5
+        return False
+
     def check_graph_isomorphism(self, state_a: MultiwayState, state_b: MultiwayState) -> float:
         """Test whether two multiway states produce isomorphic subgraphs.
 
@@ -99,40 +118,15 @@ class StateConvergenceEngine:
             1.0 if isomorphic, 0.8 if approximately isomorphic (large
             graphs), 0.0 otherwise.
         """
-        g_a = nx.DiGraph()
-        g_b = nx.DiGraph()
-        for eid in state_a.produced_edge_ids:
-            edge = self._graph.get_edge(eid)
-            if edge:
-                for src in edge.source_ids:
-                    g_a.add_node(src, nid=src)
-                    for tgt in edge.target_ids:
-                        g_a.add_node(tgt, nid=tgt)
-                        g_a.add_edge(src, tgt)
-        for eid in state_b.produced_edge_ids:
-            edge = self._graph.get_edge(eid)
-            if edge:
-                for src in edge.source_ids:
-                    g_b.add_node(src, nid=src)
-                    for tgt in edge.target_ids:
-                        g_b.add_node(tgt, nid=tgt)
-                        g_b.add_edge(src, tgt)
+        g_a = self._build_state_graph(state_a)
+        g_b = self._build_state_graph(state_b)
         if g_a.number_of_nodes() != g_b.number_of_nodes():
             return 0.0
         if g_a.number_of_edges() != g_b.number_of_edges():
             return 0.0
         if g_a.number_of_nodes() + g_b.number_of_nodes() > 100:
             return self._approximate_isomorphism(g_a, g_b)
-
-        def _node_match(a: dict, b: dict) -> bool:
-            """Compare two node attribute dicts by data similarity for isomorphism matching."""
-            na = self._graph.get_node(a.get("nid", ""))
-            nb = self._graph.get_node(b.get("nid", ""))
-            if na and nb:
-                return na.matches(nb) > 0.5
-            return False
-
-        return 1.0 if nx.is_isomorphic(g_a, g_b, node_match=_node_match) else 0.0
+        return 1.0 if nx.is_isomorphic(g_a, g_b, node_match=self._node_match) else 0.0
 
     def _approximate_isomorphism(self, g_a: nx.DiGraph, g_b: nx.DiGraph) -> float:
         """Fast approximate isomorphism check for large graphs.
@@ -159,21 +153,10 @@ class StateConvergenceEngine:
             return 0.0
         return 0.8
 
-    def find_invariants(self) -> list[tuple[str, str, float]]:
-        """Find pairs of leaf states that exceed the similarity threshold.
-
-        Uses vectorized numpy operations for Jaccard computation over all
-        leaf pairs.  Excludes sibling pairs (same parent) from consideration.
-
-        Returns:
-            List of (state_a_id, state_b_id, similarity) sorted by descending similarity.
-        """
-        leaves = self._multiway.get_leaves()
-        if len(leaves) < 2:
-            return []
+    def _compute_node_jaccard_matrix(self, leaves: list[MultiwayState]) -> np.ndarray:
         all_node_ids = sorted(set().union(*(s.active_node_ids for s in leaves)))
         if not all_node_ids:
-            return []
+            return np.zeros((0, 0))
         nid_idx = {nid: i for i, nid in enumerate(all_node_ids)}
         matrix = np.zeros((len(leaves), len(all_node_ids)))
         for i, leaf in enumerate(leaves):
@@ -182,25 +165,26 @@ class StateConvergenceEngine:
         intersection = matrix @ matrix.T
         row_sums = matrix.sum(axis=1)
         union = row_sums[:, None] + row_sums[None, :] - intersection
-        jaccard = np.where(union > 0, intersection / union, 0.0)
+        return np.where(union > 0, intersection / union, 0.0)
 
+    def _compute_edge_similarity_matrix(self, leaves: list[MultiwayState]) -> np.ndarray:
         all_edge_ids = sorted(set().union(*(set(s.produced_edge_ids) for s in leaves)))
-        if all_edge_ids:
-            eid_idx = {eid: i for i, eid in enumerate(all_edge_ids)}
-            ematrix = np.zeros((len(leaves), len(all_edge_ids)))
-            for i, leaf in enumerate(leaves):
-                for eid in leaf.produced_edge_ids:
-                    if eid in eid_idx:
-                        ematrix[i, eid_idx[eid]] = 1.0
-            e_intersection = ematrix @ ematrix.T
-            e_sums = ematrix.sum(axis=1)
-            e_union = e_sums[:, None] + e_sums[None, :] - e_intersection
-            edge_sim = np.where(e_union > 0, e_intersection / e_union, 1.0)
-        else:
-            edge_sim = np.ones((len(leaves), len(leaves)))
+        if not all_edge_ids:
+            return np.ones((len(leaves), len(leaves)))
+        eid_idx = {eid: i for i, eid in enumerate(all_edge_ids)}
+        ematrix = np.zeros((len(leaves), len(all_edge_ids)))
+        for i, leaf in enumerate(leaves):
+            for eid in leaf.produced_edge_ids:
+                if eid in eid_idx:
+                    ematrix[i, eid_idx[eid]] = 1.0
+        e_intersection = ematrix @ ematrix.T
+        e_sums = ematrix.sum(axis=1)
+        e_union = e_sums[:, None] + e_sums[None, :] - e_intersection
+        return np.where(e_union > 0, e_intersection / e_union, 1.0)
 
-        similarity = 0.7 * jaccard + 0.3 * edge_sim
-
+    def _collect_similar_pairs(
+        self, leaves: list[MultiwayState], similarity: np.ndarray
+    ) -> list[tuple[str, str, float]]:
         pairs: list[tuple[str, str, float]] = []
         for i in range(len(leaves)):
             if leaves[i].id in self._consumed_states:
@@ -215,6 +199,25 @@ class StateConvergenceEngine:
                     pairs.append((leaves[i].id, leaves[j].id, sim))
         pairs.sort(key=lambda p: p[2], reverse=True)
         return pairs
+
+    def find_invariants(self) -> list[tuple[str, str, float]]:
+        """Find pairs of leaf states that exceed the similarity threshold.
+
+        Uses vectorized numpy operations for Jaccard computation over all
+        leaf pairs.  Excludes sibling pairs (same parent) from consideration.
+
+        Returns:
+            List of (state_a_id, state_b_id, similarity) sorted by descending similarity.
+        """
+        leaves = self._multiway.get_leaves()
+        if len(leaves) < 2:
+            return []
+        jaccard = self._compute_node_jaccard_matrix(leaves)
+        if jaccard.size == 0:
+            return []
+        edge_sim = self._compute_edge_similarity_matrix(leaves)
+        similarity = 0.7 * jaccard + 0.3 * edge_sim
+        return self._collect_similar_pairs(leaves, similarity)
 
     def _extract_insight(
         self, state: MultiwayState, other_node_ids: frozenset[str], other_edge_ids: set[str]

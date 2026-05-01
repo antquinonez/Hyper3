@@ -60,6 +60,48 @@ class TimeInterval:
         """Return the length of the interval."""
         return self.end - self.start
 
+    @staticmethod
+    def _check_point_relations(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        if a_s == b_s and a_e == b_e:
+            return AllenRelation.EQUALS
+        if a_e == b_s:
+            return AllenRelation.MEETS
+        if a_s == b_e:
+            return AllenRelation.MET_BY
+        if a_e < b_s:
+            return AllenRelation.BEFORE
+        if a_s > b_e:
+            return AllenRelation.AFTER
+        return None
+
+    @staticmethod
+    def _check_endpoint_shared(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        if a_s == b_s:
+            if a_e < b_e:
+                return AllenRelation.STARTS
+            return AllenRelation.STARTED_BY
+        if a_e == b_e:
+            if a_s < b_s:
+                return AllenRelation.FINISHED_BY
+            return AllenRelation.FINISHES
+        return None
+
+    @staticmethod
+    def _check_containment(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        if a_s < b_s and a_e > b_e:
+            return AllenRelation.CONTAINS
+        if a_s > b_s and a_e < b_e:
+            return AllenRelation.DURING
+        return None
+
+    @staticmethod
+    def _check_overlap(a_s: float, a_e: float, b_s: float, b_e: float) -> AllenRelation | None:
+        if a_s < b_s and a_e > b_s and a_e < b_e:
+            return AllenRelation.OVERLAPS
+        if a_s > b_s and a_s < b_e and a_e > b_e:
+            return AllenRelation.OVERLAPPED_BY
+        return None
+
     def relate_to(self, other: TimeInterval) -> AllenRelation:
         """Classify the Allen interval relation between this interval and another.
 
@@ -72,39 +114,13 @@ class TimeInterval:
         a_s, a_e = self.start, self.end
         b_s, b_e = other.start, other.end
 
-        if a_s == b_s and a_e == b_e:
-            return AllenRelation.EQUALS
-
-        if a_e == b_s:
-            return AllenRelation.MEETS
-        if a_s == b_e:
-            return AllenRelation.MET_BY
-        if a_e < b_s:
-            return AllenRelation.BEFORE
-        if a_s > b_e:
-            return AllenRelation.AFTER
-
-        if a_s == b_s:
-            if a_e < b_e:
-                return AllenRelation.STARTS
-            return AllenRelation.STARTED_BY
-
-        if a_e == b_e:
-            if a_s < b_s:
-                return AllenRelation.FINISHED_BY
-            return AllenRelation.FINISHES
-
-        if a_s < b_s and a_e > b_e:
-            return AllenRelation.CONTAINS
-        if a_s > b_s and a_e < b_e:
-            return AllenRelation.DURING
-
-        if a_s < b_s and a_e > b_s and a_e < b_e:
-            return AllenRelation.OVERLAPS
-        if a_s > b_s and a_s < b_e and a_e > b_e:
-            return AllenRelation.OVERLAPPED_BY
-
-        return AllenRelation.EQUALS
+        return (
+            TimeInterval._check_point_relations(a_s, a_e, b_s, b_e)
+            or TimeInterval._check_endpoint_shared(a_s, a_e, b_s, b_e)
+            or TimeInterval._check_containment(a_s, a_e, b_s, b_e)
+            or TimeInterval._check_overlap(a_s, a_e, b_s, b_e)
+            or AllenRelation.EQUALS
+        )
 
     def overlaps_interval(self, other: TimeInterval) -> bool:
         """Return True if this interval overlaps with other (open-ended comparison)."""
@@ -138,6 +154,39 @@ class TemporalConstraint(_SimpleResultBase):
             relation=INVERSE_RELATIONS[self.relation],
             confidence=self.confidence,
         )
+
+
+def _dfs_causal_paths(
+    node: str,
+    adj: dict[str, set[str]],
+    memo: dict[str, list[list[str]]],
+    all_chains: list[list[str]],
+    max_chains: int,
+) -> list[list[str]]:
+    """Recursively enumerate all paths starting from node."""
+    if node in memo:
+        return memo[node]
+    paths: list[list[str]] = [[node]]
+    for nxt in adj.get(node, set()):
+        if len(all_chains) >= max_chains:
+            break
+        for sub in _dfs_causal_paths(nxt, adj, memo, all_chains, max_chains):
+            if len(all_chains) >= max_chains:
+                break
+            paths.append([node] + sub)
+    memo[node] = paths
+    return paths
+
+
+def _deduplicate_chains(chains: list[list[str]]) -> list[list[str]]:
+    unique: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
+    for chain in chains:
+        key = tuple(chain)
+        if key not in seen:
+            seen.add(key)
+            unique.append(chain)
+    return unique
 
 
 class TemporalReasoner:
@@ -300,6 +349,34 @@ class TemporalReasoner:
         events.sort(key=lambda x: x[1].interval.start)
         return [eid for eid, _ in events]
 
+    def _build_causal_adjacency(self) -> dict[str, set[str]]:
+        adj: dict[str, set[str]] = {eid: set() for eid in self._events}
+        for a_id, a in self._events.items():
+            for b_id, b in self._events.items():
+                if a_id == b_id:
+                    continue
+                rel = a.interval.relate_to(b.interval)
+                if rel in (AllenRelation.BEFORE, AllenRelation.MEETS):
+                    adj[a_id].add(b_id)
+        return adj
+
+    def _enumerate_chains(
+        self, adj: dict[str, set[str]], min_chain_length: int, max_chains: int
+    ) -> list[list[str]]:
+        all_chains: list[list[str]] = []
+        memo: dict[str, list[list[str]]] = {}
+
+        for eid in self._events:
+            if len(all_chains) >= max_chains:
+                break
+            for path in _dfs_causal_paths(eid, adj, memo, all_chains, max_chains):
+                if len(all_chains) >= max_chains:
+                    break
+                if len(path) >= min_chain_length:
+                    all_chains.append(path)
+
+        return _deduplicate_chains(all_chains)
+
     def detect_causal_chains(self, *, min_chain_length: int = 3, max_chains: int = 1000) -> list[list[str]]:
         """Find all BEFORE/MEETS chains among registered events.
 
@@ -310,51 +387,8 @@ class TemporalReasoner:
         Returns:
             List of chains, each a list of event IDs in causal order.
         """
-        adj: dict[str, set[str]] = {eid: set() for eid in self._events}
-        for a_id, a in self._events.items():
-            for b_id, b in self._events.items():
-                if a_id == b_id:
-                    continue
-                rel = a.interval.relate_to(b.interval)
-                if rel in (AllenRelation.BEFORE, AllenRelation.MEETS):
-                    adj[a_id].add(b_id)
-
-        all_chains: list[list[str]] = []
-        memo: dict[str, list[list[str]]] = {}
-
-        def dfs(node: str) -> list[list[str]]:
-            """Recursively enumerate all paths starting from node."""
-            if node in memo:
-                return memo[node]
-            paths: list[list[str]] = [[node]]
-            for nxt in adj.get(node, set()):
-                if len(all_chains) >= max_chains:
-                    break
-                for sub in dfs(nxt):
-                    if len(all_chains) >= max_chains:
-                        break
-                    paths.append([node] + sub)
-            memo[node] = paths
-            return paths
-
-        for eid in self._events:
-            if len(all_chains) >= max_chains:
-                break
-            for path in dfs(eid):
-                if len(all_chains) >= max_chains:
-                    break
-                if len(path) >= min_chain_length:
-                    all_chains.append(path)
-
-        unique: list[list[str]] = []
-        seen: set[tuple[str, ...]] = set()
-        for chain in all_chains:
-            key = tuple(chain)
-            if key not in seen:
-                seen.add(key)
-                unique.append(chain)
-
-        return unique
+        adj = self._build_causal_adjacency()
+        return self._enumerate_chains(adj, min_chain_length, max_chains)
 
     def temporal_proximity(self, event_id: str, max_gap: float = 1.0) -> list[tuple[TemporalEvent, float]]:
         """Find events within a temporal gap of the given event.
