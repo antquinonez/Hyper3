@@ -188,13 +188,17 @@ class TestRuleDiscoveryEngine:
 
     def test_discover_all(self):
         g = Hypergraph()
-        for label in ["a", "b", "c"]:
+        for label in ["a", "b", "c", "d"]:
             g.add_node(Hypernode(id=label, label=label))
-        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
-        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="x"))
         engine = RuleDiscoveryEngine(g)
         all_discovered = engine.discover_all()
         assert isinstance(all_discovered, list)
+        assert len(all_discovered) >= 1
+        for pattern in all_discovered:
+            assert pattern.pattern_type in {"transitive", "inverse", "hub"}
 
     def test_get_active_rules(self):
         g = Hypergraph()
@@ -207,19 +211,24 @@ class TestRuleDiscoveryEngine:
         engine.discover_all()
         rules = engine.get_active_rules()
         assert len(rules) >= 1
+        rule_types = {type(r).__name__ for r in rules}
+        assert "TransitiveRule" in rule_types
 
     def test_analyze(self):
         g = Hypergraph()
-        for label in ["a", "b", "c"]:
+        for label in ["a", "b", "c", "d"]:
             g.add_node(Hypernode(id=label, label=label))
-        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
-        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="x"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="x"))
         engine = RuleDiscoveryEngine(g)
         report = engine.analyze()
         assert "total_patterns" in report
         assert "new_patterns" in report
         assert "active_rules" in report
         assert "edge_labels" in report
+        assert report["total_patterns"] >= 1
+        assert isinstance(report["edge_labels"], dict)
 
     def test_no_duplicate_discovery(self):
         g = Hypergraph()

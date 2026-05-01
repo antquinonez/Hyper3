@@ -50,8 +50,8 @@ class TestRulialSpace:
         rs = RulialSpace(g)
         pos = rs.update_position()
         assert isinstance(pos, RulialPosition)
-        assert pos.graph_activity_density >= 0.0
-        assert pos.structural_complexity >= 0.0
+        assert 0.0 <= pos.graph_activity_density <= 1.0
+        assert 0.0 <= pos.structural_complexity <= 1.0
 
     def test_record_rule_application(self):
         g = _build_graph()
@@ -71,6 +71,8 @@ class TestRulialSpace:
         assert "explored_rules" in report
         assert "rule_diversity" in report
         assert "coverage" in report
+        assert isinstance(report["explored_rules"], list)
+        assert report["rule_diversity"] >= 0.0
 
     def test_find_meta_patterns(self):
         g = _build_graph()
@@ -80,6 +82,9 @@ class TestRulialSpace:
         assert len(patterns) >= 1
         types = {p.pattern_type for p in patterns}
         assert "recurring_relation" in types
+        for p in patterns:
+            assert p.significance >= 0.0
+            assert p.occurrence_count >= 1
 
     def test_generate_high_level_insights(self):
         g = _build_graph()
@@ -94,8 +99,8 @@ class TestRulialSpace:
         assert len(insights) >= 1
         for insight in insights:
             assert isinstance(insight, HighLevelInsight)
-            assert insight.principle
-            assert insight.confidence >= 0.0
+            assert len(insight.principle) > 0
+            assert 0.0 <= insight.confidence <= 1.0
 
     def test_analyze(self):
         g = _build_graph()
@@ -105,6 +110,8 @@ class TestRulialSpace:
         assert "graph_activity_density" in report
         assert "rule_diversity" in report
         assert "meta_patterns" in report
+        assert isinstance(report["graph_activity_density"], float)
+        assert isinstance(report["rule_diversity"], (int, float))
 
     def test_position_history(self):
         g = _build_graph()
@@ -144,8 +151,9 @@ class TestRuleEffectivenessTracking:
         assert mem._rulial is not None
         eff = mem._rulial.get_rule_effectiveness()
         assert len(eff) > 0
-        for stats in eff.values():
+        for rule_name, stats in eff.items():
             assert stats["applications"] > 0
+            assert isinstance(rule_name, str)
 
     def test_useful_recorded_for_surviving_edges(self):
         mem = _setup_chain()
@@ -163,6 +171,8 @@ class TestRuleEffectivenessTracking:
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
         recommended = mem._rulial.get_recommended_rules()
         assert len(recommended) >= 1
+        for name in recommended:
+            assert isinstance(name, str)
 
     def test_get_rule_priority(self):
         mem = _setup_chain()
@@ -184,6 +194,8 @@ class TestRuleEffectivenessTracking:
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
         assert mem._multiway_engine is not None
         assert mem._multiway_engine._rulial is not None
+        eff = mem._multiway_engine._rulial.get_rule_effectiveness()
+        assert len(eff) > 0
 
     def test_effectiveness_preserved_in_snapshot(self):
         mem = _setup_chain()
@@ -205,6 +217,8 @@ class TestRuleEffectivenessTracking:
             assert mem2._rulial is not None
             eff = mem2._rulial.get_rule_effectiveness()
             assert len(eff) > 0
+            original_eff = mem._rulial.get_rule_effectiveness()
+            assert set(eff.keys()) == set(original_eff.keys())
 
     def test_multiple_rules_tracked(self):
         mem = _setup_chain()
@@ -213,6 +227,8 @@ class TestRuleEffectivenessTracking:
         assert mem._rulial is not None
         recommended = mem._rulial.get_recommended_rules()
         assert len(recommended) >= 1
+        eff = mem._rulial.get_rule_effectiveness()
+        assert len(eff) >= 1
 
 
 

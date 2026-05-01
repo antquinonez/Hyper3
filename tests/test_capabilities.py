@@ -36,7 +36,7 @@ class TestDetectCapabilityLevel:
         mem.store("b")
         mem._rules = [TransitiveRule(edge_label="rel")]
         level = detect_capability_level(mem)
-        assert level in (CapabilityLevel.MINIMAL, CapabilityLevel.STANDARD)
+        assert level == CapabilityLevel.MINIMAL
 
     def test_standard_with_populated_multiway(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -47,7 +47,7 @@ class TestDetectCapabilityLevel:
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
         level = detect_capability_level(mem)
-        assert level in (CapabilityLevel.STANDARD, CapabilityLevel.ENHANCED, CapabilityLevel.FULL)
+        assert level == CapabilityLevel.STANDARD
 
     def test_enhanced_with_active_belief(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -61,7 +61,7 @@ class TestDetectCapabilityLevel:
         mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
         mem._branchial.assign_coordinates()
         level = detect_capability_level(mem)
-        assert level in (CapabilityLevel.STANDARD, CapabilityLevel.ENHANCED, CapabilityLevel.FULL)
+        assert level == CapabilityLevel.ENHANCED
 
     def test_minimal_no_graph(self):
         assert detect_capability_level(object()) == CapabilityLevel.MINIMAL

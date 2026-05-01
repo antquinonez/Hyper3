@@ -57,7 +57,10 @@ class TestMultiPerspectiveAnalyzer:
         cr = MultiPerspectiveAnalyzer(g)
         custom = AnalysisPreset(name="custom", frame_type="neural", metrics={"training_convergence": 0.5})
         cr.add_frame(custom)
-        assert cr.get_frame("custom") is not None
+        frame = cr.get_frame("custom")
+        assert frame is not None
+        assert frame.name == "custom"
+        assert frame.frame_type == "neural"
 
     def test_analyze_in_frame(self):
         g = _build_graph()
@@ -65,7 +68,12 @@ class TestMultiPerspectiveAnalyzer:
         analysis = cr.analyze_in_frame("concept_a", "classical")
         assert isinstance(analysis, PresetAnalysis)
         assert analysis.complexity >= 0.0
-        assert analysis.solution_approach
+        assert analysis.solution_approach in (
+            "direct_lookup",
+            "local_search",
+            "structured_exploration",
+            "exhaustive_analysis",
+        )
 
     def test_multi_frame_analysis(self):
         g = _build_graph()
@@ -82,6 +90,7 @@ class TestMultiPerspectiveAnalyzer:
         name, analysis = cr.select_optimal_frame("concept_a")
         assert name in cr.frames
         assert isinstance(analysis, PresetAnalysis)
+        assert 0.0 <= analysis.complexity <= 1.0
 
     def test_transform_between_frames(self):
         g = _build_graph()
@@ -110,6 +119,7 @@ class TestMultiPerspectiveAnalyzer:
         report = cr.analyze()
         assert "available_frames" in report
         assert "transformations_computed" in report
+        assert len(report["available_frames"]) == 4
 
 
 
@@ -168,6 +178,7 @@ class TestInformationPreserved:
         cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("x", "classical", "quantum")
         assert 0.0 <= t.information_preserved <= 1.0
+        assert t.information_preserved < 1.0
 
     def test_same_frame_high_preservation(self):
         g = Hypergraph()
@@ -183,7 +194,7 @@ class TestInformationPreserved:
         g.add_node(a)
         cr = MultiPerspectiveAnalyzer(g)
         t = cr.transform_between_frames("x", "classical", "hypergraph")
-        assert t.information_preserved >= 0.0
+        assert 0.0 <= t.information_preserved <= 1.0
 
 
 class TestFrameStrengthsWeaknesses:
@@ -272,7 +283,13 @@ class TestComputeComplexityFrameTypes:
         custom = AnalysisPreset(name="test_q", frame_type="quantum")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_q")
-        assert result.complexity < float("inf")
+        assert 0.0 <= result.complexity <= 1.0
+        assert result.solution_approach in (
+            "direct_lookup",
+            "local_search",
+            "structured_exploration",
+            "exhaustive_analysis",
+        )
 
     def test_hypergraph_frame_type_complexity(self):
         g = Hypergraph()
@@ -282,7 +299,7 @@ class TestComputeComplexityFrameTypes:
         custom = AnalysisPreset(name="test_hg", frame_type="hypergraph")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_hg")
-        assert result.complexity < float("inf")
+        assert 0.0 <= result.complexity <= 1.0
 
     def test_probabilistic_frame_type_complexity(self):
         g = Hypergraph()
@@ -292,7 +309,7 @@ class TestComputeComplexityFrameTypes:
         custom = AnalysisPreset(name="test_prob", frame_type="probabilistic")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_prob")
-        assert result.complexity < float("inf")
+        assert 0.0 <= result.complexity <= 1.0
 
     def test_unknown_frame_type_complexity(self):
         g = Hypergraph()
@@ -302,7 +319,7 @@ class TestComputeComplexityFrameTypes:
         custom = AnalysisPreset(name="test_unknown", frame_type="neural")
         cr.add_frame(custom)
         result = cr.analyze_in_frame("x", "test_unknown")
-        assert result.complexity < float("inf")
+        assert 0.0 <= result.complexity <= 1.0
 
 
 class TestDeriveApproachLevels:
@@ -873,7 +890,7 @@ class TestComputeLocalClustering:
         mem.store("x")
         x = mem.graph.get_node_by_label("x")
         clustering = mem._perspective.compute_local_clustering([x.id])
-        assert clustering >= 0.0
+        assert clustering == 0.0
 
 
 class TestComputePerspectiveOverlap:

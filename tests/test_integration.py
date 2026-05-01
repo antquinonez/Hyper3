@@ -46,6 +46,7 @@ class TestIntegrationFullPipeline:
         interpretation = mem.sample(qs, context={"battery": 2.0})
         assert interpretation is not None
         assert qs.resolved
+        assert interpretation.node_id is not None
 
         mem.evolve()
         stats = mem.stats()
@@ -95,9 +96,14 @@ class TestIntegrationFullPipeline:
 
         triggers = mem.detect_sampling_triggers(qs)
         assert isinstance(triggers, list)
+        for trigger in triggers:
+            assert hasattr(trigger, "trigger_type")
 
         patterns = mem.compute_interactions(qs)
         assert isinstance(patterns, list)
+        for p in patterns:
+            assert hasattr(p, "constructive")
+            assert hasattr(p, "destructive")
 
         collapsed = mem.sample_with_profile(qs, "pragmatic")
         assert collapsed is not None
@@ -116,6 +122,7 @@ class TestIntegrationFullPipeline:
 
         result = mem.detect_structural_anomalies("simple_concept")
         assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
+        assert 0.0 <= result.boundary_score <= 1.0
 
     def test_multi_frame_analysis_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -124,7 +131,7 @@ class TestIntegrationFullPipeline:
 
         optimal_name, optimal = mem.select_optimal_frame("engine")
         assert optimal_name in {"classical", "quantum", "hypergraph", "probabilistic"}
-        assert optimal.complexity >= 0.0
+        assert 0.0 <= optimal.complexity <= 1.0
 
         analyses = mem.multi_frame_analysis("engine")
         assert len(analyses) == 4
@@ -149,12 +156,17 @@ class TestIntegrationFullPipeline:
         pos = rulial.update_position()
         assert pos.graph_activity_density > 0.0
         assert pos.structural_complexity > 0.0
+        assert 0.0 <= pos.graph_activity_density <= 1.0
 
         patterns = rulial.find_meta_patterns()
         assert len(patterns) >= 1
+        for p in patterns:
+            assert p.pattern_type != ""
 
         insights = rulial.generate_high_level_insights()
         assert len(insights) >= 1
+        for ins in insights:
+            assert len(ins.principle) > 0
 
         introspection = mem.introspect()
         assert introspection.system_health.fitness > 0.0
@@ -203,6 +215,7 @@ class TestIntegrationFullPipeline:
 
         mem.evolve()
         stats = mem.stats()
+        assert isinstance(stats["evolution"]["prunes"], int)
         assert stats["evolution"]["prunes"] >= 0
 
     def test_branchial_space_after_reasoning(self):
@@ -216,9 +229,9 @@ class TestIntegrationFullPipeline:
         mem.add_rules(TransitiveRule(edge_label="rel"))
         mem.reason({"r"}, max_depth=2, max_total_states=20)
 
-        if mem.branchial:
-            report = mem.branchial.analyze()
-            assert report["states_mapped"] > 0
+        assert mem.branchial is not None
+        report = mem.branchial.analyze()
+        assert report["states_mapped"] > 0
 
     def test_persistence_preserves_thresholds(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -250,6 +263,7 @@ class TestIntegrationFullPipeline:
             qs2 = mem.create_distribution(["cat", "dog", "bird"])
             result = mem.sample_with_profile(qs2, profile_name)
             assert result is not None
+            assert result.label in {"cat", "dog", "bird"}
 
     def test_correlate_with_label_vs_id(self):
         mem = HypergraphMemory(evolve_interval=0)

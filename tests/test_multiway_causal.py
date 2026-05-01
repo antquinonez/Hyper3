@@ -37,10 +37,9 @@ class TestStateConvergenceEngine:
         g, engine = self._build_multiway()
         mw = engine.multiway
         states = mw.states
-        if len(states) >= 2:
-            ci = StateConvergenceEngine(g, mw)
-            sim = ci.compute_state_similarity(states[0], states[0])
-            assert sim == 1.0
+        ci = StateConvergenceEngine(g, mw)
+        sim = ci.compute_state_similarity(states[0], states[0])
+        assert sim == 1.0
 
     def test_state_similarity_different(self):
         g, engine = self._build_multiway()
@@ -48,9 +47,11 @@ class TestStateConvergenceEngine:
         ci = StateConvergenceEngine(g, mw)
         root = mw.get_root()
         leaves = mw.get_leaves()
-        if root and leaves:
-            sim = ci.compute_state_similarity(root, leaves[0])
-            assert 0.0 <= sim <= 1.0
+        assert root is not None
+        assert len(leaves) >= 1
+        sim = ci.compute_state_similarity(root, leaves[0])
+        assert 0.0 <= sim <= 1.0
+        assert sim < 1.0
 
     def test_find_invariants(self):
         g, engine = self._build_multiway()
@@ -58,6 +59,9 @@ class TestStateConvergenceEngine:
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         invariants = ci.find_invariants()
         assert isinstance(invariants, list)
+        for group in invariants:
+            assert isinstance(group, list)
+            assert len(group) >= 2
 
     def test_merge_invariant_states(self):
         g, engine = self._build_multiway()
@@ -74,9 +78,8 @@ class TestStateConvergenceEngine:
         mw = engine.multiway
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         report = ci.enforce()
-        assert "merges_performed" in report
-        assert "states_before" in report
-        assert "states_after" in report
+        assert report.states_before >= report.states_after
+        assert report.merges_performed == report.states_before - report.states_after
 
 
 class TestBeliefState:
