@@ -1083,7 +1083,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 9. **Run full validation**: tests + pyright + all examples.
 
 Current project metrics (update after changes):
-- **Tests**: 2124
+- **Tests**: 2129
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 96%
 - **Pyright**: 0 errors
