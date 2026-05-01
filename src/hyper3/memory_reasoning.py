@@ -7,9 +7,12 @@ from hyper3.kernel import Hypergraph
 from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import RobustReachabilityDetector
 from hyper3.multiway import ExpansionReport, MultiwayEngine
+from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.multiway_rulial import RulialSpace
 from hyper3.overlay import HypergraphOverlay
 from hyper3.results import (
+    BiasProfileResult,
     BranchialAnalysis,
     CommitResult,
     ConsensusReasonResult,
@@ -622,3 +625,24 @@ class ReasoningMixin(_MemoryBase):
                     if edge.weight > 1.0:
                         self._rulial.record_rule_outcome(rule_name, "reinforced")
         self._rulial_rule_productions = {}
+
+    @property
+    def multiway(self) -> MultiwayEngine | None:
+        """The multiway expansion engine, or None if not yet initialized."""
+        return self._multiway_engine
+
+    @property
+    def branchial(self) -> BranchialSpace | None:
+        """The branchial space for multiway state coordinates, or None."""
+        return self._branchial
+
+    @property
+    def rulial(self) -> RulialSpace:
+        """The rulial space for rule universe tracking, lazily initialized."""
+        if self._rulial is None:
+            self._rulial = RulialSpace(self._graph)
+        return self._rulial
+
+    def compute_bias_profile(self) -> BiasProfileResult:
+        """Analyze the system's computational biases from rule effectiveness data."""
+        return self.rulial.compute_bias_profile()

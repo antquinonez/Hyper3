@@ -19,10 +19,15 @@ from hyper3.kernel import Hypergraph
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
 from hyper3.memory_belief import BeliefMixin
+from hyper3.memory_cognitive import CognitiveMixin
 from hyper3.memory_core import CoreMixin
+from hyper3.memory_monitoring import MonitoringMixin
 from hyper3.memory_persistence import PersistenceMixin
+from hyper3.memory_provenance import ProvenanceMixin
 from hyper3.memory_reasoning import ReasoningMixin
-from hyper3.memory_subsystems import SubsystemMixin
+from hyper3.memory_retrieval import RetrievalMixin
+from hyper3.memory_structural import StructuralMixin
+from hyper3.memory_temporal import TemporalMixin
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
@@ -50,7 +55,12 @@ class HypergraphMemory(
     BayesianMixin,
     AnalyticsMixin,
     PersistenceMixin,
-    SubsystemMixin,
+    RetrievalMixin,
+    TemporalMixin,
+    ProvenanceMixin,
+    CognitiveMixin,
+    StructuralMixin,
+    MonitoringMixin,
 ):
     def __contains__(self, concept: object) -> bool:
         if not isinstance(concept, str):

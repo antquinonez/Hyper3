@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from hyper3.belief import (
+    BeliefLayer,
     BeliefState,
     ConceptCorrelation,
     EvidenceInteraction,
@@ -241,6 +242,11 @@ class BeliefMixin(_MemoryBase):
         result = self._anomaly_detector.map_boundaries(concepts)
         self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)
         return result
+
+    @property
+    def belief(self) -> BeliefLayer:
+        """The belief layer for distribution and resolution."""
+        return self._belief
 
     def _normalize_lateral_insights(self, insights: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Ensure all lateral insight dicts have default fields and resolved labels."""
