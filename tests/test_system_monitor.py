@@ -116,7 +116,8 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_rulial_property(self):
         mem = HypergraphMemory()
-        assert mem.rulial is not None
+        from hyper3.multiway_rulial import RulialSpace
+        assert isinstance(mem.rulial, RulialSpace)
 
     def test_structural_anomaly_detection(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -175,6 +176,7 @@ class TestHypergraphMemoryNewFeatures:
         qs = mem.create_distribution(["cat", "dog", "bird"])
         result = mem.sample_with_profile(qs, "linguistic")
         assert result is not None
+        assert result.node_id is not None
 
     def test_sampling_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -183,6 +185,8 @@ class TestHypergraphMemoryNewFeatures:
         qs = mem.create_distribution(["cat", "dog"])
         triggers = mem.detect_sampling_triggers(qs)
         assert isinstance(triggers, list)
+        for t in triggers:
+            assert hasattr(t, "trigger_type")
 
     def test_interactions(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -201,15 +205,17 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_structural_anomaly_property(self):
         mem = HypergraphMemory()
-        assert mem.structural_anomaly is not None
+        from hyper3.structural_anomaly import StructuralAnomalyDetector
+        assert isinstance(mem.structural_anomaly, StructuralAnomalyDetector)
 
     def test_relativity_property(self):
         mem = HypergraphMemory()
-        assert mem.perspective is not None
+        from hyper3.multi_perspective import MultiPerspectiveAnalyzer
+        assert isinstance(mem.perspective, MultiPerspectiveAnalyzer)
 
     def test_meta_property(self):
         mem = HypergraphMemory()
-        assert mem.meta is not None
+        assert isinstance(mem.meta, SystemMonitor)
 
 
 
@@ -267,6 +273,7 @@ class TestSystemMonitorIntrospectRulial:
         mem.reason(seed_concepts={"a", "b"}, max_depth=2, max_total_states=20)
         report = mem._meta.introspect(rules=mem._rules)
         assert report.system_health is not None
+        assert report.system_health.fitness >= 0.0
 
 
 class TestSystemMonitorTuning:
