@@ -376,7 +376,9 @@ class TestDegreeBetweennessCentrality:
         mem.relate("a", "c", label="x")
         centrality = mem.degree_centrality()
         assert isinstance(centrality, dict)
-        assert len(centrality) > 0
+        assert len(centrality) == 3
+        assert "a" in centrality
+        assert centrality["a"] > centrality["b"]
 
     def test_betweenness_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -387,7 +389,8 @@ class TestDegreeBetweennessCentrality:
         mem.relate("b", "c", label="x")
         centrality = mem.betweenness_centrality()
         assert isinstance(centrality, dict)
-        assert len(centrality) > 0
+        assert len(centrality) == 3
+        assert centrality["b"] > 0.0
 
 
 class TestConnectedComponents:
@@ -399,7 +402,9 @@ class TestConnectedComponents:
         mem.relate("a", "b", label="x")
         components = mem.connected_components()
         assert isinstance(components, list)
-        assert len(components) >= 1
+        assert len(components) == 2
+        all_labels = {frozenset(comp) for comp in components}
+        assert frozenset({"a", "b"}) in all_labels or frozenset({"c"}) in all_labels
 
 
 class TestLabelConvenienceMethods:
