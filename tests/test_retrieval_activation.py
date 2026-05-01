@@ -362,3 +362,54 @@ class TestSpreadHyperedge:
         result = sa.spread_hyperedge(mode="majority", iterations=1)
         assert t.id in result
         assert result[t.id] > 0.0
+
+    def test_and_mode_blocked_when_source_missing(self):
+        graph = Hypergraph()
+        s1 = _add_node(graph, "S1")
+        s2 = _add_node(graph, "S2")
+        t = _add_node(graph, "T")
+        edge = Hyperedge(
+            source_ids=frozenset({s1.id, s2.id}),
+            target_ids=frozenset({t.id}),
+            weight=1.0,
+        )
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(s1.id, 1.0)
+        result = sa.spread_hyperedge(mode="and", iterations=1)
+        assert t.id not in result
+
+    def test_and_mode_propagates_when_all_sources_active(self):
+        graph = Hypergraph()
+        s1 = _add_node(graph, "S1")
+        s2 = _add_node(graph, "S2")
+        t = _add_node(graph, "T")
+        edge = Hyperedge(
+            source_ids=frozenset({s1.id, s2.id}),
+            target_ids=frozenset({t.id}),
+            weight=1.0,
+        )
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(s1.id, 1.0)
+        sa.stimulate(s2.id, 1.0)
+        result = sa.spread_hyperedge(mode="and", iterations=1)
+        assert t.id in result
+        assert result[t.id] > 0.0
+
+    def test_majority_mode_blocked_with_one_of_three(self):
+        graph = Hypergraph()
+        s1 = _add_node(graph, "S1")
+        s2 = _add_node(graph, "S2")
+        s3 = _add_node(graph, "S3")
+        t = _add_node(graph, "T")
+        edge = Hyperedge(
+            source_ids=frozenset({s1.id, s2.id, s3.id}),
+            target_ids=frozenset({t.id}),
+            weight=1.0,
+        )
+        graph.add_edge(edge)
+        sa = SpreadingActivation(graph)
+        sa.stimulate(s1.id, 1.0)
+        result = sa.spread_hyperedge(mode="majority", iterations=1)
+        assert t.id not in result
