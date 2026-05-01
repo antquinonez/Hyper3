@@ -463,7 +463,6 @@ class TestExecuteMetamorphosisEmptyPlan:
         mem.store("x")
         plan = TuningPlan(actions=[])
         result = mem.meta.execute_tuning(plan)
-        assert isinstance(result, dict)
         assert len(result) == 0
 
     def test_execute_plan_with_unknown_action(self):
@@ -471,7 +470,7 @@ class TestExecuteMetamorphosisEmptyPlan:
         mem.store("x")
         plan = TuningPlan(actions=["unknown_action_type"])
         result = mem.meta.execute_tuning(plan)
-        assert "unknown_action_type" in result
+        assert result["unknown_action_type"] == "unknown_action"
 
     def test_execute_adjust_evolution_parameters(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -479,21 +478,24 @@ class TestExecuteMetamorphosisEmptyPlan:
         mem.meta._state.architectural_fitness = 0.3
         plan = TuningPlan(actions=["adjust_evolution_parameters"])
         result = mem.meta.execute_tuning(plan)
-        assert "adjust_evolution" in result
+        assert isinstance(result["adjust_evolution"], dict)
+        assert "decay_threshold" in result["adjust_evolution"]
 
     def test_execute_run_rule_discovery(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         plan = TuningPlan(actions=["run_rule_discovery"])
         result = mem.meta.execute_tuning(plan)
-        assert "rule_discovery" in result
+        assert isinstance(result["rule_discovery"], dict)
+        assert "discovered_patterns" in result["rule_discovery"]
 
     def test_execute_increase_connectivity(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         plan = TuningPlan(actions=["increase_connectivity"])
         result = mem.meta.execute_tuning(plan)
-        assert "increase_connectivity" in result
+        assert isinstance(result["increase_connectivity"], dict)
+        assert "bridged" in result["increase_connectivity"]
 
     def test_execute_optimize_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
