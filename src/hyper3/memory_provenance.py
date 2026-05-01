@@ -14,6 +14,7 @@ class ProvenanceMixin(_MemoryBase):
     """
 
     def explain(self, source: str, target: str, *, edge_label: str | None = None) -> Explanation | None:
+        """Produce a recursive explanation of how an edge was derived."""
         node_a = self._find_node(source)
         node_b = self._find_node(target)
         if not node_a or not node_b:
@@ -28,6 +29,7 @@ class ProvenanceMixin(_MemoryBase):
         return None
 
     def retract_inference(self, source: str, target: str, *, edge_label: str | None = None) -> list[str]:
+        """Retract an inferred edge and cascade to all dependent inferences."""
         node_a = self._find_node(source)
         node_b = self._find_node(target)
         if not node_a or not node_b:
@@ -49,8 +51,10 @@ class ProvenanceMixin(_MemoryBase):
 
     @property
     def provenance(self) -> ProvenanceTracker:
+        """Lazily initialize and return the provenance tracker."""
         return self._provenance
 
     @property
     def overlay(self) -> HypergraphOverlay | None:
+        """Lazily initialize and return the inference overlay."""
         return self._overlay

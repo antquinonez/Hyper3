@@ -18,6 +18,7 @@ class BayesianMixin(_MemoryBase):
     def set_prior(
         self, concept: str, *, outcomes: list[str], weights: list[float] | None = None
     ) -> CategoricalDistribution:
+        """Initialize a Bayesian prior distribution for a concept."""
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
@@ -38,6 +39,7 @@ class BayesianMixin(_MemoryBase):
         return distribution
 
     def update_belief(self, concept: str, *, evidence_name: str, likelihoods: dict[str, float]) -> UpdateResult:
+        """Apply evidence to update the belief for a concept via Bayes' rule."""
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
@@ -55,6 +57,7 @@ class BayesianMixin(_MemoryBase):
         return result
 
     def get_belief(self, concept: str) -> CategoricalDistribution | None:
+        """Return the current belief distribution for a concept, or ``None``."""
         node = self._find_node(concept)
         if not node:
             return None
@@ -63,6 +66,7 @@ class BayesianMixin(_MemoryBase):
         return self._bayesian.get_belief(node.id)
 
     def map_estimate(self, concept: str) -> str | None:
+        """Return the most probable hypothesis for a concept."""
         node = self._find_node(concept)
         if not node:
             return None
@@ -75,6 +79,7 @@ class BayesianMixin(_MemoryBase):
         return self._node_label(result_id)
 
     def bayes_factor(self, concept: str, *, hypothesis_a: str, hypothesis_b: str) -> float | None:
+        """Compute the Bayes factor between two hypotheses for a concept."""
         node = self._find_node(concept)
         if not node:
             return None
@@ -87,6 +92,7 @@ class BayesianMixin(_MemoryBase):
         return self._bayesian.bayes_factor(node.id, id_a, id_b)
 
     def credible_set(self, concept: str, *, level: float = 0.95) -> list[str]:
+        """Return the smallest set of hypotheses whose cumulative probability >= *level*."""
         node = self._find_node(concept)
         if not node:
             return []
@@ -96,6 +102,7 @@ class BayesianMixin(_MemoryBase):
         return [self._node_label(nid) for nid in ids]
 
     def reset_belief(self, concept: str) -> None:
+        """Reset the belief for a concept to a uniform prior."""
         node = self._find_node(concept)
         if not node:
             return

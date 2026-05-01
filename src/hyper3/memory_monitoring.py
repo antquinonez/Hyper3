@@ -22,12 +22,15 @@ class MonitoringMixin(_MemoryBase):
     """
 
     def introspect(self) -> HealthReport:
+        """Return a comprehensive health report of the system."""
         return self._meta.introspect(self._rules)
 
     def check_metamorphosis(self) -> list[TuningTrigger]:
+        """Check whether a metamorphosis (structural change) should be triggered."""
         return self._meta.check_tuning_triggers()
 
     def propose_tuning(self, triggers: list[TuningTrigger] | None = None) -> TuningPlan | None:
+        """Propose a tuning plan based on system health."""
         return self._meta.propose_tuning(triggers)
 
     def execute_tuning_validated(
@@ -36,6 +39,7 @@ class MonitoringMixin(_MemoryBase):
         *,
         fitness_tolerance: float = 0.0,
     ) -> TuningResult:
+        """Execute a tuning plan with validation and optional rollback."""
         from hyper3.graph_diff import GraphDiffer
 
         if self._graph_differ is None:
@@ -47,12 +51,15 @@ class MonitoringMixin(_MemoryBase):
         )
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> PresetAnalysis:
+        """Analyze a problem in a single computational frame."""
         return self._perspective.analyze_in_frame(concept, frame_name)
 
     def multi_frame_analysis(self, concept: str) -> dict[str, PresetAnalysis]:
+        """Analyze a problem through all computational frames."""
         return self._perspective.multi_frame_analysis(concept)
 
     def select_optimal_frame(self, concept: str) -> tuple[str, PresetAnalysis]:
+        """Select the best frame for analysis based on learned effectiveness."""
         return self._perspective.select_optimal_frame(concept)
 
     def validate_reasoning(
@@ -60,6 +67,7 @@ class MonitoringMixin(_MemoryBase):
         seed_concepts: set[str],
         rules: list[Any] | None = None,
     ) -> ValidationReport:
+        """Validate reasoning quality by comparing simple vs enhanced paths."""
         from hyper3.validation import ValidationEngine
 
         engine = ValidationEngine(self)
@@ -69,28 +77,34 @@ class MonitoringMixin(_MemoryBase):
         self,
         test_cases: list[set[str]] | None = None,
     ) -> list[ValidationReport]:
+        """Run comprehensive validation with detailed agreement metrics."""
         from hyper3.validation import ValidationEngine
 
         engine = ValidationEngine(self)
         return engine.run_validation_suite(test_cases)
 
     def detect_capability(self) -> CapabilityLevel:
+        """Detect the current capability level of the system."""
         from hyper3.capabilities import detect_capability_level
 
         return detect_capability_level(self)
 
     @property
     def meta(self) -> SystemMonitor:
+        """Lazily initialize and return the system monitor."""
         return self._meta
 
     @property
     def perspective(self) -> MultiPerspectiveAnalyzer:
+        """Lazily initialize and return the multi-perspective analyzer."""
         return self._perspective
 
     @property
     def structural_anomaly(self) -> StructuralAnomalyDetector:
+        """Lazily initialize and return the structural anomaly detector."""
         return self._anomaly_detector
 
     @property
     def discovery(self) -> RuleDiscoveryEngine:
+        """Lazily initialize and return the rule discovery engine."""
         return self._discovery

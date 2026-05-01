@@ -34,6 +34,7 @@ class StructuralMixin(_MemoryBase):
         edges: list[dict[str, Any]] | None = None,
         max_matches: int = 100,
     ) -> StructuralMatchResult:
+        """Match a structural pattern template against the graph."""
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
 
@@ -71,6 +72,7 @@ class StructuralMixin(_MemoryBase):
         max_length: int = 5,
         max_chains: int = 50,
     ) -> list[list[str]]:
+        """Find linear chains of the given length in the graph."""
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
         chains = self._structural_matcher.match_chain(
@@ -94,6 +96,7 @@ class StructuralMixin(_MemoryBase):
         edge_label: str | None = None,
         max_matches: int = 50,
     ) -> list[dict[str, Any]]:
+        """Find convergence patterns in the graph."""
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
         matches = self._structural_matcher.match_diamond(
@@ -116,6 +119,7 @@ class StructuralMixin(_MemoryBase):
         min_fan: int = 3,
         max_results: int = 50,
     ) -> list[dict[str, Any]]:
+        """Find hub nodes with many outgoing edges."""
         if self._structural_matcher is None:
             self._structural_matcher = StructuralPatternEngine(self._graph)
         fans = self._structural_matcher.match_fan_out(
@@ -146,6 +150,7 @@ class StructuralMixin(_MemoryBase):
         edge_label: str | None = None,
         seed: int = 42,
     ) -> CommunityResult:
+        """Detect communities using label propagation or connected components."""
         if self._community_detector is None:
             self._community_detector = CommunityDetector(self._graph)
 
@@ -163,11 +168,13 @@ class StructuralMixin(_MemoryBase):
             )
 
     def detect_contradictions(self) -> list[Contradiction]:
+        """Detect contradictory edge pairs in the graph."""
         if self._belief_revision is None:
             self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         return self._belief_revision.detect_contradictions()
 
     def revise_beliefs(self, *, strategy: str = "higher_confidence") -> RevisionResult:
+        """Detect and resolve contradictions, removing losing edges."""
         if self._belief_revision is None:
             self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         result = self._belief_revision.revise(strategy=strategy)
@@ -183,6 +190,7 @@ class StructuralMixin(_MemoryBase):
         source: str,
         target: str,
     ) -> list[Contradiction]:
+        """Check for contradictions between two specific concepts."""
         if self._belief_revision is None:
             self._belief_revision = ContradictionResolver(self._graph, self._provenance)
         return self._belief_revision.check_consistency(source, target)
@@ -195,6 +203,7 @@ class StructuralMixin(_MemoryBase):
         summary_data: Any = None,
         layer: str = "summary",
     ) -> AbstractionSummary | None:
+        """Collapse a set of nodes into a single summary node."""
         from hyper3.kernel import AbstractionLayer
 
         if self._abstraction_nav is None:
@@ -208,16 +217,19 @@ class StructuralMixin(_MemoryBase):
         )
 
     def expand_summary(self, summary_label: str) -> ExpandResult | None:
+        """Expand a summary node back into its detail nodes."""
         if self._abstraction_nav is None:
             self._abstraction_nav = AbstractionNavigator(self._graph)
         return self._abstraction_nav.expand_node(summary_label)
 
     def list_summaries(self) -> list[AbstractionMapping]:
+        """Return all active abstraction summaries."""
         if self._abstraction_nav is None:
             self._abstraction_nav = AbstractionNavigator(self._graph)
         return self._abstraction_nav.list_summaries()
 
     def capture_version(self) -> dict[str, int]:
+        """Snapshot the current graph state for later diffing."""
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
             self._meta.set_differ(self._graph_differ)
@@ -229,36 +241,44 @@ class StructuralMixin(_MemoryBase):
         }
 
     def diff_from_version(self, version_id: int) -> GraphDelta | None:
+        """Compute a delta from a stored version to the live graph."""
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
         return self._graph_differ.diff_from_version(version_id)
 
     def diff_between_versions(self, v1: int, v2: int) -> GraphDelta | None:
+        """Compute a delta between two stored versions."""
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
         return self._graph_differ.diff_between_versions(v1, v2)
 
     def version_history(self) -> GraphHistoryResult:
+        """Return the list of captured version identifiers."""
         if self._graph_differ is None:
             self._graph_differ = GraphDiffer(self._graph)
         return self._graph_differ.history
 
     @property
     def structural_matcher(self) -> StructuralPatternEngine | None:
+        """Lazily initialize and return the structural pattern engine."""
         return self._structural_matcher
 
     @property
     def belief_reviser(self) -> ContradictionResolver | None:
+        """Lazily initialize and return the contradiction resolver."""
         return self._belief_revision
 
     @property
     def abstraction(self) -> AbstractionNavigator | None:
+        """Lazily initialize and return the abstraction navigator."""
         return self._abstraction_nav
 
     @property
     def communities(self) -> CommunityDetector | None:
+        """Lazily initialize and return the community detector."""
         return self._community_detector
 
     @property
     def differ(self) -> GraphDiffer | None:
+        """Lazily initialize and return the graph differ."""
         return self._graph_differ

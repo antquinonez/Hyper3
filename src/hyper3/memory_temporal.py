@@ -19,6 +19,7 @@ class TemporalMixin(_MemoryBase):
     """
 
     def add_temporal_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
+        """Add a temporal event with start/end times to the graph."""
         event = self._temporal.add_event(label, label, start, end, **metadata)
         self.store(label, data={"start": start, "end": end})
         self._log.record("temporal_event", label=label, start=start, end=end)
@@ -27,6 +28,7 @@ class TemporalMixin(_MemoryBase):
     def temporal_query(
         self, concept: str, *, relation: str = "overlapping", max_gap: float = 1.0
     ) -> list[TemporalMatch]:
+        """Query temporal relationships between events."""
         event = self._temporal.get_event(concept)
         if not event:
             return []
@@ -48,16 +50,20 @@ class TemporalMixin(_MemoryBase):
         return [TemporalMatch(label=e.label, start=e.interval.start, end=e.interval.end) for e in events]
 
     def causal_chain(self, labels: list[str]) -> list[str]:
+        """Find causal chains involving a concept."""
         return self._temporal.causal_order(labels)
 
     @property
     def temporal(self) -> TemporalReasoner:
+        """Lazily initialize and return the temporal reasoner."""
         return self._temporal
 
     def set_llm_provider(self, provider: LLMProvider) -> None:
+        """Set a custom LLM provider for text enrichment."""
         self._enricher = LLMEnricher(llm=provider)
 
     def ingest(self, text: str, *, extract: bool = True) -> ExtractionResult:
+        """Ingest text to extract entities and relations."""
         result = self._enricher.extract(text)
         if extract:
             for entity in result.entities:
@@ -88,6 +94,7 @@ class TemporalMixin(_MemoryBase):
         extract: bool = True,
         deduplicate: bool = True,
     ) -> list[ExtractionResult]:
+        """Ingest multiple texts in batch."""
         results: list[ExtractionResult] = []
         seen_entities: set[str] = set()
         for text in texts:
@@ -120,4 +127,5 @@ class TemporalMixin(_MemoryBase):
 
     @property
     def enricher(self) -> LLMEnricher:
+        """Lazily initialize and return the text enricher."""
         return self._enricher

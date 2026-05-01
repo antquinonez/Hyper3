@@ -20,10 +20,12 @@ class RetrievalMixin(_MemoryBase):
     """
 
     def set_embedding_provider(self, provider: EmbeddingProvider) -> None:
+        """Set a custom embedding provider for semantic similarity."""
         self._embedding_engine = EmbeddingEngine(self._graph, provider=provider)
         self._retrieval._embedding = self._embedding_engine
 
     def enable_faiss(self, *, nlist: int = 100, nprobe: int = 10, use_gpu: bool = False) -> bool:
+        """Enable FAISS-based fast similarity search."""
         if self._embedding_engine is None:
             self._embedding_engine = EmbeddingEngine(self._graph)
             self._retrieval._embedding = self._embedding_engine
@@ -32,6 +34,7 @@ class RetrievalMixin(_MemoryBase):
         return result
 
     def find_similar(self, concept: str, *, top_k: int = 10, threshold: float | None = None) -> list[SimilarityResult]:
+        """Find concepts semantically similar to a query concept."""
         if self._embedding_engine is None:
             self._embedding_engine = EmbeddingEngine(self._graph)
         node = self._find_node(concept)
@@ -42,6 +45,7 @@ class RetrievalMixin(_MemoryBase):
         return results
 
     def analogy(self, a: str, b: str, c: str, *, top_k: int = 5) -> list[tuple[str, float]]:
+        """Perform vector-arithmetic analogy (a is to b as c is to ?)."""
         if self._embedding_engine is None:
             self._embedding_engine = EmbeddingEngine(self._graph)
         node_a = self._find_node(a)
@@ -60,11 +64,13 @@ class RetrievalMixin(_MemoryBase):
     def activate(
         self, concept: str, *, energy: float = 1.0, top_k: int = 10, iterations: int | None = None
     ) -> list[ActivationResult]:
+        """Activate a concept with a given energy level."""
         result = self._activation.associative_recall(concept, energy=energy, top_k=top_k, iterations=iterations)
         self._log.record("activate", concept=concept, results=len(result))
         return result
 
     def stimulate(self, concept: str, *, energy: float = 1.0) -> None:
+        """Activate a concept and run one step of spreading activation."""
         node = self._find_node(concept)
         if not node:
             from hyper3.exceptions import NodeNotFoundError
@@ -73,15 +79,18 @@ class RetrievalMixin(_MemoryBase):
         self._activation.stimulate(node.id, energy)
 
     def spread_activation(self, *, iterations: int | None = None) -> list[ActivationResult]:
+        """Run spreading activation for the configured number of steps."""
         self._activation.spread(iterations)
         return self._activation.get_activated()
 
     def clear_activations(self) -> None:
+        """Clear all activation values."""
         self._activation.clear()
 
     def retrieve(
         self, concept: str, *, top_k: int = 10, iterations: int = 3, use_ltr: bool = False
     ) -> list[RetrievalResult]:
+        """Retrieve concepts using combined activation and semantic signals."""
         if self._embedding_engine is None:
             self._embedding_engine = EmbeddingEngine(self._graph)
         self._retrieval._embedding = self._embedding_engine
@@ -90,41 +99,51 @@ class RetrievalMixin(_MemoryBase):
         return results
 
     def record_feedback(self, query: str, results: list[RetrievalResult], relevant_labels: set[str]) -> int:
+        """Record relevance feedback for a retrieval result."""
         count = self._retrieval.record_feedback(query, results, relevant_labels)
         self._log.record("feedback", query=query, relevant=len(relevant_labels), total=count)
         return count
 
     def train_retriever(self) -> TrainResult:
+        """Train the retrieval ranker from collected feedback."""
         result = self._retrieval.train_from_feedback()
         self._log.record("train_retriever", trained=result.trained, samples=result.samples)
         return result
 
     @property
     def feedback(self) -> FeedbackStore:
+        """Return the operation feedback tracker."""
         return self._retrieval.feedback
 
     @property
     def operation_feedback(self) -> OperationFeedback:
+        """Lazily initialize and return the operation feedback engine."""
         return self._feedback
 
     def feedback_summary(self) -> FeedbackSummaryResult:
+        """Return aggregate feedback across all operation types."""
         return self._feedback.cross_operation_summary()
 
     @property
     def retrieval(self) -> RetrievalEngine:
+        """Lazily initialize and return the retrieval engine."""
         return self._retrieval
 
     @property
     def embedding_engine(self) -> EmbeddingEngine | None:
+        """Lazily initialize and return the embedding engine."""
         return self._embedding_engine
 
     def enable_prefetch(self, enabled: bool = True) -> None:
+        """Enable Markov-model prefetching for cache warming."""
         self._cache.enable_prefetch(enabled)
 
     def record_access(self, concept: str) -> None:
+        """Record a concept access for prefetch training."""
         self._cache.record_access(f"store:{concept}")
 
     def predict_next_access(self, concept: str, *, top_k: int = 3) -> list[str]:
+        """Predict the next concept likely to be accessed."""
         predicted_keys = self._cache.predict_next(f"store:{concept}", top_k=top_k)
         result: list[str] = []
         for key in predicted_keys:
@@ -138,6 +157,7 @@ class RetrievalMixin(_MemoryBase):
         return result
 
     def prefetch_neighbors(self, concept: str) -> int:
+        """Prefetch neighbors of a concept into the cache."""
         node = self._find_node(concept)
         if not node:
             return 0
@@ -150,6 +170,7 @@ class RetrievalMixin(_MemoryBase):
 
     @property
     def cache(self) -> LazyCache:
+        """Return the lazy cache instance."""
         return self._cache
 
     def spread_hyperedge(
@@ -160,6 +181,7 @@ class RetrievalMixin(_MemoryBase):
         mode: str = "linear",
         iterations: int | None = None,
     ) -> list[ActivationResult]:
+        """Run hyperedge-aware spreading activation with gate modes."""
         node = self._find_node(concept)
         if not node:
             return []
