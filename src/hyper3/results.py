@@ -8,9 +8,11 @@ class _SimpleResultBase:
     """Base class for all result dataclasses, providing dict-like bracket access, ``keys()``, ``items()``, and ``get()`` alongside standard attribute access."""
 
     def __getitem__(self, key: str) -> Any:
+        """Return the value of a dataclass field by name (``result["field"]``)."""
         return getattr(self, key)
 
     def __contains__(self, key: str) -> bool:
+        """Check whether a non-private field exists and is non-None (``"field" in result``)."""
         if not hasattr(self, key) or key.startswith("_"):
             return False
         val = getattr(self, key)
@@ -19,15 +21,18 @@ class _SimpleResultBase:
         return val is not None
 
     def get(self, key: str, default: Any = None) -> Any:
+        """Return field value or *default* when the field is ``None`` or absent."""
         if not hasattr(self, key) or key.startswith("_"):
             return default
         val = getattr(self, key, default)
         return default if val is None else val
 
     def keys(self) -> list[str]:
+        """Return a list of public dataclass field names."""
         return [k for k in getattr(self, "__dataclass_fields__", {}) if not k.startswith("_")]
 
     def items(self) -> list[tuple[str, Any]]:
+        """Return ``(field, value)`` pairs for every public dataclass field."""
         return [(k, getattr(self, k)) for k in self.keys()]
 
 

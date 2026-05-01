@@ -22,6 +22,7 @@ class CategoricalDistribution(_SimpleResultBase):
     outcomes: dict[str, float] = field(default_factory=dict)
 
     def sample(self, *, rng: np.random.Generator | None = None) -> str:
+        """Draw a single outcome from the distribution weighted by probabilities."""
         if not self.outcomes:
             raise ValueError("Cannot sample from empty distribution")
         r = rng or np.random.default_rng()
@@ -36,6 +37,7 @@ class CategoricalDistribution(_SimpleResultBase):
         return names[idx]
 
     def entropy(self) -> float:
+        """Compute Shannon entropy in bits of the distribution."""
         if not self.outcomes:
             return 0.0
         probs = np.array(list(self.outcomes.values()), dtype=np.float64)
@@ -44,6 +46,7 @@ class CategoricalDistribution(_SimpleResultBase):
         return float(-np.sum(probs * np.log2(probs)))
 
     def normalize(self) -> None:
+        """Normalize outcome probabilities to sum to 1.0 in-place."""
         if not self.outcomes:
             return
         total = sum(self.outcomes.values())
@@ -57,6 +60,7 @@ class CategoricalDistribution(_SimpleResultBase):
 
     @classmethod
     def uniform(cls, outcomes: list[str]) -> CategoricalDistribution:
+        """Create a uniform distribution over the given outcome names."""
         if not outcomes:
             return cls()
         n = len(outcomes)
@@ -64,6 +68,7 @@ class CategoricalDistribution(_SimpleResultBase):
 
     @classmethod
     def from_weights(cls, outcomes: list[str], weights: list[float]) -> CategoricalDistribution:
+        """Create a distribution from raw weights, normalizing to probabilities."""
         if not outcomes:
             return cls()
         if len(weights) != len(outcomes):
@@ -121,6 +126,7 @@ class BayesianLayer:
         self._evidence_history: dict[str, list[Evidence]] = {}
 
     def set_prior(self, concept_id: str, distribution: CategoricalDistribution) -> None:
+        """Initialize a normalized prior distribution for a concept."""
         dist = CategoricalDistribution(outcomes=dict(distribution.outcomes))
         dist.normalize()
         self._beliefs[concept_id] = dist
@@ -128,6 +134,7 @@ class BayesianLayer:
             self._evidence_history[concept_id] = []
 
     def add_evidence(self, concept_id: str, evidence: Evidence) -> UpdateResult:
+        """Apply a single piece of evidence to update the belief via Bayes' rule."""
         if concept_id not in self._beliefs:
             raise ValueError(f"No prior set for concept '{concept_id}'")
 
@@ -172,6 +179,7 @@ class BayesianLayer:
         )
 
     def add_evidence_chain(self, concept_id: str, evidence_list: list[Evidence]) -> UpdateResult:
+        """Sequentially apply a chain of evidence, accumulating KL divergence."""
         if not evidence_list:
             current = self._beliefs.get(concept_id)
             return UpdateResult(
@@ -211,12 +219,14 @@ class BayesianLayer:
         )
 
     def get_belief(self, concept_id: str) -> CategoricalDistribution | None:
+        """Return a copy of the current posterior distribution, or ``None``."""
         dist = self._beliefs.get(concept_id)
         if dist is None:
             return None
         return CategoricalDistribution(outcomes=dict(dist.outcomes))
 
     def bayes_factor(self, concept_id: str, h_a: str, h_b: str) -> float:
+        """Compute the cumulative Bayes factor K = P(evidence|h_a) / P(evidence|h_b)."""
         history = self._evidence_history.get(concept_id, [])
         if not history:
             return 1.0
@@ -230,18 +240,21 @@ class BayesianLayer:
         return float(np.exp(log_ratio))
 
     def map_estimate(self, concept_id: str) -> str:
+        """Return the maximum a posteriori (MAP) hypothesis."""
         dist = self._beliefs.get(concept_id)
         if dist is None or not dist.outcomes:
             raise ValueError(f"No belief for concept '{concept_id}'")
         return max(dist.outcomes.keys(), key=lambda k: dist.outcomes[k])
 
     def entropy(self, concept_id: str) -> float:
+        """Compute the Shannon entropy (in bits) of the current belief."""
         dist = self._beliefs.get(concept_id)
         if dist is None:
             return 0.0
         return dist.entropy()
 
     def information_gain(self, concept_id: str, evidence: Evidence) -> float:
+        """Estimate expected information gain (in bits) from applying *evidence*."""
         dist = self._beliefs.get(concept_id)
         if dist is None:
             return 0.0
@@ -275,6 +288,7 @@ class BayesianLayer:
         return expected_kl
 
     def posterior_odds(self, concept_id: str, h_a: str, h_b: str) -> float:
+        """Return the posterior odds ratio P(h_a) / P(h_b)."""
         dist = self._beliefs.get(concept_id)
         if dist is None:
             return 1.0
@@ -283,6 +297,7 @@ class BayesianLayer:
         return p_a / p_b
 
     def credible_set(self, concept_id: str, level: float = 0.95) -> list[str]:
+        """Return the smallest set of hypotheses whose cumulative probability >= *level*."""
         dist = self._beliefs.get(concept_id)
         if dist is None or not dist.outcomes:
             return []
@@ -297,6 +312,7 @@ class BayesianLayer:
         return result
 
     def reset(self, concept_id: str) -> None:
+        """Reset the belief to a uniform prior and clear evidence history."""
         dist = self._beliefs.get(concept_id)
         if dist is None:
             return
@@ -306,10 +322,12 @@ class BayesianLayer:
 
     @property
     def tracked_concepts(self) -> list[str]:
+        """Return IDs of all concepts with an active belief."""
         return list(self._beliefs.keys())
 
     @staticmethod
     def _kl_divergence(p: np.ndarray, q: np.ndarray) -> float:
+        """Compute KL divergence D_KL(P || Q) in bits between two probability arrays."""
         p = np.clip(p, _EPS, None)
         q = np.clip(q, _EPS, None)
         p /= p.sum()

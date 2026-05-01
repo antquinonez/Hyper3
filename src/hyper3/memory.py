@@ -92,6 +92,7 @@ class HypergraphMemory(
     """
 
     def __contains__(self, concept: object) -> bool:
+        """Check whether a concept label exists in the graph (``"x" in mem``)."""
         if not isinstance(concept, str):
             return False
         return self.has_node(concept)

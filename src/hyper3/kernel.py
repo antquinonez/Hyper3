@@ -602,6 +602,7 @@ class Hypergraph:
     def _betweenness_bfs(
         self, source: str, node_ids: list[str]
     ) -> tuple[dict[str, float], list[str], dict[str, float]]:
+        """BFS from *source* returning (delta, stack, sigma) for Brandes betweenness."""
         pred: dict[str, list[str]] = {}
         dist: dict[str, float] = {nid: -1.0 for nid in node_ids}
         sigma: dict[str, float] = {nid: 0.0 for nid in node_ids}
@@ -717,6 +718,7 @@ class Hypergraph:
         find: Any,
         union: Any,
     ) -> None:
+        """Union-find merge edges whose vertex overlap >= *s*."""
         for i in range(m):
             for j in range(i + 1, m):
                 if len(edge_node_sets[i] & edge_node_sets[j]) >= s:
@@ -727,6 +729,7 @@ class Hypergraph:
         edge_components: dict[int, set[int]],
         edge_node_sets: list[frozenset[str]],
     ) -> list[set[str]]:
+        """Convert edge-component groups to node-component sets, adding isolated nodes."""
         node_components: list[set[str]] = []
         for comp_edge_indices in edge_components.values():
             node_set: set[str] = set()
@@ -806,6 +809,7 @@ class Hypergraph:
         max_cycles: int,
         visited_global: set[str],
     ) -> None:
+        """Recursive DFS helper that records cycles found from the current path."""
         if len(cycles) >= max_cycles:
             return
         for edge in self.outgoing_edges(node):
@@ -943,6 +947,7 @@ class Hypergraph:
     def _build_pagerank_transition(
         self, node_ids: list[str]
     ) -> tuple[list[float], list[list[tuple[int, float]]]]:
+        """Build the incidence-based transition structure: vertex degrees and outgoing edge lists."""
         node_idx = {nid: i for i, nid in enumerate(node_ids)}
         n = len(node_ids)
         vertex_degree = [0.0] * n
@@ -971,6 +976,7 @@ class Hypergraph:
         max_iterations: int,
         tol: float,
     ) -> list[float]:
+        """Power-iteration loop for PageRank until convergence or *max_iterations*."""
         for _ in range(max_iterations):
             new_pr = [alpha / n] * n
             for i in range(n):
@@ -1152,6 +1158,7 @@ class Hypergraph:
     def _compute_edge_overlaps(
         self, edge_node_sets: list[frozenset[str]]
     ) -> tuple[dict[tuple[int, int], int], int]:
+        """Compute pairwise vertex-intersection sizes and the maximum overlap."""
         m = len(edge_node_sets)
         overlaps: dict[tuple[int, int], int] = {}
         max_overlap = 0
@@ -1170,6 +1177,7 @@ class Hypergraph:
         overlaps: dict[tuple[int, int], int],
         edge_node_sets: list[frozenset[str]],
     ) -> SPersistenceLevel:
+        """Compute s-connected components for a single s value."""
         edge_components = self._union_overlapping_edges(m, overlaps, s_val)
         node_sets = self._build_node_components_from_edge_groups(edge_components, edge_node_sets)
         node_components = [frozenset(ns) for ns in node_sets]
@@ -1187,6 +1195,7 @@ class Hypergraph:
         overlaps: dict[tuple[int, int], int],
         s_val: int,
     ) -> dict[int, set[int]]:
+        """Union-find on edges with overlap >= *s_val*, returning edge-component groups."""
         edge_parent = list(range(m))
 
         def find(x: int) -> int:
@@ -1252,6 +1261,7 @@ class Hypergraph:
         exclude_edge_id: str,
         metric: str,
     ) -> list[tuple[str, float]]:
+        """Score every edge against *query_nodes* using the chosen similarity metric."""
         scores: list[tuple[str, float]] = []
         for eid, edge in self._edges.items():
             if eid == exclude_edge_id:
