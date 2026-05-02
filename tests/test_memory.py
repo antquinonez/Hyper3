@@ -1886,7 +1886,6 @@ class TestRetrievalMixinCoverage:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("x")
         fb = mem.operation_feedback
-        node_id = mem._find_node("x").id
         fb.record_inference_outcome(edge_id="e1", accepted=True)
         assert fb.signal_count >= 1
 

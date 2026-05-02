@@ -1413,7 +1413,7 @@ class TestMultiwayEngineExpandBranchBounding:
             max_total_states=50,
         ))
         assert len(results) >= 1
-        for sid, depth, count in results:
+        for _sid, depth, count in results:
             assert isinstance(depth, int)
             assert isinstance(count, int)
 
@@ -1440,7 +1440,7 @@ class TestMultiwayEngineExpandBranchBounding:
             max_total_states=50,
         )
         convergent = engine.find_convergent_states()
-        for sa, sb, sim in convergent:
+        for _sa, _sb, sim in convergent:
             assert 0.0 <= sim <= 1.0
 
     def test_get_lateral_insights_missing_state(self):

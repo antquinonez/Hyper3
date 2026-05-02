@@ -543,7 +543,6 @@ class TestRulialHighLevelInsights:
         rs = RulialSpace(g)
         rs.find_meta_patterns()
         insights = rs.generate_high_level_insights()
-        domains = {i.domain for i in insights}
         assert len(insights) >= 1
 
     def test_insights_include_cross_domain(self):
