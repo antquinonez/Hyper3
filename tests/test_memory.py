@@ -1951,3 +1951,179 @@ class TestRetrievalMixinCoverage:
         assert summary.correlated_nodes == {}
         assert summary.fitness_trend == "insufficient_data"
 
+
+class TestMemoryCoreCoverage:
+    def test_store_update_merges_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x", data={"a": 1})
+        node = mem.store("x", data={"b": 2}, update=True)
+        assert node.data["a"] == 1
+        assert node.data["b"] == 2
+
+    def test_relate_hyperedge_empty_sources_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        with pytest.raises(ValueError, match="sources"):
+            mem.relate_hyperedge(sources=set(), targets={"a"}, label="e")
+
+    def test_relate_hyperedge_empty_targets_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        with pytest.raises(ValueError, match="targets"):
+            mem.relate_hyperedge(sources={"a"}, targets=set(), label="e")
+
+    def test_relate_hyperedge_zero_weight_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        with pytest.raises(ValueError, match="positive"):
+            mem.relate_hyperedge(sources={"a"}, targets={"b"}, label="e", weight=0)
+
+    def test_relate_hyperedge_boundary_violation_raises(self):
+        from hyper3.constraints import BoundaryNavigator, NoSelfLoopConstraint
+        from hyper3.exceptions import ConstraintViolationError
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        nav = BoundaryNavigator(constraints=[NoSelfLoopConstraint()])
+        mem._boundary_navigator = nav
+        with pytest.raises(ConstraintViolationError):
+            mem.relate_hyperedge(sources={"a"}, targets={"a"}, label="self")
+
+    def test_query_hyperedges_min_target_cardinality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        mem.relate("a", "b", label="pairwise")
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="he")
+        result = mem.query_hyperedges(min_target_cardinality=2)
+        assert len(result) == 1
+        assert len(result[0].target_ids) >= 2
+
+    def test_relate_missing_source_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("b")
+        with pytest.raises(NodeNotFoundError):
+            mem.relate("missing", "b", label="e")
+
+    def test_relate_bidirectional_reverse_boundary_rollback(self):
+        from hyper3.constraints import BoundaryNavigator, ConstraintCheck
+        from hyper3.exceptions import ConstraintViolationError
+
+        class RejectBToA(ConstraintCheck):
+            def check(self, edge, graph):
+                for sid in edge.source_ids:
+                    n = graph.get_node(sid)
+                    if n and n.label == "b":
+                        for tid in edge.target_ids:
+                            n2 = graph.get_node(tid)
+                            if n2 and n2.label == "a":
+                                return "no b->a"
+                return None
+
+            def is_valid(self, edge, graph):
+                return self.check(edge, graph) is None
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        nav = BoundaryNavigator(constraints=[RejectBToA()])
+        mem._boundary_navigator = nav
+        with pytest.raises(ConstraintViolationError):
+            mem.relate("a", "b", label="e", bidirectional=True)
+        assert mem.graph.edge_count == 0
+
+    def test_evolve_with_feedback_and_convergence(self):
+        from hyper3.multiway import MultiwayGraph
+        from hyper3.multiway_causal import StateConvergenceEngine
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e")
+        mem._convergence_engine = StateConvergenceEngine(mem.graph, MultiwayGraph())
+        result = mem.evolve_with_feedback()
+        assert result.convergence is not None
+        assert result.convergence.merges_performed == 0
+
+
+class TestMemoryAnalyticsCoverage:
+    def test_shortest_path_missing_source_returns_none(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        assert mem.shortest_path("missing", "a") is None
+
+    def test_shortest_path_missing_target_returns_none(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        assert mem.shortest_path("a", "missing") is None
+
+    def test_degree_distribution(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e")
+        dist = mem.degree_distribution()
+        assert isinstance(dist, dict)
+        assert 1 in dist
+
+    def test_hyperedge_similarity_with_hyperedges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e1")
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"d"}, label="e2")
+        result = mem.hyperedge_similarity("a", metric="jaccard")
+        assert len(result) == 2
+        labels = {r[0] for r in result}
+        assert "e1" in labels
+        assert "e2" in labels
+        for _, score in result:
+            assert 0.0 <= score <= 1.0
+
+    def test_hyperedge_similarity_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.hyperedge_similarity("missing") == []
+
+    def test_hyperedge_similarity_top_k_truncates(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        for letter in "cdef":
+            mem.store(letter)
+            mem.relate_hyperedge(sources={"a", "b"}, targets={letter}, label=f"e_{letter}")
+        result = mem.hyperedge_similarity("a", metric="jaccard", top_k=2)
+        assert len(result) == 2
+
+    def test_edges_labeled_min_cardinality_filters(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.store("d")
+        mem.relate("a", "b", label="pairwise")
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="he")
+        result = mem.edges_labeled(min_source_cardinality=2)
+        assert len(result) == 1
+        assert result[0].source_cardinality >= 2
+        result2 = mem.edges_labeled(min_target_cardinality=2)
+        assert len(result2) == 1
+        assert result2[0].target_cardinality >= 2
+
+    def test_to_bipartite_graph(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="e1")
+        mem.relate("b", "c", label="e2")
+        pairs = mem.to_bipartite_graph()
+        assert len(pairs) == 4
+        node_labels = {p[0] for p in pairs} | {p[1] for p in pairs}
+        assert "a" in node_labels
+        assert "e1" in node_labels
+
