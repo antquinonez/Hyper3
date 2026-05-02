@@ -28,7 +28,8 @@ def run() -> EquivRunner:
     _test_density(t)
     _test_edge_size_distribution(t)
 
-    t.gap("degree_correlation", "HGX: degree_correlation(hg) -- Pearson across sizes")
+    _test_degree_correlation(t)
+
     t.gap("lazy_stat_objects", "XGI: nodes.degree.asdict()/.aslist()/.aspandas()")
     t.gap("multi_stat_dataframes", "XGI: nodes.multi(['degree']).aspandas()")
 
@@ -123,6 +124,15 @@ def _test_edge_size_distribution(t: EquivRunner) -> None:
             h3_sizes.get(size, 0),
             hgx_dist.get(size, 0),
         )
+
+
+def _test_degree_correlation(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+
+    dc = mem.graph.degree_correlation()
+
+    t.check("degree_correlation/is_float", isinstance(dc, float))
+    t.check("degree_correlation/in_range", -1.0 <= dc <= 1.0)
 
 
 if __name__ == "__main__":

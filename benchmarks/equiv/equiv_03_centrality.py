@@ -21,6 +21,8 @@ def run() -> EquivRunner:
     _test_degree_centrality(t)
     _test_betweenness_centrality(t)
     _test_pagerank(t)
+    _test_closeness_centrality(t)
+    _test_eigenvector_centrality(t)
 
     t.gap("h_eigenvector_centrality", "HGX: HEC_centrality(HG) -- H-eigenvector (Benson 2018)")
     t.gap("z_eigenvector_centrality", "HGX: ZEC_centrality(HG) -- Z-eigenvector")
@@ -29,8 +31,6 @@ def run() -> EquivRunner:
     t.gap("katz_centrality_hgx", "HGX: katz_centrality on hypergraph adjacency")
     t.gap("s_betweenness", "HGX: s_betweenness(H, s=1) -- s-walk betweenness")
     t.gap("s_closeness", "HGX: s_closeness(H, s=1) -- s-walk closeness")
-    t.gap("closeness_centrality", "NX: closeness_centrality(G)")
-    t.gap("eigenvector_centrality", "NX: eigenvector_centrality(G)")
     t.gap("sub_hypergraph_centrality", "HGX: subhypergraph_centrality(HG) -- Estrada 2005")
 
     return t
@@ -114,6 +114,48 @@ def _test_pagerank(t: EquivRunner) -> None:
     t.gap("pagerank_exact_nx_equivalence",
           "H3 incidence-based P=D_v^-1 H W D_e^-1 H^T differs from NX adjacency-based PageRank; "
           "both valid formulations, different transition matrices")
+
+
+def _test_closeness_centrality(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    h3_cc = mem.graph.closeness_centrality()
+    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_cc_labels = {label_map[k]: v for k, v in h3_cc.items()}
+    nx_cc = nx.closeness_centrality(G)
+
+    n = len(nx_cc)
+    for node in G.nodes():
+        h3_scaled = h3_cc_labels[node] * (n - 1)
+        t.check_close(
+            f"closeness_centrality/{node}",
+            h3_scaled,
+            nx_cc[node],
+            tol=1e-8,
+        )
+
+
+def _test_eigenvector_centrality(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    h3_ec = mem.graph.eigenvector_centrality()
+    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_ec_labels = {label_map[k]: v for k, v in h3_ec.items()}
+    nx_ec = nx.eigenvector_centrality(G.to_undirected(), max_iter=1000)
+
+    for node in G.nodes():
+        t.check_close(
+            f"eigenvector_centrality/{node}",
+            h3_ec_labels[node],
+            nx_ec[node],
+            tol=1e-4,
+        )
 
 
 if __name__ == "__main__":

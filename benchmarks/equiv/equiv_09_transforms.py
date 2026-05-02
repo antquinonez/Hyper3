@@ -23,8 +23,8 @@ def run() -> EquivRunner:
     _test_line_graph(t)
     _test_bipartite(t)
     _test_to_networkx(t)
+    _test_clique_projection(t)
 
-    t.gap("clique_projection", "HGX: clique_projection(h) -- expand hyperedges into cliques")
     t.gap("simplicial_complex", "HGX: simplicial_complex(h) -- fill in all subsets")
     t.gap("directed_line_graph", "HGX: directed_line_graph(h) for DirectedHypergraph")
 
@@ -92,6 +92,17 @@ def _test_to_networkx(t: EquivRunner) -> None:
 
     t.check("to_networkx/returns_digraph", G is not None)
     t.check_int("to_networkx/node_count", G.number_of_nodes(), mem.graph.node_count)
+
+
+def _test_clique_projection(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+
+    cp = mem.graph.clique_projection()
+
+    t.check("clique_projection/returns_hypergraph", cp is not None)
+    t.check_int("clique_projection/node_count", cp.node_count, mem.graph.node_count)
+    t.check("clique_projection/has_edges", cp.edge_count > 0)
+    t.check("clique_projection/is_connected", cp.is_connected())
 
 
 if __name__ == "__main__":

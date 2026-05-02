@@ -19,9 +19,9 @@ def run() -> EquivRunner:
 
     _test_local_clustering(t)
     _test_average_clustering(t)
+    _test_transitivity(t)
 
     t.gap("square_clustering", "NX: square_clustering(G)")
-    t.gap("transitivity", "NX: transitivity(G) -- global clustering coefficient")
     t.gap("triangles", "NX: triangles(G) -- triangle count per node")
 
     return t
@@ -56,6 +56,18 @@ def _test_average_clustering(t: EquivRunner) -> None:
     nx_avg = nx.average_clustering(G.to_undirected())
 
     t.check_close("average_clustering", h3_avg, nx_avg, tol=1e-4)
+
+
+def _test_transitivity(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    h3_trans = mem.graph.transitivity()
+    nx_trans = nx.transitivity(G.to_undirected())
+
+    t.check_close("transitivity", h3_trans, nx_trans, tol=1e-10)
 
 
 if __name__ == "__main__":

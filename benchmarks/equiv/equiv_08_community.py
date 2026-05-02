@@ -28,6 +28,7 @@ def run() -> EquivRunner:
     _test_components_as_communities_xgi(t)
     _test_label_propagation(t)
     _test_modularity(t)
+    _test_greedy_modularity_communities(t)
 
     t.gap("louvain_communities", "NX: louvain_communities(G)")
     t.gap("girvan_newman", "NX: girvan_newman(G)")
@@ -96,6 +97,25 @@ def _test_modularity(t: EquivRunner) -> None:
     mod = nx.community.modularity(G.to_undirected(), nx_comms)
 
     t.check("modularity/in_valid_range", -0.5 <= mod <= 1.0)
+
+
+def _test_greedy_modularity_communities(t: EquivRunner) -> None:
+    mem = build_pairwise_h3()
+    g = mem.graph
+
+    communities = g.greedy_modularity_communities()
+
+    t.check("greedy_modularity/returns_list", isinstance(communities, list))
+    t.check("greedy_modularity/non_empty", len(communities) >= 1)
+
+    all_nodes = set()
+    for comm in communities:
+        t.check("greedy_modularity/comm_is_set", isinstance(comm, set))
+        all_nodes |= comm
+    t.check_int("greedy_modularity/covers_all_nodes", len(all_nodes), g.node_count)
+
+    total = sum(len(c) for c in communities)
+    t.check_int("greedy_modularity/disjoint", total, g.node_count)
 
 
 if __name__ == "__main__":

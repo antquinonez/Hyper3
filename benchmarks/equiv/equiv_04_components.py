@@ -29,10 +29,10 @@ def run() -> EquivRunner:
     _test_is_connected(t)
     _test_largest_component(t)
     _test_s_components(t)
+    _test_strongly_connected(t)
+    _test_biconnected_components(t)
 
     t.gap("s_components_by_size", "HGX: connected_components(size=3) -- order/size filtering")
-    t.gap("biconnected_components", "NX: biconnected_components(G)")
-    t.gap("strongly_connected", "NX: strongly_connected_components(G)")
 
     return t
 
@@ -129,6 +129,43 @@ def _test_s_components(t: EquivRunner) -> None:
 
     sp = mem.s_persistence(max_s=3)
     t.check("s_persistence/returns_result", sp is not None)
+
+
+def _test_strongly_connected(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    h3_scc = mem.graph.strongly_connected_components()
+    nx_scc = list(nx.strongly_connected_components(G))
+
+    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_scc_labels = [{label_map[nid] for nid in comp} for comp in h3_scc]
+
+    t.check_set_membership("strongly_connected_components", h3_scc_labels, nx_scc)
+
+
+def _test_biconnected_components(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    h3_bic = mem.graph.biconnected_components()
+    nx_bic = list(nx.biconnected_components(G.to_undirected()))
+
+    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_bic_labels = [{label_map[nid] for nid in comp} for comp in h3_bic]
+
+    t.check_set_membership("biconnected_components", h3_bic_labels, nx_bic)
+
+    h3_ap = mem.graph.articulation_points()
+    nx_ap = list(nx.articulation_points(G.to_undirected()))
+
+    h3_ap_labels = {label_map[nid] for nid in h3_ap}
+    nx_ap_labels = set(nx_ap)
+    t.check_set_equal("articulation_points", h3_ap_labels, nx_ap_labels)
 
 
 if __name__ == "__main__":
