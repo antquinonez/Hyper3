@@ -27,7 +27,7 @@ class TestTimeInterval:
         assert iv.duration == 0.0
 
     def test_invalid_raises(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be >= start"):
             TimeInterval(5.0, 1.0)
 
     def test_contains_point_inside(self):
@@ -191,8 +191,7 @@ class TestTemporalReasoner:
         r.add_event("e3", "C", 1.0, 4.0)
         before = r.find_before("e2")
         ids = {e.event_id for e in before}
-        assert "e1" in ids
-        assert "e3" not in ids
+        assert ids == {"e1"}
 
     def test_find_after(self):
         r = self._make_reasoner()
@@ -201,8 +200,7 @@ class TestTemporalReasoner:
         r.add_event("e3", "C", 6.0, 8.0)
         after = r.find_after("e1")
         ids = {e.event_id for e in after}
-        assert "e2" in ids
-        assert "e3" in ids
+        assert ids == {"e2", "e3"}
 
     def test_find_overlapping(self):
         r = self._make_reasoner()
@@ -212,9 +210,7 @@ class TestTemporalReasoner:
         r.add_event("e4", "D", 2.0, 4.0)
         overlapping = r.find_overlapping("e1")
         ids = {e.event_id for e in overlapping}
-        assert "e2" in ids
-        assert "e4" in ids
-        assert "e3" not in ids
+        assert ids == {"e2", "e4"}
 
     def test_find_containing(self):
         r = self._make_reasoner()
@@ -222,7 +218,7 @@ class TestTemporalReasoner:
         r.add_event("e2", "B", 3.0, 7.0)
         containing = r.find_containing("e2")
         ids = {e.event_id for e in containing}
-        assert "e1" in ids
+        assert ids == {"e1"}
 
     def test_causal_order(self):
         r = self._make_reasoner()
@@ -270,8 +266,7 @@ class TestTemporalReasoner:
         r.add_event("e3", "C", 10.0, 12.0)
         prox = r.temporal_proximity("e1", max_gap=2.0)
         ids = {e.event_id for e, gap in prox}
-        assert "e2" in ids
-        assert "e3" not in ids
+        assert ids == {"e2"}
 
     def test_temporal_proximity_gap_values(self):
         r = self._make_reasoner()
@@ -318,9 +313,7 @@ class TestMemoryIntegration:
         assert ev.label == "lunch"
         assert ev.interval.start == 12.0
         assert ev.interval.end == 13.0
-        node = mem._find_node("lunch")
-        assert node is not None
-        assert node.data == {"start": 12.0, "end": 13.0}
+        assert mem.has_node("lunch")
 
     def test_temporal_query_overlapping(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -329,8 +322,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("meeting", relation="overlapping")
         labels = {r.label for r in results}
-        assert "lunch" in labels
-        assert "dinner" not in labels
+        assert labels == {"lunch"}
 
     def test_temporal_query_before(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -339,8 +331,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("lunch", relation="before")
         labels = {r.label for r in results}
-        assert "breakfast" in labels
-        assert "dinner" not in labels
+        assert labels == {"breakfast"}
 
     def test_temporal_query_after(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -349,8 +340,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("dinner", 18.0, 19.0)
         results = mem.temporal_query("lunch", relation="after")
         labels = {r.label for r in results}
-        assert "dinner" in labels
-        assert "breakfast" not in labels
+        assert labels == {"dinner"}
 
     def test_temporal_query_proximity(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -358,7 +348,7 @@ class TestMemoryIntegration:
         mem.add_temporal_event("lunch", 12.0, 13.0)
         results = mem.temporal_query("breakfast", relation="proximity", max_gap=5.0)
         labels = {r.label for r in results}
-        assert "lunch" in labels
+        assert labels == {"lunch"}
 
     def test_temporal_query_nonexistent(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -374,7 +364,9 @@ class TestMemoryIntegration:
 
     def test_temporal_property(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert mem.temporal is mem._temporal
+        tr = mem.temporal
+        assert isinstance(tr, TemporalReasoner)
+        assert mem.temporal is tr
 
     def test_load_reinitializes_temporal(self):
         import os
@@ -407,14 +399,14 @@ class TestMemoryIntegration:
         mem.add_temporal_event("meeting", 10.0, 11.0)
         results = mem.temporal_query("meeting", relation="containing")
         labels = {r.label for r in results}
-        assert "day" in labels
+        assert labels == {"day"}
 
     def test_detect_causal_chains_max_chains(self):
         tr = TemporalReasoner(Hypergraph())
         for i in range(20):
             tr.add_event(f"e{i}", f"event_{i}", i * 10.0, i * 10.0 + 5.0)
         chains = tr.detect_causal_chains(min_chain_length=3, max_chains=5)
-        assert len(chains) <= 5
+        assert len(chains) == 5
 
 
 class TestTemporalConsistency:
@@ -431,12 +423,13 @@ class TestTemporalConsistency:
             edge.id,
             mem.graph,
         )
-        assert "consistent" in result
+        assert result["consistent"] is True
+        assert result["relation"] == "equals"
 
 
 class TestAdditionalCoverage:
     def test_relate_to_nan_rejected(self):
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be finite"):
             TimeInterval(1.0, float('nan'))
 
     def test_edge_temporal_consistency_both_edges_missing(self):

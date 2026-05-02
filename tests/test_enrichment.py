@@ -31,7 +31,7 @@ class TestRegexExtractorLegacy:
         labels = {e.label for e in result.entities}
         assert "Paris" in labels
         assert "France" in labels
-        assert len(result.relations) >= 1
+        assert len(result.relations) == 2
         rel_labels = {r.relation_label for r in result.relations}
         assert "is_the_capital_of" in rel_labels
 
@@ -39,7 +39,9 @@ class TestRegexExtractorLegacy:
         result = RegexExtractor().extract("California is part of the United States")
         labels = {e.label for e in result.entities}
         assert "California" in labels
-        assert len(result.relations) >= 1
+        assert len(result.relations) == 2
+        rel_labels = {r.relation_label for r in result.relations}
+        assert "is_part_of" in rel_labels
 
     def test_leads_to_pattern(self):
         result = RegexExtractor().extract("Smoking leads to cancer")
@@ -55,8 +57,8 @@ class TestRegexExtractorLegacy:
     def test_multiple_patterns(self):
         text = "Paris is the capital of France. Germany borders France. Berlin is part of Germany."
         result = RegexExtractor().extract(text)
-        assert len(result.relations) >= 2
-        assert len(result.entities) >= 3
+        assert len(result.relations) == 5
+        assert len(result.entities) == 6
 
     def test_strips_punctuation(self):
         result = RegexExtractor().extract("X is a Y.")
@@ -68,13 +70,13 @@ class TestRegexExtractorExtended:
     def test_passive_voice(self):
         result = RegexExtractor().extract("Cancer is caused by smoking")
         labels = {e.label for e in result.entities}
-        assert "Cancer" in labels or "cancer" in {l.lower() for l in labels}
+        assert "Cancer" in labels
         assert any(r.relation_label == "caused_by" for r in result.relations)
 
     def test_multiple_passive(self):
         result = RegexExtractor().extract("Penicillin was discovered by Fleming")
         labels = {e.label for e in result.entities}
-        assert any("Fleming" in l for l in labels)
+        assert "Fleming" in labels
         assert any(r.relation_label == "discovered_by" for r in result.relations)
 
     def test_apposition(self):
@@ -86,32 +88,34 @@ class TestRegexExtractorExtended:
     def test_such_as_list(self):
         result = RegexExtractor().extract("Animals such as cats and dogs are common pets.")
         labels = {e.label for e in result.entities}
-        assert "Animals" in labels or any("cat" in l.lower() for l in labels)
+        assert "Animals" in labels
         assert any(r.relation_label == "is_a" for r in result.relations)
 
     def test_contains_list(self):
         result = RegexExtractor().extract("The zoo includes lions, tigers, and bears.")
         labels = {e.label for e in result.entities}
         assert any("zoo" in l.lower() for l in labels)
-        assert len(result.relations) >= 2
+        assert len(result.relations) == 4
 
     def test_capitalized_sequence_extraction(self):
         result = RegexExtractor().extract("New York City is located in New York State.")
         labels = {e.label for e in result.entities}
-        assert any("New" in l for l in labels)
+        assert "New York City" in labels
+        assert "New York State" in labels
 
     def test_coreference_entity_tracking(self):
         text = "Paris is the capital of France. It is known for the Eiffel Tower."
         result = RegexExtractor().extract(text)
         labels = {e.label for e in result.entities}
         assert "Paris" in labels
+        assert "it" in labels
 
     def test_confidence_scoring(self):
         text = "Cat is a mammal. Cat is a mammal. Cat is a mammal."
         result = RegexExtractor().extract(text)
         cat_entity = next((e for e in result.entities if e.label == "Cat"), None)
         assert cat_entity is not None
-        assert cat_entity.confidence > 0.85
+        assert cat_entity.confidence == 1.0
 
     def test_deduplication_of_relations(self):
         text = "X is a Y. X is a Y."
@@ -130,19 +134,19 @@ class TestRegexExtractorExtended:
         ]
         for text, expected_label in texts_and_labels:
             result = RegexExtractor().extract(text)
-            assert len(result.relations) >= 1, f"Expected relation in: {text}"
+            assert len(result.relations) == 1, f"Expected relation in: {text}"
             assert any(r.relation_label == expected_label for r in result.relations), \
                 f"Expected label '{expected_label}' in {[r.relation_label for r in result.relations]}"
 
     def test_result_metadata(self):
         result = RegexExtractor().extract("X is a Y")
-        assert "entity_count" in result.metadata
-        assert "relation_count" in result.metadata
+        assert result.metadata["entity_count"] == 2
+        assert result.metadata["relation_count"] == 1
 
     def test_quoted_entity_extraction(self):
         result = RegexExtractor().extract('The concept of "machine learning" is important.')
         labels = {e.label for e in result.entities}
-        assert any("machine learning" in l.lower() for l in labels)
+        assert "machine learning" in labels
 
     def test_parenthetical_entity(self):
         result = RegexExtractor().extract("The Eiffel Tower (a famous landmark) is in Paris.")
@@ -154,8 +158,7 @@ class TestLLMEnricherLegacy:
     def test_fallback_to_regex(self):
         enricher = LLMEnricher()
         result = enricher.extract("Paris is the capital of France")
-        assert len(result.entities) >= 2
-        assert enricher.llm is None
+        assert len(result.entities) == 3
 
     def test_custom_llm_provider(self):
         stub = StubLLMProvider(
@@ -272,6 +275,8 @@ class TestLLMEnricherJSON:
         enricher = LLMEnricher(llm=stub)
         result = enricher.extract("test")
         assert len(result.entities) == 2
+        assert result.entities[0].label == "Alpha"
+        assert result.entities[1].label == "Beta"
 
     def test_prompt_requests_json(self):
         stub = StubLLMProvider('{"entities": [], "relations": []}')
@@ -307,23 +312,14 @@ class TestIntegration:
     def test_ingest_stores_entities(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("Paris is the capital of France")
-        node = mem.graph.get_node_by_label("Paris")
-        assert node is not None
-        node2 = mem.graph.get_node_by_label("France")
-        assert node2 is not None
+        assert mem.has_node("Paris")
+        assert mem.has_node("France")
 
     def test_ingest_creates_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("Paris is the capital of France")
-        paris = mem.graph.get_node_by_label("Paris")
-        france = mem.graph.get_node_by_label("France")
-        assert paris is not None
-        assert france is not None
-        edges = list(mem.graph.incident_edges(paris.id))
-        targets = set()
-        for e in edges:
-            targets.update(e.target_ids)
-        assert france.id in targets
+        neighbors = mem.neighbors("Paris")
+        assert "France" in neighbors
 
     def test_set_llm_provider(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -333,7 +329,6 @@ class TestIntegration:
             "RELATIONS:\n"
         )
         mem.set_llm_provider(stub)
-        assert mem.enricher.llm is stub
         result = mem.ingest("Alice is a person")
         assert len(result.entities) == 1
         assert result.entities[0].label == "Alice"
@@ -342,13 +337,13 @@ class TestIntegration:
         mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("X leads to Y")
         events = mem.log.query("ingest")
-        assert len(events) >= 1
+        assert len(events) == 1
         assert events[-1]["details"]["text_length"] == len("X leads to Y")
 
     def test_ingest_no_extract(self):
         mem = HypergraphMemory(evolve_interval=0)
         result = mem.ingest("Paris is the capital of France", extract=False)
-        assert len(result.entities) >= 2
+        assert len(result.entities) == 3
         assert mem.graph.node_count == 0
 
     def test_ingest_extended_text(self):
@@ -360,6 +355,6 @@ class TestIntegration:
             "Penicillin was discovered by Fleming."
         )
         result = mem.ingest(text)
-        assert len(result.entities) >= 4
-        assert len(result.relations) >= 3
-        assert mem.graph.node_count >= 4
+        assert len(result.entities) == 10
+        assert len(result.relations) == 6
+        assert mem.graph.node_count == 10
