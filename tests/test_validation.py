@@ -28,37 +28,39 @@ class TestValidationEngine:
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
-        assert report.recommendation in ("enhanced", "simple", "equivalent")
-        assert report.simple_results is not None
-        assert report.enhanced_results is not None
+        assert report.recommendation == "enhanced"
+        assert len(report.simple_results.edges_produced) >= 1
+        assert len(report.enhanced_results.edges_produced) >= 1
 
     def test_simple_path_produces_results(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.simple_results, ReasoningSummary)
-        assert report.simple_results.edges_produced is not None
+        assert len(report.simple_results.edges_produced) >= 1
 
     def test_enhanced_path_produces_results(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.enhanced_results, ReasoningSummary)
-        assert report.enhanced_results.edges_produced is not None
+        assert len(report.enhanced_results.edges_produced) >= 1
 
     def test_agreement_metrics_computed(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.agreement, AgreementMetrics)
-        assert 0.0 <= report.agreement.node_jaccard <= 1.0
-        assert 0.0 <= report.agreement.f1 <= 1.0
+        assert report.agreement.node_jaccard == 0.0
+        assert report.agreement.f1 == 0.0
+        assert report.agreement.precision == 0.0
+        assert report.agreement.recall == 0.0
 
     def test_recommendation_is_valid(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
-        assert report.recommendation in ("enhanced", "simple", "equivalent")
+        assert report.recommendation == "enhanced"
 
     def test_overhead_positive(self):
         mem = _make_mem()
@@ -71,8 +73,10 @@ class TestValidationEngine:
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.novel_findings, list)
+        assert len(report.novel_findings) >= 1
         for f in report.novel_findings:
             assert "type" in f
+            assert f["type"] in ("node", "edge")
 
     def test_no_rules_returns_empty_report(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -94,10 +98,9 @@ class TestRunValidationSuite:
         mem = _make_mem()
         engine = ValidationEngine(mem)
         reports = engine.run_validation_suite()
-        assert isinstance(reports, list)
-        if reports:
-            for r in reports:
-                assert r.recommendation in ("enhanced", "simple", "equivalent")
+        assert len(reports) >= 1
+        for r in reports:
+            assert r.recommendation in ("enhanced", "simple", "equivalent")
 
     def test_suite_empty_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -119,8 +122,8 @@ class TestIsEnhancedReliable:
         for _ in range(5):
             engine.run_comparison({"a", "b", "c"})
         result = engine.is_enhanced_reliable()
-        assert isinstance(result, bool)
-        assert isinstance(engine.is_enhanced_reliable(), bool)
+        assert result is False
+        assert engine.is_enhanced_reliable() is False
 
 
 class TestMemoryValidateReasoning:
@@ -129,8 +132,8 @@ class TestMemoryValidateReasoning:
         mem = _make_mem()
         report = mem.validate_reasoning({"a", "b", "c"})
         assert report.recommendation in ("enhanced", "simple", "equivalent")
-        assert report.simple_results is not None
-        assert report.enhanced_results is not None
+        assert isinstance(report.simple_results, ReasoningSummary)
+        assert isinstance(report.enhanced_results, ReasoningSummary)
 
     def test_validate_comprehensive_on_memory(self):
         mem = _make_mem()
@@ -145,15 +148,14 @@ class TestContradictionDetection:
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
         assert isinstance(report.contradictions, list)
-        for c in report.contradictions:
-            assert "type" in c or "label" in c or len(c) > 0
+        assert len(report.contradictions) == 0
 
     def test_confidence_computed(self):
         mem = _make_mem()
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b", "c"})
-        assert 0.0 <= report.simple_results.avg_confidence <= 1.0
-        assert 0.0 <= report.enhanced_results.avg_confidence <= 1.0
+        assert report.simple_results.avg_confidence == 0.0
+        assert report.enhanced_results.avg_confidence == 1.0
 
 
 class _NodeCreatorRule(Rule):
@@ -197,7 +199,8 @@ class TestValidationCoverage:
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b"})
         assert report.recommendation in ("enhanced", "simple", "equivalent")
-        assert report.simple_results is not None
+        assert len(report.simple_results.nodes_produced) >= 1
+        assert len(report.simple_results.edges_produced) >= 1
 
     def test_find_novel_resolves_node_labels(self):
         mem = _make_mem()
@@ -208,7 +211,7 @@ class TestValidationCoverage:
         enhanced = ReasoningSummary(nodes_produced={node.id})
         findings = engine._find_novel(simple, enhanced)
         node_findings = [f for f in findings if f["type"] == "node"]
-        assert len(node_findings) >= 1
+        assert len(node_findings) == 1
         assert node_findings[0]["label"] == "novel_concept"
 
     def test_contradictions_label_conflict(self):
@@ -232,7 +235,7 @@ class TestValidationCoverage:
         enhanced = ReasoningSummary(edges_produced={e2.id})
         contradictions = engine._find_contradictions(simple, enhanced)
         label_conflicts = [c for c in contradictions if c["type"] == "label_conflict"]
-        assert len(label_conflicts) >= 1
+        assert len(label_conflicts) == 1
         assert label_conflicts[0]["simple_label"] == "alpha"
         assert label_conflicts[0]["enhanced_label"] == "beta"
 
@@ -259,8 +262,8 @@ class TestValidationCoverage:
         enhanced = ReasoningSummary(edges_produced={e2.id})
         contradictions = engine._find_contradictions(simple, enhanced)
         weight_div = [c for c in contradictions if c["type"] == "weight_divergence"]
-        assert len(weight_div) >= 1
-        assert weight_div[0]["divergence"] > 0.5
+        assert len(weight_div) == 1
+        assert weight_div[0]["divergence"] == 1.0
 
     def test_contradictions_direction_conflict(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -285,7 +288,7 @@ class TestValidationCoverage:
         enhanced = ReasoningSummary(edges_produced={e2.id})
         contradictions = engine._find_contradictions(simple, enhanced)
         dir_conflicts = [c for c in contradictions if c["type"] == "direction_conflict"]
-        assert len(dir_conflicts) >= 1
+        assert len(dir_conflicts) == 1
 
     def test_recommend_enhanced(self):
         mem = _make_mem()

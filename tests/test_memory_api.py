@@ -312,6 +312,8 @@ class TestPageRank:
         pr = mem.pagerank()
         assert len(pr) == 3
         assert all(0 <= v <= 1 for v in pr.values())
+        assert pr["hub"] > pr["b"]
+        assert sum(pr.values()) == pytest.approx(1.0)
 
     def test_top_k(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -342,7 +344,8 @@ class TestPageRank:
         mem.relate("a", "c", label="x", weight=1.0)
         pr_w = mem.pagerank(weighted=True)
         pr_u = mem.pagerank(weighted=False)
-        assert pr_w != pr_u or len(pr_w) == 3
+        assert pr_w != pr_u
+        assert len(pr_w) == 3
 
 
 class TestTopK:
@@ -374,6 +377,7 @@ class TestCentralityTopK:
         mem.relate("n1", "n2", label="x")
         bc = mem.betweenness_centrality(top_k=2)
         assert len(bc) == 2
+        assert max(bc, key=bc.get) == "n1"
 
     def test_degree_top_k(self):
         mem = HypergraphMemory(evolve_interval=0)

@@ -53,7 +53,7 @@ class TestSimpleResultBase:
         r = CommitResult(committed_nodes=7)
         assert r.get("committed_nodes", 0) == 7
 
-    def test_get_returns_default_for_none(self):
+    def test_get_returns_actual_zero_not_default(self):
         r = RollbackResult(rolled_back_nodes=0, rolled_back_edges=0)
         assert r.get("rolled_back_nodes", -1) == 0
 
@@ -314,7 +314,6 @@ class TestDiscoverResult:
         r = DiscoverResult(total_patterns=10, new_rules_added=2, analysis=analysis)
         assert r.total_patterns == 10
         assert r.new_rules_added == 2
-        assert r.analysis is not None
         assert r.analysis.total_patterns == 10
 
     def test_bracket_access(self):

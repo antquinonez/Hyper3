@@ -34,12 +34,12 @@ class TestBoundaryIndicator:
 
     def test_boundary(self):
         bi = BoundaryIndicator(cyclic_structure=0.4, high_centrality=0.5)
-        assert bi.boundary_score >= 0.27
+        assert bi.boundary_score == pytest.approx(0.27)
 
     def test_anomalous(self):
         bi = BoundaryIndicator(cyclic_structure=0.9, high_centrality=0.9, contradiction_risk=0.8)
         assert not bi.is_low_risk
-        assert bi.boundary_score > 0.5
+        assert bi.boundary_score == pytest.approx(0.70)
 
 
 class TestStructuralAnomalyDetector:
@@ -57,7 +57,7 @@ class TestStructuralAnomalyDetector:
         g.add_edge(Hyperedge(source_ids=frozenset({"sr"}), target_ids=frozenset({"sr"}), label="ref"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("self-referential paradox")
-        assert indicator.cyclic_structure >= 0.3
+        assert indicator.cyclic_structure == 0.9
 
     def test_high_centrality(self):
         g = _build_graph()
@@ -66,7 +66,7 @@ class TestStructuralAnomalyDetector:
             g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({label}), label="connects"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("universal hub")
-        assert indicator.high_centrality > 0.3
+        assert indicator.high_centrality == 1.0
 
     def test_boundary_proximity_reasoning(self):
         g = _build_graph()
@@ -76,9 +76,9 @@ class TestStructuralAnomalyDetector:
             g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
-        assert result.boundary_score > 0.3
-        if result.anomaly_status == "boundary":
-            assert len(result.boundary_warnings) > 0
+        assert result.boundary_score == pytest.approx(0.71, abs=0.01)
+        assert result.anomaly_status == "boundary"
+        assert len(result.boundary_warnings) > 0
 
     def test_anomaly_aware_approach(self):
         g = _build_graph()
@@ -87,7 +87,7 @@ class TestStructuralAnomalyDetector:
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("anomalous node")
-        assert result.boundary_score > 0.0
+        assert result.boundary_score == pytest.approx(0.345, abs=0.001)
 
     def test_map_boundaries(self):
         g = _build_graph()
@@ -121,7 +121,7 @@ class TestStructuralAnomalyDetector:
         g = Hypergraph()
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("nonexistent")
-        assert len(result.partial_results) > 0
+        assert len(result.partial_results) == 1
         assert result.partial_results[0]["status"] == "concept_not_found"
 
     def test_alternative_formulations(self):
@@ -132,8 +132,8 @@ class TestStructuralAnomalyDetector:
             g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("paradox node")
-        if result.anomaly_status != "low_risk":
-            assert len(result.alternative_formulations) > 0
+        assert result.anomaly_status != "low_risk"
+        assert len(result.alternative_formulations) > 0
 
     def test_max_level_cap(self):
         g = _build_graph()
@@ -143,7 +143,7 @@ class TestStructuralAnomalyDetector:
             g.add_edge(Hyperedge(source_ids=frozenset({"paradox"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("paradox node", max_level=2)
-        assert result.reasoning_level <= 2
+        assert result.reasoning_level == 2
 
 
 class TestStructuralAnomalyDeepCoverage:
@@ -153,7 +153,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({"thing"}), label="ref"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("thing")
-        assert indicator.cyclic_structure > 0.0
+        assert indicator.cyclic_structure == 0.9
 
     def test_cyclic_structure_concept_in_neighbors(self):
         g = _build_graph()
@@ -161,7 +161,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"self"}), target_ids=frozenset({"self"}), label="ref"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("self")
-        assert indicator.cyclic_structure > 0.0
+        assert indicator.cyclic_structure == 0.9
 
     def test_high_centrality_high_connectivity(self):
         g = _build_graph()
@@ -170,7 +170,7 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"thing"}), target_ids=frozenset({label}), label="connects"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("thing")
-        assert indicator.high_centrality > 0.0
+        assert indicator.high_centrality == 1.0
 
     def test_contradiction_contradictory_edges(self):
         g = _build_graph()
@@ -179,7 +179,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="is_not"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("contradiction node")
-        assert indicator.contradiction_risk > 0.0
+        assert indicator.contradiction_risk == 0.7
 
     def test_contradiction_multiple_contradictory_pairs(self):
         g = _build_graph()
@@ -188,7 +188,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"diag"}), target_ids=frozenset({"dog"}), label="prevents"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("contradictory")
-        assert indicator.contradiction_risk > 0.0
+        assert indicator.contradiction_risk == 0.7
 
     def test_structural_risk_terminal_node(self):
         g = _build_graph()
@@ -197,7 +197,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"dog"}), target_ids=frozenset({"sink"}), label="to_sink"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("sink node")
-        assert indicator.structural_anomaly_score > 0.0
+        assert indicator.structural_anomaly_score == 0.6
 
     def test_boundary_aware_reasoning_with_node(self):
         g = _build_graph()
@@ -207,8 +207,8 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary node")
-        if result.anomaly_status == "boundary":
-            assert len(result.partial_results) > 0
+        assert result.anomaly_status == "boundary"
+        assert len(result.partial_results) > 0
 
     def test_anomaly_aware_approach_generates_insights(self):
         g = _build_graph()
@@ -217,8 +217,8 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("anomalous node")
-        if result.anomaly_status == "anomalous":
-            assert len(result.structural_insights) > 0
+        assert result.anomaly_status == "anomalous"
+        assert len(result.structural_insights) > 0
 
     def test_generate_warnings_all_categories(self):
         g = _build_graph()
@@ -230,8 +230,8 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"all"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("all boundary")
-        if result.anomaly_status != "low_risk":
-            assert len(result.boundary_warnings) >= 1
+        assert result.anomaly_status != "low_risk"
+        assert len(result.boundary_warnings) >= 1
 
     def test_reformulate_with_neighbors(self):
         g = _build_graph()
@@ -241,9 +241,9 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"bp"}), target_ids=frozenset({"dog"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("reformulate node")
-        if result.anomaly_status != "low_risk":
-            has_related = any("Related low-risk" in f for f in result.alternative_formulations)
-            assert has_related
+        assert result.anomaly_status != "low_risk"
+        has_related = any("Related low-risk" in f for f in result.alternative_formulations)
+        assert has_related
 
     def test_structural_analysis(self):
         g = _build_graph()
@@ -253,8 +253,8 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({"meta"}), target_ids=frozenset({label}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("meta node")
-        if result.anomaly_status == "anomalous":
-            assert any("structural anomaly" in s.lower() or "Boundary score" in s or "Cyclic" in s for s in result.structural_insights)
+        assert result.anomaly_status == "anomalous"
+        assert any("structural anomaly" in s.lower() or "Boundary score" in s or "Cyclic" in s for s in result.structural_insights)
 
     def test_boundary_regions_property(self):
         g = _build_graph()
@@ -270,7 +270,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"sa"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("boundary-ish")
-        assert result.reasoning_level >= 1
+        assert result.reasoning_level == 2
 
     def test_standard_reasoning_found_concept(self):
         g = _build_graph()
@@ -289,7 +289,7 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"a"}), label="e"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("a")
-        assert indicator.cyclic_structure >= 0.8
+        assert indicator.cyclic_structure == 0.8
 
     def test_hub_node_detection(self):
         g = _build_graph()
@@ -299,7 +299,7 @@ class TestStructuralAnomalyDeepCoverage:
             g.add_edge(Hyperedge(source_ids=frozenset({label}), target_ids=frozenset({"hub"}), label="back"))
         tr = StructuralAnomalyDetector(g)
         indicator = tr.assess_anomaly("hub")
-        assert indicator.structural_anomaly_score > 0.0
+        assert indicator.structural_anomaly_score == 0.7
 
     def test_structural_features_in_standard_reasoning(self):
         g = _build_graph()
@@ -316,10 +316,10 @@ class TestStructuralAnomalyDeepCoverage:
         g.add_edge(Hyperedge(source_ids=frozenset({"undec"}), target_ids=frozenset({"cat"}), label="rel"))
         tr = StructuralAnomalyDetector(g)
         result = tr.reason_at_level("anomalous node")
-        if result.anomaly_status == "anomalous":
-            anomalous_entries = [r for r in result.partial_results if r.get("status") == "anomalous"]
-            if anomalous_entries:
-                assert "extended_neighborhood" in anomalous_entries[0]
+        assert result.anomaly_status == "anomalous"
+        anomalous_entries = [r for r in result.partial_results if r.get("status") == "anomalous"]
+        assert len(anomalous_entries) >= 1
+        assert "extended_neighborhood" in anomalous_entries[0]
 
 
 
@@ -340,8 +340,11 @@ class TestPrecomputeBoundaries:
         tr = StructuralAnomalyDetector(g)
         results = tr.precompute_boundaries(["cat", "dog"])
         assert len(results) == 2
+        cat_ind = results["cat"]
+        assert isinstance(cat_ind, BoundaryIndicator)
+        assert cat_ind.boundary_score < 0.3
         for indicator in results.values():
-            assert isinstance(indicator, BoundaryIndicator)
+            assert 0.0 <= indicator.boundary_score <= 1.0
 
     def test_second_call_uses_cache(self):
         g = _build_graph()
@@ -363,6 +366,7 @@ class TestPrecomputeBoundaries:
         results = tr.precompute_boundaries(["nonexistent"])
         assert "nonexistent" in results
         assert isinstance(results["nonexistent"], BoundaryIndicator)
+        assert results["nonexistent"].boundary_score == 0.0
 
 
 class TestInvalidateBoundaryCache:
@@ -384,7 +388,10 @@ class TestInvalidateBoundaryCache:
     def test_invalidate_nonexistent_concept_no_error(self):
         g = _build_graph()
         tr = StructuralAnomalyDetector(g)
+        tr.precompute_boundaries(["cat", "dog"])
         tr.invalidate_boundary_cache("nonexistent")
+        assert "cat" in tr._boundary_cache
+        assert "dog" in tr._boundary_cache
 
     def test_cache_expires_after_ttl(self):
         g = _build_graph()
@@ -584,7 +591,7 @@ class TestSuggestAssumptions:
         for i in range(10):
             mem.store(f"isolated_{i}")
         suggestions = mem._anomaly_detector.suggest_assumptions("root", top_k=3)
-        assert len(suggestions) <= 3
+        assert len(suggestions) == 3
 
     def test_no_suggestions_for_nonexistent(self):
         mem = _make_cyclic_mem()

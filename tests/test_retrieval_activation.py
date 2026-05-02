@@ -60,7 +60,7 @@ class TestDecay:
         sa.stimulate(nodes[0].id, 1.0)
         sa.spread(iterations=1)
         r2 = sa.activations
-        assert r2[nodes[1].id] < 1.0
+        assert r2[nodes[1].id] == pytest.approx(0.5)
 
 
 class TestEdgeWeight:
@@ -110,8 +110,7 @@ class TestMinActivation:
         sa = SpreadingActivation(graph, config=config)
         sa.stimulate(a.id, 1.0)
         result = sa.spread(iterations=1)
-        if b.id in result:
-            assert result[b.id] >= 0.5
+        assert b.id not in result
 
 
 class TestGetActivated:
@@ -120,9 +119,9 @@ class TestGetActivated:
         sa = SpreadingActivation(graph)
         sa.stimulate(nodes[0].id, 1.0)
         sa.spread()
-        high = sa.get_activated(threshold=0.5)
-        low = sa.get_activated(threshold=0.001)
-        assert len(high) == 3
+        high = sa.get_activated(threshold=0.75)
+        low = sa.get_activated(threshold=0.5)
+        assert len(high) == 1
         assert len(low) == 3
 
     def test_top_k(self):
@@ -181,6 +180,7 @@ class TestStimulateAndSpread:
         seeds = {nodes[0].id: 0.5, nodes[2].id: 0.5}
         result = sa.stimulate_and_spread(seeds)
         assert len(result) == 3
+        assert {r.node_id for r in result} == {n.id for n in nodes}
 
     def test_seeds_by_label(self):
         graph, nodes = _make_chain()
@@ -188,7 +188,7 @@ class TestStimulateAndSpread:
         seeds = {"A": 1.0}
         result = sa.stimulate_and_spread(seeds)
         labels = {r.label for r in result}
-        assert "B" in labels
+        assert labels == {"A", "B", "C"}
 
 
 class TestClear:
@@ -281,7 +281,8 @@ class TestIntegrationMemory:
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
         result = mem2.activate("a", top_k=5)
-        assert len(result) >= 1
+        assert len(result) == 1
+        assert result[0].label == "b"
 
 
 class TestStimulateNodeNotFoundError:
@@ -294,6 +295,9 @@ class TestStimulateNodeNotFoundError:
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.stimulate("a", energy=2.0)
+        result = mem.spread_activation()
+        assert len(result) == 1
+        assert result[0].activation == pytest.approx(2.0)
 
 
 class TestStimulateLabel:
@@ -343,6 +347,7 @@ class TestSpreadHyperedge:
         sa.stimulate(s.id, 1.0)
         result = sa.spread_hyperedge(mode="or", iterations=1)
         assert t.id in result
+        assert result[t.id] > 0
 
     def test_majority_mode_with_two_of_three(self):
         graph = Hypergraph()

@@ -180,6 +180,9 @@ class TestOverlayMergeNode:
         ov = HypergraphOverlay(g)
         result = ov.merge_node(a.id, b.id)
         assert result is not None
+        assert result.id == a.id
+        assert result.label == "a"
+        assert g.get_node(b.id) is None
 
 
 class TestOverlayEdgeCount:
@@ -396,6 +399,7 @@ class TestOverlayRemoveOverlayEdgeInternal:
         g = Hypergraph()
         ov = HypergraphOverlay(g)
         ov._remove_overlay_edge("nonexistent")
+        assert len(ov.overlay_edge_ids) == 0
 
 
 class TestOverlayNeighbors:
@@ -424,6 +428,7 @@ class TestHypergraphOverlay:
         assert overlay.get_node(a.id) is not None
         assert overlay.get_node(a.id).label == "a"
         assert overlay.get_node_by_label("b") is not None
+        assert overlay.get_node_by_label("b").id == b.id
 
     def test_overlay_write_does_not_modify_base(self):
         g, a, b = _make_base_graph()
@@ -581,11 +586,7 @@ class TestMemoryOverlayIntegration:
     def test_reason_without_overlay(self):
         mem = _setup_memory()
         result = mem.reason({"a", "b", "c"}, use_overlay=False)
-        assert (
-            "overlay" not in result
-            or result.get("overlay") is None
-            or result.get("overlay", {}).get("edge_count", 0) == 0
-        )
+        assert result.get("overlay") is None
         assert mem.overlay is None
 
 

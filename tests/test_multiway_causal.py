@@ -59,9 +59,15 @@ class TestStateConvergenceEngine:
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         invariants = ci.find_invariants()
         assert isinstance(invariants, list)
-        for group in invariants:
-            assert isinstance(group, list)
-            assert len(group) >= 2
+        leaves = mw.get_leaves()
+        if len(leaves) < 2:
+            assert len(invariants) == 0
+        for pair in invariants:
+            assert isinstance(pair, tuple)
+            assert len(pair) == 3
+            assert isinstance(pair[0], str)
+            assert isinstance(pair[1], str)
+            assert isinstance(pair[2], float)
 
     def test_merge_invariant_states(self):
         g, engine = self._build_multiway()
@@ -69,9 +75,10 @@ class TestStateConvergenceEngine:
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
         assert isinstance(merged, list)
+        state_ids = {s.id for s in mw.states}
         for inv in merged:
             assert isinstance(inv, ConvergenceRecord)
-            assert inv.merged_into is not None
+            assert inv.merged_into in state_ids
 
     def test_enforce(self):
         g, engine = self._build_multiway()
@@ -108,8 +115,9 @@ class TestBeliefState:
         qs.add_outcome("b", 0.1)
         selected = qs.sample()
         assert selected is not None
+        assert selected.node_id in {"a", "b"}
         assert qs.resolved
-        assert qs.resolved_to is not None
+        assert qs.resolved_to in {"a", "b"}
 
     def test_sample_with_context(self):
         qs = BeliefState()
@@ -162,6 +170,7 @@ class TestBeliefLayer:
         qs = ql.create_distribution(["a", "b"])
         result = ql.sample(qs.id)
         assert result is not None
+        assert result.node_id in {"a", "b"}
         assert qs.resolved
 
     def test_evolve_amplitudes(self):
@@ -171,9 +180,16 @@ class TestBeliefLayer:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["a", "b"])
         ql.evolve_amplitudes(qs.id, {"a": 5.0, "b": 0.1})
+        a_amp = None
+        b_amp = None
         for outcome in qs.outcomes:
             if outcome.node_id == "a":
-                assert outcome.amplitude > 0.5
+                a_amp = outcome.amplitude
+            if outcome.node_id == "b":
+                b_amp = outcome.amplitude
+        assert a_amp is not None and b_amp is not None
+        assert a_amp > b_amp
+        assert a_amp > 0.9
 
     def test_active_and_resolved(self):
         g = Hypergraph()
@@ -203,7 +219,7 @@ class TestHypergraphMemoryIntegration:
         mem.add_rules(TransitiveRule(edge_label="rel"))
         result = mem.reason({"a", "b", "c"})
         assert "expansion" in result
-        assert result["expansion"]["rules_applied"] > 0
+        assert result["expansion"]["rules_applied"] == 1
 
     def test_reason_no_rules(self):
         mem = HypergraphMemory()
@@ -226,6 +242,7 @@ class TestHypergraphMemoryIntegration:
         assert qs.outcome_count == 3
         result = mem.sample(qs, context={"bank_finance": 5.0})
         assert result is not None
+        assert result.label in {"cat", "bank_river", "bank_finance"}
         assert qs.resolved
 
     def test_create_distribution_empty(self):
@@ -244,7 +261,12 @@ class TestHypergraphMemoryIntegration:
         insights = mem.lateral_insights("a")
         assert isinstance(insights, list)
         for insight in insights:
-            assert "branchial_distance" in insight
+            assert isinstance(insight["branchial_distance"], float)
+            assert 0.0 <= insight["branchial_distance"] <= 2.0
+            assert "complementary_nodes" in insight
+            assert "transferable_patterns" in insight
+            assert "novel_in_source" in insight
+            assert "novel_in_lateral" in insight
 
     def test_lateral_insights_no_multiway(self):
         mem = HypergraphMemory()
@@ -256,9 +278,12 @@ class TestHypergraphMemoryIntegration:
         mem.store("b")
         mem.relate("a", "b")
         stats = mem.stats()
-        assert "multiway_states" in stats
-        assert "belief_active" in stats
-        assert "belief_resolved" in stats
+        assert isinstance(stats["multiway_states"], int)
+        assert stats["multiway_states"] == 0
+        assert isinstance(stats["belief_active"], int)
+        assert stats["belief_active"] == 0
+        assert isinstance(stats["belief_resolved"], int)
+        assert stats["belief_resolved"] == 0
 
     def test_multiway_property(self):
         mem = HypergraphMemory()
@@ -269,10 +294,11 @@ class TestHypergraphMemoryIntegration:
         mem.add_rules(TransitiveRule(edge_label="rel"))
         mem.reason({"a", "b"})
         assert mem.multiway is not None
+        assert len(mem.multiway.multiway.states) >= 1
 
     def test_belief_property(self):
         mem = HypergraphMemory()
-        assert mem.belief is not None
+        assert isinstance(mem.belief, BeliefLayer)
 
     def test_full_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -287,15 +313,16 @@ class TestHypergraphMemoryIntegration:
             InverseRule(edge_label="causes", inverse_label="caused_by"),
         )
         result = mem.reason({"rain", "clouds", "wet_ground", "flooding", "umbrella"}, max_depth=3)
-        assert result["expansion"]["rules_applied"] > 0
+        assert result["expansion"]["rules_applied"] == 3
         qs = mem.create_distribution(["rain", "clouds", "umbrella"])
         assert qs.outcome_count == 3
         selected = mem.sample(qs)
         assert selected is not None
+        assert selected.label in {"rain", "clouds", "umbrella"}
         mem.evolve()
         stats = mem.stats()
-        assert stats["nodes"] >= 5
-        assert stats["multiway_states"] > 0
+        assert stats["nodes"] == 5
+        assert stats["multiway_states"] == 4
 
 
 
@@ -354,6 +381,7 @@ class TestCausalInvarianceDeep:
         report = ci.enforce()
         assert "reduction" in report
         assert isinstance(report["reduction"], int)
+        assert report["reduction"] == report["states_before"] - report["states_after"]
 
 
 class TestGraphIsomorphismCoverage:

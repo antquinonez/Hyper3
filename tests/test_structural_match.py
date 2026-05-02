@@ -92,7 +92,7 @@ class TestStructuralPatternEngine:
         result = engine.match_pattern(pattern)
         assert result.total_match_count == 1
         assert len(result.matches) == 1
-        assert result.matches[0].score > 0
+        assert result.matches[0].score == 5.0
 
     def test_match_pattern_with_data_type_constraint(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -139,7 +139,7 @@ class TestStructuralPatternEngine:
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.structural_matcher is None
         mem.match_chains()
-        assert mem.structural_matcher is not None
+        assert isinstance(mem.structural_matcher, StructuralPatternEngine)
 
 
 class TestStructuralMatchIntegration:
@@ -180,7 +180,7 @@ class TestMatchPatternDeep:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 2
+        assert result.total_match_count == 2
 
     def test_pattern_with_target_only_binding(self):
         g = Hypergraph()
@@ -198,7 +198,7 @@ class TestMatchPatternDeep:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 2
+        assert result.total_match_count == 2
 
     def test_pattern_no_nodes_or_edges(self):
         g = Hypergraph()
@@ -225,7 +225,7 @@ class TestMatchPatternDeep:
             edges=[PatternEdge(source_role="s", target_role="t", label="next")],
         )
         result = engine.match_pattern(pattern, max_matches=3)
-        assert result.total_match_count <= 3
+        assert result.total_match_count == 3
 
     def test_pattern_node_constraint_mismatch(self):
         g = Hypergraph()
@@ -276,7 +276,7 @@ class TestMatchPatternDeep:
             edges=[PatternEdge(source_role="s", target_role="c", label="serves")],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
 
 class TestMatchChainDeep:
@@ -304,7 +304,7 @@ class TestMatchChainDeep:
                 ))
         engine = StructuralPatternEngine(g)
         chains = engine.match_chain(min_length=1, max_chains=3)
-        assert len(chains) <= 3
+        assert len(chains) == 3
 
 
 class TestMatchDiamondDeep:
@@ -318,7 +318,7 @@ class TestMatchDiamondDeep:
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="flow"))
         engine = StructuralPatternEngine(g)
         diamonds = engine.match_diamond(edge_label="flow")
-        assert len(diamonds) >= 1
+        assert len(diamonds) == 2
 
     def test_diamond_no_matches(self):
         g = Hypergraph()
@@ -379,7 +379,7 @@ class TestCoverageGaps:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_pattern_source_bound_weight_skip(self):
         g = Hypergraph()
@@ -399,7 +399,7 @@ class TestCoverageGaps:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_pattern_target_only_bound_with_filters(self):
         g = Hypergraph()
@@ -421,7 +421,7 @@ class TestCoverageGaps:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
         found_z = [m.bindings["z"] for m in result.matches]
         assert "c" in found_z
 
@@ -443,7 +443,7 @@ class TestCoverageGaps:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_pattern_binding_queue_empty(self):
         g = Hypergraph()
@@ -481,7 +481,7 @@ class TestCoverageGaps:
             ],
         )
         result = engine.match_pattern(pattern)
-        assert result.total_match_count >= 1
+        assert result.total_match_count == 1
 
     def test_edge_exists_no_match(self):
         g = Hypergraph()
@@ -510,7 +510,7 @@ class TestCoverageGaps:
         g.add_edge(Hyperedge(source_ids=frozenset({"hub"}), target_ids=frozenset({"extra"}), label="other"))
         engine = StructuralPatternEngine(g)
         fans = engine.match_fan_out(edge_label="target", min_fan=3)
-        assert len(fans) >= 1
+        assert len(fans) == 1
         _, targets = fans[0]
         assert "extra" not in targets
 
@@ -523,7 +523,7 @@ class TestCoverageGaps:
                 g.add_edge(Hyperedge(source_ids=frozenset({f"hub{h}"}), target_ids=frozenset({f"s{h}_{i}"})))
         engine = StructuralPatternEngine(g)
         fans = engine.match_fan_out(min_fan=3, max_results=2)
-        assert len(fans) <= 2
+        assert len(fans) == 2
 
     def test_diamond_mixed_labels(self):
         g = Hypergraph()
@@ -534,7 +534,7 @@ class TestCoverageGaps:
         g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="other"))
         engine = StructuralPatternEngine(g)
         diamonds = engine.match_diamond(edge_label="flow")
-        assert len(diamonds) >= 1
+        assert len(diamonds) == 1
 
     def test_diamond_max_matches_limit(self):
         g = Hypergraph()
@@ -607,5 +607,6 @@ class TestCoverageGaps:
                 ))
         engine = StructuralPatternEngine(g)
         chains = engine.match_chain(edge_label="next", min_length=1, max_length=3)
+        assert len(chains) > 0
         for chain in chains:
             assert len(chain) - 1 <= 3

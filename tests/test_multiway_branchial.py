@@ -88,19 +88,20 @@ class TestBranchialSpace:
         g, mw = _build_branching_multiway()
         bs = BranchialSpace(g, mw.multiway)
         leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            metrics = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert isinstance(metrics, BranchialDistanceMetrics)
-            assert metrics.structural >= 0.0
+        assert len(leaves) >= 1
+        root = mw.multiway.get_root()
+        assert root is not None
+        metrics = bs.compute_distances(leaves[0].id, root.id)
+        assert isinstance(metrics, BranchialDistanceMetrics)
+        assert metrics.structural >= 0.0
+        assert metrics.combined >= 0.0
 
     def test_build_simultaneity_groups(self):
         g, mw = _build_branching_multiway()
         bs = BranchialSpace(g, mw.multiway)
         groups = bs.build_simultaneity_groups()
         assert isinstance(groups, list)
-        for group in groups:
-            assert isinstance(group, SimultaneityGroup)
-            assert len(group.state_ids) >= 2
+        assert len(groups) == 0
 
     def test_cluster_states(self):
         g, mw = _build_branching_multiway()
@@ -108,6 +109,7 @@ class TestBranchialSpace:
         bs.assign_coordinates()
         clusters = bs.cluster_states(n_clusters=2)
         assert isinstance(clusters, list)
+        assert len(clusters) >= 1
         for c in clusters:
             assert isinstance(c, BranchialCluster)
             assert c.size >= 1
@@ -123,7 +125,7 @@ class TestBranchialSpace:
         mw.expand({"a", "c"}, [rule], max_depth=2, max_total_states=20)
         bs = BranchialSpace(g, mw.multiway)
         correlations = bs.detect_correlations()
-        assert isinstance(correlations, list)
+        assert correlations == []
 
     def test_find_neighbors(self):
         g, mw = _build_branching_multiway()
@@ -132,7 +134,7 @@ class TestBranchialSpace:
         leaves = mw.multiway.get_leaves()
         if leaves:
             neighbors = bs.find_neighbors(leaves[0].id, max_distance=100.0)
-            assert isinstance(neighbors, list)
+            assert neighbors == []
 
     def test_lateral_inference(self):
         g, mw = _build_branching_multiway()
@@ -142,16 +144,16 @@ class TestBranchialSpace:
         leaves = mw.multiway.get_leaves()
         if leaves:
             insights = bs.lateral_inference(leaves[0].id)
-            assert isinstance(insights, list)
+            assert insights == []
 
     def test_analyze(self):
         g, mw = _build_branching_multiway()
         bs = BranchialSpace(g, mw.multiway)
         bs.assign_coordinates()
         report = bs.analyze()
-        assert "states_mapped" in report
-        assert "clusters" in report
-        assert "correlations" in report
+        assert report.states_mapped == 1
+        assert report.clusters == 0
+        assert report.correlations == 0
 
     def test_empty_graph(self):
         g = Hypergraph()
@@ -226,64 +228,57 @@ class TestBranchialSpaceDeep:
                 assert len(coord.position) > 1
 
     def test_compute_distances_full_metrics(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
-        leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            m = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert isinstance(m, BranchialDistanceMetrics)
-            assert m.structural >= 0.0
-            assert m.conceptual >= 0.0
-            assert m.computational >= 0.0
-            assert m.evolutionary >= 0.0
-            assert m.combined >= 0.0
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
+        m = bs.compute_distances("c1", "c2")
+        assert isinstance(m, BranchialDistanceMetrics)
+        assert m.structural >= 0.0
+        assert m.conceptual >= 0.0
+        assert m.computational >= 0.0
+        assert m.evolutionary >= 0.0
+        assert m.combined > 0.0
 
     def test_compute_distances_cache_hit(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
-        leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            m1 = bs.compute_distances(leaves[0].id, leaves[1].id)
-            m2 = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert m1.structural == m2.structural
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
+        m1 = bs.compute_distances("c1", "c2")
+        m2 = bs.compute_distances("c1", "c2")
+        assert m1 is m2
 
     def test_conceptual_distance_identical_nodes(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="same"))
         g.add_node(Hypernode(id="y", label="same"))
-        mw = MultiwayEngine(g)
-        mw.expand({"x", "y"}, [], max_depth=1, max_total_states=5)
-        bs = BranchialSpace(g, mw.multiway)
-        leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            m = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert m.conceptual == 0.0
+        mw = MultiwayGraph()
+        s1 = MultiwayState(id="s1", active_node_ids=frozenset({"x"}))
+        s2 = MultiwayState(id="s2", parent_id="s1", active_node_ids=frozenset({"y"}), depth=1)
+        mw.add_state(s1)
+        mw.add_state(s2)
+        bs = BranchialSpace(g, mw)
+        m = bs.compute_distances("s1", "s2")
+        assert m.conceptual == 0.0
 
     def test_computational_distance_different_rules(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
-        leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            m = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert m.computational in (0.0, 0.5, 1.0)
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
+        m = bs.compute_distances("c1", "c2")
+        assert m.computational > 0.0
 
     def test_evolutionary_distance(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
-        leaves = mw.multiway.get_leaves()
-        if len(leaves) >= 2:
-            m = bs.compute_distances(leaves[0].id, leaves[1].id)
-            assert m.evolutionary >= 0.0
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
+        m = bs.compute_distances("c1", "gc1")
+        assert m.evolutionary > 0.0
 
     def test_cluster_states_returns_clusters(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
         bs.assign_coordinates()
         clusters = bs.cluster_states(n_clusters=2)
         total_states = sum(c.size for c in clusters)
-        assert total_states <= mw.multiway.state_count
+        assert total_states <= mw.state_count
         for c in clusters:
-            assert c.size >= 0
+            assert c.size >= 1
             assert c.centroid is not None
 
     def test_detect_correlations_with_shared(self):
@@ -304,14 +299,13 @@ class TestBranchialSpaceDeep:
             assert len(corr.shared_concept_ids) > 0
 
     def test_find_neighbors_returns_sorted(self):
-        g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
+        g, mw = _build_manual()
+        bs = BranchialSpace(g, mw)
         bs.assign_coordinates()
-        leaves = mw.multiway.get_leaves()
-        if leaves:
-            neighbors = bs.find_neighbors(leaves[0].id, max_distance=100.0)
-            for i in range(len(neighbors) - 1):
-                assert neighbors[i][1] <= neighbors[i + 1][1]
+        neighbors = bs.find_neighbors("gc1", max_distance=100.0)
+        assert len(neighbors) >= 1
+        for i in range(len(neighbors) - 1):
+            assert neighbors[i][1] <= neighbors[i + 1][1]
 
     def test_lateral_inference_with_simultaneous(self):
         g = Hypergraph()
@@ -328,23 +322,28 @@ class TestBranchialSpaceDeep:
         bs = BranchialSpace(g, mw.multiway)
         bs.assign_coordinates()
         groups = bs.build_simultaneity_groups()
+        assert len(groups) >= 1
+        found_simultaneous = False
         for group in groups:
-            assert isinstance(group, SimultaneityGroup)
             if len(group.state_ids) >= 2:
                 sid = next(iter(group.state_ids))
                 insights = bs.lateral_inference(sid)
-                assert isinstance(insights, list)
-                return
-        assert mw.multiway.state_count > 1
+                for insight in insights:
+                    assert "novel_in_source" in insight
+                    assert "novel_in_lateral" in insight
+                found_simultaneous = True
+                break
+        assert found_simultaneous or mw.multiway.state_count > 1
 
     def test_properties(self):
         g, mw = _build_branching()
         bs = BranchialSpace(g, mw.multiway)
         bs.assign_coordinates()
         assert isinstance(bs.coordinates, dict)
-        assert isinstance(bs.clusters, list)
-        assert isinstance(bs.correlations, list)
-        assert isinstance(bs.simultaneity_groups, list)
+        assert len(bs.coordinates) > 0
+        assert bs.clusters == []
+        assert bs.correlations == []
+        assert bs.simultaneity_groups == []
 
     def test_distances_with_missing_states(self):
         g = Hypergraph()
@@ -533,7 +532,7 @@ class TestBranchialDeepCoverage:
         g, mw = _build_manual()
         bs = BranchialSpace(g, mw)
         clusters = bs.cluster_states(n_clusters=0)
-        assert len(clusters) >= 1
+        assert len(clusters) == 2
 
     def test_cluster_states_zero_positions(self):
         g, mw = _build_manual()
@@ -542,7 +541,8 @@ class TestBranchialDeepCoverage:
         for sid in list(bs._coordinates.keys()):
             bs._coordinates[sid] = BranchialCoordinates(state_id=sid, position=[], depth=0)
         clusters = bs.cluster_states(n_clusters=2)
-        assert isinstance(clusters, list)
+        assert len(clusters) == 1
+        assert clusters[0].size == 6
 
     def test_detect_correlations_with_constraint_map(self):
         g, mw = _build_manual()
@@ -561,7 +561,7 @@ class TestBranchialDeepCoverage:
         bs = BranchialSpace(g, mw)
         neighbors = bs.find_neighbors("gc1", max_distance=100.0)
         assert len(bs.coordinates) > 0
-        assert isinstance(neighbors, list)
+        assert len(neighbors) >= 1
 
     def test_find_neighbors_empty_position(self):
         g, mw = _build_manual()
@@ -610,7 +610,10 @@ class TestBranchialDeepCoverage:
         real_id = next(iter(group.state_ids))
         group.state_ids.add("ghost")
         insights = bs.lateral_inference(real_id)
-        assert isinstance(insights, list)
+        assert len(insights) >= 1
+        for insight in insights:
+            assert "novel_in_source" in insight
+            assert "novel_in_lateral" in insight
 
     def test_lateral_inference_with_novel_nodes(self):
         g, mw = _build_manual()
@@ -644,8 +647,8 @@ class TestBranchialDeepCoverage:
         assert analysis["clusters"] > 0
         assert analysis["correlations"] > 0
         assert analysis["simultaneity_groups"] > 0
-        assert analysis["avg_cluster_size"] >= 0.0
-        assert analysis["avg_correlation_strength"] >= 0.0
+        assert analysis["avg_cluster_size"] > 0.0
+        assert analysis["avg_correlation_strength"] > 0.0
 
     def test_conceptual_both_empty_active(self):
         g = Hypergraph()
@@ -673,8 +676,7 @@ class TestBranchialDeepCoverage:
         g, mw = _build_manual()
         bs = BranchialSpace(g, mw)
         result = bs._evolutionary_distance("c1", "gc2", structural=None)
-        assert isinstance(result, float)
-        assert result >= 0.0
+        assert result == 2.0
 
     def test_detect_correlations_no_shared_nodes(self):
         g = Hypergraph()
@@ -689,7 +691,7 @@ class TestBranchialDeepCoverage:
         mw.add_state(l2)
         bs = BranchialSpace(g, mw)
         correlations = bs.detect_correlations(min_correlation=0.1)
-        assert isinstance(correlations, list)
+        assert correlations == []
 
 
 
@@ -726,12 +728,10 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         path = mem._branchial.plan_path(states[0], states[-1])
         assert isinstance(path, list)
         if path:
@@ -743,8 +743,7 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         path = mem._branchial.plan_path("nonexistent_a", "nonexistent_b")
         assert path == []
@@ -753,12 +752,10 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if not states:
-            return
+        assert len(states) >= 1
         path = mem._branchial.plan_path(states[0], states[0])
         assert path == [states[0]]
 
@@ -766,12 +763,10 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if not states:
-            return
+        assert len(states) >= 1
         path = mem._branchial.plan_path(states[0], "nonexistent")
         assert path == []
 
@@ -779,11 +774,9 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         states = list(mem._multiway_engine.multiway.states)
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         mem._branchial._coordinates.clear()
         path = mem._branchial.plan_path(states[0].id, states[-1].id)
         assert isinstance(path, list)
@@ -798,26 +791,22 @@ class TestNearestHighDensityRegion:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         mem._branchial.cluster_states(n_clusters=2)
         states = list(mem._branchial.coordinates.keys())
-        if not states:
-            return
+        assert len(states) >= 1
         result = mem._branchial.nearest_high_density_region(states[0])
-        assert result is None or (isinstance(result, str) and len(result) > 0)
+        assert isinstance(result, str) and len(result) > 0
 
     def test_no_clusters_returns_none(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if not states:
-            return
+        assert len(states) >= 1
         result = mem._branchial.nearest_high_density_region(states[0])
         assert result is None
 
@@ -825,8 +814,7 @@ class TestNearestHighDensityRegion:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         mem._branchial.cluster_states(n_clusters=2)
         result = mem._branchial.nearest_high_density_region("nonexistent")
@@ -862,12 +850,10 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         parent = states[0]
         new_state = MultiwayState(
             parent_id=parent.id,
@@ -884,11 +870,9 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         states = list(mem._multiway_engine.multiway.states)
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         mem._branchial._coordinates.clear()
         mem._branchial.update_coordinates_for_state(states[0].id, states[0].parent_id or "")
         assert len(mem._branchial._coordinates) > 0
@@ -897,12 +881,10 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
-        if not states:
-            return
+        assert len(states) >= 1
         existing_id = states[0].id
         original_coord = mem._branchial.get_coordinates(existing_id)
         assert original_coord is not None
@@ -914,12 +896,10 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         parent = states[0]
         mem._branchial.compute_distances(states[0].id, states[1].id)
         assert len(mem._branchial._distance_cache) > 0
@@ -940,8 +920,7 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         new_state = MultiwayState(
             parent_id="unknown",
@@ -957,13 +936,11 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         original_count = len(mem._branchial._coordinates)
         states = list(mem._multiway_engine.multiway.states)
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         parent = states[0]
         new_state = MultiwayState(
             parent_id=parent.id,
@@ -1018,24 +995,21 @@ class TestFindAnalogousStates:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus", "membrane"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         results = mem._branchial.find_analogous_states(states[0])
         assert isinstance(results, list)
         for sid, dist in results:
             assert isinstance(sid, str)
-            assert isinstance(dist, float)
+            assert dist >= 0.0
 
     def test_no_results_for_unknown_state(self):
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         results = mem._branchial.find_analogous_states("nonexistent")
         assert results == []
 
@@ -1046,12 +1020,10 @@ class TestTransferInsight:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus", "membrane", "protein"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         proposal = mem._branchial.transfer_insight(states[0], states[1])
         assert isinstance(proposal, AnalogyProposal)
         assert proposal.source_state_id == states[0]
@@ -1062,21 +1034,18 @@ class TestTransferInsight:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "process", "membrane", "interface"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         proposal = mem._branchial.transfer_insight(states[0], states[-1])
-        assert isinstance(proposal.mapping, dict)
+        assert len(proposal.mapping) > 0
 
     def test_missing_state_returns_empty_proposal(self):
         mem = _setup_analogy_mem()
         mem.reason({"cell"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         proposal = mem._branchial.transfer_insight("nonexistent", "also_nonexistent")
         assert proposal.confidence == 0.0
 
@@ -1088,12 +1057,10 @@ class TestFindAllAnalogies:
         mem.reason({"cell", "nucleus", "membrane", "protein",
                      "process", "memory", "interface", "data"})
         mem.commit_inferences()
-        if not mem._branchial:
-            return
+        assert mem._branchial is not None
         mem._branchial.assign_coordinates()
         states = list(mem._branchial.coordinates.keys())
-        if len(states) < 2:
-            return
+        assert len(states) >= 2
         proposals = mem._branchial.find_all_analogies(states[0], top_k=3)
         assert len(proposals) <= 3
         for i in range(len(proposals) - 1):
@@ -1225,6 +1192,7 @@ class TestMultiScaleBranchialAnalysis:
         assert isinstance(result.macro, ScaleLevel)
         assert isinstance(result.meso, ScaleLevel)
         assert isinstance(result.micro, ScaleLevel)
+        assert result.macro.n_clusters > 0
 
     def test_macro_has_fewer_clusters(self):
         g, mw = self._build_multiway()
@@ -1396,9 +1364,9 @@ class TestLateralInferenceDeep:
         bs = BranchialSpace(g, mw)
         bs.set_embedding_engine(emb)
         scores = bs._rank_novel_by_similarity(frozenset({"c", "d"}), frozenset({"a", "b"}))
-        assert isinstance(scores, dict)
+        assert len(scores) >= 1
         assert all(isinstance(v, float) for v in scores.values())
-        assert all(isinstance(k, str) for k in scores)
+        assert all(-1.0 <= v <= 1.0 for v in scores.values())
 
     def test_rank_novel_empty_inputs(self):
         g = _build_chain_graph()
@@ -1489,7 +1457,6 @@ class TestFindAnalogousStatesDeep:
         assert isinstance(results, list)
         for sid, dist in results:
             assert isinstance(sid, str)
-            assert isinstance(dist, float)
             assert dist >= 0.0
 
 
@@ -1639,9 +1606,9 @@ class TestMultiScaleAnalysisDeep:
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
-        assert result.macro.n_clusters >= 0
-        assert result.meso.n_clusters >= 0
-        assert isinstance(result.cross_scale_insights, list)
+        assert result.macro.n_clusters > 0
+        assert result.meso.n_clusters > 0
+        assert len(result.cross_scale_insights) > 0
 
     def test_empty_position_data(self):
         g = Hypergraph()
@@ -1657,7 +1624,7 @@ class TestMultiScaleAnalysisDeep:
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
-        assert result.macro.n_clusters >= 0
+        assert result.macro.n_clusters > 0
 
 
 class TestBuildSimultaneityGroups:
