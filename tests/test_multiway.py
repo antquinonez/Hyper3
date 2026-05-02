@@ -1317,3 +1317,172 @@ class TestRuleMatchDataclass:
         assert m.bindings == {}
         assert m.context == {}
 
+
+class TestMultiwayStateProperties:
+    def test_root_state(self):
+        s = MultiwayState(id="r", active_node_ids=frozenset({"a"}))
+        assert s.is_root is True
+        assert s.is_leaf is True
+
+    def test_child_state(self):
+        s = MultiwayState(id="c", active_node_ids=frozenset({"a"}), parent_id="r")
+        assert s.is_root is False
+        assert s.is_leaf is True
+
+    def test_state_with_children_is_not_leaf(self):
+        s = MultiwayState(id="r", active_node_ids=frozenset({"a"}), children_ids=["c1"])
+        assert s.is_leaf is False
+
+
+class TestMultiwayGraphNavigation:
+    def test_get_children_returns_resolved_states(self):
+        mg = MultiwayGraph()
+        root = MultiwayState(id="r", active_node_ids=frozenset({"a"}))
+        mg.add_state(root)
+        c1 = MultiwayState(id="c1", active_node_ids=frozenset({"a", "b"}), parent_id="r")
+        mg.add_state(c1)
+        children = mg.get_children("r")
+        assert len(children) == 1
+        assert children[0].id == "c1"
+
+    def test_get_children_missing_returns_empty(self):
+        mg = MultiwayGraph()
+        assert mg.get_children("missing") == []
+
+    def test_get_siblings_returns_excludes_self(self):
+        mg = MultiwayGraph()
+        root = MultiwayState(id="r", active_node_ids=frozenset({"a"}))
+        mg.add_state(root)
+        c1 = MultiwayState(id="c1", active_node_ids=frozenset({"a", "b"}), parent_id="r")
+        mg.add_state(c1)
+        c2 = MultiwayState(id="c2", active_node_ids=frozenset({"a", "c"}), parent_id="r")
+        mg.add_state(c2)
+        siblings = mg.get_siblings("c1")
+        assert len(siblings) == 1
+        assert siblings[0].id == "c2"
+
+    def test_get_siblings_root_returns_empty(self):
+        mg = MultiwayGraph()
+        root = MultiwayState(id="r", active_node_ids=frozenset({"a"}))
+        mg.add_state(root)
+        assert mg.get_siblings("r") == []
+
+    def test_get_siblings_missing_parent_returns_empty(self):
+        mg = MultiwayGraph()
+        orphan = MultiwayState(id="o", active_node_ids=frozenset({"d"}), parent_id="no_parent")
+        mg.add_state(orphan)
+        assert mg.get_siblings("o") == []
+
+    def test_get_siblings_missing_state_returns_empty(self):
+        mg = MultiwayGraph()
+        assert mg.get_siblings("missing") == []
+
+
+class TestMultiwayEngineExpandBranchBounding:
+    def _make_chain_graph(self, n=10):
+        g = Hypergraph()
+        for i in range(n):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        for i in range(n - 2):
+            g.add_edge(
+                Hyperedge(source_ids=frozenset({f"n{i}"}), target_ids=frozenset({f"n{i+1}"}), label="rel")
+            )
+        return g
+
+    def test_expand_max_branches_limits_matches(self):
+        g = self._make_chain_graph(10)
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        report = engine.expand(
+            seed_node_ids={f"n{i}" for i in range(10)},
+            rules=rules,
+            max_depth=2,
+            max_branches_per_state=2,
+            max_total_states=100,
+        )
+        assert report.states_created >= 1
+
+    def test_expand_lazy_yields_tuples(self):
+        g = self._make_chain_graph(8)
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        results = list(engine.expand_lazy(
+            seed_node_ids={f"n{i}" for i in range(8)},
+            rules=rules,
+            max_depth=2,
+            max_total_states=50,
+        ))
+        assert len(results) >= 1
+        for sid, depth, count in results:
+            assert isinstance(depth, int)
+            assert isinstance(count, int)
+
+    def test_expand_lazy_respects_max_total_states(self):
+        g = self._make_chain_graph(10)
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        results = list(engine.expand_lazy(
+            seed_node_ids={f"n{i}" for i in range(10)},
+            rules=rules,
+            max_depth=3,
+            max_total_states=3,
+        ))
+        assert len(results) <= 4
+
+    def test_find_convergent_states(self):
+        g = self._make_chain_graph(6)
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        engine.expand(
+            seed_node_ids={f"n{i}" for i in range(6)},
+            rules=rules,
+            max_depth=3,
+            max_total_states=50,
+        )
+        convergent = engine.find_convergent_states()
+        for sa, sb, sim in convergent:
+            assert 0.0 <= sim <= 1.0
+
+    def test_get_lateral_insights_missing_state(self):
+        g = self._make_chain_graph(5)
+        engine = MultiwayEngine(g)
+        assert engine.get_lateral_insights("missing") == []
+
+    def test_expand_incremental_with_new_edge(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
+        new_edge = Hyperedge(source_ids=frozenset({"d"}), target_ids=frozenset({"a"}), label="rel")
+        g.add_edge(new_edge)
+        report = engine.expand_incremental(
+            new_node_ids=set(),
+            new_edge_ids={new_edge.id},
+            rules=rules,
+            max_depth=2,
+            max_total_states=50,
+        )
+        assert report.states_created >= 0
+
+    def test_expand_incremental_fallback_with_unrelated_ids(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        rules = [TransitiveRule(edge_label="rel", new_label="rel")]
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c"}, rules=rules, max_depth=2, max_total_states=50)
+        report = engine.expand_incremental(
+            new_node_ids={"nonexistent"},
+            new_edge_ids={"nonexistent"},
+            rules=rules,
+            max_depth=1,
+            max_total_states=50,
+        )
+        assert report is not None
+

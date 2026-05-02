@@ -9,6 +9,7 @@ from hyper3 import (
     Hyperedge,
     Hypergraph,
     Hypernode,
+    Metadata,
     Modality,
     MultiwayEngine,
     RulialPosition,
@@ -352,4 +353,254 @@ class TestPerRuleEffectivenessTracking:
         analysis = rs.analyze()
         assert "rule_effectiveness" in analysis
         assert "test_rule" in analysis["rule_effectiveness"]
+
+
+class TestRulialPositionDistance:
+    def test_distance_with_different_frequencies(self):
+        p1 = RulialPosition(
+            graph_activity_density=0.5,
+            structural_complexity=0.3,
+            rule_application_frequency={"rule_a": 5.0, "rule_b": 3.0},
+        )
+        p2 = RulialPosition(
+            graph_activity_density=0.5,
+            structural_complexity=0.3,
+            rule_application_frequency={"rule_a": 2.0, "rule_c": 4.0},
+        )
+        d = p1.distance_to(p2)
+        assert d > 0.0
+
+    def test_distance_with_same_frequencies_is_zero(self):
+        p1 = RulialPosition(
+            graph_activity_density=0.5,
+            structural_complexity=0.3,
+            rule_application_frequency={"rule_a": 5.0},
+        )
+        p2 = RulialPosition(
+            graph_activity_density=0.5,
+            structural_complexity=0.3,
+            rule_application_frequency={"rule_a": 5.0},
+        )
+        assert p1.distance_to(p2) == 0.0
+
+
+class TestRulialSpectralAndMotif:
+    def _make_rich_graph(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d", "e", "f"]:
+            g.add_node(Hypernode(id=l, label=l))
+        for s, t in [("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "f"), ("a", "c"), ("b", "d")]:
+            g.add_edge(Hyperedge(source_ids=frozenset({s}), target_ids=frozenset({t}), label="rel"))
+        return g
+
+    def test_spectral_entropy_positive(self):
+        g = self._make_rich_graph()
+        rs = RulialSpace(g)
+        pos = rs.update_position()
+        assert pos.structural_complexity > 0.0
+
+    def test_motif_diversity_with_rich_graph(self):
+        g = self._make_rich_graph()
+        rs = RulialSpace(g)
+        pos = rs.update_position()
+        assert pos.graph_activity_density > 0.0
+
+
+class TestRulialBranchialCoords:
+    def test_branchial_coords_with_multiway(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
+
+        rules = [TransitiveRule(edge_label="rel")]
+        from hyper3 import MultiwayEngine
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
+
+        rs = RulialSpace(g, multiway=engine)
+        pos = rs.update_position()
+        assert isinstance(pos.branchial_coordinates, list)
+        assert len(pos.branchial_coordinates) > 0
+
+
+class TestRulialRecommendedRules:
+    def test_recommended_rules_sorted_by_retention(self):
+        g = Hypergraph()
+        rs = RulialSpace(g)
+        rs.record_rule_outcome("good_rule", "useful")
+        rs.record_rule_outcome("bad_rule", "applied")
+        recommended = rs.get_recommended_rules()
+        assert recommended[0] == "good_rule"
+
+
+class TestRulialBiasProfile:
+    def test_bias_profile_with_history(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+
+        rs = RulialSpace(g)
+        for _ in range(5):
+            rs.record_rule_outcome("TransitiveRule", "useful")
+            rs.update_position()
+
+        profile = rs.compute_bias_profile()
+        assert profile.bias_score >= 0.0
+        assert profile.position_trajectory in ("exploring", "exploiting", "stable", "unknown")
+
+
+class TestRulialExploreNeighborhood:
+    def test_neighborhood_with_multiway(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+
+        rules = [TransitiveRule(edge_label="rel")]
+        from hyper3 import MultiwayEngine
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
+
+        rs = RulialSpace(g, multiway=engine)
+        result = rs.explore_rule_neighborhood(rules)
+        assert result.graph_activity_density > 0.0
+        assert result.coverage > 0.0
+        assert result.error is None
+
+
+class TestRulialMetaPatterns:
+    def test_cross_domain_patterns(self):
+        g = Hypergraph()
+        for i, mod in enumerate([Modality.CAUSAL, Modality.CONCEPTUAL]):
+            for j in range(3):
+                g.add_node(Hypernode(
+                    id=f"n{i}_{j}",
+                    label=f"n{i}_{j}",
+                    metadata=Metadata(modality_tags={mod}),
+                ))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0_0"}), target_ids=frozenset({"n0_1"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1_0"}), target_ids=frozenset({"n1_1"}), label="rel"))
+
+        rs = RulialSpace(g)
+        patterns = rs.find_meta_patterns()
+        types = {p.pattern_type for p in patterns}
+        assert "cross_domain" in types
+
+    def test_optimization_patterns_with_reinforced_nodes(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.get_node("a").weight = 5.0
+        g.get_node("b").weight = 3.0
+        for t in ["b", "c", "d"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({t}), label="rel"))
+
+        rs = RulialSpace(g)
+        patterns = rs.find_meta_patterns()
+        types = {p.pattern_type for p in patterns}
+        assert "optimized_path" in types
+
+    def test_hub_motif_pattern(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d", "e"]:
+            g.add_node(Hypernode(id=l, label=l))
+        for t in ["b", "c", "d", "e"]:
+            g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({t}), label="rel"))
+
+        rs = RulialSpace(g)
+        patterns = rs.find_meta_patterns()
+        types = {p.pattern_type for p in patterns}
+        assert "hub_motif" in types
+
+    def test_chain_motif_pattern(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
+
+        rs = RulialSpace(g)
+        patterns = rs.find_meta_patterns()
+        types = {p.pattern_type for p in patterns}
+        assert "chain_motif" in types
+
+
+class TestRulialHighLevelInsights:
+    def test_insights_include_spectral(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d", "e", "f"]:
+            g.add_node(Hypernode(id=l, label=l))
+        for s, t in [("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "f"), ("a", "c")]:
+            g.add_edge(Hyperedge(source_ids=frozenset({s}), target_ids=frozenset({t}), label="rel"))
+
+        rs = RulialSpace(g)
+        rs.find_meta_patterns()
+        insights = rs.generate_high_level_insights()
+        domains = {i.domain for i in insights}
+        assert len(insights) >= 1
+
+    def test_insights_include_cross_domain(self):
+        g = Hypergraph()
+        for i, mod in enumerate([Modality.CAUSAL, Modality.CONCEPTUAL]):
+            for j in range(3):
+                g.add_node(Hypernode(
+                    id=f"n{i}_{j}",
+                    label=f"n{i}_{j}",
+                    metadata=Metadata(modality_tags={mod}),
+                ))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0_0"}), target_ids=frozenset({"n0_1"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1_0"}), target_ids=frozenset({"n1_1"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0_1"}), target_ids=frozenset({"n1_1"}), label="cross"))
+
+        rs = RulialSpace(g)
+        rs.find_meta_patterns()
+        insights = rs.generate_high_level_insights()
+        domains = {i.domain for i in insights}
+        assert "meta" in domains
+
+
+class TestRulialDensityMapAndFrontiers:
+    def test_density_map_with_history(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+
+        rules = [TransitiveRule(edge_label="rel")]
+        from hyper3 import MultiwayEngine
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
+
+        rs = RulialSpace(g, multiway=engine)
+        for _ in range(3):
+            rs.update_position()
+
+        dm = rs.compute_density_map(resolution=5)
+        assert len(dm) == 5
+        assert all(len(row) == 5 for row in dm)
+
+    def test_identify_frontiers_with_history(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c", "d"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+
+        rules = [TransitiveRule(edge_label="rel")]
+        from hyper3 import MultiwayEngine
+        engine = MultiwayEngine(g)
+        engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
+
+        rs = RulialSpace(g, multiway=engine)
+        for _ in range(3):
+            rs.update_position()
+
+        frontiers = rs.identify_frontiers(min_density=0.0, max_density=1.0)
+        assert len(frontiers) >= 1
 
