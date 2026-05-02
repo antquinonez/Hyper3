@@ -1808,3 +1808,146 @@ class TestNewAnalyticsMethods:
         assert isinstance(lg, list)
         assert len(lg) > 0
 
+
+class TestMonitoringMixinCoverage:
+    def test_check_metamorphosis_low_fitness_triggers(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.meta._state.architectural_fitness = 0.2
+        triggers = mem.check_metamorphosis()
+        assert len(triggers) == 1
+        assert triggers[0].trigger_type == "performance_plateau"
+
+    def test_check_metamorphosis_high_fitness_no_triggers(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.meta._state.architectural_fitness = 0.95
+        triggers = mem.check_metamorphosis()
+        assert len(triggers) == 0
+
+    def test_execute_tuning_validated_auto_wires_differ(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.meta._state.architectural_fitness = 0.2
+        plan = mem.propose_tuning(None)
+        assert plan is not None
+        assert mem._graph_differ is None
+        result = mem.execute_tuning_validated(plan, fitness_tolerance=0.5)
+        assert mem._graph_differ is not None
+        from hyper3.results import TuningResult
+        assert isinstance(result, TuningResult)
+
+    def test_analyze_in_frame_classical(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("protein")
+        mem.store("enzyme")
+        mem.relate("protein", "enzyme", label="is_a")
+        result = mem.analyze_in_frame("protein", "classical")
+        assert result.frame_name == "classical"
+        assert result.complexity == 1.0
+
+    def test_validate_comprehensive_returns_reports(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="causes")
+        reports = mem.validate_comprehensive()
+        assert len(reports) >= 1
+        assert hasattr(reports[0], "agreement")
+        assert hasattr(reports[0], "recommendation")
+
+    def test_detect_capability_minimal_graph(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        level = mem.detect_capability()
+        from hyper3.capabilities import CapabilityLevel
+        assert level == CapabilityLevel.MINIMAL
+
+
+class TestCognitiveMixinCoverage:
+    def test_hebbian_decay_unused_high_threshold_decays_edge(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e", weight=5.0)
+        count = mem.hebbian_decay_unused(threshold_access_count=100)
+        assert count == 1
+
+    def test_hebbian_decay_unused_zero_threshold_preserves(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.relate("a", "b", label="e", weight=5.0)
+        count = mem.hebbian_decay_unused(threshold_access_count=0)
+        assert count == 0
+
+
+class TestRetrievalMixinCoverage:
+    def test_operation_feedback_records_and_queries(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        fb = mem.operation_feedback
+        node_id = mem._find_node("x").id
+        fb.record_inference_outcome(edge_id="e1", accepted=True)
+        assert fb.signal_count >= 1
+
+    def test_embedding_engine_property_none_initially(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.embedding_engine is None
+
+    def test_embedding_engine_property_after_set(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        from hyper3.embedding import EmbeddingEngine
+        mem._embedding_engine = EmbeddingEngine(mem.graph)
+        assert mem.embedding_engine is mem._embedding_engine
+
+    def test_predict_next_access_raw_node_id_key(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("target")
+        target_id = mem._find_node("target").id
+        mem.enable_prefetch(True)
+        mem._cache.record_access("store:a")
+        mem._cache.record_access(target_id)
+        predicted = mem.predict_next_access("a", top_k=3)
+        assert "target" in predicted
+
+    def test_predict_next_access_unresolved_store_key(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.enable_prefetch(True)
+        mem._cache.record_access("store:a")
+        mem._cache.record_access("store:ghost")
+        predicted = mem.predict_next_access("a", top_k=3)
+        assert "store:ghost" in predicted
+
+    def test_prefetch_neighbors_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.prefetch_neighbors("nonexistent") == 0
+
+    def test_spread_hyperedge_missing_concept(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.spread_hyperedge("nonexistent")
+        assert result == []
+
+    def test_spread_hyperedge_linear_produces_activations(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="e", weight=5.0)
+        mem.relate("b", "c", label="e", weight=5.0)
+        result = mem.spread_hyperedge("a", mode="linear", iterations=2)
+        assert len(result) == 3
+        activations = {r.node_id: r.activation for r in result}
+        source_id = mem._find_node("a").id
+        assert activations[source_id] > 0.0
+
+    def test_feedback_summary_empty_system(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        summary = mem.feedback_summary()
+        assert summary.total_signals == 0
+        assert summary.overall_health == 0.5
+        assert summary.correlated_nodes == {}
+        assert summary.fitness_trend == "insufficient_data"
+
