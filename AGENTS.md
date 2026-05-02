@@ -1116,7 +1116,7 @@ apply_docstrings({
 **When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
-- **Tests**: 2129
+- **Tests**: 2301
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 96%
 - **Pyright**: 0 errors
