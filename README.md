@@ -459,7 +459,17 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-2301 tests, 96% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+2301 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+
+## Benchmarks & Equivalence
+
+```bash
+.venv/bin/python benchmarks/run_all.py                        # Performance benchmarks
+.venv/bin/python benchmarks/equiv/run_equiv.py                # Equivalence vs HGX/XGI/NX
+.venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12       # Specific suites
+```
+
+10 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 14 equivalence test suites (245 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, and clustering. 116 documented gaps serve as a prioritized feature backlog.
 
 ## Performance
 

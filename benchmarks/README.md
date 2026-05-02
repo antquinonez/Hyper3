@@ -1,8 +1,8 @@
 Hyper3 Benchmark Suite
 =====================
 
-Performance microbenchmarks and empirical evaluations comparing Hyper3 against
-simpler alternatives on real tasks.
+Performance microbenchmarks, empirical evaluations, and equivalence tests
+comparing Hyper3 against simpler alternatives and competitor libraries.
 
 Quick Start
 -----------
@@ -11,11 +11,42 @@ Quick Start
     .venv/bin/python benchmarks/run_all.py 1 3 5        # run specific benches
     .venv/bin/python benchmarks/bench_00_microbenchmarks.py  # run single bench
 
-Benchmarks
-----------
+Equivalence Battery
+-------------------
+
+    .venv/bin/python benchmarks/equiv/run_equiv.py              # all suites
+    .venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12     # specific suites
+
+14 equivalence test suites comparing Hyper3 against HGX (HypergraphX), XGI,
+and NetworkX. Each suite builds the same graph in multiple libraries and
+asserts numerical equivalence within tolerance. Results are reported as
+PASS/FAIL/GAP/SKIP per test. GAPs document features present in competitor
+libraries but not yet in Hyper3, serving as a prioritized feature backlog.
+
+| # | Suite | What it compares | Competitors |
+|---|-------|-----------------|-------------|
+| 01 | `equiv_01_construction.py` | Graph construction, CRUD, membership | HGX, XGI, NX |
+| 02 | `equiv_02_metrics.py` | Degree sequences, density, size distributions | HGX, XGI, NX |
+| 03 | `equiv_03_centrality.py` | Degree/betweenness centrality, PageRank | NX |
+| 04 | `equiv_04_components.py` | Connected components, s-components | HGX, XGI, NX |
+| 05 | `equiv_05_paths.py` | Shortest paths, path lengths | NX |
+| 06 | `equiv_06_matrices.py` | Incidence, adjacency, Laplacian matrices | HGX, XGI |
+| 07 | `equiv_07_spectral.py` | Eigenvalues, spectral embedding, clustering | XGI |
+| 08 | `equiv_08_community.py` | Community detection, modularity | HGX, XGI, NX |
+| 09 | `equiv_09_transforms.py` | Dual, line graph, bipartite transformations | XGI |
+| 10 | `equiv_10_directed.py` | Directed hypergraph degrees, source/target | HGX |
+| 11 | `equiv_11_generative.py` | Random graph generators | XGI |
+| 12 | `equiv_12_clustering.py` | Clustering coefficient | NX |
+| 13 | `equiv_13_gaps_hgx.py` | HGX features not in Hyper3 (37 gaps) | HGX |
+| 14 | `equiv_14_gaps_nx.py` | NX features not in Hyper3 (27 gaps) | NX |
+
+Current results: 245 pass / 0 fail / 116 gap / 1 skip.
+
+Performance Benchmarks
+----------------------
 
 | # | File | What it tests | Baseline alternatives |
-|---|------|--------------|----------------------|
+|---|------|---------------|----------------------|
 | 0 | `bench_00_microbenchmarks.py` | Core operation latency | N/A (absolute timing) |
 | 1 | `bench_01_retrieval.py` | Retrieval quality (P/R/F1/NDCG) | BFS expansion, Personalized PageRank, Random Walk w/ Restart |
 | 2 | `bench_02_inference.py` | Transitive inference completeness | BFS transitive closure, networkx transitive_closure |

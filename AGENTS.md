@@ -331,6 +331,18 @@ These MUST be run after making code changes:
 
 The test suite, type checker, and linter are all correctness gates.
 
+## Validation Commands
+
+Run the equivalence battery after any changes to core hypergraph algorithms,
+generative models, or graph transformations:
+
+```bash
+.venv/bin/python benchmarks/equiv/run_equiv.py              # all suites
+.venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12     # specific suites
+```
+
+Exit code 0 = no failures (gaps are expected and non-blocking).
+
 ## Architecture
 
 The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
@@ -805,7 +817,7 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 2124 tests must pass.
+2. Run the full test suite after changes. All 2301 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -1087,7 +1099,40 @@ After making substantive changes (new features, bug fixes, API changes), perform
 6. **Update Common Pitfalls** if new pitfalls were discovered.
 7. **Update the Extracted Modules or New Modules sections** if new result dataclasses were added to `results.py`.
 8. **Update `src/hyper3/__init__.py`** if new public classes were added.
-9. **Run full validation**: tests + pyright + all examples.
+9. **Run full validation**: tests + pyright + ruff + examples + demos + benchmarks + equiv.
+10. **Update `benchmarks/README.md`** if new benchmarks or equiv suites were added.
+11. **Update project metrics** in this file and `README.md` (test count, coverage, example count, equiv counts).
+12. **Run the equivalence battery** and verify 0 FAILs: `.venv/bin/python benchmarks/equiv/run_equiv.py`.
+
+### Full Validation Checklist
+
+Run this sequence after substantive changes. All gates must pass:
+
+```bash
+# 1. Test suite (2301 tests, must all pass)
+.venv/bin/python -m pytest tests/ -q --tb=short
+
+# 2. Type checking (0 errors)
+.venv/bin/pyright src/hyper3/
+
+# 3. Linting (0 errors)
+.venv/bin/ruff check src/hyper3/ tests/
+
+# 4. All examples (must complete without error)
+for f in examples/basic/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/intermediate/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/advanced/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/domain/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+
+# 5. All demos (must complete without error)
+for f in demos/demo*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+
+# 6. Benchmarks (must complete without error)
+.venv/bin/python benchmarks/run_all.py
+
+# 7. Equivalence battery (0 FAILs, gaps are expected)
+.venv/bin/python benchmarks/equiv/run_equiv.py
+```
 
 ## AI Utilities
 
@@ -1123,7 +1168,8 @@ apply_docstrings({
 Current project metrics (update after changes):
 - **Tests**: 2301
 - **Test files**: 38 (one per source module + integration)
-- **Coverage**: 96%
+- **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
-- **Examples**: 51 (26 Hyper3: 3 basic, 6 intermediate, 6 advanced, 7 domain, 5 project pipelines; 20 comparison + 5 project comparisons)
+- **Examples**: 106 (46 Hyper3: 3 basic, 22 intermediate, 11 advanced, 7 domain, 5 project pipelines; 47 comparison + 8 laminar)
+- **Equiv battery**: 245 pass / 0 fail / 116 gap (14 suites, HGX + XGI + NX)
