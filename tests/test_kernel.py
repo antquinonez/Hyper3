@@ -2644,3 +2644,187 @@ class TestDualAndTransformations:
         assert bg.number_of_nodes() == 3
         assert bg.number_of_edges() == 2
 
+
+class TestShortestPathLengthsWeighted:
+    def test_weighted_distances_chain(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), weight=2.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), weight=2.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id}), weight=2.0))
+        lengths = g.shortest_path_lengths(weighted=True)
+        cost = 1.0 / 2.0
+        assert abs(lengths[nodes[0].id][nodes[3].id] - 3 * cost) < 1e-9
+        assert abs(lengths[nodes[0].id][nodes[1].id] - cost) < 1e-9
+
+    def test_weighted_distances_prefer_high_weight(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[2].id}), weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), weight=10.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), weight=10.0))
+        lengths = g.shortest_path_lengths(weighted=True)
+        cheap_path_cost = 1.0 / 10.0 + 1.0 / 10.0
+        assert abs(lengths[nodes[0].id][nodes[2].id] - cheap_path_cost) < 1e-9
+
+    def test_single_source_weighted(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), weight=5.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), weight=5.0))
+        dists = g.single_source_shortest_path_lengths(nodes[0].id, weighted=True)
+        assert abs(dists[nodes[2].id] - 2 * (1.0 / 5.0)) < 1e-9
+
+    def test_single_source_missing_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        assert g.single_source_shortest_path_lengths("nonexistent", weighted=True) == {}
+
+    def test_dijkstra_duplicate_heap_entries(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[2].id}), weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), weight=10.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id}), weight=10.0))
+        dists = g.single_source_shortest_path_lengths(nodes[0].id, weighted=True)
+        indirect_cost = 1.0 / 10.0 + 1.0 / 10.0
+        assert abs(dists[nodes[2].id] - indirect_cost) < 1e-9
+
+
+class TestClusteringEdgeCases:
+    def test_average_clustering_empty_graph(self):
+        g = Hypergraph()
+        assert g.average_clustering_coefficient() == 0.0
+
+    def test_average_clustering_isolated_nodes(self):
+        g = Hypergraph()
+        for i in range(3):
+            g.add_node(Hypernode(label=f"n{i}"))
+        assert g.average_clustering_coefficient() == 0.0
+
+    def test_average_clustering_chain(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        result = g.average_clustering_coefficient()
+        assert 0.0 <= result <= 1.0
+
+    def test_clustering_coefficient_three_neighbors(self):
+        g = Hypergraph()
+        center = Hypernode(label="center")
+        g.add_node(center)
+        nbrs = [Hypernode(label=f"nbr{i}") for i in range(3)]
+        for n in nbrs:
+            g.add_node(n)
+            g.add_edge(Hyperedge(source_ids=frozenset({center.id}), target_ids=frozenset({n.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nbrs[0].id}), target_ids=frozenset({nbrs[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nbrs[1].id}), target_ids=frozenset({nbrs[2].id})))
+        cc = g.clustering_coefficient(center.id)
+        assert 0.0 < cc < 1.0
+        expected = 2.0 * 2 / (3 * 2)
+        assert abs(cc - expected) < 1e-9
+
+    def test_spectral_clustering_k1(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        clusters = g.spectral_clustering(k=1)
+        assert len(clusters) == 1
+        assert len(clusters[0]) == 4
+
+
+class TestSimilarityEdgeCases:
+    def test_zero_intersection_not_returned(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        e1 = Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}), label="group_a")
+        e2 = Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id}), label="group_b")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        result = g.hyperedge_similarity(e1.id, metric="jaccard")
+        assert len(result.similar_edges) == 0
+
+    def test_sorensen_dice_metric(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        e1 = Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset({nodes[2].id}))
+        e2 = Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}))
+        g.add_edge(e1)
+        g.add_edge(e2)
+        result = g.hyperedge_similarity(e1.id, metric="sorensen_dice")
+        assert len(result.similar_edges) == 1
+        score = result.similar_edges[0][1]
+        intersection = 2
+        assert abs(score - 2.0 * intersection / (3 + 2)) < 1e-9
+
+    def test_overlap_coefficient_metric(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        e1 = Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset({nodes[2].id}))
+        e2 = Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id}))
+        g.add_edge(e1)
+        g.add_edge(e2)
+        result = g.hyperedge_similarity(e1.id, metric="overlap_coefficient")
+        assert len(result.similar_edges) == 1
+        score = result.similar_edges[0][1]
+        assert abs(score - 2.0 / 2.0) < 1e-9
+
+
+class TestSpectralClusteringEdgeCases:
+    def test_spectral_clustering_k_equals_n(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        clusters = g.spectral_clustering(k=3)
+        assert len(clusters) == 3
+        assert sum(len(c) for c in clusters) == 3
+
+    def test_spectral_clustering_k_zero(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        clusters = g.spectral_clustering(k=0)
+        assert clusters == []
+
+
+class TestDualWithIsolatedNodes:
+    def test_dual_skips_isolated_nodes(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        iso = Hypernode(label="isolated")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(iso)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        dual = g.to_dual()
+        assert dual.node_count == 1
+        assert dual.edge_count == 2
+        dual_labels = {n.label for n in dual.nodes}
+        assert "e0" in dual_labels
+
