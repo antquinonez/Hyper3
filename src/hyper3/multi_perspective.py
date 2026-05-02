@@ -1247,8 +1247,7 @@ class MultiPerspectiveAnalyzer:
         Counts triangles among the seed nodes' shared neighborhood and
         normalises by the maximum possible triangle count.  High clustering
         indicates tightly interconnected neighbors; low clustering indicates
-        tree-like or sparse structure.  Note: this is a local clustering
-        coefficient, not the Ollivier-Ricci curvature.
+        tree-like or sparse structure.
 
         Args:
             seed_ids: Node IDs to compute clustering around.

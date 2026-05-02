@@ -397,7 +397,7 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("  What it actually does: stores a correlation matrix between two")
     print("  groups of hypotheses. When one is observed (collapsed), predict()")
     print("  returns the correlated value for each partner. This is a lookup")
-    print("  table -- not physical quantum entanglement.")
+    print("  table -- a classical correlation matrix, not quantum entanglement.")
     print()
 
     qs = mem.create_distribution(concepts=hypotheses, use_context_field=False)

@@ -216,7 +216,7 @@ print("Positive amplitudes (battery, spark_plug, timing_belt) interfere construc
 print("Negative amplitudes (fuel_pump, alternator) interfere destructively")
 print()
 
-# ─── STEP 6: Transfinite reasoning ───────────────────────────────────
+# ─── STEP 6: Structural anomaly detection ────────────────────────────
 print("━" * 72)
 print("STEP 6: Boundary detection — when is a question answerable?")
 print("━" * 72)

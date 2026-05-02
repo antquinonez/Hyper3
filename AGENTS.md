@@ -10,12 +10,14 @@ Hyper3 is a self-evolving hypergraph knowledge graph library. It is a pure-Pytho
 
 ## Inspirational Foundation
 
-The architecture is inspired by two theoretical frameworks:
+The architecture is built on these core capabilities:
 
-- **Hypergraph-Ruliad Integration Framework** — Dynamic hypergraph instantiation, infinite-dimensional traversal, Ruliad-based multiway expansion with equivalence merging, observer-centric adaptive filtering, lazy evaluation, continuous structural self-evolution, and removal of token-count dependence.
-- **Rulial-Enhanced Hypergraph Cognitive Architecture v2-1** — Multiway causal invariance, branchial space navigation, rulial consciousness, computational relativity, transfinite reasoning, quantum cognitive effects, and automated rule space exploration.
+- **Hypergraph knowledge representation** — N-ary directed edges, labeled semantic relationships, typed node data, observer-centric slicing, and continuous structural self-evolution (decay, prune, merge, reinforce).
+- **Rule-based multiway reasoning** — Pattern-matching inference rules applied through multiway expansion with equivalence merging, backward chaining, provenance tracking, and confidence propagation.
+- **Probabilistic belief states** — Born-rule sampling from complex-amplitude distributions, Bayesian updating, concept correlation, and Thompson sampling for adaptive parameter selection.
+- **Multi-perspective analysis** — Problems evaluated through classical, probabilistic, hypergraph, and distributional frames with learned effectiveness tracking.
 
-Every module in `src/hyper3/` maps to a concept from these specifications. The principles below codify the design patterns that bridge the theoretical specifications to the code, implemented as structural heuristics where formal mathematics is not feasible.
+The principles below codify the design patterns governing the codebase, implemented as structural heuristics where formal mathematics is not feasible.
 
 ## Design Principles
 
@@ -177,7 +179,7 @@ The `MultiwayEngine` applies all registered rules to the current graph state, br
 
 Ambiguous or multi-faceted concepts are represented as belief distributions with multiple outcomes, each having a complex amplitude. Contextual triggers cause sampling to a single outcome via the Born rule.
 
-**Why**: The v2-1 spec's "Quantum Cognitive Effects" (Figure 6, Figure 19) describes superposition, entanglement, and wavefunction collapse as cognitive mechanisms. The implementation mirrors this: `BeliefLayer.create_distribution()` creates states with amplitude-weighted outcomes; `sample()` samples from `|amplitude|^2`; `create_correlation()` correlates outcome sampling between nodes.
+**Why**: Ambiguous concepts benefit from explicit probability distributions over possible interpretations. `BeliefLayer.create_distribution()` creates states with amplitude-weighted outcomes; `sample()` samples from `|amplitude|^2` (Born rule); `create_correlation()` correlates outcome sampling between nodes.
 
 **Pattern**:
 ```python
@@ -254,7 +256,7 @@ insights = mem.lateral_insights(
 
 The system detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. The `StructuralAnomalyDetector` uses heuristic graph analysis to identify concepts that warrant deeper analysis, returning `ExplorationReport` dataclasses with coverage bounds.
 
-**Why**: The v2-1 spec's "Transfinite Reasoning Capability" (Figure 5) describes boundary detection. The implementation uses heuristic graph metrics (cycle detection, centrality, label contradiction) rather than formal decidability proofs.
+**Why**: Structural anomalies (cycles, high-centrality bottlenecks, contradictory labels) indicate concepts that warrant deeper analysis. The implementation uses heuristic graph metrics (cycle detection, centrality, label contradiction) to classify concepts along a risk spectrum.
 
 **Pattern**:
 ```python
@@ -730,37 +732,36 @@ The following are already optimized — maintain them when making changes:
 
 ## Terminology Mapping
 
-The inspiration documents use theoretical terms from advanced mathematics. Many of these are implemented as structural heuristics rather than formal mathematics. This table documents the mapping between spec terminology and actual implementation.
+This table documents the mathematical status of named algorithms and metrics in the codebase. Entries marked "Heuristic" use structural approximations rather than formal mathematics; entries marked "Rigorous" implement textbook algorithms correctly.
 
-| Spec Term | Implementation | Module | Mathematical Status |
+| Feature | Implementation | Module | Mathematical Status |
 |---|---|---|---|
-| Transfinite reasoning | Structural anomaly detection (cycles, centrality, contradictions) | `structural_anomaly.py` | Heuristic |
-| Godel-like limits | Cycle detection + eigenvector centrality | `structural_anomaly.py` | Heuristic |
-| Cantor diagonalization | Hardcoded contradictory label pairs + near-disjoint source sets | `structural_anomaly.py` | Heuristic |
+| Structural anomaly detection | Cycle detection + eigenvector centrality + label contradiction matching | `structural_anomaly.py` | Heuristic |
+| Contradiction detection | Hardcoded contradictory label pairs + near-disjoint source sets | `structural_anomaly.py` | Heuristic |
 | Partial proofs | 2-hop BFS neighborhood exploration with Chernoff bounds | `structural_anomaly.py` | Heuristic (Chernoff bounds are rigorous, but the "proof" is a coverage count) |
-| Computational relativity | Multi-perspective parameter selection (4 scalar complexity estimators) | `multi_perspective.py` | Heuristic |
-| Ollivier-Ricci curvature | Local clustering coefficient (triangle density) | `multi_perspective.py` | Heuristic |
-| Frame dragging | Perspective overlap via Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
-| Gravitational redshift | Frame information loss via product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
-| Transcendental insights | High-level insights from pattern detection | `multiway_rulial.py` | Heuristic |
-| Quantum entanglement | Concept correlation via classical correlation matrix lookup | `belief.py` | Classical (Born-rule collapse is rigorous; entanglement is correlation lookup, not tensor product) |
-| Quantum superposition | Born rule collapse with complex amplitudes | `belief.py` | Rigorous |
+| Multi-perspective analysis | Multi-perspective parameter selection (4 scalar complexity estimators) | `multi_perspective.py` | Heuristic |
+| Local clustering coefficient | Triangle density of neighbor subgraph | `multi_perspective.py` | Rigorous |
+| Perspective overlap | Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
+| Frame information loss | Product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
+| High-level insights | Pattern detection from rule frequency and graph structure | `multiway_rulial.py` | Heuristic |
+| Concept correlation | Classical correlation matrix lookup between outcome distributions | `belief.py` | Classical |
+| Born-rule sampling | Sampling from `|amplitude|^2` with complex amplitudes | `belief.py` | Rigorous |
 | Von Neumann entropy | Density matrix eigenvalue entropy | `belief.py` | Rigorous |
-| Von Neumann entropy (multi_perspective) | Normalized Shannon entropy over edge target distribution | `multi_perspective.py` | Heuristic (misleading method name `_von_neumann_entropy` renamed to `_normalized_shannon_entropy`) |
+| Von Neumann entropy (multi_perspective) | Normalized Shannon entropy over edge target distribution | `multi_perspective.py` | Heuristic (method renamed to `_normalized_shannon_entropy`) |
 | Partial trace | Tensor contraction over subsystems | `belief.py` | Rigorous |
 | Unitary evolution | Matrix multiplication with renormalization | `belief.py` | Rigorous |
 | Computational density | Graph activity density (avg_degree * 0.25 + rule_diversity * 0.75) | `multiway_rulial.py` | Weighted composite metric |
-| Causal graph complexity | Structural complexity (mean of spectral entropy and motif diversity) | `multiway_rulial.py` | Composite metric |
+| Structural complexity | Mean of spectral entropy and motif diversity | `multiway_rulial.py` | Composite metric |
 | Conservative extension | Removed (was always `True`, not proof-theoretic) | `structural_anomaly.py` | N/A |
 | Spectral entropy | SVD of adjacency matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
 | Kolmogorov complexity | zlib compression ratio | `multi_perspective.py` | Approximation (well-known technique) |
 | Thompson sampling | Beta distribution sampling for frame/basis selection | `multi_perspective.py`, `belief.py` | Rigorous |
 | Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
 | Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
-| Branchial entanglement | Branchial correlation via Dice coefficient of shared active nodes | `multiway_branchial.py` | Structural metric |
+| Branchial correlation | Dice coefficient of shared active nodes between multiway states | `multiway_branchial.py` | Structural metric |
 | Hypergraph | Directed multigraph with n-ary edge storage, native hypergraph algorithms (union-find components, s-path shortest path, incidence-based PageRank, spectral embedding, s-persistence) | `kernel.py` | Rigorous (incidence matrix, Laplacian, s-connected components, hypergraph PageRank are textbook-correct; degrades to standard graph algorithms on pairwise edges) |
-| Decoherence / coherence_time | Timeout-based exponential amplitude decay | `belief.py` | Loose analog (not environmental decoherence T1/T2) |
-| MeasurementBasis | Named dimension weights + Thompson sampling for selection | `belief.py` | Loose analog (not a Hermitian operator; feature weighting profile) |
+| Coherence time | Timeout-based exponential amplitude decay | `belief.py` | Heuristic (not environmental decoherence T1/T2) |
+| MeasurementBasis | Named dimension weights + Thompson sampling for selection | `belief.py` | Heuristic (not a Hermitian operator; feature weighting profile) |
 | Interference | Standard formula comparing \|sum(amps)\|^2 vs sum(\|amp\|^2) | `belief.py` | Rigorous |
 | s-connected components | Union-find on hyperedge vertex overlap with threshold s | `kernel.py` | Rigorous (textbook s-walk framework from Aksoy et al.) |
 | s-persistence filtration | Nested sequence of s-connected component structures | `kernel.py` | Rigorous (filtration on s-line graph) |

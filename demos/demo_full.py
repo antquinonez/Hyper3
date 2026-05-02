@@ -1,9 +1,9 @@
 """
-Demo: Full hyper3 cognitive architecture with all subsystems.
+Demo: Full hyper3 architecture with all subsystems.
 
-Branchial Space | Rulial Space | Transfinite Reasoning
-Computational Relativity | Meta-Cognitive Introspection
-Quantum Correlation | Interference | Measurement Bases
+Multiway Expansion | State Clustering | Structural Anomaly Detection
+Multi-Perspective Analysis | Self-Evolution | Belief Distributions
+Rule Discovery | Provenance | Temporal Reasoning
 
 Run with: .venv/bin/python demos/demo_full.py
 """

@@ -376,8 +376,7 @@ class StructuralAnomalyDetector:
         """Score contradiction risk from contradictory edge labels or learned opposition.
 
         Checks for hardcoded contradictory label pairs and for labels with
-        near-disjoint source node sets (learned opposition).  This is a
-        pattern-matching heuristic, not formal diagonalization.
+        near-disjoint source node sets (learned opposition).
         """
         node = self._find_concept_node(concept)
         if not node:
