@@ -13,6 +13,36 @@ if TYPE_CHECKING:
 
 class TransformMixin(_GraphBase):
 
+    def clique_projection(self) -> Any:
+        """Expand every hyperedge into a clique of pairwise edges.
+
+        For each hyperedge containing nodes {v1, v2, ..., vk}, creates
+        pairwise edges (vi, vj) for every pair.  The result is a standard
+        pairwise graph with the same vertex set.
+
+        Returns:
+            A new Hypergraph containing only pairwise edges.
+        """
+        from itertools import combinations
+
+        from hyper3.kernel import Hypergraph
+
+        result = Hypergraph()
+        for node in self._nodes.values():
+            result.add_node(Hypernode(id=node.id, label=node.label, data=dict(node.data) if node.data else None, weight=node.weight))
+        for edge in self._edges.values():
+            members = sorted(edge.node_ids)
+            for u, v in combinations(members, 2):
+                result.add_edge(
+                    Hyperedge(
+                        source_ids=frozenset({u}),
+                        target_ids=frozenset({v}),
+                        label=edge.label,
+                        weight=edge.weight,
+                    )
+                )
+        return result
+
     def to_networkx(self) -> nx.DiGraph:
         """Convert the hypergraph to a networkx DiGraph.
 

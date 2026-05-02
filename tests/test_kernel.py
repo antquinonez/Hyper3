@@ -3126,3 +3126,152 @@ class TestTransitivity:
         g.add_node(Hypernode(label="b"))
         assert g.transitivity() == 0.0
 
+
+class TestStronglyConnectedComponents:
+    def test_single_scc_in_cycle(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 3].id})))
+        sccs = g.strongly_connected_components()
+        assert len(sccs) == 1
+        assert len(sccs[0]) == 3
+
+    def test_two_isolated_cycles(self):
+        g = Hypergraph()
+        nodes_a = [Hypernode(label=f"a{i}") for i in range(3)]
+        nodes_b = [Hypernode(label=f"b{i}") for i in range(3)]
+        for n in nodes_a + nodes_b:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes_a[i].id}), target_ids=frozenset({nodes_a[(i + 1) % 3].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes_b[i].id}), target_ids=frozenset({nodes_b[(i + 1) % 3].id})))
+        sccs = g.strongly_connected_components()
+        assert len(sccs) == 2
+
+    def test_dag_each_node_own_scc(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        sccs = g.strongly_connected_components()
+        assert len(sccs) == 4
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.strongly_connected_components() == []
+
+
+class TestBiconnectedComponents:
+    def test_simple_triangle(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            for j in range(3):
+                if i != j:
+                    g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+        bccs = g.biconnected_components()
+        assert len(bccs) >= 1
+        all_nodes = set()
+        for comp in bccs:
+            all_nodes |= comp
+        assert len(all_nodes) == 3
+
+    def test_bridge_splits(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[0].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id}), target_ids=frozenset({nodes[2].id})))
+        bccs = g.biconnected_components()
+        assert len(bccs) >= 1
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.biconnected_components() == []
+
+
+class TestArticulationPoints:
+    def test_path_has_internal_articulation(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        aps = g.articulation_points()
+        assert nodes[1].id in aps
+        assert nodes[2].id in aps
+
+    def test_cycle_no_articulation(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 4].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[(i + 1) % 4].id}), target_ids=frozenset({nodes[i].id})))
+        aps = g.articulation_points()
+        assert len(aps) == 0
+
+    def test_star_center_is_articulation(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(1, 5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[i].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[0].id})))
+        aps = g.articulation_points()
+        assert nodes[0].id in aps
+
+
+class TestCliqueProjection:
+    def test_pairwise_graph_unchanged(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        proj = g.clique_projection()
+        assert proj.node_count == 3
+        assert proj.edge_count == 2
+
+    def test_hyperedge_expands_to_clique(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({nodes[0].id, nodes[1].id}),
+            target_ids=frozenset({nodes[2].id, nodes[3].id}),
+        ))
+        proj = g.clique_projection()
+        assert proj.node_count == 4
+        assert proj.edge_count == 6
+
+    def test_preserves_labels(self):
+        g = Hypergraph()
+        a = Hypernode(label="alpha")
+        b = Hypernode(label="beta")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        proj = g.clique_projection()
+        labels = {n.label for n in proj.nodes}
+        assert "alpha" in labels
+        assert "beta" in labels
+

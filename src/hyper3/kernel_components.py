@@ -8,6 +8,207 @@ from hyper3.results import SPersistenceLevel, SPersistenceResult
 
 class ComponentMixin(_GraphBase):
 
+    def strongly_connected_components(self) -> list[set[str]]:
+        """Find strongly connected components using Kosaraju's algorithm.
+
+        A strongly connected component is a maximal set of nodes where
+        every node is reachable from every other node via directed edges.
+
+        Returns:
+            List of sets, each containing the node IDs of one SCC.
+        """
+        if not self._nodes:
+            return []
+
+        node_ids = list(self._nodes.keys())
+
+        finish_order: list[str] = []
+        visited: set[str] = set()
+        for nid in node_ids:
+            if nid not in visited:
+                self._kosaraju_dfs_forward(nid, visited, finish_order)
+
+        reverse_map = self._build_reverse_adjacency()
+        visited.clear()
+        components: list[set[str]] = []
+        for nid in reversed(finish_order):
+            if nid not in visited:
+                comp: set[str] = set()
+                self._kosaraju_dfs_reverse(nid, visited, reverse_map, comp)
+                components.append(comp)
+        return components
+
+    def _kosaraju_dfs_forward(self, node: str, visited: set[str], finish_order: list[str]) -> None:
+        stack = [(node, False)]
+        while stack:
+            current, processed = stack.pop()
+            if processed:
+                finish_order.append(current)
+                continue
+            if current in visited:
+                continue
+            visited.add(current)
+            stack.append((current, True))
+            for edge in self.outgoing_edges(current):
+                for tgt in edge.target_ids:
+                    if tgt not in visited:
+                        stack.append((tgt, False))
+
+    def _kosaraju_dfs_reverse(self, node: str, visited: set[str], reverse_map: dict[str, list[str]], comp: set[str]) -> None:
+        stack = [node]
+        while stack:
+            current = stack.pop()
+            if current in visited:
+                continue
+            visited.add(current)
+            comp.add(current)
+            for pred in reverse_map.get(current, []):
+                if pred not in visited:
+                    stack.append(pred)
+
+    def _build_reverse_adjacency(self) -> dict[str, list[str]]:
+        reverse: dict[str, list[str]] = {}
+        for edge in self._edges.values():
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    reverse.setdefault(tgt, []).append(src)
+        return reverse
+
+    def biconnected_components(self) -> list[set[str]]:
+        """Find biconnected components using Hopcroft-Tarjan algorithm.
+
+        A biconnected component is a maximal subgraph that remains
+        connected after removing any single node.  Operates on the
+        undirected projection (ignoring edge direction).
+
+        Returns:
+            List of sets, each containing the node IDs of one biconnected
+            component.  Individual edges form their own components.
+        """
+        if not self._nodes:
+            return []
+
+        node_ids = list(self._nodes.keys())
+        visited: set[str] = set()
+        disc: dict[str, int] = {}
+        low: dict[str, int] = {}
+        parent: dict[str, str | None] = {}
+        timer = [0]
+        components: list[set[str]] = []
+        edge_stack: list[tuple[str, str]] = []
+
+        for nid in node_ids:
+            if nid not in visited:
+                self._biconnected_dfs(nid, visited, disc, low, parent, timer, edge_stack, components)
+
+        remaining_edges = list(edge_stack)
+        if remaining_edges:
+            comp: set[str] = set()
+            for u, v in remaining_edges:
+                comp.add(u)
+                comp.add(v)
+            components.append(comp)
+
+        return components
+
+    def _biconnected_dfs(
+        self,
+        u: str,
+        visited: set[str],
+        disc: dict[str, int],
+        low: dict[str, int],
+        parent: dict[str, str | None],
+        timer: list[int],
+        edge_stack: list[tuple[str, str]],
+        components: list[set[str]],
+    ) -> None:
+        visited.add(u)
+        disc[u] = low[u] = timer[0]
+        timer[0] += 1
+        children = 0
+
+        for edge in self.incident_edges(u):
+            for v in edge.node_ids:
+                if v == u:
+                    continue
+                edge_tuple = (min(u, v), max(u, v))
+                if v not in visited:
+                    parent[v] = u
+                    children += 1
+                    edge_stack.append(edge_tuple)
+                    self._biconnected_dfs(v, visited, disc, low, parent, timer, edge_stack, components)
+                    low[u] = min(low[u], low[v])
+
+                    if (parent.get(u) is None and children > 1) or (parent.get(u) is not None and low[v] >= disc[u]):
+                        comp: set[str] = set()
+                        while edge_stack:
+                            e = edge_stack.pop()
+                            comp.add(e[0])
+                            comp.add(e[1])
+                            if e == edge_tuple:
+                                break
+                        components.append(comp)
+                elif parent.get(u) != v and disc.get(v, float("inf")) < disc[u]:
+                    low[u] = min(low[u], disc[v])
+                    edge_stack.append(edge_tuple)
+
+    def articulation_points(self) -> set[str]:
+        """Find articulation points (cut vertices) in the undirected graph.
+
+        An articulation point is a node whose removal increases the number
+        of connected components.
+
+        Returns:
+            Set of node IDs that are articulation points.
+        """
+        if not self._nodes:
+            return set()
+
+        node_ids = list(self._nodes.keys())
+        visited: set[str] = set()
+        disc: dict[str, int] = {}
+        low: dict[str, int] = {}
+        parent: dict[str, str | None] = {}
+        ap: set[str] = set()
+        timer = [0]
+
+        for nid in node_ids:
+            if nid not in visited:
+                self._articulation_dfs(nid, visited, disc, low, parent, ap, timer)
+
+        return ap
+
+    def _articulation_dfs(
+        self,
+        u: str,
+        visited: set[str],
+        disc: dict[str, int],
+        low: dict[str, int],
+        parent: dict[str, str | None],
+        ap: set[str],
+        timer: list[int],
+    ) -> None:
+        visited.add(u)
+        disc[u] = low[u] = timer[0]
+        timer[0] += 1
+        children = 0
+
+        for edge in self.incident_edges(u):
+            for v in edge.node_ids:
+                if v == u:
+                    continue
+                if v not in visited:
+                    parent[v] = u
+                    children += 1
+                    self._articulation_dfs(v, visited, disc, low, parent, ap, timer)
+                    low[u] = min(low[u], low[v])
+                    if parent.get(u) is None and children > 1:
+                        ap.add(u)
+                    if parent.get(u) is not None and low[v] >= disc[u]:
+                        ap.add(u)
+                elif parent.get(u) != v:
+                    low[u] = min(low[u], disc[v])
+
     def connected_components(self, *, s: int = 1) -> list[set[str]]:
         """Find connected components using hyperedge-native union-find.
 
