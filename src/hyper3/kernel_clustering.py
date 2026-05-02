@@ -44,6 +44,42 @@ class ClusteringMixin(_GraphBase):
             return 0.0
         return sum(coeffs) / len(coeffs)
 
+    def transitivity(self) -> float:
+        """Compute the global clustering coefficient (transitivity).
+
+        Defined as ``3 * num_triangles / num_triads`` where a triad is a
+        connected triple of nodes and a triangle is a triad where all
+        three edges exist.
+
+        Returns:
+            Transitivity in [0, 1].  Returns 0.0 for graphs with fewer
+            than 3 nodes or no triads.
+        """
+        node_ids = list(self._nodes.keys())
+        n = len(node_ids)
+        if n < 3:
+            return 0.0
+
+        triangles = 0
+        triads = 0
+        for i in range(n):
+            nbrs_i = set(self.neighbors(node_ids[i]))
+            for j in range(i + 1, n):
+                if node_ids[j] not in nbrs_i:
+                    continue
+                nbrs_j = set(self.neighbors(node_ids[j]))
+                shared = nbrs_i & nbrs_j
+                common = nbrs_j
+                for k in range(j + 1, n):
+                    if node_ids[k] in shared:
+                        triangles += 1
+                    if node_ids[k] in common:
+                        triads += 1
+
+        if triads == 0:
+            return 0.0
+        return triangles / triads
+
     def spectral_clustering(self, k: int = 2) -> list[set[str]]:
         """Partition nodes into k clusters using spectral embedding + k-means.
 

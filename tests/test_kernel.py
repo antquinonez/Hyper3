@@ -2994,3 +2994,135 @@ class TestBetheHessian:
         assert np.asarray(H).shape == (0, 0)
         assert ids == []
 
+
+class TestGirth:
+    def test_cycle_length(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id}), target_ids=frozenset({nodes[0].id})))
+        assert g.girth() == 4
+
+    def test_triangle(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[0].id})))
+        assert g.girth() == 3
+
+    def test_no_cycles_zero(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        assert g.girth() == 0
+
+    def test_empty_graph_zero(self):
+        g = Hypergraph()
+        assert g.girth() == 0
+
+
+class TestClosenessCentrality:
+    def test_star_graph_center(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(1, 5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[i].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[0].id})))
+        cc = g.closeness_centrality()
+        center = cc[nodes[0].id]
+        for i in range(1, 5):
+            assert center >= cc[nodes[i].id]
+
+    def test_sum_values_positive(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        cc = g.closeness_centrality()
+        assert all(v > 0 for v in cc.values())
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.closeness_centrality() == {}
+
+
+class TestEigenvectorCentrality:
+    def test_star_center_highest(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(1, 5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[i].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[0].id})))
+        ec = g.eigenvector_centrality()
+        center = ec[nodes[0].id]
+        for i in range(1, 5):
+            assert center >= ec[nodes[i].id]
+
+    def test_normalized(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        ec = g.eigenvector_centrality()
+        norm = np.linalg.norm(list(ec.values()))
+        assert abs(norm - 1.0) < 1e-6
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.eigenvector_centrality() == {}
+
+
+class TestTransitivity:
+    def test_complete_graph_one(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[j].id}), target_ids=frozenset({nodes[i].id})))
+        assert abs(g.transitivity() - 1.0) < 1e-10
+
+    def test_no_triangles_zero(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[0].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[1].id})))
+        t = g.transitivity()
+        assert t >= 0.0
+        assert t <= 1.0
+
+    def test_small_graph_zero(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        g.add_node(Hypernode(label="b"))
+        assert g.transitivity() == 0.0
+

@@ -7,6 +7,68 @@ from hyper3.kernel_base import _GraphBase
 
 class CentralityMixin(_GraphBase):
 
+    def closeness_centrality(self) -> dict[str, float]:
+        """Compute closeness centrality for every node.
+
+        Closeness is defined as the reciprocal of the average shortest-path
+        distance from a node to all other reachable nodes.  Uses BFS
+        (unweighted) for distance computation.
+
+        Returns:
+            Dict mapping node ID to closeness centrality in [0, 1].
+        """
+        if not self._nodes:
+            return {}
+        n = len(self._nodes)
+        result: dict[str, float] = {}
+        for nid in self._nodes:
+            dists = self._bfs_all_distances(nid)
+            reachable = {k: v for k, v in dists.items() if k != nid and v >= 0}
+            if not reachable:
+                result[nid] = 0.0
+                continue
+            total_dist = sum(reachable.values())
+            if total_dist == 0:
+                result[nid] = 0.0
+                continue
+            result[nid] = len(reachable) / ((n - 1) * total_dist)
+        return result
+
+    def eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-06) -> dict[str, float]:
+        """Compute eigenvector centrality via power iteration on the adjacency matrix.
+
+        A node's score is proportional to the sum of its neighbors' scores.
+        Values are normalized to unit L2 norm.
+
+        Args:
+            max_iter: Maximum number of power-iteration steps.
+            tol: Convergence tolerance on L2 norm change.
+
+        Returns:
+            Dict mapping node ID to eigenvector centrality score.
+        """
+        import numpy as np
+
+        A_sp, node_list = self.adjacency_matrix()
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        x = np.ones(n) / n
+
+        for _ in range(max_iter):
+            x_new = A @ x
+            norm = np.linalg.norm(x_new)
+            if norm > 0:
+                x_new = x_new / norm
+            if np.linalg.norm(x_new - x) < tol:
+                x = x_new
+                break
+            x = x_new
+
+        return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
     def degree_centrality(self) -> dict[str, float]:
         """Compute normalized degree centrality for every node.
 

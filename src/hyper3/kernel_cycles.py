@@ -5,6 +5,17 @@ from hyper3.kernel_base import _GraphBase
 
 class CycleMixin(_GraphBase):
 
+    def girth(self) -> int:
+        """Compute the girth (shortest cycle length) of the graph.
+
+        Returns:
+            Length of the shortest directed cycle, or 0 if no cycles exist.
+        """
+        cycles = self.detect_cycles(max_cycles=100)
+        if not cycles:
+            return 0
+        return min(len(c) - 1 for c in cycles)
+
     def has_cycle(self) -> bool:
         """Check whether the graph contains at least one directed cycle.
 
