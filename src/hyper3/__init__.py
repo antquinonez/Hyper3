@@ -144,22 +144,11 @@ from hyper3.multi_perspective import (
     StructuralMetrics,
 )
 from hyper3.multiway import (
-    BranchialRelation,
     ExpansionReport,
     MultiwayEngine,
     MultiwayGraph,
     MultiwayState,
-)
-from hyper3.multiway_branchial import (
-    AnalogyProposal,
-    BranchialCluster,
-    BranchialCoordinates,
-    BranchialCorrelation,
-    BranchialDistanceMetrics,
-    BranchialSpace,
-    MultiScaleAnalysis,
-    ScaleLevel,
-    SimultaneityGroup,
+    StateRelation,
 )
 from hyper3.multiway_causal import (
     ConvergenceRecord,
@@ -175,7 +164,6 @@ from hyper3.provenance import (
 from hyper3.results import (
     AnomalyAnalysis,
     BiasProfileResult,
-    BranchialAnalysis,
     CommitResult,
     ConsensusReasonResult,
     CorrelatedNodeInfo,
@@ -206,6 +194,7 @@ from hyper3.results import (
     SpectralEmbeddingResult,
     SPersistenceLevel,
     SPersistenceResult,
+    StateClusteringReport,
     SubgraphEdge,
     SubgraphNode,
     SubgraphResult,
@@ -248,6 +237,17 @@ from hyper3.rules import (
 )
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
 from hyper3.snapshot import SystemSnapshot
+from hyper3.state_clustering import (
+    AnalogyProposal,
+    MultiScaleAnalysis,
+    ScaleLevel,
+    SimultaneityGroup,
+    StateCluster,
+    StateClusteringEngine,
+    StateCoordinates,
+    StateCorrelation,
+    StateDistanceMetrics,
+)
 from hyper3.structural_anomaly import (
     AnomalyDetectionResult,
     AssumptionSet,

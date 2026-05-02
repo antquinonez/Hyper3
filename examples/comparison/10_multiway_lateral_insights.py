@@ -538,7 +538,7 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 4: Branchial Space -- Similarity and Convergence
+    # SECTION 4: State Clustering -- Similarity and Convergence
     # =====================================================================
 
     print("=" * 70)
@@ -707,7 +707,7 @@ def main():
     print()
     print("  Implementation note: this uses networkx DiGraph + manual BFS")
     print("  over rule applications, producing equivalent results to Hyper3's")
-    print("  multiway engine + branchial space analysis.")
+    print("  multiway engine + state clustering analysis.")
     print()
 
 

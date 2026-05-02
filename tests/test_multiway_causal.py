@@ -261,8 +261,8 @@ class TestHypergraphMemoryIntegration:
         insights = mem.lateral_insights("a")
         assert isinstance(insights, list)
         for insight in insights:
-            assert isinstance(insight["branchial_distance"], float)
-            assert 0.0 <= insight["branchial_distance"] <= 2.0
+            assert isinstance(insight["state_distance"], float)
+            assert 0.0 <= insight["state_distance"] <= 2.0
             assert "complementary_nodes" in insight
             assert "transferable_patterns" in insight
             assert "novel_in_source" in insight

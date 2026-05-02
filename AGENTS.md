@@ -55,9 +55,9 @@ class ReasoningMixin(_MemoryBase):
 
 ### DP-2: Engine-Facade Separation with Delegation
 
-Domain logic lives in standalone engine classes (`GraphMaintenanceEngine`, `BranchialSpace`, `BeliefLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
+Domain logic lives in standalone engine classes (`GraphMaintenanceEngine`, `StateClusteringEngine`, `BeliefLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
-**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rule analytics interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
+**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, state clustering engine, rule analytics interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
 **Pattern**:
 ```python
@@ -237,11 +237,11 @@ mem.relate("concept_a", "concept_b")
 
 For deterministic tests, use `evolve_interval=0` and call `mem.evolve()` manually.
 
-### DP-12: Branchial Space as Lateral Reasoning
+### DP-12: State Clustering as Lateral Reasoning
 
-The multiway expansion produces many simultaneous computational states. Branchial space maps these states into a coordinate space with distance metrics, enabling lateral inference: insights from one branch can transfer to nearby branches.
+The multiway expansion produces many simultaneous computational states. State clustering maps these states into a coordinate space with distance metrics, enabling lateral inference: insights from one branch can transfer to nearby branches.
 
-**Why**: The v2-1 spec's "Branchial Space Navigation" (Figure 2, Figure 13) describes how "computationally simultaneous states" can be related by branchial distance, enabling "lateral inference" and "cross-domain insight transfer." The `BranchialSpace` class implements coordinate assignment via multidimensional scaling, distance calculation between states, clustering (Ward hierarchical at macro/meso/micro scales), and lateral inference generation.
+**Why**: The `StateClusteringEngine` class implements coordinate assignment via multidimensional scaling, distance calculation between states, clustering (Ward hierarchical at macro/meso/micro scales), and lateral inference generation.
 
 **Pattern**:
 ```python
@@ -275,7 +275,7 @@ Frequently-accessed graph operations are accelerated by lazy caches and structur
 - `Hypergraph._label_index: dict[str, str]` — label to node_id mapping
 - `Hypergraph._neighbor_cache: dict[str, list[str]]` — full neighbor map, lazily built, invalidated on mutation
 - `MultiwayGraph._leaves_cache: list[MultiwayState]` — cached leaf list
-- `BranchialSpace._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics]`
+- `StateClusteringEngine._distance_cache: dict[tuple[str, str], StateDistanceMetrics]`
 - `TransitiveRule` pre-built `edge_set` for O(1) edge-existence checks
 
 ### DP-15: Zero External Dependencies for Core
@@ -287,13 +287,15 @@ The core library has no network calls, no database, no external services. All co
 ### DP-16: Domain Prefixes for Module Relationships
 
 Modules use naming prefixes to show their subsystem relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rule analytics)
+- `multiway_*` — multiway expansion subsystem (state convergence)
+- `state_clustering.py` — multiway state coordinate mapping and clustering
+- `rule_analytics.py` — rule effectiveness tracking
 - `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `retrieval_*` — activation, retrieval engine, and related components
 - `embedding_*` — embedding providers and engines
 
-**Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `multiway_branchial.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `rule_analytics.py`.
+**Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `state_clustering.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `rule_analytics.py`.
 
 ## Build & Run
 
@@ -344,7 +346,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **multiway.py** — `MultiwayEngine` drives expansion (including lazy generator-based expansion); `MultiwayGraph` stores the state DAG; `MultiwayState` is a node in that DAG.
 - **multiway_causal.py** — `StateConvergenceEngine` merges convergent states with graph isomorphism detection. Returns typed `MergeReport`.
 - **belief.py** — `BeliefLayer` provides distribution creation/sampling/correlation/interference, adaptive coherence time, and sampling profile learning via Thompson sampling. Also contains `BeliefState`, `Outcome`, `ConceptCorrelation`, `EvidenceInteraction`, `SamplingProfile`, `SamplingTrigger`, and `BUILTIN_BASES`.
-- **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
+- **state_clustering.py** — `StateClusteringEngine` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `StateClusteringReport`.
 - **rule_analytics.py** — `RuleAnalytics` tracks rule effectiveness, meta-patterns, and high-level insights from rule usage. Returns typed `RuleAnalyticsReport` and `RuleNeighborhoodResult`.
 - **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
 - **multi_perspective.py** — `MultiPerspectiveAnalyzer` provides multi-perspective analysis (classical/quantum/hypergraph/probabilistic perspectives) with perspective effectiveness learning via Thompson sampling.
@@ -369,7 +371,9 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
 ### Module naming convention
 Modules use domain prefixes to show relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rule analytics)
+- `multiway_*` — multiway expansion subsystem (state convergence)
+- `state_clustering.py` — multiway state coordinate mapping and clustering
+- `rule_analytics.py` — rule effectiveness tracking
 - `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `embedding_*` — embedding providers and engines
@@ -678,7 +682,7 @@ The following are already optimized — maintain them when making changes:
 - `Hypergraph._label_index: dict[str, str]` — Maps label → node_id. Updated in `add_node`, `remove_node`, `merge_node`. Used by `get_node_by_label()`.
 - `Hypergraph._neighbor_cache: dict[str, list[str]] | None` — Full neighbor map, lazily built, invalidated on any edge/node mutation.
 - `MultiwayGraph._leaves_cache: list[MultiwayState] | None` — Cached leaf list, invalidated when a state gains children.
-- `BranchialSpace._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics]` — Cached pairwise distances.
+- `StateClusteringEngine._distance_cache: dict[tuple[str, str], StateDistanceMetrics]` — Cached pairwise distances.
 - `TransitiveRule` uses a pre-built `edge_set: set[tuple[str, str]]` for O(1) edge-existence checks instead of scanning `incident_edges()`.
 - `EmbeddingEngine` supports optional FAISS index (`enable_faiss()`). When enabled, `find_similar()` uses inner-product search instead of brute-force O(N) scan. IndexFlatIP for <1K nodes, IndexIVFFlat for >=1K. FAISS is an optional `[faiss]` extra.
 
@@ -758,7 +762,7 @@ This table documents the mathematical status of named algorithms and metrics in 
 | Thompson sampling | Beta distribution sampling for frame/basis selection | `multi_perspective.py`, `belief.py` | Rigorous |
 | Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
 | Spectral gap complexity | Eigenvalue gap of local adjacency matrix | `multi_perspective.py` | Rigorous |
-| Branchial correlation | Dice coefficient of shared active nodes between multiway states | `multiway_branchial.py` | Structural metric |
+| State correlation | Dice coefficient of shared active nodes between multiway states | `state_clustering.py` | Structural metric |
 | Hypergraph | Directed multigraph with n-ary edge storage, native hypergraph algorithms (union-find components, s-path shortest path, incidence-based PageRank, spectral embedding, s-persistence) | `kernel.py` | Rigorous (incidence matrix, Laplacian, s-connected components, hypergraph PageRank are textbook-correct; degrades to standard graph algorithms on pairwise edges) |
 | Coherence time | Timeout-based exponential amplitude decay | `belief.py` | Heuristic (not environmental decoherence T1/T2) |
 | MeasurementBasis | Named dimension weights + Thompson sampling for selection | `belief.py` | Heuristic (not a Hermitian operator; feature weighting profile) |
@@ -971,7 +975,7 @@ for c in result:
 - **For TransitiveRule to produce results**: The graph must contain same-label two-hop chains (A-[label]->B-[label]->C). Unique edge labels per pair produce zero matches. Add extra edges with reused labels to create chains.
 - **For sampling output**: Always resolve `Outcome.node_id` to a label before printing: `node = mem.graph.get_node(answer.node_id); label = node.label if node else answer.node_id`.
 - **For `ActivationResult`**: The attribute is `activation` (not `energy` or `score`).
-- **For `lateral_insights()`**: Returns normalized dicts with keys `novel_in_source` and `novel_in_lateral`. Always present: `branchial_distance`, `complementary_nodes`, `transferable_patterns`.
+- **For `lateral_insights()`**: Returns normalized dicts with keys `novel_in_source` and `novel_in_lateral`. Always present: `state_distance`, `complementary_nodes`, `transferable_patterns`.
 
 ### Validating examples
 
@@ -1016,7 +1020,7 @@ src/hyper3/          Source code (flat, no sub-packages)
   rules.py           Rule ABC with 8 concrete implementations
   rules_discovery.py RuleDiscoveryEngine
   multiway.py        MultiwayEngine, MultiwayGraph, MultiwayState
-  multiway_branchial.py BranchialSpace with distance/clustering
+  state_clustering.py StateClusteringEngine with distance/clustering
   multiway_causal.py StateConvergenceEngine
   rule_analytics.py RuleAnalytics for rule effectiveness tracking
   structural_anomaly.py StructuralAnomalyDetector

@@ -219,7 +219,7 @@ class TestHypergraphMemoryEventLog:
 
 
 class TestNormalizeLateralInsights:
-    def test_normalize_with_branchial_keys(self):
+    def test_normalize_with_state_clustering_keys(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
@@ -233,7 +233,7 @@ class TestNormalizeLateralInsights:
         insights = mem.lateral_insights("a")
         for ins in insights:
             assert "novel_in_source" in ins
-            assert "branchial_distance" in ins
+            assert "state_distance" in ins
             assert "complementary_nodes" in ins
             assert "transferable_patterns" in ins
 
@@ -256,7 +256,7 @@ class TestNormalizeLateralInsights:
         assert len(normalized) == 2
         assert "novel_in_source" in normalized[0]
         assert "novel_in_lateral" in normalized[0]
-        assert "branchial_distance" in normalized[0]
+        assert "state_distance" in normalized[0]
         assert "complementary_nodes" in normalized[0]
         assert "transferable_patterns" in normalized[0]
 
@@ -1324,7 +1324,7 @@ class TestSampleCorrelated:
         assert result == {}
 
 
-class TestLateralInsightsNonBranchialFallback:
+class TestLateralInsightsNoClusteringFallback:
     def test_lateral_insights_uses_multiway_fallback(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("p")
@@ -1334,11 +1334,11 @@ class TestLateralInsightsNonBranchialFallback:
         mem.relate("q", "r", label="link")
         mem.add_rules(TransitiveRule(edge_label="link", new_label="link"))
         mem.reason({"p"}, max_depth=2)
-        mem._branchial = None
+        mem._state_clustering = None
         insights = mem.lateral_insights("p")
         assert isinstance(insights, list)
         for insight in insights:
-            assert "branchial_distance" in insight
+            assert "state_distance" in insight
             assert "complementary_nodes" in insight
 
 

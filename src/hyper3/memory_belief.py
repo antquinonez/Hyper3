@@ -19,7 +19,7 @@ class BeliefMixin(_MemoryBase):
     """Quantum-inspired belief distributions, sampling, and structural anomaly detection.
 
     Provides Born-rule distribution creation and sampling, concept correlation,
-    lateral insights from branchial space, structural anomaly and boundary
+    lateral insights from state clustering engine, structural anomaly and boundary
     detection, and evidence interaction analysis. Delegates to
     :class:`BeliefLayer` and :class:`StructuralAnomalyDetector`.
     """
@@ -241,14 +241,14 @@ class BeliefMixin(_MemoryBase):
         return labeled
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
-        """Retrieve lateral insights from branchial or multiway space for a concept.
+        """Retrieve lateral insights from the clustering engine or multiway space for a concept.
 
         Args:
             seed_concept: Label of the seed node.
 
         Returns:
             List of normalized insight dicts with keys like
-            ``branchial_distance``, ``complementary_nodes``, and
+            ``state_distance``, ``complementary_nodes``, and
             ``transferable_patterns``.
         """
         if not self._multiway_engine:
@@ -256,10 +256,10 @@ class BeliefMixin(_MemoryBase):
         node = self._find_node(seed_concept)
         if not node:
             return []
-        if self._branchial:
+        if self._state_clustering:
             for state in self._multiway_engine.multiway.states:
                 if node.id in state.active_node_ids and state.is_leaf:
-                    raw = self._branchial.lateral_inference(state.id)
+                    raw = self._state_clustering.lateral_inference(state.id)
                     return self._normalize_lateral_insights(raw)
         for state in self._multiway_engine.multiway.states:
             if node.id in state.active_node_ids and state.is_leaf:
@@ -304,7 +304,7 @@ class BeliefMixin(_MemoryBase):
             for key in ("novel_in_source", "novel_in_lateral", "complementary_nodes"):
                 if key in n and isinstance(n[key], list):
                     n[key] = [self._node_label(nid) for nid in n[key]]
-            n.setdefault("branchial_distance", 0.0)
+            n.setdefault("state_distance", 0.0)
             n.setdefault("complementary_nodes", [])
             n.setdefault("transferable_patterns", [])
             normalized.append(n)

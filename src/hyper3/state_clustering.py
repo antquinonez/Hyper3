@@ -11,22 +11,22 @@ from scipy.cluster.vq import kmeans2
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayGraph, MultiwayState
-from hyper3.results import BranchialAnalysis
+from hyper3.results import StateClusteringReport
 
 if TYPE_CHECKING:
     from hyper3.embedding import EmbeddingEngine
 
 
 @dataclass
-class BranchialCoordinates:
-    """Position vector for a multiway state in branchial coordinate space."""
+class StateCoordinates:
+    """Position vector for a multiway state in state coordinate space."""
 
     state_id: str
     position: list[float] = field(default_factory=list)
     depth: int = 0
     branch_index: int = 0
 
-    def distance_to(self, other: BranchialCoordinates) -> float:
+    def distance_to(self, other: StateCoordinates) -> float:
         """Compute Euclidean distance to another coordinate, padding shorter vectors with zeros."""
         if not self.position or not other.position:
             return float("inf")
@@ -39,12 +39,12 @@ class BranchialCoordinates:
 
 
 @dataclass
-class BranchialCluster:
-    """A group of multiway states that are close in branchial coordinate space."""
+class StateCluster:
+    """A group of multiway states that are close in state coordinate space."""
 
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     state_ids: set[str] = field(default_factory=set)
-    centroid: BranchialCoordinates | None = None
+    centroid: StateCoordinates | None = None
     label: str = ""
 
     @property
@@ -54,7 +54,7 @@ class BranchialCluster:
 
 
 @dataclass
-class BranchialCorrelation:
+class StateCorrelation:
     """Correlation record linking two multiway states with shared active nodes."""
 
     state_a_id: str
@@ -65,7 +65,7 @@ class BranchialCorrelation:
 
 
 @dataclass
-class BranchialDistanceMetrics:
+class StateDistanceMetrics:
     """Multi-faceted distance between two multiway states across four dimensions."""
 
     structural: float = 0.0
@@ -95,7 +95,7 @@ class ScaleLevel:
 
     name: str
     n_clusters: int
-    clusters: list[BranchialCluster] = field(default_factory=list)
+    clusters: list[StateCluster] = field(default_factory=list)
     insights: list[str] = field(default_factory=list)
 
 
@@ -121,13 +121,13 @@ class AnalogyProposal:
     mapping: dict[str, str] = field(default_factory=dict)
 
 
-class BranchialSpace:
+class StateClusteringEngine:
     """Maps multiway expansion states into a coordinate space for distance, clustering, and lateral inference."""
 
     def __init__(
         self, graph: Hypergraph, multiway: MultiwayGraph, *, embedding_engine: EmbeddingEngine | None = None
     ) -> None:
-        """Initialize the branchial space.
+        """Initialize the state clustering engine.
 
         Args:
             graph: The base hypergraph.
@@ -137,11 +137,11 @@ class BranchialSpace:
         self._graph = graph
         self._multiway = multiway
         self._embedding_engine = embedding_engine
-        self._coordinates: dict[str, BranchialCoordinates] = {}
-        self._clusters: list[BranchialCluster] = []
-        self._correlations: list[BranchialCorrelation] = []
+        self._coordinates: dict[str, StateCoordinates] = {}
+        self._clusters: list[StateCluster] = []
+        self._correlations: list[StateCorrelation] = []
         self._simultaneity_groups: list[SimultaneityGroup] = []
-        self._distance_cache: dict[tuple[str, str], BranchialDistanceMetrics] = {}
+        self._distance_cache: dict[tuple[str, str], StateDistanceMetrics] = {}
         self._state_embeddings: dict[str, np.ndarray] = {}
 
     def set_embedding_engine(self, engine: EmbeddingEngine) -> None:
@@ -150,7 +150,7 @@ class BranchialSpace:
         self._state_embeddings.clear()
 
     def assign_coordinates(self) -> None:
-        """Compute branchial coordinates for every state in the multiway graph."""
+        """Compute state coordinates for every state in the multiway graph."""
         self._coordinates.clear()
         root = self._multiway.get_root()
         if not root:
@@ -160,7 +160,7 @@ class BranchialSpace:
     def _assign_recursive(self, state_id: str, base_position: list[float], depth: int) -> None:
         """Recursively assign positions using angular spreading at each depth level."""
         children = self._multiway.get_children(state_id)
-        self._coordinates[state_id] = BranchialCoordinates(
+        self._coordinates[state_id] = StateCoordinates(
             state_id=state_id,
             position=list(base_position),
             depth=depth,
@@ -176,11 +176,11 @@ class BranchialSpace:
                 child_pos[-1] = spread
             self._assign_recursive(child.id, child_pos, depth + 1)
 
-    def get_coordinates(self, state_id: str) -> BranchialCoordinates | None:
+    def get_coordinates(self, state_id: str) -> StateCoordinates | None:
         """Return the coordinates for a state, or None if not assigned."""
         return self._coordinates.get(state_id)
 
-    def compute_distances(self, state_a_id: str, state_b_id: str) -> BranchialDistanceMetrics:
+    def compute_distances(self, state_a_id: str, state_b_id: str) -> StateDistanceMetrics:
         """Compute multi-faceted distance metrics between two states.
 
         Results are cached keyed on the sorted pair of state IDs.
@@ -190,7 +190,7 @@ class BranchialSpace:
             state_b_id: Second state ID.
 
         Returns:
-            BranchialDistanceMetrics with structural, conceptual, computational,
+            StateDistanceMetrics with structural, conceptual, computational,
             and evolutionary components.
         """
         key = (min(state_a_id, state_b_id), max(state_a_id, state_b_id))
@@ -202,7 +202,7 @@ class BranchialSpace:
         computational = self._computational_distance(state_a_id, state_b_id)
         evolutionary = self._evolutionary_distance(state_a_id, state_b_id, structural)
 
-        metrics = BranchialDistanceMetrics(
+        metrics = StateDistanceMetrics(
             structural=structural,
             conceptual=conceptual,
             computational=computational,
@@ -212,8 +212,8 @@ class BranchialSpace:
         return metrics
 
     def _structural_distance(self, a_id: str, b_id: str) -> float:
-        """Return the branchial distance from the multiway graph."""
-        return self._multiway.branchial_distance(a_id, b_id)
+        """Return the state distance from the multiway graph."""
+        return self._multiway.jaccard_distance(a_id, b_id)
 
     def _conceptual_distance(self, a_id: str, b_id: str) -> float:
         """Compute conceptual distance via embedding cosine or label Jaccard."""
@@ -362,14 +362,14 @@ class BranchialSpace:
         self._simultaneity_groups = groups
         return groups
 
-    def cluster_states(self, n_clusters: int = 0) -> list[BranchialCluster]:
-        """Cluster states by their branchial coordinates using k-means.
+    def cluster_states(self, n_clusters: int = 0) -> list[StateCluster]:
+        """Cluster states by their state coordinates using k-means.
 
         Args:
             n_clusters: Desired number of clusters (0 = auto, len(states)//3).
 
         Returns:
-            List of BranchialCluster with member state IDs and centroids.
+            List of StateCluster with member state IDs and centroids.
         """
         if not self._coordinates:
             self.assign_coordinates()
@@ -398,11 +398,11 @@ class BranchialSpace:
         for i, label in enumerate(labels):
             cluster_map.setdefault(int(label), set()).add(states[i])
         for ci, sids in cluster_map.items():
-            centroid_coord = BranchialCoordinates(
+            centroid_coord = StateCoordinates(
                 state_id="centroid",
                 position=centroids[ci].tolist() if ci < len(centroids) else [0.0],
             )
-            cluster = BranchialCluster(
+            cluster = StateCluster(
                 state_ids=sids,
                 centroid=centroid_coord,
                 label=f"cluster_{ci}",
@@ -410,14 +410,14 @@ class BranchialSpace:
             self._clusters.append(cluster)
         return self._clusters
 
-    def detect_correlations(self, min_correlation: float = 0.3) -> list[BranchialCorrelation]:
+    def detect_correlations(self, min_correlation: float = 0.3) -> list[StateCorrelation]:
         """Find leaf state pairs with shared active nodes above a correlation threshold.
 
         Args:
             min_correlation: Minimum Dice coefficient for correlation.
 
         Returns:
-            List of BranchialCorrelation with constraint maps.
+            List of StateCorrelation with constraint maps.
         """
         self._correlations.clear()
         leaves = self._multiway.get_leaves()
@@ -435,7 +435,7 @@ class BranchialSpace:
                 if correlation < min_correlation:
                     continue
                 constraint_map = self._build_correlation_constraint_map(a, b, shared)
-                corr = BranchialCorrelation(
+                corr = StateCorrelation(
                     state_a_id=a.id,
                     state_b_id=b.id,
                     correlation=correlation,
@@ -504,7 +504,7 @@ class BranchialSpace:
 
         Returns:
             List of insight dicts with novel nodes, transferable patterns,
-            branchial distance, and optional semantic novelty scores.
+            state distance, and optional semantic novelty scores.
         """
         if not self._simultaneity_groups:
             self.build_simultaneity_groups()
@@ -535,7 +535,7 @@ class BranchialSpace:
     def _build_peer_insight(
         self, state_id: str, current: MultiwayState, peer_id: str, peer: MultiwayState
     ) -> dict[str, Any] | None:
-        """Build a lateral inference insight from a nearby branchial peer."""
+        """Build a lateral inference insight from a nearby peer state."""
         novel_in_peer = set(peer.produced_node_ids) - set(current.produced_node_ids)
         novel_in_current = set(current.produced_node_ids) - set(peer.produced_node_ids)
         complementary = novel_in_peer & (set(n.id for n in self._graph.nodes) - set(current.produced_node_ids))
@@ -549,7 +549,7 @@ class BranchialSpace:
             "novel_in_lateral": list(novel_in_peer),
             "complementary_nodes": list(complementary),
             "transferable_patterns": self._find_transferable(current, peer),
-            "branchial_distance": 0.0,
+            "state_distance": 0.0,
         }
         if self._embedding_engine is not None:
             insight["semantic_novelty_scores"] = self._rank_novel_by_similarity(
@@ -775,7 +775,7 @@ class BranchialSpace:
         return proposals[:top_k]
 
     def plan_path(self, source_state_id: str, target_state_id: str) -> list[str]:
-        """Find a shortest path between two states using A* over branchial coordinates.
+        """Find a shortest path between two states using A* over state coordinates.
 
         Neighbors include children, parent, and siblings at each step.
 
@@ -876,7 +876,7 @@ class BranchialSpace:
         siblings = self._multiway.get_children(parent_id)
         existing_count = sum(1 for s in siblings if s.id in self._coordinates)
         new_pos = list(parent_coord.position) + [float(existing_count)]
-        self._coordinates[state_id] = BranchialCoordinates(
+        self._coordinates[state_id] = StateCoordinates(
             state_id=state_id,
             position=new_pos,
             depth=parent_coord.depth + 1,
@@ -913,17 +913,17 @@ class BranchialSpace:
                 break
 
     @property
-    def coordinates(self) -> dict[str, BranchialCoordinates]:
+    def coordinates(self) -> dict[str, StateCoordinates]:
         """Return a copy of the state-to-coordinates mapping."""
         return dict(self._coordinates)
 
     @property
-    def clusters(self) -> list[BranchialCluster]:
+    def clusters(self) -> list[StateCluster]:
         """Return a copy of the current cluster list."""
         return list(self._clusters)
 
     @property
-    def correlations(self) -> list[BranchialCorrelation]:
+    def correlations(self) -> list[StateCorrelation]:
         """Return a copy of the detected correlations."""
         return list(self._correlations)
 
@@ -993,9 +993,9 @@ class BranchialSpace:
     def _build_micro_scale(self) -> ScaleLevel:
         """Build micro-scale clusters using agglomerative clustering."""
         groups = self.build_simultaneity_groups()
-        micro_clusters_list: list[BranchialCluster] = []
+        micro_clusters_list: list[StateCluster] = []
         for group in groups:
-            cluster = BranchialCluster(
+            cluster = StateCluster(
                 state_ids=group.state_ids,
                 label=f"simultaneous_{group.depth}",
             )
@@ -1024,9 +1024,9 @@ class BranchialSpace:
         cluster_map: dict[int, set[str]] = {}
         for i, label in enumerate(labels):
             cluster_map.setdefault(int(label), set()).add(states[i])
-        clusters: list[BranchialCluster] = []
+        clusters: list[StateCluster] = []
         for ci, sids in cluster_map.items():
-            cluster = BranchialCluster(state_ids=sids, label=f"{name}_cluster_{ci}")
+            cluster = StateCluster(state_ids=sids, label=f"{name}_cluster_{ci}")
             clusters.append(cluster)
         insights: list[str] = []
         sizes = [c.size for c in clusters]
@@ -1038,9 +1038,9 @@ class BranchialSpace:
             insights.append(f"{len(clusters)} clusters with avg size {sum(sizes) / len(sizes):.1f}")
         return ScaleLevel(name=name, n_clusters=len(clusters), clusters=clusters, insights=insights)
 
-    def analyze(self) -> BranchialAnalysis:
-        """Return a summary of the branchial space state."""
-        return BranchialAnalysis(
+    def analyze(self) -> StateClusteringReport:
+        """Return a summary of the state clustering engine state."""
+        return StateClusteringReport(
             states_mapped=len(self._coordinates),
             clusters=len(self._clusters),
             correlations=len(self._correlations),

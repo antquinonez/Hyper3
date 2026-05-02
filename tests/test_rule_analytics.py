@@ -126,7 +126,7 @@ class TestRuleAnalytics:
         mw = MultiwayEngine(g)
         rs = RuleAnalytics(g, mw)
         pos = rs.update_position()
-        assert isinstance(pos.branchial_coordinates, list)
+        assert isinstance(pos.expansion_coordinates, list)
 
 
 
@@ -406,8 +406,8 @@ class TestRuleAnalyticsSpectralAndMotif:
         assert pos.graph_activity_density > 0.0
 
 
-class TestRuleAnalyticsBranchialCoords:
-    def test_branchial_coords_with_multiway(self):
+class TestRuleAnalyticsExpansionCoords:
+    def test_expansion_coords_with_multiway(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d"]:
             g.add_node(Hypernode(id=l, label=l))
@@ -422,8 +422,8 @@ class TestRuleAnalyticsBranchialCoords:
 
         rs = RuleAnalytics(g, multiway=engine)
         pos = rs.update_position()
-        assert isinstance(pos.branchial_coordinates, list)
-        assert len(pos.branchial_coordinates) > 0
+        assert isinstance(pos.expansion_coordinates, list)
+        assert len(pos.expansion_coordinates) > 0
 
 
 class TestRuleAnalyticsRecommendedRules:

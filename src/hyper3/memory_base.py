@@ -20,7 +20,6 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
@@ -41,6 +40,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.system_monitor import SystemMonitor
@@ -70,7 +70,7 @@ class _MemoryBase:
     _rules: list[Rule]
     _discovery: RuleDiscoveryEngine
     _serializer: Serializer
-    _branchial: BranchialSpace | None
+    _state_clustering: StateClusteringEngine | None
     _rule_analytics: RuleAnalytics | None
     _anomaly_detector: StructuralAnomalyDetector
     _perspective: MultiPerspectiveAnalyzer

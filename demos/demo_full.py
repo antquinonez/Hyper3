@@ -82,15 +82,15 @@ if exp:
     print(f"   Reasoning: {exp.rules_applied} rules applied, {exp.edges_produced} edges produced")
 print(f"   Multiway states: {reason_result.multiway_leaves}")
 
-# --- 3. Branchial Space ---
-print("\n[3] Branchial space analysis...")
+# --- 3. State Clustering ---
+print("\n[3] State clustering analysis...")
 
-if mem.branchial:
-    report = mem.branchial.analyze()
+if mem.state_clustering:
+    report = mem.state_clustering.analyze()
     print(f"   States mapped: {report.states_mapped}")
     print(f"   Simultaneity groups: {report.simultaneity_groups}")
-    correlations = mem.branchial.detect_correlations()
-    print(f"   Branchial correlations: {len(correlations)}")
+    correlations = mem.state_clustering.detect_correlations()
+    print(f"   State correlations: {len(correlations)}")
     for corr in correlations[:3]:
         print(f"     correlation={corr.correlation:.2f}, shared={len(corr.shared_concept_ids)}")
 

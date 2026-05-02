@@ -407,7 +407,7 @@ class TestMultiwayGraph:
         leaves = mw.get_leaves()
         assert len(leaves) == 2
 
-    def test_branchial_distance(self):
+    def test_jaccard_distance(self):
         mw = MultiwayGraph()
         root = MultiwayState(id="r")
         c1 = MultiwayState(id="c1", parent_id="r")
@@ -415,8 +415,8 @@ class TestMultiwayGraph:
         mw.add_state(root)
         mw.add_state(c1)
         mw.add_state(c2)
-        assert mw.branchial_distance("c1", "c2") == 2.0
-        assert mw.branchial_distance("c1", "c1") == 0.0
+        assert mw.jaccard_distance("c1", "c2") == 2.0
+        assert mw.jaccard_distance("c1", "c1") == 0.0
 
     def test_common_ancestor(self):
         mw = MultiwayGraph()
@@ -428,7 +428,7 @@ class TestMultiwayGraph:
         mw.add_state(c2)
         assert mw.find_common_ancestor("c1", "c2") == "r"
 
-    def test_branchial_relations(self):
+    def test_state_relations(self):
         mw = MultiwayGraph()
         root = MultiwayState(id="r")
         c1 = MultiwayState(id="c1", parent_id="r")
@@ -436,7 +436,7 @@ class TestMultiwayGraph:
         mw.add_state(root)
         mw.add_state(c1)
         mw.add_state(c2)
-        relations = mw.get_branchial_relations()
+        relations = mw.get_state_relations()
         assert len(relations) >= 1
         assert all(r.common_ancestor_id == "r" for r in relations)
 
@@ -533,8 +533,8 @@ class TestMultiwayEngine:
         assert len(children) >= 1
         insights = engine.get_lateral_insights(children[0].id)
         for insight in insights:
-            assert "branchial_distance" in insight
-            assert isinstance(insight["branchial_distance"], float)
+            assert "state_distance" in insight
+            assert isinstance(insight["state_distance"], float)
 
     def test_empty_rules_no_expansion(self):
         g = Hypergraph()

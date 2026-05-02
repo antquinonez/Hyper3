@@ -30,7 +30,6 @@ from hyper3.memory_structural import StructuralMixin
 from hyper3.memory_temporal import TemporalMixin
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
@@ -40,6 +39,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.system_monitor import SystemMonitor
@@ -145,7 +145,7 @@ class HypergraphMemory(
         self._rules: list[Rule] = list(rules) if rules else []
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._serializer = Serializer()
-        self._branchial: BranchialSpace | None = None
+        self._state_clustering: StateClusteringEngine | None = None
         self._rule_analytics: RuleAnalytics | None = None
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)

@@ -104,7 +104,7 @@ class TestSystemMonitor:
 
 
 class TestHypergraphMemoryNewFeatures:
-    def test_branchial_space_after_reasoning(self):
+    def test_state_clustering_after_reasoning(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d"]:
             mem.store(label)
@@ -113,7 +113,7 @@ class TestHypergraphMemoryNewFeatures:
         mem.relate("c", "d", label="next")
         mem.add_rules(__import__("hyper3").TransitiveRule(edge_label="next"))
         mem.reason({"a", "b", "c", "d"})
-        assert mem.branchial is not None
+        assert mem.state_clustering is not None
 
     def test_rule_analytics_property(self):
         mem = HypergraphMemory()

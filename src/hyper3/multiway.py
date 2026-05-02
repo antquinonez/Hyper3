@@ -37,7 +37,7 @@ class MultiwayState:
 
 
 @dataclass
-class BranchialRelation:
+class StateRelation:
     """Recorded relationship between two sibling states in the multiway graph."""
 
     state_a_id: str
@@ -52,7 +52,7 @@ class MultiwayGraph:
     def __init__(self) -> None:
         """Initialize an empty multiway graph."""
         self._states: dict[str, MultiwayState] = {}
-        self._branchial_relations: list[BranchialRelation] = []
+        self._state_relations: list[StateRelation] = []
         self._root: MultiwayState | None = None
         self._leaves_cache: list[MultiwayState] | None = None
 
@@ -74,7 +74,7 @@ class MultiwayGraph:
         else:
             self._root = state
         if state.parent_id is not None:
-            self._update_branchial(state)
+            self._update_state_relations(state)
         return state
 
     def get_state(self, state_id: str) -> MultiwayState | None:
@@ -143,8 +143,8 @@ class MultiwayGraph:
             current = self._states.get(current.parent_id) if current.parent_id else None
         return None
 
-    def branchial_distance(self, state_a_id: str, state_b_id: str) -> float:
-        """Compute the branchial distance between two states via their common ancestor."""
+    def jaccard_distance(self, state_a_id: str, state_b_id: str) -> float:
+        """Compute the Jaccard distance between two states via their common ancestor."""
         if state_a_id == state_b_id:
             return 0.0
         ancestor_id = self.find_common_ancestor(state_a_id, state_b_id)
@@ -154,9 +154,9 @@ class MultiwayGraph:
         dist_b = self._depth_from(ancestor_id, state_b_id)
         return dist_a + dist_b
 
-    def get_branchial_relations(self) -> list[BranchialRelation]:
-        """Return all recorded branchial relations between sibling states."""
-        return list(self._branchial_relations)
+    def get_state_relations(self) -> list[StateRelation]:
+        """Return all recorded state relations between sibling states."""
+        return list(self._state_relations)
 
     @property
     def state_count(self) -> int:
@@ -177,13 +177,13 @@ class MultiwayGraph:
             current = self._states.get(current.parent_id) if current.parent_id else None
         return depth if current else float("inf")  # type: ignore[return-value]
 
-    def _update_branchial(self, new_state: MultiwayState) -> None:
-        """Create branchial relations between a new state and its siblings."""
+    def _update_state_relations(self, new_state: MultiwayState) -> None:
+        """Create state relations between a new state and its siblings."""
         siblings = self.get_siblings(new_state.id)
         for sibling in siblings:
-            distance = self.branchial_distance(new_state.id, sibling.id)
-            self._branchial_relations.append(
-                BranchialRelation(
+            distance = self.jaccard_distance(new_state.id, sibling.id)
+            self._state_relations.append(
+                StateRelation(
                     state_a_id=new_state.id,
                     state_b_id=sibling.id,
                     distance=distance,
@@ -479,7 +479,7 @@ class MultiwayEngine:
             state_id: The state to compare against its simultaneous siblings.
 
         Returns:
-            List of insight dicts with novel node and branchial distance info.
+            List of insight dicts with novel node and Jaccard distance info.
         """
         simultaneous = self._multiway.get_simultaneous_states(state_id)
         insights: list[dict[str, Any]] = []
@@ -497,7 +497,7 @@ class MultiwayEngine:
                         "rule_used": sibling.rule_applied,
                         "novel_in_source": list(new_in_current),
                         "novel_in_lateral": list(new_in_sibling),
-                        "branchial_distance": self._multiway.branchial_distance(state_id, sibling.id),
+                        "jaccard_distance": self._multiway.jaccard_distance(state_id, sibling.id),
                     }
                 )
         return insights

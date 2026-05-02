@@ -10,7 +10,6 @@ from hyper3 import (
 from hyper3.capabilities import (
     _compute_capability_score,
     _probe_belief,
-    _probe_branchial,
     _probe_embedding,
     _probe_graph,
     _probe_multiway,
@@ -18,11 +17,12 @@ from hyper3.capabilities import (
     _probe_retrieval,
     _probe_rule_analytics,
     _probe_rules,
+    _probe_state_clustering,
 )
 from hyper3.exceptions import Hyper3Error
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace
+from hyper3.state_clustering import StateClusteringEngine
 
 
 class TestDetectCapabilityLevel:
@@ -58,8 +58,8 @@ class TestDetectCapabilityLevel:
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"x"}, mem._rules, max_depth=1)
         mem.create_distribution(["x", "y"])
-        mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
-        mem._branchial.assign_coordinates()
+        mem._state_clustering = StateClusteringEngine(mem._graph, mem._multiway_engine.multiway)
+        mem._state_clustering.assign_coordinates()
         level = detect_capability_level(mem)
         assert level == CapabilityLevel.ENHANCED
 
@@ -168,9 +168,9 @@ class TestProbeFunctions:
         mem.create_distribution(["x", "a"])
         assert _probe_belief(mem) is True
 
-    def test_probe_branchial_none(self):
+    def test_probe_state_clustering_none(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert _probe_branchial(mem) is False
+        assert _probe_state_clustering(mem) is False
 
     def test_probe_rule_analytics_none(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -333,17 +333,17 @@ class TestProbeBeliefException:
         assert _probe_belief(Mem()) is False
 
 
-class TestProbeBranchialException:
-    def test_branchial_exception(self):
-        class BadBranchial:
+class TestProbeStateClusteringException:
+    def test_state_clustering_exception(self):
+        class BadStateClustering:
             @property
             def _coordinates(self):
                 raise RuntimeError("boom")
 
         class Mem:
-            _branchial = BadBranchial()
+            _state_clustering = BadStateClustering()
 
-        assert _probe_branchial(Mem()) is False
+        assert _probe_state_clustering(Mem()) is False
 
 
 class TestProbeRuleAnalyticsBranches:
@@ -506,8 +506,8 @@ class TestDetectFullLevel:
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
         mem.create_distribution(["a", "b"])
-        mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
-        mem._branchial.assign_coordinates()
+        mem._state_clustering = StateClusteringEngine(mem._graph, mem._multiway_engine.multiway)
+        mem._state_clustering.assign_coordinates()
         mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
 
         class FakeRuleAnalytics:
@@ -528,8 +528,8 @@ class TestDetectFullLevel:
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
         mem.create_distribution(["a", "b"])
-        mem._branchial = BranchialSpace(mem._graph, mem._multiway_engine.multiway)
-        mem._branchial.assign_coordinates()
+        mem._state_clustering = StateClusteringEngine(mem._graph, mem._multiway_engine.multiway)
+        mem._state_clustering.assign_coordinates()
         mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
 
         class FakeRuleAnalytics:

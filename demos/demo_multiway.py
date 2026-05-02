@@ -136,9 +136,9 @@ for child in children:
     produced = [label_of(g, nid) for nid in child.produced_node_ids]
     print(f"    Branch [{child.rule_applied}]: produced {produced or 'edges only'}")
 
-relations = mw.get_branchial_relations()
+relations = mw.get_state_relations()
 if relations:
-    print(f"\n  Branchial relations ({len(relations)}):")
+    print(f"\n  State relations ({len(relations)}):")
     for rel in relations[:5]:
         a_rule = mw.get_state(rel.state_a_id)
         b_rule = mw.get_state(rel.state_b_id)
@@ -162,7 +162,7 @@ for child in children:
             print(f"    Lateral to [{lateral_rule}]")
             print(f"      Novel in source: {[label_of(g, n) for n in insight['novel_in_source']]}")
             print(f"      Novel in lateral: {[label_of(g, n) for n in insight['novel_in_lateral']]}")
-            print(f"      Branchial distance: {insight['branchial_distance']}")
+            print(f"      Jaccard distance: {insight['state_distance']}")
 print()
 
 # --- NEW EDGES DISCOVERED ---------------------------------------------------

@@ -218,7 +218,7 @@ class TestIntegrationFullPipeline:
         weights_after_decay = {n.label: n.weight for n in mem.graph.nodes}
         assert weights_after_decay["light"] < mem._decay_threshold
 
-    def test_branchial_space_after_reasoning(self):
+    def test_state_clustering_after_reasoning(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["r", "a", "b", "c"]:
             mem.store(label)
@@ -229,8 +229,8 @@ class TestIntegrationFullPipeline:
         mem.add_rules(TransitiveRule(edge_label="rel"))
         mem.reason({"r"}, max_depth=2, max_total_states=20)
 
-        assert mem.branchial is not None
-        report = mem.branchial.analyze()
+        assert mem.state_clustering is not None
+        report = mem.state_clustering.analyze()
         assert report["states_mapped"] == 3
         assert "clusters" in report
         assert "correlations" in report

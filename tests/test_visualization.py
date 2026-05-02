@@ -8,14 +8,14 @@ from hyper3.belief import BeliefLayer, BeliefState
 from hyper3.event_log import EventLog
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.multiway import MultiwayEngine
-from hyper3.multiway_branchial import BranchialCoordinates, BranchialCorrelation, BranchialSpace
 from hyper3.rules import TransitiveRule
+from hyper3.state_clustering import StateClusteringEngine, StateCoordinates, StateCorrelation
 from hyper3.visualization import (
     plot_belief_state,
-    plot_branchial_space,
     plot_evidence_interaction,
     plot_evolution_history,
     plot_hypergraph,
+    plot_state_clustering,
 )
 
 
@@ -97,8 +97,8 @@ class TestPlotHypergraph:
         plt.close(fig)
 
 
-class TestPlotBranchialSpace:
-    def test_basic_branchial(self):
+class TestPlotStateClusteringEngine:
+    def test_basic_state_clustering(self):
         g = Hypergraph()
         for label in ["a", "b", "c"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -106,24 +106,24 @@ class TestPlotBranchialSpace:
         g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
         mw = MultiwayEngine(g)
         mw.expand({"a"}, [TransitiveRule(edge_label="rel")], max_depth=2, max_total_states=20)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
-        fig = plot_branchial_space(bs)
+        fig = plot_state_clustering(bs)
         ax = fig.axes[0]
-        assert ax.get_title() == "Branchial Space"
+        assert ax.get_title() == "State Clustering"
         assert ax.get_xlabel() == "Dimension 1"
         assert ax.get_ylabel() == "Dimension 2"
         assert len(ax.collections) >= 1
         plt.close(fig)
 
-    def test_empty_branchial(self):
+    def test_empty_state_clustering(self):
         g = Hypergraph()
         g.add_node(Hypernode(id="x", label="x"))
         mw = MultiwayEngine(g)
-        bs = BranchialSpace(g, mw.multiway)
-        fig = plot_branchial_space(bs)
+        bs = StateClusteringEngine(g, mw.multiway)
+        fig = plot_state_clustering(bs)
         ax = fig.axes[0]
-        assert ax.texts[0].get_text() == "No branchial coordinates assigned"
+        assert ax.texts[0].get_text() == "No state coordinates assigned"
         plt.close(fig)
 
     def test_with_clusters(self):
@@ -136,12 +136,12 @@ class TestPlotBranchialSpace:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"e"}), label="rel"))
         mw = MultiwayEngine(g)
         mw.expand({"a"}, [TransitiveRule(edge_label="rel")], max_depth=3, max_total_states=30)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         bs.cluster_states(n_clusters=2)
-        fig = plot_branchial_space(bs, show_clusters=True)
+        fig = plot_state_clustering(bs, show_clusters=True)
         ax = fig.axes[0]
-        assert ax.get_title() == "Branchial Space"
+        assert ax.get_title() == "State Clustering"
         assert len(ax.collections) >= 1
         assert ax.get_xlabel() == "Dimension 1"
         assert ax.get_ylabel() == "Dimension 2"
@@ -156,12 +156,12 @@ class TestPlotBranchialSpace:
         g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"d"}), label="rel"))
         mw = MultiwayEngine(g)
         mw.expand({"a"}, [TransitiveRule(edge_label="rel")], max_depth=2, max_total_states=30)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         bs.detect_correlations(min_correlation=0.1)
-        fig = plot_branchial_space(bs, show_correlations=True)
+        fig = plot_state_clustering(bs, show_correlations=True)
         ax = fig.axes[0]
-        assert ax.get_title() == "Branchial Space"
+        assert ax.get_title() == "State Clustering"
         assert ax.get_xlabel() == "Dimension 1"
         assert ax.get_ylabel() == "Dimension 2"
         assert len(ax.collections) >= 1
@@ -306,16 +306,16 @@ class TestPlotHypergraphLayouts:
         plt.close(fig)
 
 
-class TestPlotBranchialDeep:
+class TestPlotStateClusteringDeep:
     def test_with_2d_coordinates(self):
         g = Hypergraph()
         mw = MultiwayEngine(g)
-        bs = BranchialSpace(g, mw.multiway)
-        bs._coordinates["s1"] = BranchialCoordinates(state_id="s1", position=[1.0, 2.0], depth=1)
-        bs._coordinates["s2"] = BranchialCoordinates(state_id="s2", position=[3.0, 4.0], depth=1)
-        fig = plot_branchial_space(bs)
+        bs = StateClusteringEngine(g, mw.multiway)
+        bs._coordinates["s1"] = StateCoordinates(state_id="s1", position=[1.0, 2.0], depth=1)
+        bs._coordinates["s2"] = StateCoordinates(state_id="s2", position=[3.0, 4.0], depth=1)
+        fig = plot_state_clustering(bs)
         ax = fig.axes[0]
-        assert ax.get_title() == "Branchial Space"
+        assert ax.get_title() == "State Clustering"
         assert len(ax.collections) >= 1
         assert ax.get_xlabel() == "Dimension 1"
         assert ax.get_ylabel() == "Dimension 2"
@@ -324,9 +324,9 @@ class TestPlotBranchialDeep:
     def test_no_plottable_coordinates(self):
         g = Hypergraph()
         mw = MultiwayEngine(g)
-        bs = BranchialSpace(g, mw.multiway)
-        bs._coordinates["s1"] = BranchialCoordinates(state_id="s1", position=[], depth=0)
-        fig = plot_branchial_space(bs)
+        bs = StateClusteringEngine(g, mw.multiway)
+        bs._coordinates["s1"] = StateCoordinates(state_id="s1", position=[], depth=0)
+        fig = plot_state_clustering(bs)
         ax = fig.axes[0]
         assert ax.texts[0].get_text() == "No plottable coordinates"
         plt.close(fig)
@@ -334,14 +334,14 @@ class TestPlotBranchialDeep:
     def test_correlations_with_positions(self):
         g = Hypergraph()
         mw = MultiwayEngine(g)
-        bs = BranchialSpace(g, mw.multiway)
-        bs._coordinates["s1"] = BranchialCoordinates(state_id="s1", position=[1.0, 2.0], depth=1)
-        bs._coordinates["s2"] = BranchialCoordinates(state_id="s2", position=[3.0, 4.0], depth=1)
-        bs._correlations.append(BranchialCorrelation(state_a_id="s1", state_b_id="s2", correlation=0.8))
-        fig = plot_branchial_space(bs, show_correlations=True)
+        bs = StateClusteringEngine(g, mw.multiway)
+        bs._coordinates["s1"] = StateCoordinates(state_id="s1", position=[1.0, 2.0], depth=1)
+        bs._coordinates["s2"] = StateCoordinates(state_id="s2", position=[3.0, 4.0], depth=1)
+        bs._correlations.append(StateCorrelation(state_a_id="s1", state_b_id="s2", correlation=0.8))
+        fig = plot_state_clustering(bs, show_correlations=True)
         ax = fig.axes[0]
         assert len(ax.lines) >= 1
-        assert ax.get_title() == "Branchial Space"
+        assert ax.get_title() == "State Clustering"
         assert len(ax.collections) >= 1
         plt.close(fig)
 

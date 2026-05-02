@@ -212,7 +212,7 @@ class PersistenceMixin(_MemoryBase):
         self._convergence_engine = None
         self._belief = BeliefLayer(self._graph)
         self._discovery = RuleDiscoveryEngine(self._graph)
-        self._branchial = None
+        self._state_clustering = None
         self._rule_analytics = None
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
@@ -244,7 +244,7 @@ class PersistenceMixin(_MemoryBase):
         snapshot = capture_snapshot(
             belief=self._belief,
             multiway_engine=self._multiway_engine,
-            branchial=self._branchial,
+            state_clustering=self._state_clustering,
             rule_analytics=self._rule_analytics,
             provenance=self._provenance,
             retrieval=self._retrieval,
@@ -263,7 +263,7 @@ class PersistenceMixin(_MemoryBase):
             path: Path to the saved snapshot file.
         """
         snapshot = _load_snapshot(path)
-        multiway_engine, branchial, rule_analytics = restore_snapshot(
+        multiway_engine, state_clustering, rule_analytics = restore_snapshot(
             snapshot=snapshot,
             graph=self._graph,
             belief=self._belief,
@@ -276,7 +276,7 @@ class PersistenceMixin(_MemoryBase):
             feedback=self._feedback,
         )
         self._multiway_engine = multiway_engine
-        self._branchial = branchial
+        self._state_clustering = state_clustering
         self._rule_analytics = rule_analytics
         if rule_analytics is not None:
             self._meta.set_rulial(rule_analytics)

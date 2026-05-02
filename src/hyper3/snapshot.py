@@ -17,12 +17,6 @@ from hyper3.feedback import OperationFeedback
 from hyper3.kernel import Hypergraph
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine, MultiwayState
-from hyper3.multiway_branchial import (
-    BranchialCluster,
-    BranchialCoordinates,
-    BranchialDistanceMetrics,
-    BranchialSpace,
-)
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
 from hyper3.retrieval_engine import FeedbackRecord, RetrievalEngine
 from hyper3.rule_analytics import (
@@ -32,6 +26,12 @@ from hyper3.rule_analytics import (
     RuleSpacePosition,
 )
 from hyper3.rules import Rule
+from hyper3.state_clustering import (
+    StateCluster,
+    StateClusteringEngine,
+    StateCoordinates,
+    StateDistanceMetrics,
+)
 from hyper3.system_monitor import SystemHealthModel, SystemMonitor
 
 SNAPSHOT_VERSION = 1
@@ -51,9 +51,9 @@ class SystemSnapshot:
     multiway_states: list[dict[str, Any]] = field(default_factory=list)
     multiway_root_id: str | None = None
 
-    branchial_coordinates: list[dict[str, Any]] = field(default_factory=list)
-    branchial_distance_cache: list[dict[str, Any]] = field(default_factory=list)
-    branchial_clusters: list[dict[str, Any]] = field(default_factory=list)
+    state_coordinates: list[dict[str, Any]] = field(default_factory=list)
+    state_distance_cache: list[dict[str, Any]] = field(default_factory=list)
+    state_clusters: list[dict[str, Any]] = field(default_factory=list)
 
     rule_analytics_position: dict[str, Any] = field(default_factory=dict)
     rule_analytics_position_history: list[dict[str, Any]] = field(default_factory=list)
@@ -139,7 +139,7 @@ def _deserialize_amplitude(data: Any) -> float | complex:
 def capture_snapshot(
     belief: BeliefLayer,
     multiway_engine: MultiwayEngine | None,
-    branchial: BranchialSpace | None,
+    state_clustering: StateClusteringEngine | None,
     rule_analytics: RuleAnalytics | None,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
@@ -153,7 +153,7 @@ def capture_snapshot(
     Args:
         belief: Belief layer whose states and correlations to capture.
         multiway_engine: Optional multiway engine whose DAG to capture.
-        branchial: Optional branchial space whose coordinates and clusters to capture.
+        state_clustering: Optional state clustering engine whose coordinates and clusters to capture.
         rule_analytics: Optional rule analytics engine whose position, history, and patterns to capture.
         provenance: Provenance tracker whose records to capture.
         retrieval: Retrieval engine whose feedback and LTR weights to capture.
@@ -168,7 +168,7 @@ def capture_snapshot(
     snap = SystemSnapshot(saved_at=time.time())
     _capture_belief(belief, snap)
     _capture_multiway(multiway_engine, snap)
-    _capture_branchial(branchial, snap)
+    _capture_state_clustering(state_clustering, snap)
     _capture_rule_analytics(rule_analytics, snap)
     _capture_provenance(provenance, snap)
     _capture_retrieval(retrieval, snap)
@@ -240,11 +240,11 @@ def _capture_multiway(multiway_engine: MultiwayEngine | None, snap: SystemSnapsh
         )
 
 
-def _capture_branchial(branchial: BranchialSpace | None, snap: SystemSnapshot) -> None:
-    if branchial is None:
+def _capture_state_clustering(state_clustering: StateClusteringEngine | None, snap: SystemSnapshot) -> None:
+    if state_clustering is None:
         return
-    for sid, coords in branchial._coordinates.items():
-        snap.branchial_coordinates.append(
+    for sid, coords in state_clustering._coordinates.items():
+        snap.state_coordinates.append(
             {
                 "state_id": sid,
                 "position": coords.position,
@@ -252,8 +252,8 @@ def _capture_branchial(branchial: BranchialSpace | None, snap: SystemSnapshot) -
                 "branch_index": coords.branch_index,
             }
         )
-    for key, metrics in branchial._distance_cache.items():
-        snap.branchial_distance_cache.append(
+    for key, metrics in state_clustering._distance_cache.items():
+        snap.state_distance_cache.append(
             {
                 "key": list(key),
                 "structural": metrics.structural,
@@ -262,8 +262,8 @@ def _capture_branchial(branchial: BranchialSpace | None, snap: SystemSnapshot) -
                 "evolutionary": metrics.evolutionary,
             }
         )
-    for cluster in branchial._clusters:
-        snap.branchial_clusters.append(
+    for cluster in state_clustering._clusters:
+        snap.state_clusters.append(
             {
                 "id": cluster.id,
                 "state_ids": sorted(cluster.state_ids),
@@ -282,7 +282,7 @@ def _capture_rule_analytics(rule_analytics: RuleAnalytics | None, snap: SystemSn
         "graph_activity_density": pos.graph_activity_density,
         "rule_application_frequency": pos.rule_application_frequency,
         "structural_complexity": pos.structural_complexity,
-        "branchial_coordinates": pos.branchial_coordinates,
+        "expansion_coordinates": pos.expansion_coordinates,
         "timestamp": pos.timestamp,
     }
     for hist_pos in rule_analytics._position_history:
@@ -291,7 +291,7 @@ def _capture_rule_analytics(rule_analytics: RuleAnalytics | None, snap: SystemSn
                 "graph_activity_density": hist_pos.graph_activity_density,
                 "rule_application_frequency": hist_pos.rule_application_frequency,
                 "structural_complexity": hist_pos.structural_complexity,
-                "branchial_coordinates": hist_pos.branchial_coordinates,
+                "expansion_coordinates": hist_pos.expansion_coordinates,
                 "timestamp": hist_pos.timestamp,
             }
         )
@@ -435,13 +435,13 @@ def restore_snapshot(
     feedback: OperationFeedback | None = None,
 ) -> tuple[
     MultiwayEngine | None,
-    BranchialSpace | None,
+    StateClusteringEngine | None,
     RuleAnalytics | None,
 ]:
     """Rebuild all subsystems from a previously captured snapshot.
 
     Clears and repopulates belief states/correlations, multiway DAG,
-    branchial coordinates, rule_analytics position/history, provenance records,
+    state clustering engine coordinates, rule_analytics position/history, provenance records,
     retrieval feedback/LTR weights, perspective frame outcomes, and
     system monitor state.
 
@@ -466,7 +466,7 @@ def restore_snapshot(
         feedback: Optional operation feedback tracker to restore.
 
     Returns:
-        Tuple of ``(multiway_engine, branchial, rule_analytics)`` — each may be
+        Tuple of ``(multiway_engine, state_clustering, rule_analytics)`` — each may be
         ``None`` if the snapshot contained no data for that subsystem.
     """
     belief._states.clear()
@@ -475,7 +475,7 @@ def restore_snapshot(
 
     _restore_belief(snapshot, belief)
     multiway_engine = _restore_multiway(snapshot, graph)
-    branchial = _restore_branchial(snapshot, graph, multiway_engine)
+    state_clustering = _restore_state_clustering(snapshot, graph, multiway_engine)
     rule_analytics = _restore_rule_analytics(snapshot, graph, multiway_engine)
     _restore_provenance(snapshot, provenance)
     _restore_retrieval(snapshot, retrieval)
@@ -484,7 +484,7 @@ def restore_snapshot(
     _restore_cache(snapshot, cache)
     _restore_feedback(snapshot, feedback)
 
-    return multiway_engine, branchial, rule_analytics
+    return multiway_engine, state_clustering, rule_analytics
 
 
 def _restore_belief(snapshot: SystemSnapshot, belief: BeliefLayer) -> None:
@@ -552,33 +552,33 @@ def _restore_multiway(snapshot: SystemSnapshot, graph: Hypergraph) -> MultiwayEn
     return me
 
 
-def _restore_branchial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> BranchialSpace | None:
-    if not snapshot.branchial_coordinates or multiway_engine is None:
+def _restore_state_clustering(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> StateClusteringEngine | None:
+    if not snapshot.state_coordinates or multiway_engine is None:
         return None
-    bs = BranchialSpace(graph, multiway_engine.multiway)
-    for coord_data in snapshot.branchial_coordinates:
-        bs._coordinates[coord_data["state_id"]] = BranchialCoordinates(
+    bs = StateClusteringEngine(graph, multiway_engine.multiway)
+    for coord_data in snapshot.state_coordinates:
+        bs._coordinates[coord_data["state_id"]] = StateCoordinates(
             state_id=coord_data["state_id"],
             position=coord_data.get("position", []),
             depth=coord_data.get("depth", 0),
             branch_index=coord_data.get("branch_index", 0),
         )
-    for dist_data in snapshot.branchial_distance_cache:
+    for dist_data in snapshot.state_distance_cache:
         key = tuple(dist_data["key"])
-        bs._distance_cache[key] = BranchialDistanceMetrics(
+        bs._distance_cache[key] = StateDistanceMetrics(
             structural=dist_data.get("structural", 0.0),
             conceptual=dist_data.get("conceptual", 0.0),
             computational=dist_data.get("computational", 0.0),
             evolutionary=dist_data.get("evolutionary", 0.0),
         )
-    for cl_data in snapshot.branchial_clusters:
+    for cl_data in snapshot.state_clusters:
         centroid = None
         if cl_data.get("centroid_state_id"):
-            centroid = BranchialCoordinates(
+            centroid = StateCoordinates(
                 state_id=cl_data["centroid_state_id"],
                 position=cl_data.get("centroid_position", []),
             )
-        bc = BranchialCluster(
+        bc = StateCluster(
             id=cl_data["id"],
             state_ids=set(cl_data.get("state_ids", [])),
             centroid=centroid,
@@ -597,7 +597,7 @@ def _restore_rule_analytics(snapshot: SystemSnapshot, graph: Hypergraph, multiwa
         graph_activity_density=pos_data.get("graph_activity_density", 0.0),
         rule_application_frequency=pos_data.get("rule_application_frequency", {}),
         structural_complexity=pos_data.get("structural_complexity", 0.0),
-        branchial_coordinates=pos_data.get("branchial_coordinates", []),
+        expansion_coordinates=pos_data.get("expansion_coordinates", []),
         timestamp=pos_data.get("timestamp", 0.0),
     )
     for hist_data in snapshot.rule_analytics_position_history:
@@ -606,7 +606,7 @@ def _restore_rule_analytics(snapshot: SystemSnapshot, graph: Hypergraph, multiwa
                 graph_activity_density=hist_data.get("graph_activity_density", 0.0),
                 rule_application_frequency=hist_data.get("rule_application_frequency", {}),
                 structural_complexity=hist_data.get("structural_complexity", 0.0),
-                branchial_coordinates=hist_data.get("branchial_coordinates", []),
+                expansion_coordinates=hist_data.get("expansion_coordinates", []),
                 timestamp=hist_data.get("timestamp", 0.0),
             )
         )

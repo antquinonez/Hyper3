@@ -310,7 +310,7 @@ class TestSystemSnapshotDict:
         snap = capture_snapshot(
             belief=mem._belief,
             multiway_engine=mem._multiway_engine,
-            branchial=mem._branchial,
+            state_clustering=mem._state_clustering,
             rule_analytics=mem._rule_analytics,
             provenance=mem._provenance,
             retrieval=mem._retrieval,
@@ -357,7 +357,7 @@ class TestSnapshotFeedbackNone:
         snap = capture_snapshot(
             belief=mem._belief,
             multiway_engine=None,
-            branchial=None,
+            state_clustering=None,
             rule_analytics=None,
             provenance=mem._provenance,
             retrieval=mem._retrieval,

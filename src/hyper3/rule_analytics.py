@@ -22,7 +22,7 @@ class RuleSpacePosition:
     graph_activity_density: float = 0.0
     rule_application_frequency: dict[str, float] = field(default_factory=dict)
     structural_complexity: float = 0.0
-    branchial_coordinates: list[float] = field(default_factory=list)
+    expansion_coordinates: list[float] = field(default_factory=list)
     timestamp: float = 0.0
 
     def distance_to(self, other: RuleSpacePosition) -> float:
@@ -70,7 +70,7 @@ class RuleAnalytics:
 
         Args:
             graph: The base hypergraph.
-            multiway: Optional multiway engine for branchial coordinate computation.
+            multiway: Optional multiway engine for expansion coordinate computation.
         """
         self._graph = graph
         self._multiway = multiway
@@ -93,7 +93,7 @@ class RuleAnalytics:
         pos.rule_application_frequency = self._compute_rule_frequencies()
         pos.structural_complexity = self._compute_complexity()
         if self._multiway:
-            pos.branchial_coordinates = self._compute_branchial_coords()
+            pos.expansion_coordinates = self._compute_expansion_coords()
         self._position_history.append(self._position)
         self._position = pos
         return pos
@@ -200,8 +200,8 @@ class RuleAnalytics:
                     motif_counts["convergent_in"] = motif_counts.get("convergent_in", 0) + len(shared_in)
         return motif_counts
 
-    def _compute_branchial_coords(self) -> list[float]:
-        """Compute a 6-dimensional branchial coordinate vector.
+    def _compute_expansion_coords(self) -> list[float]:
+        """Compute a 6-dimensional expansion coordinate vector.
 
         Returns ``[n_states, n_leaves, max_depth, avg_branching_factor,
         min(depth_std, 1.0), min(max_branching / n_states, 1.0)]``.
@@ -680,7 +680,7 @@ class RuleAnalytics:
         return list(self._meta_patterns)
 
     def compute_density_map(self, resolution: int = 10) -> list[list[float]]:
-        """Produce a 2D density grid from branchial coordinate history.
+        """Produce a 2D density grid from expansion coordinate history.
 
         Args:
             resolution: Side length of the square grid.
@@ -693,11 +693,11 @@ class RuleAnalytics:
             return [[0.0] * resolution for _ in range(resolution)]
         all_coords: list[list[float]] = []
         for pos in positions:
-            if pos.branchial_coordinates:
+            if pos.expansion_coordinates:
                 coords = (
-                    pos.branchial_coordinates[:2]
-                    if len(pos.branchial_coordinates) >= 2
-                    else pos.branchial_coordinates + [0.0]
+                    pos.expansion_coordinates[:2]
+                    if len(pos.expansion_coordinates) >= 2
+                    else pos.expansion_coordinates + [0.0]
                 )
                 all_coords.append(coords)
         if not all_coords:
@@ -713,7 +713,7 @@ class RuleAnalytics:
             total_weight = sum(
                 sum(pos.rule_application_frequency.values())
                 for pos in positions
-                if pos.branchial_coordinates and pos.branchial_coordinates[:2] == coords
+                if pos.expansion_coordinates and pos.expansion_coordinates[:2] == coords
             )
             grid[y][x] += max(total_weight, 1.0)
         max_density = max(max(row) for row in grid)

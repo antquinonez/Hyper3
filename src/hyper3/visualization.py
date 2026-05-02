@@ -9,7 +9,7 @@ if TYPE_CHECKING:
 
     from hyper3.belief import BeliefLayer
     from hyper3.kernel import Hypergraph
-    from hyper3.multiway_branchial import BranchialSpace
+    from hyper3.state_clustering import StateClusteringEngine
 
 
 def _import_pyplot():
@@ -139,18 +139,18 @@ def _build_edge_labels(G, show_weights: bool) -> dict:
     return edge_labels
 
 
-def plot_branchial_space(
-    branchial: BranchialSpace,
+def plot_state_clustering(
+    state_clustering: StateClusteringEngine,
     *,
     figsize: tuple[float, float] = (12, 8),
     show_clusters: bool = True,
     show_correlations: bool = True,
-    title: str = "Branchial Space",
+    title: str = "State Clustering",
 ) -> Figure:
-    """Plot multiway states in branchial coordinate space.
+    """Plot multiway states in state_clustering coordinate space.
 
     Args:
-        branchial: The BranchialSpace to visualize.
+        state_clustering: The StateClusteringEngine to visualize.
         figsize: Matplotlib figure size in inches.
         show_clusters: Color-code states by cluster membership.
         show_correlations: Draw dashed lines between correlated states.
@@ -161,14 +161,14 @@ def plot_branchial_space(
     """
     plt = _import_pyplot()
 
-    coords = branchial.coordinates
+    coords = state_clustering.coordinates
     if not coords:
         fig, ax = plt.subplots(figsize=figsize)
-        ax.text(0.5, 0.5, "No branchial coordinates assigned", ha="center", va="center")
+        ax.text(0.5, 0.5, "No state coordinates assigned", ha="center", va="center")
         ax.set_title(title)
         return fig
 
-    positions = _extract_branchial_positions(coords)
+    positions = _extract_clustering_positions(coords)
 
     if not positions:
         fig, ax = plt.subplots(figsize=figsize)
@@ -178,8 +178,8 @@ def plot_branchial_space(
 
     fig, ax = plt.subplots(figsize=figsize)
 
-    _draw_branchial_scatter(ax, plt, positions, branchial, show_clusters)
-    _draw_branchial_correlations(ax, positions, branchial, show_correlations)
+    _draw_clustering_scatter(ax, plt, positions, state_clustering, show_clusters)
+    _draw_clustering_correlations(ax, positions, state_clustering, show_correlations)
 
     ax.set_xlabel("Dimension 1")
     ax.set_ylabel("Dimension 2")
@@ -189,7 +189,7 @@ def plot_branchial_space(
     return fig
 
 
-def _extract_branchial_positions(coords: dict) -> dict[str, tuple[float, float]]:
+def _extract_clustering_positions(coords: dict) -> dict[str, tuple[float, float]]:
     positions: dict[str, tuple[float, float]] = {}
     for sid, coord in coords.items():
         if coord.position:
@@ -200,9 +200,9 @@ def _extract_branchial_positions(coords: dict) -> dict[str, tuple[float, float]]
     return positions
 
 
-def _draw_branchial_scatter(ax, plt, positions: dict, branchial: BranchialSpace, show_clusters: bool) -> None:
+def _draw_clustering_scatter(ax, plt, positions: dict, state_clustering: StateClusteringEngine, show_clusters: bool) -> None:
     cluster_map: dict[str, int] = {}
-    clusters = branchial.clusters
+    clusters = state_clustering.clusters
     if show_clusters and clusters:
         for ci, cluster in enumerate(clusters):
             for sid in cluster.state_ids:
@@ -221,8 +221,8 @@ def _draw_branchial_scatter(ax, plt, positions: dict, branchial: BranchialSpace,
         ax.scatter(xs, ys, s=120, c="#4477AA", edgecolors="#333333", linewidths=1.0, zorder=3)
 
 
-def _draw_branchial_correlations(ax, positions: dict, branchial: BranchialSpace, show_correlations: bool) -> None:
-    correlations = branchial.correlations
+def _draw_clustering_correlations(ax, positions: dict, state_clustering: StateClusteringEngine, show_correlations: bool) -> None:
+    correlations = state_clustering.correlations
     if not show_correlations or not correlations:
         return
     for corr in correlations:

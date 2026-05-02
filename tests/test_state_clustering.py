@@ -1,11 +1,6 @@
 import pytest
 
 from hyper3 import (
-    BranchialCluster,
-    BranchialCoordinates,
-    BranchialCorrelation,
-    BranchialDistanceMetrics,
-    BranchialSpace,
     Hyperedge,
     Hypergraph,
     Hypernode,
@@ -15,11 +10,16 @@ from hyper3 import (
     MultiwayEngine,
     MultiwayGraph,
     SimultaneityGroup,
+    StateCluster,
+    StateClusteringEngine,
+    StateCoordinates,
+    StateCorrelation,
+    StateDistanceMetrics,
     TransitiveRule,
 )
 from hyper3.memory import HypergraphMemory
 from hyper3.multiway import MultiwayState
-from hyper3.multiway_branchial import AnalogyProposal, MultiScaleAnalysis, ScaleLevel
+from hyper3.state_clustering import AnalogyProposal, MultiScaleAnalysis, ScaleLevel
 
 
 def _build_chain_graph():
@@ -47,36 +47,36 @@ def _build_branching_multiway():
     return g, mw
 
 
-class TestBranchialCoordinates:
+class TestStateCoordinates:
     def test_distance_same_point(self):
-        c = BranchialCoordinates(state_id="s1", position=[0.0, 0.0])
+        c = StateCoordinates(state_id="s1", position=[0.0, 0.0])
         assert c.distance_to(c) == 0.0
 
     def test_distance_different_points(self):
-        c1 = BranchialCoordinates(state_id="s1", position=[0.0, 0.0])
-        c2 = BranchialCoordinates(state_id="s2", position=[3.0, 4.0])
+        c1 = StateCoordinates(state_id="s1", position=[0.0, 0.0])
+        c2 = StateCoordinates(state_id="s2", position=[3.0, 4.0])
         assert abs(c1.distance_to(c2) - 5.0) < 0.01
 
     def test_distance_empty_position(self):
-        c1 = BranchialCoordinates(state_id="s1", position=[])
-        c2 = BranchialCoordinates(state_id="s2", position=[1.0])
+        c1 = StateCoordinates(state_id="s1", position=[])
+        c2 = StateCoordinates(state_id="s2", position=[1.0])
         assert c1.distance_to(c2) == float("inf")
 
 
-class TestBranchialDistanceMetrics:
+class TestStateDistanceMetrics:
     def test_combined_default(self):
-        m = BranchialDistanceMetrics()
+        m = StateDistanceMetrics()
         assert m.combined == 0.0
 
     def test_combined_weighted(self):
-        m = BranchialDistanceMetrics(structural=1.0, conceptual=1.0, computational=1.0, evolutionary=1.0)
+        m = StateDistanceMetrics(structural=1.0, conceptual=1.0, computational=1.0, evolutionary=1.0)
         assert m.combined == 1.0
 
 
-class TestBranchialSpace:
+class TestStateClusteringEngine:
     def test_assign_coordinates(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         coords = bs.coordinates
         assert len(coords) > 0
@@ -86,32 +86,32 @@ class TestBranchialSpace:
 
     def test_compute_distances(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         leaves = mw.multiway.get_leaves()
         assert len(leaves) >= 1
         root = mw.multiway.get_root()
         assert root is not None
         metrics = bs.compute_distances(leaves[0].id, root.id)
-        assert isinstance(metrics, BranchialDistanceMetrics)
+        assert isinstance(metrics, StateDistanceMetrics)
         assert metrics.structural >= 0.0
         assert metrics.combined >= 0.0
 
     def test_build_simultaneity_groups(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         groups = bs.build_simultaneity_groups()
         assert isinstance(groups, list)
         assert len(groups) == 0
 
     def test_cluster_states(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         clusters = bs.cluster_states(n_clusters=2)
         assert isinstance(clusters, list)
         assert len(clusters) >= 1
         for c in clusters:
-            assert isinstance(c, BranchialCluster)
+            assert isinstance(c, StateCluster)
             assert c.size >= 1
 
     def test_detect_correlations(self):
@@ -123,13 +123,13 @@ class TestBranchialSpace:
         mw = MultiwayEngine(g)
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "c"}, [rule], max_depth=2, max_total_states=20)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         correlations = bs.detect_correlations()
         assert correlations == []
 
     def test_find_neighbors(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         leaves = mw.multiway.get_leaves()
         if leaves:
@@ -138,7 +138,7 @@ class TestBranchialSpace:
 
     def test_lateral_inference(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         bs.build_simultaneity_groups()
         leaves = mw.multiway.get_leaves()
@@ -148,7 +148,7 @@ class TestBranchialSpace:
 
     def test_analyze(self):
         g, mw = _build_branching_multiway()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         report = bs.analyze()
         assert report.states_mapped == 1
@@ -158,7 +158,7 @@ class TestBranchialSpace:
     def test_empty_graph(self):
         g = Hypergraph()
         mg = MultiwayGraph()
-        bs = BranchialSpace(g, mg)
+        bs = StateClusteringEngine(g, mg)
         bs.assign_coordinates()
         assert len(bs.coordinates) == 0
 
@@ -198,19 +198,19 @@ def _build_branching():
     return g, mw
 
 
-class TestBranchialCoordinatesDeep:
+class TestStateCoordinatesDeep:
     def test_distance_with_zero_padding(self):
-        c1 = BranchialCoordinates(state_id="s1", position=[1.0, 2.0])
-        c2 = BranchialCoordinates(state_id="s2", position=[1.0, 2.0, 3.0])
+        c1 = StateCoordinates(state_id="s1", position=[1.0, 2.0])
+        c2 = StateCoordinates(state_id="s2", position=[1.0, 2.0, 3.0])
         d = c1.distance_to(c2)
         assert d > 0.0
         assert abs(d - 3.0) < 0.01
 
 
-class TestBranchialSpaceDeep:
+class TestStateClusteringEngineDeep:
     def test_get_coordinates_found_and_missing(self):
         g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         root = mw.multiway.get_root()
         assert root is not None
@@ -219,7 +219,7 @@ class TestBranchialSpaceDeep:
 
     def test_assign_coordinates_with_depth(self):
         g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         coords = bs.coordinates
         for coord in coords.values():
@@ -229,9 +229,9 @@ class TestBranchialSpaceDeep:
 
     def test_compute_distances_full_metrics(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "c2")
-        assert isinstance(m, BranchialDistanceMetrics)
+        assert isinstance(m, StateDistanceMetrics)
         assert m.structural >= 0.0
         assert m.conceptual >= 0.0
         assert m.computational >= 0.0
@@ -240,7 +240,7 @@ class TestBranchialSpaceDeep:
 
     def test_compute_distances_cache_hit(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m1 = bs.compute_distances("c1", "c2")
         m2 = bs.compute_distances("c1", "c2")
         assert m1 is m2
@@ -254,25 +254,25 @@ class TestBranchialSpaceDeep:
         s2 = MultiwayState(id="s2", parent_id="s1", active_node_ids=frozenset({"y"}), depth=1)
         mw.add_state(s1)
         mw.add_state(s2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("s1", "s2")
         assert m.conceptual == 0.0
 
     def test_computational_distance_different_rules(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "c2")
         assert m.computational > 0.0
 
     def test_evolutionary_distance(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "gc1")
         assert m.evolutionary > 0.0
 
     def test_cluster_states_returns_clusters(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         clusters = bs.cluster_states(n_clusters=2)
         total_states = sum(c.size for c in clusters)
@@ -290,17 +290,17 @@ class TestBranchialSpaceDeep:
         mw = MultiwayEngine(g)
         rule = TransitiveRule(edge_label="rel")
         mw.expand({"a", "b"}, [rule], max_depth=2, max_total_states=20)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         correlations = bs.detect_correlations(min_correlation=0.1)
         assert isinstance(correlations, list)
         for corr in correlations:
-            assert isinstance(corr, BranchialCorrelation)
+            assert isinstance(corr, StateCorrelation)
             assert corr.correlation > 0.0
             assert len(corr.shared_concept_ids) > 0
 
     def test_find_neighbors_returns_sorted(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         neighbors = bs.find_neighbors("gc1", max_distance=100.0)
         assert len(neighbors) >= 1
@@ -319,7 +319,7 @@ class TestBranchialSpaceDeep:
         rule_t = TransitiveRule(edge_label="rel")
         rule_i = InverseRule(edge_label="rel", inverse_label="inv")
         mw.expand({"r", "a", "b"}, [rule_t, rule_i], max_depth=2, max_total_states=30)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         groups = bs.build_simultaneity_groups()
         assert len(groups) >= 1
@@ -337,7 +337,7 @@ class TestBranchialSpaceDeep:
 
     def test_properties(self):
         g, mw = _build_branching()
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         assert isinstance(bs.coordinates, dict)
         assert len(bs.coordinates) > 0
@@ -350,7 +350,7 @@ class TestBranchialSpaceDeep:
         g.add_node(Hypernode(id="x", label="x"))
         mw = MultiwayEngine(g)
         mw.expand({"x"}, [], max_depth=1, max_total_states=5)
-        bs = BranchialSpace(g, mw.multiway)
+        bs = StateClusteringEngine(g, mw.multiway)
         m = bs.compute_distances("nonexistent_a", "nonexistent_b")
         assert m.structural == float("inf")
 
@@ -408,10 +408,10 @@ def _build_manual():
     return g, mw
 
 
-class TestBranchialDeepCoverage:
+class TestStateClusteringDeepCoverage:
     def test_depth_gt_zero_angle_spread(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         gc1_coord = bs.get_coordinates("gc1")
         assert gc1_coord is not None
@@ -423,20 +423,20 @@ class TestBranchialDeepCoverage:
 
     def test_distance_cache_returns_same_object(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m1 = bs.compute_distances("gc1", "gc2")
         m2 = bs.compute_distances("gc1", "gc2")
         assert m1 is m2
 
     def test_conceptual_distance_partial_overlap(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("gc1", "gc2")
         assert 0.0 < m.conceptual < 1.0
 
     def test_conceptual_distance_high_overlap(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("gc1", "gc3")
         assert 0.0 <= m.conceptual < 1.0
 
@@ -444,25 +444,25 @@ class TestBranchialDeepCoverage:
         g, mw = _build_manual()
         empty = MultiwayState(id="empty", parent_id="root", active_node_ids=frozenset(), depth=1)
         mw.add_state(empty)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("gc1", "empty")
         assert m.conceptual == float("inf")
 
     def test_computational_distance_same_rule(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "gc1")
         assert m.computational == 0.0
 
     def test_computational_distance_different_rules(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "c2")
         assert m.computational > 0.0
 
     def test_computational_distance_one_no_rule(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("root", "c1")
         assert m.computational == 1.0
 
@@ -474,13 +474,13 @@ class TestBranchialDeepCoverage:
         s2 = MultiwayState(id="s2", parent_id="s1", active_node_ids=frozenset({"x"}), depth=1)
         mw.add_state(s1)
         mw.add_state(s2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("s1", "s2")
         assert m.computational == 0.0
 
     def test_evolutionary_distance_different_depths(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "gc1")
         assert m.evolutionary > 0.0
 
@@ -492,31 +492,31 @@ class TestBranchialDeepCoverage:
         s2 = MultiwayState(id="s2", active_node_ids=frozenset({"x"}))
         mw.add_state(s1)
         mw.add_state(s2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("s1", "s2")
         assert m.evolutionary == float("inf")
 
     def test_combined_property(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("gc1", "gc2")
         assert m.combined > 0.0
 
     def test_distance_to_empty_position(self):
-        c1 = BranchialCoordinates(state_id="s1", position=[])
-        c2 = BranchialCoordinates(state_id="s2", position=[1.0])
+        c1 = StateCoordinates(state_id="s1", position=[])
+        c2 = StateCoordinates(state_id="s2", position=[1.0])
         assert c1.distance_to(c2) == float("inf")
 
     def test_assign_coordinates_no_root(self):
         g = Hypergraph()
         mw = MultiwayGraph()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         assert len(bs.coordinates) == 0
 
     def test_cluster_states_auto_assign(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert len(bs.coordinates) == 0
         bs.cluster_states(n_clusters=2)
         assert len(bs.coordinates) > 0
@@ -524,29 +524,29 @@ class TestBranchialDeepCoverage:
     def test_cluster_states_empty(self):
         g = Hypergraph()
         mw = MultiwayGraph()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         clusters = bs.cluster_states()
         assert clusters == []
 
     def test_cluster_states_auto_n_clusters(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         clusters = bs.cluster_states(n_clusters=0)
         assert len(clusters) == 2
 
     def test_cluster_states_zero_positions(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         for sid in list(bs._coordinates.keys()):
-            bs._coordinates[sid] = BranchialCoordinates(state_id=sid, position=[], depth=0)
+            bs._coordinates[sid] = StateCoordinates(state_id=sid, position=[], depth=0)
         clusters = bs.cluster_states(n_clusters=2)
         assert len(clusters) == 1
         assert clusters[0].size == 6
 
     def test_detect_correlations_with_constraint_map(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         correlations = bs.detect_correlations(min_correlation=0.1)
         assert len(correlations) > 0
         for corr in correlations:
@@ -558,22 +558,22 @@ class TestBranchialDeepCoverage:
 
     def test_find_neighbors_auto_assign(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         neighbors = bs.find_neighbors("gc1", max_distance=100.0)
         assert len(bs.coordinates) > 0
         assert len(neighbors) >= 1
 
     def test_find_neighbors_empty_position(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
-        bs._coordinates["gc1"] = BranchialCoordinates(state_id="gc1", position=[], depth=2)
+        bs._coordinates["gc1"] = StateCoordinates(state_id="gc1", position=[], depth=2)
         neighbors = bs.find_neighbors("gc1")
         assert neighbors == []
 
     def test_find_neighbors_max_distance_filter(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         all_nbrs = bs.find_neighbors("root", max_distance=1000.0)
         close_nbrs = bs.find_neighbors("root", max_distance=0.001)
@@ -581,21 +581,21 @@ class TestBranchialDeepCoverage:
 
     def test_lateral_inference_builds_groups(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert len(bs.simultaneity_groups) == 0
         bs.lateral_inference("c1")
         assert len(bs.simultaneity_groups) > 0
 
     def test_lateral_inference_not_in_group(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.build_simultaneity_groups()
         insights = bs.lateral_inference("root")
         assert insights == []
 
     def test_lateral_inference_missing_current(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.build_simultaneity_groups()
         group = bs._simultaneity_groups[0]
         group.state_ids.add("phantom")
@@ -604,7 +604,7 @@ class TestBranchialDeepCoverage:
 
     def test_lateral_inference_missing_peer(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.build_simultaneity_groups()
         group = next(gr for gr in bs._simultaneity_groups if len(gr.state_ids) >= 2)
         real_id = next(iter(group.state_ids))
@@ -617,7 +617,7 @@ class TestBranchialDeepCoverage:
 
     def test_lateral_inference_with_novel_nodes(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.build_simultaneity_groups()
         insights = bs.lateral_inference("c1")
         assert len(insights) > 0
@@ -628,7 +628,7 @@ class TestBranchialDeepCoverage:
 
     def test_find_transferable_with_labels(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.build_simultaneity_groups()
         insights = bs.lateral_inference("c1")
         for insight in insights:
@@ -637,7 +637,7 @@ class TestBranchialDeepCoverage:
 
     def test_analyze(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         bs.cluster_states(n_clusters=2)
         bs.detect_correlations(min_correlation=0.1)
@@ -657,7 +657,7 @@ class TestBranchialDeepCoverage:
         s2 = MultiwayState(id="s2", parent_id="s1", active_node_ids=frozenset(), depth=1)
         mw.add_state(s1)
         mw.add_state(s2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("s1", "s2")
         assert m.conceptual == 0.0
 
@@ -668,13 +668,13 @@ class TestBranchialDeepCoverage:
         s2 = MultiwayState(id="s2", parent_id="s1", active_node_ids=frozenset({"missing_b"}), depth=1)
         mw.add_state(s1)
         mw.add_state(s2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("s1", "s2")
         assert m.conceptual == 0.0
 
     def test_evolutionary_with_structural_none(self):
         g, mw = _build_manual()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         result = bs._evolutionary_distance("c1", "gc2", structural=None)
         assert result == 2.0
 
@@ -689,7 +689,7 @@ class TestBranchialDeepCoverage:
         mw.add_state(root)
         mw.add_state(l1)
         mw.add_state(l2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         correlations = bs.detect_correlations(min_correlation=0.1)
         assert correlations == []
 
@@ -728,11 +728,11 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
-        path = mem._branchial.plan_path(states[0], states[-1])
+        path = mem._state_clustering.plan_path(states[0], states[-1])
         assert isinstance(path, list)
         if path:
             assert all(isinstance(s, str) for s in path)
@@ -743,42 +743,42 @@ class TestPlanPath:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        path = mem._branchial.plan_path("nonexistent_a", "nonexistent_b")
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        path = mem._state_clustering.plan_path("nonexistent_a", "nonexistent_b")
         assert path == []
 
     def test_plan_path_self_returns_singleton(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 1
-        path = mem._branchial.plan_path(states[0], states[0])
+        path = mem._state_clustering.plan_path(states[0], states[0])
         assert path == [states[0]]
 
     def test_plan_path_one_side_unknown(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 1
-        path = mem._branchial.plan_path(states[0], "nonexistent")
+        path = mem._state_clustering.plan_path(states[0], "nonexistent")
         assert path == []
 
     def test_plan_path_no_coordinates_auto_assigns(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
+        assert mem._state_clustering is not None
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 2
-        mem._branchial._coordinates.clear()
-        path = mem._branchial.plan_path(states[0].id, states[-1].id)
+        mem._state_clustering._coordinates.clear()
+        path = mem._state_clustering.plan_path(states[0].id, states[-1].id)
         assert isinstance(path, list)
         assert len(path) >= 2
         assert path[0] == states[0].id
@@ -791,33 +791,33 @@ class TestNearestHighDensityRegion:
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        mem._branchial.cluster_states(n_clusters=2)
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        mem._state_clustering.cluster_states(n_clusters=2)
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 1
-        result = mem._branchial.nearest_high_density_region(states[0])
+        result = mem._state_clustering.nearest_high_density_region(states[0])
         assert isinstance(result, str) and len(result) > 0
 
     def test_no_clusters_returns_none(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 1
-        result = mem._branchial.nearest_high_density_region(states[0])
+        result = mem._state_clustering.nearest_high_density_region(states[0])
         assert result is None
 
     def test_unknown_state_returns_none(self):
         mem = _setup_mem_0()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        mem._branchial.cluster_states(n_clusters=2)
-        result = mem._branchial.nearest_high_density_region("nonexistent")
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        mem._state_clustering.cluster_states(n_clusters=2)
+        result = mem._state_clustering.nearest_high_density_region("nonexistent")
         assert result is None
 
 
@@ -850,8 +850,8 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 2
         parent = states[0]
@@ -861,8 +861,8 @@ class TestUpdateCoordinatesForState:
             depth=parent.depth + 1,
         )
         mem._multiway_engine.multiway.add_state(new_state)
-        mem._branchial.update_coordinates_for_state(new_state.id, parent.id)
-        coord = mem._branchial.get_coordinates(new_state.id)
+        mem._state_clustering.update_coordinates_for_state(new_state.id, parent.id)
+        coord = mem._state_clustering.get_coordinates(new_state.id)
         assert coord is not None
         assert coord.depth == parent.depth + 1
 
@@ -870,75 +870,75 @@ class TestUpdateCoordinatesForState:
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
+        assert mem._state_clustering is not None
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 2
-        mem._branchial._coordinates.clear()
-        mem._branchial.update_coordinates_for_state(states[0].id, states[0].parent_id or "")
-        assert len(mem._branchial._coordinates) > 0
+        mem._state_clustering._coordinates.clear()
+        mem._state_clustering.update_coordinates_for_state(states[0].id, states[0].parent_id or "")
+        assert len(mem._state_clustering._coordinates) > 0
 
     def test_existing_state_not_overwritten(self):
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 1
         existing_id = states[0].id
-        original_coord = mem._branchial.get_coordinates(existing_id)
+        original_coord = mem._state_clustering.get_coordinates(existing_id)
         assert original_coord is not None
-        mem._branchial.update_coordinates_for_state(existing_id, "fake_parent")
-        after = mem._branchial.get_coordinates(existing_id)
+        mem._state_clustering.update_coordinates_for_state(existing_id, "fake_parent")
+        after = mem._state_clustering.get_coordinates(existing_id)
         assert after is original_coord
 
     def test_distance_cache_invalidated_for_new_state(self):
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 2
         parent = states[0]
-        mem._branchial.compute_distances(states[0].id, states[1].id)
-        assert len(mem._branchial._distance_cache) > 0
+        mem._state_clustering.compute_distances(states[0].id, states[1].id)
+        assert len(mem._state_clustering._distance_cache) > 0
         new_state = MultiwayState(
             parent_id=parent.id,
             active_node_ids=frozenset(),
             depth=parent.depth + 1,
         )
         mem._multiway_engine.multiway.add_state(new_state)
-        mem._branchial._distance_cache[(new_state.id, states[0].id)] = (
-            mem._branchial._distance_cache.get((states[0].id, states[1].id))
+        mem._state_clustering._distance_cache[(new_state.id, states[0].id)] = (
+            mem._state_clustering._distance_cache.get((states[0].id, states[1].id))
         )
-        mem._branchial.update_coordinates_for_state(new_state.id, parent.id)
-        for key in mem._branchial._distance_cache:
+        mem._state_clustering.update_coordinates_for_state(new_state.id, parent.id)
+        for key in mem._state_clustering._distance_cache:
             assert new_state.id not in key
 
     def test_unknown_parent_noop(self):
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
         new_state = MultiwayState(
             parent_id="unknown",
             active_node_ids=frozenset(),
             depth=1,
         )
         mem._multiway_engine.multiway.add_state(new_state)
-        mem._branchial.update_coordinates_for_state(new_state.id, "unknown_parent")
-        coord = mem._branchial.get_coordinates(new_state.id)
+        mem._state_clustering.update_coordinates_for_state(new_state.id, "unknown_parent")
+        coord = mem._state_clustering.get_coordinates(new_state.id)
         assert coord is None
 
     def test_preserves_existing_coordinates(self):
         mem = _setup_mem_1()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        original_count = len(mem._branchial._coordinates)
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        original_count = len(mem._state_clustering._coordinates)
         states = list(mem._multiway_engine.multiway.states)
         assert len(states) >= 2
         parent = states[0]
@@ -948,8 +948,8 @@ class TestUpdateCoordinatesForState:
             depth=parent.depth + 1,
         )
         mem._multiway_engine.multiway.add_state(new_state)
-        mem._branchial.update_coordinates_for_state(new_state.id, parent.id)
-        assert len(mem._branchial._coordinates) == original_count + 1
+        mem._state_clustering.update_coordinates_for_state(new_state.id, parent.id)
+        assert len(mem._state_clustering._coordinates) == original_count + 1
 
 
 
@@ -995,11 +995,11 @@ class TestFindAnalogousStates:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus", "membrane"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
-        results = mem._branchial.find_analogous_states(states[0])
+        results = mem._state_clustering.find_analogous_states(states[0])
         assert isinstance(results, list)
         for sid, dist in results:
             assert isinstance(sid, str)
@@ -1009,8 +1009,8 @@ class TestFindAnalogousStates:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        results = mem._branchial.find_analogous_states("nonexistent")
+        assert mem._state_clustering is not None
+        results = mem._state_clustering.find_analogous_states("nonexistent")
         assert results == []
 
 
@@ -1020,11 +1020,11 @@ class TestTransferInsight:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "nucleus", "membrane", "protein"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
-        proposal = mem._branchial.transfer_insight(states[0], states[1])
+        proposal = mem._state_clustering.transfer_insight(states[0], states[1])
         assert isinstance(proposal, AnalogyProposal)
         assert proposal.source_state_id == states[0]
         assert proposal.target_state_id == states[1]
@@ -1034,19 +1034,19 @@ class TestTransferInsight:
         mem = _setup_analogy_mem()
         mem.reason({"cell", "process", "membrane", "interface"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
-        proposal = mem._branchial.transfer_insight(states[0], states[-1])
+        proposal = mem._state_clustering.transfer_insight(states[0], states[-1])
         assert len(proposal.mapping) > 0
 
     def test_missing_state_returns_empty_proposal(self):
         mem = _setup_analogy_mem()
         mem.reason({"cell"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        proposal = mem._branchial.transfer_insight("nonexistent", "also_nonexistent")
+        assert mem._state_clustering is not None
+        proposal = mem._state_clustering.transfer_insight("nonexistent", "also_nonexistent")
         assert proposal.confidence == 0.0
 
 
@@ -1057,11 +1057,11 @@ class TestFindAllAnalogies:
         mem.reason({"cell", "nucleus", "membrane", "protein",
                      "process", "memory", "interface", "data"})
         mem.commit_inferences()
-        assert mem._branchial is not None
-        mem._branchial.assign_coordinates()
-        states = list(mem._branchial.coordinates.keys())
+        assert mem._state_clustering is not None
+        mem._state_clustering.assign_coordinates()
+        states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
-        proposals = mem._branchial.find_all_analogies(states[0], top_k=3)
+        proposals = mem._state_clustering.find_all_analogies(states[0], top_k=3)
         assert len(proposals) <= 3
         for i in range(len(proposals) - 1):
             assert proposals[i].confidence >= proposals[i + 1].confidence
@@ -1069,20 +1069,20 @@ class TestFindAllAnalogies:
 
 
 
-def _make_branchial_with_states():
+def _make_clustering_with_states():
     g = Hypergraph()
     for label in ["a", "b", "c", "d"]:
         g.add_node(Hypernode(label=label))
     mw = MultiwayGraph()
     root = MultiwayState(active_node_ids=frozenset(), depth=0)
     mw.add_state(root)
-    return BranchialSpace(g, mw), mw, root
+    return StateClusteringEngine(g, mw), mw, root
 
 
 class TestAddStateToSimultaneity:
 
     def test_adds_to_existing_group(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         child1 = MultiwayState(parent_id=root.id, depth=1)
         mw.add_state(child1)
         bs._simultaneity_groups = [
@@ -1100,7 +1100,7 @@ class TestAddStateToSimultaneity:
         assert child1.id in bs._simultaneity_groups[0].state_ids
 
     def test_creates_new_group_when_no_matching_parent(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         child1 = MultiwayState(parent_id=root.id, depth=1)
         mw.add_state(child1)
         bs._simultaneity_groups = []
@@ -1111,13 +1111,13 @@ class TestAddStateToSimultaneity:
         assert child1.id in group.state_ids
 
     def test_root_state_skipped(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         bs._simultaneity_groups = []
         bs.add_state_to_simultaneity(root)
         assert len(bs._simultaneity_groups) == 0
 
     def test_multiple_parents_create_multiple_groups(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         child1 = MultiwayState(parent_id=root.id, depth=1)
         mw.add_state(child1)
         child2 = MultiwayState(parent_id=root.id, depth=1)
@@ -1134,7 +1134,7 @@ class TestAddStateToSimultaneity:
 class TestRemoveStateFromSimultaneity:
 
     def test_removes_from_group(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         child1 = MultiwayState(parent_id=root.id, depth=1)
         mw.add_state(child1)
         child2 = MultiwayState(parent_id=root.id, depth=1)
@@ -1151,7 +1151,7 @@ class TestRemoveStateFromSimultaneity:
         assert child2.id in bs._simultaneity_groups[0].state_ids
 
     def test_removing_nonexistent_does_nothing(self):
-        bs, mw, root = _make_branchial_with_states()
+        bs, mw, root = _make_clustering_with_states()
         child1 = MultiwayState(parent_id=root.id, depth=1)
         mw.add_state(child1)
         group = SimultaneityGroup(
@@ -1165,7 +1165,7 @@ class TestRemoveStateFromSimultaneity:
         assert child1.id in bs._simultaneity_groups[0].state_ids
 
 
-class TestMultiScaleBranchialAnalysis:
+class TestMultiScaleStateClusteringReport:
     def _build_multiway(self):
         g = Hypergraph()
         for i in range(8):
@@ -1185,7 +1185,7 @@ class TestMultiScaleBranchialAnalysis:
 
     def test_returns_multi_scale_analysis(self):
         g, mw = self._build_multiway()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
@@ -1196,14 +1196,14 @@ class TestMultiScaleBranchialAnalysis:
 
     def test_macro_has_fewer_clusters(self):
         g, mw = self._build_multiway()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert result.macro.n_clusters <= result.meso.n_clusters
 
     def test_cross_scale_insights_generated(self):
         g, mw = self._build_multiway()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert len(result.cross_scale_insights) > 0
@@ -1213,7 +1213,7 @@ class TestMultiScaleBranchialAnalysis:
         g.add_node(Hypernode(label="only"))
         mw = MultiwayGraph()
         mw.add_state(MultiwayState())
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         result = bs.multi_scale_analysis()
         assert result.macro.n_clusters == 0
 
@@ -1224,7 +1224,7 @@ class TestSetEmbeddingEngine:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         bs.set_embedding_engine(emb)
@@ -1243,7 +1243,7 @@ class TestConceptualDistanceWithEmbedding:
         from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         emb.precompute_all()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.set_embedding_engine(emb)
         dist = bs._conceptual_distance(root.id, child1.id)
         assert 0.0 <= dist <= 2.0
@@ -1255,7 +1255,7 @@ class TestConceptualDistanceWithEmbedding:
         child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(root)
         mw.add_state(child1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         dist = bs._conceptual_distance(root.id, child1.id)
         assert 0.0 <= dist <= 2.0
 
@@ -1266,7 +1266,7 @@ class TestConceptualDistanceWithEmbedding:
         child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset(), depth=1)
         mw.add_state(root)
         mw.add_state(child1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         dist = bs._conceptual_distance(root.id, child1.id)
         assert dist == 0.0
 
@@ -1281,7 +1281,7 @@ class TestConceptualDistanceWithEmbedding:
         child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"n2"}), depth=1)
         mw.add_state(root)
         mw.add_state(child1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         dist = bs._conceptual_distance(root.id, child1.id)
         assert dist == 0.0
 
@@ -1290,7 +1290,7 @@ class TestGetStateEmbedding:
     def test_returns_none_for_missing_state(self):
         g = _build_chain_graph()
         mw = MultiwayGraph()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert bs._get_state_embedding("nonexistent") is None
 
     def test_returns_none_for_no_active_nodes(self):
@@ -1298,7 +1298,7 @@ class TestGetStateEmbedding:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset())
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert bs._get_state_embedding(root.id) is None
 
     def test_returns_none_without_embedding_engine(self):
@@ -1306,7 +1306,7 @@ class TestGetStateEmbedding:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert bs._get_state_embedding(root.id) is None
 
     def test_caches_embedding(self):
@@ -1317,7 +1317,7 @@ class TestGetStateEmbedding:
         from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         emb.precompute_all()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.set_embedding_engine(emb)
         result1 = bs._get_state_embedding(root.id)
         assert result1 is not None
@@ -1342,7 +1342,7 @@ class TestLateralInferenceDeep:
         from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         emb.precompute_all()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.set_embedding_engine(emb)
         bs.assign_coordinates()
         insights = bs.lateral_inference(child1.id)
@@ -1350,7 +1350,7 @@ class TestLateralInferenceDeep:
         for insight in insights:
             assert "novel_in_source" in insight
             assert "novel_in_lateral" in insight
-            assert "branchial_distance" in insight
+            assert "state_distance" in insight
             assert insight["source_state"] == child1.id
 
     def test_rank_novel_by_similarity(self):
@@ -1361,7 +1361,7 @@ class TestLateralInferenceDeep:
         from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         emb.precompute_all()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.set_embedding_engine(emb)
         scores = bs._rank_novel_by_similarity(frozenset({"c", "d"}), frozenset({"a", "b"}))
         assert len(scores) >= 1
@@ -1371,7 +1371,7 @@ class TestLateralInferenceDeep:
     def test_rank_novel_empty_inputs(self):
         g = _build_chain_graph()
         mw = MultiwayGraph()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert bs._rank_novel_by_similarity(frozenset(), frozenset({"a"})) == {}
         assert bs._rank_novel_by_similarity(frozenset({"a"}), frozenset()) == {}
 
@@ -1390,7 +1390,7 @@ class TestTransferInsightDeep:
         g.add_edge(e1)
         child1.produced_edge_ids = [e1.id]
         child2.produced_edge_ids = []
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         proposal = bs.transfer_insight(child1.id, child2.id)
         assert proposal.source_state_id == child1.id
@@ -1400,7 +1400,7 @@ class TestTransferInsightDeep:
     def test_transfer_missing_states(self):
         g = _build_chain_graph()
         mw = MultiwayGraph()
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         proposal = bs.transfer_insight("missing_a", "missing_b")
         assert proposal.confidence == 0.0
 
@@ -1417,7 +1417,7 @@ class TestTransferInsightDeep:
         mw.add_state(child2)
         child1.produced_edge_ids = []
         child2.produced_edge_ids = []
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         proposal = bs.transfer_insight(child1.id, child2.id)
         assert proposal.source_patterns == []
@@ -1436,7 +1436,7 @@ class TestFindAnalogousStatesDeep:
         mw.add_state(child1)
         mw.add_state(child2)
         mw.add_state(child3)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         results = bs.find_analogous_states(child1.id, min_distance=0.0, max_distance=100.0)
         assert len(results) >= 1
@@ -1452,7 +1452,7 @@ class TestFindAnalogousStatesDeep:
         child1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(root)
         mw.add_state(child1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         results = bs.find_analogous_states(child1.id)
         assert isinstance(results, list)
         for sid, dist in results:
@@ -1481,7 +1481,7 @@ class TestFindAllAnalogiesDeep:
         mw.add_state(child1)
         mw.add_state(child2)
         mw.add_state(child3)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         proposals = bs.find_all_analogies(child1.id)
         assert all(isinstance(p, AnalogyProposal) for p in proposals)
@@ -1498,7 +1498,7 @@ class TestPlanPathDeep:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         path = bs.plan_path(root.id, root.id)
         assert path == [root.id]
@@ -1510,7 +1510,7 @@ class TestPlanPathDeep:
         mw.add_state(root)
         orphan = MultiwayState(active_node_ids=frozenset({"b"}))
         mw.add_state(orphan)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         path = bs.plan_path(root.id, orphan.id)
         assert path == []
@@ -1522,7 +1522,7 @@ class TestPlanPathDeep:
         child = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(root)
         mw.add_state(child)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         path = bs.plan_path(root.id, child.id)
         assert root.id in path
@@ -1533,7 +1533,7 @@ class TestPlanPathDeep:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         path = bs.plan_path(root.id, root.id)
         assert path == [root.id]
 
@@ -1548,7 +1548,7 @@ class TestPlanPathDeep:
         mw.add_state(c1)
         mw.add_state(c2)
         mw.add_state(gc)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         path = bs.plan_path(c2.id, gc.id)
         assert c2.id in path
@@ -1561,7 +1561,7 @@ class TestPlanPathDeep:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         path = bs.plan_path(root.id, "nonexistent")
         assert path == []
 
@@ -1572,7 +1572,7 @@ class TestNearestHighDensityRegionDeep:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         assert bs.nearest_high_density_region(root.id) is None
 
     def test_no_coordinates(self):
@@ -1580,8 +1580,8 @@ class TestNearestHighDensityRegionDeep:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
-        bs._clusters = [BranchialCluster(state_ids={"x", "y"})]
+        bs = StateClusteringEngine(g, mw)
+        bs._clusters = [StateCluster(state_ids={"x", "y"})]
         result = bs.nearest_high_density_region("nonexistent_state")
         assert result is None
 
@@ -1602,7 +1602,7 @@ class TestMultiScaleAnalysisDeep:
                 rule_applied=f"rule_{i}",
             )
             mw.add_state(child)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
@@ -1620,7 +1620,7 @@ class TestMultiScaleAnalysisDeep:
         for _i in range(3):
             child = MultiwayState(parent_id=root.id, active_node_ids=frozenset(), depth=1)
             mw.add_state(child)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         result = bs.multi_scale_analysis()
         assert isinstance(result, MultiScaleAnalysis)
@@ -1637,7 +1637,7 @@ class TestBuildSimultaneityGroups:
         mw.add_state(root)
         mw.add_state(c1)
         mw.add_state(c2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         groups = bs.build_simultaneity_groups()
         assert isinstance(groups, list)
         assert len(groups) >= 1
@@ -1654,7 +1654,7 @@ class TestBuildSimultaneityGroups:
         c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(root)
         mw.add_state(c1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.add_state_to_simultaneity(c1)
         assert len(bs.simultaneity_groups) >= 1
         c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
@@ -1667,7 +1667,7 @@ class TestBuildSimultaneityGroups:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"a"}))
         mw.add_state(root)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.add_state_to_simultaneity(root)
         assert len(bs.simultaneity_groups) == 0
 
@@ -1678,7 +1678,7 @@ class TestBuildSimultaneityGroups:
         c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(root)
         mw.add_state(c1)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.add_state_to_simultaneity(c1)
         bs.remove_state_from_simultaneity(c1.id)
         assert c1.id not in bs.simultaneity_groups[0].state_ids
@@ -1694,7 +1694,7 @@ class TestAnalyzeDeep:
         mw.add_state(root)
         mw.add_state(c1)
         mw.add_state(c2)
-        bs = BranchialSpace(g, mw)
+        bs = StateClusteringEngine(g, mw)
         bs.assign_coordinates()
         analysis = bs.analyze()
         assert analysis.states_mapped > 0

@@ -7,12 +7,10 @@ from hyper3.kernel import Hypergraph
 from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import RobustReachabilityDetector
 from hyper3.multiway import ExpansionReport, MultiwayEngine
-from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.results import (
     BiasProfileResult,
-    BranchialAnalysis,
     CommitResult,
     ConsensusReasonResult,
     DerivationInfo,
@@ -23,10 +21,12 @@ from hyper3.results import (
     ReasonResult,
     RollbackResult,
     RuleAnalyticsReport,
+    StateClusteringReport,
 )
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
+from hyper3.state_clustering import StateClusteringEngine
 
 
 class ReasoningMixin(_MemoryBase):
@@ -43,12 +43,12 @@ class ReasoningMixin(_MemoryBase):
         """Lazily initialize the multiway engine and related subsystems."""
         if self._multiway_engine is not None:
             return
-        from hyper3.multiway_branchial import BranchialSpace
         from hyper3.rule_analytics import RuleAnalytics
+        from hyper3.state_clustering import StateClusteringEngine
 
         self._multiway_engine = MultiwayEngine(self._graph)
         self._convergence_engine = StateConvergenceEngine(self._graph, self._multiway_engine.multiway)
-        self._branchial = BranchialSpace(self._graph, self._multiway_engine.multiway)
+        self._state_clustering = StateClusteringEngine(self._graph, self._multiway_engine.multiway)
         self._rule_analytics = RuleAnalytics(self._graph, self._multiway_engine)
         self._multiway_engine.set_rulial(self._rule_analytics)
         self._rule_productions: dict[str, list[str]] = {}
@@ -105,28 +105,28 @@ class ReasoningMixin(_MemoryBase):
         self,
         active_rules: list[Rule],
         enforce_convergence: bool,
-    ) -> tuple[MergeReport | None, BranchialAnalysis | None, RuleAnalyticsReport | None]:
-        """Run state convergence enforcement, branchial analysis, and rule analytics after expansion.
+    ) -> tuple[MergeReport | None, StateClusteringReport | None, RuleAnalyticsReport | None]:
+        """Run state convergence enforcement, clustering analysis, and rule analytics after expansion.
 
         Returns:
-            Tuple of (convergence_report, branchial_report, rule_analytics_report).
+            Tuple of (convergence_report, clustering_report, rule_analytics_report).
         """
         convergence_report: MergeReport | None = None
         if enforce_convergence and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()
 
-        branchial_report: BranchialAnalysis | None = None
-        if self._branchial:
-            self._branchial.assign_coordinates()
-            self._branchial.build_simultaneity_groups()
-            branchial_report = self._branchial.analyze()
+        clustering_report: StateClusteringReport | None = None
+        if self._state_clustering:
+            self._state_clustering.assign_coordinates()
+            self._state_clustering.build_simultaneity_groups()
+            clustering_report = self._state_clustering.analyze()
 
         rule_analytics_report: RuleAnalyticsReport | None = None
         if self._rule_analytics:
             self._rule_analytics.update_position()
             rule_analytics_report = self._rule_analytics.analyze()
 
-        return convergence_report, branchial_report, rule_analytics_report
+        return convergence_report, clustering_report, rule_analytics_report
 
     def _build_reason_result(
         self,
@@ -135,7 +135,7 @@ class ReasoningMixin(_MemoryBase):
         use_overlay: bool,
         auto_commit: bool,
         convergence_report: MergeReport | None,
-        branchial_report: BranchialAnalysis | None,
+        clustering_report: StateClusteringReport | None,
         rulial_report: RuleAnalyticsReport | None,
         auto_distributions: list[BeliefState],
     ) -> ReasonResult:
@@ -158,7 +158,7 @@ class ReasoningMixin(_MemoryBase):
                 max_depth=report.max_depth_reached,
             ),
             state_convergence=convergence_report,
-            branchial=branchial_report,
+            clustering=clustering_report,
             rule_analytics=rulial_report,
             multiway_leaves=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
         )
@@ -232,7 +232,7 @@ class ReasoningMixin(_MemoryBase):
 
         If an overlay already exists it is auto-committed before a new one is
         created.  After expansion the method runs state convergence enforcement,
-        branchial analysis, rule analytics tracking, and optional auto-superposition.
+        clustering analysis, rule analytics tracking, and optional auto-superposition.
 
         Args:
             seed_concepts: Labels of seed nodes.
@@ -248,7 +248,7 @@ class ReasoningMixin(_MemoryBase):
                 where completeness matters more than performance.
 
         Returns:
-            ReasonResult with expansion, causal, branchial, rule analytics reports and
+            ReasonResult with expansion, causal, clustering, rule analytics reports and
             optional overlay/superposition metadata.
         """
         active_rules = rules or self._rules
@@ -284,7 +284,7 @@ class ReasoningMixin(_MemoryBase):
         target_graph = self._overlay if use_overlay and self._overlay else self._graph
         self._record_provenance(target_graph)
 
-        convergence_report, branchial_report, rulial_report = self._run_post_expansion(
+        convergence_report, clustering_report, rulial_report = self._run_post_expansion(
             active_rules,
             enforce_convergence,
         )
@@ -299,7 +299,7 @@ class ReasoningMixin(_MemoryBase):
             use_overlay,
             auto_commit,
             convergence_report,
-            branchial_report,
+            clustering_report,
             rulial_report,
             auto_distributions,
         )
@@ -641,9 +641,9 @@ class ReasoningMixin(_MemoryBase):
         return self._multiway_engine
 
     @property
-    def branchial(self) -> BranchialSpace | None:
-        """The branchial space for multiway state coordinates, or None."""
-        return self._branchial
+    def state_clustering(self) -> StateClusteringEngine | None:
+        """The state clustering engine for multiway state clustering, or None."""
+        return self._state_clustering
 
     @property
     def rule_analytics(self) -> RuleAnalytics:

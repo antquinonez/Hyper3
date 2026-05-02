@@ -6,7 +6,7 @@ Demonstrates Hyper3's core multiway reasoning feature by building a cloud
 infrastructure graph and running multiway expansion from a health check
 failure seed. Different inference rules produce genuinely divergent branches
 (infrastructure failure, network partition, configuration error) which are
-then compared via branchial space analysis and lateral insights.
+then compared via state clustering analysis and lateral insights.
 
 Run with:
     .venv/bin/python examples/advanced/10_multiway_lateral_insights.py
@@ -436,24 +436,24 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 4: Branchial Space -- Similarity and Convergence
+    # SECTION 4: State Clustering -- Similarity and Convergence
     # =====================================================================
 
     print("=" * 70)
-    print("SECTION 4: Branchial Space Analysis")
+    print("SECTION 4: State Clustering Analysis")
     print("=" * 70)
 
-    branchial_report = result.branchial
-    if branchial_report:
-        print("  Branchial analysis:")
-        for key, val in branchial_report.items():
+    clustering_report = result.state_clustering
+    if clustering_report:
+        print("  Clustering analysis:")
+        for key, val in clustering_report.items():
             if isinstance(val, (int, float, str)):
                 print(f"    {key}: {val}")
             elif isinstance(val, list):
                 print(f"    {key}: {len(val)} items")
 
-    if mem.branchial:
-        groups = mem.branchial.simultaneity_groups
+    if mem.state_clustering:
+        groups = mem.state_clustering.simultaneity_groups
         print(f"\n  Simultaneity groups: {len(groups)}")
         for i, group in enumerate(groups[:5]):
             group_labels: list[str] = []
@@ -464,9 +464,9 @@ def main():
                     group_labels.append(f"[{rule} d={st.depth}]")
             print(f"    Group {i+1}: {len(group.state_ids)} states  {', '.join(group_labels)}")
 
-        coords = mem.branchial.coordinates
+        coords = mem.state_clustering.coordinates
         if coords and len(leaves) >= 2:
-            print(f"\n  Pairwise branchial distances (top leaves):")
+            print(f"\n  Pairwise state_clustering distances (top leaves):")
             top_leaves = leaves[:6] if len(leaves) >= 6 else leaves
             for i, la in enumerate(top_leaves):
                 for lb in top_leaves[i+1:]:
@@ -547,7 +547,7 @@ def main():
                 lat_id = ins.get("lateral_state", "")
                 lat_state = mw_graph.get_state(lat_id) if mw_graph else None
                 rule = lat_state.rule_applied if lat_state else "unknown"
-                distance = ins.get("branchial_distance", 0.0)
+                distance = ins.get("jaccard_distance", 0.0)
                 novel_lateral = ins.get("novel_in_lateral", [])
                 novel_labels = []
                 for nid in novel_lateral:
@@ -561,8 +561,8 @@ def main():
             print(f"  No API lateral insights for '{concept}'")
 
     print(f"\n  Manual lateral comparison across simultaneity groups:")
-    if mem.branchial and mw_graph:
-        for gi, group in enumerate(mem.branchial.simultaneity_groups[:4]):
+    if mem.state_clustering and mw_graph:
+        for gi, group in enumerate(mem.state_clustering.simultaneity_groups[:4]):
             group_states = [mw_graph.get_state(sid) for sid in group.state_ids]
             group_states = [s for s in group_states if s is not None]
             if len(group_states) < 2:
@@ -639,7 +639,7 @@ def main():
     print("  Key finding: multiway expansion produces genuinely different")
     print("  hypothesis branches (infrastructure, network, config) from a")
     print("  single seed event, each explaining different subsets of symptoms.")
-    print("  Branchial space reveals which branches converge and lateral")
+    print("  State clustering reveals which branches converge and lateral")
     print("  insights identify knowledge transferable across hypotheses.")
     print()
 

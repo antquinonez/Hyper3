@@ -83,13 +83,13 @@ def _probe_belief(memory: object) -> bool:
         return False
 
 
-def _probe_branchial(memory: object) -> bool:
-    """Return ``True`` when branchial coordinates have been assigned."""
-    branchial = getattr(memory, "_branchial", None)
-    if branchial is None:
+def _probe_state_clustering(memory: object) -> bool:
+    """Return ``True`` when state clustering coordinates have been assigned."""
+    state_clustering = getattr(memory, "_state_clustering", None)
+    if state_clustering is None:
         return False
     try:
-        return len(getattr(branchial, "_coordinates", {})) > 0
+        return len(getattr(state_clustering, "_coordinates", {})) > 0
     except Exception:
         return False
 
@@ -143,7 +143,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
         "multiway": _probe_multiway,
         "provenance": _probe_provenance,
         "belief": _probe_belief,
-        "branchial": _probe_branchial,
+        "state_clustering": _probe_state_clustering,
         "rule_analytics": _probe_rule_analytics,
         "embedding": _probe_embedding,
         "retrieval": _probe_retrieval,
@@ -205,7 +205,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
         return CapabilityLevel.MINIMAL
 
     advanced = (
-        scores.get("provenance", 0) + scores.get("belief", 0) + scores.get("branchial", 0) + scores.get("rule_analytics", 0)
+        scores.get("provenance", 0) + scores.get("belief", 0) + scores.get("state_clustering", 0) + scores.get("rule_analytics", 0)
     )
     if advanced < 2.0:
         return CapabilityLevel.STANDARD

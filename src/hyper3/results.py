@@ -49,10 +49,10 @@ class ExpansionInfo(_SimpleResultBase):
 
 @dataclass
 class ReasonResult(_SimpleResultBase):
-    """Aggregated result of a reasoning pass: expansion statistics, state convergence, branchial/rule-analytics analysis, overlay state, and per-node confidence."""
+    """Aggregated result of a reasoning pass: expansion statistics, state convergence, clustering/rule-analytics analysis, overlay state, and per-node confidence."""
     expansion: ExpansionInfo | None = None
     state_convergence: MergeReport | None = None
-    branchial: BranchialAnalysis | None = None
+    clustering: StateClusteringReport | None = None
     rule_analytics: RuleAnalyticsReport | None = None
     multiway_leaves: int = 0
     overlay: dict[str, int] | None = None
@@ -108,8 +108,8 @@ class EvolveResult(_SimpleResultBase):
 
 
 @dataclass
-class BranchialAnalysis(_SimpleResultBase):
-    """Summary of branchial space mapping: states mapped, cluster/correlation counts, and average cluster size."""
+class StateClusteringReport(_SimpleResultBase):
+    """Summary of state clustering report: states mapped, cluster/correlation counts, and average cluster size."""
     states_mapped: int = 0
     clusters: int = 0
     correlations: int = 0
@@ -163,7 +163,7 @@ class DiscoveryAnalysis(_SimpleResultBase):
 
 @dataclass
 class LateralInferenceInsight(_SimpleResultBase):
-    """Insight from lateral inference between two branchial states: novel elements, complementary nodes, transferable patterns, and branchial distance."""
+    """Insight from lateral inference between two clustering states: novel elements, complementary nodes, transferable patterns, and state distance."""
     source_state: str = ""
     lateral_state: str = ""
     rule_used: str | None = None
@@ -171,7 +171,7 @@ class LateralInferenceInsight(_SimpleResultBase):
     novel_in_lateral: list[str] = field(default_factory=list)
     complementary_nodes: list[str] = field(default_factory=list)
     transferable_patterns: list[str] = field(default_factory=list)
-    branchial_distance: float = 0.0
+    state_distance: float = 0.0
     semantic_novelty_scores: dict[str, float] | None = None
 
 

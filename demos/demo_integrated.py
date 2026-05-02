@@ -102,7 +102,7 @@ def main():
             for ins in insights[:3]:
                 lat = mem.multiway.multiway.get_state(ins["lateral_state"])
                 rule = lat.rule_applied if lat else "?"
-                print(f"    Lateral branch [{rule}], distance={ins['branchial_distance']}")
+                print(f"    Lateral branch [{rule}], distance={ins['jaccard_distance']}")
                 for nid in ins["novel_in_lateral"]:
                     n = mem.graph.get_node(nid)
                     if n:

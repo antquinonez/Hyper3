@@ -152,6 +152,6 @@ Competitor Gaps (capabilities in Hyper3 not in XGI/HNX/NetworkX)
 - Self-evolution (decay, prune, merge, reinforce, feedback-driven)
 - Provenance tracking with cascading retraction
 - Overlay commit/rollback for speculative investigation
-- Multiway expansion with branchial space navigation
+- Multiway expansion with state clustering analysis
 - Spreading activation and RRF-based retrieval
 - Learning-to-rank with relevance feedback
