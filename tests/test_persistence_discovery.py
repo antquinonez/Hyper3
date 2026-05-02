@@ -155,9 +155,9 @@ class TestRuleDiscoveryEngine:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="next"))
         engine = RuleDiscoveryEngine(g)
         discovered = engine.discover_transitive_patterns(min_occurrences=2)
-        assert len(discovered) >= 1
+        assert len(discovered) == 1
         assert discovered[0].pattern_type == "transitive"
-        assert discovered[0].rule is not None
+        assert isinstance(discovered[0].rule, TransitiveRule)
 
     def test_discover_inverse_patterns(self):
         g = Hypergraph()
@@ -195,10 +195,8 @@ class TestRuleDiscoveryEngine:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="x"))
         engine = RuleDiscoveryEngine(g)
         all_discovered = engine.discover_all()
-        assert isinstance(all_discovered, list)
-        assert len(all_discovered) >= 1
-        for pattern in all_discovered:
-            assert pattern.pattern_type in {"transitive", "inverse", "hub"}
+        assert len(all_discovered) == 1
+        assert all_discovered[0].pattern_type == "transitive"
 
     def test_get_active_rules(self):
         g = Hypergraph()
@@ -210,9 +208,8 @@ class TestRuleDiscoveryEngine:
         engine = RuleDiscoveryEngine(g)
         engine.discover_all()
         rules = engine.get_active_rules()
-        assert len(rules) >= 1
-        rule_types = {type(r).__name__ for r in rules}
-        assert "TransitiveRule" in rule_types
+        assert len(rules) == 1
+        assert isinstance(rules[0], TransitiveRule)
 
     def test_analyze(self):
         g = Hypergraph()
@@ -223,12 +220,10 @@ class TestRuleDiscoveryEngine:
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="x"))
         engine = RuleDiscoveryEngine(g)
         report = engine.analyze()
-        assert "total_patterns" in report
-        assert "new_patterns" in report
-        assert "active_rules" in report
-        assert "edge_labels" in report
-        assert report["total_patterns"] >= 1
-        assert isinstance(report["edge_labels"], dict)
+        assert report["total_patterns"] == 1
+        assert report["edge_labels"] == {"x": 3}
+        assert report["new_patterns"] == 1
+        assert report["active_rules"] == 1
 
     def test_no_duplicate_discovery(self):
         g = Hypergraph()
@@ -270,11 +265,12 @@ class TestHypergraphMemoryPersistence:
         mem.relate("c", "d", label="next")
 
         result = mem.auto_discover_and_apply()
-        assert result["new_rules_added"] >= 1
+        assert result["new_rules_added"] == 1
+        assert result["total_patterns"] == 1
 
         stats = mem.stats()
-        assert stats["discovered_patterns"] >= 1
-        assert stats["active_rules"] >= 1
+        assert stats["discovered_patterns"] == 1
+        assert stats["active_rules"] == 1
 
     def test_discovery_property(self):
         mem = HypergraphMemory()
@@ -285,14 +281,18 @@ class TestHypergraphMemoryPersistence:
         mem.store("x")
         mem.store("y")
         mem.relate("x", "y", label="link")
-        assert mem.log.size >= 3
+        assert mem.log.size == 3
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "mem.json")
             mem.save(path)
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2.log.size >= 3
+            saved_events = [e for e in mem2.log.query() if e["event_type"] != "load"]
+            assert len(saved_events) == 3
+            event_types = [e["event_type"] for e in saved_events]
+            assert event_types.count("store") == 2
+            assert "relate" in event_types
 
 
 class TestBatchIngestion:
@@ -305,8 +305,7 @@ class TestBatchIngestion:
         ]
         results = mem.ingest_batch(texts)
         assert len(results) == 3
-        assert mem.graph.node_count >= 3
-        assert mem.log.size >= 1
+        assert mem.graph.node_count == 9
 
     def test_ingest_batch_deduplicates_entities(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -315,8 +314,8 @@ class TestBatchIngestion:
             "Paris is known for the Eiffel Tower",
         ]
         mem.ingest_batch(texts, deduplicate=True)
-        [e for e in mem.graph.edges if "Paris" in str(e.source_ids) or "Paris" in str(e.target_ids)]
-        assert mem.graph.node_count >= 2
+        paris_nodes = [n for n in mem.graph.nodes if n.label == "Paris"]
+        assert len(paris_nodes) == 1
 
     def test_ingest_batch_without_extraction(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -416,6 +415,8 @@ class TestLoadRecords:
             edges=[{"source": "a", "target": "b", "label": "r", "weight": 5.0}],
         )
         assert result.edges == 1
+        edge = list(mem.graph.edges)[0]
+        assert edge.weight == 5.0
 
     def test_load_records_tags(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -445,9 +446,10 @@ class TestPersistenceExportImport:
             mem.export_json(path)
             mem2 = HypergraphMemory(evolve_interval=0)
             result = mem2.import_json(path)
-            assert result.nodes > 0
-            assert result.edges > 0
+            assert result.nodes == 2
+            assert result.edges == 1
             assert mem2.has_node("alpha")
+            assert mem2.has_node("beta")
         finally:
             os.unlink(path)
 
@@ -464,7 +466,7 @@ class TestPersistenceExportImport:
             mem2.store("a")
             mem2.store("b")
             result = mem2.import_edgelist(path)
-            assert result.edges > 0
+            assert result.edges == 1
         finally:
             os.unlink(path)
 
@@ -478,7 +480,7 @@ class TestPersistenceExportImport:
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.has_node("x")
-            assert len(mem2._rules) == 0
+            assert len(mem2.rules) == 0
         finally:
             os.unlink(path)
 
@@ -495,9 +497,12 @@ class TestRulePersistence:
         s = Serializer()
         data = s.serialize_rules(rules)
         assert len(data) == 5
+        assert data[0]["edge_label"] == "next"
+        assert data[0]["new_label"] == "trans"
         restored = s.deserialize_rules(data)
         assert len(restored) == 5
         assert isinstance(restored[0], TransitiveRule)
+        assert restored[0]._edge_label == "next"
         assert isinstance(restored[1], InverseRule)
         assert isinstance(restored[2], GeneralizationRule)
         assert isinstance(restored[3], AbductiveRule)
@@ -525,8 +530,8 @@ class TestRulePersistence:
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.graph.node_count == 2
-            assert len(mem2._rules) == 1
-            assert isinstance(mem2._rules[0], TransitiveRule)
+            assert len(mem2.rules) == 1
+            assert isinstance(mem2.rules[0], TransitiveRule)
         finally:
             os.unlink(path)
 

@@ -261,6 +261,7 @@ class TestIntegrationHypergraphMemory:
         assert exp is not None
         assert exp.source_label == "A"
         assert exp.target_label == "C"
+        assert "transitive" in exp.rule_name
 
     def test_explain_given_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -292,7 +293,7 @@ class TestIntegrationHypergraphMemory:
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         assert mem.explain("A", "C") is not None
         retracted = mem.retract_inference("A", "C")
-        assert len(retracted) >= 1
+        assert len(retracted) == 1
         assert mem.explain("A", "C") is None
 
     def test_retract_nonexistent(self):
@@ -303,7 +304,9 @@ class TestIntegrationHypergraphMemory:
 
     def test_provenance_property(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert isinstance(mem.provenance, ProvenanceTracker)
+        tracker = mem.provenance
+        assert tracker is not None
+        assert tracker.record_count == 0
 
     def test_provenance_records_after_reason(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -314,7 +317,7 @@ class TestIntegrationHypergraphMemory:
         mem.relate("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
-        assert mem.provenance.record_count >= 1
+        assert mem.provenance.record_count == 1
 
     def test_load_resets_provenance(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
@@ -340,19 +343,18 @@ class TestCascadeRetraction:
         rule = TransitiveRule(edge_label="rel")
         mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
         initial_edges = mem.graph.edge_count
-        inferred_labels = set()
+        assert initial_edges == 5
+
+        tracker = mem.provenance
+        retracted = []
         for edge in list(mem.graph.edges):
-            if edge.label == "inferred":
-                inferred_labels.add((edge.source_ids, edge.target_ids, edge.id))
-        retracted_any = False
-        for _src_ids, _tgt_ids, eid in inferred_labels:
-            if mem.provenance.is_inferred(eid):
-                ids = mem.provenance.retract(eid)
-                for rid in ids:
-                    mem.graph.remove_edge(rid)
-                    retracted_any = True
-        assert retracted_any
-        assert mem.graph.edge_count < initial_edges
+            if edge.label == "inferred" and tracker.is_inferred(edge.id):
+                ids = tracker.retract(edge.id)
+                for eid in ids:
+                    mem.graph.remove_edge(eid)
+                    retracted.append(eid)
+        assert len(retracted) == 2
+        assert mem.graph.edge_count == 3
 
     def test_cascade_does_not_remove_given_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -379,7 +381,7 @@ class TestCascadeRetraction:
         rule = TransitiveRule(edge_label="rel")
         mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
         provenance_count_before = mem.provenance.record_count
-        assert provenance_count_before >= 1
+        assert provenance_count_before == 2
         tracker = mem.provenance
         retracted = []
         for edge in list(mem.graph.edges):
@@ -388,5 +390,5 @@ class TestCascadeRetraction:
                 for eid in ids:
                     mem.graph.remove_edge(eid)
                     retracted.append(eid)
-        assert len(retracted) >= 1
+        assert len(retracted) == 2
         assert tracker.record_count == 0

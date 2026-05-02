@@ -36,7 +36,8 @@ class TestIntegrationFullPipeline:
         )
 
         result = mem.reason({"battery", "fuel"}, max_depth=3, max_total_states=30)
-        assert result["expansion"]["states_created"] > 0
+        assert result["expansion"]["states_created"] == 8
+        assert result["expansion"]["rules_applied"] == 7
 
         mem.auto_discover_and_apply()
 
@@ -46,12 +47,12 @@ class TestIntegrationFullPipeline:
         interpretation = mem.sample(qs, context={"battery": 2.0})
         assert interpretation is not None
         assert qs.resolved
-        assert interpretation.node_id is not None
+        assert interpretation.label in {"battery", "fuel", "ignition"}
 
         mem.evolve()
         stats = mem.stats()
-        assert stats["nodes"] >= 7
-        assert stats["edges"] >= 6
+        assert stats["nodes"] == 7
+        assert stats["edges"] == 13
         assert stats["log_size"] > 0
 
     def test_save_load_continue_reasoning(self):
@@ -65,20 +66,21 @@ class TestIntegrationFullPipeline:
             mem.relate("y", "z", label="rel")
             mem.add_rules(TransitiveRule(edge_label="rel"))
             r1 = mem.reason({"x", "y", "z"}, max_depth=2)
-            assert r1["expansion"]["rules_applied"] >= 1
+            assert r1["expansion"]["rules_applied"] == 1
             mem.save(path)
             edges_after_session1 = mem.graph.edge_count
+            assert edges_after_session1 == 3
 
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2.graph.node_count == 3
             assert mem2.graph.edge_count == edges_after_session1
-            assert mem2.log.size > 0
+            assert mem2.log.size == 7
 
             mem2.store("w")
             mem2.relate("z", "w", label="rel")
             mem2.add_rules(TransitiveRule(edge_label="rel"))
-            assert mem2.graph.edge_count > edges_after_session1
+            assert mem2.graph.edge_count == 4
 
     def test_belief_diagnostic_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -92,21 +94,11 @@ class TestIntegrationFullPipeline:
             ["starter_bad"],
             {("battery_weak", "starter_bad"): 0.9, ("battery_dead", "starter_bad"): 0.95},
         )
-        assert ent.strength > 0
-
-        triggers = mem.detect_sampling_triggers(qs)
-        assert isinstance(triggers, list)
-        for trigger in triggers:
-            assert hasattr(trigger, "trigger_type")
-
-        patterns = mem.compute_interactions(qs)
-        assert isinstance(patterns, list)
-        for p in patterns:
-            assert hasattr(p, "constructive")
-            assert hasattr(p, "destructive")
+        assert ent.strength == pytest.approx(0.925, abs=0.01)
 
         collapsed = mem.sample_with_profile(qs, "pragmatic")
         assert collapsed is not None
+        assert collapsed.label in {"battery_weak", "alternator_bad", "starter_bad"}
         assert qs.resolved
 
     def test_anomaly_boundary_mapping(self):
@@ -118,11 +110,11 @@ class TestIntegrationFullPipeline:
         regions = mem.map_boundaries(["simple_concept", "self-referential structure", "all universal statements"])
         assert len(regions) == 3
         statuses = {r.status for r in regions}
-        assert "low_risk" in statuses
+        assert statuses == {"low_risk"}
 
         result = mem.detect_structural_anomalies("simple_concept")
-        assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
-        assert 0.0 <= result.boundary_score <= 1.0
+        assert result.anomaly_status == "low_risk"
+        assert result.boundary_score == pytest.approx(0.05, abs=0.01)
 
     def test_multi_frame_analysis_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -135,12 +127,20 @@ class TestIntegrationFullPipeline:
 
         analyses = mem.multi_frame_analysis("engine")
         assert len(analyses) == 4
-        for analysis in analyses.values():
-            assert analysis.solution_approach != ""
+        expected_approaches = {
+            "classical": "exhaustive_analysis",
+            "quantum": "single_interpretation",
+            "hypergraph": "multi_dimensional_traversal",
+            "probabilistic": "importance_sampling",
+        }
+        for frame, analysis in analyses.items():
+            assert analysis.solution_approach == expected_approaches[frame]
 
         custom = SamplingProfile(name="diagnostic", dimensions=["severity", "frequency"])
         mem.belief.add_basis(custom)
-        assert mem.belief.get_basis("diagnostic") is not None
+        basis = mem.belief.get_basis("diagnostic")
+        assert basis is not None
+        assert basis.name == "diagnostic"
 
     def test_rulial_monitor_stats_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -154,28 +154,20 @@ class TestIntegrationFullPipeline:
         rulial.record_rule_application("inverse")
         rulial.record_rule_application("generalization")
         pos = rulial.update_position()
-        assert pos.graph_activity_density > 0.0
-        assert pos.structural_complexity > 0.0
-        assert 0.0 <= pos.graph_activity_density <= 1.0
+        assert 0.0 < pos.graph_activity_density <= 1.0
+        assert 0.0 < pos.structural_complexity <= 1.0
 
         patterns = rulial.find_meta_patterns()
-        assert len(patterns) >= 1
-        for p in patterns:
-            assert p.pattern_type != ""
+        pattern_types = {p.pattern_type for p in patterns}
+        assert "recurring_relation" in pattern_types
+        assert "chain_motif" in pattern_types
 
         insights = rulial.generate_high_level_insights()
-        assert len(insights) >= 1
-        for ins in insights:
-            assert len(ins.principle) > 0
+        principles = [ins.principle for ins in insights]
+        assert any("Dominant relation" in p for p in principles)
 
         introspection = mem.introspect()
-        assert introspection.system_health.fitness > 0.0
-
-        mem.add_rules(TransitiveRule(edge_label="chain"))
-        mem.reason({"concept_0", "concept_5"}, max_depth=3, max_total_states=15)
-
-        introspection2 = mem.introspect()
-        assert introspection2.system_health.fitness > 0.0
+        assert 0.8 < introspection.system_health.fitness <= 1.0
 
     def test_rule_discovery_and_application_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -190,33 +182,41 @@ class TestIntegrationFullPipeline:
         mem.relate("d", "c", label="prev")
 
         result = mem.auto_discover_and_apply()
-        assert result["total_patterns"] >= 1
+        assert result["total_patterns"] == 4
 
         mem.add_rules(TransitiveRule(edge_label="next"))
         reason = mem.reason({"a", "b", "c"}, max_depth=2, max_total_states=20)
-        assert reason["expansion"]["states_created"] > 0
+        assert reason["expansion"]["states_created"] == 11
+        assert reason["expansion"]["rules_applied"] == 10
 
     def test_evolution_decay_and_prune(self):
-        mem = HypergraphMemory(evolve_interval=1, decay_threshold=0.01, decay_factor=0.01)
-        for label in ["keep", "drop"]:
-            mem.store(label)
-        mem.relate("keep", "drop")
+        mem = HypergraphMemory(evolve_interval=0, decay_threshold=0.5)
+        mem.store("heavy")
+        mem.store("light")
+        mem.relate("heavy", "light")
 
-        keep_node = None
-        for n in mem.graph.nodes:
-            if n.label == "keep":
-                keep_node = n
-            elif n.label == "drop":
-                pass
+        for _ in range(9):
+            mem.store("heavy")
 
-        if keep_node:
-            for _ in range(5):
-                mem.store("keep")
+        initial_weights = {n.label: n.weight for n in mem.graph.nodes}
+        assert initial_weights["heavy"] > initial_weights["light"]
 
-        mem.evolve()
-        stats = mem.stats()
-        assert isinstance(stats["evolution"]["prunes"], int)
-        assert stats["evolution"]["prunes"] >= 0
+        r = mem.evolve()
+        assert r.decayed == 0
+
+        post_weights = {n.label: n.weight for n in mem.graph.nodes}
+        assert post_weights["heavy"] < initial_weights["heavy"]
+        assert post_weights["light"] < initial_weights["light"]
+        assert post_weights["heavy"] > post_weights["light"]
+
+        total_decayed = 0
+        for _ in range(14):
+            r = mem.evolve()
+            total_decayed += r.decayed
+        assert total_decayed == 1
+
+        weights_after_decay = {n.label: n.weight for n in mem.graph.nodes}
+        assert weights_after_decay["light"] < mem._decay_threshold
 
     def test_branchial_space_after_reasoning(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -231,28 +231,29 @@ class TestIntegrationFullPipeline:
 
         assert mem.branchial is not None
         report = mem.branchial.analyze()
-        assert report["states_mapped"] > 0
+        assert report["states_mapped"] == 3
+        assert "clusters" in report
+        assert "correlations" in report
 
-    def test_persistence_preserves_thresholds(self):
+    def test_persistence_preserves_graph_state(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.json")
-            mem = HypergraphMemory(
-                evolve_interval=0,
-                merge_threshold=0.5,
-                decay_threshold=0.01,
-            )
+            mem = HypergraphMemory(evolve_interval=0)
             mem.store("a")
-            mem.relate("a", "a", label="self")
+            mem.store("b")
+            mem.relate("a", "b", label="connected", weight=5.0)
             mem.save(path)
 
-            mem2 = HypergraphMemory(
-                evolve_interval=0,
-                merge_threshold=0.5,
-                decay_threshold=0.01,
-            )
+            mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2._merge_threshold == 0.5
-            assert mem2._decay_threshold == 0.01
+            assert mem2.graph.node_count == 2
+            assert mem2.graph.edge_count == 1
+            labels = {n.label for n in mem2.graph.nodes}
+            assert labels == {"a", "b"}
+            edge = list(mem2.graph.edges)[0]
+            assert edge.label == "connected"
+            assert edge.weight == 5.0
+            assert mem2.log.size == 4
 
     def test_all_belief_profiles_work(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -275,8 +276,10 @@ class TestIntegrationFullPipeline:
             ["pet"],
             {("cat", "pet"): 0.9, ("dog", "pet"): 0.8},
         )
-        preds = ent.predict(
-            next(n.id for n in mem.graph.nodes if n.label == "cat"),
-            "furry",
-        )
-        assert len(preds) > 0
+        assert ent.strength == pytest.approx(0.85, abs=0.01)
+
+        cat_id = next(n.id for n in mem.graph.nodes if n.label == "cat")
+        preds = ent.predict(cat_id, "furry")
+        assert len(preds) == 1
+        pet_id = next(n.id for n in mem.graph.nodes if n.label == "pet")
+        assert preds[pet_id] == "furry"
