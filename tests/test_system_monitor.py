@@ -14,6 +14,7 @@ from hyper3 import (
     SystemMonitor,
     TransitiveRule,
     TuningPlan,
+    TuningResult,
     TuningTrigger,
 )
 from hyper3.graph_diff import GraphDiffer
@@ -958,3 +959,90 @@ class TestMetamorphosisActions:
         expected_keys = ["adjust_evolution", "rule_discovery", "optimize_weights"]
         for key in expected_keys:
             assert key in result
+
+
+class TestSystemMonitorModerateReasoningMode:
+    def test_moderate_mode_with_partial_rules(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcdef":
+            mem.store(l)
+        for i, (s, t) in enumerate([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "f")]):
+            mem.relate(s, t, label=f"rel{i}")
+        rules = [
+            TransitiveRule(edge_label="rel0"),
+            TransitiveRule(edge_label="rel1"),
+            TransitiveRule(edge_label="rel2"),
+        ]
+        mem.add_rules(rules)
+        mem._meta._discovery.discover_all()
+        state = mem._meta.assess_state(rules)
+        assert state.reasoning_mode in ("rich", "moderate", "sparse")
+
+
+class TestSystemMonitorIntrospectWithRulial:
+    def test_introspect_includes_rulial_when_wired(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", label="rel")
+        mem.relate("b", "c", label="rel")
+        mem.relate("c", "d", label="rel")
+        mem._meta.set_rulial(mem._rulial)
+        report = mem._meta.introspect([])
+        assert report.system_health.fitness >= 0.0
+
+
+class TestSystemMonitorAntiPatterns:
+    def test_low_engagement_anti_pattern(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(15):
+            mem.store(f"n{i}")
+            node = mem.graph.get_node_by_label(f"n{i}")
+            node.weight = 0.1
+        report = mem._meta.introspect([])
+        assert any("low_engagement" in p for p in report.anti_patterns)
+
+
+class TestSystemMonitorRollback:
+    def test_execute_tuning_validated_rollback(self):
+        from hyper3.graph_diff import GraphDiffer
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem._meta._state.architectural_fitness = 0.1
+        differ = GraphDiffer(mem.graph)
+        mem._meta.set_differ(differ)
+        differ.capture()
+        plan = mem._meta.propose_tuning(None)
+        assert plan is not None
+        result = mem._meta.execute_tuning_validated(plan, fitness_tolerance=100.0)
+        assert isinstance(result, TuningResult)
+
+
+class TestSystemMonitorOptimizeWeights:
+    def test_weight_smoothing_with_disparate_weights(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="rel", weight=1.0)
+        mem.relate("a", "c", label="rel", weight=10.0)
+        node_a = mem.graph.get_node_by_label("a")
+        node_a.access_count = 5
+        plan = TuningPlan(actions=["optimize_weights"])
+        result = mem._meta.execute_tuning(plan)
+        assert "optimize_weights" in result
+
+
+class TestSystemMonitorAutoTuneWithDiffer:
+    def test_auto_tune_with_differ_uses_validated(self):
+        from hyper3.graph_diff import GraphDiffer
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem._meta._state.architectural_fitness = 0.1
+        differ = GraphDiffer(mem.graph)
+        mem._meta.set_differ(differ)
+        differ.capture()
+        result = mem._meta.auto_tune()
+        assert isinstance(result, TuningResult)

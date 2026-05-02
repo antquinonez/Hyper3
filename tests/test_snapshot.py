@@ -325,3 +325,54 @@ class TestSystemSnapshotDict:
         assert snap2.version == snap.version
         assert len(snap2.belief_states) == len(snap.belief_states)
         assert len(snap2.provenance_records) == len(snap.provenance_records)
+
+
+class TestSnapshotAmplitudeFallback:
+    def test_deserialize_non_numeric_amplitude(self):
+        snap = SystemSnapshot()
+        snap_dict = snap.to_dict()
+        snap_dict["belief_states"] = [
+            {
+                "concept_label": "test",
+                "outcomes": [
+                    {
+                        "node_id": "n1",
+                        "concept_label": "test",
+                        "amplitude": "not_a_number",
+                        "probability": 0.5,
+                    }
+                ],
+            }
+        ]
+        result = SystemSnapshot.from_dict(snap_dict)
+        assert len(result.belief_states) == 1
+
+
+class TestSnapshotFeedbackNone:
+    def test_capture_with_none_feedback(self):
+        from hyper3.snapshot import capture_snapshot
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        snap = capture_snapshot(
+            belief=mem._belief,
+            multiway_engine=None,
+            branchial=None,
+            rulial=None,
+            provenance=mem._provenance,
+            retrieval=mem._retrieval,
+            perspective=mem._perspective,
+            meta=mem._meta,
+            cache=mem._cache,
+            feedback=None,
+        )
+        assert snap is not None
+
+
+class TestSnapshotJsonDefault:
+    def test_json_default_handles_set_and_tuple(self):
+        from hyper3.snapshot import _json_default
+
+        assert _json_default({1, 2, 3}) == [1, 2, 3]
+        assert _json_default((1, 2)) == [1, 2]
+        assert _json_default(frozenset({1})) == [1]

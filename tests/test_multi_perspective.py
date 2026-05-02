@@ -989,3 +989,151 @@ class TestFrameEffectivenessLearning:
         analysis = cr.analyze()
         assert "frame_effectiveness" in analysis
 
+
+class TestMultiPerspectiveInformationDissipation:
+    def test_information_dissipation_alias(self):
+        from hyper3.multi_perspective import StructuralMetrics
+
+        m = StructuralMetrics(local_clustering=0.5, perspective_overlap=0.8, frame_information_loss=0.2)
+        assert m.information_dissipation == 0.2
+
+
+class TestMultiPerspectiveEmptyFrames:
+    def test_find_invariants_empty_frames(self):
+        from hyper3.multi_perspective import RobustReachabilityDetector
+
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        det = RobustReachabilityDetector(cr)
+        cr._frames = {}
+        result = det.find_invariants([], g)
+        assert result.frame_count == 0
+
+    def test_consensus_empty_frames(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        cr._frames = {}
+        result = cr.compute_consensus(["a"], strategy="intersection")
+        assert len(result.agreed_nodes) == 0
+
+
+class TestMultiPerspectiveEdgeWeightFiltering:
+    def test_bfs_reachable_skips_low_weight_edges(self):
+        g = Hypergraph()
+        a = Hypernode(id="a", label="a")
+        b = Hypernode(id="b", label="b")
+        c = Hypernode(id="c", label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel", weight=0.1))
+        cr = MultiPerspectiveAnalyzer(g)
+        reachable = cr._bfs_reachable_set(["a"], max_depth=3, min_weight=0.3)
+        assert "b" in reachable
+        assert "c" not in reachable
+
+
+class TestMultiPerspectiveCustomFrames:
+    def test_information_preserved_with_empty_params(self):
+        g = Hypergraph()
+        a = Hypernode(id="a", label="a")
+        g.add_node(a)
+        cr = MultiPerspectiveAnalyzer(g)
+        from hyper3.multi_perspective import PresetAnalysis
+
+        analysis_a = PresetAnalysis(complexity=0.5, frame_name="custom_a", parameters={}, solution_approach="", strengths=[], weaknesses=[])
+        analysis_b = PresetAnalysis(complexity=0.3, frame_name="custom_b", parameters={}, solution_approach="", strengths=[], weaknesses=[])
+        preserved = cr._compute_information_preserved({}, {}, analysis_a, analysis_b)
+        assert 0.0 <= preserved <= 1.0
+
+    def test_information_preserved_with_string_params(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        from hyper3.multi_perspective import PresetAnalysis
+
+        analysis_a = PresetAnalysis(complexity=0.5, frame_name="f1", parameters={"mode": "standard"}, solution_approach="", strengths=[], weaknesses=[])
+        analysis_b = PresetAnalysis(complexity=0.5, frame_name="f2", parameters={"mode": "advanced"}, solution_approach="", strengths=[], weaknesses=[])
+        preserved = cr._compute_information_preserved(
+            analysis_a.parameters, analysis_b.parameters, analysis_a, analysis_b,
+        )
+        assert 0.0 <= preserved <= 1.0
+
+
+class TestMultiPerspectiveResolveDisagreement:
+    def test_resolve_empty_reachability(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        assert cr.resolve_disagreement({}, "intersection") == set()
+
+    def test_resolve_unknown_strategy(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        result = cr.resolve_disagreement({"a": {1, 2}}, "unknown_strategy")
+        assert result == {1, 2}
+
+
+class TestMultiPerspectivePerspectiveOverlap:
+    def test_overlap_with_probabilistic_frame(self):
+        g = Hypergraph()
+        for l in "abc":
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=1.0))
+        cr = MultiPerspectiveAnalyzer(g)
+        overlap = cr.compute_perspective_overlap(["a"], "probabilistic", "classical")
+        assert isinstance(overlap, float)
+
+    def test_overlap_with_hypergraph_frame(self):
+        g = Hypergraph()
+        for l in "abc":
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=1.0))
+        cr = MultiPerspectiveAnalyzer(g)
+        overlap = cr.compute_perspective_overlap(["a"], "hypergraph", "classical")
+        assert isinstance(overlap, float)
+
+
+class TestMultiPerspectiveLocalClustering:
+    def test_clustering_with_triangle(self):
+        g = Hypergraph()
+        for l in "abc":
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
+        cr = MultiPerspectiveAnalyzer(g)
+        clustering = cr.compute_local_clustering(["a"])
+        assert clustering > 0.0
+
+    def test_clustering_single_frame(self):
+        g = Hypergraph()
+        for l in "ab":
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        cr = MultiPerspectiveAnalyzer(g)
+        cr._frames = {"classical": cr._frames["classical"]}
+        clustering = cr.compute_local_clustering(["a"])
+        assert clustering == 0.0
+
+
+class TestMultiPerspectiveRecommendFrame:
+    def test_recommend_frame_returns_from_history(self):
+        g = Hypergraph()
+        for l in "ab":
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        cr = MultiPerspectiveAnalyzer(g)
+        from hyper3.multi_perspective import ProblemFeatures
+        cr.record_problem_outcome(ProblemFeatures(graph_density=0.5), "classical", success=False)
+        cr.record_problem_outcome(ProblemFeatures(graph_density=0.5), "quantum", success=False)
+        result = cr.recommend_frame(["a"])
+        assert result in ("classical", "quantum")
+
+
+class TestMultiPerspectiveEffectiveness:
+    def test_zero_selections_returns_zero(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        cr._frame_outcomes["test_frame"] = {"selections": 0, "successes": 0}
+        eff = cr.get_frame_effectiveness()
+        assert eff["test_frame"] == 0.0
+
