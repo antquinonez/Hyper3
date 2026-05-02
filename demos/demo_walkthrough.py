@@ -151,13 +151,13 @@ for edge in mem.graph.edges:
         print(f"  {src_labels} ──[{edge.label}]──▶ {tgt_labels}  (via {rule})")
 print()
 
-# ─── STEP 4: Quantum superposition for diagnosis ─────────────────────
+# ─── STEP 4: Belief distributions for diagnosis ─────────────────────
 print("━" * 72)
-print("STEP 4: Quantum diagnosis — keeping multiple hypotheses alive")
+print("STEP 4: Belief distributions — keeping multiple hypotheses alive")
 print("━" * 72)
 print("""
 The mechanic has 3 candidate failure points: battery, fuel_pump, spark_plug.
-Instead of guessing, we hold ALL THREE as a quantum superposition.
+Instead of guessing, we hold ALL THREE as a belief distribution.
 Each has an amplitude (confidence weight).
 """)
 
@@ -165,10 +165,10 @@ qs = mem.create_distribution(
     ["battery", "fuel_pump", "spark_plug"],
     amplitudes=[0.6, 0.3, 0.25],
 )
-print(f"Superposition: {qs.outcome_count} hypotheses held simultaneously")
-print(f"  |battery⟩   amplitude=0.6  probability={0.6**2:.2f}")
-print(f"  |fuel_pump⟩ amplitude=0.3  probability={0.3**2:.2f}")
-print(f"  |spark_plug⟩ amplitude=0.25 probability={0.25**2:.2f}")
+print(f"Distribution: {qs.outcome_count} hypotheses held simultaneously")
+print(f"  battery       amplitude=0.6  probability={0.6**2:.2f}")
+print(f"  fuel_pump     amplitude=0.3  probability={0.3**2:.2f}")
+print(f"  spark_plug    amplitude=0.25 probability={0.25**2:.2f}")
 print()
 
 # Correlation: if battery is dead, starter_motor and ignition_coil are also dead
@@ -187,7 +187,7 @@ print("New evidence arrives: 'headlights are dim' → battery is weak")
 answer = mem.sample(qs, context={"battery": 3.0})
 collapsed_node = mem.graph.get_node(answer.node_id)
 collapsed_label = collapsed_node.label if collapsed_node else answer.node_id
-print(f"Collapsed to: {collapsed_label} (amplitude={answer.amplitude:.3f})")
+print(f"Sampled: {collapsed_label} (amplitude={answer.amplitude:.3f})")
 print()
 
 # ─── STEP 5: Interference patterns ───────────────────────────────────
@@ -271,7 +271,7 @@ print("━" * 72)
 print("""
 The system tracks where it stands in the space of all possible computations.
 It measures how dense its knowledge is, how diverse its rules are,
-and generates 'transcendental insights' — meta-knowledge about its own patterns.
+and generates insights — meta-knowledge about its own patterns.
 """)
 
 rule_analytics = mem.rule_analytics
@@ -300,7 +300,7 @@ print("━" * 72)
 print("STEP 9: The system analyzes its own health")
 print("━" * 72)
 print("""
-The system monitors its own cognitive fitness:
+The system monitors its own fitness:
 - Is the knowledge graph healthy?
 - Are there anti-patterns (sparse areas, dead weight)?
 - Should the architecture be restructured?
@@ -358,12 +358,12 @@ print("""
 1. KNOWLEDGE STORAGE    → We stored car components and causal relationships
 2. RULE DISCOVERY       → The system found transitive patterns automatically
 3. MULTIWAY REASONING   → It explored ALL causal paths simultaneously
-4. QUANTUM DIAGNOSIS    → It held multiple failure hypotheses in superposition
+4. BELIEF DISTRIBUTIONS → It held multiple failure hypotheses with weighted probabilities
 5. CORRELATION         → Battery failure constrained related components
 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive)
 7. BOUNDARY DETECTION   → It knew which questions were answerable vs anomalous
 8. MULTI-FRAME ANALYSIS → It analyzed the same problem from 4 different perspectives
-9. RULIAL MAPPING       → It tracked its own position in computational space
+9. RULE ANALYTICS      → It tracked its own position in computational space
 10. META-COGNITION      → It evaluated its own health and recommended improvements
 11. PERSISTENCE         → It saved everything for the next diagnostic session
 """)

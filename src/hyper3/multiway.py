@@ -218,7 +218,7 @@ class MultiwayEngine:
         self._multiway = MultiwayGraph()
         self._rule_analytics: Any | None = None
 
-    def set_rulial(self, rule_analytics: Any) -> None:
+    def set_rule_analytics(self, rule_analytics: Any) -> None:
         """Attach a RuleAnalytics engine for rule-effectiveness-aware ordering."""
         self._rule_analytics = rule_analytics
 

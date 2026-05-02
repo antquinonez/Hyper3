@@ -1,6 +1,6 @@
 # hyper3
 
-Self-evolving hypergraph knowledge graph with Ruliad-inspired multiway expansion, belief distributions, and introspective self-improvement.
+Self-evolving hypergraph knowledge graph with multiway expansion, belief distributions, and introspective self-improvement.
 
 Hyper3 is a pure-Python library for knowledge representation and reasoning. It stores information as a hypergraph with native n-ary edges, applies inference rules to discover new relationships, reasons under uncertainty using Born-rule belief sampling and Bayesian updating, and introspects on its own reasoning to self-improve.
 
@@ -32,9 +32,9 @@ src/hyper3/
 
   Multiway Subsystem
     multiway.py            MultiwayEngine, MultiwayGraph, MultiwayState
-    multiway_branchial.py  BranchialSpace (distance metrics, clustering, multi-scale analysis)
+    state_clustering.py    StateClusteringEngine (distance metrics, clustering, multi-scale analysis)
     multiway_causal.py     StateConvergenceEngine (convergence detection, state merging)
-    multiway_rulial.py     RulialSpace (computational density, meta-patterns, rule effectiveness)
+    rule_analytics.py      RuleAnalytics (computational density, meta-patterns, rule effectiveness)
 
   Cognitive Engines
     backward_chain.py      BackwardChainEngine (goal-directed reasoning, proof trees)
@@ -219,7 +219,7 @@ Nodes (`Hypernode`) represent concepts with labels, data payloads, metadata (tem
 
 ### Multiway Expansion
 
-`MultiwayEngine` takes active nodes and applies all registered rules simultaneously, producing a multiway graph (DAG of computational states). `StateConvergenceEngine` merges convergent states. `BranchialSpace` maps states into a coordinate space with distance metrics and clustering for lateral inference.
+`MultiwayEngine` takes active nodes and applies all registered rules simultaneously, producing a multiway graph (DAG of computational states). `StateConvergenceEngine` merges convergent states. `StateClusteringEngine` maps states into a coordinate space with distance metrics and clustering for lateral inference.
 
 ### Belief Distributions
 
@@ -258,7 +258,7 @@ Nodes (`Hypernode`) represent concepts with labels, data payloads, metadata (tem
 
 ### Meta-Cognition
 
-`SystemMonitor` introspects on reasoning performance, detects anti-patterns, and triggers metamorphosis proposals. `MultiPerspectiveAnalyzer` evaluates problems through classical, quantum, hypergraph, and probabilistic frames with Thompson-sampling-based effectiveness learning.
+`SystemMonitor` introspects on reasoning performance, detects anti-patterns, and triggers metamorphosis proposals. `MultiPerspectiveAnalyzer` evaluates problems through classical, probabilistic, hypergraph, and distributional frames with Thompson-sampling-based effectiveness learning.
 
 ## API Reference
 
@@ -459,7 +459,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-2001 tests, 96% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+2301 tests, 96% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
 
 ## Performance
 

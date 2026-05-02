@@ -91,9 +91,9 @@ def main():
             print(f"  {s_labels} --[{edge.label}]--> {t_labels}  ({rule})")
     print()
 
-    # --- 4. BRANCHIAL LATERAL INSIGHTS -------------------------------------
+    # --- 4. LATERAL INSIGHTS FROM STATE CLUSTERING -------------------------
     print("=" * 70)
-    print("4. LATERAL INSIGHTS FROM BRANCHIAL SPACE")
+    print("4. LATERAL INSIGHTS FROM STATE CLUSTERING")
     print("=" * 70)
     for concept in ["flood", "heavy_rain"]:
         insights = mem.lateral_insights(concept)
@@ -102,20 +102,20 @@ def main():
             for ins in insights[:3]:
                 lat = mem.multiway.multiway.get_state(ins["lateral_state"])
                 rule = lat.rule_applied if lat else "?"
-                print(f"    Lateral branch [{rule}], distance={ins['jaccard_distance']}")
+                print(f"    Lateral branch [{rule}], distance={ins.get('state_distance', ins.get('jaccard_distance', 0.0))}")
                 for nid in ins["novel_in_lateral"]:
                     n = mem.graph.get_node(nid)
                     if n:
                         print(f"      Discovered: {n.label}")
     print()
 
-    # --- 5. QUANTUM SUPERPOSITION ------------------------------------------
+    # --- 5. BELIEF DISTRIBUTIONS --------------------------------------------
     print("=" * 70)
-    print("5. QUANTUM COGNITIVE SUPERPOSITION")
+    print("5. BELIEF DISTRIBUTIONS")
     print("=" * 70)
 
     qs = mem.create_distribution(["flood", "crop_damage", "infrastructure_damage"])
-    print(f"\n  Superposition of: flood, crop_damage, infrastructure_damage")
+    print(f"\n  Distribution of: flood, crop_damage, infrastructure_damage")
     print(f"  Interpretations: {qs.outcome_count}")
     for interp in qs.outcomes:
         node = mem.graph.get_node(interp.node_id)
@@ -123,7 +123,7 @@ def main():
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
     print()
 
-    # --- 6. QUANTUM EVOLUTION ----------------------------------------------
+    # --- 6. AMPLITUDE EVOLUTION ----------------------------------------------
     print("=" * 70)
     print("6. EVOLVING AMPLITUDES WITH CONTEXT")
     print("=" * 70)
@@ -140,15 +140,15 @@ def main():
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
     print()
 
-    # --- 7. MEASUREMENT / COLLAPSE -----------------------------------------
+    # --- 7. SAMPLING ----------------------------------------------------------
     print("=" * 70)
-    print("7. OBSERVER MEASUREMENT: COLLAPSE TO DEFINITE STATE")
+    print("7. SAMPLING: SELECT DEFINITE STATE")
     print("=" * 70)
 
     selected = mem.sample(qs)
     node = mem.graph.get_node(selected.node_id)
     label = node.label if node else selected.node_id
-    print(f"\n  Collapsed to: {label}")
+    print(f"\n  Sampled to: {label}")
     print(f"  Final amplitude: {selected.amplitude:.3f}")
     print(f"  Final probability: {selected.probability:.3f}")
     print()

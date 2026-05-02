@@ -121,9 +121,9 @@ print(f"    Max depth:       {report.max_depth_reached}")
 print(f"\n  Graph after expansion: {g.node_count} nodes, {g.edge_count} edges")
 print()
 
-# --- BRANCHIAL SPACE --------------------------------------------------------
+# --- STATE CLUSTERING ------------------------------------------------------
 print("=" * 70)
-print("4. BRANCHIAL SPACE: SIMULTANEOUS STATES")
+print("4. STATE CLUSTERING: SIMULTANEOUS STATES")
 print("=" * 70)
 
 mw = engine.multiway
@@ -162,7 +162,7 @@ for child in children:
             print(f"    Lateral to [{lateral_rule}]")
             print(f"      Novel in source: {[label_of(g, n) for n in insight['novel_in_source']]}")
             print(f"      Novel in lateral: {[label_of(g, n) for n in insight['novel_in_lateral']]}")
-            print(f"      Jaccard distance: {insight['state_distance']}")
+            print(f"      Jaccard distance: {insight.get('state_distance', insight.get('jaccard_distance', 0.0))}")
 print()
 
 # --- NEW EDGES DISCOVERED ---------------------------------------------------

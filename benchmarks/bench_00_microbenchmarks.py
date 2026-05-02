@@ -4,7 +4,7 @@ Bench 0: Performance Microbenchmarks
 
 Latency measurements for core Hyper3 operations: label lookup, neighbor
 enumeration, multiway leaves, rule matching, graph isomorphism, lazy
-expansion, prefetching, multi-scale branchial analysis, Thompson sampling
+expansion, prefetching, multi-scale state clustering, Thompson sampling
 basis/frame learning, and structural anomaly detection.
 
 Run:
@@ -229,9 +229,9 @@ def bench_prefetch(n=500):
     print(f"predict_next (n={n}, 100 calls): {elapsed*1000:.1f}ms ({elapsed/100*1e3:.1f}ms/call)")
 
 
-def bench_multi_scale_branchial(n_states=50):
+def bench_multi_scale_state_clustering(n_states=50):
     from hyper3.multiway import MultiwayGraph, MultiwayState
-    from hyper3.multiway_branchial import BranchialSpace
+    from hyper3.state_clustering import StateClusteringEngine
 
     g = Hypergraph()
     for i in range(n_states):
@@ -250,7 +250,7 @@ def bench_multi_scale_branchial(n_states=50):
         )
         mg.add_state(s)
 
-    bs = BranchialSpace(g, mg)
+    bs = StateClusteringEngine(g, mg)
     bs.assign_coordinates()
 
     start = time.perf_counter()
@@ -343,7 +343,7 @@ def main() -> None:
     print()
     bench_prefetch()
     print()
-    bench_multi_scale_branchial()
+    bench_multi_scale_state_clustering()
     print()
     bench_basis_learning()
     print()

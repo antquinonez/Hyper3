@@ -87,7 +87,7 @@ class SystemMonitor:
         self._rules: list[Rule] | None = None
         self._differ: GraphDiffer | None = None
 
-    def set_rulial(self, rule_analytics: RuleAnalytics) -> None:
+    def set_rule_analytics(self, rule_analytics: RuleAnalytics) -> None:
         """Attach a rule analytics engine for insight-count tracking."""
         self._rule_analytics = rule_analytics
 

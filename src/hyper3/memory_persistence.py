@@ -279,7 +279,7 @@ class PersistenceMixin(_MemoryBase):
         self._state_clustering = state_clustering
         self._rule_analytics = rule_analytics
         if rule_analytics is not None:
-            self._meta.set_rulial(rule_analytics)
+            self._meta.set_rule_analytics(rule_analytics)
         self._log.record("load_state", path=path)
 
     def stats(self) -> MemoryStats:

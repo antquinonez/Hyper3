@@ -759,7 +759,7 @@ class TestMonitorStatsDeep:
             rule_analytics.record_rule_application(name)
         rule_analytics.find_meta_patterns()
         rule_analytics.generate_high_level_insights()
-        layer.set_rulial(rule_analytics)
+        layer.set_rule_analytics(rule_analytics)
         state = layer.assess_state()
         assert state.rule_analytics_insight_count > 0
 
@@ -802,7 +802,7 @@ class TestMonitorStatsDeep:
                 occurrence_count=6,
             )
         )
-        layer.set_rulial(rule_analytics)
+        layer.set_rule_analytics(rule_analytics)
         triggers = layer.check_tuning_triggers()
         meta = [t for t in triggers if t.trigger_type == "meta_insight"]
         assert len(meta) >= 1
@@ -824,7 +824,7 @@ class TestMonitorStatsDeep:
                 occurrence_count=6,
             )
         )
-        layer.set_rulial(rule_analytics)
+        layer.set_rule_analytics(rule_analytics)
         for _ in range(5):
             layer._introspection_log.append({"summary": {"anti_patterns": ["test"]}})
         triggers = layer.check_tuning_triggers()
@@ -913,7 +913,7 @@ class TestMetamorphosisActions:
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
         assert mem._rule_analytics is not None
-        mem._meta.set_rulial(mem._rule_analytics)
+        mem._meta.set_rule_analytics(mem._rule_analytics)
         mem._meta.set_rules(mem._rules)
         plan = TuningPlan(actions=["update_rule_analytics_position"])
         result = mem._meta.execute_tuning(plan)
@@ -987,7 +987,7 @@ class TestSystemMonitorIntrospectWithRuleAnalytics:
         mem.relate("a", "b", label="rel")
         mem.relate("b", "c", label="rel")
         mem.relate("c", "d", label="rel")
-        mem._meta.set_rulial(mem._rule_analytics)
+        mem._meta.set_rule_analytics(mem._rule_analytics)
         report = mem._meta.introspect([])
         assert report.system_health.fitness >= 0.0
 

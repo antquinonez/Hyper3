@@ -50,7 +50,7 @@ class ReasoningMixin(_MemoryBase):
         self._convergence_engine = StateConvergenceEngine(self._graph, self._multiway_engine.multiway)
         self._state_clustering = StateClusteringEngine(self._graph, self._multiway_engine.multiway)
         self._rule_analytics = RuleAnalytics(self._graph, self._multiway_engine)
-        self._multiway_engine.set_rulial(self._rule_analytics)
+        self._multiway_engine.set_rule_analytics(self._rule_analytics)
         self._rule_productions: dict[str, list[str]] = {}
 
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
@@ -136,7 +136,7 @@ class ReasoningMixin(_MemoryBase):
         auto_commit: bool,
         convergence_report: MergeReport | None,
         clustering_report: StateClusteringReport | None,
-        rulial_report: RuleAnalyticsReport | None,
+        rule_analytics_report: RuleAnalyticsReport | None,
         auto_distributions: list[BeliefState],
     ) -> ReasonResult:
         """Assemble the final ReasonResult from expansion and post-expansion reports."""
@@ -159,7 +159,7 @@ class ReasoningMixin(_MemoryBase):
             ),
             state_convergence=convergence_report,
             clustering=clustering_report,
-            rule_analytics=rulial_report,
+            rule_analytics=rule_analytics_report,
             multiway_leaves=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
         )
         if use_overlay and self._overlay:
@@ -284,7 +284,7 @@ class ReasoningMixin(_MemoryBase):
         target_graph = self._overlay if use_overlay and self._overlay else self._graph
         self._record_provenance(target_graph)
 
-        convergence_report, clustering_report, rulial_report = self._run_post_expansion(
+        convergence_report, clustering_report, rule_analytics_report = self._run_post_expansion(
             active_rules,
             enforce_convergence,
         )
@@ -300,7 +300,7 @@ class ReasoningMixin(_MemoryBase):
             auto_commit,
             convergence_report,
             clustering_report,
-            rulial_report,
+            rule_analytics_report,
             auto_distributions,
         )
 

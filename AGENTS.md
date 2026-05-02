@@ -21,7 +21,7 @@ The principles below codify the design patterns governing the codebase, implemen
 
 ## Design Principles
 
-These principles govern the architecture, API design, and implementation patterns of the entire Hyper3 codebase — all engine classes, utility classes, result dataclasses, and module relationships. They are derived from the inspiration documents and refined through implementation experience.
+These principles govern the architecture, API design, and implementation patterns of the entire Hyper3 codebase — all engine classes, utility classes, result dataclasses, and module relationships.
 
 ### DP-1: Compositional Architecture via Mixin Decomposition
 
@@ -33,7 +33,7 @@ HypergraphMemory(CoreMixin, ReasoningMixin, BeliefMixin, BayesianMixin,
 ```
 
 Each mixin lives in its own module (`memory_core.py`, `memory_reasoning.py`, etc.) and operates on shared state declared in `_MemoryBase`. New capabilities are added by creating a new mixin and extending the facade class list, not by expanding existing files.
-**Why**: The inspiration documents describe a "layered cognitive-computational integration architecture" where each layer interacts with and informs the others (Figure 5). Mixin decomposition is the code-level analog: each layer is independently testable and replaceable while sharing a unified state surface.
+**Why**: Mixin decomposition keeps each domain independently testable and replaceable while sharing a unified state surface through `_MemoryBase`. Each layer owns a coherent set of responsibilities and can be modified without touching others.
 
 **Pattern**:
 ```python
@@ -57,7 +57,7 @@ class ReasoningMixin(_MemoryBase):
 
 Domain logic lives in standalone engine classes (`GraphMaintenanceEngine`, `StateClusteringEngine`, `BeliefLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
-**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, state clustering engine, rule analytics interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
+**Why**: Specialized subsystems (multiway engine, convergence engine, clustering engine, rule analytics) operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
 **Pattern**:
 ```python
@@ -67,7 +67,7 @@ class BeliefMixin(_MemoryBase):
         return self._belief.create_distribution(node_id, outcomes, ...)
 ```
 
-The calling layer resolves labels to IDs (the analog of the "input translation layer" from Figure 9 of the v2-1 spec), then delegates to the engine. Engine results flow back to the caller unchanged.
+The calling layer resolves labels to IDs (the boundary translation), then delegates to the engine. Engine results flow back to the caller unchanged.
 
 **Violations to avoid**: Do not unpack an engine's typed result into a dict and rewrap it in another dataclass. Do not add intermediate translation layers between caller and engine. If the engine's result type is not suitable for public use, modify the engine — not the caller.
 
@@ -83,7 +83,7 @@ self._community_detector: CommunityDetector | None = None
 
 First access via a property or method checks for `None` and initializes.
 
-**Why**: The "Lazy Evaluation Protocol" (Appendix E of the spec) describes instantiation on demand: "nodes and hyperedges should only be instantiated when explicitly required." This principle extends from data structures to the subsystems themselves. A session that never uses community detection should not pay the cost of initializing it.
+**Why**: Subsystems that are not used in every session should not incur initialization cost. A session that never uses community detection should not pay the cost of initializing it. Deferring construction until first access keeps the base footprint minimal.
 
 **Pattern**:
 ```python
@@ -100,7 +100,7 @@ This pattern applies beyond `HypergraphMemory` — any class that owns optional 
 
 The public API accepts concept labels (human-readable strings) as input and returns labels in output. Node IDs (auto-generated UUID hex) are an internal implementation detail used by engines. The public API boundary performs label-to-ID resolution at the boundary.
 
-**Why**: The spec's "Observer-Centric Adaptive Filtering" (Figure 4, Figure 7) describes how different observers see different projections of the same underlying structure. Labels are the observer-facing projection; IDs are the underlying structure. The public API is the boundary where the projection is applied.
+**Why**: Labels are the human-facing projection; IDs are the internal structure. Different consumers (interactive users, scripts, automated subsystems) may see different projections of the same underlying graph. The public API is the boundary where the label-to-ID translation is applied, keeping internal engines free of string resolution logic.
 
 **Pattern**:
 ```python
@@ -117,7 +117,7 @@ All engines receive and return IDs. All public methods accept and return labels.
 
 All result dataclasses across every module extend `_SimpleResultBase`, which provides `__getitem__`, `__contains__`, `keys()`, and `items()` for dict-like bracket access alongside standard attribute access. This applies to result dataclasses defined in `results.py`, in engine modules (e.g., `CommunityResult` in `community.py`, `BackwardChainResult` in `backward_chain.py`), and in any new modules.
 
-**Why**: The spec describes "immutable event logging" and "consistency verification" as foundational layers. Typed dataclasses are the code-level analog: they make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The dict-like access layer provides ergonomic convenience for interactive use and quick scripting.
+**Why**: Typed dataclasses make the structure of returned data explicit, verifiable by the type checker, and self-documenting. The dict-like access layer provides ergonomic convenience for interactive use and quick scripting.
 
 **Pattern**:
 ```python
@@ -136,9 +136,9 @@ When creating new result types in any module, always extend `_SimpleResultBase` 
 
 ### DP-6: Hypergraph as the Universal Substrate
 
-All knowledge, reasoning state, and cognitive structure are represented as nodes and edges in the hypergraph. There is no separate "knowledge base," "working memory," or "inference store." New features store their state in the graph via typed data on nodes/edges and labeled edges, not in parallel data structures.
+All knowledge, reasoning state, and structural relationships are represented as nodes and edges in the hypergraph. There is no separate "knowledge base," "working memory," or "inference store." New features store their state in the graph via typed data on nodes/edges and labeled edges, not in parallel data structures.
 
-**Why**: The spec's opening claim is for "real-time dynamic instantiation of hypergraph nodes and edges" as the foundation of the entire architecture. Figure 1 of the spec shows the iterative loop of contextual trigger -> instantiate node -> instantiate edge -> link to existing -> update metadata -> ready for traversal. The hypergraph IS the memory, IS the reasoning surface, IS the cognitive structure.
+**Why**: The hypergraph is the single source of truth for all knowledge and reasoning state. Every concept, relationship, inference, and structural observation lives as nodes and edges in the same graph. The `reason()` method applies rules to find new edges. The `evolve()` method performs decay/prune/merge. All of this operates on the same graph.
 
 **Pattern**:
 ```python
@@ -147,15 +147,15 @@ mem.store("cancer", data={"type": "disease"})
 mem.relate("dna_damage", "cancer", label="causes")
 ```
 
-These three calls create hypernodes with data payloads and a hyperedge with a semantic label. The `reason()` method applies rules (analog of the spec's "rule templates") to find new edges. The `evolve()` method performs decay/prune/merge (analog of "continuous structural self-evolution"). All of this operates on the same graph.
+These three calls create hypernodes with data payloads and a hyperedge with a semantic label. The `reason()` method applies rules to find new edges. The `evolve()` method performs decay/prune/merge. All of this operates on the same graph.
 
-**Violations to avoid**: Do not create a separate dict, list, or database to store cognitive state. If a feature needs to track state, create nodes and edges for it. If the graph alone cannot represent the needed structure, extend the graph (add data fields to nodes/edges) rather than bypassing it.
+**Violations to avoid**: Do not create a separate dict, list, or database to store reasoning state. If a feature needs to track state, create nodes and edges for it. If the graph alone cannot represent the needed structure, extend the graph (add data fields to nodes/edges) rather than bypassing it.
 
 ### DP-7: Rule-Based Multiway Expansion
 
 Reasoning is driven by rules that find matching patterns in the graph and produce new edges. Rules are pure queries (side-effect-free `find_matches()`) that the multiway engine applies to produce expansions. The engine explores all possible rule applications simultaneously, creating a multiway graph of computational states.
 
-**Why**: This is the direct analog of the spec's "Ruliad-based Multiway Expansion" (Figure 3) and "Explicit Rule Templates" (Appendix B). The spec defines rule categories: deductive inference, contextual substitution, temporal/causal rewrites, abductive reasoning, analogical reasoning, equivalence merging. Hyper3 implements these as the `Rule` ABC with concrete subclasses (`TransitiveRule`, `InverseRule`, `GeneralizationRule`, `AbductiveRule`, `ContextualSubstitutionRule`, `PropertyPropagationRule`, `HubInferenceRule`, `StructuralProjectionRule`).
+**Why**: Rules that find matching patterns in the graph and produce new edges are a natural fit for multiway expansion: each rule application is a branch point, and the engine explores all possible rule applications simultaneously. Hyper3 implements 8 rule categories: deductive inference (TransitiveRule, InverseRule), contextual substitution (ContextualSubstitutionRule), property propagation (PropertyPropagationRule), abductive reasoning (AbductiveRule, HubInferenceRule), structural projection (StructuralProjectionRule), and generalization (GeneralizationRule).
 
 **Pattern**:
 ```python
@@ -173,7 +173,7 @@ class TransitiveRule(Rule):
         return graph.add_edge(...)
 ```
 
-The `MultiwayEngine` applies all registered rules to the current graph state, branching into multiple possible futures. The `StateConvergenceEngine` then merges equivalent states (the "equivalence merging" from Figure 6 of the spec).
+The `MultiwayEngine` applies all registered rules to the current graph state, branching into multiple possible futures. The `StateConvergenceEngine` then merges equivalent states.
 
 ### DP-8: Born-Rule Sampling and Belief Distributions
 
@@ -194,7 +194,7 @@ result = mem.sample("bank")  # probabilistic, context-dependent
 
 Problems are analyzed through multiple computational reference frames (classical, quantum, hypergraph, probabilistic). Each frame produces its own complexity assessment and solution approach. Frame effectiveness is learned via Thompson sampling.
 
-**Why**: The v2-1 spec's "Computational Relativity Framework" (Figure 4, Figure 18) describes how "complexity is relative to the computational frame used to analyze them." The implementation provides `analyze_in_frame()` and `multi_frame_analysis()` methods that evaluate problems through different computational lenses, with `select_optimal_frame()` choosing the best frame based on learned effectiveness.
+**Why**: Different computational frames (classical, probabilistic, hypergraph, distributional) reveal different aspects of a problem. `analyze_in_frame()` and `multi_frame_analysis()` evaluate problems through different computational lenses, with `select_optimal_frame()` choosing the best frame based on learned effectiveness via Thompson sampling.
 
 **Pattern**:
 ```python
@@ -209,7 +209,7 @@ best_frame, best_analysis = mem.select_optimal_frame("protein_folding")
 
 The hypergraph supports infinite-dimensional traversal, but observers (users, tasks, subsystems) see filtered slices. `TraversalEngine` provides BFS, DFS, dimension-filtered, and adaptive weight-priority traversals. `ObserverSlice` applies dimension-based filtering to reduce complexity for the current context.
 
-**Why**: The spec's "Observer-Centric Real-Time Filtering" (Figure 4, Figure 7, Figure 19) describes how "observer slices adaptively adjust the complexity and focus of information presentation based on immediate user context." The `SliceConfig` and `ObserverSlice` classes implement this: they filter traversal results by modality, abstraction layer, dimension, and weight bounds.
+**Why**: Observers (users, tasks, subsystems) need different views of the same graph depending on their context. `SliceConfig` and `ObserverSlice` filter traversal results by modality, abstraction layer, dimension, and weight bounds to reduce complexity for the current context.
 
 **Pattern**:
 ```python
@@ -225,7 +225,7 @@ results = mem.recall("cancer", config=config)
 
 The graph continuously evolves its own structure: decaying unused edges, pruning below-threshold nodes, merging equivalent nodes, and reinforcing frequently-used paths. This operates as a background process triggered by operation count.
 
-**Why**: The spec's "Continuous Structural Self-Evolution" (Figure 9, Figure 14) describes a feedback loop: "new interactions trigger dynamic instantiation, followed by immediate assessment of structural impact, leading to dynamic refinements." The `GraphMaintenanceEngine` implements this as `decay()` (reduce weights), `prune()` (remove below-threshold), `merge()` (combine equivalent nodes), and `reinforce()` (strengthen used paths).
+**Why**: Knowledge graphs accumulate stale and redundant structure over time. The `GraphMaintenanceEngine` implements a feedback loop: `decay()` reduces weights on inactive edges, `prune()` removes below-threshold nodes, `merge()` combines equivalent nodes, and `reinforce()` strengthens frequently-used paths.
 
 **Pattern**:
 ```python
@@ -269,7 +269,7 @@ if result.anomaly_status == "anomalous":
 
 Frequently-accessed graph operations are accelerated by lazy caches and structural indexes. Caches are invalidated on mutation; indexes are maintained incrementally.
 
-**Why**: The spec's "Lazy Evaluation Protocol" (Appendix E) describes "instantiation on demand" and "active node caching with expiration." The `LazyCache` implements LRU with TTL and optional Markov-model prefetching. The `Hypergraph` maintains a `_label_index` and lazily-built `_neighbor_cache` that invalidate on any structural mutation.
+**Why**: Repeated graph traversals and lookups are expensive. `LazyCache` implements LRU with TTL and optional Markov-model prefetching. The `Hypergraph` maintains a `_label_index` and lazily-built `_neighbor_cache` that invalidate on any structural mutation.
 
 **Existing indexes** (maintain when making changes):
 - `Hypergraph._label_index: dict[str, str]` — label to node_id mapping
@@ -282,7 +282,7 @@ Frequently-accessed graph operations are accelerated by lazy caches and structur
 
 The core library has no network calls, no database, no external services. All computation is local and deterministic (given fixed random seeds). Optional capabilities (FAISS embeddings, matplotlib visualization) are gated behind `[faiss]` and `[viz]` extras.
 
-**Why**: The spec describes a "self-contained cognitive-computational architecture." External dependencies introduce fragility and non-determinism. The library must be fully functional with only numpy/scipy/networkx.
+**Why**: External dependencies introduce fragility and non-determinism. The library must be fully functional with only numpy/scipy/networkx.
 
 ### DP-16: Domain Prefixes for Module Relationships
 
