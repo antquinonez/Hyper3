@@ -32,7 +32,7 @@ class TestAbstractionBasic:
         mem.relate("A", "B", label="internal")
         result = mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         assert result is not None
-        assert result.external_connections >= 1
+        assert result.external_connections == 1
 
     def test_expand_summary(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -57,7 +57,7 @@ class TestAbstractionBasic:
         mem.relate("A", "B", label="x")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         summaries = mem.list_summaries()
-        assert len(summaries) >= 1
+        assert len(summaries) == 1
         assert summaries[0].summary_label == "AB"
 
     def test_list_summaries_empty(self) -> None:
@@ -81,8 +81,8 @@ class TestAbstractionNavigator:
         assert summary is not None
         edges_in = [e for e in mem.graph.edges if summary.id in e.target_ids]
         edges_out = [e for e in mem.graph.edges if summary.id in e.source_ids]
-        assert len(edges_in) >= 1
-        assert len(edges_out) >= 1
+        assert len(edges_in) == 1
+        assert len(edges_out) == 1
 
     def test_collapse_removes_internal_edges(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -108,7 +108,7 @@ class TestAbstractionNavigator:
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         mem.expand_summary("AB")
         a_edges = mem.graph.incident_edges(mem.graph.get_node_by_label("A").id)
-        assert len(a_edges) >= 1
+        assert len(list(a_edges)) == 1
 
     def test_abstraction_property(self) -> None:
         from hyper3.abstraction import AbstractionNavigator

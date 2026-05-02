@@ -460,16 +460,16 @@ class TestMultiwayEngine:
         engine = MultiwayEngine(g)
         rules = [TransitiveRule(edge_label="next")]
         report = engine.expand({"n0", "n1", "n2", "n3", "n4"}, rules, max_depth=3)
-        assert report.rules_applied > 0
-        assert report.states_created > 1
-        assert report.edges_produced > 0
+        assert report.rules_applied == 3
+        assert report.states_created == 4
+        assert report.edges_produced == 3
 
     def test_expand_from_labels(self):
         g = self._build_chain_graph()
         engine = MultiwayEngine(g)
         rules = [TransitiveRule(edge_label="next")]
         report = engine.expand_from_labels({"node0"}, rules, max_depth=2)
-        assert report.states_created >= 1
+        assert report.states_created == 1
 
     def test_max_depth_respected(self):
         g = self._build_chain_graph()
@@ -498,7 +498,7 @@ class TestMultiwayEngine:
             InverseRule(edge_label="rel", inverse_label="inv_rel"),
         ]
         report = engine.expand({"a", "b", "c"}, rules, max_depth=2)
-        assert report.rules_applied >= 2
+        assert report.rules_applied == 3
 
     def test_find_convergent_states(self):
         g = Hypergraph()
@@ -510,9 +510,10 @@ class TestMultiwayEngine:
         engine.expand({"x", "y"}, rules, max_depth=1)
         convergences = engine.find_convergent_states()
         assert isinstance(convergences, list)
-        for c in convergences:
-            assert hasattr(c, "state_a_id")
-            assert hasattr(c, "state_b_id")
+        for sa, sb, sim in convergences:
+            assert isinstance(sa, str)
+            assert isinstance(sb, str)
+            assert 0.0 <= sim <= 1.0
 
     def test_lateral_insights(self):
         g = Hypergraph()
@@ -529,12 +530,11 @@ class TestMultiwayEngine:
         root = engine.multiway.get_root()
         assert root is not None
         children = engine.multiway.get_children(root.id)
-        if children:
-            insights = engine.get_lateral_insights(children[0].id)
-            assert isinstance(insights, list)
-            for insight in insights:
-                assert isinstance(insight, dict)
-                assert "branchial_distance" in insight
+        assert len(children) >= 1
+        insights = engine.get_lateral_insights(children[0].id)
+        for insight in insights:
+            assert "branchial_distance" in insight
+            assert isinstance(insight["branchial_distance"], float)
 
     def test_empty_rules_no_expansion(self):
         g = Hypergraph()
@@ -907,7 +907,7 @@ class TestLazyMultiwayExpansion:
         states = list(engine.expand_lazy(
             {a.id, b.id, c.id}, [rule], max_depth=2, max_total_states=10,
         ))
-        assert len(states) >= 1
+        assert len(states) == 2
         assert states[0][1] == 0
 
     def test_expand_lazy_respects_max_states(self):
@@ -1400,7 +1400,7 @@ class TestMultiwayEngineExpandBranchBounding:
             max_branches_per_state=2,
             max_total_states=100,
         )
-        assert report.states_created >= 1
+        assert report.states_created == 7
 
     def test_expand_lazy_yields_tuples(self):
         g = self._make_chain_graph(8)
@@ -1412,10 +1412,10 @@ class TestMultiwayEngineExpandBranchBounding:
             max_depth=2,
             max_total_states=50,
         ))
-        assert len(results) >= 1
+        assert len(results) >= 2
         for _sid, depth, count in results:
             assert isinstance(depth, int)
-            assert isinstance(count, int)
+            assert count >= 0
 
     def test_expand_lazy_respects_max_total_states(self):
         g = self._make_chain_graph(10)
@@ -1467,7 +1467,8 @@ class TestMultiwayEngineExpandBranchBounding:
             max_depth=2,
             max_total_states=50,
         )
-        assert report.states_created >= 0
+        assert report.states_created == 6
+        assert report.rules_applied == 6
 
     def test_expand_incremental_fallback_with_unrelated_ids(self):
         g = Hypergraph()

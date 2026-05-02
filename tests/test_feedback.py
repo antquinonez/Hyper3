@@ -161,7 +161,7 @@ class TestEquivalenceEngineUpgrade:
         from hyper3.equivalence import EquivalenceEngine
         eq = EquivalenceEngine(graph, threshold=0.3)
         pairs = eq.find_equivalences()
-        assert len(pairs) >= 1
+        assert len(pairs) == 1
         pair_ids = {(p[0], p[1]) for p in pairs}
         assert (a.id, b.id) in pair_ids or (b.id, a.id) in pair_ids
 
@@ -205,7 +205,7 @@ class TestFeedbackSummary:
         fb = OperationFeedback(g)
         fb.record_retrieval_outcome("q1", [n1.id], [n2.id])
         result = fb.cross_operation_summary()
-        assert result.total_signals >= 2
+        assert result.total_signals == 2
 
     def test_inference_acceptance_reflected(self):
         g = Hypergraph()
@@ -242,11 +242,11 @@ class TestFeedbackSummary:
         result = fb.cross_operation_summary()
         assert n.id in result.correlated_nodes
         info = result.correlated_nodes[n.id]
-        assert info.signal_count >= 3
+        assert info.signal_count == 3
 
     def test_memory_facade_feedback_summary(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem._feedback.record_collapse_outcome("qs1", "n1", correct=True)
         result = mem.feedback_summary()
-        assert result.total_signals >= 1
+        assert result.total_signals == 1
 

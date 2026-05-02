@@ -467,5 +467,5 @@ class TestSemanticCorrectness:
         engine = ContradictionResolver(mem.graph, mem._provenance)
         result = engine.revise(strategy="higher_confidence")
         cascade_ids = {a.edge_id for a in result.plan.actions if a.action_type == "cascade_retract"}
-        assert e_dep1.id in cascade_ids or e_dep2.id in cascade_ids
+        assert e_dep1.id in cascade_ids and e_dep2.id in cascade_ids
 

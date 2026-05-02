@@ -41,6 +41,8 @@ class TestPlotHypergraph:
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
         assert len(fig.axes) == 1
+        assert len(ax.collections) == 0
+        assert len(ax.patches) == 0
         plt.close(fig)
 
     def test_circular_layout(self):
@@ -51,6 +53,9 @@ class TestPlotHypergraph:
         fig = plot_hypergraph(g, layout="circular")
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
+        label_texts = [t for t in ax.texts if t.get_text() in {"x", "y"}]
+        assert len(label_texts) == 2
         plt.close(fig)
 
     def test_shell_layout(self):
@@ -60,6 +65,9 @@ class TestPlotHypergraph:
         fig = plot_hypergraph(g, layout="shell")
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
+        label_texts = [t for t in ax.texts if t.get_text() in {"x", "y"}]
+        assert len(label_texts) == 2
         plt.close(fig)
 
     def test_show_weights(self):
@@ -71,6 +79,8 @@ class TestPlotHypergraph:
         ax = fig.axes[0]
         weight_texts = [t for t in ax.texts if "2.5" in t.get_text()]
         assert len(weight_texts) == 1
+        assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
     def test_weighted_nodes(self):
@@ -82,6 +92,8 @@ class TestPlotHypergraph:
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
         assert len(ax.collections) >= 1
+        label_texts = [t for t in ax.texts if t.get_text() in {"heavy", "light"}]
+        assert len(label_texts) == 2
         plt.close(fig)
 
 
@@ -101,6 +113,7 @@ class TestPlotBranchialSpace:
         assert ax.get_title() == "Branchial Space"
         assert ax.get_xlabel() == "Dimension 1"
         assert ax.get_ylabel() == "Dimension 2"
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
     def test_empty_branchial(self):
@@ -130,6 +143,8 @@ class TestPlotBranchialSpace:
         ax = fig.axes[0]
         assert ax.get_title() == "Branchial Space"
         assert len(ax.collections) >= 1
+        assert ax.get_xlabel() == "Dimension 1"
+        assert ax.get_ylabel() == "Dimension 2"
         plt.close(fig)
 
     def test_with_correlations(self):
@@ -148,6 +163,8 @@ class TestPlotBranchialSpace:
         ax = fig.axes[0]
         assert ax.get_title() == "Branchial Space"
         assert ax.get_xlabel() == "Dimension 1"
+        assert ax.get_ylabel() == "Dimension 2"
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
 
@@ -161,6 +178,8 @@ class TestPlotBeliefState:
         fig = plot_belief_state(ql, qs.id, graph=g)
         assert len(fig.axes) == 2
         assert "distribution" in fig.get_suptitle()
+        assert fig.axes[0].get_title() == "Amplitudes"
+        assert fig.axes[1].get_title() == "Born Rule Probabilities"
         plt.close(fig)
 
     def test_resolved(self):
@@ -172,6 +191,8 @@ class TestPlotBeliefState:
         ql.sample(qs.id)
         fig = plot_belief_state(ql, qs.id, graph=g)
         assert "resolved" in fig.get_suptitle()
+        assert len(fig.axes) == 2
+        assert fig.axes[0].get_ylabel() == "Amplitude"
         plt.close(fig)
 
     def test_probabilities_only(self):
@@ -182,6 +203,8 @@ class TestPlotBeliefState:
         qs = ql.create_distribution(["a", "b"])
         fig = plot_belief_state(ql, qs.id, show_amplitudes=False, show_probabilities=True)
         assert len(fig.axes) == 1
+        assert fig.axes[0].get_title() == "Born Rule Probabilities"
+        assert fig.axes[0].get_ylabel() == "Probability (|ψ|²)"
         plt.close(fig)
 
     def test_empty_state(self):
@@ -208,6 +231,8 @@ class TestPlotEvidenceInteraction:
         has_bars = len(ax.containers) == 2
         has_fallback = any(t.get_text() == "No interference detected" for t in ax.texts)
         assert has_bars or has_fallback
+        if has_bars:
+            assert ax.get_ylabel() == "Amplitude"
         plt.close(fig)
 
     def test_no_interactions(self):
@@ -218,6 +243,7 @@ class TestPlotEvidenceInteraction:
         fig = plot_evidence_interaction(ql, qs.id)
         ax = fig.axes[0]
         assert ax.texts[0].get_text() == "No interference detected"
+        assert ax.get_title() == "Evidence Interaction"
         plt.close(fig)
 
 
@@ -234,6 +260,7 @@ class TestPlotEvolutionHistory:
         assert ax.get_xlabel() == "Timestamp"
         assert ax.get_ylabel() == "Event Index"
         assert ax.get_legend() is not None
+        assert len(ax.collections) == 4
         plt.close(fig)
 
     def test_empty(self):
@@ -252,6 +279,9 @@ class TestPlotHypergraphLayouts:
         fig = plot_hypergraph(g, layout="kamada_kawai")
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
+        label_texts = [t for t in ax.texts if t.get_text() in {"a", "b"}]
+        assert len(label_texts) == 2
         plt.close(fig)
 
     def test_kamada_kawai_disconnected_fallback(self):
@@ -261,6 +291,9 @@ class TestPlotHypergraphLayouts:
         fig = plot_hypergraph(g, layout="kamada_kawai")
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
+        label_texts = [t for t in ax.texts if t.get_text() in {"a", "b"}]
+        assert len(label_texts) == 2
         plt.close(fig)
 
     def test_unknown_layout_fallback(self):
@@ -269,6 +302,7 @@ class TestPlotHypergraphLayouts:
         fig = plot_hypergraph(g, layout="totally_invalid")
         ax = fig.axes[0]
         assert ax.get_title() == "Hypergraph"
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
 
@@ -283,6 +317,8 @@ class TestPlotBranchialDeep:
         ax = fig.axes[0]
         assert ax.get_title() == "Branchial Space"
         assert len(ax.collections) >= 1
+        assert ax.get_xlabel() == "Dimension 1"
+        assert ax.get_ylabel() == "Dimension 2"
         plt.close(fig)
 
     def test_no_plottable_coordinates(self):
@@ -305,6 +341,8 @@ class TestPlotBranchialDeep:
         fig = plot_branchial_space(bs, show_correlations=True)
         ax = fig.axes[0]
         assert len(ax.lines) >= 1
+        assert ax.get_title() == "Branchial Space"
+        assert len(ax.collections) >= 1
         plt.close(fig)
 
 
@@ -321,6 +359,8 @@ class TestPlotEvidenceInteractionDeep:
         fig = plot_evidence_interaction(ql, qs.id, graph=g)
         ax = fig.axes[0]
         assert len(ax.containers) == 2
+        assert ax.get_title() == "Evidence Interaction"
+        assert ax.get_ylabel() == "Amplitude"
         plt.close(fig)
 
     def test_interactions_no_graph(self):
@@ -333,4 +373,6 @@ class TestPlotEvidenceInteractionDeep:
         fig = plot_evidence_interaction(ql, qs.id)
         ax = fig.axes[0]
         assert len(ax.containers) == 2
+        assert ax.get_title() == "Evidence Interaction"
+        assert ax.get_ylabel() == "Amplitude"
         plt.close(fig)

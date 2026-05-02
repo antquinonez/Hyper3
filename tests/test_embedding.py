@@ -193,9 +193,10 @@ class TestEmbeddingEngine:
         c_id = g.get_node_by_label("c").id
         engine = EmbeddingEngine(g)
         results = engine.analogy(a_id, b_id, c_id, top_k=3)
+        assert len(results) == 2
+        graph_ids = {n.id for n in g.nodes}
         for nid, score in results:
-            assert isinstance(nid, str)
-            assert isinstance(score, float)
+            assert nid in graph_ids
             assert -1.0 <= score <= 1.0
 
     def test_invalidate_cache(self):
@@ -264,8 +265,9 @@ class TestHypergraphMemoryIntegration:
         mem.store("cat")
         mem.store("dog")
         results = mem.find_similar("cat", threshold=-1.0)
-        assert len(results) > 0
-        assert all(isinstance(r, SimilarityResult) for r in results)
+        assert len(results) == 1
+        assert results[0].label_b == "dog"
+        assert -1.0 <= results[0].similarity <= 1.0
 
     def test_find_similar_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -278,11 +280,10 @@ class TestHypergraphMemoryIntegration:
         mem.store("man")
         mem.store("woman")
         results = mem.analogy("king", "queen", "man", top_k=3)
-        assert len(results) > 0
-        for label, score in results:
-            assert isinstance(label, str)
-            assert isinstance(score, float)
-            assert -1.0 <= score <= 1.0
+        assert len(results) == 1
+        label, score = results[0]
+        assert label == "woman"
+        assert -1.0 <= score <= 1.0
 
     def test_analogy_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -321,7 +322,7 @@ class TestHypergraphMemoryIntegration:
             mem2.load(path)
             assert mem2._embedding_engine is None
             results = mem2.find_similar("cat", threshold=-1.0)
-            assert len(results) > 0
+            assert len(results) == 1
         finally:
             os.unlink(path)
 
@@ -368,8 +369,7 @@ class TestFaissIntegration:
         engine.enable_faiss()
         assert engine._faiss_index is not None
         results_faiss = engine.find_similar(nid, top_k=10, threshold=-1.0)
-        assert len(results_faiss) > 0
-        assert all(isinstance(r, SimilarityResult) for r in results_faiss)
+        assert len(results_faiss) == 10
         assert all(r.node_a_id == nid for r in results_faiss)
         assert nid not in [r.node_b_id for r in results_faiss]
 
@@ -401,7 +401,7 @@ class TestFaissIntegration:
         engine = EmbeddingEngine(g, similarity_threshold=-1.0)
         engine.enable_faiss()
         results = engine.find_similar(nid, top_k=5, threshold=-1.0)
-        assert len(results) <= 5
+        assert len(results) == 5
 
     def test_results_sorted_desc_with_faiss(self):
         g = _make_graph(*(f"n{i}" for i in range(20)))
@@ -497,8 +497,7 @@ class TestFaissIntegration:
             mem.store(f"item_{i}")
         mem.enable_faiss()
         results = mem.find_similar("item_0", threshold=-1.0)
-        assert len(results) > 0
-        assert all(isinstance(r, SimilarityResult) for r in results)
+        assert len(results) == 10
 
     def test_memory_faiss_persists_across_retrieval(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -506,7 +505,7 @@ class TestFaissIntegration:
             mem.store(f"node_{i}")
         mem.enable_faiss()
         results = mem.retrieve("node_0", top_k=5)
-        assert len(results) > 0
+        assert len(results) == 5
 
     def test_faiss_index_rebuild_after_invalidate(self):
         g = _make_graph(*(f"n{i}" for i in range(10)))

@@ -49,8 +49,7 @@ class TestModalityEnum:
         assert len(members) == 6
 
     def test_member_values_are_strings(self):
-        for m in Modality:
-            assert isinstance(m.value, str)
+        assert {m.value for m in Modality} == {"textual", "conceptual", "temporal", "convergence", "sensory", "abstract"}
 
     def test_lookup_by_value(self):
         assert Modality("textual") is Modality.TEXTUAL
@@ -60,7 +59,7 @@ class TestModalityEnum:
 class TestHypernode:
     def test_default_creation(self):
         node = Hypernode()
-        assert node.id
+        assert len(node.id) == 32
         assert node.label == ""
         assert node.data is None
         assert node.access_count == 0
@@ -120,7 +119,7 @@ class TestHypernode:
 class TestHyperedge:
     def test_default_creation(self):
         edge = Hyperedge()
-        assert edge.id
+        assert len(edge.id) == 32
         assert edge.source_ids == frozenset()
         assert edge.target_ids == frozenset()
 
@@ -177,9 +176,9 @@ class TestHypergraph:
         g = Hypergraph()
         node = Hypernode(id="n1")
         g.add_node(node)
-        assert g.remove_node("n1")
+        assert g.remove_node("n1") is True
         assert g.node_count == 0
-        assert not g.remove_node("n1")
+        assert g.remove_node("n1") is False
 
     def test_remove_node_cascades_edges(self):
         g = Hypergraph()
@@ -217,9 +216,9 @@ class TestHypergraph:
         g.add_node(b)
         edge = Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}))
         g.add_edge(edge)
-        assert g.remove_edge("e1")
+        assert g.remove_edge("e1") is True
         assert g.edge_count == 0
-        assert not g.remove_edge("e1")
+        assert g.remove_edge("e1") is False
 
     def test_edges_for(self):
         g = Hypergraph()
@@ -1794,10 +1793,10 @@ class TestEquivalenceBlocking:
         for i in range(10):
             g.add_node(Hypernode(label=f"dict_{i}", data={"type": "a", "val": i}))
             g.add_node(Hypernode(label=f"str_{i}", data="same_string"))
-            g.add_node(Hypernode(label=f"none_{i}", data=None))
+            g.add_node(Hypernode(label=f"none_{i}"))
         engine = EquivalenceEngine(g, threshold=0.5)
         pairs = engine.find_equivalences()
-        assert len(pairs) > 0
+        assert len(pairs) == 90
         for _a_id, _b_id, score in pairs:
             assert score >= 0.5
 
@@ -1809,7 +1808,7 @@ class TestEquivalenceBlocking:
             g.add_node(Hypernode(label=f"n{i}"))
         engine = EquivalenceEngine(g, threshold=0.5)
         pairs = engine.find_equivalences()
-        assert len(pairs) > 0
+        assert len(pairs) == 20
 
 
 class TestSubgraphExtraction:
@@ -2144,7 +2143,7 @@ class TestSemanticFindPaths:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes["b"].id}), target_ids=frozenset({nodes["c"].id}), label="x"))
         g.add_edge(Hyperedge(source_ids=frozenset({nodes["c"].id}), target_ids=frozenset({nodes["d"].id}), label="x"))
         paths = g.find_paths(nodes["a"].id, nodes["d"].id)
-        assert len(paths) >= 1
+        assert len(paths) == 1
         for path in paths:
             assert path[0] == nodes["a"].id
             assert path[-1] == nodes["d"].id
@@ -2287,7 +2286,7 @@ class TestSemanticCycles:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes["b"].id}), target_ids=frozenset({nodes["c"].id}), label="x"))
         g.add_edge(Hyperedge(source_ids=frozenset({nodes["c"].id}), target_ids=frozenset({nodes["a"].id}), label="x"))
         cycles = g.detect_cycles()
-        assert len(cycles) >= 1
+        assert len(cycles) == 1
         for cycle in cycles:
             assert cycle[0] == cycle[-1]
             for i in range(len(cycle) - 1):
@@ -2352,7 +2351,9 @@ class TestSemanticEvolution:
     def test_reinforce_missing_node_is_noop(self):
         g = Hypergraph()
         eng = GraphMaintenanceEngine(g)
-        eng.reinforce("nonexistent", boost=2.0)
+        result = eng.reinforce("nonexistent", boost=2.0)
+        assert result is None
+        assert g.node_count == 0
 
     def test_merge_rewires_edges(self):
         g = Hypergraph()
@@ -2579,6 +2580,7 @@ class TestKatzCentrality:
         kc = g.katz_centrality()
         assert len(kc) == 3
         assert all(isinstance(v, float) for v in kc.values())
+        assert all(v > 0 for v in kc.values())
 
     def test_empty_graph(self):
         g = Hypergraph()

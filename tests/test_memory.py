@@ -375,10 +375,10 @@ class TestDegreeBetweennessCentrality:
         mem.relate("a", "b", label="x")
         mem.relate("a", "c", label="x")
         centrality = mem.degree_centrality()
-        assert isinstance(centrality, dict)
         assert len(centrality) == 3
-        assert "a" in centrality
-        assert centrality["a"] > centrality["b"]
+        assert centrality["a"] == 1.0
+        assert centrality["b"] == 0.5
+        assert centrality["c"] == 0.5
 
     def test_betweenness_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -388,9 +388,10 @@ class TestDegreeBetweennessCentrality:
         mem.relate("a", "b", label="x")
         mem.relate("b", "c", label="x")
         centrality = mem.betweenness_centrality()
-        assert isinstance(centrality, dict)
         assert len(centrality) == 3
-        assert centrality["b"] > 0.0
+        assert centrality["b"] == 0.5
+        assert centrality["a"] == 0.0
+        assert centrality["c"] == 0.0
 
 
 class TestConnectedComponents:
@@ -401,10 +402,10 @@ class TestConnectedComponents:
         mem.store("c")
         mem.relate("a", "b", label="x")
         components = mem.connected_components()
-        assert isinstance(components, list)
         assert len(components) == 2
         all_labels = {frozenset(comp) for comp in components}
-        assert frozenset({"a", "b"}) in all_labels or frozenset({"c"}) in all_labels
+        assert frozenset({"a", "b"}) in all_labels
+        assert frozenset({"c"}) in all_labels
 
 
 class TestLabelConvenienceMethods:
@@ -416,7 +417,7 @@ class TestLabelConvenienceMethods:
         mem.relate("a", "b", label="x")
         mem.relate("b", "c", label="x")
         paths = mem.find_paths("a", "c")
-        assert len(paths) > 0
+        assert len(paths) == 1
         assert paths[0][0] == "a"
         assert paths[0][-1] == "c"
 
@@ -466,7 +467,7 @@ class TestLabelConvenienceMethods:
         mem.store("c")
         mem.relate("a", "b", label="x")
         components = mem.connected_components()
-        assert len(components) >= 1
+        assert len(components) == 2
 
     def test_detect_cycles(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -475,7 +476,7 @@ class TestLabelConvenienceMethods:
         mem.relate("a", "b", label="x")
         mem.relate("b", "a", label="y")
         cycles = mem.detect_cycles()
-        assert len(cycles) > 0
+        assert len(cycles) == 1
 
 
 class TestReasonIterativeConvergence:
@@ -486,7 +487,7 @@ class TestReasonIterativeConvergence:
         mem.relate("a", "b", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason_iterative({"a"}, max_iterations=5)
-        assert result["iterations"] >= 1
+        assert result["iterations"] == 1
         assert "iteration_details" in result
 
     def test_iterative_produces_edges(self):
@@ -498,7 +499,7 @@ class TestReasonIterativeConvergence:
         mem.relate("b", "c", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason_iterative({"a"}, max_iterations=3)
-        assert result["iterations"] >= 1
+        assert result["iterations"] == 1
         assert "total_edges_produced" in result
 
 
@@ -815,8 +816,11 @@ class TestEvolveWithFeedback:
         g.add_node(n)
         engine = GraphMaintenanceEngine(g)
         result = engine.evolve_with_feedback(fitness_trend="stable")
-        assert isinstance(result.reinforced, int)
-        assert isinstance(result.suppressed, int)
+        assert result.reinforced == 0
+        assert result.suppressed == 0
+        assert result.decayed == 0
+        assert result.pruned == 0
+        assert result.merged == 0
 
     def test_nonexistent_reinforced_nodes_skipped(self):
         g = Hypergraph()
@@ -846,9 +850,9 @@ class TestEvolveWithFeedback:
         mem._feedback.record_evolution_outcome(0.3)
         mem._feedback.record_evolution_outcome(0.2)
         result = mem.evolve_with_feedback()
-        assert isinstance(result["decayed"], int)
-        assert isinstance(result["reinforced"], int)
-        assert result["node_count"] >= 2
+        assert result["decayed"] == 0
+        assert result["reinforced"] == 0
+        assert result["node_count"] == 2
 
 
 class TestComputeBiasProfile:
@@ -870,7 +874,7 @@ class TestComputeBiasProfile:
         rulial.record_rule_application("transitive")
         rulial.record_rule_outcome("transitive", "applied")
         profile = rulial.compute_bias_profile()
-        assert profile.rule_count >= 1
+        assert profile.rule_count == 1
         assert profile.reasoning_style in ("balanced", "unknown", "focused")
 
     def test_multiple_rules_with_dominant(self):
@@ -982,8 +986,7 @@ class TestReasonIterativeConvergenceFromSweep:
             max_iterations=3,
         )
         assert isinstance(result.iteration_details, list)
-
-
+        assert len(result.iteration_details) == 1
 class TestMemoryPathQueries:
     def test_find_paths_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -993,7 +996,7 @@ class TestMemoryPathQueries:
         mem.relate("a", "b", label="next")
         mem.relate("b", "c", label="next")
         paths = mem.find_paths("a", "c", edge_label="next")
-        assert len(paths) >= 1
+        assert len(paths) == 1
         assert len(paths[0]) == 3
 
     def test_pattern_match_facade(self):
@@ -1142,7 +1145,7 @@ class TestHypergraphMemoryPrefetchAPI:
         mem.relate("center", "n1", label="e")
         mem.relate("center", "n2", label="e")
         preloaded = mem.prefetch_neighbors("center")
-        assert preloaded >= 2
+        assert preloaded == 2
 
     def test_predict_next_unknown_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1151,7 +1154,7 @@ class TestHypergraphMemoryPrefetchAPI:
     def test_cache_property(self):
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.cache is not None
-        assert mem.cache.size >= 0
+        assert mem.cache.size == 0
 
 
 class TestMemoryAnalyticsFacade:
@@ -1178,7 +1181,7 @@ class TestMemoryAnalyticsFacade:
         mem.store("b")
         mem.relate("a", "b", label="e")
         components = mem.connected_components()
-        assert len(components) >= 1
+        assert len(components) == 1
 
 
 class TestDeriveFacade:
@@ -1211,8 +1214,8 @@ class TestIterativeReasoning:
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason_iterative({"a", "b", "c"}, max_iterations=2)
         assert "iterations" in result
-        assert result["iterations"] >= 1
-        assert result["total_edges_produced"] >= 0
+        assert result["iterations"] == 1
+        assert result["total_edges_produced"] == 1
 
     def test_reason_iterative_no_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1308,8 +1311,7 @@ class TestSampleCorrelated:
         qs = mem.create_distribution(["x", "y"])
         mem.correlate(["x"], ["y"], {("x", "y"): 0.9})
         result = mem.sample_correlated(qs, "x")
-        assert isinstance(result, dict)
-        assert len(result) >= 1
+        assert len(result) == 1
         for key, val in result.items():
             assert isinstance(key, str)
             assert isinstance(val, str)
@@ -1509,7 +1511,8 @@ class TestMaybeEvolveFeedback:
         mem.store("b")
         mem._feedback.record_evolution_outcome(0.5)
         result = mem.evolve_with_feedback()
-        assert isinstance(result["decayed"], int)
+        assert result["decayed"] == 0
+        assert result["node_count"] == 2
 
 
 class TestSampleDistribution:
@@ -1722,7 +1725,8 @@ class TestNewAnalyticsMethods:
         mem.relate("b", "c")
         kc = mem.katz_centrality()
         assert len(kc) == 3
-        assert all(isinstance(v, float) for v in kc.values())
+        assert kc["b"] > kc["a"]
+        assert kc["b"] > kc["c"]
 
     def test_katz_centrality_top_k(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1796,7 +1800,8 @@ class TestNewAnalyticsMethods:
             mem.store(l)
         mem.relate("a", "b")
         dual = mem.to_dual()
-        assert isinstance(dual, dict)
+        assert len(dual) == 1
+        assert any(isinstance(v, list) for v in dual.values())
 
     def test_to_line_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1805,8 +1810,8 @@ class TestNewAnalyticsMethods:
         mem.relate("a", "b")
         mem.relate("b", "c")
         lg = mem.to_line_graph()
-        assert isinstance(lg, list)
-        assert len(lg) > 0
+        assert len(lg) == 1
+        assert all(isinstance(t, tuple) for t in lg)
 
 
 class TestMonitoringMixinCoverage:
@@ -1836,6 +1841,7 @@ class TestMonitoringMixinCoverage:
         assert mem._graph_differ is not None
         from hyper3.results import TuningResult
         assert isinstance(result, TuningResult)
+        assert result.validated is True
 
     def test_analyze_in_frame_classical(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -1852,7 +1858,7 @@ class TestMonitoringMixinCoverage:
         mem.store("b")
         mem.relate("a", "b", label="causes")
         reports = mem.validate_comprehensive()
-        assert len(reports) >= 1
+        assert len(reports) == 1
         assert hasattr(reports[0], "agreement")
         assert hasattr(reports[0], "recommendation")
 
@@ -2065,7 +2071,7 @@ class TestMemoryAnalyticsCoverage:
         mem.store("b")
         mem.relate("a", "b", label="e")
         dist = mem.degree_distribution()
-        assert isinstance(dist, dict)
+        assert dist == {1: 2}
         assert 1 in dist
 
     def test_hyperedge_similarity_with_hyperedges(self):

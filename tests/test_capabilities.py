@@ -108,8 +108,7 @@ class TestDetectCapabilityMethod:
         mem.store("b")
         mem._rules = [TransitiveRule(edge_label="rel")]
         level = mem.detect_capability()
-        assert isinstance(level, CapabilityLevel)
-        assert level.value >= CapabilityLevel.MINIMAL.value
+        assert level == CapabilityLevel.MINIMAL
 
 
 
@@ -204,7 +203,7 @@ class TestProbeFunctions:
             _rules = [object()]
             _graph = None
         result = _probe_rules(BadRules())
-        assert isinstance(result, bool)
+        assert result is False
 
     def test_compute_score_with_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -213,7 +212,7 @@ class TestProbeFunctions:
         mem.relate("a", "b", label="rel")
         scores = _compute_capability_score(mem)
         assert scores["graph"] == 1.0
-        assert scores["graph_density"] > 0.0
+        assert scores["graph_density"] == 1.0
 
     def test_compute_score_no_graph(self):
         scores = _compute_capability_score(object())
@@ -227,7 +226,7 @@ class TestProbeFunctions:
         mem.store("b")
         mem.create_distribution(["x", "a"])
         scores = _compute_capability_score(mem)
-        assert "belief_active_ratio" in scores
+        assert scores["belief_active_ratio"] == 1.0
 
 
 class TestCapabilityLevelValues:
