@@ -3275,3 +3275,166 @@ class TestCliqueProjection:
         assert "alpha" in labels
         assert "beta" in labels
 
+
+class TestHashHypergraph:
+    def test_deterministic(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        assert g.hash() == g.hash()
+
+    def test_different_graphs_different_hashes(self):
+        g1 = Hypergraph()
+        g2 = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g1.add_node(a)
+        g1.add_node(b)
+        g1.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        g2.add_node(a)
+        g2.add_node(c)
+        g2.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id})))
+        assert g1.hash() != g2.hash()
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert isinstance(g.hash(), str)
+        assert len(g.hash()) == 64
+
+
+class TestTransitionMatrix:
+    def test_shape(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        P, ids = g.transition_matrix()
+        P_arr = np.asarray(P.todense())
+        assert P_arr.shape == (4, 4)
+        assert len(ids) == 4
+
+    def test_rows_sum_to_one(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        P, _ = g.transition_matrix()
+        P_arr = np.asarray(P.todense())
+        for i in range(4):
+            row_sum = P_arr[i].sum()
+            if row_sum > 0:
+                assert abs(row_sum - 1.0) < 1e-10
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        P, ids = g.transition_matrix()
+        assert len(ids) == 0
+
+
+class TestIncidenceMatrixByOrder:
+    def test_pairwise_edges_order_1(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        H, node_ids, edge_ids = g.incidence_matrix_by_order(order=1)
+        H_arr = np.asarray(H)
+        assert H_arr.shape[1] == 3
+
+    def test_hyperedge_order_2(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({nodes[0].id, nodes[1].id}),
+            target_ids=frozenset({nodes[2].id, nodes[3].id}),
+        ))
+        H, _, _ = g.incidence_matrix_by_order(order=1)
+        H_arr = np.asarray(H)
+        assert H_arr.shape[1] == 1
+
+    def test_no_matching_order(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        H, _, edge_ids = g.incidence_matrix_by_order(order=3)
+        assert len(edge_ids) == 0
+
+
+class TestDegreeCorrelation:
+    def test_positive_for_assortative(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        for i in range(3, 5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        corr = g.degree_correlation()
+        assert -1.0 <= corr <= 1.0
+
+    def test_empty_graph_zero(self):
+        g = Hypergraph()
+        assert g.degree_correlation() == 0.0
+
+    def test_no_edges_zero(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        assert g.degree_correlation() == 0.0
+
+
+class TestGreedyModularityCommunities:
+    def test_two_clusters(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(2):
+            for j in range(i + 1, 3):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[j].id}), target_ids=frozenset({nodes[i].id})))
+        for i in range(3, 5):
+            for j in range(i + 1, 6):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[j].id}), target_ids=frozenset({nodes[i].id})))
+        comms = g.greedy_modularity_communities()
+        assert len(comms) >= 1
+        all_nodes = set()
+        for c in comms:
+            all_nodes |= c
+        assert len(all_nodes) == 6
+
+    def test_single_node(self):
+        g = Hypergraph()
+        node = Hypernode(label="a")
+        g.add_node(node)
+        comms = g.greedy_modularity_communities()
+        assert len(comms) == 1
+        assert node.id in comms[0]
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.greedy_modularity_communities() == []
+

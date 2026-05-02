@@ -278,3 +278,66 @@ class QueryMixin(_GraphBase):
         if not self._edges:
             return 0
         return max(len(e.node_ids) for e in self._edges.values()) - 1
+
+    def hash(self) -> str:
+        """Compute a deterministic SHA-256 hash of the graph state.
+
+        Serializes node labels, data, and edges in sorted order for a
+        canonical, reproducible fingerprint.
+
+        Returns:
+            Hex-encoded SHA-256 digest string.
+        """
+        import hashlib
+        import json
+
+        node_entries = sorted(
+            ((n.label or "", n.weight, sorted(n.data.items()) if n.data else []) for n in self._nodes.values()),
+        )
+        edge_entries = sorted(
+            (
+                sorted(e.source_ids),
+                sorted(e.target_ids),
+                e.label or "",
+                e.weight,
+            )
+            for e in self._edges.values()
+        )
+        blob = json.dumps({"nodes": node_entries, "edges": edge_entries}, sort_keys=True)
+        return hashlib.sha256(blob.encode()).hexdigest()
+
+    def degree_correlation(self) -> float:
+        """Compute Pearson correlation between degrees of nodes sharing edges.
+
+        For each edge, computes the degree of each participating node,
+        then calculates the Pearson correlation coefficient across all
+        (degree_u, degree_v) pairs.  Positive values indicate assortative
+        mixing (high-degree nodes connect to other high-degree nodes).
+
+        Returns:
+            Pearson correlation coefficient in [-1, 1].  Returns 0.0 if
+            there are fewer than 2 data points.
+        """
+        import numpy as np
+
+        if not self._edges:
+            return 0.0
+
+        degree_map = {nid: len(self.incident_edges(nid)) for nid in self._nodes}
+        x_list: list[float] = []
+        y_list: list[float] = []
+
+        for edge in self._edges.values():
+            members = sorted(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    x_list.append(float(degree_map.get(members[i], 0)))
+                    y_list.append(float(degree_map.get(members[j], 0)))
+
+        if len(x_list) < 2:
+            return 0.0
+
+        x = np.array(x_list)
+        y = np.array(y_list)
+        corr = np.corrcoef(x, y)[0, 1]
+        return float(corr) if not np.isnan(corr) else 0.0

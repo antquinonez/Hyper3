@@ -362,3 +362,71 @@ class SpectralMixin(_GraphBase):
             eigenvalues=eigenvalues,
             dimensions=dimensions,
         )
+
+    def transition_matrix(self) -> tuple[Any, list[str]]:
+        """Compute the random walk transition matrix P = D_v^{-1} H W D_e^{-1} H^T.
+
+        P[i, j] is the probability of transitioning from node i to node j
+        in one step of a random walk on the hypergraph.
+
+        Returns:
+            Tuple of (P as scipy sparse matrix, node_id_list).
+        """
+        import numpy as np
+        import scipy.sparse as sp
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0 or not self._edges:
+            return sp.csr_matrix((0, 0)), node_list
+
+        H, _, _ = self.incidence_matrix_unsigned()
+        edge_list = list(self._edges.values())
+        m = len(edge_list)
+
+        W = np.array([e.weight for e in edge_list])
+        D_e = np.array([len(e.source_ids) + len(e.target_ids) for e in edge_list], dtype=float)
+        D_e_inv = np.where(D_e > 0, 1.0 / D_e, 0.0)
+
+        H_sp = sp.csr_matrix(H)
+        W_sp = sp.diags(W)
+        De_inv_sp = sp.diags(D_e_inv)
+
+        M = H_sp @ W_sp @ De_inv_sp @ H_sp.T
+        D_v = np.array(M.sum(axis=1)).flatten()
+        D_v_inv = np.where(D_v > 0, 1.0 / D_v, 0.0)
+
+        P = sp.diags(D_v_inv) @ M
+        return P.tocsr(), node_list
+
+    def incidence_matrix_by_order(self, *, order: int) -> tuple[Any, list[str], list[str]]:
+        """Return the incidence matrix filtered to edges of a specific order.
+
+        Edge order is ``|node_ids| - 1``.  For example, pairwise edges have
+        order 1 and 3-node edges have order 2.
+
+        Args:
+            order: The edge order to filter by.
+
+        Returns:
+            Tuple of (H_filtered, node_ids, edge_ids).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+        n = len(node_list)
+
+        filtered_edges = [e for e in self._edges.values() if len(e.node_ids) - 1 == order]
+        edge_ids = [e.id for e in filtered_edges]
+        m = len(filtered_edges)
+
+        if m == 0:
+            return np.zeros((n, 0)), node_list, edge_ids
+
+        H = np.zeros((n, m))
+        for j, edge in enumerate(filtered_edges):
+            for nid in edge.node_ids:
+                if nid in node_idx:
+                    H[node_idx[nid], j] = 1.0
+        return H, node_list, edge_ids

@@ -483,3 +483,95 @@ class ComponentMixin(_GraphBase):
             if node_id in comp:
                 return comp
         return set()
+
+    def greedy_modularity_communities(self) -> list[set[str]]:
+        """Find communities using greedy modularity maximization (Clauset-Newman-Moore).
+
+        Starting with each node in its own community, iteratively merges
+        the pair of communities that yields the largest increase in
+        modularity, stopping when no merge improves modularity.
+
+        Uses the undirected projection (ignoring edge direction).
+        Modularity is defined as:
+            Q = (1/2m) * sum_{ij} [A_{ij} - k_i*k_j/(2m)] * delta(c_i, c_j)
+
+        Returns:
+            List of sets, each containing the node IDs of one community.
+        """
+        if not self._nodes:
+            return []
+
+        node_ids = list(self._nodes.keys())
+        n = len(node_ids)
+        node_idx = {nid: i for i, nid in enumerate(node_ids)}
+
+        A: list[dict[int, float]] = [{} for _ in range(n)]
+        degrees = [0.0] * n
+        m_total = 0.0
+
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(len(members)):
+                    if i != j:
+                        ii = node_idx.get(members[i])
+                        jj = node_idx.get(members[j])
+                        if ii is not None and jj is not None:
+                            A[ii][jj] = A[ii].get(jj, 0.0) + edge.weight
+                            degrees[ii] += edge.weight
+                            m_total += edge.weight
+
+        if m_total == 0:
+            return [set(node_ids)]
+
+        community: list[int] = list(range(n))
+        comm_nodes: list[set[int]] = [{i} for i in range(n)]
+
+        delta_q: dict[tuple[int, int], float] = {}
+        for i in range(n):
+            for j in A[i]:
+                if i < j:
+                    e_ij = A[i].get(j, 0.0) + A[j].get(i, 0.0)
+                    delta_q[(i, j)] = e_ij / (2.0 * m_total) - degrees[i] * degrees[j] / (2.0 * m_total * m_total)
+
+        active = set(range(n))
+
+        while len(active) > 1 and delta_q:
+            best_pair = max(delta_q, key=delta_q.get)
+            best_dq = delta_q[best_pair]
+            if best_dq <= 0:
+                break
+
+            ci, cj = best_pair
+            if ci not in active or cj not in active:
+                del delta_q[best_pair]
+                continue
+
+            comm_nodes[ci] = comm_nodes[ci] | comm_nodes[cj]
+            comm_nodes[cj] = set()
+            active.discard(cj)
+            for k in list(active):
+                if k == ci:
+                    continue
+                key_ik = (min(ci, k), max(ci, k))
+                key_jk = (min(cj, k), max(cj, k))
+                dq_ik = delta_q.get(key_ik, 0.0)
+                dq_jk = delta_q.get(key_jk, 0.0)
+                delta_q[key_ik] = dq_ik + dq_jk
+                if key_jk in delta_q:
+                    del delta_q[key_jk]
+
+            for k in list(active):
+                if k == ci:
+                    continue
+                key = (min(ci, k), max(ci, k))
+                if key not in delta_q:
+                    e_ck = 0.0
+                    for node in comm_nodes[ci]:
+                        e_ck += A[node].get(k, 0.0) + A[k].get(node, 0.0)
+                    deg_c = sum(degrees[node] for node in comm_nodes[ci])
+                    delta_q[key] = e_ck / (2.0 * m_total) - deg_c * degrees[k] / (2.0 * m_total * m_total)
+
+            del delta_q[best_pair]
+
+        return [comm_nodes[c] for c in active if comm_nodes[c]]
