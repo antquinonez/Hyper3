@@ -136,6 +136,176 @@ def random_chung_lu(
     return g
 
 
+def barabasi_albert_graph(
+    n: int,
+    m: int,
+    *,
+    seed: int | None = None,
+    prefix: str = "n",
+) -> Hypergraph:
+    """Create a Barabasi-Albert preferential attachment graph.
+
+    Starting from a star of ``m + 1`` nodes, each new node connects to
+    ``m`` existing nodes with probability proportional to their current
+    degree.
+
+    Args:
+        n: Total number of nodes.
+        m: Number of edges to add per new node (must be >= 1).
+        seed: Random seed for reproducibility.
+        prefix: Label prefix for nodes.
+
+    Returns:
+        A new :class:`Hypergraph` instance.
+    """
+    if m < 1:
+        m = 1
+    if n <= m:
+        return complete_hypergraph(n, prefix=prefix)
+
+    rng = random.Random(seed)
+    g = Hypergraph()
+    nodes: list[Hypernode] = []
+    for i in range(n):
+        nd = Hypernode(label=f"{prefix}{i}")
+        g.add_node(nd)
+        nodes.append(nd)
+
+    degree = [0] * n
+    repeated: list[int] = []
+
+    for i in range(1, m + 1):
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[i].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[0].id})))
+        degree[0] += 1
+        degree[i] += 1
+        repeated.extend([0, i])
+
+    for i in range(m + 1, n):
+        targets = set()
+        while len(targets) < m:
+            targets.add(rng.choice(repeated))
+        for t in targets:
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[t].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[t].id}), target_ids=frozenset({nodes[i].id})))
+            degree[i] += 1
+            degree[t] += 1
+            repeated.extend([i, t])
+
+    return g
+
+
+def watts_strogatz_graph(
+    n: int,
+    k: int,
+    p: float,
+    *,
+    seed: int | None = None,
+    prefix: str = "n",
+) -> Hypergraph:
+    """Create a Watts-Strogatz small-world graph.
+
+    Starts with a ring lattice where each node connects to its ``k``
+    nearest neighbors, then rewires each edge with probability ``p``
+    to a random target.
+
+    Args:
+        n: Number of nodes.
+        k: Number of nearest neighbors in the initial ring (must be even).
+        p: Rewiring probability.
+        seed: Random seed for reproducibility.
+        prefix: Label prefix for nodes.
+
+    Returns:
+        A new :class:`Hypergraph` instance.
+    """
+    if k % 2 != 0:
+        k += 1
+    if k >= n:
+        k = n - 1
+
+    rng = random.Random(seed)
+    g = Hypergraph()
+    nodes: list[Hypernode] = []
+    for i in range(n):
+        nd = Hypernode(label=f"{prefix}{i}")
+        g.add_node(nd)
+        nodes.append(nd)
+
+    edges_to_add: list[tuple[int, int]] = []
+    for i in range(n):
+        for j in range(1, k // 2 + 1):
+            target = (i + j) % n
+            edges_to_add.append((i, target))
+
+    for idx, (u, v) in enumerate(edges_to_add):
+        if rng.random() < p:
+            new_v = rng.randint(0, n - 1)
+            while new_v == u or new_v == v:
+                new_v = rng.randint(0, n - 1)
+            edges_to_add[idx] = (u, new_v)
+
+    for u, v in edges_to_add:
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[u].id}), target_ids=frozenset({nodes[v].id})))
+
+    return g
+
+
+def random_shuffle(
+    g: Hypergraph,
+    *,
+    p: float = 1.0,
+    seed: int | None = None,
+) -> Hypergraph:
+    """Randomize a fraction of edges by shuffling node membership.
+
+    For each edge, with probability ``p``, replaces it with a new edge
+    of the same size but with randomly chosen nodes.  Node count and
+    edge sizes are preserved.
+
+    Args:
+        g: The input hypergraph.
+        p: Fraction of edges to shuffle (0.0 to 1.0).
+        seed: Random seed for reproducibility.
+
+    Returns:
+        A new :class:`Hypergraph` with shuffled edges.
+    """
+    rng = random.Random(seed)
+    result = Hypergraph()
+    for node in g._nodes.values():
+        result.add_node(Hypernode(id=node.id, label=node.label, data=dict(node.data) if node.data else None, weight=node.weight))
+
+    node_ids = list(g._nodes.keys())
+    for edge in g._edges.values():
+        if rng.random() < p and len(node_ids) > 0:
+            size = len(edge.node_ids)
+            if size > len(node_ids):
+                size = len(node_ids)
+            chosen = rng.sample(node_ids, size)
+            src = frozenset({chosen[0]})
+            tgt = frozenset(chosen[1:])
+            result.add_edge(Hyperedge(source_ids=src, target_ids=tgt, label=edge.label, weight=edge.weight))
+        else:
+            result.add_edge(Hyperedge(source_ids=edge.source_ids, target_ids=edge.target_ids, label=edge.label, weight=edge.weight))
+
+    return result
+
+    weights = [d / total_degree for d in k1]
+    num_edges = sum(k1) // max(max(k2), 1) if k2 else 0
+
+    for _ in range(num_edges):
+        size = rng.choice(k2) if k2 else 2
+        chosen = _weighted_sample(rng, list(range(n)), weights, size)
+        if len(chosen) < 2:
+            continue
+        src = frozenset({nodes[chosen[0]].id})
+        tgt = frozenset(nodes[chosen[j]].id for j in range(1, len(chosen)))
+        g.add_edge(Hyperedge(source_ids=src, target_ids=tgt))
+
+    return g
+
+
 def _weighted_sample(
     rng: random.Random,
     population: list[int],

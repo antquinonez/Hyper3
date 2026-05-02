@@ -1,13 +1,16 @@
 import pytest
 
 from hyper3.generators import (
+    barabasi_albert_graph,
     complete_hypergraph,
     random_chung_lu,
     random_hypergraph,
     random_sbm,
+    random_shuffle,
     random_uniform_hypergraph,
     ring_lattice,
     star_hypergraph,
+    watts_strogatz_graph,
 )
 
 
@@ -125,3 +128,72 @@ class TestRingLattice:
         g = ring_lattice(6, 2, 3)
         g2 = ring_lattice(6, 2, 3)
         assert g.edge_count == g2.edge_count
+
+
+class TestBarabasiAlbert:
+    def test_node_count(self):
+        g = barabasi_albert_graph(20, 3, seed=42)
+        assert g.node_count == 20
+
+    def test_edge_count(self):
+        g = barabasi_albert_graph(20, 3, seed=42)
+        assert g.edge_count > 0
+
+    def test_seed_reproducibility(self):
+        g1 = barabasi_albert_graph(15, 2, seed=42)
+        g2 = barabasi_albert_graph(15, 2, seed=42)
+        assert g1.edge_count == g2.edge_count
+
+    def test_connected(self):
+        g = barabasi_albert_graph(20, 3, seed=42)
+        assert g.is_connected()
+
+    def test_small_n(self):
+        g = barabasi_albert_graph(2, 3, seed=42)
+        assert g.node_count == 2
+
+
+class TestWattsStrogatz:
+    def test_node_count(self):
+        g = watts_strogatz_graph(20, 4, 0.3, seed=42)
+        assert g.node_count == 20
+
+    def test_edge_count(self):
+        g = watts_strogatz_graph(20, 4, 0.3, seed=42)
+        assert g.edge_count > 0
+
+    def test_seed_reproducibility(self):
+        g1 = watts_strogatz_graph(15, 4, 0.5, seed=42)
+        g2 = watts_strogatz_graph(15, 4, 0.5, seed=42)
+        assert g1.edge_count == g2.edge_count
+
+    def test_zero_rewire(self):
+        g = watts_strogatz_graph(10, 4, 0.0, seed=42)
+        assert g.edge_count == 10 * 2
+
+    def test_full_rewire(self):
+        g = watts_strogatz_graph(10, 4, 1.0, seed=42)
+        assert g.edge_count > 0
+
+
+class TestRandomShuffle:
+    def test_preserves_node_count(self):
+        g = complete_hypergraph(5)
+        shuffled = random_shuffle(g, p=1.0, seed=42)
+        assert shuffled.node_count == g.node_count
+
+    def test_preserves_edge_count(self):
+        g = complete_hypergraph(5)
+        shuffled = random_shuffle(g, p=1.0, seed=42)
+        assert shuffled.edge_count == g.edge_count
+
+    def test_zero_shuffle_unchanged(self):
+        g = complete_hypergraph(4)
+        shuffled = random_shuffle(g, p=0.0, seed=42)
+        assert shuffled.edge_count == g.edge_count
+
+    def test_seed_reproducibility(self):
+        g = complete_hypergraph(5)
+        s1 = random_shuffle(g, p=1.0, seed=42)
+        s2 = random_shuffle(g, p=1.0, seed=42)
+        assert s1.edge_count == s2.edge_count

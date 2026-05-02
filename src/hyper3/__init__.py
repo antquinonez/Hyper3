@@ -100,13 +100,16 @@ from hyper3.frame_transform import (
     TransformedConfig,
 )
 from hyper3.generators import (
+    barabasi_albert_graph,
     complete_hypergraph,
     random_chung_lu,
     random_hypergraph,
     random_sbm,
+    random_shuffle,
     random_uniform_hypergraph,
     ring_lattice,
     star_hypergraph,
+    watts_strogatz_graph,
 )
 from hyper3.graph_diff import (
     EdgeDelta,
