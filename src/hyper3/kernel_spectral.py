@@ -70,7 +70,7 @@ class SpectralMixin(_GraphBase):
 
         part_a: set[str] = set()
         part_b: set[str] = set()
-        for nid, val in zip(node_list, fiedler):
+        for nid, val in zip(node_list, fiedler, strict=True):
             if val >= 0:
                 part_a.add(nid)
             else:
@@ -133,7 +133,7 @@ class SpectralMixin(_GraphBase):
         if r is None:
             mean_deg = degrees.mean() if degrees.mean() > 0 else 1.0
             mean_deg_sq = (degrees**2).mean() if n > 0 else 1.0
-            r = np.sqrt(mean_deg_sq / mean_deg) if mean_deg > 0 else 1.0
+            r = float(np.sqrt(mean_deg_sq / mean_deg)) if mean_deg > 0 else 1.0
 
         H = (r - 1.0) * np.eye(n) - r * A + np.diag(degrees)
         return H, node_list
@@ -382,7 +382,6 @@ class SpectralMixin(_GraphBase):
 
         H, _, _ = self.incidence_matrix_unsigned()
         edge_list = list(self._edges.values())
-        m = len(edge_list)
 
         W = np.array([e.weight for e in edge_list])
         D_e = np.array([len(e.source_ids) + len(e.target_ids) for e in edge_list], dtype=float)

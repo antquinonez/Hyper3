@@ -241,7 +241,7 @@ def watts_strogatz_graph(
     for idx, (u, v) in enumerate(edges_to_add):
         if rng.random() < p:
             new_v = rng.randint(0, n - 1)
-            while new_v == u or new_v == v:
+            while new_v in (u, v):
                 new_v = rng.randint(0, n - 1)
             edges_to_add[idx] = (u, new_v)
 
@@ -290,20 +290,6 @@ def random_shuffle(
             result.add_edge(Hyperedge(source_ids=edge.source_ids, target_ids=edge.target_ids, label=edge.label, weight=edge.weight))
 
     return result
-
-    weights = [d / total_degree for d in k1]
-    num_edges = sum(k1) // max(max(k2), 1) if k2 else 0
-
-    for _ in range(num_edges):
-        size = rng.choice(k2) if k2 else 2
-        chosen = _weighted_sample(rng, list(range(n)), weights, size)
-        if len(chosen) < 2:
-            continue
-        src = frozenset({nodes[chosen[0]].id})
-        tgt = frozenset(nodes[chosen[j]].id for j in range(1, len(chosen)))
-        g.add_edge(Hyperedge(source_ids=src, target_ids=tgt))
-
-    return g
 
 
 def _weighted_sample(

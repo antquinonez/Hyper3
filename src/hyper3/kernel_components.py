@@ -52,7 +52,7 @@ class ComponentMixin(_GraphBase):
             for edge in self.outgoing_edges(current):
                 for tgt in edge.target_ids:
                     if tgt not in visited:
-                        stack.append((tgt, False))
+                        stack.append((tgt, False))  # noqa: PERF401
 
     def _kosaraju_dfs_reverse(self, node: str, visited: set[str], reverse_map: dict[str, list[str]], comp: set[str]) -> None:
         stack = [node]
@@ -64,7 +64,7 @@ class ComponentMixin(_GraphBase):
             comp.add(current)
             for pred in reverse_map.get(current, []):
                 if pred not in visited:
-                    stack.append(pred)
+                    stack.append(pred)  # noqa: PERF401
 
     def _build_reverse_adjacency(self) -> dict[str, list[str]]:
         reverse: dict[str, list[str]] = {}
@@ -524,7 +524,6 @@ class ComponentMixin(_GraphBase):
         if m_total == 0:
             return [set(node_ids)]
 
-        community: list[int] = list(range(n))
         comm_nodes: list[set[int]] = [{i} for i in range(n)]
 
         delta_q: dict[tuple[int, int], float] = {}
@@ -537,7 +536,7 @@ class ComponentMixin(_GraphBase):
         active = set(range(n))
 
         while len(active) > 1 and delta_q:
-            best_pair = max(delta_q, key=delta_q.get)
+            best_pair = max(delta_q, key=lambda k: delta_q[k])
             best_dq = delta_q[best_pair]
             if best_dq <= 0:
                 break
@@ -574,4 +573,4 @@ class ComponentMixin(_GraphBase):
 
             del delta_q[best_pair]
 
-        return [comm_nodes[c] for c in active if comm_nodes[c]]
+        return [{node_ids[idx] for idx in comm_nodes[c]} for c in active if comm_nodes[c]]

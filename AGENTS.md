@@ -350,15 +350,15 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **kernel.py** — Thin composition facade. `Hypergraph` inherits from 11 focused mixins (CoreMixin, QueryMixin, PathMixin, ComponentMixin, CycleMixin, CentralityMixin, SpectralMixin, ClusteringMixin, PatternMixin, TransformMixin, SimilarityMixin). Re-exports `Hypernode`, `Hyperedge`, `Modality`, `AbstractionLayer`, `Metadata` from `kernel_types.py`.
 - **kernel_types.py** — Data structures: `Hypernode`, `Hyperedge`, `Metadata`, `Modality`, `AbstractionLayer`.
 - **kernel_base.py** — `_GraphBase` (shared state declarations + cross-mixin method stubs) and `CoreMixin` (CRUD: add/get/remove nodes and edges, merge_node, batch mode).
-- **kernel_query.py** — `QueryMixin`: incident_edges, outgoing_edges, incoming_edges, neighbors, out_neighbors, in_neighbors, star, hyperedge_neighbors, hyperedge_cocoverage, node_degree, degree_distribution, query_dimension, labeled_edges, node_count, edge_count, density, unique_edge_sizes, max_edge_order.
+- **kernel_query.py** — `QueryMixin`: incident_edges, outgoing_edges, incoming_edges, neighbors, out_neighbors, in_neighbors, star, hyperedge_neighbors, hyperedge_cocoverage, node_degree, degree_distribution, query_dimension, labeled_edges, node_count, edge_count, density, unique_edge_sizes, max_edge_order, hash, degree_correlation.
 - **kernel_paths.py** — `PathMixin`: find_paths, shortest_path (Dijkstra/BFS), shortest_path_lengths, single_source_shortest_path_lengths.
-- **kernel_components.py** — `ComponentMixin`: connected_components (union-find), s_connected_components, s_persistence, is_connected, largest_connected_component, component_of.
-- **kernel_cycles.py** — `CycleMixin`: has_cycle, detect_cycles.
-- **kernel_centrality.py** — `CentralityMixin`: degree_centrality, betweenness_centrality, pagerank, katz_centrality.
-- **kernel_spectral.py** — `SpectralMixin`: incidence_matrix, incidence_matrix_unsigned, hypergraph_laplacian, adjacency_matrix, normalized_laplacian, spectral_embedding.
-- **kernel_clustering.py** — `ClusteringMixin`: clustering_coefficient, average_clustering_coefficient, spectral_clustering.
+- **kernel_components.py** — `ComponentMixin`: connected_components (union-find), s_connected_components, s_persistence, is_connected, largest_connected_component, component_of, strongly_connected_components, biconnected_components, articulation_points, greedy_modularity_communities.
+- **kernel_cycles.py** — `CycleMixin`: has_cycle, detect_cycles, girth.
+- **kernel_centrality.py** — `CentralityMixin`: degree_centrality, betweenness_centrality, pagerank, katz_centrality, closeness_centrality, eigenvector_centrality.
+- **kernel_spectral.py** — `SpectralMixin`: incidence_matrix, incidence_matrix_unsigned, hypergraph_laplacian, adjacency_matrix, normalized_laplacian, spectral_embedding, algebraic_connectivity, fiedler_vector, spectral_bisection, spectral_bipartivity, bethe_hessian_matrix, transition_matrix, incidence_matrix_by_order.
+- **kernel_clustering.py** — `ClusteringMixin`: clustering_coefficient, average_clustering_coefficient, spectral_clustering, transitivity.
 - **kernel_pattern.py** — `PatternMixin`: pattern_match, subgraph.
-- **kernel_transforms.py** — `TransformMixin`: to_networkx, to_dual, to_line_graph, to_bipartite_graph.
+- **kernel_transforms.py** — `TransformMixin`: to_networkx, to_dual, to_line_graph, to_bipartite_graph, clique_projection.
 - **kernel_similarity.py** — `SimilarityMixin`: hyperedge_similarity.
 - **exceptions.py** — Domain-specific exception hierarchy (`Hyper3Error`, `NodeNotFoundError`, `EdgeNotFoundError`, etc.). `NodeNotFoundError` extends both `Hyper3Error` and `ValueError` for catch-ergonomics.
 - **event_log.py** — `EventLog` records timestamped events with query/filter support.
@@ -715,15 +715,15 @@ The following are already optimized — maintain them when making changes:
 
 - **kernel_types.py** — `Hypernode`, `Hyperedge`, `Metadata`, `Modality`, `AbstractionLayer` (extracted from kernel.py)
 - **kernel_base.py** — `_GraphBase` (shared state) and `CoreMixin` (CRUD, merge, batch) (extracted from kernel.py)
-- **kernel_query.py** — `QueryMixin` (edge lookups, neighbors, degree, stats) (extracted from kernel.py)
+- **kernel_query.py** — `QueryMixin` (edge lookups, neighbors, degree, stats, hash, degree_correlation) (extracted from kernel.py)
 - **kernel_paths.py** — `PathMixin` (find_paths, shortest_path, Dijkstra, BFS) (extracted from kernel.py)
-- **kernel_components.py** — `ComponentMixin` (s-components, s-persistence, union-find) (extracted from kernel.py)
-- **kernel_cycles.py** — `CycleMixin` (has_cycle, detect_cycles) (extracted from kernel.py)
-- **kernel_centrality.py** — `CentralityMixin` (degree/betweenness/pagerank/katz centrality) (extracted from kernel.py)
-- **kernel_spectral.py** — `SpectralMixin` (incidence, Laplacian, adjacency, eigenvalues, spectral embedding) (extracted from kernel.py)
-- **kernel_clustering.py** — `ClusteringMixin` (clustering_coefficient, spectral_clustering) (extracted from kernel.py)
+- **kernel_components.py** — `ComponentMixin` (s-components, s-persistence, union-find, SCCs, biconnected, articulation, modularity) (extracted from kernel.py)
+- **kernel_cycles.py** — `CycleMixin` (has_cycle, detect_cycles, girth) (extracted from kernel.py)
+- **kernel_centrality.py** — `CentralityMixin` (degree/betweenness/pagerank/katz/closeness/eigenvector centrality) (extracted from kernel.py)
+- **kernel_spectral.py** — `SpectralMixin` (incidence, Laplacian, adjacency, eigenvalues, spectral embedding, algebraic connectivity, Fiedler, bisection, bipartivity, Bethe-Hessian, transition matrix, incidence_by_order) (extracted from kernel.py)
+- **kernel_clustering.py** — `ClusteringMixin` (clustering_coefficient, spectral_clustering, transitivity) (extracted from kernel.py)
 - **kernel_pattern.py** — `PatternMixin` (pattern_match, subgraph) (extracted from kernel.py)
-- **kernel_transforms.py** — `TransformMixin` (to_networkx, to_dual, to_line_graph, to_bipartite) (extracted from kernel.py)
+- **kernel_transforms.py** — `TransformMixin` (to_networkx, to_dual, to_line_graph, to_bipartite, clique_projection) (extracted from kernel.py)
 - **kernel_similarity.py** — `SimilarityMixin` (hyperedge_similarity, cocoverage) (extracted from kernel.py)
 - **event_log.py** — `EventLog` (extracted from kernel.py)
 - **equivalence.py** — `EquivalenceEngine` (extracted from kernel.py)
@@ -842,7 +842,7 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 2317 tests must pass.
+2. Run the full test suite after changes. All 2389 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -1048,15 +1048,15 @@ src/hyper3/          Source code (flat, no sub-packages)
   kernel.py          Thin facade composing 11 mixins, re-exports types
   kernel_types.py    Data structures: Hypernode, Hyperedge, Metadata, Modality, AbstractionLayer
   kernel_base.py     _GraphBase + CoreMixin: shared state, CRUD, merge, batch
-  kernel_query.py    QueryMixin: edge lookups, neighbors, degree, stats
+  kernel_query.py    QueryMixin: edge lookups, neighbors, degree, stats, hash, degree_correlation
   kernel_paths.py    PathMixin: find_paths, shortest_path, Dijkstra, BFS
-  kernel_components.py ComponentMixin: s-components, s-persistence, union-find
-  kernel_cycles.py   CycleMixin: has_cycle, detect_cycles
-  kernel_centrality.py CentralityMixin: degree/betweenness/pagerank/katz centrality
-  kernel_spectral.py SpectralMixin: incidence, Laplacian, adjacency, eigenvalues
-  kernel_clustering.py ClusteringMixin: clustering_coefficient, spectral_clustering
+  kernel_components.py ComponentMixin: s-components, s-persistence, union-find, SCCs, biconnected, articulation, modularity
+  kernel_cycles.py   CycleMixin: has_cycle, detect_cycles, girth
+  kernel_centrality.py CentralityMixin: degree/betweenness/pagerank/katz/closeness/eigenvector centrality
+  kernel_spectral.py SpectralMixin: incidence, Laplacian, adjacency, eigenvalues, Fiedler, bisection, bipartivity, Bethe-Hessian, transition matrix, incidence_by_order
+  kernel_clustering.py ClusteringMixin: clustering_coefficient, spectral_clustering, transitivity
   kernel_pattern.py  PatternMixin: pattern_match, subgraph
-  kernel_transforms.py TransformMixin: to_networkx, to_dual, to_line_graph, to_bipartite
+  kernel_transforms.py TransformMixin: to_networkx, to_dual, to_line_graph, to_bipartite, clique_projection
   kernel_similarity.py SimilarityMixin: hyperedge_similarity
   exceptions.py      Exception hierarchy
   event_log.py       EventLog for timestamped event recording
@@ -1146,7 +1146,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 Run this sequence after substantive changes. All gates must pass:
 
 ```bash
-# 1. Test suite (2317 tests, must all pass)
+# 1. Test suite (2389 tests, must all pass)
 .venv/bin/python -m pytest tests/ -q --tb=short
 
 # 2. Type checking (0 errors)
@@ -1203,10 +1203,10 @@ apply_docstrings({
 **When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
-- **Tests**: 2317
+- **Tests**: 2389
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
 - **Examples**: 106 (46 Hyper3: 3 basic, 22 intermediate, 11 advanced, 7 domain, 5 project pipelines; 47 comparison + 8 laminar)
-- **Equiv battery**: 245 pass / 0 fail / 116 gap (14 suites, HGX + XGI + NX)
+- **Equiv battery**: 307 pass / 0 fail / 83 gap (14 suites, HGX + XGI + NX)
