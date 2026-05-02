@@ -2828,3 +2828,169 @@ class TestDualWithIsolatedNodes:
         dual_labels = {n.label for n in dual.nodes}
         assert "e0" in dual_labels
 
+
+class TestAlgebraicConnectivity:
+    def test_connected_graph_positive(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        ac = g.algebraic_connectivity()
+        assert ac > 0.0
+
+    def test_disconnected_graph_zero(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        assert g.algebraic_connectivity() == 0.0
+
+    def test_single_node_zero(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        assert g.algebraic_connectivity() == 0.0
+
+    def test_empty_graph_zero(self):
+        g = Hypergraph()
+        assert g.algebraic_connectivity() == 0.0
+
+
+class TestFiedlerVector:
+    def test_returns_node_ids_and_values(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        ids, vec = g.fiedler_vector()
+        assert len(ids) == 4
+        assert len(vec) == 4
+
+    def test_single_node_empty(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        ids, vec = g.fiedler_vector()
+        assert ids == []
+        assert vec == []
+
+    def test_connected_graph_nonzero(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        _, vec = g.fiedler_vector()
+        assert any(abs(v) > 1e-10 for v in vec)
+
+
+class TestSpectralBisection:
+    def test_produces_two_partitions(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        parts = g.spectral_bisection()
+        assert len(parts) == 2
+        all_nodes = parts[0] | parts[1]
+        assert len(all_nodes) == 6
+
+    def test_partitions_disjoint(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        parts = g.spectral_bisection()
+        assert len(parts[0] & parts[1]) == 0
+
+    def test_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        parts = g.spectral_bisection()
+        assert len(parts) == 1
+
+
+class TestSpectralBipartivity:
+    def test_complete_graph_low(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+        bp = g.spectral_bipartivity()
+        assert 0.0 < bp <= 1.0
+
+    def test_empty_graph_one(self):
+        g = Hypergraph()
+        assert g.spectral_bipartivity() == 1.0
+
+    def test_path_graph(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        bp = g.spectral_bipartivity()
+        assert 0.0 < bp <= 1.0
+
+
+class TestBetheHessian:
+    def test_shape(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        H, ids = g.bethe_hessian_matrix()
+        import numpy as np
+        H_arr = np.asarray(H)
+        assert H_arr.shape == (4, 4)
+        assert len(ids) == 4
+
+    def test_symmetric(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        H, _ = g.bethe_hessian_matrix()
+        import numpy as np
+        H_arr = np.asarray(H)
+        assert np.allclose(H_arr, H_arr.T, atol=1e-10)
+
+    def test_custom_r(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        H, _ = g.bethe_hessian_matrix(r=2.5)
+        import numpy as np
+        H_arr = np.asarray(H)
+        assert H_arr.shape == (3, 3)
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        H, ids = g.bethe_hessian_matrix()
+        import numpy as np
+        assert np.asarray(H).shape == (0, 0)
+        assert ids == []
+

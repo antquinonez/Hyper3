@@ -8,6 +8,136 @@ from hyper3.results import SpectralEmbeddingResult
 
 class SpectralMixin(_GraphBase):
 
+    def algebraic_connectivity(self) -> float:
+        """Compute the algebraic connectivity (Fiedler value) of the hypergraph.
+
+        The algebraic connectivity is the second-smallest eigenvalue of the
+        hypergraph Laplacian.  It is zero when the graph is disconnected and
+        positive when connected.  Larger values indicate greater connectivity.
+
+        Returns:
+            The Fiedler value.  Returns 0.0 for graphs with fewer than 2 nodes.
+        """
+        import numpy as np
+
+        n = len(self._nodes)
+        if n < 2:
+            return 0.0
+
+        L = np.asarray(self.hypergraph_laplacian())
+        eigs = np.sort(np.linalg.eigvalsh(L))
+        return float(eigs[1]) if len(eigs) >= 2 else 0.0
+
+    def fiedler_vector(self) -> tuple[list[str], list[float]]:
+        """Compute the Fiedler vector of the hypergraph Laplacian.
+
+        The Fiedler vector is the eigenvector corresponding to the
+        second-smallest eigenvalue (algebraic connectivity) of the
+        Laplacian.  It is used for spectral bisection: nodes with
+        positive entries go to one partition, negative to the other.
+
+        Returns:
+            Tuple of (node_ids, fiedler_values).  Returns empty lists
+            for graphs with fewer than 2 nodes.
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n < 2:
+            return [], []
+
+        L = np.asarray(self.hypergraph_laplacian())
+        eigenvalues, eigenvectors = np.linalg.eigh(L)
+        idx = np.argsort(eigenvalues)
+        fiedler = eigenvectors[:, idx[1]] if n >= 2 else np.zeros(n)
+        return node_list, fiedler.tolist()
+
+    def spectral_bisection(self) -> list[set[str]]:
+        """Partition nodes into two sets using the Fiedler vector.
+
+        Splits nodes by the sign of their entry in the Fiedler vector
+        (the eigenvector for the second-smallest Laplacian eigenvalue).
+        Nodes with non-negative entries go to partition 0; negative to 1.
+
+        Returns:
+            List of two sets of node IDs.  Returns a single set containing
+            all nodes for graphs with fewer than 2 nodes.
+        """
+        node_list, fiedler = self.fiedler_vector()
+        if len(node_list) < 2:
+            return [set(self._nodes.keys())]
+
+        part_a: set[str] = set()
+        part_b: set[str] = set()
+        for nid, val in zip(node_list, fiedler):
+            if val >= 0:
+                part_a.add(nid)
+            else:
+                part_b.add(nid)
+        result = [part_a]
+        if part_b:
+            result.append(part_b)
+        return result
+
+    def spectral_bipartivity(self) -> float:
+        """Compute spectral bipartivity from Laplacian eigenvalues.
+
+        Uses the formula based on the eigenvalue spectrum of the adjacency
+        matrix: ``sum(exp(-lambda_k)) / sum(exp(lambda_k))`` where lambda_k
+        are the adjacency eigenvalues.  Values close to 1.0 indicate strong
+        bipartite structure.
+
+        Returns:
+            Bipartivity score in (0, 1].  Returns 1.0 for graphs with
+            fewer than 2 nodes or no edges.
+        """
+        import numpy as np
+
+        n = len(self._nodes)
+        if n < 2 or not self._edges:
+            return 1.0
+
+        A_sp, _ = self.adjacency_matrix()
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        eigs = np.linalg.eigvalsh(A)
+        sum_neg = sum(np.exp(-e) for e in eigs)
+        sum_pos = sum(np.exp(e) for e in eigs)
+        return float(sum_neg / sum_pos) if sum_pos > 0 else 1.0
+
+    def bethe_hessian_matrix(self, *, r: float | None = None) -> tuple[Any, list[str]]:
+        """Compute the Bethe-Hessian matrix H(r) = (r-1)I - rA + D.
+
+        Used for spectral clustering in sparse graphs.  The parameter
+        ``r`` controls the trade-off between degree and adjacency
+        information.  A common choice is ``r = sqrt(sum(d_i^2) / sum(d_i))``
+        where d_i are node degrees.
+
+        Args:
+            r: Regularization parameter.  Defaults to ``sqrt(mean(degree^2) / mean(degree))``.
+
+        Returns:
+            Tuple of (H, node_id_list).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return np.zeros((0, 0)), []
+
+        A_sp, _ = self.adjacency_matrix()
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        degrees = np.array(A.sum(axis=1)).flatten()
+
+        if r is None:
+            mean_deg = degrees.mean() if degrees.mean() > 0 else 1.0
+            mean_deg_sq = (degrees**2).mean() if n > 0 else 1.0
+            r = np.sqrt(mean_deg_sq / mean_deg) if mean_deg > 0 else 1.0
+
+        H = (r - 1.0) * np.eye(n) - r * A + np.diag(degrees)
+        return H, node_list
+
     def incidence_matrix(self) -> tuple[Any, list[str], list[str]]:
         """Return the node-edge incidence matrix H.
 
