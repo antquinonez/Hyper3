@@ -221,6 +221,7 @@ class TestNeighborhoodFingerprintProvider:
         graph = _build_chain_graph(3)
         provider = NeighborhoodFingerprintProvider(graph, dim=32)
         vec = provider.embed("test")
+        assert vec.shape == (32,)
         assert np.allclose(vec, 0.0)
 
     def test_caching(self):
@@ -364,7 +365,8 @@ class TestEmbeddingEngineIntegration:
         dog = graph.get_node_by_label("dog")
         assert cat and dog
         sim = engine.compute_similarity(cat.id, dog.id)
-        assert 0.0 <= sim <= 1.05
+        assert sim > 0.3
+        assert sim <= 1.0
 
     def test_engine_find_similar_uses_node_embeddings(self):
         graph = _build_rich_graph()
@@ -373,13 +375,12 @@ class TestEmbeddingEngineIntegration:
         cat = graph.get_node_by_label("cat")
         assert cat is not None
         results = engine.find_similar(cat.id, top_k=3, threshold=0.0)
-        assert len(results) > 0
-        dog_label = "dog"
-        dog_results = [r for r in results if r.label_b == dog_label]
-        fish_label = "fish"
-        fish_results = [r for r in results if r.label_b == fish_label]
-        if dog_results and fish_results:
-            assert dog_results[0].similarity > fish_results[0].similarity
+        assert len(results) == 3
+        dog_results = [r for r in results if r.label_b == "dog"]
+        fish_results = [r for r in results if r.label_b == "fish"]
+        assert len(dog_results) == 1
+        assert len(fish_results) == 1
+        assert dog_results[0].similarity > fish_results[0].similarity
 
     def test_backward_compat_hash_provider(self):
         graph = _build_chain_graph(5)
@@ -388,7 +389,8 @@ class TestEmbeddingEngineIntegration:
         assert n0 is not None
         vec = engine.get_embedding(n0.id)
         assert vec is not None
-        assert vec.shape[0] > 0
+        assert vec.shape == (64,)
+        assert np.linalg.norm(vec) > 0.0
 
 
 class TestEdgeCases:
@@ -447,7 +449,7 @@ class TestEdgeCases:
         provider = RandomWalkEmbeddingProvider(graph, dim=16, walk_length=10, num_walks=5, epochs=2)
         vec = provider.embed_node(nodes[0].id, "n0")
         assert vec.shape == (16,)
-        assert np.linalg.norm(vec) > 0
+        assert np.linalg.norm(vec) > 0.9
 
     def test_hyperedge_neighborhood(self):
         graph = Hypergraph()
@@ -465,6 +467,7 @@ class TestEdgeCases:
         vb = provider.embed_node(nodes[2].id, "n2")
         assert va.shape == (16,)
         assert vb.shape == (16,)
+        assert not np.allclose(va, vb)
 
     def test_cross_session_reproducibility(self):
         graph = _build_chain_graph(5)
@@ -508,7 +511,7 @@ class TestEdgeCases:
         provider = NeighborhoodFingerprintProvider(graph, dim=32)
         engine = EmbeddingEngine(graph, provider=provider)
         pairs = engine.find_all_similar_pairs(threshold=0.0)
-        assert len(pairs) > 0
+        assert len(pairs) == 28
 
     def test_analogy_graph_aware(self):
         graph = _build_rich_graph()
@@ -520,3 +523,7 @@ class TestEdgeCases:
         assert cat and mammal and fish
         results = engine.analogy(cat.id, mammal.id, fish.id, top_k=3)
         assert isinstance(results, list)
+        assert len(results) > 0
+        for node_id, sim in results:
+            assert isinstance(node_id, str)
+            assert 0.0 <= sim <= 1.0

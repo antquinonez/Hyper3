@@ -32,9 +32,10 @@ class TestCategoricalDistribution:
         assert abs(dist.entropy()) < 1e-9
 
     def test_sample_returns_valid_outcome(self) -> None:
+        import numpy as np
         dist = CategoricalDistribution.uniform(["alpha", "beta", "gamma"])
-        result = dist.sample()
-        assert result in {"alpha", "beta", "gamma"}
+        result = dist.sample(rng=np.random.default_rng(42))
+        assert result == "gamma"
 
     def test_normalize_sums_to_one(self) -> None:
         dist = CategoricalDistribution(outcomes={"a": 2.0, "b": 3.0, "c": 5.0})
@@ -218,6 +219,10 @@ class TestBayesianMixinFacade:
         assert len(belief.outcomes) == 2
         total = sum(belief.outcomes.values())
         assert abs(total - 1.0) < 1e-9
+        a_id = mem.graph.get_node_by_label("a").id
+        b_id = mem.graph.get_node_by_label("b").id
+        assert abs(belief.outcomes[a_id] - 0.5) < 1e-9
+        assert abs(belief.outcomes[b_id] - 0.5) < 1e-9
 
     def test_facade_update_belief(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -320,6 +325,7 @@ class TestBayesianMixinErrors:
     def test_reset_belief_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.reset_belief("nonexistent")
+        assert mem.get_belief("nonexistent") is None
 
     def test_get_belief_no_prior_returns_none(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -336,7 +342,10 @@ class TestBayesianMixinErrors:
         mem.reset_belief("x")
         belief = mem.get_belief("x")
         assert belief is not None
-        assert abs(belief.outcomes[list(belief.outcomes.keys())[0]] - 0.5) < 1e-6
+        a_id = mem.graph.get_node_by_label("a").id
+        b_id = mem.graph.get_node_by_label("b").id
+        assert abs(belief.outcomes[a_id] - 0.5) < 1e-6
+        assert abs(belief.outcomes[b_id] - 0.5) < 1e-6
 
     def test_update_belief_lazy_init(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -348,6 +357,10 @@ class TestBayesianMixinErrors:
         result = mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.8, "b": 0.2})
         assert result.posterior is not None
         assert len(result.posterior.outcomes) == 2
+        a_id = mem.graph.get_node_by_label("a").id
+        b_id = mem.graph.get_node_by_label("b").id
+        assert abs(result.posterior.outcomes[a_id] - 0.8) < 1e-6
+        assert abs(result.posterior.outcomes[b_id] - 0.2) < 1e-6
 
     def test_bayes_factor_with_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -369,6 +382,9 @@ class TestBayesianMixinErrors:
         cs = mem.credible_set("animal", level=0.5)
         assert len(cs) == 1
         assert cs[0] in {"cat", "dog"}
+        belief = mem.get_belief("animal")
+        selected_id = mem.graph.get_node_by_label(cs[0]).id
+        assert belief.outcomes[selected_id] >= 0.5
 
 
 class TestCategoricalDistributionEdgeCases:
@@ -381,7 +397,7 @@ class TestCategoricalDistributionEdgeCases:
         dist = CategoricalDistribution(outcomes={"a": 0.0, "b": 0.0})
         import numpy as np
         result = dist.sample(rng=np.random.default_rng(42))
-        assert result in {"a", "b"}
+        assert result == "a"
 
     def test_entropy_empty_is_zero(self):
         dist = CategoricalDistribution()
@@ -491,6 +507,7 @@ class TestBayesianLayerEdgeCases:
         g = Hypergraph()
         layer = BayesianLayer(g)
         layer.reset("missing")
+        assert layer.get_belief("missing") is None
 
     def test_map_estimate_missing_raises(self):
         g = Hypergraph()
@@ -536,5 +553,5 @@ class TestMemoryBayesianLazyInit:
         mem.store("b")
         mem.set_prior("x", outcomes=["a", "b"])
         mem._bayesian = None
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="No prior"):
             mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.8, "b": 0.2})

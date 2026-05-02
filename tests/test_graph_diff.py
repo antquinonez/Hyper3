@@ -35,6 +35,7 @@ class TestGraphDiffBasic:
         assert len(delta.nodes_added) == 1
         assert delta.total_changes == 1
         assert delta.nodes_added[0].change_type == "added"
+        assert delta.nodes_added[0].node_label == "B"
 
     def test_diff_node_removed(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -58,6 +59,9 @@ class TestGraphDiffBasic:
         assert delta is not None
         assert len(delta.edges_added) == 1
         assert delta.edge_count_after == 1
+        assert delta.edges_added[0].new_label == "connects"
+        assert delta.edges_added[0].source_label == "A"
+        assert delta.edges_added[0].target_label == "B"
 
     def test_diff_edge_removed(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -81,6 +85,7 @@ class TestGraphDiffBasic:
         delta = mem.diff_between_versions(v0["version_id"], v1["version_id"])
         assert delta is not None
         assert len(delta.nodes_added) == 1
+        assert delta.nodes_added[0].node_label == "B"
 
     def test_diff_between_versions_nonexistent(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -108,7 +113,8 @@ class TestGraphDiffBasic:
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.differ is None
         mem.capture_version()
-        assert mem.differ is not None
+        assert isinstance(mem.differ, GraphDiffer)
+        assert mem.differ.history.total_versions == 1
 
 
 class TestGraphDiffModified:
@@ -168,6 +174,7 @@ class TestGraphDiffIntegration:
         delta = mem.diff_from_version(0)
         assert delta is not None
         assert len(delta.edges_added) == 1
+        assert delta.edges_added[0].new_label == "transitively_implies"
 
     def test_diff_counts(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -192,6 +199,7 @@ class TestGraphDiffRollback:
         assert mem.graph.node_count == 1
         mem.differ.rollback_to_version(0)
         assert mem.graph.node_count == 2
+        assert mem.graph.get_node_by_label("B") is not None
 
     def test_rollback_restores_removed_edge(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -203,6 +211,10 @@ class TestGraphDiffRollback:
         assert mem.graph.edge_count == 0
         mem.differ.rollback_to_version(0)
         assert mem.graph.edge_count == 1
+        restored_edge = list(mem.graph.edges)[0]
+        assert restored_edge.label == "connects"
+        assert mem.graph.get_node(list(restored_edge.source_ids)[0]).label == "A"
+        assert mem.graph.get_node(list(restored_edge.target_ids)[0]).label == "B"
 
     def test_rollback_restores_modified_weight(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -230,6 +242,7 @@ class TestGraphDiffRollback:
         assert mem.graph.edge_count == 1
         mem.differ.rollback_to_version(0)
         assert mem.graph.edge_count == 0
+        assert not any(e.label == "new_edge" for e in mem.graph.edges)
 
     def test_rollback_removes_added_nodes(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -239,6 +252,8 @@ class TestGraphDiffRollback:
         assert mem.graph.node_count == 2
         mem.differ.rollback_to_version(0)
         assert mem.graph.node_count == 1
+        assert mem.graph.get_node_by_label("A") is not None
+        assert mem.graph.get_node_by_label("B") is None
 
     def test_rollback_restores_modified_edge_label_and_weight(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -279,6 +294,7 @@ class TestGraphDiffSnapshot:
         assert len(delta.nodes_removed) == 1
         assert delta.node_count_before == 2
         assert delta.node_count_after == 1
+        assert delta.nodes_removed[0].node_label == "B"
 
 
 class TestResolveEdgeLabelsFallback:

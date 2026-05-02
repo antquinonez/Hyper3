@@ -69,8 +69,12 @@ class TestCommunityBasic:
     def test_communities_property(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.communities is None
-        mem.detect_communities()
+        mem.store("A")
+        mem.store("B")
+        mem.relate("A", "B", label="link")
+        result = mem.detect_communities(seed=42)
         assert mem.communities is not None
+        assert result.community_count >= 1
 
 
 class TestCommunityDetector:
@@ -96,6 +100,7 @@ class TestCommunityDetector:
         detector2 = CommunityDetector(mem.graph)
         r2 = detector2.detect_label_propagation(seed=123)
         assert r1.community_count == r2.community_count
+        assert [sorted(c.member_ids) for c in r1.communities] == [sorted(c.member_ids) for c in r2.communities]
 
     def test_coverage_is_one_for_connected(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -126,6 +131,7 @@ class TestCommunityDetector:
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(seed=42, weighted_fallback=True)
         assert result.community_count >= 1
+        assert result.modularity >= 0
 
     def test_weighted_fallback_disabled(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -176,6 +182,7 @@ class TestSemanticCommunity:
         for c in result.communities:
             all_members.extend(c.member_ids)
         assert len(all_members) == len(set(all_members))
+        assert len(all_members) == 6
 
     def test_modularity_bounds(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -186,20 +193,24 @@ class TestSemanticCommunity:
         mem.relate("N3", "N4", label="x")
         mem.relate("N4", "N5", label="x")
         result = mem.detect_communities(seed=42)
-        assert -0.5 <= result.modularity <= 1.0
+        assert result.modularity > 0.0
 
     def test_coverage_less_than_one_with_cross_community_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
             mem.store(f"N{i}")
-        mem.relate("N0", "N1", label="x")
-        mem.relate("N1", "N2", label="x")
+        for a in ["N0", "N1", "N2"]:
+            for b in ["N0", "N1", "N2"]:
+                if a != b:
+                    mem.relate(a, b, label="x")
+        for a in ["N3", "N4", "N5"]:
+            for b in ["N3", "N4", "N5"]:
+                if a != b:
+                    mem.relate(a, b, label="x")
         mem.relate("N2", "N3", label="x")
-        mem.relate("N3", "N4", label="x")
-        mem.relate("N4", "N5", label="x")
-        result = mem.detect_communities(seed=42)
-        if result.community_count > 1:
-            assert result.coverage < 1.0
+        result = mem.detect_communities(seed=0)
+        assert result.community_count >= 2
+        assert result.coverage < 1.0
 
     def test_external_edges_count_cross_community(self):
         g = Hypergraph()
@@ -217,3 +228,5 @@ class TestSemanticCommunity:
         assert result.community_count == 2
         total_external = sum(c.external_edges for c in result.communities)
         assert total_external == 0
+        assert all(c.external_edges == 0 for c in result.communities)
+        assert all(c.internal_edges > 0 for c in result.communities)

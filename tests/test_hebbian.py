@@ -26,7 +26,7 @@ class TestHebbianBasic:
         assert result.edges_strengthened == 1
         assert result.edges_weakened == 0
         assert result.total_co_activations == 1
-        assert result.avg_weight_change > 0.0
+        assert result.avg_weight_change >= 0.29
 
     def test_reinforce_pair(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
@@ -107,9 +107,13 @@ class TestHebbianLearner:
         mem.store("B")
         mem.relate("A", "B", label="link")
         assert mem.hebbian is None
-        mem.hebbian_reinforce()
+        result = mem.hebbian_reinforce()
         assert mem.hebbian is not None
         assert len(mem.hebbian.history) == 1
+        assert result.edges_strengthened == 0
+        assert result.edges_weakened == 0
+        assert result.total_co_activations == 0
+        assert result.avg_weight_change == 0.0
 
     def test_reinforce_respects_max_weight(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)

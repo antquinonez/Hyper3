@@ -88,7 +88,7 @@ class TestFrameTransformerPairs:
         t = FrameTransformer()
         cfg = t.transform("hypergraph", "classical", parameters={"arity_sum": 6})
         assert cfg.algorithm == "bfs"
-        assert cfg.information_loss > 0.0
+        assert cfg.information_loss == pytest.approx(2.0 / 3.0, abs=0.01)
 
     def test_quantum_to_probabilistic(self):
         t = FrameTransformer()
@@ -109,6 +109,7 @@ class TestFrameTransformerPairs:
             for dst in frames:
                 cfg = t.transform(src, dst)
                 assert isinstance(cfg, TransformedConfig)
+                assert cfg.algorithm in {"bfs", "superposition", "probabilistic", "pattern_match"}
                 assert 0.0 <= cfg.information_loss <= 1.0
 
 
@@ -136,7 +137,6 @@ class TestReasonWithFrameTransform:
     def test_frame_config_in_result(self):
         mem = _make_mem()
         result = mem.reason_with_frame({"a", "b", "c"}, frame_name="quantum")
-        assert "frame_config" in result
         assert result["frame_config"]["algorithm"] == "superposition"
 
     def test_different_frames_different_algorithms(self):
@@ -165,6 +165,7 @@ class TestTransformFunctionsDeep:
     def test_quantum_to_classical_empty_amplitudes(self):
         result = _quantum_to_classical({"amplitudes": []})
         assert result["algorithm"] == "bfs"
+        assert result["info_loss"] == pytest.approx(0.75, abs=0.01)
 
     def test_classical_to_probabilistic_with_weights(self):
         result = _classical_to_probabilistic({"weights": [1.0, 3.0]})
@@ -206,7 +207,7 @@ class TestTransformFunctionsDeep:
     def test_hypergraph_to_probabilistic_with_weights(self):
         result = _hypergraph_to_probabilistic({"hyperedge_weights": [1.0, 2.0, 3.0]})
         assert result["algorithm"] == "probabilistic"
-        assert result["info_loss"] >= 0.0
+        assert result["info_loss"] == pytest.approx(0.07938, abs=0.001)
 
     def test_hypergraph_to_probabilistic_empty(self):
         result = _hypergraph_to_probabilistic({"hyperedge_weights": []})

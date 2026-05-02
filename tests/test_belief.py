@@ -173,7 +173,6 @@ class TestInterference:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["cat", "dog", "bird"], [0.7, -0.5, 0.3])
         patterns = ql.compute_interactions(qs.id)
-        assert isinstance(patterns, list)
         assert len(patterns) == 0
 
     def test_evidence_interaction_properties(self):
@@ -250,7 +249,8 @@ class TestSampleCorrelated:
             {("cat", "bird"): 0.9, ("dog", "fish"): 0.8},
         )
         preds = ql.sample_correlated(qs.id, "cat")
-        assert isinstance(preds, dict)
+        assert "bird" in preds
+        assert preds["bird"] == "cat"
 
 
 
@@ -281,7 +281,7 @@ class TestBeliefSampleDeep:
         qs.add_outcome("a", 0.0)
         qs.add_outcome("b", 0.0)
         result = qs.sample()
-        assert result is not None
+        assert result.node_id == "a"
 
     def test_probability_uses_abs(self):
         qs = BeliefState()
@@ -319,7 +319,7 @@ class TestBeliefLayerDeep:
     def test_get_basis(self):
         g = Hypergraph()
         ql = BeliefLayer(g)
-        assert ql.get_basis("linguistic") is not None
+        assert ql.get_basis("linguistic").name == "linguistic"
         assert ql.get_basis("nonexistent") is None
 
     def test_evolve_amplitudes_missing(self):
@@ -451,8 +451,8 @@ class TestBeliefLayerDeep:
         mw.add_state(l1)
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         pairs = ci.find_invariants()
-        assert len(pairs) >= 1
-        assert pairs[0][2] >= 0.3
+        assert len(pairs) == 1
+        assert pairs[0][2] == 1.0
 
     def test_merge_invariant_states_full(self):
         g = Hypergraph()
@@ -467,7 +467,7 @@ class TestBeliefLayerDeep:
         mw.add_state(l1)
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
-        assert len(merged) >= 1
+        assert len(merged) == 1
         inv = merged[0]
         assert inv.state_a_id in (l0.id, l1.id)
         assert inv.state_b_id in (l0.id, l1.id)
@@ -529,7 +529,7 @@ class TestBeliefLayerDeep:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["ghost_node"])
         result = ql.sample_with_profile(qs.id, "linguistic")
-        assert result is not None
+        assert result.node_id == "ghost_node"
 
     def test_detect_sampling_triggers_interference_maxima(self):
         g = Hypergraph()
@@ -559,7 +559,7 @@ class TestBeliefLayerDeep:
         qs = ql.create_distribution(["a"])
         qs.correlation_ids.append("fake_ent_id")
         result = ql.sample_correlated(qs.id, "a")
-        assert isinstance(result, dict)
+        assert result == {}
 
     def test_correlations_property(self):
         g = Hypergraph()
@@ -585,7 +585,7 @@ class TestBeliefLayerDeep:
         mw.add_state(l2)
         ci = StateConvergenceEngine(g, mw, threshold=0.3)
         merged = ci.merge_invariant_states()
-        assert len(merged) >= 1
+        assert len(merged) == 1
 
     def test_merge_missing_state(self):
         g = Hypergraph()
@@ -623,7 +623,7 @@ class TestBeliefLayerDeep:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["a"])
         result = ql.sample_with_profile(qs.id, "linguistic")
-        assert result is not None
+        assert result.node_id == "a"
 
     def test_detect_sampling_triggers_single_outcome(self):
         g = Hypergraph()
@@ -652,14 +652,14 @@ class TestBeliefLayerDeep:
         qs = ql.create_distribution(["a", "b"])
         ql.create_correlation(["a"], ["b"], {("a", "b"): 0.8})
         result = ql.sample_correlated(qs.id, "a")
-        assert isinstance(result, dict)
+        assert "b" in result
 
     def test_add_basis_and_bases_property(self):
         g = Hypergraph()
         ql = BeliefLayer(g)
         profile = SamplingProfile(name="custom_test", dimensions=["d1"], weights={"d1": 1.0})
         ql.add_basis(profile)
-        assert ql.get_basis("custom_test") is not None
+        assert ql.get_basis("custom_test") is profile
         all_bases = ql.bases
         assert "custom_test" in all_bases
 
@@ -670,7 +670,7 @@ class TestBeliefLayerDeep:
         ql = BeliefLayer(g)
         qs = ql.create_distribution(["n1", "n2"])
         result = ql.sample_with_profile(qs.id, "linguistic")
-        assert result is not None
+        assert result.node_id in {"n1", "n2"}
 
 
 
@@ -722,9 +722,10 @@ class TestUnitaryEvolution:
         graph, nodes = _make_graph_with_nodes_1(2)
         ql = BeliefLayer(graph)
         qs = ql.create_distribution([nodes[0].id, nodes[1].id])
+        amp_before = qs.outcomes[0].amplitude
         wrong_U = np.eye(3, dtype=complex)
         ql.evolve_unitary(qs.id, wrong_U)
-        assert qs.outcomes[0].amplitude != 0
+        assert qs.outcomes[0].amplitude == amp_before
 
 
 class TestDensityMatrix:
@@ -869,7 +870,7 @@ class TestComputePotentialField:
         l = mem.graph.get_node_by_label("low")
         activations = {h.id: 0.0, m.id: 0.0, l.id: 1.0}
         field = mem._belief.compute_potential_field(qs.id, activation_values=activations)
-        assert l.id in field
+        assert field[l.id] > field[h.id]
 
     def test_empty_state_returns_empty(self):
         mem = _make_mem_ctx()
@@ -894,22 +895,26 @@ class TestEvolveInContext:
         h = mem.graph.get_node_by_label("high")
         h.weight = 100.0
         qs = mem.create_distribution(["high", "medium", "low"], use_context_field=False)
+        qs.outcomes[0].amplitude = 0.9
+        qs.outcomes[1].amplitude = 0.1
+        qs.outcomes[2].amplitude = 0.01
+        qs.normalize()
         original_coherence = qs.coherence_time
         mem._belief.evolve_in_context(qs.id)
-        max_prob = max(abs(i.amplitude) ** 2 for i in qs.outcomes)
-        if max_prob > 0.6:
-            assert qs.coherence_time < original_coherence or qs.coherence_time == qs.base_coherence_time * 0.5
+        assert qs.coherence_time < original_coherence
 
     def test_coherence_time_extended_for_uniform(self):
-        mem = _make_mem_ctx()
-        qs = mem.create_distribution(["high", "medium", "low"], use_context_field=False)
+        g = Hypergraph()
+        for label in ["a", "b", "c"]:
+            g.add_node(Hypernode(label=label))
+        ql = BeliefLayer(g)
+        qs = ql.create_distribution(["a", "b", "c"])
         for outcome in qs.outcomes:
             outcome.amplitude = 1.0 / math.sqrt(3)
-        mem._belief.evolve_in_context(qs.id)
-        n = len(qs.outcomes)
-        max_prob = max(abs(i.amplitude) ** 2 for i in qs.outcomes)
-        if max_prob < 1.0 / n * 1.5:
-            assert qs.coherence_time == qs.base_coherence_time * 2.0
+        qs.normalize()
+        ql._states[qs.id] = qs
+        ql.evolve_in_context(qs.id)
+        assert qs.coherence_time == qs.base_coherence_time * 2.0
 
 
 class TestCreateDistributionWithContextField:
@@ -960,9 +965,9 @@ class TestUseContextField:
         probs_ctx = [abs(i.amplitude) ** 2 for i in qs_ctx.outcomes]
         total_plain = sum(probs_plain)
         total_ctx = sum(probs_ctx)
-        assert total_plain > 0
-        assert total_ctx > 0
-        assert probs_ctx[0] != probs_plain[0]
+        assert abs(total_plain - 1.0) < 1e-10
+        assert abs(total_ctx - 1.0) < 1e-10
+        assert probs_ctx != probs_plain
 
     def test_single_concept_context_field_no_effect(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -979,8 +984,7 @@ class TestSampleContextLabelRemapping:
         mem.store("bird")
         qs = mem.create_distribution(["cat", "dog", "bird"])
         result = mem.sample(qs, context={"dog": 10.0})
-        assert result is not None
-        assert result.node_id is not None
+        assert result.label in {"cat", "dog", "bird"}
 
     def test_context_with_mixed_labels_and_ids(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -990,8 +994,7 @@ class TestSampleContextLabelRemapping:
         x_node = mem.graph.get_node_by_label("x")
         assert x_node is not None
         result = mem.sample(qs, context={"x": 5.0, x_node.id: 5.0})
-        assert result is not None
-        assert result.node_id is not None
+        assert result.label in {"x", "y"}
 
     def test_context_with_nonexistent_label_passes_through(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -999,8 +1002,7 @@ class TestSampleContextLabelRemapping:
         mem.store("b")
         qs = mem.create_distribution(["a", "b"])
         result = mem.sample(qs, context={"nonexistent_key": 5.0})
-        assert result is not None
-        assert qs.resolved
+        assert result.label in {"a", "b"}
 
 
 class TestSamplingProfileLearning:

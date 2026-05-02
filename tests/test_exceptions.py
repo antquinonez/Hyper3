@@ -31,8 +31,6 @@ class TestHyper3Error:
             raise Hyper3Error("base error")
 
     def test_not_caught_as_value_error(self):
-        with pytest.raises(Hyper3Error):
-            raise Hyper3Error("x")
         assert not issubclass(Hyper3Error, ValueError)
 
 
@@ -68,8 +66,6 @@ class TestExceptionHierarchy:
 
     def test_collapse_error_inherits_hyper3_error(self):
         assert issubclass(CollapseError, Hyper3Error)
-        e = CollapseError("test")
-        assert isinstance(e, Hyper3Error)
 
     def test_collapse_error_carries_message(self):
         e = CollapseError("state collapse failed")
@@ -80,14 +76,11 @@ class TestExceptionHierarchy:
             raise CollapseError("bad collapse")
 
     def test_collapse_error_not_caught_as_value_error(self):
-        with pytest.raises(Hyper3Error):
-            raise CollapseError("x")
         assert not issubclass(CollapseError, ValueError)
 
     def test_correlation_error_inherits_hyper3_error(self):
         assert issubclass(CorrelationError, Hyper3Error)
         e = CorrelationError("corr failed")
-        assert isinstance(e, Hyper3Error)
         assert str(e) == "corr failed"
 
     def test_correlation_error_caught_as_hyper3_error(self):
@@ -97,7 +90,6 @@ class TestExceptionHierarchy:
     def test_rule_application_error_inherits_hyper3_error(self):
         assert issubclass(RuleApplicationError, Hyper3Error)
         e = RuleApplicationError("no match")
-        assert isinstance(e, Hyper3Error)
         assert str(e) == "no match"
 
     def test_rule_application_error_caught_as_hyper3_error(self):
@@ -107,7 +99,6 @@ class TestExceptionHierarchy:
     def test_serialization_error_inherits_hyper3_error(self):
         assert issubclass(SerializationError, Hyper3Error)
         e = SerializationError("bad json")
-        assert isinstance(e, Hyper3Error)
         assert str(e) == "bad json"
 
     def test_serialization_error_caught_as_hyper3_error(self):
@@ -117,7 +108,6 @@ class TestExceptionHierarchy:
     def test_temporal_constraint_error_inherits_hyper3_error(self):
         assert issubclass(TemporalConstraintError, Hyper3Error)
         e = TemporalConstraintError("overlap")
-        assert isinstance(e, Hyper3Error)
         assert str(e) == "overlap"
 
     def test_temporal_constraint_error_caught_as_hyper3_error(self):
@@ -127,7 +117,6 @@ class TestExceptionHierarchy:
     def test_inference_error_inherits_hyper3_error(self):
         assert issubclass(InferenceError, Hyper3Error)
         e = InferenceError("chain broke")
-        assert isinstance(e, Hyper3Error)
         assert str(e) == "chain broke"
 
     def test_inference_error_caught_as_hyper3_error(self):
@@ -141,7 +130,7 @@ class TestExceptionHierarchy:
         assert isinstance(e, Hyper3Error)
 
     def test_constraint_violation_error_caught_as_hyper3_error(self):
-        with pytest.raises(Hyper3Error):
+        with pytest.raises(Hyper3Error, match="v1"):
             raise ConstraintViolationError(["v1", "v2"])
 
     def test_all_simple_exceptions_are_distinct_types(self):
@@ -158,19 +147,16 @@ class TestExceptionHierarchy:
                 assert cls_a is not cls_b
 
     def test_all_exceptions_catchable_by_base(self):
-        exceptions = [
-            CollapseError("a"),
-            CorrelationError("b"),
-            RuleApplicationError("c"),
-            SerializationError("d"),
-            TemporalConstraintError("e"),
-            InferenceError("f"),
-            ConstraintViolationError(["g"]),
+        cases = [
+            (CollapseError, "a"),
+            (CorrelationError, "b"),
+            (RuleApplicationError, "c"),
+            (SerializationError, "d"),
+            (TemporalConstraintError, "e"),
+            (InferenceError, "f"),
         ]
-        for exc in exceptions:
-            caught = False
-            try:
-                raise exc
-            except Hyper3Error:
-                caught = True
-            assert caught, f"{type(exc).__name__} not caught as Hyper3Error"
+        for cls, msg in cases:
+            with pytest.raises(Hyper3Error, match=msg):
+                raise cls(msg)
+        with pytest.raises(Hyper3Error, match="g"):
+            raise ConstraintViolationError(["g"])

@@ -167,7 +167,11 @@ class TestBoundaryNavigatorIntegration:
         mem.store("a")
         mem.store("b")
         edge = mem.relate("a", "b")
-        assert edge is not None
+        a_id = mem.graph.get_node_by_label("a").id
+        b_id = mem.graph.get_node_by_label("b").id
+        assert a_id in edge.source_ids
+        assert b_id in edge.target_ids
+        assert edge.weight == 1.0
 
 
 class TestWeightInflationConstraintCheck:

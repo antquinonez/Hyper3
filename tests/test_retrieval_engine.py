@@ -1,3 +1,5 @@
+import pytest
+
 from hyper3.embedding import EmbeddingEngine, HashEmbeddingProvider
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.retrieval_activation import ActivationConfig, SpreadingActivation
@@ -88,7 +90,7 @@ class TestLearningToRank:
         ltr = LearningToRank()
         features = {"activation": 0.8, "similarity": 0.5, "degree": 0.1, "inverse_depth": 1.0}
         score = ltr.score(features)
-        assert 0.0 <= score <= 1.0
+        assert score == pytest.approx(0.6)
 
     def test_train(self):
         from hyper3.retrieval_engine import FeedbackRecord
@@ -127,16 +129,15 @@ class TestRetrievalEngine:
         g = self._build_graph()
         engine = RetrievalEngine(g)
         results = engine.retrieve("a", top_k=5, iterations=3)
-        assert len(results) > 0
-        labels = {r.label for r in results}
-        assert "a" not in labels
+        assert len(results) == 4
+        assert {r.label for r in results} == {"b", "c", "d", "e"}
 
     def test_retrieval_with_embeddings(self):
         g = self._build_graph()
         emb = EmbeddingEngine(g)
         engine = RetrievalEngine(g, embedding=emb)
         results = engine.retrieve("a", top_k=5)
-        assert len(results) > 0
+        assert len(results) == 4
         for r in results:
             assert r.rrf_score > 0
 
@@ -144,13 +145,13 @@ class TestRetrievalEngine:
         g = self._build_graph()
         engine = RetrievalEngine(g)
         results = engine.retrieve("a", top_k=5)
-        for r in results:
-            assert r.node_id
-            assert r.label
-            assert r.activation >= 0
-            assert r.rrf_score > 0
-            assert r.activation_rank >= 0
-            assert r.similarity_rank >= 0
+        assert len(results) == 4
+        first = results[0]
+        assert first.node_id in {"b", "c", "d", "e"}
+        assert first.similarity == 0.0
+        assert first.similarity_rank == 1
+        assert first.activation_rank >= 1
+        assert first.rrf_score == pytest.approx(1.0 / (60 + first.activation_rank))
 
     def test_missing_concept(self):
         g = Hypergraph()
@@ -166,7 +167,7 @@ class TestRetrievalEngine:
 
         results = engine.retrieve("a", top_k=5)
         engine.record_feedback("a", results, {"b", "c"})
-        assert engine.feedback.size > 0
+        assert engine.feedback.size == 4
 
         report = engine.train_from_feedback()
         assert report["trained"] is True
@@ -182,7 +183,7 @@ class TestRetrievalEngine:
         engine.train_from_feedback()
 
         ltr_results = engine.retrieve("a", top_k=5, use_ltr=True)
-        assert len(ltr_results) > 0
+        assert len(ltr_results) == 4
 
 
 class TestDirectionalActivation:
@@ -230,9 +231,8 @@ class TestHypergraphMemoryIntegration:
         mem.relate("x", "y", label="rel")
         mem.relate("x", "z", label="rel")
         results = mem.retrieve("x", top_k=5)
-        assert len(results) > 0
-        labels = {r.label for r in results}
-        assert "x" not in labels
+        assert len(results) == 2
+        assert {r.label for r in results} == {"y", "z"}
 
     def test_feedback_round_trip(self):
         from hyper3.memory import HypergraphMemory
@@ -245,7 +245,7 @@ class TestHypergraphMemoryIntegration:
 
         results = mem.retrieve("a", top_k=5)
         mem.record_feedback("a", results, {"b"})
-        assert mem.feedback.size > 0
+        assert mem.feedback.size == 2
 
         report = mem.train_retriever()
         assert report["trained"] is True
@@ -253,4 +253,4 @@ class TestHypergraphMemoryIntegration:
     def test_retrieval_property(self):
         from hyper3.memory import HypergraphMemory
         mem = HypergraphMemory(evolve_interval=0)
-        assert mem.retrieval is not None
+        assert isinstance(mem.retrieval, RetrievalEngine)
