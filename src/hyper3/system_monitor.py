@@ -9,7 +9,6 @@ from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
 from hyper3.graph_diff import GraphDiffer
 from hyper3.kernel import Hypergraph
-from hyper3.multiway_rulial import RulialSpace
 from hyper3.results import (
     DiscoveryHealthInfo,
     EvolutionHealthInfo,
@@ -19,6 +18,7 @@ from hyper3.results import (
     MonitorStats,
     TuningResult,
 )
+from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
 
@@ -29,7 +29,7 @@ class SystemHealthModel:
 
     architectural_fitness: float = 1.0
     computational_efficiency: dict[str, float] = field(default_factory=dict)
-    rulial_insight_count: int = 0
+    rule_analytics_insight_count: int = 0
     reasoning_activity_rate: float = 0.0
     reasoning_mode: str = "standard"
     complexity_level: int = 0
@@ -83,13 +83,13 @@ class SystemMonitor:
         self._state = SystemHealthModel(timestamp=time.time())
         self._introspection_log: list[dict[str, Any]] = []
         self._tuning_history: list[TuningPlan] = []
-        self._rulial: RulialSpace | None = None
+        self._rule_analytics: RuleAnalytics | None = None
         self._rules: list[Rule] | None = None
         self._differ: GraphDiffer | None = None
 
-    def set_rulial(self, rulial: RulialSpace) -> None:
-        """Attach a rulial space for insight-count tracking."""
-        self._rulial = rulial
+    def set_rulial(self, rule_analytics: RuleAnalytics) -> None:
+        """Attach a rule analytics engine for insight-count tracking."""
+        self._rule_analytics = rule_analytics
 
     def set_rules(self, rules: list[Rule]) -> None:
         """Store a reference to the active rule list for seed-set expansion."""
@@ -143,7 +143,7 @@ class SystemMonitor:
         """Evaluate the current health of the system.
 
         Computes architectural fitness, computational efficiency rates,
-        rulial insight count, and boundary-navigation success.  When
+        rule analytics insight count, and boundary-navigation success.  When
         ``rules`` is provided, the count of active rules is recorded in
         ``computational_efficiency["active_rules"]`` so callers can
         distinguish externally-supplied rule sets from the default set.
@@ -172,8 +172,8 @@ class SystemMonitor:
         if active_rules:
             state.computational_efficiency["active_rules"] = len(active_rules)
 
-        if self._rulial:
-            state.rulial_insight_count = len(self._rulial.insights)
+        if self._rule_analytics:
+            state.rule_analytics_insight_count = len(self._rule_analytics.insights)
 
         events = self._log.query()
         reasoning_count = sum(1 for e in events if e.get("event_type") == "reason")
@@ -189,11 +189,11 @@ class SystemMonitor:
         else:
             state.reasoning_mode = "sparse"
 
-        if self._rulial:
-            rulial_pos = self._rulial.position
-            if rulial_pos.graph_activity_density > 0.5:
+        if self._rule_analytics:
+            analytics_pos = self._rule_analytics.position
+            if analytics_pos.graph_activity_density > 0.5:
                 state.complexity_level = 2
-            if state.rulial_insight_count > 3:
+            if state.rule_analytics_insight_count > 3:
                 state.complexity_level = 3
 
         self._state = state
@@ -207,13 +207,13 @@ class SystemMonitor:
 
         Returns:
             HealthReport with system_health, graph_health, evolution_health,
-            discovery_health, optional rulial_health, anti_patterns, and recommendations.
+            discovery_health, optional rule_analytics_health, anti_patterns, and recommendations.
         """
         state = self.assess_state(rules)
 
-        rulial_health = None
-        if self._rulial:
-            rulial_health = self._rulial.analyze()
+        rule_analytics_health = None
+        if self._rule_analytics:
+            rule_analytics_health = self._rule_analytics.analyze()
 
         anti_patterns = self._detect_anti_patterns()
         report = HealthReport(
@@ -221,7 +221,7 @@ class SystemMonitor:
                 fitness=state.architectural_fitness,
                 mode=state.reasoning_mode,
                 meta_level=state.complexity_level,
-                rulial_insight_count=state.rulial_insight_count,
+                rule_analytics_insight_count=state.rule_analytics_insight_count,
             ),
             graph_health=GraphHealthInfo(
                 nodes=self._graph.node_count,
@@ -237,7 +237,7 @@ class SystemMonitor:
                 patterns=len(self._discovery.get_discovered_rules()),
                 active_rules=sum(1 for d in self._discovery.get_discovered_rules() if d.rule is not None),
             ),
-            rulial_health=rulial_health,
+            rule_analytics_health=rule_analytics_health,
             anti_patterns=anti_patterns,
         )
 
@@ -304,7 +304,7 @@ class SystemMonitor:
         """Scan for conditions that warrant a tuning plan.
 
         Checks for low fitness, lack of discovered patterns despite graph
-        size, strong rulial meta-patterns, and persistent anti-patterns.
+        size, strong rule analytics meta-patterns, and persistent anti-patterns.
 
         Returns:
             A list of :class:`TuningTrigger` instances.
@@ -332,9 +332,9 @@ class SystemMonitor:
                     timestamp=time.time(),
                 )
             )
+        if self._rule_analytics:
 
-        if self._rulial:
-            meta_patterns = self._rulial.meta_patterns
+            meta_patterns = self._rule_analytics.meta_patterns
             for pattern in meta_patterns:
                 if pattern.occurrence_count >= 5 and pattern.pattern_type == "recurring_relation":
                     triggers.append(
@@ -390,7 +390,7 @@ class SystemMonitor:
                 plan.actions.append("expand_seed_set")
             elif trigger.trigger_type == "meta_insight":
                 plan.actions.append("promote_pattern_to_rule")
-                plan.actions.append("update_rulial_position")
+                plan.actions.append("update_rule_analytics_position")
             elif trigger.trigger_type == "cross_domain":
                 plan.actions.append("restructure_graph_dimensions")
                 plan.actions.append("recalibrate_modality_weights")
@@ -427,7 +427,7 @@ class SystemMonitor:
             "increase_merge_threshold": ("increase_merge_threshold", self._increase_merge_threshold),
             "expand_seed_set": ("expand_seed_set", self._expand_seed_set),
             "promote_pattern_to_rule": ("promote_pattern_to_rule", self._promote_pattern_to_rule),
-            "update_rulial_position": ("update_rulial_position", self._update_rulial_position),
+            "update_rule_analytics_position": ("update_rule_analytics_position", self._update_rule_analytics_position),
             "restructure_graph_dimensions": ("restructure_graph_dimensions", self._restructure_graph_dimensions),
             "recalibrate_modality_weights": ("recalibrate_modality_weights", self._recalibrate_modality_weights),
         }
@@ -616,16 +616,18 @@ class SystemMonitor:
         return {"poorly_connected": len(poorly_connected), "new_edges": new_edges}
 
     def _promote_pattern_to_rule(self) -> dict[str, Any]:
-        """Promote the highest-significance rulial meta-pattern to a concrete Rule.
+        """Promote the highest-significance rule analytics meta-pattern to a concrete Rule.
 
         Maps pattern types to rule factories, extracting edge labels from
         the pattern's ``abstract_structure`` when available. For example,
         ``recurring_relation`` with ``edge_label="rel"`` creates
         ``TransitiveRule(edge_label="rel")`` rather than a generic wildcard.
         """
-        if not self._rulial:
-            return {"promoted": False, "reason": "no rulial"}
-        patterns = self._rulial._meta_patterns
+        if not self._rule_analytics:
+
+            return {"promoted": False, "reason": "no rule_analytics"}
+
+        patterns = self._rule_analytics._meta_patterns
         if not patterns:
             return {"promoted": False, "reason": "no patterns"}
         best = max(patterns, key=lambda p: p.significance)
@@ -653,12 +655,15 @@ class SystemMonitor:
             self._rules.append(new_rule)
         return {"promoted": True, "pattern_type": best.pattern_type, "rule_name": new_rule.name}
 
-    def _update_rulial_position(self) -> dict[str, Any]:
-        """Refresh the rulial position and generate new high-level insights."""
-        if not self._rulial:
-            return {"updated": False, "reason": "no rulial"}
-        pos = self._rulial.update_position()
-        insights = self._rulial.generate_high_level_insights()
+    def _update_rule_analytics_position(self) -> dict[str, Any]:
+        """Refresh the rule analytics position and generate new high-level insights."""
+
+        if not self._rule_analytics:
+
+            return {"updated": False, "reason": "no rule_analytics"}
+
+        pos = self._rule_analytics.update_position()
+        insights = self._rule_analytics.generate_high_level_insights()
         return {
             "updated": True,
             "density": pos.graph_activity_density,
@@ -773,5 +778,5 @@ class SystemMonitor:
             meta_level=self._state.complexity_level,
             introspections=len(self._introspection_log),
             metamorphoses=len(self._tuning_history),
-            rulial_insight_count=self._state.rulial_insight_count,
+            rule_analytics_insight_count=self._state.rule_analytics_insight_count,
         )

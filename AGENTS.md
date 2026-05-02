@@ -57,7 +57,7 @@ class ReasoningMixin(_MemoryBase):
 
 Domain logic lives in standalone engine classes (`GraphMaintenanceEngine`, `BranchialSpace`, `BeliefLayer`, etc.). Higher-level callers (facades, other engines, coordinator classes) delegate to these engines and return their result objects directly. No layer rewraps, unpacks, or translates engine results.
 
-**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rulial interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
+**Why**: The inspiration architecture describes specialized subsystems (multiway engine, causal invariance engine, branchial navigator, rule analytics interface) that operate semi-independently but coordinate through shared structures. The engine-delegation pattern mirrors this: engines are the specialized subsystems; callers coordinate them.
 
 **Pattern**:
 ```python
@@ -287,13 +287,13 @@ The core library has no network calls, no database, no external services. All co
 ### DP-16: Domain Prefixes for Module Relationships
 
 Modules use naming prefixes to show their subsystem relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rulial space)
+- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rule analytics)
 - `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `retrieval_*` — activation, retrieval engine, and related components
 - `embedding_*` — embedding providers and engines
 
-**Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `multiway_branchial.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `multiway_rulial.py`.
+**Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `multiway_branchial.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `rule_analytics.py`.
 
 ## Build & Run
 
@@ -345,7 +345,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 - **multiway_causal.py** — `StateConvergenceEngine` merges convergent states with graph isomorphism detection. Returns typed `MergeReport`.
 - **belief.py** — `BeliefLayer` provides distribution creation/sampling/correlation/interference, adaptive coherence time, and sampling profile learning via Thompson sampling. Also contains `BeliefState`, `Outcome`, `ConceptCorrelation`, `EvidenceInteraction`, `SamplingProfile`, `SamplingTrigger`, and `BUILTIN_BASES`.
 - **multiway_branchial.py** — `BranchialSpace` maps multiway states into a coordinate space with distance metrics, clustering, lateral inference, and multi-scale analysis. Returns typed `BranchialAnalysis`.
-- **multiway_rulial.py** — `RulialSpace` tracks the computational universe of the system (rule frequencies, meta-patterns, high-level insights, per-rule effectiveness tracking). Returns typed `RulialAnalysis` and `RuleNeighborhoodResult`.
+- **rule_analytics.py** — `RuleAnalytics` tracks rule effectiveness, meta-patterns, and high-level insights from rule usage. Returns typed `RuleAnalyticsReport` and `RuleNeighborhoodResult`.
 - **structural_anomaly.py** — `StructuralAnomalyDetector` detects structural anomalies (cycles, high centrality, contradictory labels, unusual connectivity) and classifies concepts along a low_risk/boundary/anomalous spectrum. `ExplorationReport` dataclass tracks coverage bounds.
 - **multi_perspective.py** — `MultiPerspectiveAnalyzer` provides multi-perspective analysis (classical/quantum/hypergraph/probabilistic perspectives) with perspective effectiveness learning via Thompson sampling.
 - **system_monitor.py** — `SystemMonitor` provides introspection and metamorphosis trigger detection. `introspect()` returns typed `HealthReport`, `analyze()` returns typed `MonitorStats`.
@@ -369,7 +369,7 @@ The codebase is in `src/hyper3/` with a flat module structure (no sub-packages):
 
 ### Module naming convention
 Modules use domain prefixes to show relationships:
-- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rulial space)
+- `multiway_*` — multiway expansion subsystem (branchial space, state convergence, rule analytics)
 - `memory_*` — HypergraphMemory mixin decomposition
 - `rules_*` — rule definition and discovery
 - `embedding_*` — embedding providers and engines
@@ -743,17 +743,17 @@ This table documents the mathematical status of named algorithms and metrics in 
 | Local clustering coefficient | Triangle density of neighbor subgraph | `multi_perspective.py` | Rigorous |
 | Perspective overlap | Jaccard containment of two BFS reachable sets | `multi_perspective.py` | Heuristic |
 | Frame information loss | Product of complexity and information loss scalars | `multi_perspective.py` | Heuristic |
-| High-level insights | Pattern detection from rule frequency and graph structure | `multiway_rulial.py` | Heuristic |
+| High-level insights | Pattern detection from rule frequency and graph structure | `rule_analytics.py` | Heuristic |
 | Concept correlation | Classical correlation matrix lookup between outcome distributions | `belief.py` | Classical |
 | Born-rule sampling | Sampling from `|amplitude|^2` with complex amplitudes | `belief.py` | Rigorous |
 | Von Neumann entropy | Density matrix eigenvalue entropy | `belief.py` | Rigorous |
 | Von Neumann entropy (multi_perspective) | Normalized Shannon entropy over edge target distribution | `multi_perspective.py` | Heuristic (method renamed to `_normalized_shannon_entropy`) |
 | Partial trace | Tensor contraction over subsystems | `belief.py` | Rigorous |
 | Unitary evolution | Matrix multiplication with renormalization | `belief.py` | Rigorous |
-| Computational density | Graph activity density (avg_degree * 0.25 + rule_diversity * 0.75) | `multiway_rulial.py` | Weighted composite metric |
-| Structural complexity | Mean of spectral entropy and motif diversity | `multiway_rulial.py` | Composite metric |
+| Computational density | Graph activity density (avg_degree * 0.25 + rule_diversity * 0.75) | `rule_analytics.py` | Weighted composite metric |
+| Structural complexity | Mean of spectral entropy and motif diversity | `rule_analytics.py` | Composite metric |
 | Conservative extension | Removed (was always `True`, not proof-theoretic) | `structural_anomaly.py` | N/A |
-| Spectral entropy | SVD of adjacency matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
+| Spectral entropy | SVD of adjacency matrix, Shannon entropy of singular values | `rule_analytics.py` | Rigorous |
 | Kolmogorov complexity | zlib compression ratio | `multi_perspective.py` | Approximation (well-known technique) |
 | Thompson sampling | Beta distribution sampling for frame/basis selection | `multi_perspective.py`, `belief.py` | Rigorous |
 | Reciprocal Rank Fusion | Standard `1/(60+rank)` scoring | `multi_perspective.py` | Rigorous |
@@ -768,7 +768,7 @@ This table documents the mathematical status of named algorithms and metrics in 
 | Hypergraph PageRank | Incidence-based transition matrix P = D_v^{-1} H W D_e^{-1} H^T | `kernel.py` | Rigorous (Zhou, Huang, Schoelkopf 2006) |
 | Hypergraph spectral embedding | Bottom-k eigenvectors of normalized hypergraph Laplacian | `kernel.py` | Rigorous |
 | Hyperedge diffusion (AND/OR/majority) | Gate modes on n-ary edge activation flow | `retrieval_activation.py` | Structural heuristic (linear mode is rigorous; gate modes are practical extensions) |
-| Spectral entropy (hypergraph) | SVD of incidence matrix, Shannon entropy of singular values | `multiway_rulial.py` | Rigorous |
+| Spectral entropy (hypergraph) | SVD of incidence matrix, Shannon entropy of singular values | `rule_analytics.py` | Rigorous |
 
 ## Edit Safety
 
@@ -1018,7 +1018,7 @@ src/hyper3/          Source code (flat, no sub-packages)
   multiway.py        MultiwayEngine, MultiwayGraph, MultiwayState
   multiway_branchial.py BranchialSpace with distance/clustering
   multiway_causal.py StateConvergenceEngine
-  multiway_rulial.py RulialSpace for rule universe tracking
+  rule_analytics.py RuleAnalytics for rule effectiveness tracking
   structural_anomaly.py StructuralAnomalyDetector
   multi_perspective.py MultiPerspectiveAnalyzer
   system_monitor.py  SystemMonitor

@@ -94,13 +94,13 @@ def _probe_branchial(memory: object) -> bool:
         return False
 
 
-def _probe_rulial(memory: object) -> bool:
-    """Return ``True`` when the rulial space has position history."""
-    rulial = getattr(memory, "_rulial", None)
-    if rulial is None:
+def _probe_rule_analytics(memory: object) -> bool:
+    """Return ``True`` when the rule analytics engine has position history."""
+    rule_analytics = getattr(memory, "_rule_analytics", None)
+    if rule_analytics is None:
         return False
     try:
-        history = getattr(rulial, "_position_history", [])
+        history = getattr(rule_analytics, "_position_history", [])
         return len(history) > 0
     except Exception:
         return False
@@ -144,7 +144,7 @@ def _compute_capability_score(memory: object) -> dict[str, float]:
         "provenance": _probe_provenance,
         "belief": _probe_belief,
         "branchial": _probe_branchial,
-        "rulial": _probe_rulial,
+        "rule_analytics": _probe_rule_analytics,
         "embedding": _probe_embedding,
         "retrieval": _probe_retrieval,
     }
@@ -205,7 +205,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
         return CapabilityLevel.MINIMAL
 
     advanced = (
-        scores.get("provenance", 0) + scores.get("belief", 0) + scores.get("branchial", 0) + scores.get("rulial", 0)
+        scores.get("provenance", 0) + scores.get("belief", 0) + scores.get("branchial", 0) + scores.get("rule_analytics", 0)
     )
     if advanced < 2.0:
         return CapabilityLevel.STANDARD

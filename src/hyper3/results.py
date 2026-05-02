@@ -49,11 +49,11 @@ class ExpansionInfo(_SimpleResultBase):
 
 @dataclass
 class ReasonResult(_SimpleResultBase):
-    """Aggregated result of a reasoning pass: expansion statistics, state convergence, branchial/rulial analysis, overlay state, and per-node confidence."""
+    """Aggregated result of a reasoning pass: expansion statistics, state convergence, branchial/rule-analytics analysis, overlay state, and per-node confidence."""
     expansion: ExpansionInfo | None = None
     state_convergence: MergeReport | None = None
     branchial: BranchialAnalysis | None = None
-    rulial: RulialAnalysis | None = None
+    rule_analytics: RuleAnalyticsReport | None = None
     multiway_leaves: int = 0
     overlay: dict[str, int] | None = None
     confidence: dict[str, float] | None = None
@@ -120,8 +120,8 @@ class BranchialAnalysis(_SimpleResultBase):
 
 
 @dataclass
-class RulialAnalysis(_SimpleResultBase):
-    """Analysis of the rulial (rule-universe) space: activity density, structural complexity, spectral entropy, rule diversity, and effectiveness tracking."""
+class RuleAnalyticsReport(_SimpleResultBase):
+    """Rule analytics report: activity density, structural complexity, spectral entropy, rule diversity, and effectiveness tracking."""
     graph_activity_density: float = 0.0
     structural_complexity: float = 0.0
     spectral_entropy: float = 0.0
@@ -177,7 +177,7 @@ class LateralInferenceInsight(_SimpleResultBase):
 
 @dataclass
 class RuleNeighborhoodResult(_SimpleResultBase):
-    """Result of exploring the rulial neighborhood around the current rule set: explored rules, diversity, coverage, and unexplored regions."""
+    """Result of exploring the rule neighborhood around the current rule set: explored rules, diversity, coverage, and unexplored regions."""
     explored_rules: list[str] = field(default_factory=list)
     rule_diversity: int = 0
     graph_activity_density: float = 0.0
@@ -223,7 +223,7 @@ class MonitorStats(_SimpleResultBase):
     meta_level: int = 0
     introspections: int = 0
     metamorphoses: int = 0
-    rulial_insight_count: float = 0.0
+    rule_analytics_insight_count: float = 0.0
 
 
 @dataclass
@@ -244,7 +244,7 @@ class MemoryStats(_SimpleResultBase):
     active_rules: int = 0
     overlay_active: bool = False
     overlay_edges: int = 0
-    rulial: RulialAnalysis | None = None
+    rule_analytics: RuleAnalyticsReport | None = None
     monitor_stats: MonitorStats = field(default_factory=MonitorStats)
     multi_edge_count: int = 0
 
@@ -342,11 +342,11 @@ class ImportResult(_SimpleResultBase):
 
 @dataclass
 class HealthInfo(_SimpleResultBase):
-    """System-level health metrics: architectural fitness, reasoning mode, meta level, and rulial insight count."""
+    """System-level health metrics: architectural fitness, reasoning mode, meta level, and rule analytics insight count."""
     fitness: float = 0.0
     mode: str = ""
     meta_level: int = 0
-    rulial_insight_count: int = 0
+    rule_analytics_insight_count: int = 0
 
 
 @dataclass
@@ -374,12 +374,12 @@ class DiscoveryHealthInfo(_SimpleResultBase):
 
 @dataclass
 class HealthReport(_SimpleResultBase):
-    """Comprehensive system health report aggregating system, graph, evolution, discovery, and rulial health with recommendations."""
+    """Comprehensive system health report aggregating system, graph, evolution, discovery, and rule-analytics health with recommendations."""
     system_health: HealthInfo = field(default_factory=HealthInfo)
     graph_health: GraphHealthInfo = field(default_factory=GraphHealthInfo)
     evolution_health: EvolutionHealthInfo = field(default_factory=EvolutionHealthInfo)
     discovery_health: DiscoveryHealthInfo = field(default_factory=DiscoveryHealthInfo)
-    rulial_health: RulialAnalysis | None = None
+    rule_analytics_health: RuleAnalyticsReport | None = None
     anti_patterns: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
 

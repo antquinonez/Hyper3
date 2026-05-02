@@ -409,7 +409,7 @@ def main() -> None:
     print("SECTION 2: Rule Effectiveness Learning (collections.Counter)")
     print("=" * 70)
 
-    rulial = RuleEffectivenessTracker()
+    rule_analytics = RuleEffectivenessTracker()
 
     rule_outcomes = [
         ("TransitiveRule", "useful"), ("TransitiveRule", "useful"),
@@ -431,9 +431,9 @@ def main() -> None:
         ("AbductiveRule", "reinforced"), ("AbductiveRule", "useful"),
     ]
     for rule_name, outcome in rule_outcomes:
-        rulial.record_outcome(rule_name, outcome)
+        rule_analytics.record_outcome(rule_name, outcome)
 
-    effectiveness = rulial.get_effectiveness()
+    effectiveness = rule_analytics.get_effectiveness()
     print("  Rule effectiveness rankings:")
     sorted_rules = sorted(effectiveness.items(), key=lambda x: x[1]["effectiveness"], reverse=True)
     for rank, (rule_name, stats) in enumerate(sorted_rules, 1):
@@ -444,7 +444,7 @@ def main() -> None:
         print(f"    {rank}. {rule_name:25s}  eff={eff:.2f}  retention={ret:.2f}  "
               f"reinforcement={reinf:.2f}  apps={apps}")
 
-    best = rulial.get_best_rules(3)
+    best = rule_analytics.get_best_rules(3)
     print(f"\n  Top 3 rules by effectiveness:")
     for name, score in best:
         print(f"    {name}: {score:.2f}")
@@ -603,7 +603,7 @@ def main() -> None:
     print(f"  Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
     print(f"\n  Rule effectiveness rankings (top 5):")
-    best = rulial.get_best_rules(5)
+    best = rule_analytics.get_best_rules(5)
     for rank, (name, score) in enumerate(best, 1):
         print(f"    {rank}. {name:25s}  {score:.2f}")
     if effectiveness:

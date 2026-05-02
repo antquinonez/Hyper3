@@ -216,18 +216,18 @@ class MultiwayEngine:
         """
         self._graph = graph
         self._multiway = MultiwayGraph()
-        self._rulial: Any | None = None
+        self._rule_analytics: Any | None = None
 
-    def set_rulial(self, rulial: Any) -> None:
-        """Attach a RulialSpace for rule-effectiveness-aware ordering."""
-        self._rulial = rulial
+    def set_rulial(self, rule_analytics: Any) -> None:
+        """Attach a RuleAnalytics engine for rule-effectiveness-aware ordering."""
+        self._rule_analytics = rule_analytics
 
     def _sort_rules_by_effectiveness(self, rules: list[Rule]) -> list[Rule]:
-        """Sort rules by descending rulial priority when available."""
-        if not self._rulial:
+        """Sort rules by descending effectiveness priority when available."""
+        if not self._rule_analytics:
             return rules
-        rulial = self._rulial
-        return sorted(rules, key=lambda r: rulial.get_rule_priority(r.name), reverse=True)
+        analytics = self._rule_analytics
+        return sorted(rules, key=lambda r: analytics.get_rule_priority(r.name), reverse=True)
 
     @property
     def multiway(self) -> MultiwayGraph:

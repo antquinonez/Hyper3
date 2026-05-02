@@ -9,7 +9,6 @@ from hyper3.multi_perspective import RobustReachabilityDetector
 from hyper3.multiway import ExpansionReport, MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.multiway_rulial import RulialSpace
 from hyper3.overlay import HypergraphOverlay
 from hyper3.results import (
     BiasProfileResult,
@@ -23,8 +22,9 @@ from hyper3.results import (
     MergeReport,
     ReasonResult,
     RollbackResult,
-    RulialAnalysis,
+    RuleAnalyticsReport,
 )
+from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
 
@@ -35,7 +35,7 @@ class ReasoningMixin(_MemoryBase):
     Provides full and incremental multiway expansion via ``reason`` and
     ``reason_incremental``, iterative convergence-driven reasoning,
     frame-parameterized reasoning, inference overlay commit/rollback,
-    derivation queries, rule discovery and auto-application, rulial/branchial
+    derivation queries, rule discovery and auto-application, rule-analytics
     post-expansion analysis, and computational bias profiling.
     """
 
@@ -44,14 +44,14 @@ class ReasoningMixin(_MemoryBase):
         if self._multiway_engine is not None:
             return
         from hyper3.multiway_branchial import BranchialSpace
-        from hyper3.multiway_rulial import RulialSpace
+        from hyper3.rule_analytics import RuleAnalytics
 
         self._multiway_engine = MultiwayEngine(self._graph)
         self._convergence_engine = StateConvergenceEngine(self._graph, self._multiway_engine.multiway)
         self._branchial = BranchialSpace(self._graph, self._multiway_engine.multiway)
-        self._rulial = RulialSpace(self._graph, self._multiway_engine)
-        self._multiway_engine.set_rulial(self._rulial)
-        self._rulial_rule_productions: dict[str, list[str]] = {}
+        self._rule_analytics = RuleAnalytics(self._graph, self._multiway_engine)
+        self._multiway_engine.set_rulial(self._rule_analytics)
+        self._rule_productions: dict[str, list[str]] = {}
 
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
         """Convert a set of concept labels to their corresponding node IDs."""
@@ -62,20 +62,20 @@ class ReasoningMixin(_MemoryBase):
                 seed_ids.add(node.id)
         return seed_ids
 
-    def _record_rulial_applications(self, active_rules: list[Rule]) -> None:
-        """Record which rules were applied in the multiway DAG to the rulial space."""
-        if not self._rulial or not self._multiway_engine:
+    def _record_rule_applications(self, active_rules: list[Rule]) -> None:
+        """Record which rules were applied in the multiway DAG to the rule analytics engine."""
+        if not self._rule_analytics or not self._multiway_engine:
             return
         applied_names: dict[str, list[str]] = {}
         for state in self._multiway_engine.multiway.states:
             if state.rule_applied and state.produced_edge_ids:
                 applied_names.setdefault(state.rule_applied, []).extend(state.produced_edge_ids)
         for name in applied_names:
-            self._rulial.record_rule_application(name)
-        if self._rulial:
-            self._rulial_rule_productions = applied_names
+            self._rule_analytics.record_rule_application(name)
+        if self._rule_analytics:
+            self._rule_productions = applied_names
         for name in applied_names:
-            self._rulial.record_rule_outcome(name, "applied")
+            self._rule_analytics.record_rule_outcome(name, "applied")
 
     def _record_provenance(self, target_graph: Hypergraph | Any) -> None:
         """Record provenance entries for all multiway states that produced edges."""
@@ -105,11 +105,11 @@ class ReasoningMixin(_MemoryBase):
         self,
         active_rules: list[Rule],
         enforce_convergence: bool,
-    ) -> tuple[MergeReport | None, BranchialAnalysis | None, RulialAnalysis | None]:
-        """Run state convergence enforcement, branchial analysis, and rulial analysis after expansion.
+    ) -> tuple[MergeReport | None, BranchialAnalysis | None, RuleAnalyticsReport | None]:
+        """Run state convergence enforcement, branchial analysis, and rule analytics after expansion.
 
         Returns:
-            Tuple of (convergence_report, branchial_report, rulial_report).
+            Tuple of (convergence_report, branchial_report, rule_analytics_report).
         """
         convergence_report: MergeReport | None = None
         if enforce_convergence and self._convergence_engine:
@@ -121,12 +121,12 @@ class ReasoningMixin(_MemoryBase):
             self._branchial.build_simultaneity_groups()
             branchial_report = self._branchial.analyze()
 
-        rulial_report: RulialAnalysis | None = None
-        if self._rulial:
-            self._rulial.update_position()
-            rulial_report = self._rulial.analyze()
+        rule_analytics_report: RuleAnalyticsReport | None = None
+        if self._rule_analytics:
+            self._rule_analytics.update_position()
+            rule_analytics_report = self._rule_analytics.analyze()
 
-        return convergence_report, branchial_report, rulial_report
+        return convergence_report, branchial_report, rule_analytics_report
 
     def _build_reason_result(
         self,
@@ -136,7 +136,7 @@ class ReasoningMixin(_MemoryBase):
         auto_commit: bool,
         convergence_report: MergeReport | None,
         branchial_report: BranchialAnalysis | None,
-        rulial_report: RulialAnalysis | None,
+        rulial_report: RuleAnalyticsReport | None,
         auto_distributions: list[BeliefState],
     ) -> ReasonResult:
         """Assemble the final ReasonResult from expansion and post-expansion reports."""
@@ -159,7 +159,7 @@ class ReasoningMixin(_MemoryBase):
             ),
             state_convergence=convergence_report,
             branchial=branchial_report,
-            rulial=rulial_report,
+            rule_analytics=rulial_report,
             multiway_leaves=self._multiway_engine.multiway.state_count if self._multiway_engine else 0,
         )
         if use_overlay and self._overlay:
@@ -232,7 +232,7 @@ class ReasoningMixin(_MemoryBase):
 
         If an overlay already exists it is auto-committed before a new one is
         created.  After expansion the method runs state convergence enforcement,
-        branchial analysis, rulial tracking, and optional auto-superposition.
+        branchial analysis, rule analytics tracking, and optional auto-superposition.
 
         Args:
             seed_concepts: Labels of seed nodes.
@@ -248,7 +248,7 @@ class ReasoningMixin(_MemoryBase):
                 where completeness matters more than performance.
 
         Returns:
-            ReasonResult with expansion, causal, branchial, rulial reports and
+            ReasonResult with expansion, causal, branchial, rule analytics reports and
             optional overlay/superposition metadata.
         """
         active_rules = rules or self._rules
@@ -279,7 +279,7 @@ class ReasoningMixin(_MemoryBase):
         )
 
         if report.rules_applied > 0:
-            self._record_rulial_applications(active_rules)
+            self._record_rule_applications(active_rules)
 
         target_graph = self._overlay if use_overlay and self._overlay else self._graph
         self._record_provenance(target_graph)
@@ -621,19 +621,19 @@ class ReasoningMixin(_MemoryBase):
 
     def _track_rule_effectiveness(self) -> None:
         """Check which rule-produced edges survived evolution and record outcomes."""
-        productions = getattr(self, "_rulial_rule_productions", None)
-        if not productions or not self._rulial:
+        productions = getattr(self, "_rule_productions", None)
+        if not productions or not self._rule_analytics:
             return
         for rule_name, edge_ids in productions.items():
             for eid in edge_ids:
                 edge = self._graph.get_edge(eid)
                 if edge is None:
-                    self._rulial.record_rule_outcome(rule_name, "pruned")
+                    self._rule_analytics.record_rule_outcome(rule_name, "pruned")
                 else:
-                    self._rulial.record_rule_outcome(rule_name, "useful")
+                    self._rule_analytics.record_rule_outcome(rule_name, "useful")
                     if edge.weight > 1.0:
-                        self._rulial.record_rule_outcome(rule_name, "reinforced")
-        self._rulial_rule_productions = {}
+                        self._rule_analytics.record_rule_outcome(rule_name, "reinforced")
+        self._rule_productions = {}
 
     @property
     def multiway(self) -> MultiwayEngine | None:
@@ -646,12 +646,12 @@ class ReasoningMixin(_MemoryBase):
         return self._branchial
 
     @property
-    def rulial(self) -> RulialSpace:
-        """The rulial space for rule universe tracking, lazily initialized."""
-        if self._rulial is None:
-            self._rulial = RulialSpace(self._graph)
-        return self._rulial
+    def rule_analytics(self) -> RuleAnalytics:
+        """The rule analytics engine for rule effectiveness tracking, lazily initialized."""
+        if self._rule_analytics is None:
+            self._rule_analytics = RuleAnalytics(self._graph)
+        return self._rule_analytics
 
     def compute_bias_profile(self) -> BiasProfileResult:
         """Analyze the system's computational biases from rule effectiveness data."""
-        return self.rulial.compute_bias_profile()
+        return self.rule_analytics.compute_bias_profile()

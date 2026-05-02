@@ -264,9 +264,9 @@ optimal_name, optimal = mem.select_optimal_frame(concept)
 print(f"\nOptimal frame: {optimal_name} (complexity={optimal.complexity:.3f})")
 print()
 
-# ─── STEP 8: Rulial space ────────────────────────────────────────────
+# ─── STEP 8: Rule analytics ────────────────────────────────────────────
 print("━" * 72)
-print("STEP 8: Rulial space — the system maps its own computational position")
+print("STEP 8: Rule analytics — the system maps its own computational position")
 print("━" * 72)
 print("""
 The system tracks where it stands in the space of all possible computations.
@@ -274,22 +274,22 @@ It measures how dense its knowledge is, how diverse its rules are,
 and generates 'transcendental insights' — meta-knowledge about its own patterns.
 """)
 
-rulial = mem.rulial
-pos = rulial.update_position()
+rule_analytics = mem.rule_analytics
+pos = rule_analytics.update_position()
 print(f"Graph activity density: {pos.graph_activity_density:.3f}")
 print(f"  (how richly interconnected the knowledge graph is)")
 print(f"Structural complexity: {pos.structural_complexity:.3f}")
 print(f"  (how complex the causal structure has become)")
-print(f"Rules explored: {len(rulial.explored_rules)}")
+print(f"Rules explored: {len(rule_analytics.explored_rules)}")
 print()
 
-patterns = rulial.find_meta_patterns()
+patterns = rule_analytics.find_meta_patterns()
 print("Meta-patterns discovered about its own knowledge:")
 for p in patterns:
     print(f"  [{p.pattern_type}] {p.description}")
 print()
 
-insights = rulial.generate_high_level_insights()
+insights = rule_analytics.generate_high_level_insights()
 print("High-level insights (meta-knowledge):")
 for ins in insights:
     print(f"  ({ins.confidence:.0%}) {ins.principle}")

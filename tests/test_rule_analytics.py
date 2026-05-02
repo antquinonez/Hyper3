@@ -12,8 +12,8 @@ from hyper3 import (
     Metadata,
     Modality,
     MultiwayEngine,
-    RulialPosition,
-    RulialSpace,
+    RuleAnalytics,
+    RuleSpacePosition,
     TransitiveRule,
 )
 from hyper3.memory import HypergraphMemory
@@ -34,29 +34,29 @@ def _build_graph():
     return g
 
 
-class TestRulialPosition:
+class TestRuleSpacePosition:
     def test_distance_to_self(self):
-        p = RulialPosition(graph_activity_density=0.5, structural_complexity=0.3)
+        p = RuleSpacePosition(graph_activity_density=0.5, structural_complexity=0.3)
         assert p.distance_to(p) == 0.0
 
     def test_distance_to_different(self):
-        p1 = RulialPosition(graph_activity_density=0.5, structural_complexity=0.3)
-        p2 = RulialPosition(graph_activity_density=0.8, structural_complexity=0.6)
+        p1 = RuleSpacePosition(graph_activity_density=0.5, structural_complexity=0.3)
+        p2 = RuleSpacePosition(graph_activity_density=0.8, structural_complexity=0.6)
         assert p1.distance_to(p2) > 0.0
 
 
-class TestRulialSpace:
+class TestRuleAnalytics:
     def test_update_position(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         pos = rs.update_position()
-        assert isinstance(pos, RulialPosition)
+        assert isinstance(pos, RuleSpacePosition)
         assert 0.0 <= pos.graph_activity_density <= 1.0
         assert 0.0 <= pos.structural_complexity <= 1.0
 
     def test_record_rule_application(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_application("transitive")
         rs.record_rule_application("transitive")
         rs.record_rule_application("inverse")
@@ -66,7 +66,7 @@ class TestRulialSpace:
     def test_explore_rule_neighborhood(self):
         g = _build_graph()
         mw = MultiwayEngine(g)
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         rules = [TransitiveRule(edge_label="rel")]
         report = rs.explore_rule_neighborhood(rules)
         assert "explored_rules" in report
@@ -77,7 +77,7 @@ class TestRulialSpace:
 
     def test_find_meta_patterns(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         patterns = rs.find_meta_patterns()
         assert isinstance(patterns, list)
         assert len(patterns) >= 1
@@ -89,7 +89,7 @@ class TestRulialSpace:
 
     def test_generate_high_level_insights(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_application("transitive")
         rs.record_rule_application("inverse")
         rs.record_rule_application("generalization")
@@ -105,7 +105,7 @@ class TestRulialSpace:
 
     def test_analyze(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.update_position()
         report = rs.analyze()
         assert "graph_activity_density" in report
@@ -116,7 +116,7 @@ class TestRulialSpace:
 
     def test_position_history(self):
         g = _build_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.update_position()
         rs.update_position()
         assert len(rs.position_history) == 2
@@ -124,7 +124,7 @@ class TestRulialSpace:
     def test_with_multiway(self):
         g = _build_graph()
         mw = MultiwayEngine(g)
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         pos = rs.update_position()
         assert isinstance(pos.branchial_coordinates, list)
 
@@ -149,8 +149,8 @@ class TestRuleEffectivenessTracking:
         mem = _setup_chain()
         mem._rules = [TransitiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
-        assert mem._rulial is not None
-        eff = mem._rulial.get_rule_effectiveness()
+        assert mem._rule_analytics is not None
+        eff = mem._rule_analytics.get_rule_effectiveness()
         assert len(eff) > 0
         for rule_name, stats in eff.items():
             assert stats["applications"] > 0
@@ -161,7 +161,7 @@ class TestRuleEffectivenessTracking:
         mem._rules = [TransitiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
         has_useful = False
-        for outcomes in mem._rulial._rule_outcomes.values():
+        for outcomes in mem._rule_analytics._rule_outcomes.values():
             if outcomes.get("useful", 0) > 0:
                 has_useful = True
         assert has_useful
@@ -170,7 +170,7 @@ class TestRuleEffectivenessTracking:
         mem = _setup_chain()
         mem._rules = [TransitiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
-        recommended = mem._rulial.get_recommended_rules()
+        recommended = mem._rule_analytics.get_recommended_rules()
         assert len(recommended) >= 1
         for name in recommended:
             assert isinstance(name, str)
@@ -179,14 +179,14 @@ class TestRuleEffectivenessTracking:
         mem = _setup_chain()
         mem._rules = [TransitiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
-        for name in mem._rulial._rule_outcomes:
-            priority = mem._rulial.get_rule_priority(name)
+        for name in mem._rule_analytics._rule_outcomes:
+            priority = mem._rule_analytics.get_rule_priority(name)
             assert 0.0 <= priority <= 1.0
 
     def test_unknown_rule_has_default_priority(self):
         mem = _setup_chain()
         mem._ensure_multiway()
-        priority = mem._rulial.get_rule_priority("NonExistentRule")
+        priority = mem._rule_analytics.get_rule_priority("NonExistentRule")
         assert priority == 0.5
 
     def test_rules_sorted_by_effectiveness_during_expansion(self):
@@ -194,8 +194,8 @@ class TestRuleEffectivenessTracking:
         mem._rules = [TransitiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
         assert mem._multiway_engine is not None
-        assert mem._multiway_engine._rulial is not None
-        eff = mem._multiway_engine._rulial.get_rule_effectiveness()
+        assert mem._multiway_engine._rule_analytics is not None
+        eff = mem._multiway_engine._rule_analytics.get_rule_effectiveness()
         assert len(eff) > 0
 
     def test_effectiveness_preserved_in_snapshot(self):
@@ -215,20 +215,20 @@ class TestRuleEffectivenessTracking:
             mem2._rules = [TransitiveRule()]
             mem2.load_state(path)
 
-            assert mem2._rulial is not None
-            eff = mem2._rulial.get_rule_effectiveness()
+            assert mem2._rule_analytics is not None
+            eff = mem2._rule_analytics.get_rule_effectiveness()
             assert len(eff) > 0
-            original_eff = mem._rulial.get_rule_effectiveness()
+            original_eff = mem._rule_analytics.get_rule_effectiveness()
             assert set(eff.keys()) == set(original_eff.keys())
 
     def test_multiple_rules_tracked(self):
         mem = _setup_chain()
         mem._rules = [TransitiveRule(), AbductiveRule()]
         mem.reason({"a", "b", "c", "d"}, auto_commit=True)
-        assert mem._rulial is not None
-        recommended = mem._rulial.get_recommended_rules()
+        assert mem._rule_analytics is not None
+        recommended = mem._rule_analytics.get_recommended_rules()
         assert len(recommended) >= 1
-        eff = mem._rulial.get_rule_effectiveness()
+        eff = mem._rule_analytics.get_rule_effectiveness()
         assert len(eff) >= 1
 
 
@@ -248,21 +248,21 @@ def _build_graph_with_multiway():
 class TestComputeDensityMap:
     def test_returns_resolution_x_resolution_grid(self):
         g, mw = _build_graph_with_multiway()
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         grid = rs.compute_density_map(resolution=5)
         assert len(grid) == 5
         assert all(len(row) == 5 for row in grid)
 
     def test_empty_history_returns_zero_grid(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         grid = rs.compute_density_map()
         assert len(grid) == 10
         assert all(v == 0.0 for row in grid for v in row)
 
     def test_with_history_returns_nonzero(self):
         g, mw = _build_graph_with_multiway()
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         rs.record_rule_application("transitive")
         rs.update_position()
         rs.record_rule_application("inverse")
@@ -272,7 +272,7 @@ class TestComputeDensityMap:
 
     def test_normalized_max_one(self):
         g, mw = _build_graph_with_multiway()
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         rs.record_rule_application("transitive")
         rs.update_position()
         rs.update_position()
@@ -284,7 +284,7 @@ class TestComputeDensityMap:
 class TestIdentifyFrontiers:
     def test_frontiers_respect_bounds(self):
         g, mw = _build_graph_with_multiway()
-        rs = RulialSpace(g, mw)
+        rs = RuleAnalytics(g, mw)
         rs.record_rule_application("transitive")
         rs.update_position()
         rs.update_position()
@@ -296,7 +296,7 @@ class TestIdentifyFrontiers:
 
     def test_no_frontiers_on_empty(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         frontiers = rs.identify_frontiers()
         assert frontiers == []
 
@@ -304,7 +304,7 @@ class TestIdentifyFrontiers:
 class TestPerRuleEffectivenessTracking:
     def test_record_outcomes(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_outcome("transitive(A)", "applied")
         rs.record_rule_outcome("transitive(A)", "useful")
         rs.record_rule_outcome("transitive(A)", "reinforced")
@@ -318,7 +318,7 @@ class TestPerRuleEffectivenessTracking:
 
     def test_effectiveness_scores(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         for _ in range(5):
             rs.record_rule_outcome("good_rule", "useful")
         for _ in range(5):
@@ -329,7 +329,7 @@ class TestPerRuleEffectivenessTracking:
 
     def test_best_rules(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         for _ in range(3):
             rs.record_rule_outcome("rule_a", "useful")
         for _ in range(3):
@@ -340,7 +340,7 @@ class TestPerRuleEffectivenessTracking:
 
     def test_record_rule_application_tracks_outcome(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_application("transitive(X)")
         outcomes = rs.rule_outcomes
         assert "transitive(X)" in outcomes
@@ -348,21 +348,21 @@ class TestPerRuleEffectivenessTracking:
 
     def test_analyze_includes_effectiveness(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_outcome("test_rule", "useful")
         analysis = rs.analyze()
         assert "rule_effectiveness" in analysis
         assert "test_rule" in analysis["rule_effectiveness"]
 
 
-class TestRulialPositionDistance:
+class TestRuleSpacePositionDistance:
     def test_distance_with_different_frequencies(self):
-        p1 = RulialPosition(
+        p1 = RuleSpacePosition(
             graph_activity_density=0.5,
             structural_complexity=0.3,
             rule_application_frequency={"rule_a": 5.0, "rule_b": 3.0},
         )
-        p2 = RulialPosition(
+        p2 = RuleSpacePosition(
             graph_activity_density=0.5,
             structural_complexity=0.3,
             rule_application_frequency={"rule_a": 2.0, "rule_c": 4.0},
@@ -371,12 +371,12 @@ class TestRulialPositionDistance:
         assert d > 0.0
 
     def test_distance_with_same_frequencies_is_zero(self):
-        p1 = RulialPosition(
+        p1 = RuleSpacePosition(
             graph_activity_density=0.5,
             structural_complexity=0.3,
             rule_application_frequency={"rule_a": 5.0},
         )
-        p2 = RulialPosition(
+        p2 = RuleSpacePosition(
             graph_activity_density=0.5,
             structural_complexity=0.3,
             rule_application_frequency={"rule_a": 5.0},
@@ -384,7 +384,7 @@ class TestRulialPositionDistance:
         assert p1.distance_to(p2) == 0.0
 
 
-class TestRulialSpectralAndMotif:
+class TestRuleAnalyticsSpectralAndMotif:
     def _make_rich_graph(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d", "e", "f"]:
@@ -395,18 +395,18 @@ class TestRulialSpectralAndMotif:
 
     def test_spectral_entropy_positive(self):
         g = self._make_rich_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         pos = rs.update_position()
         assert pos.structural_complexity > 0.0
 
     def test_motif_diversity_with_rich_graph(self):
         g = self._make_rich_graph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         pos = rs.update_position()
         assert pos.graph_activity_density > 0.0
 
 
-class TestRulialBranchialCoords:
+class TestRuleAnalyticsBranchialCoords:
     def test_branchial_coords_with_multiway(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d"]:
@@ -420,23 +420,23 @@ class TestRulialBranchialCoords:
         engine = MultiwayEngine(g)
         engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
 
-        rs = RulialSpace(g, multiway=engine)
+        rs = RuleAnalytics(g, multiway=engine)
         pos = rs.update_position()
         assert isinstance(pos.branchial_coordinates, list)
         assert len(pos.branchial_coordinates) > 0
 
 
-class TestRulialRecommendedRules:
+class TestRuleAnalyticsRecommendedRules:
     def test_recommended_rules_sorted_by_retention(self):
         g = Hypergraph()
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.record_rule_outcome("good_rule", "useful")
         rs.record_rule_outcome("bad_rule", "applied")
         recommended = rs.get_recommended_rules()
         assert recommended[0] == "good_rule"
 
 
-class TestRulialBiasProfile:
+class TestRuleAnalyticsBiasProfile:
     def test_bias_profile_with_history(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d"]:
@@ -444,7 +444,7 @@ class TestRulialBiasProfile:
         g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         for _ in range(5):
             rs.record_rule_outcome("TransitiveRule", "useful")
             rs.update_position()
@@ -454,7 +454,7 @@ class TestRulialBiasProfile:
         assert profile.position_trajectory in ("exploring", "exploiting", "stable", "unknown")
 
 
-class TestRulialExploreNeighborhood:
+class TestRuleAnalyticsExploreNeighborhood:
     def test_neighborhood_with_multiway(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d"]:
@@ -467,14 +467,14 @@ class TestRulialExploreNeighborhood:
         engine = MultiwayEngine(g)
         engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
 
-        rs = RulialSpace(g, multiway=engine)
+        rs = RuleAnalytics(g, multiway=engine)
         result = rs.explore_rule_neighborhood(rules)
         assert result.graph_activity_density > 0.0
         assert result.coverage > 0.0
         assert result.error is None
 
 
-class TestRulialMetaPatterns:
+class TestRuleAnalyticsMetaPatterns:
     def test_cross_domain_patterns(self):
         g = Hypergraph()
         for i, mod in enumerate([Modality.CAUSAL, Modality.CONCEPTUAL]):
@@ -487,7 +487,7 @@ class TestRulialMetaPatterns:
         g.add_edge(Hyperedge(source_ids=frozenset({"n0_0"}), target_ids=frozenset({"n0_1"}), label="rel"))
         g.add_edge(Hyperedge(source_ids=frozenset({"n1_0"}), target_ids=frozenset({"n1_1"}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         patterns = rs.find_meta_patterns()
         types = {p.pattern_type for p in patterns}
         assert "cross_domain" in types
@@ -501,7 +501,7 @@ class TestRulialMetaPatterns:
         for t in ["b", "c", "d"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({t}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         patterns = rs.find_meta_patterns()
         types = {p.pattern_type for p in patterns}
         assert "optimized_path" in types
@@ -513,7 +513,7 @@ class TestRulialMetaPatterns:
         for t in ["b", "c", "d", "e"]:
             g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({t}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         patterns = rs.find_meta_patterns()
         types = {p.pattern_type for p in patterns}
         assert "hub_motif" in types
@@ -526,13 +526,13 @@ class TestRulialMetaPatterns:
         g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="rel"))
         g.add_edge(Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         patterns = rs.find_meta_patterns()
         types = {p.pattern_type for p in patterns}
         assert "chain_motif" in types
 
 
-class TestRulialHighLevelInsights:
+class TestRuleAnalyticsHighLevelInsights:
     def test_insights_include_spectral(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d", "e", "f"]:
@@ -540,7 +540,7 @@ class TestRulialHighLevelInsights:
         for s, t in [("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "f"), ("a", "c")]:
             g.add_edge(Hyperedge(source_ids=frozenset({s}), target_ids=frozenset({t}), label="rel"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.find_meta_patterns()
         insights = rs.generate_high_level_insights()
         assert len(insights) >= 1
@@ -558,14 +558,14 @@ class TestRulialHighLevelInsights:
         g.add_edge(Hyperedge(source_ids=frozenset({"n1_0"}), target_ids=frozenset({"n1_1"}), label="rel"))
         g.add_edge(Hyperedge(source_ids=frozenset({"n0_1"}), target_ids=frozenset({"n1_1"}), label="cross"))
 
-        rs = RulialSpace(g)
+        rs = RuleAnalytics(g)
         rs.find_meta_patterns()
         insights = rs.generate_high_level_insights()
         domains = {i.domain for i in insights}
         assert "meta" in domains
 
 
-class TestRulialDensityMapAndFrontiers:
+class TestRuleAnalyticsDensityMapAndFrontiers:
     def test_density_map_with_history(self):
         g = Hypergraph()
         for l in ["a", "b", "c", "d"]:
@@ -577,7 +577,7 @@ class TestRulialDensityMapAndFrontiers:
         engine = MultiwayEngine(g)
         engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
 
-        rs = RulialSpace(g, multiway=engine)
+        rs = RuleAnalytics(g, multiway=engine)
         for _ in range(3):
             rs.update_position()
 
@@ -596,7 +596,7 @@ class TestRulialDensityMapAndFrontiers:
         engine = MultiwayEngine(g)
         engine.expand(seed_node_ids={"a", "b", "c", "d"}, rules=rules, max_depth=2, max_total_states=50)
 
-        rs = RulialSpace(g, multiway=engine)
+        rs = RuleAnalytics(g, multiway=engine)
         for _ in range(3):
             rs.update_position()
 

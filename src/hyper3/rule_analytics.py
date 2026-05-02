@@ -11,13 +11,13 @@ from scipy.stats import entropy as scipy_entropy
 
 from hyper3.kernel import Hypergraph
 from hyper3.multiway import MultiwayEngine
-from hyper3.results import BiasProfileResult, RuleNeighborhoodResult, RulialAnalysis
+from hyper3.results import BiasProfileResult, RuleAnalyticsReport, RuleNeighborhoodResult
 from hyper3.rules import Rule
 
 
 @dataclass
-class RulialPosition:
-    """Snapshot of the system's position in rulial space along activity, rule-frequency, and complexity dimensions."""
+class RuleSpacePosition:
+    """Snapshot of the system's position in rule-analytics space along activity, rule-frequency, and complexity dimensions."""
 
     graph_activity_density: float = 0.0
     rule_application_frequency: dict[str, float] = field(default_factory=dict)
@@ -25,7 +25,7 @@ class RulialPosition:
     branchial_coordinates: list[float] = field(default_factory=list)
     timestamp: float = 0.0
 
-    def distance_to(self, other: RulialPosition) -> float:
+    def distance_to(self, other: RuleSpacePosition) -> float:
         """Compute Euclidean distance across density, complexity, and rule-frequency dimensions."""
         density_diff = (self.graph_activity_density - other.graph_activity_density) ** 2
         complexity_diff = (self.structural_complexity - other.structural_complexity) ** 2
@@ -39,7 +39,7 @@ class RulialPosition:
 
 @dataclass
 class DetectedPattern:
-    """A meta-computational pattern discovered by the rulial space analysis."""
+    """A pattern discovered by rule analytics analysis."""
 
     id: str = field(default_factory=lambda: uuid.uuid4().hex)
     pattern_type: str = ""
@@ -62,11 +62,11 @@ class HighLevelInsight:
     timestamp: float = 0.0
 
 
-class RulialSpace:
-    """Tracks the computational universe of the system including rule effectiveness, meta-patterns, and high-level insights."""
+class RuleAnalytics:
+    """Tracks rule effectiveness, meta-patterns, and high-level insights from rule usage."""
 
     def __init__(self, graph: Hypergraph, multiway: MultiwayEngine | None = None) -> None:
-        """Initialize the rulial space.
+        """Initialize rule analytics.
 
         Args:
             graph: The base hypergraph.
@@ -74,21 +74,21 @@ class RulialSpace:
         """
         self._graph = graph
         self._multiway = multiway
-        self._position = RulialPosition(timestamp=time.time())
-        self._position_history: list[RulialPosition] = []
+        self._position = RuleSpacePosition(timestamp=time.time())
+        self._position_history: list[RuleSpacePosition] = []
         self._meta_patterns: list[DetectedPattern] = []
         self._insights: list[HighLevelInsight] = []
         self._explored_rules: dict[str, int] = {}
         self._total_applications: int = 0
         self._rule_outcomes: dict[str, dict[str, int]] = {}
 
-    def update_position(self) -> RulialPosition:
-        """Recompute the current rulial position from graph statistics.
+    def update_position(self) -> RuleSpacePosition:
+        """Recompute the current position from graph statistics.
 
         Returns:
-            The updated RulialPosition.
+            The updated RuleSpacePosition.
         """
-        pos = RulialPosition(timestamp=time.time())
+        pos = RuleSpacePosition(timestamp=time.time())
         pos.graph_activity_density = self._compute_density()
         pos.rule_application_frequency = self._compute_rule_frequencies()
         pos.structural_complexity = self._compute_complexity()
@@ -569,7 +569,7 @@ class RulialSpace:
         """Derive high-level insights from meta-patterns and graph statistics.
 
         Generates insights across information-theory, structural, computational,
-        spectral, rulial, and meta domains.
+        spectral, rule_analytics, and meta domains.
 
         Returns:
             List of HighLevelInsight objects.
@@ -633,7 +633,7 @@ class RulialSpace:
             self._insights.append(
                 HighLevelInsight(
                     principle=f"Rule diversity ({rule_diversity} rules) provides multiple inference patterns",
-                    domain="rulial",
+                    domain="rule_analytics",
                     evidence=[f"Rules: {list(self._explored_rules.keys())}"],
                     confidence=min(1.0, rule_diversity / 5.0),
                     timestamp=time.time(),
@@ -655,12 +655,12 @@ class RulialSpace:
         return self._insights
 
     @property
-    def position(self) -> RulialPosition:
-        """Return the current rulial position."""
+    def position(self) -> RuleSpacePosition:
+        """Return the current position."""
         return self._position
 
     @property
-    def position_history(self) -> list[RulialPosition]:
+    def position_history(self) -> list[RuleSpacePosition]:
         """Return a copy of the position history."""
         return list(self._position_history)
 
@@ -741,9 +741,9 @@ class RulialSpace:
                     frontiers.append((float(r), float(c)))
         return frontiers
 
-    def analyze(self) -> RulialAnalysis:
-        """Return a summary of the rulial space state."""
-        return RulialAnalysis(
+    def analyze(self) -> RuleAnalyticsReport:
+        """Return a summary of the rule analytics state."""
+        return RuleAnalyticsReport(
             graph_activity_density=self._position.graph_activity_density,
             structural_complexity=self._position.structural_complexity,
             spectral_entropy=self._compute_spectral_entropy(),

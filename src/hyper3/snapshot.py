@@ -23,14 +23,14 @@ from hyper3.multiway_branchial import (
     BranchialDistanceMetrics,
     BranchialSpace,
 )
-from hyper3.multiway_rulial import (
-    DetectedPattern,
-    HighLevelInsight,
-    RulialPosition,
-    RulialSpace,
-)
 from hyper3.provenance import ProvenanceRecord, ProvenanceTracker
 from hyper3.retrieval_engine import FeedbackRecord, RetrievalEngine
+from hyper3.rule_analytics import (
+    DetectedPattern,
+    HighLevelInsight,
+    RuleAnalytics,
+    RuleSpacePosition,
+)
 from hyper3.rules import Rule
 from hyper3.system_monitor import SystemHealthModel, SystemMonitor
 
@@ -55,13 +55,13 @@ class SystemSnapshot:
     branchial_distance_cache: list[dict[str, Any]] = field(default_factory=list)
     branchial_clusters: list[dict[str, Any]] = field(default_factory=list)
 
-    rulial_position: dict[str, Any] = field(default_factory=dict)
-    rulial_position_history: list[dict[str, Any]] = field(default_factory=list)
-    rulial_rule_outcomes: dict[str, dict[str, int]] = field(default_factory=dict)
-    rulial_meta_patterns: list[dict[str, Any]] = field(default_factory=list)
-    rulial_insights: list[dict[str, Any]] = field(default_factory=list)
-    rulial_explored_rules: dict[str, int] = field(default_factory=dict)
-    rulial_total_applications: int = 0
+    rule_analytics_position: dict[str, Any] = field(default_factory=dict)
+    rule_analytics_position_history: list[dict[str, Any]] = field(default_factory=list)
+    rule_analytics_rule_outcomes: dict[str, dict[str, int]] = field(default_factory=dict)
+    rule_analytics_meta_patterns: list[dict[str, Any]] = field(default_factory=list)
+    rule_analytics_insights: list[dict[str, Any]] = field(default_factory=list)
+    rule_analytics_explored_rules: dict[str, int] = field(default_factory=dict)
+    rule_analytics_total_applications: int = 0
 
     provenance_records: list[dict[str, Any]] = field(default_factory=list)
     provenance_dependents: dict[str, list[str]] = field(default_factory=dict)
@@ -140,7 +140,7 @@ def capture_snapshot(
     belief: BeliefLayer,
     multiway_engine: MultiwayEngine | None,
     branchial: BranchialSpace | None,
-    rulial: RulialSpace | None,
+    rule_analytics: RuleAnalytics | None,
     provenance: ProvenanceTracker,
     retrieval: RetrievalEngine,
     perspective: MultiPerspectiveAnalyzer,
@@ -154,7 +154,7 @@ def capture_snapshot(
         belief: Belief layer whose states and correlations to capture.
         multiway_engine: Optional multiway engine whose DAG to capture.
         branchial: Optional branchial space whose coordinates and clusters to capture.
-        rulial: Optional rulial space whose position, history, and patterns to capture.
+        rule_analytics: Optional rule analytics engine whose position, history, and patterns to capture.
         provenance: Provenance tracker whose records to capture.
         retrieval: Retrieval engine whose feedback and LTR weights to capture.
         perspective: Computational perspective whose frame outcomes to capture.
@@ -169,7 +169,7 @@ def capture_snapshot(
     _capture_belief(belief, snap)
     _capture_multiway(multiway_engine, snap)
     _capture_branchial(branchial, snap)
-    _capture_rulial(rulial, snap)
+    _capture_rule_analytics(rule_analytics, snap)
     _capture_provenance(provenance, snap)
     _capture_retrieval(retrieval, snap)
     _capture_perspective(perspective, belief, snap)
@@ -274,19 +274,19 @@ def _capture_branchial(branchial: BranchialSpace | None, snap: SystemSnapshot) -
         )
 
 
-def _capture_rulial(rulial: RulialSpace | None, snap: SystemSnapshot) -> None:
-    if rulial is None:
+def _capture_rule_analytics(rule_analytics: RuleAnalytics | None, snap: SystemSnapshot) -> None:
+    if rule_analytics is None:
         return
-    pos = rulial._position
-    snap.rulial_position = {
+    pos = rule_analytics._position
+    snap.rule_analytics_position = {
         "graph_activity_density": pos.graph_activity_density,
         "rule_application_frequency": pos.rule_application_frequency,
         "structural_complexity": pos.structural_complexity,
         "branchial_coordinates": pos.branchial_coordinates,
         "timestamp": pos.timestamp,
     }
-    for hist_pos in rulial._position_history:
-        snap.rulial_position_history.append(
+    for hist_pos in rule_analytics._position_history:
+        snap.rule_analytics_position_history.append(
             {
                 "graph_activity_density": hist_pos.graph_activity_density,
                 "rule_application_frequency": hist_pos.rule_application_frequency,
@@ -295,9 +295,9 @@ def _capture_rulial(rulial: RulialSpace | None, snap: SystemSnapshot) -> None:
                 "timestamp": hist_pos.timestamp,
             }
         )
-    snap.rulial_rule_outcomes = {k: dict(v) for k, v in rulial._rule_outcomes.items()}
-    for pat in rulial._meta_patterns:
-        snap.rulial_meta_patterns.append(
+    snap.rule_analytics_rule_outcomes = {k: dict(v) for k, v in rule_analytics._rule_outcomes.items()}
+    for pat in rule_analytics._meta_patterns:
+        snap.rule_analytics_meta_patterns.append(
             {
                 "id": pat.id,
                 "pattern_type": pat.pattern_type,
@@ -308,8 +308,8 @@ def _capture_rulial(rulial: RulialSpace | None, snap: SystemSnapshot) -> None:
                 "significance": pat.significance,
             }
         )
-    for insight in rulial._insights:
-        snap.rulial_insights.append(
+    for insight in rule_analytics._insights:
+        snap.rule_analytics_insights.append(
             {
                 "id": insight.id,
                 "principle": insight.principle,
@@ -319,8 +319,8 @@ def _capture_rulial(rulial: RulialSpace | None, snap: SystemSnapshot) -> None:
                 "timestamp": insight.timestamp,
             }
         )
-    snap.rulial_explored_rules = dict(rulial._explored_rules)
-    snap.rulial_total_applications = rulial._total_applications
+    snap.rule_analytics_explored_rules = dict(rule_analytics._explored_rules)
+    snap.rule_analytics_total_applications = rule_analytics._total_applications
 
 
 def _capture_provenance(provenance: ProvenanceTracker, snap: SystemSnapshot) -> None:
@@ -366,7 +366,7 @@ def _capture_monitor(meta: SystemMonitor, snap: SystemSnapshot) -> None:
     snap.monitor_state = {
         "architectural_fitness": state.architectural_fitness,
         "computational_efficiency": state.computational_efficiency,
-        "rulial_insight_count": state.rulial_insight_count,
+        "rule_analytics_insight_count": state.rule_analytics_insight_count,
         "reasoning_activity_rate": state.reasoning_activity_rate,
         "reasoning_mode": state.reasoning_mode,
         "complexity_level": state.complexity_level,
@@ -436,12 +436,12 @@ def restore_snapshot(
 ) -> tuple[
     MultiwayEngine | None,
     BranchialSpace | None,
-    RulialSpace | None,
+    RuleAnalytics | None,
 ]:
     """Rebuild all subsystems from a previously captured snapshot.
 
     Clears and repopulates belief states/correlations, multiway DAG,
-    branchial coordinates, rulial position/history, provenance records,
+    branchial coordinates, rule_analytics position/history, provenance records,
     retrieval feedback/LTR weights, perspective frame outcomes, and
     system monitor state.
 
@@ -466,7 +466,7 @@ def restore_snapshot(
         feedback: Optional operation feedback tracker to restore.
 
     Returns:
-        Tuple of ``(multiway_engine, branchial, rulial)`` — each may be
+        Tuple of ``(multiway_engine, branchial, rule_analytics)`` — each may be
         ``None`` if the snapshot contained no data for that subsystem.
     """
     belief._states.clear()
@@ -476,7 +476,7 @@ def restore_snapshot(
     _restore_belief(snapshot, belief)
     multiway_engine = _restore_multiway(snapshot, graph)
     branchial = _restore_branchial(snapshot, graph, multiway_engine)
-    rulial = _restore_rulial(snapshot, graph, multiway_engine)
+    rule_analytics = _restore_rule_analytics(snapshot, graph, multiway_engine)
     _restore_provenance(snapshot, provenance)
     _restore_retrieval(snapshot, retrieval)
     _restore_perspective(snapshot, perspective)
@@ -484,7 +484,7 @@ def restore_snapshot(
     _restore_cache(snapshot, cache)
     _restore_feedback(snapshot, feedback)
 
-    return multiway_engine, branchial, rulial
+    return multiway_engine, branchial, rule_analytics
 
 
 def _restore_belief(snapshot: SystemSnapshot, belief: BeliefLayer) -> None:
@@ -588,21 +588,21 @@ def _restore_branchial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_eng
     return bs
 
 
-def _restore_rulial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> RulialSpace | None:
-    if not snapshot.rulial_position:
+def _restore_rule_analytics(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> RuleAnalytics | None:
+    if not snapshot.rule_analytics_position:
         return None
-    rs = RulialSpace(graph, multiway_engine)
-    pos_data = snapshot.rulial_position
-    rs._position = RulialPosition(
+    rs = RuleAnalytics(graph, multiway_engine)
+    pos_data = snapshot.rule_analytics_position
+    rs._position = RuleSpacePosition(
         graph_activity_density=pos_data.get("graph_activity_density", 0.0),
         rule_application_frequency=pos_data.get("rule_application_frequency", {}),
         structural_complexity=pos_data.get("structural_complexity", 0.0),
         branchial_coordinates=pos_data.get("branchial_coordinates", []),
         timestamp=pos_data.get("timestamp", 0.0),
     )
-    for hist_data in snapshot.rulial_position_history:
+    for hist_data in snapshot.rule_analytics_position_history:
         rs._position_history.append(
-            RulialPosition(
+            RuleSpacePosition(
                 graph_activity_density=hist_data.get("graph_activity_density", 0.0),
                 rule_application_frequency=hist_data.get("rule_application_frequency", {}),
                 structural_complexity=hist_data.get("structural_complexity", 0.0),
@@ -610,8 +610,8 @@ def _restore_rulial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine
                 timestamp=hist_data.get("timestamp", 0.0),
             )
         )
-    rs._rule_outcomes = {k: dict(v) for k, v in snapshot.rulial_rule_outcomes.items()}
-    for pat_data in snapshot.rulial_meta_patterns:
+    rs._rule_outcomes = {k: dict(v) for k, v in snapshot.rule_analytics_rule_outcomes.items()}
+    for pat_data in snapshot.rule_analytics_meta_patterns:
         rs._meta_patterns.append(
             DetectedPattern(
                 id=pat_data["id"],
@@ -623,7 +623,7 @@ def _restore_rulial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine
                 significance=pat_data.get("significance", 0.0),
             )
         )
-    for ins_data in snapshot.rulial_insights:
+    for ins_data in snapshot.rule_analytics_insights:
         rs._insights.append(
             HighLevelInsight(
                 id=ins_data["id"],
@@ -634,8 +634,8 @@ def _restore_rulial(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine
                 timestamp=ins_data.get("timestamp", 0.0),
             )
         )
-    rs._explored_rules = dict(snapshot.rulial_explored_rules)
-    rs._total_applications = snapshot.rulial_total_applications
+    rs._explored_rules = dict(snapshot.rule_analytics_explored_rules)
+    rs._total_applications = snapshot.rule_analytics_total_applications
     return rs
 
 
@@ -684,7 +684,7 @@ def _restore_monitor(snapshot: SystemSnapshot, meta: SystemMonitor) -> None:
     meta._state = SystemHealthModel(
         architectural_fitness=meta_state.get("architectural_fitness", 1.0),
         computational_efficiency=meta_state.get("computational_efficiency", {}),
-        rulial_insight_count=meta_state.get("rulial_insight_count", 0),
+        rule_analytics_insight_count=meta_state.get("rule_analytics_insight_count", 0),
         reasoning_activity_rate=meta_state.get("reasoning_activity_rate", 0.0),
         reasoning_mode=meta_state.get("reasoning_mode", "standard"),
         complexity_level=meta_state.get("complexity_level", 0),

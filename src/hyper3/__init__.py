@@ -165,12 +165,6 @@ from hyper3.multiway_causal import (
     ConvergenceRecord,
     StateConvergenceEngine,
 )
-from hyper3.multiway_rulial import (
-    DetectedPattern,
-    HighLevelInsight,
-    RulialPosition,
-    RulialSpace,
-)
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import (
@@ -207,8 +201,8 @@ from hyper3.results import (
     PerspectiveAnalysis,
     ReasonResult,
     RollbackResult,
+    RuleAnalyticsReport,
     RuleNeighborhoodResult,
-    RulialAnalysis,
     SpectralEmbeddingResult,
     SPersistenceLevel,
     SPersistenceResult,
@@ -233,6 +227,12 @@ from hyper3.retrieval_engine import (
     LearningToRank,
     RetrievalEngine,
     RetrievalResult,
+)
+from hyper3.rule_analytics import (
+    DetectedPattern,
+    HighLevelInsight,
+    RuleAnalytics,
+    RuleSpacePosition,
 )
 from hyper3.rules import (
     AbductiveRule,

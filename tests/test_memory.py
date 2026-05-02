@@ -866,31 +866,31 @@ class TestComputeBiasProfile:
     def test_single_rule_is_balanced(self):
         g = Hypergraph()
         from hyper3.multiway import MultiwayEngine
-        from hyper3.multiway_rulial import RulialSpace
+        from hyper3.rule_analytics import RuleAnalytics
         engine = MultiwayEngine(g)
-        rulial = RulialSpace(g, engine)
-        rulial.record_rule_application("transitive")
-        rulial.record_rule_outcome("transitive", "applied")
-        rulial.record_rule_application("transitive")
-        rulial.record_rule_outcome("transitive", "applied")
-        profile = rulial.compute_bias_profile()
+        rule_analytics = RuleAnalytics(g, engine)
+        rule_analytics.record_rule_application("transitive")
+        rule_analytics.record_rule_outcome("transitive", "applied")
+        rule_analytics.record_rule_application("transitive")
+        rule_analytics.record_rule_outcome("transitive", "applied")
+        profile = rule_analytics.compute_bias_profile()
         assert profile.rule_count == 1
         assert profile.reasoning_style in ("balanced", "unknown", "focused")
 
     def test_multiple_rules_with_dominant(self):
         g = Hypergraph()
         from hyper3.multiway import MultiwayEngine
-        from hyper3.multiway_rulial import RulialSpace
+        from hyper3.rule_analytics import RuleAnalytics
         engine = MultiwayEngine(g)
-        rulial = RulialSpace(g, engine)
+        rule_analytics = RuleAnalytics(g, engine)
         for _ in range(10):
-            rulial.record_rule_outcome("transitive", "useful")
+            rule_analytics.record_rule_outcome("transitive", "useful")
         for _ in range(5):
-            rulial.record_rule_outcome("inverse", "useful")
+            rule_analytics.record_rule_outcome("inverse", "useful")
         for _ in range(5):
-            rulial.record_rule_outcome("inverse", "applied")
-        rulial.update_position()
-        profile = rulial.compute_bias_profile()
+            rule_analytics.record_rule_outcome("inverse", "applied")
+        rule_analytics.update_position()
+        profile = rule_analytics.compute_bias_profile()
         assert profile.rule_count == 2
         assert any("transitive" in r for r in profile.dominant_rules)
 

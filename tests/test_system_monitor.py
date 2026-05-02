@@ -19,7 +19,7 @@ from hyper3 import (
 )
 from hyper3.graph_diff import GraphDiffer
 from hyper3.kernel import Metadata
-from hyper3.multiway_rulial import RulialSpace
+from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules_discovery import DiscoveredRule
 
 
@@ -115,10 +115,10 @@ class TestHypergraphMemoryNewFeatures:
         mem.reason({"a", "b", "c", "d"})
         assert mem.branchial is not None
 
-    def test_rulial_property(self):
+    def test_rule_analytics_property(self):
         mem = HypergraphMemory()
-        from hyper3.multiway_rulial import RulialSpace
-        assert isinstance(mem.rulial, RulialSpace)
+        from hyper3.rule_analytics import RuleAnalytics
+        assert isinstance(mem.rule_analytics, RuleAnalytics)
 
     def test_structural_anomaly_detection(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -197,11 +197,11 @@ class TestHypergraphMemoryNewFeatures:
         patterns = mem.compute_interactions(qs)
         assert isinstance(patterns, list)
 
-    def test_stats_includes_rulial_and_meta(self):
+    def test_stats_includes_rule_analytics_and_meta(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("test")
         stats = mem.stats()
-        assert hasattr(stats, "rulial")
+        assert hasattr(stats, "rule_analytics")
         assert "monitor_stats" in stats
 
     def test_structural_anomaly_property(self):
@@ -253,7 +253,7 @@ class TestSystemMonitorAssessState:
         state = mem._meta.assess_state()
         assert state.reasoning_mode == "sparse"
 
-    def test_rulial_complexity_level(self):
+    def test_rule_analytics_complexity_level(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
@@ -264,8 +264,8 @@ class TestSystemMonitorAssessState:
         assert isinstance(state.complexity_level, int)
 
 
-class TestSystemMonitorIntrospectRulial:
-    def test_introspect_with_rulial(self):
+class TestSystemMonitorIntrospectRuleAnalytics:
+    def test_introspect_with_rule_analytics(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.store("a")
         mem.store("b")
@@ -361,17 +361,17 @@ class TestSystemMonitorTuning:
         assert "poorly_connected" in result
         assert "new_edges" in result
 
-    def test_promote_pattern_to_rule_no_rulial(self):
+    def test_promote_pattern_to_rule_no_rule_analytics(self):
         mem = HypergraphMemory(evolve_interval=0)
         result = mem._meta._promote_pattern_to_rule()
         assert result["promoted"] is False
 
     def test_promote_pattern_to_rule_no_patterns(self):
         mem = HypergraphMemory(evolve_interval=0)
-        if mem._rulial is None:
-            mem._meta._rulial = RulialSpace(mem.graph)
+        if mem._rule_analytics is None:
+            mem._meta._rule_analytics = RuleAnalytics(mem.graph)
         else:
-            mem._meta._rulial = mem._rulial
+            mem._meta._rule_analytics = mem._rule_analytics
         result = mem._meta._promote_pattern_to_rule()
         assert result["promoted"] is False
 
@@ -599,7 +599,7 @@ class TestTuningPlanActions:
         trigger = TuningTrigger(trigger_type="meta_insight", description="insight", urgency=0.5)
         plan = mem.meta.propose_tuning([trigger])
         assert "promote_pattern_to_rule" in plan.actions
-        assert "update_rulial_position" in plan.actions
+        assert "update_rule_analytics_position" in plan.actions
 
     def test_cross_domain_actions(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -678,7 +678,7 @@ class TestMonitorStatsProperties:
         assert "meta_level" in analysis
         assert "introspections" in analysis
         assert "metamorphoses" in analysis
-        assert "rulial_insight_count" in analysis
+        assert "rule_analytics_insight_count" in analysis
         assert isinstance(analysis["architectural_fitness"], float)
         assert analysis["reasoning_mode"] in {"standard", "rich", "moderate", "sparse"}
 
@@ -746,7 +746,7 @@ class TestMonitorStatsDeep:
         state = layer.assess_state()
         assert state.reasoning_activity_rate > 0.0
 
-    def test_assess_state_with_rulial(self):
+    def test_assess_state_with_rule_analytics(self):
         g = Hypergraph()
         for label in ["a", "b", "c"]:
             g.add_node(Hypernode(id=label, label=label))
@@ -754,14 +754,14 @@ class TestMonitorStatsDeep:
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
         layer = SystemMonitor(g, evo, log, disc)
-        rulial = RulialSpace(g)
+        rule_analytics = RuleAnalytics(g)
         for name in ["t1", "t2", "t3", "t4", "t5"]:
-            rulial.record_rule_application(name)
-        rulial.find_meta_patterns()
-        rulial.generate_high_level_insights()
-        layer.set_rulial(rulial)
+            rule_analytics.record_rule_application(name)
+        rule_analytics.find_meta_patterns()
+        rule_analytics.generate_high_level_insights()
+        layer.set_rulial(rule_analytics)
         state = layer.assess_state()
-        assert state.rulial_insight_count > 0
+        assert state.rule_analytics_insight_count > 0
 
     def test_introspect_with_recommendations(self):
         g = Hypergraph()
@@ -794,15 +794,15 @@ class TestMonitorStatsDeep:
         log = EventLog()
         disc = RuleDiscoveryEngine(g)
         layer = SystemMonitor(g, evo, log, disc)
-        rulial = RulialSpace(g)
-        rulial._meta_patterns.append(
+        rule_analytics = RuleAnalytics(g)
+        rule_analytics._meta_patterns.append(
             __import__("hyper3").DetectedPattern(
                 pattern_type="recurring_relation",
                 description="test",
                 occurrence_count=6,
             )
         )
-        layer.set_rulial(rulial)
+        layer.set_rulial(rule_analytics)
         triggers = layer.check_tuning_triggers()
         meta = [t for t in triggers if t.trigger_type == "meta_insight"]
         assert len(meta) >= 1
@@ -816,15 +816,15 @@ class TestMonitorStatsDeep:
         disc = RuleDiscoveryEngine(g)
         layer = SystemMonitor(g, evo, log, disc)
         layer._state.architectural_fitness = 0.3
-        rulial = RulialSpace(g)
-        rulial._meta_patterns.append(
+        rule_analytics = RuleAnalytics(g)
+        rule_analytics._meta_patterns.append(
             __import__("hyper3").DetectedPattern(
                 pattern_type="recurring_relation",
                 description="test",
                 occurrence_count=6,
             )
         )
-        layer.set_rulial(rulial)
+        layer.set_rulial(rule_analytics)
         for _ in range(5):
             layer._introspection_log.append({"summary": {"anti_patterns": ["test"]}})
         triggers = layer.check_tuning_triggers()
@@ -902,22 +902,22 @@ class TestMetamorphosisActions:
         assert "expand_seed_set" in result
         assert "poorly_connected" in result["expand_seed_set"]
 
-    def test_promote_pattern_to_rule_without_rulial(self):
+    def test_promote_pattern_to_rule_without_rule_analytics(self):
         mem = _setup_mem()
         plan = TuningPlan(actions=["promote_pattern_to_rule"])
         result = mem._meta.execute_tuning(plan)
         assert result["promote_pattern_to_rule"]["promoted"] is False
 
-    def test_update_rulial_position(self):
+    def test_update_rule_analytics_position(self):
         mem = _setup_mem()
         mem.reason({"a", "b", "c"})
         mem.commit_inferences()
-        assert mem._rulial is not None
-        mem._meta.set_rulial(mem._rulial)
+        assert mem._rule_analytics is not None
+        mem._meta.set_rulial(mem._rule_analytics)
         mem._meta.set_rules(mem._rules)
-        plan = TuningPlan(actions=["update_rulial_position"])
+        plan = TuningPlan(actions=["update_rule_analytics_position"])
         result = mem._meta.execute_tuning(plan)
-        assert result["update_rulial_position"]["updated"] is True
+        assert result["update_rule_analytics_position"]["updated"] is True
 
     def test_restructure_graph_dimensions(self):
         mem = _setup_mem()
@@ -938,7 +938,7 @@ class TestMetamorphosisActions:
             "increase_merge_threshold",
             "expand_seed_set",
             "promote_pattern_to_rule",
-            "update_rulial_position",
+            "update_rule_analytics_position",
             "restructure_graph_dimensions",
             "recalibrate_modality_weights",
         ]
@@ -979,15 +979,15 @@ class TestSystemMonitorModerateReasoningMode:
         assert state.reasoning_mode in ("rich", "moderate", "sparse")
 
 
-class TestSystemMonitorIntrospectWithRulial:
-    def test_introspect_includes_rulial_when_wired(self):
+class TestSystemMonitorIntrospectWithRuleAnalytics:
+    def test_introspect_includes_rule_analytics_when_wired(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
             mem.store(l)
         mem.relate("a", "b", label="rel")
         mem.relate("b", "c", label="rel")
         mem.relate("c", "d", label="rel")
-        mem._meta.set_rulial(mem._rulial)
+        mem._meta.set_rulial(mem._rule_analytics)
         report = mem._meta.introspect([])
         assert report.system_health.fitness >= 0.0
 

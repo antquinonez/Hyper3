@@ -16,8 +16,8 @@ from hyper3.capabilities import (
     _probe_multiway,
     _probe_provenance,
     _probe_retrieval,
+    _probe_rule_analytics,
     _probe_rules,
-    _probe_rulial,
 )
 from hyper3.exceptions import Hyper3Error
 from hyper3.kernel import Hypergraph, Hypernode
@@ -172,9 +172,9 @@ class TestProbeFunctions:
         mem = HypergraphMemory(evolve_interval=0)
         assert _probe_branchial(mem) is False
 
-    def test_probe_rulial_none(self):
+    def test_probe_rule_analytics_none(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert _probe_rulial(mem) is False
+        assert _probe_rule_analytics(mem) is False
 
     def test_probe_embedding_none(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -346,26 +346,26 @@ class TestProbeBranchialException:
         assert _probe_branchial(Mem()) is False
 
 
-class TestProbeRulialBranches:
-    def test_rulial_with_history(self):
-        class Rulial:
+class TestProbeRuleAnalyticsBranches:
+    def test_rule_analytics_with_history(self):
+        class FakeRuleAnalytics:
             _position_history = [("pos", 1.0)]
 
         class Mem:
-            _rulial = Rulial()
+            _rule_analytics = FakeRuleAnalytics()
 
-        assert _probe_rulial(Mem()) is True
+        assert _probe_rule_analytics(Mem()) is True
 
-    def test_rulial_exception(self):
-        class BadRulial:
+    def test_rule_analytics_exception(self):
+        class BadRuleAnalytics:
             @property
             def _position_history(self):
                 raise RuntimeError("boom")
 
         class Mem:
-            _rulial = BadRulial()
+            _rule_analytics = BadRuleAnalytics()
 
-        assert _probe_rulial(Mem()) is False
+        assert _probe_rule_analytics(Mem()) is False
 
 
 class TestProbeEmbeddingBranches:
@@ -510,10 +510,10 @@ class TestDetectFullLevel:
         mem._branchial.assign_coordinates()
         mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
 
-        class FakeRulial:
+        class FakeRuleAnalytics:
             _position_history = [("p", 1.0)]
 
-        mem._rulial = FakeRulial()
+        mem._rule_analytics = FakeRuleAnalytics()
         level = detect_capability_level(mem)
         assert level == CapabilityLevel.ENHANCED
 
@@ -532,10 +532,10 @@ class TestDetectFullLevel:
         mem._branchial.assign_coordinates()
         mem._provenance.record_inference("e1", "rule", input_node_ids=["a"], depth=1)
 
-        class FakeRulial:
+        class FakeRuleAnalytics:
             _position_history = [("p", 1.0)]
 
-        mem._rulial = FakeRulial()
+        mem._rule_analytics = FakeRuleAnalytics()
 
         class FakeEmbeddingEngine:
             _cache = {"n1": [0.1]}

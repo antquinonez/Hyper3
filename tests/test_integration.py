@@ -142,27 +142,27 @@ class TestIntegrationFullPipeline:
         assert basis is not None
         assert basis.name == "diagnostic"
 
-    def test_rulial_monitor_stats_pipeline(self):
+    def test_rule_analytics_monitor_stats_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
             mem.store(f"concept_{i}")
         for i in range(9):
             mem.relate(f"concept_{i}", f"concept_{i+1}", label="chain")
 
-        rulial = mem.rulial
-        rulial.record_rule_application("transitive")
-        rulial.record_rule_application("inverse")
-        rulial.record_rule_application("generalization")
-        pos = rulial.update_position()
+        rule_analytics = mem.rule_analytics
+        rule_analytics.record_rule_application("transitive")
+        rule_analytics.record_rule_application("inverse")
+        rule_analytics.record_rule_application("generalization")
+        pos = rule_analytics.update_position()
         assert 0.0 < pos.graph_activity_density <= 1.0
         assert 0.0 < pos.structural_complexity <= 1.0
 
-        patterns = rulial.find_meta_patterns()
+        patterns = rule_analytics.find_meta_patterns()
         pattern_types = {p.pattern_type for p in patterns}
         assert "recurring_relation" in pattern_types
         assert "chain_motif" in pattern_types
 
-        insights = rulial.generate_high_level_insights()
+        insights = rule_analytics.generate_high_level_insights()
         principles = [ins.principle for ins in insights]
         assert any("Dominant relation" in p for p in principles)
 

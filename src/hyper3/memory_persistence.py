@@ -213,7 +213,7 @@ class PersistenceMixin(_MemoryBase):
         self._belief = BeliefLayer(self._graph)
         self._discovery = RuleDiscoveryEngine(self._graph)
         self._branchial = None
-        self._rulial = None
+        self._rule_analytics = None
         self._anomaly_detector = StructuralAnomalyDetector(self._graph)
         self._perspective = MultiPerspectiveAnalyzer(self._graph)
         self._meta = SystemMonitor(
@@ -245,7 +245,7 @@ class PersistenceMixin(_MemoryBase):
             belief=self._belief,
             multiway_engine=self._multiway_engine,
             branchial=self._branchial,
-            rulial=self._rulial,
+            rule_analytics=self._rule_analytics,
             provenance=self._provenance,
             retrieval=self._retrieval,
             perspective=self._perspective,
@@ -263,7 +263,7 @@ class PersistenceMixin(_MemoryBase):
             path: Path to the saved snapshot file.
         """
         snapshot = _load_snapshot(path)
-        multiway_engine, branchial, rulial = restore_snapshot(
+        multiway_engine, branchial, rule_analytics = restore_snapshot(
             snapshot=snapshot,
             graph=self._graph,
             belief=self._belief,
@@ -277,9 +277,9 @@ class PersistenceMixin(_MemoryBase):
         )
         self._multiway_engine = multiway_engine
         self._branchial = branchial
-        self._rulial = rulial
-        if rulial is not None:
-            self._meta.set_rulial(rulial)
+        self._rule_analytics = rule_analytics
+        if rule_analytics is not None:
+            self._meta.set_rulial(rule_analytics)
         self._log.record("load_state", path=path)
 
     def stats(self) -> MemoryStats:
@@ -306,7 +306,7 @@ class PersistenceMixin(_MemoryBase):
             active_rules=len(self._rules),
             overlay_active=self._overlay is not None,
             overlay_edges=len(self._overlay.overlay_edge_ids) if self._overlay else 0,
-            rulial=self._rulial.analyze() if self._rulial else None,
+            rule_analytics=self._rule_analytics.analyze() if self._rule_analytics else None,
             monitor_stats=meta_stats,
             multi_edge_count=multi_edge_count,
         )

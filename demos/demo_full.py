@@ -94,22 +94,22 @@ if mem.branchial:
     for corr in correlations[:3]:
         print(f"     correlation={corr.correlation:.2f}, shared={len(corr.shared_concept_ids)}")
 
-# --- 4. Rulial Space ---
-print("\n[4] Rulial space exploration...")
+# --- 4. Rule Analytics ---
+print("\n[4] Rule analytics exploration...")
 
-rulial = mem.rulial
-rulial.record_rule_application("transitive")
-rulial.record_rule_application("inverse")
-pos = rulial.update_position()
+rule_analytics = mem.rule_analytics
+rule_analytics.record_rule_application("transitive")
+rule_analytics.record_rule_application("inverse")
+pos = rule_analytics.update_position()
 print(f"   Graph activity density: {pos.graph_activity_density:.3f}")
 print(f"   Structural complexity: {pos.structural_complexity:.3f}")
 
-patterns = rulial.find_meta_patterns()
+patterns = rule_analytics.find_meta_patterns()
 print(f"   Meta-patterns found: {len(patterns)}")
 for p in patterns[:3]:
     print(f"     [{p.pattern_type}] {p.description}")
 
-insights = rulial.generate_high_level_insights()
+insights = rule_analytics.generate_high_level_insights()
 print(f"   High-level insights: {len(insights)}")
 for ins in insights[:3]:
     print(f"     ({ins.confidence:.2f}) {ins.principle}")
@@ -184,7 +184,7 @@ cs = introspection.system_health
 print(f"   Architectural fitness: {cs.fitness:.3f}")
 print(f"   Reasoning mode: {cs.mode}")
 print(f"   Meta-computational level: {cs.meta_level}")
-print(f"   Rulial insight count: {cs.rulial_insight_count}")
+print(f"   Rule analytics insight count: {cs.rule_analytics_insight_count}")
 
 gh = introspection.graph_health
 print(f"   Graph: {gh.nodes} nodes, {gh.edges} edges, avg_degree={gh.avg_degree:.3f}")

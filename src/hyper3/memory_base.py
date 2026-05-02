@@ -22,7 +22,6 @@ from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_branchial import BranchialSpace
 from hyper3.multiway_causal import StateConvergenceEngine
-from hyper3.multiway_rulial import RulialSpace
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import ProvenanceTracker
@@ -39,6 +38,7 @@ from hyper3.results import (
 )
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
+from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
@@ -71,7 +71,7 @@ class _MemoryBase:
     _discovery: RuleDiscoveryEngine
     _serializer: Serializer
     _branchial: BranchialSpace | None
-    _rulial: RulialSpace | None
+    _rule_analytics: RuleAnalytics | None
     _anomaly_detector: StructuralAnomalyDetector
     _perspective: MultiPerspectiveAnalyzer
     _meta: SystemMonitor

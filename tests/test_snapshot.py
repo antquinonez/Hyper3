@@ -122,7 +122,7 @@ class TestSystemSnapshotRoundTrip:
     def test_monitor_state_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
         mem._meta._state.architectural_fitness = 0.75
-        mem._meta._state.rulial_insight_count = 12
+        mem._meta._state.rule_analytics_insight_count = 12
         mem._meta._state.reasoning_mode = "rich"
         mem.save_state(str(tmp_path_fixture))
 
@@ -130,7 +130,7 @@ class TestSystemSnapshotRoundTrip:
         mem2.load_state(str(tmp_path_fixture))
 
         assert mem2._meta._state.architectural_fitness == 0.75
-        assert mem2._meta._state.rulial_insight_count == 12
+        assert mem2._meta._state.rule_analytics_insight_count == 12
         assert mem2._meta._state.reasoning_mode == "rich"
 
     def test_cache_preserved(self, mem, tmp_path_fixture):
@@ -253,14 +253,14 @@ class TestSystemSnapshotWithReasoning:
         assert len(mem2._belief._states) == pre_belief_count
         assert mem2._provenance.record_count == pre_provenance
 
-    def test_rulial_after_reasoning(self, mem, tmp_path_fixture):
+    def test_rule_analytics_after_reasoning(self, mem, tmp_path_fixture):
         _populate_memory(mem)
         mem.reason(["alpha"], rules=[TransitiveRule()])
         mem.commit_inferences()
 
-        assert mem._rulial is not None
-        mem._rulial.update_position()
-        pre_density = mem._rulial._position.graph_activity_density
+        assert mem._rule_analytics is not None
+        mem._rule_analytics.update_position()
+        pre_density = mem._rule_analytics._position.graph_activity_density
 
         mem.save_state(str(tmp_path_fixture))
 
@@ -272,8 +272,8 @@ class TestSystemSnapshotWithReasoning:
         mem2._rules = [TransitiveRule()]
         mem2.load_state(str(tmp_path_fixture))
 
-        assert mem2._rulial is not None
-        assert abs(mem2._rulial._position.graph_activity_density - pre_density) < 1e-10
+        assert mem2._rule_analytics is not None
+        assert abs(mem2._rule_analytics._position.graph_activity_density - pre_density) < 1e-10
 
 
 class TestSystemSnapshotComplexAmplitudes:
@@ -311,7 +311,7 @@ class TestSystemSnapshotDict:
             belief=mem._belief,
             multiway_engine=mem._multiway_engine,
             branchial=mem._branchial,
-            rulial=mem._rulial,
+            rule_analytics=mem._rule_analytics,
             provenance=mem._provenance,
             retrieval=mem._retrieval,
             perspective=mem._perspective,
@@ -358,7 +358,7 @@ class TestSnapshotFeedbackNone:
             belief=mem._belief,
             multiway_engine=None,
             branchial=None,
-            rulial=None,
+            rule_analytics=None,
             provenance=mem._provenance,
             retrieval=mem._retrieval,
             perspective=mem._perspective,
