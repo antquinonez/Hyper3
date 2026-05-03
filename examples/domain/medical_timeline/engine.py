@@ -251,3 +251,200 @@ class MedicalTimelineTracker:
         """
         node = self.mem.graph.get_node_by_label(symptom)
         return node.data if node else None
+
+    def find_all_temporal_relations(self) -> list[dict]:
+        """Find all pairwise temporal relations between all symptoms.
+
+        Returns:
+            List of dicts with keys: symptom_a, symptom_b, relation.
+        """
+        relations = []
+        symptoms = [n for n in self.mem.graph.nodes if "start" in n.data and "end" in n.data]
+
+        for i, sym_a in enumerate(symptoms):
+            for j, sym_b in enumerate(symptoms):
+                if i >= j:
+                    continue
+                interval_a = self._get_interval(sym_a.label)
+                interval_b = self._get_interval(sym_b.label)
+                if not interval_a or not interval_b:
+                    continue
+                try:
+                    rel = interval_a.relate_to(interval_b)
+                    if rel and rel.value:
+                        relations.append({
+                            "symptom_a": sym_a.label,
+                            "symptom_b": sym_b.label,
+                            "relation": rel.value
+                        })
+                except Exception:
+                    continue
+
+        return relations
+
+    def get_temporal_relation_frequency(self) -> dict[str, int]:
+        """Count frequency of each Allen relation type.
+
+        Returns:
+            Dict mapping relation name to count.
+        """
+        relations = self.find_all_temporal_relations()
+        frequency = {}
+        for rel in relations:
+            r = rel["relation"]
+            frequency[r] = frequency.get(r, 0) + 1
+        return dict(sorted(frequency.items(), key=lambda x: x[1], reverse=True))
+
+    def get_symptom_cooccurrence(self) -> dict[str, list[str]]:
+        """Find which symptoms appear together in the same visits.
+
+        Returns:
+            Dict mapping symptom to list of symptoms that co-occur in visits.
+        """
+        cooccurrence = {}
+
+        symptoms = [n.label for n in self.mem.graph.nodes if "start" in n.data]
+
+        for symptom in symptoms:
+            cooccurring = []
+            for node in self.mem.graph.nodes:
+                if node.label.startswith("visit_"):
+                    edges = self.mem.graph.incident_edges(node.id)
+                    for edge in edges:
+                        if edge.label == "observes":
+                            observed = []
+                            for tid in edge.target_ids:
+                                n = self.mem.graph.get_node(tid)
+                                if n:
+                                    observed.append(n.label)
+                            if symptom in observed and len(observed) > 1:
+                                for other in observed:
+                                    if other != symptom and other not in cooccurring:
+                                        cooccurring.append(other)
+            cooccurrence[symptom] = cooccurring
+
+        return {k: v for k, v in cooccurrence.items() if v}
+
+    def get_duration_analysis(self) -> dict:
+        """Calculate duration statistics for all symptoms.
+
+        Returns:
+            Dict with min, max, avg, median durations in hours.
+        """
+        durations = []
+        symptom_durations = {}
+
+        for node in self.mem.graph.nodes:
+            if "start" not in node.data or "end" not in node.data:
+                continue
+            interval = self._get_interval(node.label)
+            if interval:
+                duration_hours = (interval.end - interval.start) / 3600
+                durations.append(duration_hours)
+                symptom_durations[node.label] = round(duration_hours, 2)
+
+        if not durations:
+            return {}
+
+        durations_sorted = sorted(durations)
+        n = len(durations)
+        avg = sum(durations) / n
+        median = durations_sorted[n // 2] if n % 2 else (durations_sorted[n // 2 - 1] + durations_sorted[n // 2]) / 2
+
+        return {
+            "min_hours": round(min(durations), 2),
+            "max_hours": round(max(durations), 2),
+            "avg_hours": round(avg, 2),
+            "median_hours": round(median, 2),
+            "symptom_durations": symptom_durations
+        }
+
+    def get_overlap_matrix(self) -> list[dict]:
+        """Find which symptom pairs have overlapping intervals.
+
+        Returns:
+            List of dicts with keys: symptom_a, symptom_b, overlap_hours.
+        """
+        overlaps = []
+        symptoms = [n for n in self.mem.graph.nodes if "start" in n.data and "end" in n.data]
+
+        for i, sym_a in enumerate(symptoms):
+            for j, sym_b in enumerate(symptoms):
+                if i >= j:
+                    continue
+                interval_a = self._get_interval(sym_a.label)
+                interval_b = self._get_interval(sym_b.label)
+                if not interval_a or not interval_b:
+                    continue
+
+                try:
+                    rel = interval_a.relate_to(interval_b)
+                    if rel and rel.value == "overlaps":
+                        overlap_start = max(interval_a.start, interval_b.start)
+                        overlap_end = min(interval_a.end, interval_b.end)
+                        overlap_hours = (overlap_end - overlap_start) / 3600
+                        overlaps.append({
+                            "symptom_a": sym_a.label,
+                            "symptom_b": sym_b.label,
+                            "overlap_hours": round(overlap_hours, 2)
+                        })
+                except Exception:
+                    continue
+
+        return sorted(overlaps, key=lambda x: x["overlap_hours"], reverse=True)
+
+    def detect_longer_causal_chains(self, min_length: int = 3) -> list[dict]:
+        """Detect causal chains of specified minimum length.
+
+        Args:
+            min_length: Minimum chain length (default 3).
+
+        Returns:
+            List of dicts with chain, reason, length.
+        """
+        chains = []
+        symptoms = [n for n in self.mem.graph.nodes if "start" in n.data and "end" in n.data]
+        n = len(symptoms)
+
+        if n < min_length:
+            return chains
+
+        visited_chains = {}
+
+        def dfs(current_chain: list, last_idx: int):
+            if len(current_chain) >= min_length:
+                key = tuple(current_chain)
+                if key not in visited_chains:
+                    visited_chains[key] = True
+                    reason_parts = []
+                    for k in range(len(current_chain) - 1):
+                        sym_a = current_chain[k]
+                        sym_b = current_chain[k + 1]
+                        reason_parts.append(f"{sym_a} → {sym_b}")
+                    chains.append({
+                        "chain": current_chain,
+                        "reason": ", ".join(reason_parts),
+                        "length": len(current_chain)
+                    })
+
+            for next_idx in range(last_idx + 1, n):
+                sym_current = current_chain[-1]
+                sym_next = symptoms[next_idx].label
+
+                interval_current = self._get_interval(sym_current)
+                interval_next = self._get_interval(sym_next)
+
+                if not interval_current or not interval_next:
+                    continue
+
+                try:
+                    rel = interval_current.relate_to(interval_next)
+                    if rel and rel.value == "before":
+                        dfs(current_chain + [sym_next], next_idx)
+                except Exception:
+                    continue
+
+        for start_idx in range(n):
+            dfs([symptoms[start_idx].label], start_idx)
+
+        return sorted(chains, key=lambda x: x["length"], reverse=True)
