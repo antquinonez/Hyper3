@@ -75,6 +75,7 @@ Domain Examples (`domain/`)
 | `financial_risk_network.py` | Financial Risk | 76 | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
 | `infrastructure_self_healing.py` | Infrastructure Monitoring | 130+ | Feedback-driven evolution, suppression of stale nodes, cross-operation correlation, bias profile, metamorphosis validation |
 | `threat_intel_full_chain.py` | Cyber Threat Intelligence | 73 | Rule-based inference, spreading activation, quantum attribution, self-evolution, centrality |
+| `it_troubleshooting/` | IT Troubleshooting | 13 | Backward chaining, goal-directed reasoning, proof chains, issue tree visualization |
 
 Additional Demos
 ----------------
@@ -120,6 +121,7 @@ script mirrors a corresponding Hyper3 domain or advanced example.
 | `nx_financial_risk.py` | `domain/financial_risk_network.py` | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
 | `nx_medical_diagnosis.py` | `domain/medical_diagnosis.py` | Backward chaining, belief revision, uncertainty propagation |
 | `nx_structural_patterns.py` | `advanced/13_structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection |
+| `nx_it_troubleshooting.py` | `domain/it_troubleshooting/` | Backward chaining, n-ary hyperedge expansion to pairwise, custom graph wrapper (~130 LOC) |
 
 ### Reference copies (`comparison/laminar/`)
 
