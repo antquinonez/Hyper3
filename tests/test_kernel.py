@@ -3442,3 +3442,194 @@ class TestGreedyModularityCommunities:
         g = Hypergraph()
         assert g.greedy_modularity_communities() == []
 
+
+class TestSubhypergraphCentrality:
+    def test_positive_values(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        sc = g.subhypergraph_centrality()
+        assert all(v > 0 for v in sc.values())
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.subhypergraph_centrality() == {}
+
+    def test_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        sc = g.subhypergraph_centrality()
+        assert sc is not None
+
+
+class TestCorePeriphery:
+    def test_hub_is_core(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(1, 5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[i].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[0].id})))
+        cp = g.core_periphery()
+        hub_score = cp[nodes[0].id]
+        for i in range(1, 5):
+            assert hub_score >= cp[nodes[i].id]
+
+    def test_scores_bounded(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        cp = g.core_periphery()
+        assert all(0.0 <= v <= 1.0 for v in cp.values())
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.core_periphery() == {}
+
+
+class TestMultiorderLaplacian:
+    def test_shape(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({nodes[0].id, nodes[1].id}),
+            target_ids=frozenset({nodes[2].id, nodes[3].id}),
+        ))
+        L = g.multiorder_laplacian({1: 1.0, 2: 0.5})
+        L_arr = np.asarray(L)
+        assert L_arr.shape == (4, 4)
+
+    def test_symmetric(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        L = g.multiorder_laplacian({1: 1.0})
+        L_arr = np.asarray(L)
+        assert np.allclose(L_arr, L_arr.T, atol=1e-10)
+
+    def test_eigenvalues(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        eigs = g.multiorder_laplacian_eigenvalues({1: 1.0})
+        assert len(eigs) == 4
+
+
+class TestDualRandomWalkAdjacency:
+    def test_shape(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        A, edge_ids, _ = g.dual_random_walk_adjacency()
+        assert len(edge_ids) == 2
+
+    def test_zero_diagonal(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        A, _, _ = g.dual_random_walk_adjacency()
+        A_arr = np.asarray(A)
+        assert np.all(np.diag(A_arr) == 0)
+
+
+class TestRandomWalk:
+    def test_starts_at_source(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        path = g.random_walk(nodes[0].id, steps=5)
+        assert path[0] == nodes[0].id
+
+    def test_visits_valid_nodes(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        path = g.random_walk(nodes[0].id, steps=10)
+        valid = {n.id for n in nodes}
+        assert all(nid in valid for nid in path)
+
+
+class TestRandomWalkDensity:
+    def test_preserves_sum(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        rho = [0.5, 0.3, 0.1, 0.1]
+        result = g.random_walk_density(rho, steps=5)
+        assert abs(sum(result) - sum(rho)) < 1e-6
+
+    def test_empty_graph(self):
+        import numpy as np
+        g = Hypergraph()
+        result = g.random_walk_density([], steps=5)
+        assert len(result) == 0
+
+
+class TestStationaryState:
+    def test_sums_to_one(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        ids, pi = g.stationary_state()
+        assert len(pi) == 4
+        assert abs(sum(pi) - 1.0) < 1e-6
+
+    def test_non_negative(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        _, pi = g.stationary_state()
+        assert all(p >= -1e-10 for p in pi)
+
+    def test_empty_graph(self):
+        ids, pi = Hypergraph().stationary_state()
+        assert ids == []
+        assert pi == []
+

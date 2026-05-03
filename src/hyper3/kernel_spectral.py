@@ -429,3 +429,168 @@ class SpectralMixin(_GraphBase):
                 if nid in node_idx:
                     H[node_idx[nid], j] = 1.0
         return H, node_list, edge_ids
+
+    def multiorder_laplacian(self, sigmas: dict[int, float]) -> Any:
+        """Compute the multiorder Laplacian as a weighted sum of per-order Laplacians.
+
+        For each edge order *d*, computes the order-*d* Laplacian from
+        the incidence matrix of that order, then takes the weighted sum
+        using the provided sigma weights.
+
+        Args:
+            sigmas: Mapping from edge order to weight.  For example
+                ``{1: 1.0, 2: 0.5}`` weights pairwise edges at 1.0 and
+                triple edges at 0.5.
+
+        Returns:
+            A numpy array of shape (n_nodes, n_nodes).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return np.zeros((0, 0))
+
+        L_total = np.zeros((n, n))
+        for order, sigma in sigmas.items():
+            H_ord, _, _ = self.incidence_matrix_by_order(order=order)
+            if H_ord.shape[1] == 0:
+                continue
+            D_v = np.diag(np.asarray(H_ord.sum(axis=1)).flatten())
+            L_ord = D_v - H_ord @ H_ord.T
+            L_total += sigma * L_ord
+        return L_total
+
+    def multiorder_laplacian_eigenvalues(self, sigmas: dict[int, float]) -> Any:
+        """Compute eigenvalues of the multiorder Laplacian.
+
+        Args:
+            sigmas: Mapping from edge order to weight.
+
+        Returns:
+            Sorted numpy array of eigenvalues.
+        """
+        import numpy as np
+
+        L = np.asarray(self.multiorder_laplacian(sigmas))
+        return np.sort(np.linalg.eigvalsh(L))
+
+    def dual_random_walk_adjacency(self) -> tuple[Any, list[str], list[str]]:
+        """Compute the dual random walk adjacency matrix (edge-edge adjacency).
+
+        Two hyperedges are adjacent if they share at least one vertex.
+        The dual adjacency is ``H^T @ H`` from the unsigned incidence
+        matrix, with the diagonal (self-loops) removed.
+
+        Returns:
+            Tuple of (A_dual, edge_ids, edge_ids).
+        """
+        import numpy as np
+
+        H, node_ids, edge_ids = self.incidence_matrix_unsigned()
+        m = len(edge_ids)
+        if m == 0:
+            return np.zeros((0, 0)), [], []
+
+        A_dual = H.T @ H
+        np.fill_diagonal(A_dual, 0)
+        return A_dual, edge_ids, edge_ids
+
+    def random_walk(self, source: str, *, steps: int = 100) -> list[str]:
+        """Simulate a single-node random walk on the hypergraph.
+
+        Starting from ``source``, at each step the walker moves to a
+        neighboring node with probability proportional to the transition
+        matrix entry.  Uses the incidence-based transition matrix.
+
+        Args:
+            source: Starting node ID.
+            steps: Number of walk steps.
+
+        Returns:
+            List of visited node IDs (length ``steps + 1``).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0 or source not in self._nodes:
+            return []
+
+        P, node_list = self.transition_matrix()
+        P_arr = np.asarray(P.todense())
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+
+        current = node_idx.get(source)
+        if current is None:
+            return [source]
+
+        rng = np.random.RandomState()
+        path = [source]
+        for _ in range(steps):
+            row = P_arr[current]
+            if row.sum() == 0:
+                break
+            probs = row / row.sum()
+            next_idx = rng.choice(len(probs), p=probs)
+            path.append(node_list[next_idx])
+            current = next_idx
+        return path
+
+    def random_walk_density(self, rho: list[float] | Any, *, steps: int = 10) -> Any:
+        """Evolve a density vector via repeated transition matrix multiplication.
+
+        Starting from density vector ``rho``, applies ``rho <- rho @ P``
+        for ``steps`` iterations.  The result is the density distribution
+        after ``steps`` steps of a random walk.
+
+        Args:
+            rho: Initial density vector (length n_nodes).  Can be a list
+                or numpy array.
+            steps: Number of walk steps.
+
+        Returns:
+            Numpy array of shape (n_nodes,) with the evolved density.
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return np.array([])
+
+        P, _ = self.transition_matrix()
+        P_arr = np.asarray(P.todense())
+        rho_arr = np.asarray(rho, dtype=float).flatten()
+        if len(rho_arr) != n:
+            return rho_arr
+
+        for _ in range(steps):
+            rho_arr = rho_arr @ P_arr
+        return rho_arr
+
+    def stationary_state(self) -> tuple[list[str], list[float]]:
+        """Compute the stationary distribution of the random walk.
+
+        Returns:
+            Tuple of (node_ids, stationary_probabilities).
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return [], []
+
+        P, _ = self.transition_matrix()
+        P_arr = np.asarray(P.todense())
+
+        eigenvalues, eigenvectors = np.linalg.eig(P_arr.T)
+        idx = np.argmin(np.abs(eigenvalues - 1.0))
+        pi = np.real(eigenvectors[:, idx])
+        pi = np.abs(pi)
+        total = pi.sum()
+        if total > 0:
+            pi = pi / total
+        return node_list, pi.tolist()

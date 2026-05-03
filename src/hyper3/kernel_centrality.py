@@ -69,6 +69,68 @@ class CentralityMixin(_GraphBase):
 
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
 
+    def subhypergraph_centrality(self) -> dict[str, float]:
+        """Compute subgraph centrality via the diagonal of the matrix exponential of A.
+
+        Subgraph centrality (Estrada & Rodriguez-Velazquez 2005) counts
+        the number of closed walks starting and ending at each node,
+        weighted by ``1/k!`` for walk length *k*.  Computed as
+        ``diag(expm(A))`` where A is the adjacency matrix.
+
+        Returns:
+            Dict mapping node ID to its subgraph centrality score.
+        """
+        import numpy as np
+        from scipy.linalg import expm
+
+        A_sp, node_list = self.adjacency_matrix()
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        eA = expm(A)
+        diag = np.diag(eA)
+        return {nid: float(diag[i]) for i, nid in enumerate(node_list)}
+
+    def core_periphery(self, *, num_iterations: int = 100) -> dict[str, float]:
+        """Compute core-periphery scores using a relaxed optimization.
+
+        Assigns each node a continuous score in [0, 1] where 1 indicates
+        core membership.  Uses the Raghavan relaxation: iteratively update
+        each node's score as the mean of its neighbors' scores, starting
+        from degree-normalised initial values.
+
+        Args:
+            num_iterations: Number of relaxation iterations.
+
+        Returns:
+            Dict mapping node ID to its core-periphery score in [0, 1].
+        """
+        import numpy as np
+
+        node_list = [n.id for n in self._nodes.values()]
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A_sp, _ = self.adjacency_matrix()
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+
+        degrees = np.array(A.sum(axis=1)).flatten()
+        max_deg = degrees.max() if degrees.max() > 0 else 1.0
+        scores = degrees / max_deg
+
+        for _ in range(num_iterations):
+            new_scores = A @ scores
+            row_sums = A.sum(axis=1).flatten()
+            mask = row_sums > 0
+            new_scores[mask] = new_scores[mask] / row_sums[mask]
+            new_scores[~mask] = scores[~mask]
+            scores = new_scores
+
+        scores = np.clip(scores, 0.0, 1.0)
+        return {nid: float(scores[i]) for i, nid in enumerate(node_list)}
     def degree_centrality(self) -> dict[str, float]:
         """Compute normalized degree centrality for every node.
 
