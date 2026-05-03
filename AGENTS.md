@@ -1208,5 +1208,5 @@ Current project metrics (update after changes):
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
-- **Examples**: 107 (46 Hyper3: 3 basic, 22 intermediate, 11 advanced, 8 domain, 5 project pipelines; 47 comparison + 8 laminar)
+- **Examples**: 108 (46 Hyper3: 3 basic, 22 intermediate, 11 advanced, 9 domain, 5 project pipelines; 47 comparison + 8 laminar)
 - **Equiv battery**: 369 pass / 0 fail / 59 gap (14 suites, HGX + XGI + NX)
