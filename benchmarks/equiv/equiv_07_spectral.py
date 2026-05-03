@@ -25,7 +25,7 @@ def run() -> EquivRunner:
     _test_fiedler_vector(t)
     _test_spectral_bisection(t)
 
-    t.gap("multiorder_laplacian_eigs", "XGI: eigenvalues of multiorder Laplacian")
+    _test_multiorder_laplacian_eigenvalues(t)
 
     return t
 
@@ -141,6 +141,15 @@ def _test_spectral_bisection(t: EquivRunner) -> None:
     bh_arr = np.asarray(bh_mat)
     t.check("bethe_hessian/square", bh_arr.shape[0] == bh_arr.shape[1])
     t.check("bethe_hessian/symmetric", bool(np.allclose(bh_arr, bh_arr.T, atol=1e-10)))
+
+
+def _test_multiorder_laplacian_eigenvalues(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+    sigmas = {2: 1.0, 3: 0.5}
+    eigs = mem.graph.multiorder_laplacian_eigenvalues(sigmas=sigmas)
+    t.check("multiorder_eigs/returns_array", isinstance(eigs, np.ndarray))
+    t.check("multiorder_eigs/len_matches_nodes", len(eigs) == mem.graph.node_count)
+    t.check("multiorder_eigs/all_real", bool(np.all(np.isreal(eigs))))
 
 
 if __name__ == "__main__":

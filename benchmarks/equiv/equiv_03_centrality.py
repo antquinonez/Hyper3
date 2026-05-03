@@ -24,14 +24,15 @@ def run() -> EquivRunner:
     _test_closeness_centrality(t)
     _test_eigenvector_centrality(t)
 
+    _test_katz_centrality_solve(t)
+    _test_subhypergraph_centrality(t)
+
     t.gap("h_eigenvector_centrality", "HGX: HEC_centrality(HG) -- H-eigenvector (Benson 2018)")
     t.gap("z_eigenvector_centrality", "HGX: ZEC_centrality(HG) -- Z-eigenvector")
     t.gap("c_cigenvector_centrality", "HGX: CEC_centrality(HG) -- C-eigenvector")
     t.gap("node_edge_centrality", "XGI: node_edge_centrality(H) -- joint node-edge")
-    t.gap("katz_centrality_hgx", "HGX: katz_centrality on hypergraph adjacency")
     t.gap("s_betweenness", "HGX: s_betweenness(H, s=1) -- s-walk betweenness")
     t.gap("s_closeness", "HGX: s_closeness(H, s=1) -- s-walk closeness")
-    t.gap("sub_hypergraph_centrality", "HGX: subhypergraph_centrality(HG) -- Estrada 2005")
 
     return t
 
@@ -156,6 +157,22 @@ def _test_eigenvector_centrality(t: EquivRunner) -> None:
             nx_ec[node],
             tol=1e-4,
         )
+
+
+def _test_katz_centrality_solve(t: EquivRunner) -> None:
+    mem = build_pairwise_h3()
+    kc = mem.graph.katz_centrality_solve(alpha=0.1)
+    t.check("katz_centrality_solve/returns_dict", isinstance(kc, dict))
+    t.check("katz_centrality_solve/all_nodes_present", len(kc) == mem.graph.node_count)
+    t.check("katz_centrality_solve/all_positive", all(v > 0 for v in kc.values()))
+
+
+def _test_subhypergraph_centrality(t: EquivRunner) -> None:
+    mem = build_pairwise_h3()
+    sc = mem.graph.subhypergraph_centrality()
+    t.check("subhypergraph_centrality/returns_dict", isinstance(sc, dict))
+    t.check("subhypergraph_centrality/all_positive", all(v > 0 for v in sc.values()))
+    t.check("subhypergraph_centrality/all_nodes_present", len(sc) == mem.graph.node_count)
 
 
 if __name__ == "__main__":

@@ -30,12 +30,13 @@ def run() -> EquivRunner:
     _test_modularity(t)
     _test_greedy_modularity_communities(t)
 
+    _test_core_periphery(t)
+
     t.gap("louvain_communities", "NX: louvain_communities(G)")
     t.gap("girvan_newman", "NX: girvan_newman(G)")
     t.gap("hy_mmsbm", "HGX: HyMMSBM -- Mixed-Membership Stochastic Block Model")
     t.gap("hysc", "HGX: HySC -- Hypergraph Spectral Clustering")
     t.gap("hypergraph_mt", "HGX: HypergraphMT -- Mesoscale Theory")
-    t.gap("core_periphery", "HGX: core_periphery(HG)")
     t.gap("hyperlink_communities", "HGX: hyperlink_communities(HG) -- Ahn-Bagrow-Leicht")
 
     return t
@@ -116,6 +117,14 @@ def _test_greedy_modularity_communities(t: EquivRunner) -> None:
 
     total = sum(len(c) for c in communities)
     t.check_int("greedy_modularity/disjoint", total, g.node_count)
+
+
+def _test_core_periphery(t: EquivRunner) -> None:
+    mem = build_pairwise_h3()
+    scores = mem.graph.core_periphery()
+    t.check("core_periphery/returns_dict", isinstance(scores, dict))
+    t.check("core_periphery/all_nodes_present", len(scores) == mem.graph.node_count)
+    t.check("core_periphery/scores_in_range", all(0 <= v <= 1 for v in scores.values()))
 
 
 if __name__ == "__main__":

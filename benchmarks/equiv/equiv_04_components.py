@@ -32,7 +32,7 @@ def run() -> EquivRunner:
     _test_strongly_connected(t)
     _test_biconnected_components(t)
 
-    t.gap("s_components_by_size", "HGX: connected_components(size=3) -- order/size filtering")
+    _test_s_components_by_size(t)
 
     return t
 
@@ -166,6 +166,23 @@ def _test_biconnected_components(t: EquivRunner) -> None:
     h3_ap_labels = {label_map[nid] for nid in h3_ap}
     nx_ap_labels = set(nx_ap)
     t.check_set_equal("articulation_points", h3_ap_labels, nx_ap_labels)
+
+
+def _test_s_components_by_size(t: EquivRunner) -> None:
+    from hyper3 import HypergraphMemory
+
+    mem = HypergraphMemory(evolve_interval=0)
+    for i in range(6):
+        mem.ensure(f"n{i}")
+    mem.relate_hyperedge(sources={"n0", "n1", "n2"}, targets={"n3"}, label="he1")
+    mem.relate_hyperedge(sources={"n3", "n4"}, targets={"n5"}, label="he2")
+
+    all_comps = mem.graph.s_components_by_size()
+    total_nodes = sum(len(c) for c in all_comps)
+    t.check_int("s_components_by_size/all_total_nodes", total_nodes, 6)
+
+    large = mem.graph.s_components_by_size(min_size=4)
+    t.check("s_components_by_size/min4_all_large_enough", all(len(c) >= 4 for c in large))
 
 
 if __name__ == "__main__":

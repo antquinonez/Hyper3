@@ -574,3 +574,21 @@ class ComponentMixin(_GraphBase):
             del delta_q[best_pair]
 
         return [{node_ids[idx] for idx in comm_nodes[c]} for c in active if comm_nodes[c]]
+
+    def s_components_by_size(self, *, min_size: int = 1, max_size: int | None = None, s: int = 1) -> list[set[str]]:
+        """Return s-connected components filtered by component size.
+
+        Args:
+            min_size: Minimum component size to include.
+            max_size: Maximum component size to include.  None means no upper bound.
+            s: Minimum vertex overlap for s-adjacency.
+
+        Returns:
+            List of sets of node IDs, filtered by size bounds.
+        """
+        components = self.s_connected_components(s=s)
+        result = [
+            comp for comp in components
+            if len(comp) >= min_size and (max_size is None or len(comp) <= max_size)
+        ]
+        return result

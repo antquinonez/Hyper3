@@ -842,7 +842,7 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 2389 tests must pass.
+2. Run the full test suite after changes. All 2426 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -1050,13 +1050,13 @@ src/hyper3/          Source code (flat, no sub-packages)
   kernel_base.py     _GraphBase + CoreMixin: shared state, CRUD, merge, batch
   kernel_query.py    QueryMixin: edge lookups, neighbors, degree, stats, hash, degree_correlation
   kernel_paths.py    PathMixin: find_paths, shortest_path, Dijkstra, BFS
-  kernel_components.py ComponentMixin: s-components, s-persistence, union-find, SCCs, biconnected, articulation, modularity
-  kernel_cycles.py   CycleMixin: has_cycle, detect_cycles, girth
-  kernel_centrality.py CentralityMixin: degree/betweenness/pagerank/katz/closeness/eigenvector centrality
-  kernel_spectral.py SpectralMixin: incidence, Laplacian, adjacency, eigenvalues, Fiedler, bisection, bipartivity, Bethe-Hessian, transition matrix, incidence_by_order
-  kernel_clustering.py ClusteringMixin: clustering_coefficient, spectral_clustering, transitivity
+  kernel_components.py ComponentMixin: s-components, s-persistence, union-find, SCCs, biconnected, articulation, modularity, s_components_by_size
+  kernel_cycles.py   CycleMixin: has_cycle, detect_cycles, girth, chordless_cycles
+  kernel_centrality.py CentralityMixin: degree/betweenness/pagerank/katz/closeness/eigenvector centrality, eigenvector_centrality_numpy, katz_centrality_solve
+  kernel_spectral.py SpectralMixin: incidence, Laplacian, adjacency, eigenvalues, Fiedler, bisection, bipartivity, Bethe-Hessian, transition matrix, incidence_by_order, multiorder_laplacian, dual_random_walk_adjacency, random_walk, random_walk_density, stationary_state, algebraic_connectivity
+  kernel_clustering.py ClusteringMixin: clustering_coefficient, spectral_clustering, transitivity, square_clustering, triangles
   kernel_pattern.py  PatternMixin: pattern_match, subgraph
-  kernel_transforms.py TransformMixin: to_networkx, to_dual, to_line_graph, to_bipartite, clique_projection
+  kernel_transforms.py TransformMixin: to_networkx, to_dual, to_line_graph, to_bipartite, clique_projection, simplicial_complex, bipartite_projected_graph, bipartite_weighted_projection
   kernel_similarity.py SimilarityMixin: hyperedge_similarity
   exceptions.py      Exception hierarchy
   event_log.py       EventLog for timestamped event recording
@@ -1146,7 +1146,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 Run this sequence after substantive changes. All gates must pass:
 
 ```bash
-# 1. Test suite (2389 tests, must all pass)
+# 1. Test suite (2426 tests, must all pass)
 .venv/bin/python -m pytest tests/ -q --tb=short
 
 # 2. Type checking (0 errors)
@@ -1203,10 +1203,10 @@ apply_docstrings({
 **When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
-- **Tests**: 2389
+- **Tests**: 2426
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
 - **Examples**: 106 (46 Hyper3: 3 basic, 22 intermediate, 11 advanced, 7 domain, 5 project pipelines; 47 comparison + 8 laminar)
-- **Equiv battery**: 307 pass / 0 fail / 83 gap (14 suites, HGX + XGI + NX)
+- **Equiv battery**: 369 pass / 0 fail / 59 gap (14 suites, HGX + XGI + NX)

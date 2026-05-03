@@ -345,3 +345,59 @@ class CentralityMixin(_GraphBase):
             x = x_new
 
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
+    def eigenvector_centrality_numpy(self) -> dict[str, float]:
+        """Compute eigenvector centrality using numpy eigendecomposition.
+
+        Faster than power iteration for small graphs.  Uses the
+        eigenvector corresponding to the largest eigenvalue of the
+        adjacency matrix.
+
+        Returns:
+            Dict mapping node ID to eigenvector centrality score.
+        """
+        import numpy as np
+
+        A_sp, node_list = self.adjacency_matrix()
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        eigenvalues, eigenvectors = np.linalg.eig(A)
+        idx = np.argmax(np.real(eigenvalues))
+        vec = np.real(eigenvectors[:, idx])
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec = vec / norm
+        return {nid: float(vec[i]) for i, nid in enumerate(node_list)}
+
+    def katz_centrality_solve(self, *, alpha: float = 0.1, beta: float = 1.0) -> dict[str, float]:
+        """Compute Katz centrality via direct matrix solve (I - alpha*A)^{-1} * beta * 1.
+
+        Unlike the power-iteration version, this solves the linear system
+        directly.  More accurate but O(n^3).
+
+        Args:
+            alpha: Attenuation factor.
+            beta: Constant added to each node.
+
+        Returns:
+            Dict mapping node ID to Katz centrality score.
+        """
+        import numpy as np
+
+        A_sp, node_list = self.adjacency_matrix()
+        n = len(node_list)
+        if n == 0:
+            return {}
+
+        A = np.asarray(A_sp.toarray() if hasattr(A_sp, "toarray") else A_sp)
+        I = np.eye(n)
+        ones = np.ones(n)
+
+        x = np.linalg.solve(I - alpha * A, beta * ones)
+        norm = np.linalg.norm(x)
+        if norm > 0:
+            x = x / norm
+        return {nid: float(x[i]) for i, nid in enumerate(node_list)}

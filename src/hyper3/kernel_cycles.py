@@ -71,6 +71,53 @@ class CycleMixin(_GraphBase):
 
         return cycles
 
+    def chordless_cycles(self, *, max_cycles: int = 10) -> list[list[str]]:
+        """Find chordless (induced) directed cycles.
+
+        A chordless cycle has no edges connecting non-adjacent cycle
+        vertices.  Filters the output of ``detect_cycles`` by checking
+        that no chord exists in the cycle.
+
+        Args:
+            max_cycles: Maximum number of cycles to return.
+
+        Returns:
+            List of chordless cycles, each a list of node IDs.
+        """
+        all_cycles = self.detect_cycles(max_cycles=max_cycles * 5)
+        result: list[list[str]] = []
+        for cycle in all_cycles:
+            unique = cycle[:-1]
+            k = len(unique)
+            if k <= 3:
+                result.append(cycle)
+                if len(result) >= max_cycles:
+                    break
+                continue
+            adj: dict[str, set[str]] = {v: set() for v in unique}
+            for idx in range(k):
+                adj[unique[idx]].add(unique[(idx - 1) % k])
+                adj[unique[idx]].add(unique[(idx + 1) % k])
+            has_chord = False
+            for i in range(k):
+                node_edges = self.incident_edges(unique[i])
+                connected = set()
+                for e in node_edges:
+                    connected.update(e.node_ids)
+                for j in range(i + 2, k):
+                    if i == 0 and j == k - 1:
+                        continue
+                    if unique[j] in connected and unique[j] not in adj[unique[i]]:
+                        has_chord = True
+                        break
+                if has_chord:
+                    break
+            if not has_chord:
+                result.append(cycle)
+                if len(result) >= max_cycles:
+                    break
+        return result
+
     def _detect_cycles_dfs(
         self,
         node: str,

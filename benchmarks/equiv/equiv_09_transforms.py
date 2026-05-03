@@ -25,7 +25,8 @@ def run() -> EquivRunner:
     _test_to_networkx(t)
     _test_clique_projection(t)
 
-    t.gap("simplicial_complex", "HGX: simplicial_complex(h) -- fill in all subsets")
+    _test_simplicial_complex(t)
+
     t.gap("directed_line_graph", "HGX: directed_line_graph(h) for DirectedHypergraph")
 
     return t
@@ -103,6 +104,17 @@ def _test_clique_projection(t: EquivRunner) -> None:
     t.check_int("clique_projection/node_count", cp.node_count, mem.graph.node_count)
     t.check("clique_projection/has_edges", cp.edge_count > 0)
     t.check("clique_projection/is_connected", cp.is_connected())
+
+
+def _test_simplicial_complex(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+
+    sc = mem.graph.simplicial_complex()
+
+    t.check("simplicial_complex/returns_list", isinstance(sc, list))
+    t.check("simplicial_complex/non_empty", len(sc) > 0)
+    for simplex in sc:
+        t.check(f"simplicial_complex/is_frozenset/{hash(simplex)}", isinstance(simplex, frozenset))
 
 
 if __name__ == "__main__":

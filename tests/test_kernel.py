@@ -3633,3 +3633,195 @@ class TestStationaryState:
         assert ids == []
         assert pi == []
 
+
+class TestEigenvectorCentralityNumpy:
+    def test_matches_power_iteration(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        ec_pi = g.eigenvector_centrality()
+        ec_np = g.eigenvector_centrality_numpy()
+        pi_vals = np.array([ec_pi[n.id] for n in nodes])
+        np_vals = np.array([ec_np[n.id] for n in nodes])
+        assert np.corrcoef(np.abs(pi_vals), np.abs(np_vals))[0, 1] > 0.95
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.eigenvector_centrality_numpy() == {}
+
+
+class TestKatzCentralitySolve:
+    def test_agrees_with_iteration(self):
+        import numpy as np
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i + 1].id}), target_ids=frozenset({nodes[i].id})))
+        kc_iter = g.katz_centrality(alpha=0.1)
+        kc_solve = g.katz_centrality_solve(alpha=0.1)
+        iter_vals = [kc_iter[n.id] for n in nodes]
+        solve_vals = [kc_solve[n.id] for n in nodes]
+        assert np.allclose(np.abs(iter_vals), np.abs(solve_vals), atol=0.05)
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.katz_centrality_solve() == {}
+
+
+class TestSquareClustering:
+    def test_complete_graph_one(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[j].id}), target_ids=frozenset({nodes[i].id})))
+        for n in nodes:
+            assert abs(g.square_clustering(n.id) - 1.0) < 1e-10
+
+    def test_single_node_zero(self):
+        g = Hypergraph()
+        n = Hypernode(label="a")
+        g.add_node(n)
+        assert g.square_clustering(n.id) == 0.0
+
+
+class TestTriangles:
+    def test_complete_graph_count(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[j].id}), target_ids=frozenset({nodes[i].id})))
+        assert g.triangles(nodes[0].id) == 3
+
+    def test_no_triangles(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        assert g.triangles(nodes[0].id) == 0
+
+
+class TestChordlessCycles:
+    def test_triangle_is_chordless(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 3].id})))
+        result = g.chordless_cycles()
+        assert len(result) >= 1
+
+    def test_chorded_cycle_filtered(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 4].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[2].id})))
+        result = g.chordless_cycles()
+        unique_sizes = {len(set(c)) for c in result}
+        assert all(s <= 3 for s in unique_sizes)
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.chordless_cycles() == []
+
+
+class TestSComponentsBySize:
+    def test_filters_by_min_size(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        d = Hypernode(label="d")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({d.id})))
+        result = g.s_components_by_size(min_size=3)
+        assert all(len(comp) >= 3 for comp in result)
+
+    def test_default_returns_all(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        result = g.s_components_by_size()
+        total_nodes = sum(len(c) for c in result)
+        assert total_nodes == 3
+
+
+class TestSimplicialComplex:
+    def test_includes_all_faces(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id, b.id}), target_ids=frozenset({c.id})))
+        sc = g.simplicial_complex()
+        sizes = [len(s) for s in sc]
+        assert sizes.count(1) == 3
+        assert sizes.count(2) == 3
+        assert sizes.count(3) == 1
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.simplicial_complex() == []
+
+
+class TestBipartiteProjectedGraph:
+    def test_shared_hyperedge_creates_edge(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id, b.id}), target_ids=frozenset({c.id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id})))
+        proj = g.bipartite_projected_graph(onto=0)
+        assert proj.has_edge(a.id, b.id)
+        assert proj.has_edge(a.id, c.id)
+        assert proj.has_edge(b.id, c.id)
+
+    def test_no_shared_hyperedge_no_edge(self):
+        g = Hypergraph()
+        a, b = Hypernode(label="a"), Hypernode(label="b")
+        for n in [a, b]:
+            g.add_node(n)
+        proj = g.bipartite_projected_graph(onto=0)
+        assert proj.number_of_edges() == 0
+
+
+class TestBipartiteWeightedProjection:
+    def test_jaccard_scores(self):
+        g = Hypergraph()
+        a, b, c = Hypernode(label="a"), Hypernode(label="b"), Hypernode(label="c")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id, b.id, c.id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id, b.id}), target_ids=frozenset()))
+        proj = g.bipartite_weighted_projection(onto=0)
+        ab_key = (min(a.id, b.id), max(a.id, b.id))
+        assert abs(proj[ab_key] - 1.0) < 1e-10
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.bipartite_weighted_projection() == {}
+

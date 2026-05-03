@@ -34,9 +34,10 @@ def run() -> EquivRunner:
     _test_pairwise_adjacency_nx(t)
     _test_incidence_matrix_by_order(t)
 
-    t.gap("multiorder_laplacian", "XGI: multiorder_laplacian(H, sigmas) -- weighted sum across orders")
+    _test_multiorder_laplacian(t)
+    _test_dual_random_walk_adjacency(t)
+
     t.gap("adjacency_tensor", "HGX: adjacency_tensor(HG) -- order-(m+1) tensor for uniform hypergraph")
-    t.gap("dual_random_walk_adjacency", "HGX: dual_random_walk_adjacency(HG) -- edge-edge adjacency")
 
     return t
 
@@ -199,6 +200,24 @@ def _test_incidence_matrix_by_order(t: EquivRunner) -> None:
     im2_arr = np.asarray(im2_mat.todense() if hasattr(im2_mat, "todense") else im2_mat)
     t.check("incidence_by_order_2/has_entries", im2_arr.shape[1] >= 1)
     t.check("incidence_by_order_2/node_count", im2_arr.shape[0] == mem.graph.node_count)
+
+
+def _test_multiorder_laplacian(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+    sigmas = {2: 1.0, 3: 0.5}
+    L = mem.graph.multiorder_laplacian(sigmas=sigmas)
+    L_arr = np.asarray(L)
+    t.check("multiorder_laplacian/square", L_arr.shape[0] == L_arr.shape[1])
+    t.check("multiorder_laplacian/node_count", L_arr.shape[0] == mem.graph.node_count)
+    t.check("multiorder_laplacian/symmetric", bool(np.allclose(L_arr, L_arr.T, atol=1e-10)))
+
+
+def _test_dual_random_walk_adjacency(t: EquivRunner) -> None:
+    mem = build_hypergraph_h3()
+    A_dual, rows, cols = mem.graph.dual_random_walk_adjacency()
+    A_arr = np.asarray(A_dual)
+    t.check("dual_random_walk_adjacency/square", A_arr.shape[0] == A_arr.shape[1])
+    t.check("dual_random_walk_adjacency/edge_count_dim", A_arr.shape[0] == mem.graph.edge_count)
 
 
 if __name__ == "__main__":

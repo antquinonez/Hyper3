@@ -80,6 +80,74 @@ class ClusteringMixin(_GraphBase):
             return 0.0
         return triangles / triads
 
+    def square_clustering(self, node_id: str) -> float:
+        """Compute the square clustering coefficient for a node.
+
+        Uses the Lind-Gonzalez-Herrmann (2005) formulation: the fraction
+        of possible squares that exist at the node.  Equivalent to
+        ``nx.square_clustering`` on the undirected projection.
+
+        Returns:
+            Square clustering coefficient in [0, 1].  Returns 0.0 for
+            nodes with fewer than 2 neighbors.
+        """
+        v_nbrs = set(self.neighbors(node_id))
+        v_deg_m1 = len(v_nbrs) - 1
+        if v_deg_m1 <= 0:
+            return 0.0
+
+        nbr_adj: dict[str, set[str]] = {}
+        for u in v_nbrs:
+            nbr_adj[u] = set(self.neighbors(u))
+
+        uw_degrees = 0
+        uw_count = len(v_nbrs) * v_deg_m1
+        triangles = 0
+        squares = 0
+
+        for u in v_nbrs:
+            u_nbrs = nbr_adj[u]
+            uw_degrees += len(u_nbrs) * v_deg_m1
+            p2 = len(u_nbrs & v_nbrs)
+            triangles += p2
+            squares += p2 * (p2 - 1)
+
+        two_hop: set[str] = set()
+        for u in v_nbrs:
+            two_hop |= nbr_adj[u]
+        two_hop -= v_nbrs
+        two_hop.discard(node_id)
+        for x in two_hop:
+            x_nbrs = set(self.neighbors(x))
+            p2 = len(v_nbrs & x_nbrs)
+            squares += p2 * (p2 - 1)
+
+        squares //= 2
+        potential = uw_degrees - uw_count - triangles - squares
+        return squares / potential if potential > 0 else 0.0
+
+    def triangles(self, node_id: str) -> int:
+        """Count the number of triangles containing the given node.
+
+        A triangle is three mutually-connected nodes.  Uses the
+        undirected projection (ignoring edge direction).
+
+        Returns:
+            Number of triangles.  Returns 0 for nodes with fewer than
+            2 neighbors.
+        """
+        nbrs = self.neighbors(node_id)
+        if len(nbrs) < 2:
+            return 0
+
+        count = 0
+        for i in range(len(nbrs)):
+            nbr_i_set = set(self.neighbors(nbrs[i]))
+            for j in range(i + 1, len(nbrs)):
+                if nbrs[j] in nbr_i_set:
+                    count += 1
+        return count
+
     def spectral_clustering(self, k: int = 2) -> list[set[str]]:
         """Partition nodes into k clusters using spectral embedding + k-means.
 

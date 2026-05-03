@@ -149,3 +149,84 @@ class TransformMixin(_GraphBase):
                 if nid in self._nodes:
                     G.add_edge(nid, edge.id)
         return G
+
+    def simplicial_complex(self) -> list[frozenset[str]]:
+        """Build an abstract simplicial complex from the hypergraph.
+
+        Each hyperedge's vertex set becomes a simplex.  All faces
+        (subsets) of each simplex are included, ensuring downward
+        closure.
+
+        Returns:
+            Sorted list of frozensets (simplexes), from smallest to
+            largest cardinality.
+        """
+        simplices: set[frozenset[str]] = set()
+        for edge in self._edges.values():
+            members = edge.source_ids | edge.target_ids
+            members_list = sorted(members)
+            from itertools import combinations
+            for k in range(1, len(members_list) + 1):
+                for face in combinations(members_list, k):
+                    simplices.add(frozenset(face))
+        for nid in self._nodes:
+            simplices.add(frozenset({nid}))
+        return sorted(simplices, key=lambda s: (len(s), sorted(s)))
+
+    def bipartite_projected_graph(self, *, onto: int = 0) -> Any:
+        """Project the bipartite vertex-edge graph onto one bipartite set.
+
+        Two vertices in set ``onto`` are connected if they share at
+        least one neighbor in the other set.
+
+        Args:
+            onto: The bipartite set to project onto (0 = vertices,
+                1 = hyperedges).
+
+        Returns:
+            A networkx Graph with weighted edges (weight = number of
+            shared neighbors).
+        """
+        B = self.to_bipartite_graph()
+        top_nodes = {n for n, d in B.nodes(data=True) if d.get("bipartite") == onto}
+        bottom_nodes = set(B.nodes) - top_nodes
+        projected = nx.Graph()
+        projected.add_nodes_from(top_nodes)
+        top_list = sorted(top_nodes)
+        for i in range(len(top_list)):
+            neighbors_i = set(B.neighbors(top_list[i])) & bottom_nodes
+            for j in range(i + 1, len(top_list)):
+                neighbors_j = set(B.neighbors(top_list[j])) & bottom_nodes
+                shared = neighbors_i & neighbors_j
+                if shared:
+                    projected.add_edge(top_list[i], top_list[j], weight=len(shared))
+        return projected
+
+    def bipartite_weighted_projection(self, *, onto: int = 0) -> dict[tuple[str, str], float]:
+        """Compute a weighted projection of the bipartite graph.
+
+        Uses Jaccard-weighted similarity: for each pair of nodes in set
+        ``onto``, the weight is ``|N(u) & N(v)| / |N(u) | N(v)|``.
+
+        Args:
+            onto: The bipartite set to project onto (0 = vertices,
+                1 = hyperedges).
+
+        Returns:
+            Dict mapping (node_id_a, node_id_b) pairs to Jaccard
+            similarity scores.
+        """
+        B = self.to_bipartite_graph()
+        top_nodes = {n for n, d in B.nodes(data=True) if d.get("bipartite") == onto}
+        bottom_nodes = set(B.nodes) - top_nodes
+        result: dict[tuple[str, str], float] = {}
+        top_list = sorted(top_nodes)
+        for i in range(len(top_list)):
+            neighbors_i = set(B.neighbors(top_list[i])) & bottom_nodes
+            for j in range(i + 1, len(top_list)):
+                neighbors_j = set(B.neighbors(top_list[j])) & bottom_nodes
+                intersection = len(neighbors_i & neighbors_j)
+                union = len(neighbors_i | neighbors_j)
+                if intersection > 0 and union > 0:
+                    result[(top_list[i], top_list[j])] = intersection / union
+        return result
