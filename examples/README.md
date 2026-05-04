@@ -16,6 +16,15 @@ All examples are self-contained and can be run directly:
 
 No external dependencies beyond the core Hyper3 installation are required.
 
+Showcase Examples (`showcase/`)
+-------------------------------
+
+| Directory | File | Focus |
+|-----------|------|-------|
+| `multiway_reasoning/` | `01_multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
+
+See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
+
 Basic Examples (`basic/`)
 -------------------------
 

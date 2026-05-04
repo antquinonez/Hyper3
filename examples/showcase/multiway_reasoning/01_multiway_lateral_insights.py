@@ -1,15 +1,18 @@
-"""
-Exploring Alternative Incident Hypotheses with Multiway Expansion
-=================================================================
+"""Exploring Alternative Incident Hypotheses with Multiway Expansion.
 
 Demonstrates Hyper3's core multiway reasoning feature by building a cloud
-infrastructure graph and running multiway expansion from a health check
-failure seed. Different inference rules produce genuinely divergent branches
-(infrastructure failure, network partition, configuration error) which are
-then compared via state clustering analysis and lateral insights.
+infrastructure graph (81 nodes, 203 edges across 3 regions) and running
+multiway expansion from a health check failure seed. Different inference
+rules produce genuinely divergent branches (infrastructure failure, network
+partition, configuration error) which are then compared via state clustering
+analysis and lateral insights.
+
+This is the flagship showcase example for Hyper3's multi-hypothesis reasoning.
 
 Run with:
-    .venv/bin/python examples/advanced/10_multiway_lateral_insights.py
+    .venv/bin/python examples/showcase/multiway_reasoning/01_multiway_lateral_insights.py
+
+See README.md in this directory for detailed architecture diagrams and explanations.
 """
 
 from __future__ import annotations
