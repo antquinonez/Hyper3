@@ -2,11 +2,33 @@
 
 > **Exploring Alternative Incident Hypotheses with Multiway Expansion**
 
-This showcase demonstrates Hyper3's most distinctive capability: **simultaneous multi-hypothesis exploration**. Rather than following a single chain of reasoning, Hyper3 branches into dozens of computational futures, each representing a different hypothesis about what might be causing a problem. It then compares these branches to find insights that would be invisible to single-path reasoning.
+## The Problem
 
-## Scenario
+A cloud infrastructure health check has failed. Multiple root causes are possible: database failure, network partition, bad deployment, or cache stampede.
 
-A cloud infrastructure health check has failed. Multiple root causes are possible: database failure, network partition, bad deployment, or cache stampede. Instead of picking one hypothesis and pursuing it, Hyper3 explores all of them simultaneously through **multiway expansion**, then cross-compares the results.
+**Traditional approach**: Pick one hypothesis (e.g., "it's the database") and investigate. If wrong, start over.
+
+**Hyper3's approach**: Explore ALL hypotheses simultaneously through **multiway expansion**, then cross-compare the results to find the best explanation.
+
+## Why This Matters
+
+In critical incidents, time is money. Traditional troubleshooting chases one theory at a time — if you're wrong, you've wasted precious minutes. Hyper3 explores every possibility in parallel, giving you a ranked list of candidates and insights from across all hypotheses in a single pass.
+
+## A Simple Analogy
+
+Think of this like a doctor who simultaneously explores multiple possible diagnoses (flu, infection, allergy) rather than chasing one theory at a time. Each "branch" of reasoning represents a different diagnosis, and Hyper3 compares them to find which best explains the symptoms.
+
+## Key Concepts
+
+| Term | Plain English Meaning |
+|------|----------------------|
+| **Multiway Expansion** | Exploring multiple "what if" scenarios at the same time |
+| **State** | One possible version of the truth (e.g., "what if the database is down") |
+| **Branch** | A chain of reasoning from seed → conclusion |
+| **Leaf State** | A final conclusion after applying rules |
+| **Convergence** | When different paths lead to the same conclusion |
+| **Simultaneity Group** | Hypotheses at the same "depth" that can be compared directly |
+| **Lateral Insights** | Knowledge from one branch that applies to another |
 
 ## Quick Start
 
@@ -14,11 +36,41 @@ A cloud infrastructure health check has failed. Multiple root causes are possibl
 .venv/bin/python examples/showcase/multiway_reasoning/01_multiway_lateral_insights.py
 ```
 
-## Architecture Overview
+## What You'll See
+
+When you run the example, you'll see output like this:
+
+```
+======================================================================
+SECTION 1: Cloud Infrastructure Graph
+======================================================================
+  Nodes: 81
+  Edges: 203
+
+======================================================================
+SECTION 2: Multiway Expansion from Failed Health Check
+======================================================================
+  States created:    51
+  Rules applied:     50
+  New edges:         50
+  New nodes:         0
+  Max depth:         3
+  Branches (leaves): 66
+```
+
+This tells you the engine explored 66 different hypothesis branches from a single failed health check.
+
+## Scenario
+
+The example models a realistic multi-region cloud infrastructure with:
+- 3 geographic regions (us-east, us-west, eu-west)
+- Shared databases, caches, and queues
+- Monitoring and alerting systems
+- A failed health check as the trigger event
 
 ### System Topology
 
-The example models a realistic multi-region cloud infrastructure:
+Figure 1: The infrastructure we're analyzing — three regions with shared databases.
 
 ```mermaid
 graph TB
@@ -96,7 +148,7 @@ graph TB
 
 ### Edge Label Taxonomy
 
-The graph uses semantically labeled edges to encode different relationship types:
+Figure 2: How relationships are labeled in the graph.
 
 ```mermaid
 graph LR
@@ -128,7 +180,7 @@ graph LR
 ```
 
 | Category | Labels | Meaning |
-|----------|--------|---------|
+|----------|---------|---------|
 | **Routing** | `routes_to`, `fails_over_to`, `hosts`, `serves` | Network traffic flow |
 | **Dependency** | `depends_on`, `replicates_to`, `distributes_to` | Service reliance |
 | **Causality** | `causes`, `affects`, `indicates` | Cause-effect relationships |
@@ -136,9 +188,11 @@ graph LR
 | **Resolution** | `resolves`, `deploys`, `triggers` | Remediation pathways |
 | **Security** | `protects`, `secures`, `authenticates` | Security boundaries |
 
-## Multiway Expansion Engine
+## How the Reasoning Engine Works
 
-### How Multiway Reasoning Works
+### Multiway Expansion
+
+Figure 3: The engine takes seed concepts and applies multiple inference rules simultaneously, creating a branching tree of hypotheses.
 
 ```mermaid
 graph TD
@@ -174,9 +228,9 @@ graph TD
     LEAF1 --> LATERAL["Lateral Insights<br/>Cross-branch Transfer"]
 ```
 
-### The State DAG
+Each application of a rule creates a new **state** in a directed acyclic graph (DAG). States at the same depth that share active nodes form **simultaneity groups** — these are hypotheses that can be compared directly.
 
-Each application of a rule creates a new **state** in a directed acyclic graph. States at the same depth that share active nodes form **simultaneity groups** -- these are hypotheses that can be compared directly.
+Figure 4: States at the same depth form groups that can be directly compared.
 
 ```mermaid
 stateDiagram-v2
@@ -210,7 +264,7 @@ stateDiagram-v2
     end note
 ```
 
-### Rule Application
+### The 10 Inference Rules
 
 Ten inference rules operate simultaneously on the graph:
 
@@ -227,7 +281,7 @@ Ten inference rules operate simultaneously on the graph:
 | `InverseRule(affects)` | A-[affects]->B | B-[affected_by]->A | Reverse impact |
 | `AbductiveRule(causes)` | A-[causes]->B (B observed) | B-[possible_cause]->A | Diagnostic inference |
 
-## Analysis Pipeline
+## The Analysis Pipeline
 
 ### Phase 1: Graph Construction
 
@@ -254,16 +308,16 @@ pie showData
 From 16 seed concepts (the failed health check and related symptoms), the engine applies all 10 rules simultaneously, creating a branching structure:
 
 ```
-                    ┌── transitive(causes)      ──> indirectly_causes chains
-                    ├── transitive(depends_on)  ──> cascade_depends chains
-                    ├── transitive(affects)     ──> indirectly_affects chains
+                     ┌── transitive(causes)      ──> indirectly_causes chains
+                     ├── transitive(depends_on)  ──> cascade_depends chains
+                     ├── transitive(affects)     ──> indirectly_affects chains
 Seed (16 nodes) ────├── transitive(indicates)   ──> correlates_with chains
-                    ├── transitive(routes_to)   ──> indirectly_routes chains
-                    ├── inverse(causes)         ──> caused_by reverse edges
-                    ├── inverse(depends_on)     ──> depended_on_by reverse
-                    ├── inverse(monitors)       ──> monitored_by reverse
-                    ├── inverse(affects)        ──> affected_by reverse
-                    └── abductive(causes)       ──> possible_cause diagnosis
+                     ├── transitive(routes_to)   ──> indirectly_routes chains
+                     ├── inverse(causes)         ──> caused_by reverse edges
+                     ├── inverse(depends_on)     ──> depended_on_by reverse
+                     ├── inverse(monitors)       ──> monitored_by reverse
+                     ├── inverse(affects)        ──> affected_by reverse
+                     └── abductive(causes)       ──> possible_cause diagnosis
 ```
 
 **Result**: 51 states created, 50 rules applied, 50 inference edges produced, 66 leaf states.
@@ -282,7 +336,7 @@ This measures how well a branch explains the observed symptoms. Higher scores me
 
 ### Phase 4: State Clustering
 
-States are mapped into a coordinate space using multidimensional scaling. The engine identifies **simultaneity groups** -- sets of states at the same depth that represent competing hypotheses:
+Figure 5: States are grouped by depth into simultaneity groups for comparison.
 
 ```mermaid
 graph LR
@@ -310,9 +364,11 @@ graph LR
     G5_2 -.novel.-> G5_3
 ```
 
+States are mapped into a coordinate space using multidimensional scaling. The engine identifies **simultaneity groups** — sets of states at the same depth that represent competing hypotheses.
+
 ### Phase 5: Convergence Detection
 
-The engine detects when **different rules reach overlapping conclusions** -- this is a causal invariant. Two states that applied different rules but produced edges targeting the same nodes represent convergent reasoning paths.
+Figure 6: When different rules reach the same conclusion, that's a convergent insight.
 
 ```mermaid
 flowchart LR
@@ -323,11 +379,13 @@ flowchart LR
     B --> C
 ```
 
+The engine detects when **different rules reach overlapping conclusions** — this is a causal invariant. Two states that applied different rules but produced edges targeting the same nodes represent convergent reasoning paths.
+
 **Result**: 20 causal invariants found and merged.
 
 ### Phase 6: Lateral Insights
 
-The most powerful feature: comparing branches within the same simultaneity group to find **novel knowledge** -- nodes or edges present in one branch but absent in another.
+Figure 7: Comparing branches within the same group reveals unique knowledge.
 
 ```mermaid
 graph TB
@@ -345,6 +403,41 @@ graph TB
     A1 -.unique to A.-> L{"Lateral Insight:\nIf cache-stampede causes\nlatency, then us-west-storage\nmay be implicated too"}
     B1 -.unique to B.-> L
 ```
+
+The most powerful feature: comparing branches within the same simultaneity group to find **novel knowledge** — nodes or edges present in one branch but absent in another.
+
+## Understanding the Output
+
+### Branch Score Interpretation
+
+| Score Range | Meaning |
+|------------|---------|
+| 0.9+ | Branch explains most symptoms — strong candidate root cause |
+| 0.7-0.9 | Branch explains a subset of symptoms — partial match |
+| 0.5-0.7 | Branch touches some symptoms — weak signal |
+| < 0.5 | Branch largely irrelevant to observed symptoms |
+
+### Simultaneity Groups
+
+States in the same simultaneity group are **at the same depth** in the multiway DAG and can be directly compared. The group number indicates which "wave" of reasoning the states belong to.
+
+### Lateral Insight Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| **Novel in source** | Nodes/edges in the reference branch not in the comparison | A dependency chain unique to one hypothesis |
+| **Novel in lateral** | Nodes/edges in the comparison branch not in the reference | A causal link unique to another hypothesis |
+| **Complementary** | Different branches that together cover more symptoms | One branch explains DB issues, another explains network |
+
+## What Makes This Different
+
+Traditional diagnostic systems follow a **single path**: pick the most likely hypothesis, pursue it, backtrack if wrong. Hyper3's multiway engine explores **all hypotheses in parallel** through a branching state space, then uses structural comparison to identify:
+
+1. **Which branches best explain the evidence** (branch scoring)
+2. **Which branches converge on the same conclusions** (causal invariants)
+3. **What knowledge from one branch applies to another** (lateral insights)
+
+This is particularly valuable in incident response where the root cause is unknown and time is critical — instead of chasing one hypothesis while the incident worsens, you get a ranked set of candidates with cross-hypothesis insights.
 
 ## Key Metrics
 
@@ -430,39 +523,6 @@ groups = mem.state_clustering.simultaneity_groups
 for concept in ["failed-health-check", "db-primary-down", "network-partition", "bad-deploy"]:
     insights = mem.lateral_insights(concept)
 ```
-
-## Understanding the Output
-
-### Branch Score Interpretation
-
-| Score Range | Meaning |
-|------------|---------|
-| 0.9+ | Branch explains most symptoms -- strong candidate root cause |
-| 0.7-0.9 | Branch explains a subset of symptoms -- partial match |
-| 0.5-0.7 | Branch touches some symptoms -- weak signal |
-| < 0.5 | Branch largely irrelevant to observed symptoms |
-
-### Simultaneity Groups
-
-States in the same simultaneity group are **at the same depth** in the multiway DAG and can be directly compared. The group number indicates which "wave" of reasoning the states belong to.
-
-### Lateral Insight Types
-
-| Type | Description | Example |
-|------|-------------|---------|
-| **Novel in source** | Nodes/edges in the reference branch not in the comparison | A dependency chain unique to one hypothesis |
-| **Novel in lateral** | Nodes/edges in the comparison branch not in the reference | A causal link unique to another hypothesis |
-| **Complementary** | Different branches that together cover more symptoms | One branch explains DB issues, another explains network |
-
-## What Makes This Different
-
-Traditional diagnostic systems follow a **single path**: pick the most likely hypothesis, pursue it, backtrack if wrong. Hyper3's multiway engine explores **all hypotheses in parallel** through a branching state space, then uses structural comparison to identify:
-
-1. **Which branches best explain the evidence** (branch scoring)
-2. **Which branches converge on the same conclusions** (causal invariants)
-3. **What knowledge from one branch applies to another** (lateral insights)
-
-This is particularly valuable in incident response where the root cause is unknown and time is critical -- instead of chasing one hypothesis while the incident worsens, you get a ranked set of candidates with cross-hypothesis insights.
 
 ## Related Examples
 
