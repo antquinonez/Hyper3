@@ -555,6 +555,100 @@ The multiway approach gives us **all three hypotheses ranked by evidence**, plus
 2. Monitor the second hypothesis (network) as a parallel track
 3. Use lateral insights to watch for cascade effects (cache stampede)
 
+## From Raw Data to Semantic Graph
+
+The showcase above uses hand-crafted semantic labels (`depends_on`, `causes`, `monitors`). Real-world incident response starts with raw data from Terraform, Kubernetes, Prometheus, and Jaeger traces — none of which provide these semantic relationships. Bridging this gap requires several interconnected challenges:
+
+### Challenge 1: Relationship Extraction
+
+**The problem**: Raw sources give you topology ("api-service connects to db-postgres") but not *why* or *how* they relate.
+
+**Theoretical approaches**:
+- **Heuristic rules**: If A calls B in traces → label as `depends_on`; if A fails then B fails → label as `causes`
+- **ML-based extraction**: Train a classifier on labeled service meshes to predict edge types from call patterns
+- **Pattern matching**: Detect recurring structures (A monitors B, A deploys to B) and assign canonical labels
+
+**What's needed**: A mapping layer that converts raw observations (traces, logs, configs) into Hyper3's semantic edge taxonomy.
+
+### Challenge 2: Causal Discovery
+
+**The problem**: Prometheus shows DB latency spiked at 14:32, then API errors spiked at 14:33. Is this causation or correlation?
+
+**Theoretical approaches**:
+- **Granger causality**: Test if past values of X help predict Y (time-series)
+- **Convergent cross-mapping**: Detect causal links in dynamical systems (suitable for metrics)
+- **PC algorithm / FCI**: Constraint-based discovery from observational data
+- **Structural equation modeling**: Fit explicit causal models to metric data
+
+**What's needed**: Algorithms that ingest time-series metrics + events and output hypothesized causal edges (`A-[causes]->B`) with confidence scores.
+
+### Challenge 3: Ontology Mapping
+
+**The problem**: Your Terraform calls it `aws_rds_cluster`, Kubernetes calls it `db-postgres`, and Prometheus calls it `database_cpu`. They're the same entity — but the graph needs one canonical node.
+
+**Theoretical approaches**:
+- **Entity resolution**: Fuzzy matching on names, IPs, tags to merge aliases
+- **Canonical ontologies**: Map vendor-specific terms to a shared vocabulary (e.g., `database` → `type: database`)
+- **Embedding-based matching**: Use vector similarity to detect "these two labels refer to the same thing"
+
+**What's needed**: A normalization layer that maps heterogeneous source vocabularies to Hyper3's node type system (`type: database`, `type: service`, etc.).
+
+### Challenge 4: Knowledge Graph Construction
+
+**The problem**: You have Terraform (infrastructure), Kubernetes (runtime), Prometheus (metrics), and Jaeger (traces). Each sees a different slice of the same system.
+
+**Theoretical approaches**:
+- **Federated KG construction**: Build subgraphs from each source, then align entities across them
+- **ETL pipelines**: Extract → Transform (semantic labeling) → Load into Hyper3
+- **Streaming graph construction**: Ingest events in real-time, updating the graph as new observations arrive
+
+**What's needed**: Orchestration that combines multiple data sources into a coherent Hyper3 graph without duplicate nodes or contradictory edges.
+
+### Challenge 5: Semantic Modeling
+
+**The problem**: What does `depends_on` actually mean in your context? Is it "A calls B over HTTP" or "A won't start without B"?
+
+**Theoretical approaches**:
+- **Shared ontologies**: Define precise semantics for each edge type (e.g., OWL-based ontologies)
+- **Contextual semantics**: Let meaning vary by layer (infrastructure vs. application vs. business)
+- **Validation rules**: "If A `depends_on` B, then B must exist and be healthy for A to function"
+
+**What's needed**: A schema/ontology that defines what each edge label means in your specific operational context.
+
+### Challenge 6: Observability-to-Graph Pipeline
+
+**The problem**: This is the full-stack integration — taking raw observability data and producing a live, semantically-labeled Hyper3 graph.
+
+**Theoretical pipeline**:
+```
+Terraform/ K8s manifests
+        ↓
+  [Entity Extraction] → nodes with types
+        ↓
+Jaeger traces + Prometheus metrics
+        ↓
+  [Relationship Inference] → raw edges
+        ↓
+  [Causal Discovery] → causal edges (causes, affects)
+        ↓
+  [Semantic Labeling] → canonical edge types
+        ↓
+  [Entity Resolution] → merge duplicates
+        ↓
+  [Validation] → check graph consistency
+        ↓
+    Hyper3 Graph (ready for multiway reasoning)
+```
+
+**Current state in Hyper3**: The showcase demonstrates what's possible **once the graph exists**. The pipeline above is **out of scope** for Hyper3 core — it's the data engineering layer that feeds Hyper3.
+
+**For real-world adoption**, organizations would need to build or buy:
+- ETL tools for their specific stack (Terraform + Datadog + Jaeger)
+- Semantic labeling rules tuned to their architecture
+- Causal discovery tuned to their metric patterns
+
+Hyper3 provides the **reasoning engine**; the community is still building the **data plumbing**.
+
 ## Related Examples
 
 | Example | Focus |
