@@ -148,37 +148,6 @@ graph TB
 
 ### Edge Label Taxonomy
 
-Figure 2: How relationships are labeled in the graph.
-
-```mermaid
-graph LR
-    classDef routing fill:#e1f5fe
-    classDef dependency fill:#fff3e0
-    classDef causality fill:#fce4ec
-    classDef observation fill:#e8f5e9
-    classDef resolution fill:#f3e5f5
-
-    R1["routes_to"]:::routing
-    R2["fails_over_to"]:::routing
-    R3["hosts"]:::routing
-
-    D1["depends_on"]:::dependency
-    D2["replicates_to"]:::dependency
-    D3["distributes_to"]:::dependency
-
-    C1["causes"]:::causality
-    C2["affects"]:::causality
-    C3["indicates"]:::causality
-
-    O1["monitors"]:::observation
-    O2["collects_from"]:::observation
-    O3["traces"]:::observation
-
-    R4["resolves"]:::resolution
-    R5["deploys"]:::resolution
-    R6["triggers"]:::resolution
-```
-
 | Category | Labels | Meaning |
 |----------|---------|---------|
 | **Routing** | `routes_to`, `fails_over_to`, `hosts`, `serves` | Network traffic flow |
@@ -523,6 +492,68 @@ groups = mem.state_clustering.simultaneity_groups
 for concept in ["failed-health-check", "db-primary-down", "network-partition", "bad-deploy"]:
     insights = mem.lateral_insights(concept)
 ```
+
+## Narrative Walkthrough: What the Results Tell Us
+
+After running the example, here's the story the data tells:
+
+### The Investigation
+
+We start with a failed health check on the us-east-api service, along with five related symptoms: latency-spike, error-rate-spike, connection-refused, timeout-error, and slow-query. We also seed three suspected root causes: db-primary-down, network-partition, and bad-deploy.
+
+The multiway engine explores 66 different hypothesis branches simultaneously. Each branch represents a different path through the causal graph.
+
+### What We Found
+
+**1. The Top Hypothesis: Database Failure (score 0.909)**
+
+The branch scoring reveals that `transitive(causes)` chains connecting `db-primary-down` → `db-replication-lag` → `slow-query` → `latency-spike` → `failed-health-check` provides the strongest explanation. This branch covers 6 out of 8 observed symptoms.
+
+Key insight: The replication lag (db-replication-lag) is the smoking gun — it causes slow queries, which cause latency spikes, which trigger the health check failure.
+
+**2. The Convergence Signal**
+
+The engine found 20 causal invariants — situations where different rules led to the same conclusion. For example:
+- `transitive(causes)` chain: db-primary-down → connection-refused → failed-health-check
+- `inverse(causes)` chain: failed-health-check → connection-refused (reverse lookup)
+
+Both paths converge on `connection-refused` as a key intermediate symptom. When multiple rule types reach the same node, that's a strong signal it's part of the real causal chain.
+
+**3. Lateral Insights: The Hidden Connection**
+
+Comparing branches within simultaneity groups reveals knowledge transferable between hypotheses. One branch discovered that `cache-stampede` leads to `cache-miss-rate` → `latency-spike`. Another branch found that `network-partition` causes `dns-resolution-failure` → `timeout-error`.
+
+The lateral insight: **cache-stampede and network-partition both cause latency-spike through different paths**. This suggests the real issue might be a combination — a network issue causing cache misses that cascade into a stampede.
+
+**4. State Clustering: Three Competing Theories**
+
+The 66 leaf states cluster into 5 simultaneity groups:
+
+| Group | Dominant Rule | Hypothesis |
+|-------|---------------|-----------|
+| Group 1-3 | `transitive(causes)` | Database failure cascade |
+| Group 4 | `transitive(depends_on)` | Dependency chain failure |
+| Group 5 | `transitive(routes_to)` | Network routing issue |
+
+The clustering shows these aren't random — they form coherent hypothesis clusters that can be compared directly.
+
+### The Conclusion
+
+The evidence strongest supports **db-primary-down** as the root cause:
+- Highest branch score (0.909)
+- Convergence detected across multiple rule types
+- Clear causal chain through replication lag to observed symptoms
+
+However, the lateral insights suggest **network-partition** and **cache-stampede** may be contributing factors — the multiway analysis reveals a more complex picture than single-path reasoning would find.
+
+### Why This Matters
+
+If we had chased only the network-partition hypothesis, we'd have missed the database replication issue. If we had chased only the database, we'd have missed the cache stampede triggered by network timeouts.
+
+The multiway approach gives us **all three hypotheses ranked by evidence**, plus insights about how they interact. In incident response, this means we can:
+1. Start with the top hypothesis (database)
+2. Monitor the second hypothesis (network) as a parallel track
+3. Use lateral insights to watch for cascade effects (cache stampede)
 
 ## Related Examples
 
