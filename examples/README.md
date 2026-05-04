@@ -62,7 +62,6 @@ Advanced Examples (`advanced/`)
 |---|------|----------|--------------|
 | 08 | `08_overlay_commit_rollback.py` | Speculative incident investigation (82 nodes) | overlay commit/rollback, multi-hypothesis exploration, confidence comparison |
 | 09 | `09_iterative_frame_reasoning.py` | Multi-perspective risk assessment (80 nodes) | 4 analysis perspectives, cross-perspective invariants, disagreement regions |
-| 10 | `10_multiway_lateral_insights.py` | Alternative hypothesis exploration (81 nodes) | multiway DAG, branch analysis, convergence detection, lateral insights |
 | 11 | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes) | honest quantum formalism, Bayesian comparison, entropy as uncertainty measure |
 | 12 | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes) | rule effectiveness, basis learning, frame learning, meta-cognitive introspection |
 | 13 | `13_self_evolving_cognition.py` | Self-evolving cognitive system | feedback-driven evolution, metamorphosis validation, cross-operation feedback, bias profile, causal merge insights |
