@@ -8,7 +8,7 @@ Demonstrates five advanced capabilities:
   5. Causal merge insight preservation — ConvergenceRecord.insights tracks unique contributions
 
 Run:
-    .venv/bin/python examples/advanced/13_self_evolving_cognition.py
+    .venv/bin/python examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py
 """
 
 from __future__ import annotations

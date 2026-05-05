@@ -9,7 +9,7 @@ Shows spreading activation retrieval, embedding-based similarity,
 and learning-to-rank — capabilities Hyper3 adds on top of
 basic graph similarity.
 
-Run: .venv/bin/python examples/comparison/laminar/12_retrieval_and_similarity.py
+Run: .venv/bin/python examples/showcase/retrieval_and_similarity/26_retrieval_and_similarity.py
 """
 
 from __future__ import annotations

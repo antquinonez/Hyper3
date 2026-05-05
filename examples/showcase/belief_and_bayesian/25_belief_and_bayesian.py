@@ -7,7 +7,7 @@ probabilistic belief representation or Bayesian updating.
 Shows Born-rule belief distributions, Bayesian prior/posterior
 updating, concept correlation, and multi-outcome sampling.
 
-Run: .venv/bin/python examples/comparison/laminar/11_belief_and_bayesian.py
+Run: .venv/bin/python examples/showcase/belief_and_bayesian/25_belief_and_bayesian.py
 """
 
 from __future__ import annotations

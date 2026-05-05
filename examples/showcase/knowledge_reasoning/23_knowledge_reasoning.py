@@ -7,7 +7,7 @@ provide rule-based inference or reasoning capabilities.
 Shows Hyper3's unique value: transitive inference, multiway expansion,
 backward chaining (proof), provenance tracking, and belief revision.
 
-Run: .venv/bin/python examples/comparison/laminar/09_knowledge_reasoning.py
+Run: .venv/bin/python examples/showcase/knowledge_reasoning/23_knowledge_reasoning.py
 """
 
 from __future__ import annotations

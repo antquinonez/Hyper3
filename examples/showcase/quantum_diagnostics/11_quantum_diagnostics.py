@@ -19,7 +19,7 @@ Use case: A production service goes down. Multiple root causes are plausible.
 Evidence arrives incrementally. We track beliefs, correlations, and confidence.
 
 Run with:
-    .venv/bin/python examples/advanced/11_quantum_diagnostics.py
+    .venv/bin/python examples/showcase/quantum_diagnostics/11_quantum_diagnostics.py
 """
 
 from __future__ import annotations

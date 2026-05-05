@@ -40,24 +40,18 @@ Showcase Examples (`showcase/`)
 | `paths_and_connectivity/` | `20_shortest_paths_and_traversal.py` | Shortest path, all paths, BFS recall, hyperedge-as-single-hop |
 | `spectral_and_matrix/` | `21_spectral_methods.py` | Incidence matrix, Laplacian, spectral embedding, s-persistence |
 | `generative_and_workflow/` | `22_temporal_reasoning.py` | Allen algebra, causal chains, temporal consistency |
+| `overlay_commit_rollback/` | `08_overlay_commit_rollback.py` | Speculative incident investigation (82 nodes), overlay commit/rollback, multi-hypothesis exploration |
+| `iterative_frame_reasoning/` | `09_iterative_frame_reasoning.py` | Multi-perspective risk assessment (80 nodes), 4 analysis perspectives, cross-perspective invariants |
+| `quantum_diagnostics/` | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes), Bayesian comparison, entropy as uncertainty measure |
+| `adaptive_learning/` | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes), rule effectiveness, basis learning, frame learning |
+| `self_evolving_cognition/` | `13_self_evolving_cognition.py` | Self-evolving cognitive system, feedback-driven evolution, metamorphosis validation, bias profile |
+| `hypergraph_native/` | `14_hypergraph_native.py` | Protein interaction network (35 nodes), n-ary hyperedges, s-persistence, gated diffusion |
+| `knowledge_reasoning/` | `23_knowledge_reasoning.py` | Knowledge reasoning, transitive inference, backward chaining, provenance, belief revision |
+| `self_evolution/` | `24_self_evolution.py` | Self-evolution, decay/prune/merge, Hebbian learning, feedback-driven evolution |
+| `belief_and_bayesian/` | `25_belief_and_bayesian.py` | Belief & Bayesian, `sample_distribution()`, Bayesian updating, concept correlation, credible sets |
+| `retrieval_and_similarity/` | `26_retrieval_and_similarity.py` | Retrieval & similarity, spreading activation, embedding similarity, RRF retrieval |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
-
-Advanced Examples (`advanced/`)
--------------------------------
-
-| # | File | Use Case | Key Features |
-|---|------|----------|--------------|
-| 08 | `08_overlay_commit_rollback.py` | Speculative incident investigation (82 nodes) | overlay commit/rollback, multi-hypothesis exploration, confidence comparison |
-| 09 | `09_iterative_frame_reasoning.py` | Multi-perspective risk assessment (80 nodes) | 4 analysis perspectives, cross-perspective invariants, disagreement regions |
-| 11 | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes) | honest quantum formalism, Bayesian comparison, entropy as uncertainty measure |
-| 12 | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes) | rule effectiveness, basis learning, frame learning, meta-cognitive introspection |
-| 13 | `13_self_evolving_cognition.py` | Self-evolving cognitive system | feedback-driven evolution, metamorphosis validation, cross-operation feedback, bias profile, causal merge insights |
-| 14 | `14_hypergraph_native.py` | Protein interaction network with complexes (35 nodes) | n-ary hyperedges, s-persistence, spectral embedding, hyperedge similarity, gated diffusion (AND/OR/majority) |
-| 23 | `23_knowledge_reasoning.py` | Knowledge reasoning (no competitor parallel) | transitive inference, backward chaining, provenance, belief revision |
-| 24 | `24_self_evolution.py` | Self-evolution (no competitor parallel) | decay/prune/merge, Hebbian learning, feedback-driven evolution |
-| 25 | `25_belief_and_bayesian.py` | Belief & Bayesian (no competitor parallel) | `sample_distribution()`, Bayesian updating, concept correlation, credible sets |
-| 26 | `26_retrieval_and_similarity.py` | Retrieval & similarity (no competitor parallel) | spreading activation, embedding similarity, RRF retrieval |
 
 Domain Examples (`domain/`)
 ----------------------------
@@ -122,7 +116,7 @@ script mirrors a corresponding Hyper3 domain or advanced example.
 ### Reference copies (`comparison/laminar/`)
 
 The original laminar examples remain in `comparison/laminar/` as
-reference copies. The canonical versions live in `showcase/` and `advanced/`.
+reference copies. The canonical versions live in `showcase/`.
 
 Hyper3 Gaps (capabilities in XGI/HNX not in Hyper3)
 ----------------------------------------------------

@@ -12,7 +12,7 @@ reviewed against observed symptoms, and either committed (correct) or
 rolled back (wrong).  Only the winning hypothesis persists.
 
 Run with:
-    .venv/bin/python examples/advanced/08_overlay_commit_rollback.py
+    .venv/bin/python examples/showcase/overlay_commit_rollback/08_overlay_commit_rollback.py
 """
 
 from __future__ import annotations

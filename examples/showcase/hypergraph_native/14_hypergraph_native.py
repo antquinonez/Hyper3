@@ -11,7 +11,7 @@ Demonstrates six hypergraph-native capabilities that go beyond pairwise graphs:
 Domain: protein interaction network with multi-protein complexes.
 
 Run:
-    .venv/bin/python examples/advanced/14_hypergraph_native.py
+    .venv/bin/python examples/showcase/hypergraph_native/14_hypergraph_native.py
 """
 
 from __future__ import annotations

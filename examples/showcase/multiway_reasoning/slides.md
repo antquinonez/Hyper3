@@ -213,8 +213,8 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 | Example | Focus |
 |---------|-------|
-| `examples/advanced/13_self_evolving_cognition.py` | Feedback-driven evolution |
-| `examples/advanced/12_adaptive_learning.py` | Rule effectiveness learning |
+| `examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py` | Feedback-driven evolution |
+| `examples/showcase/adaptive_learning/12_adaptive_learning.py` | Rule effectiveness learning |
 | `examples/domain/infrastructure_self_healing.py` | Multiway reasoning integration |
 | `examples/domain/medical_diagnosis.py` | Backward chaining |
 | `examples/domain/fraud_detection_intelligence.py` | Cycle detection |

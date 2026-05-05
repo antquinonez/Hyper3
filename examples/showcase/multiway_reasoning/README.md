@@ -432,8 +432,8 @@ Hyper3 provides the **reasoning engine**; the data engineering pipeline that fee
 
 | Example | Focus |
 |---------|-------|
-| `examples/advanced/13_self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis validation |
-| `examples/advanced/12_adaptive_learning.py` | Rule effectiveness learning, Thompson sampling |
+| `examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis validation |
+| `examples/showcase/adaptive_learning/12_adaptive_learning.py` | Rule effectiveness learning, Thompson sampling |
 | `examples/domain/infrastructure_self_healing.py` | Multiway reasoning + feedback loop integration |
 | `examples/domain/medical_diagnosis.py` | Backward chaining for differential diagnosis |
 | `examples/domain/fraud_detection_intelligence.py` | Cycle detection, funnel account identification |
