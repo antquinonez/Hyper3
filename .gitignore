@@ -17,3 +17,6 @@ htmlcov/
 .ruff_cache/
 issues/second-pass/
 issues/*
+linkedin_post/*
+plans/*
+designs/*
