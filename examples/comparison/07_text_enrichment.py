@@ -2,7 +2,7 @@
 Building a Knowledge Graph from Security Incident Reports (reimplementation)
 =============================================================================
 
-Reimplements examples/showcase/text_enrichment/07_text_enrichment.py using only
+Reimplements examples/showcase/text_enrichment/text_enrichment.py using only
 re, collections, and networkx. Same data, same outputs, no Hyper3.
 
 Run with:

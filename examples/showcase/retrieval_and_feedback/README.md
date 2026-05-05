@@ -396,5 +396,5 @@ Production deployment would require:
 |---------|-------|
 | `examples/showcase/threat_intelligence/knowledge_basics.py` | Threat intel graph with pattern matching, centrality |
 | `examples/showcase/microservices_reasoning/reasoning_walkthrough.py` | Transitive/inverse rule inference on microservices |
-| `examples/showcase/network_analytics/06_graph_analytics.py` | Centrality, cycles, components, risk scoring |
-| `examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis |
+| `examples/showcase/network_analytics/graph_analytics.py` | Centrality, cycles, components, risk scoring |
+| `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis |

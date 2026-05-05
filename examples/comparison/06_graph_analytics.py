@@ -2,7 +2,7 @@
 Network Attack Surface Analysis (networkx reimplementation)
 ============================================================
 
-Reimplements examples/showcase/network_analytics/06_graph_analytics.py using only
+Reimplements examples/showcase/network_analytics/graph_analytics.py using only
 networkx, numpy, and standard library. Same data, same outputs, no Hyper3.
 
 Run with:

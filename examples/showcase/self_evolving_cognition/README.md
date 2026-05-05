@@ -252,4 +252,4 @@ print(profile["reasoning_style"], profile["bias_score"])
 
 ### Related Examples
 
-- `examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py` — same script in the showcase directory
+- `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` — same script in the showcase directory

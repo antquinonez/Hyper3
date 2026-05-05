@@ -272,4 +272,4 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | `examples/showcase/multiway_reasoning/` | Multi-hypothesis parallel reasoning |
 | `examples/showcase/microservices_reasoning/` | Causal chain analysis in microservices |
 | `examples/domain/medical_diagnosis.py` | Backward chaining for differential diagnosis |
-| `examples/showcase/adaptive_learning/12_adaptive_learning.py` | Thompson sampling for adaptive parameter selection |
+| `examples/showcase/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection |

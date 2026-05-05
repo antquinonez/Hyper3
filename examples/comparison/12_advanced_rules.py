@@ -2,7 +2,7 @@
 Discovering Hidden Patterns in Infrastructure Monitoring Data (reimplementation)
 ==================================================================================
 
-Reimplements examples/showcase/advanced_rules/12_advanced_rules.py using only
+Reimplements examples/showcase/advanced_rules/advanced_rules.py using only
 networkx, numpy, and standard library. Manual transitive chain discovery,
 co-occurrence counting, similarity grouping, and vector arithmetic analogies.
 

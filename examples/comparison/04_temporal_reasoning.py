@@ -2,7 +2,7 @@
 Incident Timeline Analysis for IT Operations (Plain Python)
 ============================================================
 
-Reimplements examples/showcase/temporal_reasoning/04_temporal_reasoning.py using only
+Reimplements examples/showcase/temporal_reasoning/temporal_reasoning.py using only
 standard Python classes and networkx. No Hyper3 imports.
 
 Run with:

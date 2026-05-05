@@ -27,10 +27,34 @@ Graph transformations provide orthogonal views of the same data. The dual hyperg
 
 ## 3. Quick Start
 
+These three scripts form a progression — start with the matrices, then apply them to spectral analysis, then see how transformations change them:
+
 ```bash
-# Spectral methods on a 12-node clustered hypergraph
+# Step 1: Foundation — incidence, adjacency, Laplacian on small graphs
+.venv/bin/python examples/showcase/spectral_and_matrix/28_matrix_computations.py
+
+# Step 2: Application — spectral embedding and s-persistence on a clustered graph
 .venv/bin/python examples/showcase/spectral_and_matrix/21_spectral_methods.py
+
+# Step 3: Transformation — dual, line graph, bipartite with matrix comparison
+.venv/bin/python examples/showcase/spectral_and_matrix/31_graph_transformations.py
 ```
+
+**Step 1 output (foundation):**
+
+```
+incidence matrix shape: (5, 4)
+  nnz: 8, sparsity: 0.6000
+
+Laplacian eigenvalues: [-0.     0.191  0.691  1.309  1.809]
+normalized Laplacian eigenvalues: [-0.      0.1464  0.5     0.8536  1.    ]
+
+n-ary incidence matrix shape: (6, 2)
+  edge sizes: [3, 4], max edge order: 3
+n-ary Laplacian eigenvalues: [-0.      0.4505  1.      5.      5.      5.5495]
+```
+
+**Step 2 output (spectral analysis on a 12-node clustered graph):**
 
 ```
 nodes: 12, edges: 22
@@ -55,27 +79,7 @@ s-persistence analysis:
   s=3: 22 components
 ```
 
-```bash
-# Matrix computations on 5-6 node graphs
-.venv/bin/python examples/showcase/spectral_and_matrix/28_matrix_computations.py
-```
-
-```
-incidence matrix shape: (5, 4)
-  nnz: 8, sparsity: 0.6000
-
-Laplacian eigenvalues: [-0.     0.191  0.691  1.309  1.809]
-normalized Laplacian eigenvalues: [-0.      0.1464  0.5     0.8536  1.    ]
-
-n-ary incidence matrix shape: (6, 2)
-  edge sizes: [3, 4], max edge order: 3
-n-ary Laplacian eigenvalues: [-0.      0.4505  1.      5.      5.      5.5495]
-```
-
-```bash
-# Graph transformations on a 4-node graph
-.venv/bin/python examples/showcase/spectral_and_matrix/31_graph_transformations.py
-```
+**Step 3 output (transformations on a 4-node graph):**
 
 ```
 original: nodes=4, edges=4
@@ -90,7 +94,25 @@ dual adjacency: shape=(4, 4), density=0.3333
 
 ## 4. Script Walkthroughs
 
-### 4.1 Spectral Methods (`21_spectral_methods.py`)
+The three scripts are presented here in conceptual order. Script 28 introduces the matrix building blocks. Script 21 applies those matrices to spectral analysis on a larger graph. Script 31 shows how graph transformations produce different matrices from the same data.
+
+### 4.1 Foundation: Matrix Computations (`matrix_computations.py`)
+
+This script builds two small graphs — one with pairwise edges, one with n-ary edges — and compares their matrix representations.
+
+**Incidence and adjacency on pairwise edges** — A 5-node path-like graph (v0→v1→v2→v3, v0→v4) produces an incidence matrix of shape (5, 4) with 8 non-zeros and sparsity 0.6000. The signed incidence matrix encodes direction: +1 for source participation, -1 for target. The adjacency matrix is symmetric with non-zero entries at (v0, v1), (v0, v4), (v1, v2), (v2, v3).
+
+**Laplacian eigenvalues** — `[0.0, 0.191, 0.691, 1.309, 1.809]`. The single zero eigenvalue confirms one connected component. The Fiedler value (second-smallest eigenvalue) of 0.191 indicates weak overall connectivity — this is a path graph, which is the most fragile connected topology.
+
+**Normalized Laplacian** — Eigenvalues `[0.0, 0.1464, 0.5, 0.8536, 1.0]`, bounded in [0, 1] for this graph (maximum possible is 2.0 for bipartite graphs). The normalization by `D_v^{-1/2}` makes these values comparable across graphs of different sizes and degrees.
+
+**N-ary edges** — Adding hyperedges (one with 3 nodes, one with 4 nodes) to a 6-node graph changes the matrices. The 4-node edge creates a dense block in the adjacency matrix: nodes u0, u1, u2, u3 are all mutually adjacent (clique sub-block). The Laplacian eigenvalues shift to `[0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495]` — the larger eigenvalues (5.0, 5.5495) reflect the strong connectivity within the 4-node hyperedge. The Fiedler value jumps from 0.191 to 0.4505, reflecting denser connectivity from the n-ary edges.
+
+**Why this matters before proceeding**: The Laplacian eigenvalues we computed here are the raw material for the next script. The key pattern to carry forward is: zero eigenvalues count components, the spectral gap between small eigenvalues reveals cluster structure, and n-ary edges shift the spectrum toward larger values.
+
+### 4.2 Application: Spectral Methods (`spectral_methods.py`)
+
+This script applies the matrices from the previous section to a larger graph (12 nodes, 22 edges) with deliberate cluster structure, using spectral embedding and s-persistence to recover that structure.
 
 **Graph construction** — 12 nodes in 3 groups (alpha: n0–n3, beta: n4–n7, gamma: n8–n11). Each group has dense intra-cluster edges (weight=3.0) plus two bridge edges (n0→n4, n4→n8) with weight=1.0. Two hyperedges connect node pairs across clusters (weight=5.0). Result: 12 nodes, 22 edges.
 
@@ -102,17 +124,11 @@ dual adjacency: shape=(4, 4), density=0.3333
 
 **S-persistence** — At `s=1`, all 12 nodes form 1 component (everything is connected). At `s=2`, this splits into 10 components — the three clusters fragment, with bridge nodes appearing in multiple small components. At `s=3`, there are 22 components — essentially every pair and singleton. The jump from 1 to 10 to 22 shows the three-cluster structure at `s=2` is transitional: the dense intra-cluster edges hold groups together at `s=1`, but the weaker bridge edges dissolve first.
 
-### 4.2 Matrix Computations (`28_matrix_computations.py`)
+**What we've established**: The Laplacian's eigenvalues reveal cluster count, spectral embedding places same-cluster nodes near each other, and s-persistence confirms the cluster structure is stable across resolutions. The next script asks: what happens to these matrix properties when we transform the graph itself?
 
-**Incidence and adjacency on pairwise edges** — A 5-node path-like graph (v0→v1→v2→v3, v0→v4) produces an incidence matrix of shape (5, 4) with 8 non-zeros and sparsity 0.6000. The signed incidence matrix encodes direction: +1 for source participation, -1 for target. The adjacency matrix is symmetric with non-zero entries at (v0, v1), (v0, v4), (v1, v2), (v2, v3).
+### 4.3 Transformation: Graph Transformations (`graph_transformations.py`)
 
-**Laplacian eigenvalues** — `[0.0, 0.191, 0.691, 1.309, 1.809]`. The single zero eigenvalue confirms one connected component. The Fiedler value (second-smallest eigenvalue) of 0.191 indicates weak overall connectivity — this is a path graph, which is the most fragile connected topology.
-
-**Normalized Laplacian** — Eigenvalues `[0.0, 0.1464, 0.5, 0.8536, 1.0]`, bounded in [0, 1] for this graph (maximum possible is 2.0 for bipartite graphs). The normalization by `D_v^{-1/2}` makes these values comparable across graphs of different sizes and degrees.
-
-**N-ary edges** — Adding hyperedges (one with 3 nodes, one with 4 nodes) to a 6-node graph changes the matrices. The 4-node edge creates a dense block in the adjacency matrix: nodes u0, u1, u2, u3 are all mutually adjacent (clique sub-block). The Laplacian eigenvalues shift to `[0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495]` — the larger eigenvalues (5.0, 5.5495) reflect the strong connectivity within the 4-node hyperedge. The Fiedler value jumps from 0.191 to 0.4505, reflecting denser connectivity from the n-ary edges.
-
-### 4.3 Graph Transformations (`31_graph_transformations.py`)
+This script transforms a 4-node graph into three alternative representations — dual, line graph, bipartite — and compares their matrix properties to the original.
 
 **Dual hypergraph** — The original graph has 4 nodes (v0–v3) and 4 edges (ab, bc, ac, cd). The dual swaps these: 4 dual nodes (e0–e3, one per original edge) and 4 dual edges (one per original node). In the dual, node e0 (originally edge ab) has neighbors e1 and e2 — meaning edges ab and bc share node v1, and edges ab and ac share node v0. The dual makes edge overlap patterns directly navigable.
 
@@ -120,44 +136,59 @@ dual adjacency: shape=(4, 4), density=0.3333
 
 **Bipartite graph** — 8 nodes (4 in the node partition, 4 in the edge partition) with 8 membership edges. Each original edge generates as many bipartite edges as its cardinality: edge ab generates v0--ab and v1--ab, edge bc generates v1--bc and v2--bc, and so on. The bipartite representation preserves all structural information while separating the two entity types.
 
-**Matrix properties** — The original adjacency (4x4, density 0.3333) and dual adjacency (4x4, density 0.3333) have identical density because the dual of a graph with equal node and edge counts produces a same-sized matrix. The original Laplacian eigenvalues `[0.0, 0.5, 1.5, 2.0]` confirm one connected component with moderate spectral spread.
+**Matrix properties** — The original adjacency (4x4, density 0.3333) and dual adjacency (4x4, density 0.3333) have identical density because the dual of a graph with equal node and edge counts produces a same-sized matrix. The original Laplacian eigenvalues `[0.0, 0.5, 1.5, 2.0]` confirm one connected component with moderate spectral spread. Applying the Laplacian analysis from section 4.1 to the dual graph would reveal edge-overlap structure instead of node-connectivity structure — the same spectral method, different structural insight.
 
 ## 5. Key Metrics
 
-| Metric | Script | Value |
-|--------|--------|-------|
-| Nodes (spectral graph) | 21 | 12 |
-| Edges (spectral graph) | 21 | 22 |
-| Incidence matrix shape | 21 | (12, 22) |
-| Incidence non-zeros | 21 | 48 |
-| Laplacian shape | 21 | (12, 12) |
-| Laplacian eigenvalues (first 6) | 21 | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] |
-| Connected components | 21 | 1 |
-| S-persistence: s=1 components | 21 | 1 |
-| S-persistence: s=2 components | 21 | 10 |
-| S-persistence: s=3 components | 21 | 22 |
-| Nodes (matrix graph, pairwise) | 28 | 5 |
-| Edges (matrix graph, pairwise) | 28 | 4 |
-| Incidence shape (pairwise) | 28 | (5, 4) |
-| Incidence nnz | 28 | 8 |
-| Incidence sparsity | 28 | 0.6000 |
-| Laplacian eigenvalues (pairwise) | 28 | [0.0, 0.191, 0.691, 1.309, 1.809] |
-| Normalized Laplacian eigenvalues | 28 | [0.0, 0.1464, 0.5, 0.8536, 1.0] |
-| Nodes (matrix graph, n-ary) | 28 | 6 |
-| N-ary edge sizes | 28 | [3, 4] |
-| Max edge order (n-ary) | 28 | 3 |
-| N-ary Laplacian eigenvalues | 28 | [0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495] |
-| Nodes (transformations) | 31 | 4 |
-| Edges (transformations) | 31 | 4 |
-| Dual nodes | 31 | 4 |
-| Dual edges | 31 | 4 |
-| Line graph nodes | 31 | 4 |
-| Line graph edges | 31 | 5 |
-| Bipartite nodes | 31 | 8 |
-| Bipartite edges | 31 | 8 |
-| Original adjacency density | 31 | 0.3333 |
-| Dual adjacency density | 31 | 0.3333 |
-| Original Laplacian eigenvalues | 31 | [0.0, 0.5, 1.5, 2.0] |
+Each script operates on a different graph. Metrics are grouped by dataset.
+
+### Script 28: Matrix Computations — Pairwise graph (5 nodes, 4 edges)
+
+| Metric | Value |
+|--------|-------|
+| Nodes | 5 |
+| Edges | 4 |
+| Incidence matrix shape | (5, 4) |
+| Incidence nnz | 8 |
+| Incidence sparsity | 0.6000 |
+| Laplacian eigenvalues | [0.0, 0.191, 0.691, 1.309, 1.809] |
+| Normalized Laplacian eigenvalues | [0.0, 0.1464, 0.5, 0.8536, 1.0] |
+
+### Script 28: Matrix Computations — N-ary graph (6 nodes, 2 hyperedges)
+
+| Metric | Value |
+|--------|-------|
+| Nodes | 6 |
+| Edge sizes | [3, 4] |
+| Max edge order | 3 |
+| Laplacian eigenvalues | [0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495] |
+
+### Script 21: Spectral Methods — Clustered graph (12 nodes, 22 edges)
+
+| Metric | Value |
+|--------|-------|
+| Nodes | 12 |
+| Edges | 22 |
+| Incidence matrix shape | (12, 22) |
+| Incidence non-zeros | 48 |
+| Laplacian shape | (12, 12) |
+| Laplacian eigenvalues (first 6) | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] |
+| Connected components | 1 |
+| S-persistence: s=1 components | 1 |
+| S-persistence: s=2 components | 10 |
+| S-persistence: s=3 components | 22 |
+
+### Script 31: Graph Transformations — Original graph (4 nodes, 4 edges)
+
+| Metric | Value |
+|--------|-------|
+| Original nodes / edges | 4 / 4 |
+| Dual nodes / edges | 4 / 4 |
+| Line graph nodes / edges | 4 / 5 |
+| Bipartite nodes / edges | 8 / 8 |
+| Original adjacency density | 0.3333 |
+| Dual adjacency density | 0.3333 |
+| Original Laplacian eigenvalues | [0.0, 0.5, 1.5, 2.0] |
 
 ## 6. What Makes This Different
 
@@ -242,11 +273,11 @@ L_dual = dual.hypergraph_laplacian()
 
 ### Scripts in this showcase
 
-| Script | Nodes | Focus |
-|--------|-------|-------|
-| `21_spectral_methods.py` | 12 | Laplacian, spectral embedding, s-persistence |
-| `28_matrix_computations.py` | 5–6 | Incidence, adjacency, normalized Laplacian, n-ary effects |
-| `31_graph_transformations.py` | 4 | Dual, line graph, bipartite, cross-transformation matrices |
+| Order | Script | Nodes | Focus |
+|-------|--------|-------|-------|
+| 1 | `matrix_computations.py` | 5–6 | Incidence, adjacency, Laplacian, normalized Laplacian, n-ary edge effects |
+| 2 | `spectral_methods.py` | 12 | Laplacian eigenvalues, spectral embedding, s-persistence |
+| 3 | `graph_transformations.py` | 4 | Dual, line graph, bipartite, cross-transformation matrix comparison |
 
 ### Real-World Gap
 

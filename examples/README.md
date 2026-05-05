@@ -23,33 +23,33 @@ Showcase Examples (`showcase/`)
 |-----------|------|-------|
 | `threat_intelligence/` | `knowledge_basics.py` | Threat intel KB (140 nodes), multi-modal storage, pattern matching, centrality, attack paths |
 | `microservices_reasoning/` | `reasoning_walkthrough.py` | Microservice dependencies (70 nodes), TransitiveRule, InverseRule, blast radius, betweenness centrality |
-| `multiway_reasoning/` | `01_multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
-| `construction_and_queries/` | `15_construction_and_queries.py` | Hypergraph construction (8 nodes), n-ary edges, semantic metadata, neighborhood queries |
-| `retrieval_and_feedback/` | `03_retrieval_and_feedback.py` | Security knowledge retrieval (177 nodes), spreading activation, RRF fusion, learning-to-rank |
-| `statistics_and_metrics/` | `16_statistics_and_metrics.py` | Degree, edge-size, centrality stats, weighted degree, multi-stat comparison |
-| `directed_hypergraphs/` | `17_directed_hypergraphs.py` | Directed hyperedges (5 nodes), in/out degree, hyperedge neighbors, transitive inference |
-| `temporal_reasoning/` | `04_temporal_reasoning.py` | Incident timeline analysis (46 events), Allen interval algebra, causal chains, temporal anomalies |
-| `provenance_and_retraction/` | `05_provenance_and_retraction.py` | Provenance tracking, explain(), cascading retraction, impact analysis |
-| `network_analytics/` | `06_graph_analytics.py` | Centrality, cycles, components, risk scoring (128 nodes) |
-| `text_enrichment/` | `07_text_enrichment.py` | Regex extraction, custom LLMProvider, security reports (16 reports) |
-| `advanced_rules/` | `12_advanced_rules.py` | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
-| `structural_patterns/` | `13_structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection, cross-analysis |
-| `bayesian_reasoning/` | `14_bayesian_reasoning.py` | Priors, likelihoods, posteriors, Bayes factors, credible sets |
-| `centrality_and_ranking/` | `18_centrality_and_pagerank.py` | Degree/betweenness centrality, hypergraph PageRank, multi-centrality comparison |
-| `communities_and_clustering/` | `19_community_detection.py` | Label propagation, s-persistence, modularity, hyperedge-aware communities |
-| `paths_and_connectivity/` | `20_shortest_paths_and_traversal.py` | Shortest path, all paths, BFS recall, hyperedge-as-single-hop |
-| `spectral_and_matrix/` | `21_spectral_methods.py` | Incidence matrix, Laplacian, spectral embedding, s-persistence |
-| `generative_and_workflow/` | `22_temporal_reasoning.py` | Allen algebra, causal chains, temporal consistency |
-| `overlay_commit_rollback/` | `08_overlay_commit_rollback.py` | Speculative incident investigation (82 nodes), overlay commit/rollback, multi-hypothesis exploration |
-| `iterative_frame_reasoning/` | `09_iterative_frame_reasoning.py` | Multi-perspective risk assessment (80 nodes), 4 analysis perspectives, cross-perspective invariants |
-| `quantum_diagnostics/` | `11_quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes), Bayesian comparison, entropy as uncertainty measure |
-| `adaptive_learning/` | `12_adaptive_learning.py` | Self-tuning knowledge graph (111 nodes), rule effectiveness, basis learning, frame learning |
-| `self_evolving_cognition/` | `13_self_evolving_cognition.py` | Self-evolving cognitive system, feedback-driven evolution, metamorphosis validation, bias profile |
-| `hypergraph_native/` | `14_hypergraph_native.py` | Protein interaction network (35 nodes), n-ary hyperedges, s-persistence, gated diffusion |
-| `knowledge_reasoning/` | `23_knowledge_reasoning.py` | Knowledge reasoning, transitive inference, backward chaining, provenance, belief revision |
-| `self_evolution/` | `24_self_evolution.py` | Self-evolution, decay/prune/merge, Hebbian learning, feedback-driven evolution |
-| `belief_and_bayesian/` | `25_belief_and_bayesian.py` | Belief & Bayesian, `sample_distribution()`, Bayesian updating, concept correlation, credible sets |
-| `retrieval_and_similarity/` | `26_retrieval_and_similarity.py` | Retrieval & similarity, spreading activation, embedding similarity, RRF retrieval |
+| `multiway_reasoning/` | `multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
+| `construction_and_queries/` | `construction_and_queries.py` | Hypergraph construction (8 nodes), n-ary edges, semantic metadata, neighborhood queries |
+| `retrieval_and_feedback/` | `retrieval_and_feedback.py` | Security knowledge retrieval (177 nodes), spreading activation, RRF fusion, learning-to-rank |
+| `statistics_and_metrics/` | `statistics_and_metrics.py` | Degree, edge-size, centrality stats, weighted degree, multi-stat comparison |
+| `directed_hypergraphs/` | `directed_hypergraphs.py` | Directed hyperedges (5 nodes), in/out degree, hyperedge neighbors, transitive inference |
+| `temporal_reasoning/` | `temporal_reasoning.py` | Incident timeline analysis (46 events), Allen interval algebra, causal chains, temporal anomalies |
+| `provenance_and_retraction/` | `provenance_and_retraction.py` | Provenance tracking, explain(), cascading retraction, impact analysis |
+| `network_analytics/` | `graph_analytics.py` | Centrality, cycles, components, risk scoring (128 nodes) |
+| `text_enrichment/` | `text_enrichment.py` | Regex extraction, custom LLMProvider, security reports (16 reports) |
+| `advanced_rules/` | `advanced_rules.py` | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
+| `structural_patterns/` | `structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection, cross-analysis |
+| `bayesian_reasoning/` | `bayesian_reasoning.py` | Priors, likelihoods, posteriors, Bayes factors, credible sets |
+| `centrality_and_ranking/` | `centrality_and_pagerank.py` | Degree/betweenness centrality, hypergraph PageRank, multi-centrality comparison |
+| `communities_and_clustering/` | `community_detection.py` | Label propagation, s-persistence, modularity, hyperedge-aware communities |
+| `paths_and_connectivity/` | `shortest_paths_and_traversal.py` | Shortest path, all paths, BFS recall, hyperedge-as-single-hop |
+| `spectral_and_matrix/` | `spectral_methods.py` | Incidence matrix, Laplacian, spectral embedding, s-persistence |
+| `generative_and_workflow/` | `temporal_reasoning.py` | Allen algebra, causal chains, temporal consistency |
+| `overlay_commit_rollback/` | `overlay_commit_rollback.py` | Speculative incident investigation (82 nodes), overlay commit/rollback, multi-hypothesis exploration |
+| `iterative_frame_reasoning/` | `iterative_frame_reasoning.py` | Multi-perspective risk assessment (80 nodes), 4 analysis perspectives, cross-perspective invariants |
+| `quantum_diagnostics/` | `quantum_diagnostics.py` | Probabilistic hypothesis management (62 nodes), Bayesian comparison, entropy as uncertainty measure |
+| `adaptive_learning/` | `adaptive_learning.py` | Self-tuning knowledge graph (111 nodes), rule effectiveness, basis learning, frame learning |
+| `self_evolving_cognition/` | `self_evolving_cognition.py` | Self-evolving cognitive system, feedback-driven evolution, metamorphosis validation, bias profile |
+| `hypergraph_native/` | `hypergraph_native.py` | Protein interaction network (35 nodes), n-ary hyperedges, s-persistence, gated diffusion |
+| `knowledge_reasoning/` | `knowledge_reasoning.py` | Knowledge reasoning, transitive inference, backward chaining, provenance, belief revision |
+| `self_evolution/` | `self_evolution.py` | Self-evolution, decay/prune/merge, Hebbian learning, feedback-driven evolution |
+| `belief_and_bayesian/` | `belief_and_bayesian.py` | Belief & Bayesian, `sample_distribution()`, Bayesian updating, concept correlation, credible sets |
+| `retrieval_and_similarity/` | `retrieval_and_similarity.py` | Retrieval & similarity, spreading activation, embedding similarity, RRF retrieval |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 

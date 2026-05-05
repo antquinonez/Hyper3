@@ -239,4 +239,4 @@ edge_sim = mem.hyperedge_similarity("python", metric="jaccard")
 
 ### Related examples
 
-- `examples/showcase/retrieval_and_similarity/26_retrieval_and_similarity.py` — full script for this showcase
+- `examples/showcase/retrieval_and_similarity/retrieval_and_similarity.py` — full script for this showcase

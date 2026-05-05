@@ -2,7 +2,7 @@
 Provenance, Explanation, and Retraction (Plain Python)
 =======================================================
 
-Reimplements examples/showcase/provenance_and_retraction/05_provenance_and_retraction.py using
+Reimplements examples/showcase/provenance_and_retraction/provenance_and_retraction.py using
 only networkx and standard libraries. No Hyper3 imports.
 
 Run with:

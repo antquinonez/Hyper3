@@ -388,4 +388,4 @@ for mode in ["linear", "or", "majority", "and"]:
 
 | Script | Nodes | Focus |
 |--------|-------|-------|
-| `14_hypergraph_native.py` | 35 | N-ary edges, s-persistence, spectral embedding, Jaccard similarity, gated diffusion |
+| `hypergraph_native.py` | 35 | N-ary edges, s-persistence, spectral embedding, Jaccard similarity, gated diffusion |

@@ -10,9 +10,9 @@ Clustering coefficients answer a different question: how densely interconnected 
 
 This showcase runs three scripts:
 
-- **`19_community_detection.py`** — Label propagation on a 14-node graph with 3 planted clusters and bridge edges
-- **`30_spectral_clustering.py`** — Spectral clustering via Laplacian eigenvectors + k-means on a 30-node stochastic block model
-- **`33_clustering_coefficient.py`** — Local and average clustering coefficients across triangle, chain, star, and complete topologies
+- **`community_detection.py`** — Label propagation on a 14-node graph with 3 planted clusters and bridge edges
+- **`spectral_clustering.py`** — Spectral clustering via Laplacian eigenvectors + k-means on a 30-node stochastic block model
+- **`clustering_coefficient.py`** — Local and average clustering coefficients across triangle, chain, star, and complete topologies
 
 ## 2. Key Concepts
 
@@ -28,7 +28,7 @@ This showcase runs three scripts:
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/communities_and_clustering/19_community_detection.py
+.venv/bin/python examples/showcase/communities_and_clustering/community_detection.py
 ```
 
 ```
@@ -42,7 +42,7 @@ coverage: 0.9286
 ```
 
 ```bash
-.venv/bin/python examples/showcase/communities_and_clustering/30_spectral_clustering.py
+.venv/bin/python examples/showcase/communities_and_clustering/spectral_clustering.py
 ```
 
 ```
@@ -54,7 +54,7 @@ cluster agreement (greedy match): 100.00%
 ```
 
 ```bash
-.venv/bin/python examples/showcase/communities_and_clustering/33_clustering_coefficient.py
+.venv/bin/python examples/showcase/communities_and_clustering/clustering_coefficient.py
 ```
 
 ```
@@ -68,7 +68,7 @@ cluster agreement (greedy match): 100.00%
 
 ## 4. Script Walkthroughs
 
-### 4.1 Community Detection (`19_community_detection.py`)
+### 4.1 Community Detection (`community_detection.py`)
 
 The script builds a 14-node graph with three dense clusters (cluster_a: 5 nodes, cluster_b: 5 nodes, cluster_c: 4 nodes) connected by two bridge edges (`a1-b1` and `b5-c1`). Within each cluster, every pair of nodes connects with weight 5.0. Bridge edges use weight 1.0.
 
@@ -85,7 +85,7 @@ The jump from 1 component at s=1 to 28 components at s=2 shows the graph has one
 
 **Hyperedge-aware communities** — After adding two cross-team hyperedges (`{a1,a2,a3} -> {b1,b2}` and `{b3,b4} -> {c1,c2,c3}` with weight 10.0), label propagation collapses to 1 community with modularity 0.0000. The strong hyperedges create enough cross-cluster connectivity that label propagation can no longer separate the groups. This demonstrates how hyperedge weight can overwhelm community structure — a consideration when mixing pairwise and n-ary edges.
 
-### 4.2 Spectral Clustering (`30_spectral_clustering.py`)
+### 4.2 Spectral Clustering (`spectral_clustering.py`)
 
 The script generates a 30-node stochastic block model with 3 blocks of 10 nodes each (`p_in=0.7`, `p_out=0.03`, `seed=42`). This produces 105 edges at density 0.1207 in a single connected component.
 
@@ -95,7 +95,7 @@ Both spectral clustering and label propagation find 3 clusters of 10 nodes each.
 
 Why spectral clustering matters: label propagation relies on local neighbor voting and can miss global structure in sparse graphs. Spectral clustering uses the Laplacian's eigenvectors, which encode global connectivity patterns. The 100% agreement here confirms the SBM's community structure is strong enough for both methods to recover it. On weaker or noisier graphs, spectral clustering tends to be more robust.
 
-### 4.3 Clustering Coefficient (`33_clustering_coefficient.py`)
+### 4.3 Clustering Coefficient (`clustering_coefficient.py`)
 
 The script constructs four canonical topologies and measures local clustering at every node:
 
@@ -114,7 +114,7 @@ The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hy
 
 | Script | Metric | Value |
 |--------|--------|-------|
-| `19_community_detection.py` | Nodes | 14 |
+| `community_detection.py` | Nodes | 14 |
 | | Edges | 28 |
 | | Communities | 3 |
 | | Modularity | 0.5797 |
@@ -124,7 +124,7 @@ The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hy
 | | s=3 components | 28 (largest: 2 nodes) |
 | | Post-hyperedge communities | 1 |
 | | Post-hyperedge modularity | 0.0000 |
-| `30_spectral_clustering.py` | Nodes | 30 |
+| `spectral_clustering.py` | Nodes | 30 |
 | | Edges | 105 |
 | | Density | 0.1207 |
 | | Spectral clusters | 3 (10, 10, 10) |
@@ -133,7 +133,7 @@ The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hy
 | | Cluster agreement | 100.00% |
 | | Modularity | 0.5581 |
 | | Coverage | 0.8952 |
-| `33_clustering_coefficient.py` | Triangle avg CC | 1.0000 |
+| `clustering_coefficient.py` | Triangle avg CC | 1.0000 |
 | | Chain avg CC | 0.0000 |
 | | Star avg CC | 0.0000 |
 | | Complete avg CC | 1.0000 |

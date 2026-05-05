@@ -87,7 +87,7 @@ SECTION 7: Summary Dashboard
 
 ## 4. Script Walkthroughs
 
-### 27_generative_models.py — Random and Structured Hypergraphs
+### generative_models.py — Random and Structured Hypergraphs
 
 This script exercises seven generator functions, each producing a hypergraph with different structural characteristics.
 
@@ -103,7 +103,7 @@ This script exercises seven generator functions, each producing a hypergraph wit
 
 **Chung-Lu (`random_chung_lu`)** — Matches a prescribed degree sequence. Given expected degrees `[3, 3, 3, 2, 2, 1, 1, 1]` and edge sizes `[2, 2, 3, 3]`, produces 5 edges across 8 nodes. Use when you need a graph whose degree distribution matches a target.
 
-### 22_temporal_reasoning.py — Allen Interval Algebra and Causal Chains
+### temporal_reasoning.py — Allen Interval Algebra and Causal Chains
 
 This script models a pandemic scenario with 9 events, each assigned a time interval via `add_temporal_event()`.
 
@@ -122,7 +122,7 @@ These relations capture temporal nuance that simple "before/after" comparisons m
 
 **Temporal + reasoning** applies the `TransitiveRule` on the `causes` edge label to infer indirect causal links. Starting from `outbreak_detected`, reasoning produces 2 new edges: `outbreak_detected -> supply_disruption` and `outbreak_detected -> economic_impact`, both labeled `indirectly_causes`.
 
-### 36_complete_workflow.py — End-to-End Pipeline
+### complete_workflow.py — End-to-End Pipeline
 
 This script runs the full analysis stack on a single reproducible graph.
 

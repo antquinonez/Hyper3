@@ -2,7 +2,7 @@
 Speculative Incident Investigation with Overlay (networkx reimplementation)
 ============================================================================
 
-Reimplements examples/showcase/overlay_commit_rollback/08_overlay_commit_rollback.py using only
+Reimplements examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py using only
 networkx. Simulates overlay transactions via G.copy() + manual diff tracking.
 This demonstrates how much boilerplate is needed to replicate Hyper3's
 overlay feature with plain networkx.

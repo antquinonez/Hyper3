@@ -79,7 +79,7 @@ density: 0.3095
 
 ## 4. Script Walkthroughs
 
-### 4a. Centrality and PageRank (`18_centrality_and_pagerank.py`)
+### 4a. Centrality and PageRank (`centrality_and_pagerank.py`)
 
 Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 hyperedge (`project_team`).
 
@@ -91,7 +91,7 @@ Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 
 
 **Weighted vs unweighted PageRank**: The weighted top-3 (frank, bob, carol) differs from the unweighted top-3 (iris, grace, frank). Edge weights change which paths the random walk prefers, shifting influence toward nodes connected by strong edges.
 
-### 4b. Centrality Comparison (`32_centrality_comparison.py`)
+### 4b. Centrality Comparison (`centrality_comparison.py`)
 
 Builds an 8-node, 11-edge network with a star-like hub and a peripheral chain (a-b-c-d-e-f-g-hub). Runs four centrality measures and checks agreement.
 
@@ -99,7 +99,7 @@ Builds an 8-node, 11-edge network with a star-like hub and a peripheral chain (a
 
 **Pairwise agreement** is low — degree vs betweenness agrees on 0/8 positions, degree vs pagerank agrees on 0/8 positions. The highest agreement is degree vs katz and pagerank vs katz, each at 3/8. This illustrates why choosing the right centrality measure matters: they produce genuinely different rankings.
 
-### 4c. Graph Statistics (`34_graph_statistics.py`)
+### 4c. Graph Statistics (`graph_statistics.py`)
 
 Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 project) and labeled edges, including one hyperedge (`team_of` connecting {alice, bob} to {project_x}).
 

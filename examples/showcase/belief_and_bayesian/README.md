@@ -208,4 +208,4 @@ This showcase uses hand-specified likelihoods, priors, and correlation coefficie
 |---------|-------|
 | `examples/showcase/bayesian_reasoning/` | Multi-hypothesis root cause analysis with information gain |
 | `examples/showcase/multiway_reasoning/` | Parallel rule application with state convergence |
-| `examples/showcase/adaptive_learning/12_adaptive_learning.py` | Thompson sampling for adaptive parameter selection |
+| `examples/showcase/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection |

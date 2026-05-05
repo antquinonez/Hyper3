@@ -72,7 +72,7 @@ from t: {}
 
 ## 4. Script Walkthroughs
 
-### 4a. Shortest Paths and Traversal (`20_shortest_paths_and_traversal.py`)
+### 4a. Shortest Paths and Traversal (`shortest_paths_and_traversal.py`)
 
 **Graph**: 7 city nodes, 8 pairwise routes, 1 hyperedge (`europass_zone` connecting {london, paris} to {berlin, prague}).
 
@@ -84,7 +84,7 @@ from t: {}
 
 **Hyperedge-as-single-hop**: The `europass_zone` hyperedge connects {london, paris} to {berlin, prague} in one hop. Without it, the shortest path london -> prague would be london -> berlin -> prague (2 hops). With the hyperedge, it is london -> prague (1 hop). This matters because collective relationships — transit zones, collaboration groups, shared resources — enable direct access that pairwise decomposition would not reflect.
 
-### 4b. Connectivity and Distances (`29_connectivity_and_distances.py`)
+### 4b. Connectivity and Distances (`connectivity_and_distances.py`)
 
 **Graph 1 (disconnected)**: 8 nodes, 5 pairwise edges forming three isolated components: {a, b, c, d}, {x, y, z}, and {isolated}. The graph is not connected. `component_of("b")` returns {a, b, c, d}; `component_of("isolated")` returns only {isolated}.
 
@@ -92,7 +92,7 @@ from t: {}
 
 **Graph 3 (mixed edges)**: 8 nodes, 4 edges (2 pairwise + 2 hyperedges of sizes 5 and 3). Density is 0.0714 (4 edges out of 56 possible). The unique edge sizes [2, 3, 5] show a mix of pairwise and higher-arity edges. Max edge order is 4 (the 5-node hyperedge). The graph splits into two components despite having hyperedges: the {x, y, z} triple-edge is disconnected from {a, b, c, d, e}.
 
-### 4c. Advanced Paths (`35_advanced_paths.py`)
+### 4c. Advanced Paths (`advanced_paths.py`)
 
 **Graph**: 6 nodes (s, a, b, c, d, t) with 8 directed weighted edges, later extended with 2 disconnected nodes (x, y).
 

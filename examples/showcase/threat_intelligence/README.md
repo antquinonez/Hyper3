@@ -579,7 +579,7 @@ Hyper3 provides the **knowledge graph engine**; the data engineering pipeline th
 | Example | Focus |
 |---------|-------|
 | `examples/domain/threat_intel_full_chain.py` | Full-chain analysis with rule inference, spreading activation, and self-evolution |
-| `examples/showcase/network_analytics/06_graph_analytics.py` | Centrality, cycles, components, risk scoring |
-| `examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis validation |
-| `examples/showcase/knowledge_reasoning/23_knowledge_reasoning.py` | Transitive inference, backward chaining, belief revision |
+| `examples/showcase/network_analytics/graph_analytics.py` | Centrality, cycles, components, risk scoring |
+| `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis validation |
+| `examples/showcase/knowledge_reasoning/knowledge_reasoning.py` | Transitive inference, backward chaining, belief revision |
 | `examples/domain/fraud_detection_intelligence.py` | Suspicious clusters, circular flows, ring leader identification |

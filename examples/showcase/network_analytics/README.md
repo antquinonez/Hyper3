@@ -467,4 +467,4 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 |---------|-------|
 | `examples/showcase/threat_intelligence/` | Threat actor graph, pattern matching, attack paths |
 | `examples/showcase/microservices_reasoning/` | Service dependency graph, blast radius analysis |
-| `examples/showcase/network_analytics/06_graph_analytics.py` | Earlier version of this network analytics example |
+| `examples/showcase/network_analytics/graph_analytics.py` | Earlier version of this network analytics example |

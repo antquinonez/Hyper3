@@ -2,7 +2,7 @@
 Self-Evolving Cognition: Feedback, Validation, and Meta-Awareness (Plain Python)
 ================================================================================
 
-Reimplements examples/showcase/self_evolving_cognition/13_self_evolving_cognition.py using only
+Reimplements examples/showcase/self_evolving_cognition/self_evolving_cognition.py using only
 networkx, numpy, and standard libraries. No Hyper3 imports.
 
 Implements five capabilities from scratch:
