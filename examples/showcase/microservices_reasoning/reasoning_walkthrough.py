@@ -1,6 +1,6 @@
 """
 Reasoning and Inference Walkthrough
-====================================
+===================================
 
 Infers hidden service dependency chains in a microservices architecture.
 
@@ -15,7 +15,7 @@ InverseRule inference, and produces actionable operational reports:
   - Services most at risk from a given infrastructure outage
 
 Run with:
-    .venv/bin/python examples/basic/02_reasoning_walkthrough.py
+    .venv/bin/python examples/showcase/microservices_reasoning/reasoning_walkthrough.py
 """
 
 from __future__ import annotations
