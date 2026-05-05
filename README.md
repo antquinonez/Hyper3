@@ -445,8 +445,8 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 .venv/bin/python examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py
 .venv/bin/python examples/showcase/multiway_reasoning/multiway_lateral_insights.py
 .venv/bin/python examples/showcase/hypergraph_native/hypergraph_native.py
-.venv/bin/python examples/domain/medical_diagnosis.py
-.venv/bin/python examples/domain/financial_risk_network.py
+.venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
+.venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
 ```
 
 See `examples/README.md` for the full index of 50+ examples.

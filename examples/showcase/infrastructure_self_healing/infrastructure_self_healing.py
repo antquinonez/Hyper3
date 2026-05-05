@@ -27,7 +27,7 @@ loop:
     - Causal merge preserves unique contributions
 
 Run with:
-    .venv/bin/python examples/domain/infrastructure_self_healing.py
+    .venv/bin/python examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py
 """
 
 from __future__ import annotations

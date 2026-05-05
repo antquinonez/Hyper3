@@ -16,7 +16,7 @@ Sections:
   6. Pattern matching and centrality -- who is most dangerous?
 
 Run with:
-    .venv/bin/python examples/domain/threat_intel_full_chain.py
+    .venv/bin/python examples/showcase/threat_intel_full_chain/threat_intel_full_chain.py
 """
 
 from __future__ import annotations

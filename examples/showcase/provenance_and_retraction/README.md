@@ -301,4 +301,4 @@ print(f"Removed {len(retracted_ids)} edges")
 |---------|-------|
 | `examples/showcase/multiway_reasoning/` | Multi-hypothesis reasoning with branch scoring |
 | `examples/showcase/provenance_and_retraction/provenance_and_retraction.py` | Provenance tracking, cascading retraction |
-| `examples/domain/medical_diagnosis.py` | Biomedical knowledge graph construction |
+| `examples/showcase/medical_diagnosis/medical_diagnosis.py` | Biomedical knowledge graph construction |

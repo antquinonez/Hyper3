@@ -601,5 +601,5 @@ Hyper3 provides the **reasoning engine**; the data engineering pipeline that fee
 | `examples/showcase/threat_intelligence/knowledge_basics.py` | Threat intel graph with pattern matching, centrality |
 | `examples/showcase/network_analytics/graph_analytics.py` | Centrality, cycles, components, risk scoring |
 | `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` | Feedback-driven evolution, metamorphosis |
-| `examples/domain/infrastructure_self_healing.py` | Self-healing with feedback loops |
-| `examples/domain/code_dependency_analysis.py` | Software architecture dependency analysis |
+| `examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py` | Self-healing with feedback loops |
+| `examples/showcase/code_dependency_analysis/code_dependency_analysis.py` | Software architecture dependency analysis |

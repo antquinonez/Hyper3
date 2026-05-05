@@ -11,7 +11,7 @@ instruments, risk factors, and regulatory entities. Demonstrates:
   4. Hebbian learning for risk correlation strengthening
 
 Run with:
-    .venv/bin/python examples/domain/financial_risk_network.py
+    .venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
 """
 
 from __future__ import annotations

@@ -450,4 +450,4 @@ rb = mem.rollback_inferences()
 | `examples/showcase/microservices_reasoning/reasoning_walkthrough.py` | Blast radius analysis with TransitiveRule on microservices |
 | `examples/showcase/advanced_rules/` | Multi-way reasoning with multiple rule types |
 | `examples/showcase/provenance_and_retraction/` | Edge provenance tracking and retraction |
-| `examples/domain/infrastructure_self_healing.py` | Self-healing infrastructure with feedback loops |
+| `examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py` | Self-healing infrastructure with feedback loops |
