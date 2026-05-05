@@ -6,7 +6,7 @@ Demonstrates Hyper3's unique capabilities:
 - Self-evolution via GraphMaintenanceEngine
 - Provenance tracking for explainable results
 
-Run: .venv/bin/python examples/domain/recipe_substitution/demo.py
+Run: .venv/bin/python examples/showcase/recipe_substitution/demo.py
 """
 
 from collections import deque

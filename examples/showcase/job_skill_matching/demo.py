@@ -7,7 +7,7 @@ Demonstrates Hyper3's unique capabilities in a relatable professional domain:
 - Explainable results with provenance
 - Intelligent filtering (non-tech skills excluded automatically)
 
-Run: .venv/bin/python examples/domain/job_skill_matching/demo.py
+Run: .venv/bin/python examples/showcase/job_skill_matching/demo.py
 """
 
 import sys

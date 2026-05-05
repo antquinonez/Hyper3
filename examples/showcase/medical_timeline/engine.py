@@ -6,7 +6,7 @@ Demonstrates Hyper3's unique capabilities:
 - Pure temporal reasoning (NO transitive relationships)
 - Explainable results with Allen algebra terminology
 
-Run: .venv/bin/python examples/domain/medical_timeline/demo.py
+Run: .venv/bin/python examples/showcase/medical_timeline/demo.py
 """
 
 from datetime import datetime

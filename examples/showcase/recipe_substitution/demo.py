@@ -7,7 +7,7 @@ Demonstrates Hyper3's unique capabilities in a practical domain:
 - Explainable results with provenance
 - Intelligent filtering (non-substitutes excluded automatically)
 
-Run: .venv/bin/python examples/domain/recipe_substitution/demo.py
+Run: .venv/bin/python examples/showcase/recipe_substitution/demo.py
 """
 
 import sys

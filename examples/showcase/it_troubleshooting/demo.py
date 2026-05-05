@@ -6,7 +6,7 @@ Demonstrates Hyper3's unique BACKWARD CHAINING capability:
 - Root cause analysis with confidence scoring
 - Different from transitive reasoning - this PROVES hypotheses
 
-Run: .venv/bin/python examples/domain/it_troubleshooting/demo.py
+Run: .venv/bin/python examples/showcase/it_troubleshooting/demo.py
 """
 
 import sys

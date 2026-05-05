@@ -6,7 +6,7 @@ Demonstrates Hyper3's unique capabilities:
 - Self-evolution via GraphMaintenanceEngine
 - Provenance tracking for explainable matches
 
-Run: .venv/bin/python examples/domain/job_skill_matching/demo.py
+Run: .venv/bin/python examples/showcase/job_skill_matching/demo.py
 """
 
 from collections import deque

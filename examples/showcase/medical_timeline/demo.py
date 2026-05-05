@@ -7,7 +7,7 @@ Demonstrates Hyper3's unique temporal reasoning capabilities:
 - Advanced insights: relation frequency, co-occurrence, duration, causal chains
 - Explainable results with Allen algebra terminology
 
-Run: .venv/bin/python examples/domain/medical_timeline/demo.py
+Run: .venv/bin/python examples/showcase/medical_timeline/demo.py
 """
 
 import sys

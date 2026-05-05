@@ -50,11 +50,15 @@ Showcase Examples (`showcase/`)
 | `self_evolution/` | `self_evolution.py` | Self-evolution, decay/prune/merge, Hebbian learning, feedback-driven evolution |
 | `belief_and_bayesian/` | `belief_and_bayesian.py` | Belief & Bayesian, `sample_distribution()`, Bayesian updating, concept correlation, credible sets |
 | `retrieval_and_similarity/` | `retrieval_and_similarity.py` | Retrieval & similarity, spreading activation, embedding similarity, RRF retrieval |
+| `it_troubleshooting/` | `demo.py` (package) | IT root cause analysis, backward chaining, proof chains, issue tree visualization |
+| `job_skill_matching/` | `demo.py` (package) | Skill substitution chains, n-ary job requirements, self-evolving skill graph |
+| `medical_timeline/` | `demo.py` (package) | Allen interval algebra, symptom timelines, causal chain detection, duration analysis |
+| `recipe_substitution/` | `demo.py` (package) | Ingredient substitution chains, n-ary groups, self-evolving knowledge base |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
 Domain Examples (`domain/`)
-----------------------------
+---------------------------
 
 | File | Domain | Nodes | Key Outputs |
 |------|--------|-------|-------------|
@@ -65,7 +69,6 @@ Domain Examples (`domain/`)
 | `financial_risk_network.py` | Financial Risk | 76 | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
 | `infrastructure_self_healing.py` | Infrastructure Monitoring | 130+ | Feedback-driven evolution, suppression of stale nodes, cross-operation correlation, bias profile, metamorphosis validation |
 | `threat_intel_full_chain.py` | Cyber Threat Intelligence | 73 | Rule-based inference, spreading activation, quantum attribution, self-evolution, centrality |
-| `it_troubleshooting/` | IT Troubleshooting | 13 | Backward chaining, goal-directed reasoning, proof chains, issue tree visualization |
 
 Additional Demos
 ----------------
