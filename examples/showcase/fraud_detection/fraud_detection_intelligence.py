@@ -9,7 +9,7 @@ surface related entities, applies reasoning rules to discover hidden connections
 detects circular money flows and funnel accounts, and ranks suspects by risk.
 
 Run with:
-    .venv/bin/python examples/domain/fraud_detection_intelligence.py
+    .venv/bin/python examples/showcase/fraud_detection/fraud_detection_intelligence.py
 """
 
 from __future__ import annotations

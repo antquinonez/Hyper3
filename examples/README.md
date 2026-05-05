@@ -54,6 +54,10 @@ Showcase Examples (`showcase/`)
 | `job_skill_matching/` | `demo.py` (package) | Skill substitution chains, n-ary job requirements, self-evolving skill graph |
 | `medical_timeline/` | `demo.py` (package) | Allen interval algebra, symptom timelines, causal chain detection, duration analysis |
 | `recipe_substitution/` | `demo.py` (package) | Ingredient substitution chains, n-ary groups, self-evolving knowledge base |
+| `supply_chain_resilience/` | `supply_chain_resilience.py` | Multi-tier supply chain (126 nodes), risk cascades, single-point-of-failure, diversification |
+| `code_dependency_analysis/` | `code_dependency_analysis.py` | Monorepo dependencies (129 nodes), blast radius, circular deps, test coverage gaps |
+| `fraud_detection/` | `fraud_detection_intelligence.py` | Fraud ring (119 nodes), circular money flows, suspect ranking, hidden connections |
+| `medical_diagnosis/` | `medical_diagnosis.py` | Clinical KB (96 nodes), backward chaining, belief revision, uncertainty propagation |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
@@ -62,10 +66,6 @@ Domain Examples (`domain/`)
 
 | File | Domain | Nodes | Key Outputs |
 |------|--------|-------|-------------|
-| `supply_chain_resilience.py` | Supply Chain Risk | 126 | Risk cascade paths, single-source dependencies, diversification priorities |
-| `code_dependency_analysis.py` | Software Architecture | 125 | Blast radius, circular deps, outdated packages, test coverage gaps |
-| `fraud_detection_intelligence.py` | Financial Fraud | 119 | Suspicious clusters, circular money flows, funnel accounts, ring leader ID |
-| `medical_diagnosis.py` | Clinical Medicine | 94 | Backward chaining, belief revision, uncertainty propagation, structural patterns |
 | `financial_risk_network.py` | Financial Risk | 76 | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
 | `infrastructure_self_healing.py` | Infrastructure Monitoring | 130+ | Feedback-driven evolution, suppression of stale nodes, cross-operation correlation, bias profile, metamorphosis validation |
 | `threat_intel_full_chain.py` | Cyber Threat Intelligence | 73 | Rule-based inference, spreading activation, quantum attribution, self-evolution, centrality |

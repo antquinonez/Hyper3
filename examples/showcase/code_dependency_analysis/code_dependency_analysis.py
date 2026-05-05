@@ -7,7 +7,7 @@ analyze blast radius, circular dependencies, coupling, test-coverage gaps,
 and outdated third-party packages.
 
 Run with:
-    .venv/bin/python examples/domain/code_dependency_analysis.py
+    .venv/bin/python examples/showcase/code_dependency_analysis/code_dependency_analysis.py
 """
 
 from __future__ import annotations

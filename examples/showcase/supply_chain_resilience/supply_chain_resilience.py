@@ -7,7 +7,7 @@ analyzes it for vulnerabilities, single points of failure, risk cascade
 propagation, and produces actionable diversification recommendations.
 
 Run with:
-    .venv/bin/python examples/domain/supply_chain_resilience.py
+    .venv/bin/python examples/showcase/supply_chain_resilience/supply_chain_resilience.py
 """
 
 from __future__ import annotations

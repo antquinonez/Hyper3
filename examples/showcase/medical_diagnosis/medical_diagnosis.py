@@ -11,7 +11,7 @@ risk factors, lab findings, and medications. Demonstrates:
   4. Structural pattern matching for clinical pathways
 
 Run with:
-    .venv/bin/python examples/domain/medical_diagnosis.py
+    .venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
 """
 
 from __future__ import annotations
