@@ -347,8 +347,8 @@ worth the dependency when you need:
 ## Running the Examples
 
 ```bash
-# Basic
-.venv/bin/python examples/basic/01_knowledge_basics.py
+# Showcase
+.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 
 # Domain examples (most informative)
 .venv/bin/python examples/domain/threat_intel_full_chain.py

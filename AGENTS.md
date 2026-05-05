@@ -1020,7 +1020,7 @@ After writing or modifying an example, validate it runs:
 
 ```bash
 # Single example
-.venv/bin/python examples/basic/01_knowledge_basics.py
+.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 
 # Batch-validate all examples
 for f in examples/basic/*.py examples/intermediate/*.py examples/advanced/*.py examples/domain/*.py; do

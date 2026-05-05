@@ -1,6 +1,6 @@
 """
 Building and Querying a Threat Intelligence Knowledge Base
-==========================================================
+=========================================================
 
 This example builds a realistic cyber threat intelligence graph with 100+
 nodes and 200+ edges, then demonstrates how to query it for actionable
@@ -13,7 +13,7 @@ to targeted industries, and identify which threat ecosystems are connected
 through shared infrastructure or malware.
 
 Run with:
-    .venv/bin/python examples/basic/01_knowledge_basics.py
+    .venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 """
 
 from __future__ import annotations

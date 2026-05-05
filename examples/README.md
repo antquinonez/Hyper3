@@ -12,7 +12,7 @@ Running Examples
 
 All examples are self-contained and can be run directly:
 
-    .venv/bin/python examples/basic/01_knowledge_basics.py
+    .venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 
 No external dependencies beyond the core Hyper3 installation are required.
 
@@ -21,6 +21,7 @@ Showcase Examples (`showcase/`)
 
 | Directory | File | Focus |
 |-----------|------|-------|
+| `threat_intelligence/` | `knowledge_basics.py` | Threat intel KB (140 nodes), multi-modal storage, pattern matching, centrality, attack paths |
 | `multiway_reasoning/` | `01_multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
@@ -30,7 +31,6 @@ Basic Examples (`basic/`)
 
 | # | File | Use Case | Key Features |
 |---|------|----------|--------------|
-| 01 | `01_knowledge_basics.py` | Threat intelligence KB (140 nodes) | store, recall, relate, query, pattern_match, subgraph, centrality, connected components |
 | 02 | `02_reasoning_walkthrough.py` | Microservice dependency chains (82 nodes) | TransitiveRule, InverseRule, blast radius analysis, betweenness centrality |
 | 03 | `03_retrieval_and_feedback.py` | Security knowledge retrieval (176 nodes) | spreading activation, embedding similarity, RRF fusion, relevance feedback, learning-to-rank |
 | 15 | `15_construction_and_queries.py` | Hypergraph construction (XGI/HNX parallels) | n-ary edges, degree stats, labeled queries, neighborhood, `edges_labeled()` |

@@ -434,7 +434,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 ## Examples
 
 ```bash
-.venv/bin/python examples/basic/01_knowledge_basics.py
+.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 .venv/bin/python examples/basic/02_reasoning_walkthrough.py
 .venv/bin/python examples/basic/03_retrieval_and_feedback.py
 .venv/bin/python examples/intermediate/04_temporal_reasoning.py
