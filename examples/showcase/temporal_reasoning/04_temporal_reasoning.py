@@ -1,83 +1,22 @@
 """
-Incident Timeline Analysis for IT Operations (Plain Python)
-============================================================
+Incident Timeline Analysis for IT Operations
+=============================================
 
-Reimplements examples/showcase/temporal_reasoning/04_temporal_reasoning.py using only
-standard Python classes and networkx. No Hyper3 imports.
+Demonstrates using Hyper3 temporal reasoning to reconstruct and analyze
+a realistic multi-stage security incident with 47 events across 10 phases
+(reconnaissance through recovery). Uses Allen interval algebra to detect
+parallel attacker activity, trace causal chains, identify the critical
+path, and catch temporal anti-patterns such as remediation starting before
+detection is complete.
 
 Run with:
-    .venv/bin/python examples/comparison/04_temporal_reasoning.py
+    .venv/bin/python examples/showcase/temporal_reasoning/04_temporal_reasoning.py
 """
 
 from __future__ import annotations
 
-from enum import Enum
-from dataclasses import dataclass, field
-
-
-class AllenRelation(Enum):
-    BEFORE = "before"
-    AFTER = "after"
-    MEETS = "meets"
-    MET_BY = "met_by"
-    OVERLAPS = "overlaps"
-    OVERLAPPED_BY = "overlapped_by"
-    DURING = "during"
-    CONTAINS = "contains"
-    STARTS = "starts"
-    STARTED_BY = "started_by"
-    FINISHES = "finishes"
-    FINISHED_BY = "finished_by"
-    EQUALS = "equals"
-
-
-@dataclass
-class TimeInterval:
-    start: float
-    end: float
-
-    def relate_to(self, other: TimeInterval) -> AllenRelation:
-        if self.start == other.start and self.end == other.end:
-            return AllenRelation.EQUALS
-        if self.end <= other.start:
-            if self.end == other.start:
-                return AllenRelation.MEETS
-            return AllenRelation.BEFORE
-        if self.start >= other.end:
-            if self.start == other.end:
-                return AllenRelation.MET_BY
-            return AllenRelation.AFTER
-        if self.start < other.start:
-            if self.end < other.end:
-                return AllenRelation.OVERLAPS
-            if self.end == other.end:
-                return AllenRelation.FINISHED_BY
-            if self.start == other.start:
-                return AllenRelation.STARTED_BY
-            return AllenRelation.CONTAINS
-        if self.start > other.start:
-            if self.end < other.end:
-                return AllenRelation.DURING
-            if self.end == other.end:
-                return AllenRelation.FINISHES
-            if self.start == other.start:
-                return AllenRelation.STARTS
-            return AllenRelation.OVERLAPPED_BY
-        if self.start == other.start:
-            if self.end < other.end:
-                return AllenRelation.STARTS
-            if self.end > other.end:
-                return AllenRelation.STARTED_BY
-        return AllenRelation.EQUALS
-
-
-@dataclass
-class TemporalEvent:
-    event_id: str
-    label: str
-    interval: TimeInterval
-    metadata: dict = field(default_factory=dict)
-
+from hyper3 import HypergraphMemory, AllenRelation
+from hyper3.temporal import TemporalEvent
 
 BASE = 1700000000.0
 H = 3600.0
@@ -246,47 +185,23 @@ def find_critical_path(events: list[TemporalEvent]) -> list[str]:
     return path
 
 
-def causal_chain(events: list[TemporalEvent]) -> list[str]:
-    sorted_evts = sorted(events, key=lambda e: e.interval.start)
-    return [e.event_id for e in sorted_evts]
-
-
-def find_overlapping(events: dict[str, TemporalEvent], label: str) -> list[dict]:
-    target = events.get(label)
-    if not target:
-        return []
-    results = []
-    for eid, evt in events.items():
-        if eid == label:
-            continue
-        rel = target.interval.relate_to(evt.interval)
-        if rel in {
-            AllenRelation.OVERLAPS, AllenRelation.OVERLAPPED_BY,
-            AllenRelation.DURING, AllenRelation.CONTAINS,
-            AllenRelation.STARTS, AllenRelation.STARTED_BY,
-            AllenRelation.FINISHES, AllenRelation.FINISHED_BY,
-            AllenRelation.EQUALS,
-        }:
-            results.append({"label": eid})
-    return results
-
-
 def main():
-    temporal_events: dict[str, TemporalEvent] = {}
+    mem = HypergraphMemory(evolve_interval=0)
 
+    # =====================================================================
+    # SECTION 1: Incident Timeline Construction
+    # =====================================================================
     print("=" * 70)
     print("SECTION 1: Incident Timeline Construction")
     print("=" * 70)
 
     for label, start_h, end_h, phase, desc in EVENTS:
-        temporal_events[label] = TemporalEvent(
-            event_id=label,
-            label=label,
-            interval=TimeInterval(start=BASE + start_h * H, end=BASE + end_h * H),
-            metadata={"phase": phase, "description": desc},
+        mem.add_temporal_event(
+            label, start=BASE + start_h * H, end=BASE + end_h * H,
+            phase=phase, description=desc,
         )
 
-    print(f"  {len(temporal_events)} events across {len(PHASE_ORDER)} phases\n")
+    print(f"  {len(mem.temporal.events)} events across {len(PHASE_ORDER)} phases\n")
 
     phase_spans: dict[str, list[tuple[float, float]]] = {}
     for label, start_h, end_h, phase, _ in EVENTS:
@@ -303,14 +218,21 @@ def main():
               f"({n} events, {p_end - p_start:.1f}h span)")
     print()
 
+    # =====================================================================
+    # SECTION 2: Knowledge Graph - Affected Systems
+    # =====================================================================
     print("=" * 70)
     print("SECTION 2: Knowledge Graph - Affected Systems")
     print("=" * 70)
 
-    systems_set = set(SYSTEMS) | {"crm-server-01"}
+    for sys in SYSTEMS:
+        mem.store(sys, data={"type": "system"})
+    mem.store("crm-server-01", data={"type": "system"})
+
     related_count = 0
     for event_label, systems in EVENT_SYSTEMS.items():
         for sys in systems:
+            mem.relate(event_label, sys, label="affects")
             related_count += 1
 
     system_hit_count: dict[str, int] = {}
@@ -318,13 +240,16 @@ def main():
         for sys in systems:
             system_hit_count[sys] = system_hit_count.get(sys, 0) + 1
 
-    print(f"  {len(systems_set)} systems, {related_count} event-system edges\n")
+    print(f"  {len(SYSTEMS) + 1} systems, {related_count} event-system edges\n")
     print("  Systems by number of implicated events:")
     for sys, count in sorted(system_hit_count.items(), key=lambda x: -x[1]):
         bar = "#" * count
         print(f"    {sys:20s} {count:2d} {bar}")
     print()
 
+    # =====================================================================
+    # SECTION 3: Allen Interval Relations Between Attack Phases
+    # =====================================================================
     print("=" * 70)
     print("SECTION 3: Allen Relations Between Key Phase Transitions")
     print("=" * 70)
@@ -343,13 +268,16 @@ def main():
     print(f"  {'Event A':25s} {'Relation':15s} {'Event B':25s} Context")
     print(f"  {'-' * 25} {'-' * 15} {'-' * 25} {'-' * 25}")
     for a, b, context in key_pairs:
-        ea = temporal_events.get(a)
-        eb = temporal_events.get(b)
+        ea = mem.temporal.get_event(a)
+        eb = mem.temporal.get_event(b)
         if ea and eb:
             rel = ea.interval.relate_to(eb.interval)
             print(f"  {a:25s} {rel.value:15s} {b:25s} {context}")
     print()
 
+    # =====================================================================
+    # SECTION 4: Simultaneous Activity - Overlapping Events
+    # =====================================================================
     print("=" * 70)
     print("SECTION 4: Simultaneous Activity (Parallel Operations)")
     print("=" * 70)
@@ -362,28 +290,30 @@ def main():
         ("maint_window", "Red herring maintenance window"),
     ]
     for label, context in overlap_targets:
-        results = find_overlapping(temporal_events, label)
+        results = mem.temporal_query(label, relation="overlapping")
         if results:
-            ev = temporal_events[label]
+            ev = mem.temporal.get_event(label)
             print(f"  Overlapping with {label} ({context}):")
             for r in results:
-                other = temporal_events.get(r["label"])
+                other = mem.temporal.get_event(r.label)
                 if ev and other:
                     rel = ev.interval.relate_to(other.interval)
                     off_s = (other.interval.start - BASE) / H
-                    print(f"    {r['label']:25s} {fmt(off_s)} [{rel.value}]")
+                    print(f"    {r.label:25s} {fmt(off_s)} [{rel.value}]")
             print()
 
+    # =====================================================================
+    # SECTION 5: Critical Path Analysis
+    # =====================================================================
     print("=" * 70)
     print("SECTION 5: Critical Path Analysis (Longest BEFORE/MEETS Chain)")
     print("=" * 70)
 
-    all_events_list = list(temporal_events.values())
-    critical_path = find_critical_path(all_events_list)
+    critical_path = find_critical_path(mem.temporal.events)
     print(f"  Critical path: {len(critical_path)} events\n")
 
     for eid in critical_path:
-        evt = temporal_events.get(eid)
+        evt = mem.temporal.get_event(eid)
         if evt:
             off_s = (evt.interval.start - BASE) / H
             phase = evt.metadata.get("phase", "")
@@ -400,19 +330,21 @@ def main():
         "resp_isolate", "rem_malware_rm", "rem_patch",
         "rec_restore", "rec_services", "rec_closed",
     ]
-    existing = [l for l in attack_milestones if l in temporal_events]
+    existing = [l for l in attack_milestones if mem.temporal.get_event(l)]
     if len(existing) >= 2:
-        milestone_events = [temporal_events[l] for l in existing if l in temporal_events]
-        ordered = causal_chain(milestone_events)
+        ordered = mem.causal_chain(existing)
         print("  Key milestones in causal order:")
         for eid in ordered:
-            evt = temporal_events.get(eid)
+            evt = mem.temporal.get_event(eid)
             if evt:
                 off_s = (evt.interval.start - BASE) / H
                 phase = evt.metadata.get("phase", "")
                 print(f"    {fmt(off_s)} {evt.label:25s} [{phase}]")
         print()
 
+    # =====================================================================
+    # SECTION 6: Temporal Constraint Checking (Process Compliance)
+    # =====================================================================
     print("=" * 70)
     print("SECTION 6: Temporal Constraint Checking (Process Compliance)")
     print("=" * 70)
@@ -427,31 +359,20 @@ def main():
         ("resp_isolate", "rem_malware_rm", AllenRelation.BEFORE,
          "Isolation before malware removal"),
     ]
-    for a, b, expected_rel, desc in constraints_to_add:
-        ea = temporal_events.get(a)
-        eb = temporal_events.get(b)
-        if ea and eb:
-            actual = ea.interval.relate_to(eb.interval)
-            passed = actual == expected_rel
-            mark = "PASS" if passed else "FAIL"
-            print(f"  [{mark:4s}] {desc}")
-            if not passed and actual:
-                print(f"        actual: {a} [{actual.value}] {b} "
-                      f"(expected [{expected_rel.value}])")
+    for a, b, rel, desc in constraints_to_add:
+        mem.temporal.add_constraint(a, b, rel, confidence=1.0)
+        ea = mem.temporal.get_event(a)
+        eb = mem.temporal.get_event(b)
+        actual = ea.interval.relate_to(eb.interval) if ea and eb else None
+        passed = actual == rel
+        mark = "PASS" if passed else "FAIL"
+        print(f"  [{mark:4s}] {desc}")
+        if not passed and actual:
+            print(f"        actual: {a} [{actual.value}] {b} "
+                  f"(expected [{rel.value}])")
     print()
 
-    inconsistencies = []
-    for a, b, expected_rel, _ in constraints_to_add:
-        ea = temporal_events.get(a)
-        eb = temporal_events.get(b)
-        if ea and eb:
-            actual = ea.interval.relate_to(eb.interval)
-            if actual != expected_rel:
-                inconsistencies.append({
-                    "event_a": a, "event_b": b,
-                    "expected_relation": expected_rel.value,
-                    "actual_relation": actual.value,
-                })
+    inconsistencies = mem.temporal.check_constraint_consistency()
     if inconsistencies:
         print(f"  {len(inconsistencies)} constraint violation(s):")
         for inc in inconsistencies:
@@ -462,36 +383,35 @@ def main():
         print("  All temporal constraints satisfied.")
     print()
 
+    # =====================================================================
+    # SECTION 7: Pairwise Relation Distribution
+    # =====================================================================
     print("=" * 70)
     print("SECTION 7: Allen Relation Distribution (All Event Pairs)")
     print("=" * 70)
 
-    event_list = list(temporal_events.values())
+    inferred = mem.temporal.infer_constraints()
     counts: dict[str, int] = {}
-    total_pairs = 0
-    for i, a in enumerate(event_list):
-        for j, b in enumerate(event_list):
-            if i == j:
-                continue
-            if i < j:
-                rel = a.interval.relate_to(b.interval)
-                name = rel.value
-                counts[name] = counts.get(name, 0) + 1
-                total_pairs += 1
+    for c in inferred:
+        name = c.relation.value
+        counts[name] = counts.get(name, 0) + 1
 
-    print(f"  {total_pairs} pairwise relations across {len(event_list)} events:\n")
+    print(f"  {len(inferred)} pairwise relations across {len(mem.temporal.events)} events:\n")
     for name, count in sorted(counts.items(), key=lambda x: -x[1]):
         bar = "#" * min(count, 50)
         print(f"    {name:15s} {count:4d} {bar}")
     print()
 
+    # =====================================================================
+    # SECTION 8: Incident Summary
+    # =====================================================================
     print("=" * 70)
     print("SECTION 8: Incident Summary")
     print("=" * 70)
 
-    all_events_sorted = sorted(temporal_events.values(), key=lambda e: e.interval.start)
-    incident_start_h = (all_events_sorted[0].interval.start - BASE) / H
-    incident_end_h = (max(e.interval.end for e in all_events_sorted) - BASE) / H
+    all_events = sorted(mem.temporal.events, key=lambda e: e.interval.start)
+    incident_start_h = (all_events[0].interval.start - BASE) / H
+    incident_end_h = (max(e.interval.end for e in all_events) - BASE) / H
     total_hours = incident_end_h - incident_start_h
 
     attack_phases = {
@@ -500,11 +420,11 @@ def main():
     }
     defense_phases = {"detection", "response", "remediation", "recovery"}
 
-    attack_evts = [e for e in all_events_sorted if e.metadata.get("phase") in attack_phases]
+    attack_evts = [e for e in all_events if e.metadata.get("phase") in attack_phases]
     attack_start_h = (min(e.interval.start for e in attack_evts) - BASE) / H
     attack_end_h = (max(e.interval.end for e in attack_evts) - BASE) / H
 
-    defense_evts = [e for e in all_events_sorted if e.metadata.get("phase") in defense_phases]
+    defense_evts = [e for e in all_events if e.metadata.get("phase") in defense_phases]
     defense_start_h = (min(e.interval.start for e in defense_evts) - BASE) / H
 
     detection_gap = defense_start_h - attack_end_h
@@ -516,7 +436,7 @@ def main():
           f"({len(defense_evts)} events)")
     print(f"  Detection gap:              {detection_gap:.1f} hours "
           f"(last attack event to first defense event)")
-    print(f"  Total events:               {len(all_events_sorted)}")
+    print(f"  Total events:               {len(all_events)}")
     print(f"  Systems affected:           {len(system_hit_count)}")
     print(f"  Most impacted system:       "
           f"{max(system_hit_count, key=system_hit_count.get)} "
@@ -526,8 +446,8 @@ def main():
     print()
     print("  Temporal anomalies:")
 
-    rem_start = temporal_events.get("rem_av_update")
-    det_end = temporal_events.get("detect_confirmed")
+    rem_start = mem.temporal.get_event("rem_av_update")
+    det_end = mem.temporal.get_event("detect_confirmed")
     if rem_start and det_end:
         rem_off = (rem_start.interval.start - BASE) / H
         det_off = (det_end.interval.start - BASE) / H
@@ -536,8 +456,8 @@ def main():
               f"detect_confirmed ({fmt(det_off)})")
         print(f"      Remediation started BEFORE detection was complete")
 
-    mw = temporal_events.get("maint_window")
-    ws = temporal_events.get("persist_webshell")
+    mw = mem.temporal.get_event("maint_window")
+    ws = mem.temporal.get_event("persist_webshell")
     if mw and ws:
         rel = mw.interval.relate_to(ws.interval)
         mw_off_s = (mw.interval.start - BASE) / H
@@ -555,8 +475,8 @@ def main():
          "OSINT overlapped with DNS enumeration"),
     ]
     for a, b, note in parallel_pairs:
-        ea = temporal_events.get(a)
-        eb = temporal_events.get(b)
+        ea = mem.temporal.get_event(a)
+        eb = mem.temporal.get_event(b)
         if ea and eb:
             rel = ea.interval.relate_to(eb.interval)
             print(f"    {note}: {a} [{rel.value}] {b}")

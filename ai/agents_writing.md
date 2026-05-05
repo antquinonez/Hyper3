@@ -30,7 +30,7 @@ After writing or modifying an example, validate it runs:
 .venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 
 # Batch-validate all examples
-for f in examples/intermediate/*.py examples/advanced/*.py examples/domain/*.py examples/showcase/*/*.py; do
+for f in examples/advanced/*.py examples/domain/*.py examples/showcase/*/*.py; do
   echo "--- Running $f ---"
   .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK" || echo "FAILED"
 done

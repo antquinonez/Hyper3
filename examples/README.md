@@ -28,26 +28,20 @@ Showcase Examples (`showcase/`)
 | `retrieval_and_feedback/` | `03_retrieval_and_feedback.py` | Security knowledge retrieval (177 nodes), spreading activation, RRF fusion, learning-to-rank |
 | `statistics_and_metrics/` | `16_statistics_and_metrics.py` | Degree, edge-size, centrality stats, weighted degree, multi-stat comparison |
 | `directed_hypergraphs/` | `17_directed_hypergraphs.py` | Directed hyperedges (5 nodes), in/out degree, hyperedge neighbors, transitive inference |
+| `temporal_reasoning/` | `04_temporal_reasoning.py` | Incident timeline analysis (46 events), Allen interval algebra, causal chains, temporal anomalies |
+| `provenance_and_retraction/` | `05_provenance_and_retraction.py` | Provenance tracking, explain(), cascading retraction, impact analysis |
+| `network_analytics/` | `06_graph_analytics.py` | Centrality, cycles, components, risk scoring (128 nodes) |
+| `text_enrichment/` | `07_text_enrichment.py` | Regex extraction, custom LLMProvider, security reports (16 reports) |
+| `advanced_rules/` | `12_advanced_rules.py` | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
+| `structural_patterns/` | `13_structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection, cross-analysis |
+| `bayesian_reasoning/` | `14_bayesian_reasoning.py` | Priors, likelihoods, posteriors, Bayes factors, credible sets |
+| `centrality_and_ranking/` | `18_centrality_and_pagerank.py` | Degree/betweenness centrality, hypergraph PageRank, multi-centrality comparison |
+| `communities_and_clustering/` | `19_community_detection.py` | Label propagation, s-persistence, modularity, hyperedge-aware communities |
+| `paths_and_connectivity/` | `20_shortest_paths_and_traversal.py` | Shortest path, all paths, BFS recall, hyperedge-as-single-hop |
+| `spectral_and_matrix/` | `21_spectral_methods.py` | Incidence matrix, Laplacian, spectral embedding, s-persistence |
+| `generative_and_workflow/` | `22_temporal_reasoning.py` | Allen algebra, causal chains, temporal consistency |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
-
-Intermediate Examples (`intermediate/`)
-----------------------------------------
-
-| # | File | Use Case | Key Features |
-|---|------|----------|--------------|
-| 04 | `04_temporal_reasoning.py` | Incident timeline analysis (46 events) | Allen interval algebra, causal chains, constraint checking, temporal anomalies |
-| 05 | `05_provenance_and_retraction.py` | Evidence chains in threat intel | provenance tracking, explain(), cascading retraction, impact analysis |
-| 06 | `06_graph_analytics.py` | Network attack surface analysis (128 nodes) | centrality, cycles, components, cross-zone violations, composite risk scoring |
-| 07 | `07_text_enrichment.py` | Security report extraction (16 reports) | ingest, regex extraction, custom LLMProvider, honest limitation assessment |
-| 12 | `12_advanced_rules.py` | Infrastructure pattern discovery (125 nodes) | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
-| 13 | `13_structural_patterns_and_communities.py` | Technology ecosystem analysis (76 nodes) | chain/diamond/fan-out detection, community detection, cross-analysis |
-| 14 | `14_bayesian_reasoning.py` | Bayesian belief updating | priors, likelihoods, posteriors, Bayes factors, credible sets |
-| 18 | `18_centrality_and_pagerank.py` | Centrality comparison (XGI parallels) | degree/betweenness centrality, hypergraph PageRank, multi-centrality ranking |
-| 19 | `19_community_detection.py` | Community detection (XGI/HNX parallels) | label propagation, s-persistence, modularity, hyperedge-aware communities |
-| 20 | `20_shortest_paths_and_traversal.py` | Path finding (XGI parallels) | shortest path, all paths, BFS recall, hyperedge-as-single-hop |
-| 21 | `21_spectral_methods.py` | Spectral analysis (HNX/XGI parallels) | incidence matrix, Laplacian, spectral embedding, s-persistence |
-| 22 | `22_temporal_reasoning.py` | Temporal reasoning (HNX parallels) | Allen algebra, `allen_relation()`, causal chains, temporal consistency |
 
 Advanced Examples (`advanced/`)
 -------------------------------
@@ -106,11 +100,11 @@ with inline notes on capability gaps.
 | `xgi_01_construction.py` | XGI | `showcase/construction_and_queries/` | XGI: integer node IDs, lazy stat objects. Hyper3: labeled nodes, n-ary edges, semantic metadata |
 | `xgi_02_statistics.py` | XGI | `showcase/statistics_and_metrics/` | XGI: `.asdict()/.aslist()/.aspandas()` stat API. Hyper3: `degree()`, `describe()`, `edges_labeled()` |
 | `xgi_03_directed.py` | XGI | `showcase/directed_hypergraphs/` | XGI: clean DiHypergraph API. Hyper3: `in_degree()`/`out_degree()`, semantic inference on edges |
-| `xgi_04_centrality.py` | XGI | `intermediate/18_centrality_and_pagerank.py` | XGI: h-eigenvector, katz centrality. Hyper3: hypergraph PageRank, betweenness |
-| `xgi_05_community.py` | XGI | `intermediate/19_community_detection.py` | XGI: connected components only. Hyper3: label propagation, s-persistence, modularity |
-| `xgi_06_paths.py` | XGI | `intermediate/20_shortest_paths_and_traversal.py` | XGI: s-walk distances. Hyper3: hyperedge-as-hop paths, weighted shortest path |
-| `xgi_07_spectral.py` | XGI | `intermediate/21_spectral_methods.py` | XGI: Laplacian, multiorder Laplacian. Hyper3: spectral embedding, s-persistence |
-| `nx_08_temporal.py` | NetworkX | `intermediate/22_temporal_reasoning.py` | NX: no temporal support. Hyper3: Allen algebra, causal chains, `allen_relation()` |
+| `xgi_04_centrality.py` | XGI | `showcase/centrality_and_ranking/` | XGI: h-eigenvector, katz centrality. Hyper3: hypergraph PageRank, betweenness |
+| `xgi_05_community.py` | XGI | `showcase/communities_and_clustering/` | XGI: connected components only. Hyper3: label propagation, s-persistence, modularity |
+| `xgi_06_paths.py` | XGI | `showcase/paths_and_connectivity/` | XGI: s-walk distances. Hyper3: hyperedge-as-hop paths, weighted shortest path |
+| `xgi_07_spectral.py` | XGI | `showcase/spectral_and_matrix/` | XGI: Laplacian, multiorder Laplacian. Hyper3: spectral embedding, s-persistence |
+| `nx_08_temporal.py` | NetworkX | `showcase/generative_and_workflow/` | NX: no temporal support. Hyper3: Allen algebra, causal chains, `allen_relation()` |
 
 ### Domain-level comparisons (NetworkX)
 
@@ -128,8 +122,7 @@ script mirrors a corresponding Hyper3 domain or advanced example.
 ### Reference copies (`comparison/laminar/`)
 
 The original laminar examples remain in `comparison/laminar/` as
-reference copies. The canonical versions live in `showcase/`, `intermediate/`,
-and `advanced/`.
+reference copies. The canonical versions live in `showcase/` and `advanced/`.
 
 Hyper3 Gaps (capabilities in XGI/HNX not in Hyper3)
 ----------------------------------------------------
