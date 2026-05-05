@@ -24,6 +24,10 @@ Showcase Examples (`showcase/`)
 | `threat_intelligence/` | `knowledge_basics.py` | Threat intel KB (140 nodes), multi-modal storage, pattern matching, centrality, attack paths |
 | `microservices_reasoning/` | `reasoning_walkthrough.py` | Microservice dependencies (70 nodes), TransitiveRule, InverseRule, blast radius, betweenness centrality |
 | `multiway_reasoning/` | `01_multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
+| `construction_and_queries/` | `15_construction_and_queries.py` | Hypergraph construction (8 nodes), n-ary edges, semantic metadata, neighborhood queries |
+| `retrieval_and_feedback/` | `03_retrieval_and_feedback.py` | Security knowledge retrieval (177 nodes), spreading activation, RRF fusion, learning-to-rank |
+| `statistics_and_metrics/` | `16_statistics_and_metrics.py` | Degree, edge-size, centrality stats, weighted degree, multi-stat comparison |
+| `directed_hypergraphs/` | `17_directed_hypergraphs.py` | Directed hyperedges (5 nodes), in/out degree, hyperedge neighbors, transitive inference |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
