@@ -31,16 +31,6 @@ Showcase Examples (`showcase/`)
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
-Basic Examples (`basic/`)
--------------------------
-
-| # | File | Use Case | Key Features |
-|---|------|----------|--------------|
-| 03 | `03_retrieval_and_feedback.py` | Security knowledge retrieval (176 nodes) | spreading activation, embedding similarity, RRF fusion, relevance feedback, learning-to-rank |
-| 15 | `15_construction_and_queries.py` | Hypergraph construction (XGI/HNX parallels) | n-ary edges, degree stats, labeled queries, neighborhood, `edges_labeled()` |
-| 16 | `16_statistics_and_metrics.py` | Degree and edge size analysis (XGI parallels) | `degree()`, `degree(weighted=True)`, `describe()`, edge size distribution |
-| 17 | `17_directed_hypergraphs.py` | Directed hypergraph analysis (XGI parallels) | `in_degree()`, `out_degree()`, `edges_labeled()`, semantic inference |
-
 Intermediate Examples (`intermediate/`)
 ----------------------------------------
 
@@ -113,9 +103,9 @@ with inline notes on capability gaps.
 
 | File | Framework | Hyper3 Counterpart | Key Differences |
 |------|-----------|-------------------|-----------------|
-| `xgi_01_construction.py` | XGI | `basic/15_construction_and_queries.py` | XGI: integer node IDs, lazy stat objects. Hyper3: labeled nodes, n-ary edges, semantic metadata |
-| `xgi_02_statistics.py` | XGI | `basic/16_statistics_and_metrics.py` | XGI: `.asdict()/.aslist()/.aspandas()` stat API. Hyper3: `degree()`, `describe()`, `edges_labeled()` |
-| `xgi_03_directed.py` | XGI | `basic/17_directed_hypergraphs.py` | XGI: clean DiHypergraph API. Hyper3: `in_degree()`/`out_degree()`, semantic inference on edges |
+| `xgi_01_construction.py` | XGI | `showcase/construction_and_queries/` | XGI: integer node IDs, lazy stat objects. Hyper3: labeled nodes, n-ary edges, semantic metadata |
+| `xgi_02_statistics.py` | XGI | `showcase/statistics_and_metrics/` | XGI: `.asdict()/.aslist()/.aspandas()` stat API. Hyper3: `degree()`, `describe()`, `edges_labeled()` |
+| `xgi_03_directed.py` | XGI | `showcase/directed_hypergraphs/` | XGI: clean DiHypergraph API. Hyper3: `in_degree()`/`out_degree()`, semantic inference on edges |
 | `xgi_04_centrality.py` | XGI | `intermediate/18_centrality_and_pagerank.py` | XGI: h-eigenvector, katz centrality. Hyper3: hypergraph PageRank, betweenness |
 | `xgi_05_community.py` | XGI | `intermediate/19_community_detection.py` | XGI: connected components only. Hyper3: label propagation, s-persistence, modularity |
 | `xgi_06_paths.py` | XGI | `intermediate/20_shortest_paths_and_traversal.py` | XGI: s-walk distances. Hyper3: hyperedge-as-hop paths, weighted shortest path |
@@ -138,7 +128,7 @@ script mirrors a corresponding Hyper3 domain or advanced example.
 ### Reference copies (`comparison/laminar/`)
 
 The original laminar examples remain in `comparison/laminar/` as
-reference copies. The canonical versions live in `basic/`, `intermediate/`,
+reference copies. The canonical versions live in `showcase/`, `intermediate/`,
 and `advanced/`.
 
 Hyper3 Gaps (capabilities in XGI/HNX not in Hyper3)

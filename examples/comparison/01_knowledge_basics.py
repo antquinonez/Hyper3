@@ -2,7 +2,7 @@
 Building and Querying a Threat Intelligence Knowledge Base (Plain Python)
 =========================================================================
 
-Reimplements examples/basic/01_knowledge_basics.py using only networkx,
+Reimplements examples/showcase/threat_intelligence/knowledge_basics.py using only networkx,
 numpy, and standard libraries. No Hyper3 imports.
 
 Run with:

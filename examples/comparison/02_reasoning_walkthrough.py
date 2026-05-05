@@ -2,7 +2,7 @@
 Reasoning and Inference Walkthrough (Plain Python)
 ====================================================
 
-Reimplements examples/basic/02_reasoning_walkthrough.py using only networkx
+Reimplements examples/showcase/microservices_reasoning/reasoning_walkthrough.py using only networkx
 and standard libraries. No Hyper3 imports.
 
 Run with:

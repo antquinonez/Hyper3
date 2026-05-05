@@ -2,7 +2,7 @@
 Semantic Retrieval with Relevance Feedback (Plain Python)
 ==========================================================
 
-Reimplements examples/basic/03_retrieval_and_feedback.py using networkx,
+Reimplements examples/showcase/retrieval_and_feedback/03_retrieval_and_feedback.py using networkx,
 numpy, and standard libraries. No Hyper3 imports.
 
 Run with:
