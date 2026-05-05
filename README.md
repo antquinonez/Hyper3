@@ -108,15 +108,16 @@ mem.relate("France", "Europe", label="part_of")
 
 mem.add_rules(TransitiveRule(edge_label="capital_of"))
 result = mem.reason({"Paris", "France", "Europe"}, max_depth=2)
-print(f"States created: {result['expansion']['states_created']}")
+print(f"States created: {result.expansion.states_created}")
 ```
 
 ### Belief Distributions
 
 ```python
 qs = mem.create_distribution(
-    ["hypothesis_A", "hypothesis_B", "hypothesis_C"],
-    amplitudes=[0.6, 0.3, 0.1],
+    "quantum_concept",
+    outcomes=["spin_up", "spin_down"],
+    amplitudes=[0.6, 0.4],
 )
 
 result = mem.sample(qs)
@@ -459,7 +460,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-2301 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+2426 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
