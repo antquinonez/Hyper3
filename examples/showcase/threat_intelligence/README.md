@@ -2,7 +2,7 @@
 
 > **Building and Querying a Cyber Threat Intelligence Graph with 140+ Nodes and 293+ Edges**
 
-## 1. The Paradigm Shift
+## 1. The Approach
 
 Security teams typically manage threat intelligence as flat lists: CVEs in one spreadsheet, threat actors in another, and TTPs in a third. Correlating across these silos requires manual cross-referencing that doesn't scale.
 
@@ -53,12 +53,12 @@ SECTION 1: Building the Threat Intelligence Knowledge Base
 
 The example models a comprehensive threat intelligence ecosystem with **140 nodes and 293 edges**:
 
-- **30 Threat Actors:** APT groups from Russia, China, Iran, North Korea, Eastern Europe
-- **30 CVEs:** High-severity vulnerabilities (CVSS 7.5-10.0) from 2023-2024
-- **20 Malware Families:** RATs, ransomware, trojans, backdoors
-- **25 TTPs:** MITRE ATT&CK techniques (phishing, exploitation, credential dumping)
-- **15 Infrastructure Nodes:** C2 servers, botnets, exfiltration servers
-- **14 Target Industries:** Government, financial, healthcare, energy, telecom, etc.
+- **32 Threat Actors:** APT groups from Russia, China, Iran, North Korea, Eastern Europe
+- **32 CVEs:** High-severity vulnerabilities (CVSS 7.5-10.0) from 2023-2024
+- **22 Malware Families:** RATs, ransomware, trojans, backdoors
+- **23 TTPs:** MITRE ATT&CK techniques (phishing, exploitation, credential dumping)
+- **16 Infrastructure Nodes:** C2 servers, botnets, exfiltration servers
+- **15 Target Industries:** Government, financial, healthcare, energy, telecom, etc.
 
 ### Threat Intelligence Graph Topology
 
@@ -222,7 +222,7 @@ uses_edges = mem.pattern_match(edge_label="uses")          # 66 edges
 targets_edges = mem.pattern_match(edge_label="targets")    # 62 edges
 ```
 
-**The Discovery:** CVE-2023-44228 (Log4j) is exploited by 12 threat actors and enables attacks on 12 different industry sectors — the most broadly exploited vulnerability in the graph.
+**The Discovery:** CVE-2023-44228 (Log4j) enables attacks on 12 different industry sectors — the most broadly connected vulnerability in the graph. 11 threat actors exploit it, spanning multiple regions.
 
 ### Phase 4: Top 5 Most Connected CVEs
 
@@ -299,25 +299,17 @@ Find paths from threat actors to target industries:
 paths = mem.find_paths("Lazarus", "FIN", max_depth=4, max_paths=10)
 ```
 
-Figure 5: Attack paths from Lazarus to Financial sector reveal multiple routes.
+Figure 5: Attack paths from Lazarus to Financial sector.
 
 ```mermaid
 graph LR
-    L["Lazarus"] -->|uses| CS["Cobalt Strike"]
-    CS -->|exploits| CVE["CVE-2023-44228"]
-    CVE -->|targets| GOV["GOV"]
-    GOV -->|targets shared| FIN["FIN"]
-
-    L -->|exploits| CVE2["CVE-2024-4577"]
-    CVE2 -->|targets| FIN
-
-    L -->|targets| FIN
+    L["Lazarus"] -->|targets| FIN["FIN"]
 
     style FIN fill:#ff6b6b
     style L fill:#ffa07a
 ```
 
-**Result:** 3 distinct paths from Lazarus to Financial sector — direct targeting, CVE-mediated, and through shared targeting patterns.
+**Result:** The direct `targets` edge from Lazarus to Financial sector is found. Additional paths through intermediate nodes (CVEs, malware) would require edges connecting those intermediaries to the target sector.
 
 ### Phase 7: Isolated Indicators Needing Enrichment
 
@@ -344,34 +336,28 @@ components = mem.connected_components()
 components_sorted = sorted(components, key=len, reverse=True)
 ```
 
-Figure 6: The largest component contains 85 nodes spanning multiple threat actors and their shared infrastructure.
+Figure 6: The largest component contains 126 nodes spanning multiple threat actors and their shared infrastructure.
 
 ```mermaid
 graph TD
-    subgraph "Component 1: Main Threat Ecosystem (85 nodes)"
+    subgraph "Component 1: Main Threat Ecosystem (126 nodes)"
         APT28["APT28"]
         APT29["APT29"]
         Lazarus["Lazarus"]
-        CS["Cobalt Strike"]
+        CS["Cobalt_Strike"]
         CVE["CVE-2023-44228"]
         GOV["GOV"]
         FIN["FIN"]
         C2["C2 VPN GATE 01"]
     end
 
-    subgraph "Component 2: Small Cluster (12 nodes)"
-        APT41["APT41"]
-        ShadowPad["ShadowPad"]
-        CN["China"]
-    end
-
-    subgraph "Component 3: Isolated (3 nodes)"
-        Play["Play"]
-        T24["T1566 Phishing"]
+    subgraph "Smaller Components (2-3 nodes each)"
+        APT41["CVE-2024-29847"]
+        ShadowPad["T1562_Impair_Defenses"]
     end
 ```
 
-**Discovery:** The main ecosystem (85 nodes) connects Russian, North Korean, and Eastern European actors through shared malware (Cobalt Strike) and CVEs (Log4j).
+**Discovery:** The main ecosystem (126 nodes) connects threat actors from multiple regions through shared malware (Cobalt Strike) and CVEs (Log4j). 12 isolated nodes lack edges entirely and need enrichment.
 
 ### Phase 9: Modality-Filtered Traversal
 
@@ -385,10 +371,10 @@ conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max
 
 | Modality | Returns | Purpose |
 |----------|---------|---------|
-| **CAUSAL** | Threat actors who exploit this CVE, sectors they target | "Who causes this, who's affected?" |
-| **SENSORY** | CVSS scores, product names, years | "What are the technical details?" |
-| **CONCEPTUAL** | Malware that exploits this CVE, TTPs used | "What tools and techniques are involved?" |
-| **ABSTRACT** | Industry sectors, high-level categories | "What's the strategic impact?" |
+| **CAUSAL** | Threat actors who exploit this CVE | "Who causes this?" |
+| **SENSORY** | The CVE node itself (CVSS data) | "Technical metadata" |
+| **CONCEPTUAL** | Related TTPs | "What techniques are involved?" |
+| **ABSTRACT** | High-level categories | "Strategic impact" |
 
 ## 7. Understanding the Output
 
@@ -405,7 +391,7 @@ conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max
 
 | Component Size | Interpretation |
 |----------------|----------------|
-| 50+ nodes | Major threat ecosystem — multiple actors sharing infrastructure |
+| 100+ nodes | Major threat ecosystem — multiple actors sharing infrastructure |
 | 20-50 nodes | Regional/medium cluster — related actors or shared campaigns |
 | 5-20 nodes | Small cluster — specific campaign or malware family |
 | 1-5 nodes | Isolated or emerging — needs enrichment |
@@ -424,14 +410,14 @@ conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max
 |--------|-------|
 | Graph nodes | 140 |
 | Graph edges | 293 |
-| Threat actors | 30 |
-| CVEs | 30 |
-| Malware families | 20 |
-| TTPs | 25 |
-| Infrastructure nodes | 15 |
-| Target industries | 14 |
-| Event log entries | 433 |
-| Connected components | 6 |
+| Threat actors | 32 |
+| CVEs | 32 |
+| Malware families | 22 |
+| TTPs | 23 |
+| Infrastructure nodes | 16 |
+| Target industries | 15 |
+| Event log entries | 434 |
+| Connected components | 14 |
 | Has cycles | True (attack chains form loops) |
 | Most central CVE | CVE-2023-44228 (0.0863) |
 
@@ -456,7 +442,7 @@ Finding that APT28 → Cobalt Strike → CVE-2023-44228 → GOV requires 3 separ
 5. **Path finding** reveals attack chains that span multiple entity types
 6. **Component analysis** identifies threat ecosystems automatically
 
-This matters in incident response: instead of manually correlating that a new CVE affects your industry through 3 different APT groups, one path query reveals the complete attack surface.
+This matters in incident response: instead of manually correlating that a new CVE affects your industry through multiple APT groups, a path query can reveal connections that would require manual cross-referencing across separate data sources.
 
 ## 10. Code Implementation
 
@@ -520,7 +506,7 @@ profile_subgraph = mem.subgraph(apt28_labels)
 
 ## 11. The Enrichment Gap (Real-World Integration)
 
-Hyper3 reasons flawlessly once the threat intel graph exists. The real-world challenge is the data pipeline required to keep it current:
+Hyper3 provides traversal and analysis once the threat intel graph exists. The real-world challenge is the data pipeline required to keep it current:
 
 1. **Feed Integration:** Ingesting CVE feeds (NIST NVD), threat actor reports (MITRE ATT&CK), malware databases (VirusTotal)
 2. **Entity Resolution:** Merging duplicate entities (APT28 = Fancy Bear = Sofacy)
@@ -556,7 +542,7 @@ Threat Reports (PDF, STIX)
 - Entity resolution services (e.g., Recorded Future, Anomali)
 - Automated attribution confidence scoring
 
-Hyper3 provides the **knowledge graph engine**; the community is building the **data plumbing**.
+Hyper3 provides the **knowledge graph engine**; the data engineering pipeline that feeds it is a separate concern.
 
 ## 12. Reference Taxonomy & API
 

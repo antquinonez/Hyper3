@@ -2,11 +2,11 @@
 
 > **Inferring Hidden Service Dependencies with TransitiveRule and InverseRule**
 
-## 1. The Paradigm Shift
+## 1. The Approach
 
 Operations teams typically maintain static dependency maps: "service A depends on database B." But when an infrastructure outage hits, the *transitive* blast radius — all services that indirectly depend on the failed component through 2, 3, or 4 hops — is rarely obvious until it's too late.
 
-**The Visibility Bottleneck:** Traditional monitoring shows immediate dependencies. When Redis auth cache fails, you know `svc-auth-gateway` is affected. But the transitive chain (`svc-user-profile` → `svc-order-api` → `svc-auth-gateway` → `cache-redis-auth`) reveals 82 more services at risk — hidden until customers start complaining.
+**The Visibility Bottleneck:** Traditional monitoring shows immediate dependencies. When Redis auth cache fails, you know `svc-auth-gateway` is affected. But the transitive chain (`svc-user-profile` → `svc-order-api` → `svc-auth-gateway` → `cache-redis-auth`) reveals additional services at risk — hidden until customers start complaining.
 
 **The Hyper3 Approach:** Apply inference rules to the dependency graph. `TransitiveRule` discovers chains: A depends_on B, B depends_on C → A indirectly_depends_on C. `InverseRule` reveals the reverse: A depends_on B → B depended_on_by A. One reasoning call exposes the full blast radius.
 
@@ -43,21 +43,21 @@ The example builds a realistic microservices architecture and runs 9 analysis se
 ======================================================================
 SECTION 1: Building a Microservices Architecture Graph
 ======================================================================
-  Microservices:      44
-  Infrastructure:     15
-  External services:  11
-  Total nodes:        70
-  Total edges created: 291
+  Microservices:      53
+  Infrastructure:     17
+  External services:  12
+  Total nodes:        82
+  Total edges created: 236
 ```
 
 ## 5. The Scenario & Topology
 
-The example models a realistic e-commerce microservices architecture with **70 nodes and 291 edges**:
+The example models a realistic e-commerce microservices architecture with **82 nodes and 236 edges**:
 
-- **10 Service Domains:** auth, payments, orders, users, notifications, search, analytics, inventory, shipping, catalog, platform
-- **44 Microservices:** 4-6 services per domain with ports, teams, criticality, language, region
-- **15 Infrastructure Nodes:** PostgreSQL, MongoDB, Redis, Memcached, Kafka, RabbitMQ, Nginx, Envoy, Consul
-- **11 External Services:** Stripe, PayPal, SendGrid, Twilio, Firebase, CloudFront, S3, UPS, FedEx, USPS, Elasticsearch, Datadog
+- **11 Service Domains:** auth, payments, orders, users, notifications, search, analytics, inventory, shipping, catalog, platform
+- **53 Microservices:** 4-6 services per domain with ports, teams, criticality, language, region
+- **17 Infrastructure Nodes:** PostgreSQL, MongoDB, MySQL, Redis, Memcached, Kafka, RabbitMQ, Nginx, Envoy, Consul
+- **12 External Services:** Stripe, PayPal, SendGrid, Twilio, Firebase, CloudFront, S3, UPS, FedEx, USPS, Elasticsearch, Datadog
 
 ### Microservices Architecture Topology
 
@@ -184,7 +184,7 @@ for src, tgt, label in svc_to_infra + svc_to_svc + reads + writes + ...:
     mem.relate(src, tgt, label=label)
 ```
 
-**Result:** 70 nodes, 291 edges representing a complete microservices architecture.
+**Result:** 82 nodes, 236 edges representing a complete microservices architecture.
 
 ### Phase 2: Direct vs Transitive Dependencies
 
@@ -200,7 +200,7 @@ for label in db_labels + queue_labels:
     print(f"{label}: {len(direct_dep_map[label])} direct dependents")
 ```
 
-**The Discovery:** `db-pg-orders` has 6 direct dependents, but the transitive blast radius is much larger — many services depend on it through 2-3 hop chains.
+**The Discovery:** `db-pg-orders` has 11 direct dependents, and inference reveals 4 additional indirect dependents through 2-3 hop chains.
 
 ### Phase 3: Adding Reasoning Rules
 
@@ -236,13 +236,13 @@ Apply rules to all 70 nodes to discover the full dependency graph:
 
 ```python
 result = mem.reason(
-    seed_concepts=all_labels,  # All 70 nodes
+    seed_concepts=all_labels,  # All 82 nodes
     max_depth=4,
     max_total_states=300,
 )
 ```
 
-**Result:** 50+ states created, 50+ rules applied, 50+ inference edges produced.
+**Result:** 301 states created, 300 rules applied, 300 inference edges produced.
 
 ### Phase 5: Blast Radius Analysis
 
@@ -267,22 +267,22 @@ Figure 4: Blast radius visualization for `db-pg-orders`.
 graph TD
     DB["db-pg-orders"]
 
-    subgraph "Direct Dependents (6)"
+    subgraph "Direct Dependents (11)"
         D1["svc-order-api"]
         D2["svc-order-fulfill"]
         D3["svc-order-history"]
         D4["svc-order-pricing"]
         D5["svc-order-invoice"]
         D6["svc-order-cart"]
+        D7["svc-analytics-ingest"]
+        D8["... more"]
     end
 
-    subgraph "Indirect Dependents (20+)"
-        I1["svc-user-profile"]
-        I2["svc-pay-processor"]
-        I3["svc-pay-validator"]
-        I4["svc-notif-email"]
-        I5["svc-search-query"]
-        I6["... more"]
+    subgraph "Indirect Dependents (4)"
+        I1["svc-gateway-admin"]
+        I2["svc-inv-reserve"]
+        I3["svc-inv-sync"]
+        I4["... via transitive chains"]
     end
 
     DB --> D1
@@ -290,16 +290,13 @@ graph TD
     DB --> D3
     DB --> D4
     DB --> D5
-    DB --> D6
+    DB --> D7
 
     D1 -.-> I1
     D1 -.-> I2
-    D1 -.-> I3
-    D2 -.-> I4
-    D3 -.-> I5
 ```
 
-**Key Insight:** The blast radius is 3-5x larger than direct dependencies. `db-pg-orders` directly serves 6 services, but transitively affects 26+ services through chains.
+**Key Insight:** The blast radius can be significantly larger than direct dependencies. `db-pg-orders` directly serves 11 services, and inference reveals 4 additional indirect dependents through transitive chains. For some infrastructure nodes (e.g., `db-mongo-sessions` with 6 direct + 7 indirect), the transitive blast radius more than doubles.
 
 ### Phase 6: Single Points of Failure — Betweenness Centrality
 
@@ -312,13 +309,13 @@ top_spof = top_k(bc, k=15)
 
 | Rank | Node | Betweenness | Interpretation |
 |------|------|-------------|----------------|
-| 1. | `svc-gateway-main` | 0.25+ | Critical gateway — single point of failure |
-| 2. | `svc-auth-gateway` | 0.20+ | Auth bottleneck — many services depend on it |
-| 3. | `svc-order-api` | 0.18+ | Order hub — central to order processing |
-| 4. | `cache-redis-general` | 0.15+ | Shared cache — widely used across domains |
-| 5. | `queue-kafka-events` | 0.12+ | Event bus — critical for async processing |
+| 1. | `cache-redis-general` | 0.247 | Shared cache — widely depended on across domains |
+| 2. | `queue-kafka-events` | 0.128 | Event bus — critical for async processing |
+| 3. | `svc-order-fulfill` | 0.104 | Order hub — central to fulfillment flow |
+| 4. | `db-pg-orders` | 0.104 | Orders DB — core data store |
+| 5. | `svc-order-cart` | 0.093 | Cart service — links to orders and payments |
 
-**Key Insight:** High betweenness centrality means removing this node fragments the graph. `svc-gateway-main` has the highest betweenness — it's the single point of failure for the entire platform.
+**Key Insight:** High betweenness centrality means removing this node fragments the graph. `cache-redis-general` has the highest betweenness — it's a shared dependency across multiple service domains.
 
 ### Phase 7: Critical Dependency Chains
 
@@ -344,19 +341,19 @@ Figure 5: Longest dependency chain (8+ hops).
 
 ```mermaid
 graph LR
-    S1["svc-catalog-api"] --> S2["svc-order-api"]
-    S2 --> S3["svc-auth-gateway"]
-    S3 --> S4["cache-redis-auth"]
-    S4 --> S5["db-mongo-sessions"]
-    S5 --> S6["svc-auth-session"]
-    S6 --> S7["svc-user-profile"]
-    S7 --> S8["svc-order-history"]
+    S1["svc-order-invoice"] --> S2["svc-pay-recon"]
+    S2 --> S3["svc-pay-processor"]
+    S3 --> S4["svc-pay-fraud"]
+    S4 --> S5["svc-user-activity"]
+    S5 --> S6["svc-user-profile"]
+    S6 --> S7["svc-auth-session"]
+    S7 --> S8["cache-redis-auth"]
 
     style S1 fill:#ff6b6b
     style S8 fill:#ff6b6b
 ```
 
-**The Discovery:** The longest chain is 8 hops — `svc-catalog-api` → ... → `svc-order-history`. This is the most fragile path: a failure at any point cascades to the entire chain.
+**The Discovery:** The longest chain is 8 hops — `svc-order-invoice` → ... → `cache-redis-auth`. This is the most fragile path: a failure at any point cascades to the entire chain.
 
 ### Phase 8: Risk Assessment — Infrastructure Failure Scenarios
 
@@ -383,18 +380,18 @@ for infra_label, scenario in failure_scenarios:
 
 | Scenario | Direct | Indirect | Total | Critical | Teams Affected |
 |----------|--------|-----------|-------|----------|----------------|
-| PostgreSQL orders DB outage | 6 | 20 | 26 | 8 | orders, users, payments, catalog |
-| Kafka events bus outage | 8 | 15 | 23 | 6 | analytics, notifications, inventory |
-| Redis auth cache outage | 6 | 12 | 18 | 5 | auth, users, orders |
-| PostgreSQL payments DB outage | 4 | 10 | 14 | 4 | payments, fraud, wallet |
+| PostgreSQL orders DB outage | 11 | 4 | 15 | 9 | analytics, inventory, orders, platform, shipping |
+| Kafka events bus outage | 13 | 2 | 15 | 4 | analytics, catalog, inventory, orders, payments, shipping, users |
+| Redis auth cache outage | 7 | 6 | 13 | 12 | auth, orders, payments, platform, users |
+| PostgreSQL payments DB outage | 6 | 1 | 7 | 5 | orders, payments |
 
-**Key Insight:** The blast radius is 3-5x larger than direct dependencies. A single DB outage affects 26 services across 4 teams.
+**Key Insight:** The blast radius varies by infrastructure node. For `db-pg-orders`, inference reveals 4 hidden dependents (1.4x the direct count). For `cache-redis-auth`, indirect dependents nearly double the blast radius (1.9x).
 
 ### Phase 9: Summary Statistics
 
 ```
-Nodes:            70
-Edges:            341 (291 original + 50 inferred)
+Nodes:            82
+Edges:            536 (236 original + 300 inferred)
 Active rules:      2 (TransitiveRule, InverseRule)
 ```
 
@@ -404,17 +401,17 @@ Active rules:      2 (TransitiveRule, InverseRule)
 
 | Ratio (Total / Direct) | Meaning |
 |------------------------|---------|
-| 1.0-1.5 | Mostly direct dependencies — simple architecture |
-| 1.5-3.0 | Moderate chaining — some transitive dependencies |
-| 3.0+ | Complex architecture — significant hidden dependencies |
+| 1.0-1.2 | Mostly direct dependencies — simple architecture |
+| 1.2-1.5 | Moderate chaining — some transitive dependencies |
+| 1.5+ | Significant transitive chains — hidden dependencies |
 
 ### Betweenness Centrality Interpretation
 
 | Centrality Range | Meaning |
 |------------------|---------|
-| 0.15+ | Critical single point of failure — high risk |
-| 0.08-0.15 | Important hub — moderate risk |
-| 0.03-0.08 | Moderate connector — low risk |
+| 0.20+ | Critical shared dependency — high risk |
+| 0.08-0.20 | Important hub — moderate risk |
+| 0.03-0.08 | Moderate connector — lower risk |
 | < 0.03 | Peripheral node — minimal risk |
 
 ### Critical Path Interpretation
@@ -429,18 +426,18 @@ Active rules:      2 (TransitiveRule, InverseRule)
 
 | Metric | Value |
 |--------|-------|
-| Graph nodes | 70 |
-| Graph edges (initial) | 291 |
-| Graph edges (after reasoning) | 341 |
-| Microservices | 44 |
-| Infrastructure nodes | 15 |
-| External services | 11 |
+| Graph nodes | 82 |
+| Graph edges (initial) | 236 |
+| Graph edges (after reasoning) | 536 |
+| Microservices | 53 |
+| Infrastructure nodes | 17 |
+| External services | 12 |
 | Inference rules | 2 |
-| States created | 50+ |
-| Rules applied | 50+ |
-| Inference edges produced | 50+ |
-| Longest chain | 8+ hops |
-| Most critical node | `svc-gateway-main` (betweenness 0.25+) |
+| States created | 301 |
+| Rules applied | 300 |
+| Inference edges produced | 300 |
+| Longest chain | 8 hops |
+| Most central node | `cache-redis-general` (betweenness 0.247) |
 
 ## 9. What Makes This Different
 
@@ -461,7 +458,7 @@ When Database B fails, you know A and C are affected. But you don't know that Se
 4. **Longest chain analysis** finds the most fragile paths
 5. **Blast radius calculation** quantifies the true impact of infrastructure failures
 
-This matters in incident response: instead of discovering affected services one by one as they fail, you get the complete blast radius upfront and can proactively scale or failover.
+This matters in incident response: instead of discovering affected services one by one as they fail, inference rules reveal the transitive blast radius so teams can proactively assess impact.
 
 ## 10. Code Implementation
 
@@ -531,7 +528,7 @@ for infra in infrastructure_nodes:
 
 ## 11. The Observability Gap (Real-World Integration)
 
-Hyper3 reasons flawlessly once the dependency graph exists. The real-world challenge is building and maintaining that graph:
+Hyper3 performs rule-based inference once the dependency graph exists. The real-world challenge is building and maintaining that graph:
 
 1. **Service Discovery:** Ingesting service meshes (Istio, Linkerd), consul, or Kubernetes metadata
 2. **Dependency Extraction:** Parsing distributed tracing (Jaeger, Zipkin) to find real call chains
@@ -569,7 +566,7 @@ Distributed Traces (Jaeger)
 - Infrastructure discovery (Datadog, New Relic, Dynatrace)
 - Change management (Spinnaker, ArgoCD, Flux)
 
-Hyper3 provides the **reasoning engine**; the community is building the **observability plumbing**.
+Hyper3 provides the **reasoning engine**; the data engineering pipeline that feeds it is a separate concern.
 
 ## 12. Reference Taxonomy & API
 

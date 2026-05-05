@@ -2,13 +2,13 @@
 
 > **Exploring Alternative Incident Hypotheses with Multiway Expansion**
 
-## 1. The Paradigm Shift
+## 1. The Approach
 
 When a cloud infrastructure health check fails, multiple root causes are possible: database failure, network partition, bad deployment, or cache stampede.
 
 **The Linear Bottleneck:** Traditional diagnostic logic forces agents to chase a single narrative sequence until it fails. If the hypothesis is wrong, the system must backtrack, wasting critical minutes and burning tokens while context drifts.
 
-**The Hyper3 Approach:** The engine explores ALL hypotheses simultaneously through **multiway expansion**. By applying continuous logic across the hypergraph, it maps out a multi-dimensional state space in a single sweep, cross-comparing results to find the best causal explanation.
+**The Hyper3 Approach:** The engine explores multiple hypotheses in parallel through **multiway expansion**. By applying inference rules across the hypergraph, it produces a branching state space where each branch represents a different causal explanation, then compares branches to find the best fit for the observed symptoms.
 
 ## 2. A Simple Analogy
 
@@ -225,7 +225,7 @@ Both paths converge on `connection-refused` as a key intermediate symptom. When 
 
 ### Phase 4: Lateral Insights
 
-By comparing branches within the same simultaneity group, the engine transfers knowledge horizontally across competing hypotheses.
+By comparing branches within the same simultaneity group, the engine identifies nodes and edges unique to each branch, highlighting where hypotheses diverge.
 
 Figure 4: Comparing branches within the same group reveals unique knowledge.
 
@@ -240,28 +240,26 @@ graph TB
         B2["network-partition -[indirectly_causes]-> timeout-error"]
     end
 
-    A1 -.unique to A.-> L{"Lateral Insight:\nIf cache-stampede causes\nlatency, then us-west-storage\nmay be implicated too"}
+    A1 -.unique to A.-> L{"Lateral comparison:\nBranch A has unique\ndependency edge;\nBranch B has unique\ncausal edge"}
     B1 -.unique to B.-> L
 ```
 
-**The Hidden Connection:** Branch A found that `cache-stampede` leads to `cache-miss-rate` → `latency-spike`. Branch B found that `network-partition` causes `dns-resolution-failure` → `timeout-error`.
-
-The lateral insight: **cache-stampede and network-partition both cause latency-spike through different paths**. This suggests the real issue might be a combination — a network issue causing cache misses that cascade into a stampede.
+**The Hidden Connection:** By comparing states within the same simultaneity group, the engine identifies edges unique to each branch. For example, some branches produce `cache-stampede → latency-spike` edges while others produce `network-partition → timeout-error` edges. These differences highlight which causal mechanisms each hypothesis branch explores, revealing that multiple root causes (database, network, cache) may be contributing simultaneously.
 
 ### The Conclusion
 
 The evidence strongest supports **db-primary-down** as the root cause:
-- Highest branch score (0.909)
-- Convergence detected across multiple rule types
-- Clear causal chain through replication lag to observed symptoms
+- Highest branch score (0.909, tied with other branches)
+- Causal chain through replication lag to observed symptoms present in original graph edges
+- Multiple branches producing similar scores, with db-primary-down appearing in high-scoring branches
 
-However, the lateral insights suggest **network-partition** and **cache-stampede** may be contributing factors — the multiway analysis reveals a more complex picture than single-path reasoning would find.
+The structural comparison across branches reveals that **network-partition** and **cache-stampede** also appear in high-scoring branches, suggesting they may be contributing factors.
 
 ### Why This Matters
 
-If we had chased only the network-partition hypothesis, we'd have missed the database replication issue. If we had chased only the database, we'd have missed the cache stampede triggered by network timeouts.
+If we had pursued only the network-partition hypothesis, we'd have missed the database replication signal. If we had pursued only the database, we'd have missed the cache stampede path.
 
-The multiway approach gives us **all three hypotheses ranked by evidence**, plus insights about how they interact. In incident response, this means we can:
+The multiway approach produces **multiple hypotheses ranked by evidence strength**, plus structural differences across branches. This means:
 1. Start with the top hypothesis (database)
 2. Monitor the second hypothesis (network) as a parallel track
 3. Use lateral insights to watch for cascade effects (cache stampede)
@@ -287,7 +285,7 @@ States in the same simultaneity group are **at the same depth** in the multiway 
 |------|-------------|---------|
 | **Novel in source** | Nodes/edges in the reference branch not in the comparison | A dependency chain unique to one hypothesis |
 | **Novel in lateral** | Nodes/edges in the comparison branch not in the reference | A causal link unique to another hypothesis |
-| **Complementary** | Different branches that together cover more symptoms | One branch explains DB issues, another explains network |
+| **Complementary** | Different branches that together cover more ground | One branch explains DB issues, another explains network |
 
 ## 8. Key Metrics
 
@@ -304,18 +302,18 @@ States in the same simultaneity group are **at the same depth** in the multiway 
 | Leaf states | 66 |
 | Simultaneity groups | 5 |
 | Causal invariants merged | 20 |
-| Lateral insights discovered | 6 |
+| Cross-branch edge differences | 6 |
 | Best branch score | 0.909 |
 
 ## 9. What Makes This Different
 
-Traditional diagnostic systems follow a **single path**: pick the most likely hypothesis, pursue it, backtrack if wrong. Hyper3's multiway engine explores **all hypotheses in parallel** through a branching state space, then uses structural comparison to identify:
+Traditional diagnostic systems follow a **single path**: pick the most likely hypothesis, pursue it, backtrack if wrong. Hyper3's multiway engine explores **multiple hypotheses in parallel** through a branching state space, then uses structural comparison to identify:
 
 1. **Which branches best explain the evidence** (branch scoring)
 2. **Which branches converge on the same conclusions** (causal invariants)
 3. **What knowledge from one branch applies to another** (lateral insights)
 
-This is particularly valuable in incident response where the root cause is unknown and time is critical — instead of chasing one hypothesis while the incident worsens, you get a ranked set of candidates with cross-hypothesis insights.
+This approach is useful in incident response where the root cause is unknown — instead of pursuing one hypothesis at a time, you get a ranked set of candidates with structural comparisons across branches.
 
 ## 10. The 10 Inference Rules
 
@@ -367,7 +365,7 @@ for concept in ["failed-health-check", "db-primary-down", "network-partition"]:
 
 ## 12. The Observability Gap (Real-World Integration)
 
-Hyper3 reasons flawlessly once the semantic graph exists. The real-world challenge is the data engineering pipeline required to feed the Sovereign Architecture:
+Hyper3 performs rule-based inference once the semantic graph exists. The real-world challenge is the data engineering pipeline required to build and maintain that graph:
 
 1. **Relationship Extraction:** Converting raw Terraform/K8s telemetry into semantic edges (`depends_on`)
 2. **Causal Discovery:** Using time-series algorithms (Granger causality) to separate true causation from metric correlation
@@ -403,7 +401,7 @@ Jaeger traces + Prometheus metrics
 - Semantic labeling rules tuned to their architecture
 - Causal discovery tuned to their metric patterns
 
-Hyper3 provides the **reasoning engine**; the community is still building the **data plumbing**.
+Hyper3 provides the **reasoning engine**; the data engineering pipeline that feeds it is a separate concern.
 
 ## 13. Reference Taxonomy & API
 
