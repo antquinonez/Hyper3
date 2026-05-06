@@ -161,6 +161,11 @@ class StructuralMixin(_MemoryBase):
             )
         elif method == "connected_components":
             return self._community_detector.detect_connected_components()
+        elif method == "louvain":
+            return self._community_detector.detect_louvain(
+                seed=seed,
+                edge_label=edge_label,
+            )
         else:
             return self._community_detector.detect_label_propagation(
                 seed=seed,

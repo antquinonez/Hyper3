@@ -230,3 +230,193 @@ class TestSemanticCommunity:
         assert total_external == 0
         assert all(c.external_edges == 0 for c in result.communities)
         assert all(c.internal_edges > 0 for c in result.communities)
+
+
+class TestLouvain:
+    def _build_two_clusters_with_bridge(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "abcdef"}
+        for n in nodes.values():
+            g.add_node(n)
+        for s, t in [("a", "b"), ("b", "c"), ("a", "c"), ("d", "e"), ("e", "f"), ("d", "f")]:
+            g.add_edge(
+                Hyperedge(
+                    source_ids=frozenset({nodes[s].id}),
+                    target_ids=frozenset({nodes[t].id}),
+                )
+            )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["c"].id}),
+                target_ids=frozenset({nodes["d"].id}),
+            )
+        )
+        return g, nodes
+
+    def test_louvain_basic(self):
+        g, _ = self._build_two_clusters_with_bridge()
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 2
+        assert abs(result.modularity - 0.3571) < 0.01
+
+    def test_louvain_seed_reproducibility(self):
+        g, _ = self._build_two_clusters_with_bridge()
+        det = CommunityDetector(g)
+        r1 = det.detect_louvain(seed=123)
+        det2 = CommunityDetector(g)
+        r2 = det2.detect_louvain(seed=123)
+        assert r1.community_count == r2.community_count
+        assert [sorted(c.member_ids) for c in r1.communities] == [
+            sorted(c.member_ids) for c in r2.communities
+        ]
+
+    def test_louvain_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="x"))
+        det = CommunityDetector(g)
+        result = det.detect_louvain()
+        assert result.community_count == 1
+
+    def test_louvain_empty_graph(self):
+        g = Hypergraph()
+        det = CommunityDetector(g)
+        result = det.detect_louvain()
+        assert result.community_count == 0
+
+    def test_louvain_disconnected(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "abcd"}
+        for n in nodes.values():
+            g.add_node(n)
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["a"].id}),
+                target_ids=frozenset({nodes["b"].id}),
+            )
+        )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["c"].id}),
+                target_ids=frozenset({nodes["d"].id}),
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 2
+
+    def test_louvain_clique(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "abcd"}
+        for n in nodes.values():
+            g.add_node(n)
+        for s in "abcd":
+            for t in "abcd":
+                if s < t:
+                    g.add_edge(
+                        Hyperedge(
+                            source_ids=frozenset({nodes[s].id}),
+                            target_ids=frozenset({nodes[t].id}),
+                        )
+                    )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 1
+        assert abs(result.modularity) < 0.01
+
+    def test_louvain_edge_label_filter(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "abcd"}
+        for n in nodes.values():
+            g.add_node(n)
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["a"].id}),
+                target_ids=frozenset({nodes["b"].id}),
+                label="keep",
+            )
+        )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["c"].id}),
+                target_ids=frozenset({nodes["d"].id}),
+                label="keep",
+            )
+        )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["b"].id}),
+                target_ids=frozenset({nodes["c"].id}),
+                label="ignore",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42, edge_label="keep")
+        assert result.community_count == 2
+
+    def test_louvain_weighted(self):
+        g = Hypergraph()
+        nodes = {l: Hypernode(label=l) for l in "abcde"}
+        for n in nodes.values():
+            g.add_node(n)
+        for s, t, w in [("a", "b", 10.0), ("b", "c", 10.0), ("a", "c", 10.0)]:
+            g.add_edge(
+                Hyperedge(
+                    source_ids=frozenset({nodes[s].id}),
+                    target_ids=frozenset({nodes[t].id}),
+                    weight=w,
+                )
+            )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["c"].id}),
+                target_ids=frozenset({nodes["d"].id}),
+                weight=0.1,
+            )
+        )
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({nodes["d"].id}),
+                target_ids=frozenset({nodes["e"].id}),
+                weight=10.0),
+        )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count >= 2
+
+    def test_louvain_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(f"n{i}")
+        for s, t in [("n0", "n1"), ("n1", "n2"), ("n0", "n2"), ("n3", "n4"), ("n4", "n5"), ("n3", "n5")]:
+            mem.relate(s, t)
+        mem.relate("n2", "n3")
+        result = mem.detect_communities(method="louvain", seed=42)
+        assert result.community_count == 2
+        assert abs(result.modularity - 0.3571) < 0.01
+
+    def test_louvain_isolated_nodes(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 2
+
+    def test_louvain_single_edge(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({a.id}),
+                target_ids=frozenset({b.id}),
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 1
