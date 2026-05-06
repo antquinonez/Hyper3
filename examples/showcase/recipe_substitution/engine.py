@@ -1,20 +1,9 @@
-"""Recipe substitution engine using Hyper3 hypergraph knowledge graph.
-
-Demonstrates Hyper3's unique capabilities:
-- N-ary hyperedges for substitution groups
-- Graph traversal for discovering substitution chains
-- Self-evolution via GraphMaintenanceEngine
-- Provenance tracking for explainable results
-
-Run: .venv/bin/python examples/showcase/recipe_substitution/demo.py
-"""
-
-from collections import deque
 from itertools import combinations
 
 from hyper3 import (
     EvolveResult,
     HypergraphMemory,
+    TransitiveRule,
 )
 
 
@@ -22,58 +11,33 @@ class RecipeSubstitutionEngine:
     """Local-first ingredient substitution engine with self-evolution.
 
     Uses Hyper3's hypergraph to store ingredients and substitution relationships,
-    then applies graph traversal to discover substitution chains.
+    then applies graph traversal and rule-based reasoning to discover
+    substitution chains via mem.find_paths() and mem.reason().
     """
 
     def __init__(self, evolve_interval: int = 0):
-        """Initialize engine with HypergraphMemory.
-
-        Args:
-            evolve_interval: Auto-evolution frequency (0=manual).
-        """
         self.mem = HypergraphMemory(evolve_interval=evolve_interval)
+        self.mem.add_rules(
+            TransitiveRule(edge_label="substitutes_for", new_label="substitutes_for"),
+        )
 
     def add_ingredient(self, name: str, **properties) -> str:
-        """Add ingredient with metadata (category, dietary flags, etc).
-
-        Args:
-            name: Ingredient label.
-            **properties: Metadata (category, vegan, gluten_free, etc).
-
-        Returns:
-            Ingredient label.
-        """
         if not self.mem.has_node(name):
             self.mem.store(name, data=properties)
         return name
 
     def add_substitution(self, from_ingredient: str, to_ingredient: str,
-                          *, confidence: float = 0.8) -> None:
-        """Add pairwise substitution with confidence weight.
-
-        Args:
-            from_ingredient: Source ingredient label.
-            to_ingredient: Target ingredient label.
-            confidence: Substitution confidence (0.0-1.0), becomes edge weight.
-        """
+                         *, confidence: float = 0.8) -> None:
         self.add_ingredient(from_ingredient)
         self.add_ingredient(to_ingredient)
         self.mem.relate(
             from_ingredient, to_ingredient,
             label="substitutes_for",
-            weight=confidence
+            weight=confidence,
         )
 
     def add_substitution_group(self, ingredients: list[str],
                                *, confidence: float = 0.8) -> None:
-        """Add n-ary group where all ingredients substitute for each other.
-
-        Creates pairwise substitution edges between all members.
-
-        Args:
-            ingredients: List of ingredient labels in the group.
-            confidence: Substitution confidence (0.0-1.0).
-        """
         for ing in ingredients:
             self.add_ingredient(ing)
 
@@ -81,9 +45,9 @@ class RecipeSubstitutionEngine:
             self.mem.relate(a, b, label="substitutes_for", weight=confidence)
 
     def find_substitutes(self, ingredient: str, *, max_depth: int = 3) -> list[dict]:
-        """Find all substitutes via graph traversal.
+        """Find all substitutes via mem.neighbors() BFS traversal.
 
-        Traverses the substitution graph to collect all reachable ingredients.
+        Uses native Hyper3 neighbor queries instead of manual edge iteration.
 
         Args:
             ingredient: Ingredient label to find substitutes for.
@@ -96,58 +60,76 @@ class RecipeSubstitutionEngine:
             return []
 
         result = []
-        visited = set()
-
-        queue = deque([(ingredient, 0, [ingredient])])
-        visited.add(ingredient)
+        seen = {ingredient}
+        queue = [(ingredient, 0, [ingredient])]
 
         while queue:
-            current_label, depth, path = queue.popleft()
-
+            current, depth, path = queue.pop(0)
             if depth >= max_depth:
                 continue
-
-            node = self.mem.graph.get_node_by_label(current_label)
-            if not node:
-                continue
-
-            edges = self.mem.graph.outgoing_edges(node.id)
-            for edge in edges:
-                if edge.label != "substitutes_for":
+            for neighbor in self.mem.neighbors(current, edge_label="substitutes_for", direction="out"):
+                if neighbor in seen:
                     continue
-                for target_id in edge.target_ids:
-                    target_node = self.mem.graph.get_node(target_id)
-                    if not target_node:
-                        continue
-                    target_label = target_node.label
-                    if target_label in visited:
-                        continue
-                    visited.add(target_label)
-                    new_path = path + [target_label]
-                    result.append({
-                        "label": target_label,
-                        "confidence": edge.weight,
-                        "depth": depth + 1,
-                        "path": new_path,
-                    })
-                    queue.append((target_label, depth + 1, new_path))
+                seen.add(neighbor)
+                new_path = path + [neighbor]
+                weight = self._edge_weight(current, neighbor, "substitutes_for")
+                result.append({
+                    "label": neighbor,
+                    "confidence": weight,
+                    "depth": depth + 1,
+                    "path": new_path,
+                })
+                queue.append((neighbor, depth + 1, new_path))
 
         return result
 
-    def explain_substitution(self, from_ingredient: str,
-                               to_ingredient: str) -> dict | None:
-        """Return explanation of why substitution is valid.
+    def discover_transitive_chains(self, seed_ingredients: list[str]) -> dict:
+        """Use mem.reason() to discover transitive substitution chains.
 
-        For direct edges, returns edge information.
-        For transitive paths, use find_substitutes() to get the path.
+        Applies TransitiveRule to find multi-hop substitution relationships
+        that aren't directly represented in the graph.
 
         Args:
-            from_ingredient: Source ingredient label.
-            to_ingredient: Target ingredient label.
+            seed_ingredients: List of ingredient labels to reason from.
 
         Returns:
-            Dict with explanation data, or None if no relationship found.
+            Dict with reasoning stats and newly discovered chains.
         """
+        seeds = set(seed_ingredients)
+        existing = set()
+        for path in [
+            self.mem.find_paths(s, s, edge_label="substitutes_for", max_depth=3, max_paths=20)
+            for s in seeds
+        ]:
+            for p in path:
+                for node in p:
+                    existing.add(node)
+
+        result = self.mem.reason(
+            seed_concepts=seeds,
+            max_depth=3,
+            max_total_states=30,
+            auto_commit=True,
+        )
+
+        new_chains = []
+        for path in [
+            self.mem.find_paths(s, s, edge_label="substitutes_for", max_depth=3, max_paths=20)
+            for s in seeds
+        ]:
+            for p in path:
+                new_in_path = [n for n in p if n not in existing]
+                if new_in_path:
+                    new_chains.append({"path": p, "new_nodes": new_in_path})
+
+        return {
+            "states_created": result.expansion.states_created if result.expansion else 0,
+            "rules_applied": result.expansion.rules_applied if result.expansion else 0,
+            "new_chains": new_chains,
+        }
+
+    def explain_substitution(self, from_ingredient: str,
+                             to_ingredient: str) -> dict | None:
         from_node = self.mem.graph.get_node_by_label(from_ingredient)
         to_node = self.mem.graph.get_node_by_label(to_ingredient)
 
@@ -165,43 +147,45 @@ class RecipeSubstitutionEngine:
                     "direct": True,
                 }
 
+        paths = self.mem.find_paths(
+            from_ingredient, to_ingredient,
+            edge_label="substitutes_for",
+            max_depth=4,
+            max_paths=1,
+        )
+        if paths:
+            return {
+                "from": from_ingredient,
+                "to": to_ingredient,
+                "confidence": 0.7,
+                "path": paths[0],
+                "direct": False,
+            }
+
         return None
 
     def rate_confidence(self, from_ingredient: str,
-                         to_ingredient: str) -> float:
-        """Get confidence score for substitution.
-
-        For direct edges, returns the edge weight. For transitive chains,
-        returns the minimum confidence along the path.
-
-        Args:
-            from_ingredient: Source ingredient label.
-            to_ingredient: Target ingredient label.
-
-        Returns:
-            Confidence score (0.0-1.0), or 0.0 if no relationship.
-        """
+                        to_ingredient: str) -> float:
         explanation = self.explain_substitution(from_ingredient, to_ingredient)
         if explanation:
             return explanation["confidence"]
         return 0.0
 
     def evolve_knowledge(self) -> EvolveResult:
-        """Trigger self-evolution: prune stale, reinforce frequent.
-
-        Returns:
-            EvolveResult with stats on what changed.
-        """
         return self.mem.evolve()
 
     def get_ingredient_info(self, ingredient: str) -> dict | None:
-        """Get ingredient metadata.
-
-        Args:
-            ingredient: Ingredient label.
-
-        Returns:
-            Dict with ingredient data, or None if not found.
-        """
         node = self.mem.graph.get_node_by_label(ingredient)
         return node.data if node else None
+
+    def _edge_weight(self, from_label: str, to_label: str, edge_label: str) -> float:
+        from_node = self.mem.graph.get_node_by_label(from_label)
+        if not from_node:
+            return 1.0
+        to_node = self.mem.graph.get_node_by_label(to_label)
+        if not to_node:
+            return 1.0
+        for edge in self.mem.graph.outgoing_edges(from_node.id):
+            if edge.label == edge_label and to_node.id in edge.target_ids:
+                return edge.weight
+        return 1.0

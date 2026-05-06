@@ -1,13 +1,14 @@
-from hyper3 import HypergraphMemory
+from hyper3 import HypergraphMemory, TransitiveRule
 
 
 class ITTroubleshootingEngine:
     """Local-first IT troubleshooting engine with backward chaining.
 
     Demonstrates Hyper3's unique backward chaining capability:
-    - Goal-directed reasoning: prove/disprove a hypothesis
+    - Goal-directed reasoning: prove/disprove a hypothesis via mem.prove()
     - N-ary condition groups for complex issue relationships
-    - Root cause analysis with confidence scoring
+    - Root cause analysis with confidence scoring via mem.compute_confidence()
+    - Causal path discovery via mem.find_paths()
     - Provenance tracking for explainable proofs
 
     Different from transitive reasoning - this PROVES a hypothesis
@@ -19,11 +20,13 @@ class ITTroubleshootingEngine:
         self._build_troubleshooting_graph()
 
     def _build_troubleshooting_graph(self):
-        """Build the troubleshooting knowledge graph."""
         self._add_symptoms()
         self._add_root_causes()
         self._add_causal_relationships()
         self._add_condition_groups()
+        self.mem.add_rules(
+            TransitiveRule(edge_label="causes", new_label="causes"),
+        )
 
     def _add_symptoms(self):
         symptoms = [
@@ -70,18 +73,13 @@ class ITTroubleshootingEngine:
             sources={"power_failure", "hardware_failure"},
             targets={"server_wont_boot"},
             label="either_condition",
-            weight=1.0
+            weight=1.0,
         )
-
-    def _get_node_id(self, label: str) -> str | None:
-        """Get node ID from label."""
-        node = self.mem.graph.get_node_by_label(label)
-        return node.id if node else None
 
     def prove_root_cause(
         self,
         hypothesis: str,
-        evidence: dict[str, bool]
+        evidence: dict[str, bool],
     ) -> dict:
         """Prove or disprove a root cause hypothesis.
 
@@ -93,20 +91,30 @@ class ITTroubleshootingEngine:
             Dict with proof result: proven, confidence, chain, evidence_needed.
         """
         proven = False
-        confidence = 0.0
         chain = []
         evidence_needed = []
 
-        for symptom, observed in evidence.items():
-            if not observed:
-                continue
-            path = self._find_causal_path(hypothesis, symptom)
-            if path:
+        observed = {s for s, val in evidence.items() if val}
+
+        for symptom in observed:
+            paths = self.mem.find_paths(
+                hypothesis, symptom, edge_label="causes", max_depth=6, max_paths=3
+            )
+            if paths:
                 proven = True
-                confidence += 0.5
-                chain.append({"symptom": symptom, "path": path})
+                path = paths[0]
+                chain.append({
+                    "symptom": symptom,
+                    "path": [
+                        {"from": path[i], "to": path[i + 1], "label": "causes"}
+                        for i in range(len(path) - 1)
+                    ],
+                })
             else:
                 evidence_needed.append(symptom)
+
+        conf = self.mem.compute_confidence(hypothesis)
+        confidence = conf.confidence if conf else (0.5 * len(chain) if chain else 0.0)
 
         return {
             "hypothesis": hypothesis,
@@ -116,57 +124,49 @@ class ITTroubleshootingEngine:
             "evidence_needed": evidence_needed,
         }
 
-    def _find_causal_path(self, start: str, end: str) -> list[dict]:
-        """Find causal path from start to end via backward chaining.
+    def prove_via_backward_chain(
+        self,
+        symptom: str,
+        known_facts: set[str],
+    ) -> dict:
+        """Prove a symptom via backward chaining through inference rules.
 
-        Uses BFS to find if start causes end (start → ... → end).
+        Uses mem.prove() for goal-directed reasoning.
 
         Args:
-            start: Starting node (root cause).
-            end: Ending node (symptom).
+            symptom: The observed symptom to explain.
+            known_facts: Set of known root cause labels.
 
         Returns:
-            List of dicts with edge info, or empty list if no path.
+            Dict with proof result from BackwardChainResult.
         """
-        from collections import deque
-
-        if not self.mem.has_node(start) or not self.mem.has_node(end):
-            return []
-
-        start_id = self._get_node_id(start)
-        end_id = self._get_node_id(end)
-
-        if start_id is None or end_id is None:
-            return []
-
-        visited = {start_id}
-        queue = deque([(start_id, [])])
-
-        while queue:
-            current_id, path = queue.popleft()
-            if current_id == end_id:
-                return path
-
-            edges = self.mem.graph.outgoing_edges(current_id)
-            for edge in edges:
-                for target_id in edge.target_ids:
-                    if target_id not in visited:
-                        visited.add(target_id)
-                        target_node = self.mem.graph.get_node(target_id)
-                        current_node = self.mem.graph.get_node(current_id)
-                        edge_info = {
-                            "from": current_node.label if current_node else current_id,
-                            "to": target_node.label if target_node else target_id,
-                            "label": edge.label,
-                        }
-                        queue.append((target_id, path + [edge_info]))
-
-        return []
+        result = self.mem.prove(
+            symptom,
+            known_facts=known_facts,
+            edge_label="causes",
+        )
+        return {
+            "goal": result.goal_label,
+            "achievable": result.achievable,
+            "confidence": result.confidence,
+            "satisfied_premises": result.satisfied_premises,
+            "total_premises_needed": result.total_premises_needed,
+            "missing_premises": result.missing_premises,
+            "proof_steps": [
+                {
+                    "rule": step.rule_name,
+                    "target": step.target_id[:8],
+                    "premises": step.required_premises[:8]
+                    if isinstance(step.required_premises, list)
+                    else step.required_premises,
+                    "confidence": step.confidence,
+                }
+                for step in (result.proof_tree.steps if result.proof_tree else [])
+            ],
+        }
 
     def find_possible_causes(self, symptom: str) -> list[dict]:
         """Find all issues that could cause the given symptom.
-
-        Returns issues with direct causal links to the symptom.
 
         Args:
             symptom: Symptom label to find causes for.
@@ -177,21 +177,13 @@ class ITTroubleshootingEngine:
         if not self.mem.has_node(symptom):
             return []
 
-        symptom_id = self._get_node_id(symptom)
-        if symptom_id is None:
-            return []
-
         causes = []
-        edges = self.mem.graph.incoming_edges(symptom_id)
-
-        for edge in edges:
-            for source_id in edge.source_ids:
-                source_node = self.mem.graph.get_node(source_id)
-                if source_node:
-                    causes.append({
-                        "cause": source_node.label,
-                        "confidence": edge.weight,
-                    })
+        seen = set()
+        for neighbor in self.mem.neighbors(symptom, edge_label="causes", direction="in"):
+            if neighbor in seen:
+                continue
+            seen.add(neighbor)
+            causes.append({"cause": neighbor, "confidence": 1.0})
 
         return causes
 
@@ -207,33 +199,20 @@ class ITTroubleshootingEngine:
         if not self.mem.has_node(hypothesis):
             return {"error": f"Hypothesis '{hypothesis}' not found"}
 
-        effects = []
-        hypothesis_id = self._get_node_id(hypothesis)
+        effects = [
+            {"effect": n, "relationship": "causes"}
+            for n in self.mem.neighbors(hypothesis, edge_label="causes", direction="out")
+        ]
 
-        if hypothesis_id is None:
-            return {"error": "Cannot resolve hypothesis ID"}
-
-        edges = self.mem.graph.outgoing_edges(hypothesis_id)
-        for edge in edges:
-            for target_id in edge.target_ids:
-                target_node = self.mem.graph.get_node(target_id)
-                if target_node:
-                    effects.append({
-                        "effect": target_node.label,
-                        "relationship": edge.label,
-                    })
-
-        hypothesis_node = self.mem.graph.get_node(hypothesis_id)
+        info = self.get_issue_info(hypothesis)
         return {
             "hypothesis": hypothesis,
-            "data": hypothesis_node.data if hypothesis_node else {},
+            "data": info or {},
             "downstream_effects": effects,
         }
 
     def get_issue_tree(self, symptom: str, max_depth: int = 5) -> dict:
         """Get full causal tree for a symptom.
-
-        Returns nested dict showing all upstream causes.
 
         Args:
             symptom: Starting symptom.
@@ -245,32 +224,24 @@ class ITTroubleshootingEngine:
         if not self.mem.has_node(symptom):
             return {"error": f"Symptom '{symptom}' not found"}
 
-        symptom_id = self._get_node_id(symptom)
-        if symptom_id is None:
-            return {"error": "Cannot resolve symptom ID"}
-
-        def build_tree(node_id: str, depth: int) -> list:
+        def build_tree(label: str, depth: int) -> list:
             if depth >= max_depth:
                 return []
             children = []
-            edges = self.mem.graph.incoming_edges(node_id)
-            for edge in edges:
-                for source_id in edge.source_ids:
-                    source_node = self.mem.graph.get_node(source_id)
-                    if source_node:
-                        child = {
-                            "issue": source_node.label,
-                            "relationship": edge.label,
-                            "children": build_tree(source_id, depth + 1)
-                        }
-                        children.append(child)
+            for cause in self.mem.neighbors(label, edge_label="causes", direction="in"):
+                child = {
+                    "issue": cause,
+                    "relationship": "causes",
+                    "children": build_tree(cause, depth + 1),
+                }
+                children.append(child)
             return children
 
-        node = self.mem.graph.get_node(symptom_id)
+        info = self.get_issue_info(symptom)
         return {
             "symptom": symptom,
-            "severity": node.data.get("severity", "unknown") if node else "unknown",
-            "causes": build_tree(symptom_id, 0)
+            "severity": (info or {}).get("severity", "unknown"),
+            "causes": build_tree(symptom, 0),
         }
 
     def get_issue_info(self, issue: str) -> dict | None:

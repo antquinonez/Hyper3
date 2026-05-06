@@ -4,7 +4,7 @@
 
 ## 1. The Approach
 
-Medical events have time intervals: a fever lasts from Monday to Wednesday, a cough runs from Tuesday to Saturday. Determining whether two symptoms overlapped, whether one preceded the other, or whether one occurred entirely during another requires interval logic — not graph traversal. Hyper3's `TemporalReasoner` implements all 13 Allen interval algebra relations, giving each symptom pair a precise temporal classification and a human-readable explanation of why that classification holds.
+Medical events have time intervals: a fever lasts from Monday to Wednesday, a cough runs from Tuesday to Saturday. Determining whether two symptoms overlapped, whether one preceded the other, or whether one occurred entirely during another requires interval logic — not graph traversal. Hyper3's temporal reasoning layer (`mem.add_temporal_event()`, `mem.allen_relation()`, `mem.temporal_query()`) implements all 13 Allen interval algebra relations, giving each symptom pair a precise temporal classification and a human-readable explanation of why that classification holds.
 
 Doctor visits observe multiple symptoms simultaneously. Rather than representing a visit as a set of pairwise edges (visit→symptom1, visit→symptom2, ...), the tracker uses n-ary hyperedges — a single edge connecting the visit node to all observed symptoms at once, preserving the collective semantics of the observation.
 
@@ -78,17 +78,17 @@ Each visit is an n-ary hyperedge connecting a visit node to the symptoms observe
 
 ### Section 1–2: Symptom registration and Allen relations
 
-Each symptom is stored with a start/end interval. The `TemporalReasoner` computes Allen relations for every symptom pair. The result is a 7×7 relation matrix with 7 distinct pairs classified: 3 overlaps, 1 during, 1 before, and 2 contains.
+Each symptom is stored with a start/end interval via `mem.add_temporal_event()`, which registers it with the internal `TemporalReasoner`. Allen relations between symptom pairs are computed via `mem.allen_relation()`. The result is a 7×7 relation matrix with 7 distinct pairs classified: 3 overlaps, 1 during, 1 before, and 2 contains.
 
 Why Allen relations matter: without them, determining whether two symptoms overlapped requires manual timestamp comparison. Allen algebra gives each pair a single, standardized label and an explanation. "fever ↔ headache: before" immediately tells a clinician that the fever resolved before the headache began — useful for ruling out co-symptom hypotheses.
 
 ### Section 3: Overlapping symptoms
 
-Starting from a target symptom, the tracker finds all other symptoms whose intervals overlap. Fever overlaps with 2 symptoms (cough, fatigue). Cough overlaps with 6 symptoms — it has the longest duration (98h), so it overlaps with nearly everything.
+Starting from a target symptom, `mem.temporal_query(symptom, relation="overlapping")` returns all symptoms whose intervals overlap. Fever overlaps with 2 symptoms (cough, fatigue). Cough overlaps with 6 symptoms — it has the longest duration (98h), so it overlaps with nearly everything.
 
 ### Section 4: Causal chain detection
 
-A causal chain is a sequence of 3+ symptoms linked by BEFORE relations. The tracker finds 2 chains of length 3:
+Causal chains are detected via `mem.temporal.detect_causal_chains()`, which enumerates BEFORE/MEETS chains efficiently rather than the O(n^3) brute-force approach. The tracker finds 2 chains of length 3:
 
 1. fever → headache → chest_pain
 2. fever → headache → shortness_breath
@@ -98,6 +98,8 @@ Both chains share the same first two links (fever ends before headache starts, h
 Why chains matter: individual BEFORE relations are easy to spot, but multi-step sequences are not. Automated chain detection surfaces temporal progressions that a manual timeline review might miss, especially with many symptoms.
 
 ### Section 5: Relation frequency
+
+Computed via `mem.temporal.infer_constraints()`, which efficiently calculates all pairwise Allen relations in a single pass:
 
 | Relation | Count |
 |----------|-------|
@@ -212,24 +214,30 @@ from medical_timeline.engine import MedicalTimelineTracker
 
 tracker = MedicalTimelineTracker()
 
+# Registers intervals via mem.add_temporal_event()
 tracker.add_symptom("fever", "2024-01-10T08:00", "2024-01-12T18:00",
                      severity="high")
 tracker.add_symptom("cough", "2024-01-11T10:00", "2024-01-15T12:00",
                      severity="medium")
 
+# N-ary hyperedge for visit-symptom observations
 tracker.add_visit("visit_1", ["fever", "cough"],
                    doctor="Dr. Smith", time="2024-01-10T10:00")
 
+# Uses mem.allen_relation() for Allen algebra
 relation = tracker.check_temporal_relation("fever", "cough")
 # "overlaps"
 
+# Uses mem.temporal_query(relation="overlapping")
 overlapping = tracker.find_overlapping_symptoms("fever")
 # ['cough', 'fatigue']
 
+# Uses mem.temporal.detect_causal_chains()
 chains = tracker.detect_causal_chains()
 for chain in chains:
     print(f"Potential chain: {' → '.join(chain['chain'])}")
 
+# Uses mem.allen_relation() for relation + explanation
 explanation = tracker.explain_temporal_relation("fever", "cough")
 print(f"Relation: {explanation['relation']}")
 print(f"Reason: {explanation['reason']}")
@@ -266,11 +274,11 @@ print(f"Reason: {explanation['reason']}")
 
 | Method | Purpose |
 |--------|---------|
-| `add_symptom(name, start, end, **data)` | Register a symptom with a time interval |
+| `add_symptom(name, start, end, **data)` | Register a symptom with a time interval via `mem.add_temporal_event()` |
 | `add_visit(visit_id, symptoms, **data)` | Create an n-ary edge linking a visit to observed symptoms |
-| `check_temporal_relation(a, b)` | Return the Allen relation between two symptoms |
-| `find_overlapping_symptoms(name)` | Find all symptoms overlapping with the target |
-| `detect_causal_chains()` | Find BEFORE chains of length >= 3 |
+| `check_temporal_relation(a, b)` | Return the Allen relation via `mem.allen_relation()` |
+| `find_overlapping_symptoms(name)` | Find all overlapping symptoms via `mem.temporal_query(relation="overlapping")` |
+| `detect_causal_chains()` | Find BEFORE chains of length >= 3 via `mem.temporal.detect_causal_chains()` |
 | `explain_temporal_relation(a, b)` | Return relation label, intervals, and human-readable reason |
 
 ### Related Examples

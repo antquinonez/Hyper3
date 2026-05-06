@@ -10,7 +10,12 @@ Traditional hypergraph traversal supports forward reasoning — finding chains l
 
 > "Given that server_wont_boot is true, is power_failure the root cause?"
 
-Backward chaining starts with a hypothesis and works forward through the causal graph to find supporting or refuting evidence, accumulating confidence as it goes.
+The engine uses three complementary Hyper3 capabilities:
+
+- **`mem.find_paths()`** discovers causal paths from hypothesis to symptoms
+- **`mem.prove()`** performs goal-directed reasoning through registered inference rules (e.g., `TransitiveRule` for multi-hop causal chains)
+- **`mem.neighbors()`** traverses cause/effect relationships in both directions
+- **`mem.compute_confidence()`** provides uncertainty-aware confidence scoring for hypotheses
 
 **Why this matters**: Forward traversal discovers what *could* be true. Backward chaining proves what *is* true given evidence. Diagnostic workflows need the latter — an engineer doesn't want to know every possible chain, they want to know whether a specific suspect actually explains the observed symptoms.
 
@@ -38,24 +43,26 @@ Expected output:
 
 ```
 SECTION 1: Building troubleshooting graph...
+  (Registers TransitiveRule for causal chain discovery)
   Total nodes: 13
   Total edges: 10
 
 SECTION 2: Proving root cause: power_failure → server_wont_boot
+  (Using mem.find_paths() for causal path discovery)
   Result: PROVEN
-  Confidence: 0.5
+  Confidence: 1.00
 
-SECTION 4: Finding possible causes for 'no_network_connectivity'
+SECTION 5: Finding possible causes for 'no_network_connectivity'
+  (Using mem.neighbors(direction='in') for causal lookup)
   Found 2 possible cause(s):
-    - configuration_error (confidence: 1.0)
     - network_outage (confidence: 1.0)
+    - configuration_error (confidence: 1.0)
 
-SECTION 6: Getting issue tree for 'server_wont_boot'
+SECTION 7: Getting issue tree for 'server_wont_boot'
+  (Using mem.neighbors() recursively for causal tree)
   Causes:
-    - power_failure (causes)
     - hardware_failure (causes)
-    - power_failure (either_condition)
-    - hardware_failure (either_condition)
+    - power_failure (causes)
 ```
 
 ## 5. The Scenario
@@ -114,7 +121,7 @@ The graph has **13 nodes** and **10 edges**. The n-ary hyperedge connecting both
 
 ### Section 1: Building the Graph
 
-The engine creates 13 nodes (7 root causes, 5 symptoms, 1 derived node) and 10 edges (8 pairwise "causes" edges, 1 n-ary "either_condition" hyperedge counting as 2 source connections).
+The engine creates 13 nodes (7 root causes, 5 symptoms, 1 derived node) and 10 edges (8 pairwise "causes" edges, 1 n-ary "either_condition" hyperedge counting as 2 source connections). A `TransitiveRule` is registered for `edge_label="causes"` to enable multi-hop causal chain discovery during `mem.prove()`.
 
 ### Section 2: Proving a Root Cause
 
@@ -124,36 +131,34 @@ When we call `prove_root_cause("power_failure", {"server_wont_boot": True})`:
 flowchart LR
     Start["Start:<br/>hypothesis=power_failure<br/>evidence={server_wont_boot: True}"] --> Step1
 
-    Step1["1. Find paths from<br/>power_failure toward<br/>server_wont_boot"]
+    Step1["1. mem.find_paths()<br/>power_failure → server_wont_boot<br/>via 'causes' edge"]
 
-    Step1 --> Step2["2. Found path:<br/>power_failure → server_wont_boot<br/>via 'causes' edge"]
+    Step1 --> Step2["2. mem.compute_confidence()<br/>for uncertainty-aware scoring"]
 
-    Step2 --> Step3["3. Evidence matches!<br/>All observed symptoms reachable"]
-
-    Step3 --> Step4["4. Result:<br/>proven=True<br/>confidence=0.5"]
+    Step2 --> Step3["3. Result:<br/>proven=True<br/>confidence=1.0"]
 
     style Start fill:#eef,stroke:#333
-    style Step4 fill:#dfd,stroke:#333
+    style Step3 fill:#dfd,stroke:#333
 ```
 
-The algorithm performs BFS from the hypothesis node, following outgoing edges toward symptoms. If every observed symptom is reachable, the hypothesis is proven. Confidence starts at 0.0 and increases by 0.5 for each confirmed symptom — one symptom gives 0.5, two give 1.0.
+The algorithm uses `mem.find_paths()` to discover causal paths from the hypothesis to observed symptoms, and `mem.compute_confidence()` for proper confidence scoring based on the graph's provenance structure.
 
-**Why confidence matters**: A single confirmed symptom could be coincidence. Multiple independent paths from the hypothesis to different symptoms increase certainty. The 0.5-per-symptom increment makes this explicit — engineers can set thresholds (e.g., "only act on confidence >= 0.8") to control diagnostic sensitivity.
+### Section 4: Backward Chaining via mem.prove()
 
-### Section 4: Finding Possible Causes
+The `prove_via_backward_chain()` method uses `mem.prove()` for goal-directed reasoning through the registered `TransitiveRule`. This chains backward through inference rules to determine if a symptom is derivable from known root causes. For direct single-hop edges (like power_failure→server_wont_boot), `find_paths()` is the appropriate tool. `mem.prove()` excels at proving multi-hop causal chains that the TransitiveRule discovers.
 
-Given a symptom, the engine traverses incoming edges to find all upstream root causes. For `no_network_connectivity`, it finds `configuration_error` and `network_outage` — both with confidence 1.0 because each is a direct cause with no ambiguity.
+### Section 5: Finding Possible Causes
 
-### Section 6: Building the Issue Tree
+Given a symptom, `mem.neighbors(symptom, edge_label="causes", direction="in")` returns all upstream root causes in a single call. For `no_network_connectivity`, it finds `configuration_error` and `network_outage`.
 
-The issue tree recursively traces all upstream causes from a symptom:
+### Section 7: Building the Issue Tree
+
+The issue tree recursively traces upstream causes using `mem.neighbors(direction="in")`:
 
 ```mermaid
 graph TD
     SWB["server_wont_boot<br/>severity: critical"] --> HF["hardware_failure<br/>causes"]
     SWB --> PF["power_failure<br/>causes"]
-    SWB --> HF2["hardware_failure<br/>either_condition"]
-    SWB --> PF2["power_failure<br/>either_condition"]
 
     HF --> HF_data["type: hardware<br/>fix_complexity: medium"]
     PF --> PF_data["type: hardware<br/>fix_complexity: high"]
@@ -163,21 +168,20 @@ graph TD
     style PF fill:#dfd,stroke:#333
 ```
 
-The tree shows 4 incoming edges: two "causes" edges and two "either_condition" hyperedge connections. Each cause carries metadata including `fix_complexity`, which helps engineers prioritize: fix the medium-complexity issues first (hardware_failure), save the high-complexity ones for later (power_failure).
+Each cause carries metadata including `fix_complexity`, which helps engineers prioritize: fix the medium-complexity issues first (hardware_failure), save the high-complexity ones for later (power_failure).
 
-**Why the full tree matters**: A simple "top cause" summary hides the fact that server_wont_boot has multiple failure modes arriving through different relationship types. The full tree surfaces both direct causes and alternative-condition groups, giving the engineer the complete picture.
+**Why the full tree matters**: A simple "top cause" summary hides the fact that server_wont_boot has multiple failure modes. The full tree surfaces all causes with their metadata, giving the engineer the complete picture.
 
-### Section 7: Explaining a Hypothesis
+### Section 8: Explaining a Hypothesis
 
-The `explain_hypothesis` method shows all downstream effects of a root cause. For `hardware_failure`, it traces forward to find 3 downstream symptoms: `server_wont_boot` (via both "either_condition" and "causes") and `application_crashes` (via "causes").
+The `explain_proof()` method uses `mem.neighbors(direction="out")` to find all downstream effects of a root cause. For `hardware_failure`, it traces forward to find `server_wont_boot` and `application_crashes` via "causes" edges.
 
 ## 7. Understanding Output
 
 | Output Field | Meaning |
 |-------------|---------|
 | `proven=True` | The hypothesis connects to all observed symptoms via causal paths |
-| `confidence=0.5` | One symptom confirmed (0.5 per symptom, max 1.0) |
-| `confidence=1.0` | Two or more symptoms confirmed from the same hypothesis |
+| `confidence=1.0` | `mem.compute_confidence()` reports full confidence for the hypothesis |
 | `evidence_needed=[]` | All observed symptoms are reachable; no additional data required |
 | `fix_complexity: high` | Fixing this root cause requires significant effort |
 
@@ -189,34 +193,36 @@ The `explain_hypothesis` method shows all downstream effects of a root cause. Fo
 | Total edges | 10 |
 | Root causes | 7 |
 | Observable symptoms | 5 |
-| power_failure → server_wont_boot confidence | 0.5 |
+| power_failure → server_wont_boot confidence | 1.0 |
 | hardware_failure → server_wont_boot + application_crashes confidence | 1.0 |
 | Causes of no_network_connectivity | 2 (configuration_error, network_outage) |
 | Causes of slow_performance | 2 (software_bug, memory_leak) |
-| Incoming edges for server_wont_boot | 4 (2 direct causes, 2 either_condition) |
-| Downstream effects of hardware_failure | 3 (2 edges to server_wont_boot, 1 to application_crashes) |
+| Downstream effects of hardware_failure | 2 (server_wont_boot, application_crashes) |
 
 ## 9. What Makes This Different
 
-**Goal-directed reasoning** starts from a hypothesis and verifies it against evidence, rather than enumerating all possible chains. This produces a binary proven/not-proven result with a confidence score, which maps directly to how engineers actually troubleshoot.
+**Goal-directed reasoning** starts from a hypothesis and verifies it against evidence, rather than enumerating all possible chains. `mem.prove()` chains backward through registered inference rules (like `TransitiveRule`), while `mem.find_paths()` discovers causal paths in the existing graph.
 
 **N-ary condition groups** model "either/or" failure modes in a single hyperedge. The `either_condition` edge connecting `{power_failure, hardware_failure} → {server_wont_boot}` captures the semantics that either root cause independently explains the symptom, without requiring two separate annotated edges.
 
-**Confidence accumulation** quantifies diagnostic certainty. Each confirmed symptom adds evidence; the running total gives a numeric confidence that can be thresholded for automated alerting or escalation.
+**Confidence scoring** uses `mem.compute_confidence()` which leverages the graph's provenance structure and edge weights for uncertainty-aware assessment, rather than a flat additive score.
 
-**Issue tree traversal** provides the full upstream dependency graph from any symptom, showing not just what caused it but through what relationship types and with what fix complexity.
+**Issue tree traversal** uses `mem.neighbors()` recursively to provide the full upstream dependency graph from any symptom, showing all possible root causes with their metadata.
 
 ## 10. Code Implementation
 
 ### Creating the Engine
 
 ```python
-from hyper3 import HypergraphMemory
+from hyper3 import HypergraphMemory, TransitiveRule
 
 class ITTroubleshootingEngine:
     def __init__(self):
         self.mem = HypergraphMemory(evolve_interval=0)
         self._build_troubleshooting_graph()
+        self.mem.add_rules(
+            TransitiveRule(edge_label="causes", new_label="causes"),
+        )
 ```
 
 ### Modeling N-ary Failure Conditions
@@ -236,14 +242,30 @@ result = engine.prove_root_cause(
     hypothesis="power_failure",
     evidence={"server_wont_boot": True},
 )
-# result.proven = True, result.confidence = 0.5
+# result.proven = True, result.confidence from mem.compute_confidence()
+
+result = engine.prove_via_backward_chain(
+    symptom="server_wont_boot",
+    known_facts={"power_failure"},
+)
+# result.achievable, result.confidence from mem.prove()
+```
+
+### Finding Causes and Effects
+
+```python
+causes = engine.find_possible_causes("no_network_connectivity")
+# uses mem.neighbors(direction="in")
+
+explanation = engine.explain_proof("hardware_failure")
+# uses mem.neighbors(direction="out")
 ```
 
 ### Getting the Issue Tree
 
 ```python
 tree = engine.get_issue_tree("server_wont_boot")
-# tree["causes"] lists all upstream nodes with relationship labels
+# uses mem.neighbors() recursively
 ```
 
 ## 11. Real-World Gap
@@ -259,6 +281,10 @@ tree = engine.get_issue_tree("server_wont_boot")
 |---------|------------|
 | N-ary edges | `relate_hyperedge()` |
 | Node metadata | `store(label, data={})` |
-| Outgoing edges | `mem.neighbors(concept, edge_label=..., direction="out")` |
-| Incoming edges | `mem.neighbors(concept, edge_label=..., direction="in")` |
+| Outgoing neighbors | `mem.neighbors(concept, edge_label=..., direction="out")` |
+| Incoming neighbors | `mem.neighbors(concept, edge_label=..., direction="in")` |
 | Edge weights | `relate(source, target, label=..., weight=...)` |
+| Causal path finding | `mem.find_paths(source, target, edge_label=...)` |
+| Backward chaining | `mem.prove(concept, known_facts=..., edge_label=...)` |
+| Confidence scoring | `mem.compute_confidence(concept)` |
+| Inference rules | `mem.add_rules(TransitiveRule(edge_label=...))` |

@@ -10,7 +10,7 @@ Skill matching systems typically store job-skill requirements as pairwise edges 
 - Discover that Python can substitute for C++ because Python substitutes for Java, which substitutes for C++ (transitive chains)
 - Keep the database current as skills become stale (COBOL) or trending (Rust) without manual curation
 
-Hyper3 represents skills and jobs as nodes in a hypergraph. Job requirements become n-ary hyperedges connecting a job to all its required skills at once. Skill substitutions become weighted directed edges. Graph traversal discovers transitive substitution chains, and the built-in evolution engine prunes stale skills and reinforces trending ones.
+Hyper3 represents skills and jobs as nodes in a hypergraph. Job requirements become n-ary hyperedges connecting a job to all its required skills at once (tagged with `type="job"` for clean identification via `mem.query_nodes()`). Skill substitutions become weighted directed edges. `mem.neighbors()` BFS traversal discovers transitive substitution chains, `mem.reason()` with `TransitiveRule` materializes them as first-class edges, and the built-in evolution engine prunes stale skills and reinforces trending ones.
 
 ## 2. Key Concepts
 
@@ -38,17 +38,17 @@ JOB SKILL MATCHING ENGINE DEMO
 SECTION 1: Building knowledge base...
   Adding tech skills (with substitutions)...
   Adding NON-tech skills (piano, cooking, etc.)...
-  Added 3 non-tech skills (should NOT appear in python substitutions)
-  Adding job postings (n-ary hyperedges)...
+  Added 3 non-tech skills
+  Adding job postings (n-ary hyperedges, tagged with type='job')...
   Added 3 job postings
   Adding skill substitutions...
-  Added 5 skill substitutions
+  Added 4 skill substitutions
 
-  Total skills in graph: 15
-  Total edges in graph: 8
+  Total skills in graph: 14
+  Total edges in graph: 7
 
 SECTION 2: Finding substitutes for 'python'...
-  (Notice: piano, cooking, painting are NOT in results)
+  (Using mem.neighbors() for direct + mem.find_paths() for transitive)
   Found 3 substitute(s):
   - java                 (confidence: 0.85, depth: 1, path: python -> java)
   - javascript           (confidence: 0.75, depth: 1, path: python -> javascript)
@@ -57,30 +57,28 @@ SECTION 2: Finding substitutes for 'python'...
 SECTION 3: Intelligence - Multi-hop reasoning...
   System found 'cplusplus' via 2-hop chain: python -> java -> cplusplus
   This demonstrates transitive reasoning: A->B and B->C implies A->C
-  (Even though python has NO direct edge to cplusplus)
 
-SECTION 4: Finding jobs for skills ['python', 'sql']...
-  Found 5 matching job(s):
-  - python                    (match: 67%, salary: $0)
-    Missing: git
-  - sql                       (match: 67%, salary: $0)
-    Missing: git
+SECTION 4: Transitive chain discovery via mem.reason()...
+  (Applies TransitiveRule to discover hidden skill chains)
+  States created: 5
+  Rules applied: 4
+  Transitive rules confirmed existing chains
+
+SECTION 5: Finding jobs for skills ['python', 'sql']...
+  (Using mem.query_nodes(type='job') for job identification)
+  Found 2 matching job(s):
   - backend_developer         (match: 67%, salary: $120,000)
     Missing: git
-  - sql                       (match: 50%, salary: $0)
-    Missing: java
   - java_developer            (match: 50%, salary: $115,000)
     Missing: java
 
 SECTION 5: Non-matching skills filtering...
-  Checking if 'piano' appears in python substitutions...
-  Piano substitutes found: 0 (correct: 0, piano is not a tech skill)
-  Checking if 'cooking' appears in python substitutions...
-  Cooking substitutes found: 0 (correct: 0, cooking is not tech)
+  Piano substitutes found: 0 (correct: 0)
+  Cooking substitutes found: 0 (correct: 0)
 
 SECTION 6: Explaining substitution: python -> cplusplus...
-  No DIRECT edge (it's a 2-hop transitive relationship)
-  Use find_skill_substitutes() to discover transitive chains
+  Direct edge: True
+  Confidence: 1.00
 
 SECTION 7: Rating confidence: python -> java...
   Confidence score: 0.85 (high confidence substitution)
@@ -90,49 +88,46 @@ SECTION 8: Getting skill info...
 
 SECTION 9: Triggering self-evolution...
   Adding stale skills to demonstrate pruning...
-  Graph before evolution: 17 nodes, 8 edges
+  Graph before evolution: 16 nodes, 11 edges
   Running evolution (decay, prune, merge, reinforce)...
-  Decayed: 0 edges (unused edges lose weight over time)
-  Pruned: 0 nodes (unused/stale skills removed)
-  Reinforced: 0 edges (trending skills strengthened)
-  Merged: 3 node pairs (duplicates combined)
-  Graph after evolution: 14 nodes, 8 edges
-
-  NOTE: In real usage, evolution runs automatically every N operations
-  (set evolve_interval=N when creating JobSkillMatchingEngine)
-  Stale skills like COBOL are pruned, trending skills like Rust are reinforced,
-  and duplicate skills (same data) are automatically merged.
+  Decayed: 0
+  Pruned: 0
+  Reinforced: 0
+  Merged: 3
+  Graph after evolution: 13 nodes, 11 edges
 ```
 
 ## 5. Analysis Pipeline
 
 ### Step 1: Build the knowledge base
 
-The engine loads 8 tech skills and 3 non-tech skills (piano, cooking, painting) into the hypergraph, then creates 3 job postings as n-ary hyperedges and 5 skill substitution edges. The result is 15 nodes and 8 edges.
+The engine loads 8 tech skills and 3 non-tech skills (piano, cooking, painting) into the hypergraph, then creates 3 job postings as n-ary hyperedges (tagged with `data={"type": "job", ...}` for identification via `mem.query_nodes()`) and 4 skill substitution edges. A `TransitiveRule` is registered for `edge_label="substitutes_for"` to enable transitive chain discovery.
 
 **Why n-ary edges matter**: A `backend_developer` job requiring {Python, SQL, Git} is a single `requires` hyperedge from the job node to all three skills. Removing the job removes one edge, not three. Querying the job's requirements reads one edge, not three.
 
+**Why job tagging matters**: Jobs are tagged with `type="job"` so `mem.query_nodes(type="job")` cleanly identifies them without fragile heuristics like checking for `"salary"` in node data.
+
 ### Step 2: Find substitute skills
 
-BFS traversal from "python" follows `substitutes_for` edges and collects all reachable skills with their confidence and path. It finds java (0.85, direct), javascript (0.75, direct), and cplusplus (0.80, 2-hop via java).
+BFS traversal using `mem.neighbors(edge_label="substitutes_for", direction="out")` follows substitution edges and collects all reachable skills with their confidence and path. It finds java (0.85, direct), javascript (0.75, direct), and cplusplus (0.80, 2-hop via java).
 
 **Why transitive chains matter**: Python has no direct substitution edge to C++, but the traversal discovers the 2-hop path python -> java -> cplusplus. Without transitive traversal, this indirect relationship would be invisible.
 
-### Step 3: Filter non-tech skills
+### Step 3: Transitive chain discovery
 
-The traversal only follows `substitutes_for` edges. Piano, cooking, and painting have no such edges to programming skills, so they never appear in results. This filtering is structural (the edges simply don't exist) rather than rule-based.
+`mem.reason()` with the registered `TransitiveRule` discovers and materializes hidden substitution chains as new edges. This makes transitive relationships first-class citizens in the graph — after reasoning, python→cplusplus becomes a direct edge rather than just a traversable path.
 
 ### Step 4: Match jobs to candidate skills
 
-The `find_jobs_for_skills()` method scans all nodes with `requires` edges and computes the overlap between candidate skills and required skills. With candidate skills {python, sql}:
+The `find_jobs_for_skills()` method uses `mem.query_nodes(type="job")` to identify job nodes, then `mem.neighbors(edge_label="requires", direction="out")` to find required skills. With candidate skills {python, sql}:
 - backend_developer requires {python, sql, git}: 2/3 = 67% match, missing git
-- java_developer requires {python, java, sql}: 2/3 = 67% match... but the actual output shows 50% because the method counts distinct required labels from the hyperedge targets
+- java_developer requires {java, sql}: 1/2 = 50% match, missing java
 
 **Why overlap scoring matters**: A candidate with 2 of 3 required skills is a stronger match than one with 1 of 2. The ratio `matched / required` gives a normalized score that works across jobs with different numbers of requirements.
 
 ### Step 5: Self-evolution
 
-After adding stale skills, the graph has 17 nodes and 8 edges. Evolution merges 3 duplicate node pairs, bringing the graph to 14 nodes and 8 edges. Decay, pruning, and reinforcement produce zero changes because the demo graph is small and freshly constructed.
+After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges 3 duplicate node pairs, bringing the graph to 13 nodes and 11 edges. Decay, pruning, and reinforcement produce zero changes because the demo graph is small and freshly constructed.
 
 **Why evolution matters**: In a live system with thousands of skills and jobs, stale skills (no recent postings, no substitution edges) should lose weight and eventually be pruned. Trending skills (high posting volume, many substitution edges) should be reinforced. The evolution engine automates this without manual curation.
 
@@ -140,29 +135,29 @@ After adding stale skills, the graph has 17 nodes and 8 edges. Evolution merges 
 
 | Metric | Value |
 |--------|-------|
-| Total skills loaded | 15 |
-| Total edges after construction | 8 |
+| Total skills loaded | 14 |
+| Total edges after construction | 7 |
 | Non-tech skills added | 3 (piano, cooking, painting) |
 | Job postings created | 3 |
-| Skill substitutions created | 5 |
+| Skill substitutions created | 4 |
 | Python substitute skills found | 3 |
 | Deepest substitution chain | 2 hops (python -> java -> cplusplus) |
 | Transitive substitution discovered | cplusplus (confidence 0.80) |
-| Jobs matching {python, sql} at >=50% | 5 |
+| Jobs matching {python, sql} at >=50% | 2 |
 | Top match title + salary | backend_developer, $120,000 (67% match) |
 | Piano substitutes found | 0 |
 | Cooking substitutes found | 0 |
-| Nodes before evolution | 17 |
-| Nodes after evolution | 14 |
+| Nodes before evolution | 16 |
+| Nodes after evolution | 13 |
 | Nodes merged by evolution | 3 pairs |
-| Nodes pruned by evolution | 0 |
-| Edges decayed by evolution | 0 |
 
 ## 7. Distinct Capabilities
 
 **N-ary hyperedges for job requirements**: A single `requires` hyperedge connects a job to all its required skills. This preserves the collective semantics -- the job requires all skills together, not any individual skill in isolation.
 
-**Transitive skill discovery**: BFS traversal over `substitutes_for` edges discovers multi-hop substitution chains. The 2-hop path from python to cplusplus is found automatically even though no direct edge exists between them.
+**Transitive skill discovery**: `mem.neighbors()` BFS traversal over `substitutes_for` edges discovers multi-hop substitution chains. The 2-hop path from python to cplusplus is found automatically even though no direct edge exists between them. `mem.reason()` with `TransitiveRule` further materializes these chains as first-class edges.
+
+**Clean job identification**: Jobs are tagged with `type="job"` and identified via `mem.query_nodes(type="job")`, replacing the previous fragile heuristic of checking for `"salary"` in node data.
 
 **Structural category filtering**: Non-tech skills are excluded from tech skill results because they lack `substitutes_for` edges to programming skills. No category labels or filtering rules are needed -- the edge structure itself enforces the boundary.
 
@@ -183,12 +178,14 @@ After adding stale skills, the graph has 17 nodes and 8 edges. Evolution merges 
 ```python
 from job_skill_matching.engine import JobSkillMatchingEngine
 
+# Initialize engine (registers TransitiveRule for chain discovery)
 engine = JobSkillMatchingEngine(evolve_interval=0)
 
 engine.add_skill("python", category="programming", trending=True)
 engine.add_skill("java", category="programming", trending=True)
 engine.add_skill("cobol", category="programming", trending=False)
 
+# Jobs tagged with type="job" for clean identification via mem.query_nodes()
 engine.add_job("backend_developer",
     skills=["python", "sql", "git"],
     salary=120000)
@@ -196,10 +193,15 @@ engine.add_job("backend_developer",
 engine.add_skill_substitution("python", "java", confidence=0.85)
 engine.add_skill_substitution("python", "javascript", confidence=0.75)
 
+# Find substitutes via mem.neighbors() BFS traversal
 substitutes = engine.find_skill_substitutes("python", max_depth=3)
 for sub in substitutes:
     print(f"{sub['label']} (confidence: {sub['confidence']:.2f})")
 
+# Discover transitive chains via mem.reason() with TransitiveRule
+chains = engine.discover_transitive_substitutions(["python", "javascript"])
+
+# Find matching jobs via mem.query_nodes(type="job")
 matching_jobs = engine.find_jobs_for_skills(
     ["python", "sql"],
     min_match=0.5
