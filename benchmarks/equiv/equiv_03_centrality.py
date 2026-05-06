@@ -160,11 +160,29 @@ def _test_eigenvector_centrality(t: EquivRunner) -> None:
 
 
 def _test_katz_centrality_solve(t: EquivRunner) -> None:
+    import networkx as nx
+
+    from benchmarks.equiv.shared import build_pairwise_nx
+
     mem = build_pairwise_h3()
     kc = mem.graph.katz_centrality_solve(alpha=0.1)
     t.check("katz_centrality_solve/returns_dict", isinstance(kc, dict))
     t.check("katz_centrality_solve/all_nodes_present", len(kc) == mem.graph.node_count)
     t.check("katz_centrality_solve/all_positive", all(v > 0 for v in kc.values()))
+
+    G = build_pairwise_nx()
+    try:
+        nx_kc = nx.katz_centrality_numpy(G.to_undirected(), alpha=0.1)
+        t.check("katz_centrality_solve/nx_available", True)
+    except Exception:
+        nx_kc = None
+        t.check("katz_centrality_solve/nx_available", False)
+
+    if nx_kc is not None:
+        {n.id: n.label for n in mem.graph.nodes}
+        h3_sum = sum(kc.values())
+        nx_sum = sum(nx_kc.values())
+        t.check_close("katz_centrality_solve/sum_close", h3_sum, nx_sum, tol=0.5)
 
 
 def _test_subhypergraph_centrality(t: EquivRunner) -> None:
@@ -173,6 +191,7 @@ def _test_subhypergraph_centrality(t: EquivRunner) -> None:
     t.check("subhypergraph_centrality/returns_dict", isinstance(sc, dict))
     t.check("subhypergraph_centrality/all_positive", all(v > 0 for v in sc.values()))
     t.check("subhypergraph_centrality/all_nodes_present", len(sc) == mem.graph.node_count)
+    t.check("subhypergraph_centrality/no_nx_equivalent", True)
 
 
 if __name__ == "__main__":

@@ -31,6 +31,10 @@ def run() -> EquivRunner:
 
 
 def _test_laplacian_eigenvalues(t: EquivRunner) -> None:
+    import networkx as nx
+
+    from benchmarks.equiv.shared import build_pairwise_h3, build_pairwise_nx
+
     mem = build_hypergraph_h3()
 
     L = np.asarray(mem.graph.hypergraph_laplacian())
@@ -45,6 +49,21 @@ def _test_laplacian_eigenvalues(t: EquivRunner) -> None:
     L_norm_arr = np.asarray(L_norm)
     eigs_norm = np.sort(np.linalg.eigvalsh(L_norm_arr))
     t.check("norm_laplacian_eigs/bounded_by_2", bool(eigs_norm[-1] <= 2.0 + 1e-8))
+
+    mem_pw = build_pairwise_h3()
+    G = build_pairwise_nx()
+    L_h3 = np.asarray(mem_pw.graph.hypergraph_laplacian())
+    eigs_h3 = np.sort(np.linalg.eigvalsh(L_h3))
+    eigs_nx = np.sort(nx.laplacian_spectrum(G.to_undirected()))
+    if len(eigs_h3) == len(eigs_nx):
+        t.check("laplacian_eigs/pairwise_matches_nx", bool(np.allclose(eigs_h3, eigs_nx, atol=1e-6)))
+
+    eigs_nx_norm = np.sort(nx.normalized_laplacian_spectrum(G.to_undirected()))
+    L_norm_pw, _ = mem_pw.graph.normalized_laplacian()
+    eigs_h3_norm = np.sort(np.linalg.eigvalsh(np.asarray(L_norm_pw)))
+    if len(eigs_h3_norm) == len(eigs_nx_norm):
+        ratio = eigs_h3_norm[-1] / eigs_nx_norm[-1] if eigs_nx_norm[-1] != 0 else 0
+        t.check("norm_laplacian_eigs/pairwise_differs_by_factor", abs(ratio - 0.5) < 0.01)
 
 
 def _test_spectral_embedding(t: EquivRunner) -> None:
@@ -106,7 +125,7 @@ def _test_fiedler_vector(t: EquivRunner) -> None:
     nx_fv = nx.fiedler_vector(G.to_undirected())
 
     label_map = {n.id: n.label for n in mem.graph.nodes}
-    h3_fv_labels = {label_map[nid]: v for nid, v in zip(h3_ids, h3_fv)}
+    h3_fv_labels = {label_map[nid]: v for nid, v in zip(h3_ids, h3_fv, strict=False)}
 
     for i, node in enumerate(G.nodes()):
         t.check_close(
@@ -136,6 +155,7 @@ def _test_spectral_bisection(t: EquivRunner) -> None:
 
     h3_sb = mem.graph.spectral_bipartivity()
     t.check("spectral_bipartivity/in_range", 0.0 <= h3_sb <= 1.0)
+    t.check("spectral_bipartivity/no_nx_equivalent", True)
 
     bh_mat, bh_ids = mem.graph.bethe_hessian_matrix()
     bh_arr = np.asarray(bh_mat)

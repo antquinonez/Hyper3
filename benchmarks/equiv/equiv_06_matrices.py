@@ -220,7 +220,7 @@ def _test_dual_random_walk_adjacency(t: EquivRunner) -> None:
 
 
 def _test_adjacency_tensor(t: EquivRunner) -> None:
-    from hyper3 import Hypergraph, Hyperedge, Hypernode
+    from hyper3 import Hyperedge, Hypergraph, Hypernode
 
     g = Hypergraph()
     nodes = [Hypernode(label=f"n{i}") for i in range(6)]

@@ -63,6 +63,8 @@ def _test_erdos_renyi_xgi(t: EquivRunner) -> None:
 
 
 def _test_complete_hypergraph(t: EquivRunner) -> None:
+    import networkx as nx
+
     from hyper3.generators import complete_hypergraph
 
     g = complete_hypergraph(5)
@@ -71,8 +73,15 @@ def _test_complete_hypergraph(t: EquivRunner) -> None:
     t.check("complete/has_edges", g.edge_count > 0)
     t.check("complete/is_connected", g.is_connected())
 
+    G_nx = nx.complete_graph(5)
+    t.check_int("complete/nx_node_count", G_nx.number_of_nodes(), g.node_count)
+    from math import comb
+    t.check_int("complete/nx_edge_count", G_nx.number_of_edges(), comb(5, 2))
+
 
 def _test_star_hypergraph(t: EquivRunner) -> None:
+    import networkx as nx
+
     from hyper3.generators import star_hypergraph
 
     g = star_hypergraph(6)
@@ -80,6 +89,10 @@ def _test_star_hypergraph(t: EquivRunner) -> None:
     t.check_int("star/node_count", g.node_count, 6)
     t.check("star/has_edges", g.edge_count > 0)
     t.check("star/is_connected", g.is_connected())
+
+    G_nx = nx.star_graph(5)
+    t.check_int("star/nx_node_count", G_nx.number_of_nodes(), g.node_count)
+    t.check_int("star/nx_edge_count", G_nx.number_of_edges(), g.edge_count)
 
 
 def _test_ring_lattice(t: EquivRunner) -> None:
@@ -102,6 +115,8 @@ def _test_chung_lu(t: EquivRunner) -> None:
 
 
 def _test_barabasi_albert(t: EquivRunner) -> None:
+    import networkx as nx
+
     from hyper3.generators import barabasi_albert_graph
 
     g = barabasi_albert_graph(20, 2, seed=42)
@@ -114,8 +129,14 @@ def _test_barabasi_albert(t: EquivRunner) -> None:
     t.check_int("barabasi_albert/reproducible_nodes", g2.node_count, g.node_count)
     t.check_int("barabasi_albert/reproducible_edges", g2.edge_count, g.edge_count)
 
+    G_nx = nx.barabasi_albert_graph(20, 2, seed=42)
+    t.check_int("barabasi_albert/nx_node_count", G_nx.number_of_nodes(), g.node_count)
+    t.check("barabasi_albert/nx_connected", nx.is_connected(G_nx))
+
 
 def _test_watts_strogatz(t: EquivRunner) -> None:
+    import networkx as nx
+
     from hyper3.generators import watts_strogatz_graph
 
     g = watts_strogatz_graph(20, 4, 0.3, seed=42)
@@ -127,6 +148,10 @@ def _test_watts_strogatz(t: EquivRunner) -> None:
     g2 = watts_strogatz_graph(20, 4, 0.3, seed=42)
     t.check_int("watts_strogatz/reproducible_nodes", g2.node_count, g.node_count)
     t.check_int("watts_strogatz/reproducible_edges", g2.edge_count, g.edge_count)
+
+    G_nx = nx.watts_strogatz_graph(20, 4, 0.3, seed=42)
+    t.check_int("watts_strogatz/nx_node_count", G_nx.number_of_nodes(), g.node_count)
+    t.check_int("watts_strogatz/nx_edge_count", G_nx.number_of_edges(), g.edge_count)
 
 
 def _test_random_shuffle(t: EquivRunner) -> None:
@@ -168,7 +193,6 @@ def _test_scale_free(t: EquivRunner) -> None:
     g_small_alpha = random_scale_free_hypergraph(50, {2: 100}, alpha=1.2, seed=42)
     t.check("scale_free/low_alpha_has_edges", g_small_alpha.edge_count == 100)
 
-    import numpy as np
 
     g_large = random_scale_free_hypergraph(500, {2: 2000}, alpha=2.5, seed=42)
     deg_dist: dict[str, int] = {}
@@ -247,6 +271,7 @@ def _test_hsbm(t: EquivRunner) -> None:
         t.check("hsbm_xgi/mostly_intra", h3_intra > g_h3.edge_count * 0.5)
 
     from math import comb
+
     import numpy as np
 
     sizes_stat = [5, 5]

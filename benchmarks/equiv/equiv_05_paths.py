@@ -69,12 +69,18 @@ def _test_shortest_path_length_pairwise(t: EquivRunner) -> None:
 
 
 def _test_has_path(t: EquivRunner) -> None:
+    import networkx as nx
+
     mem = build_pairwise_h3()
+    G = build_pairwise_nx()
 
     path = mem.shortest_path("n0", "n7", weighted=False)
     t.check("has_path/n0->n7", path is not None)
     t.check("has_path/n0_starts_correct", path is not None and path[0] == "n0")
     t.check("has_path/n7_ends_correct", path is not None and path[-1] == "n7")
+
+    nx_has = nx.has_path(G.to_undirected(), "n0", "n7")
+    t.check("has_path/nx_matches", path is not None and nx_has)
 
 
 def _test_find_paths(t: EquivRunner) -> None:

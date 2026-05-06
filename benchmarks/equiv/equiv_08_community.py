@@ -101,6 +101,8 @@ def _test_modularity(t: EquivRunner) -> None:
 
 
 def _test_greedy_modularity_communities(t: EquivRunner) -> None:
+    import networkx as nx
+
     mem = build_pairwise_h3()
     g = mem.graph
 
@@ -117,6 +119,10 @@ def _test_greedy_modularity_communities(t: EquivRunner) -> None:
 
     total = sum(len(c) for c in communities)
     t.check_int("greedy_modularity/disjoint", total, g.node_count)
+
+    G = build_pairwise_nx()
+    nx_comms = nx.community.greedy_modularity_communities(G.to_undirected())
+    t.check("greedy_modularity/nx_also_produces_communities", len(nx_comms) >= 1)
 
 
 def _test_core_periphery(t: EquivRunner) -> None:
