@@ -290,3 +290,298 @@ class PathMixin(_GraphBase):
         ecc = self._all_eccentricities()
         r = min(ecc.values())
         return [nid for nid, e in ecc.items() if e == r]
+
+    def _projected_successors(self) -> dict[str, set[str]]:
+        succ: dict[str, set[str]] = {nid: set() for nid in self._nodes}
+        for edge in self._edges.values():
+            for s in edge.source_ids:
+                for t in edge.target_ids:
+                    if s != t:
+                        succ[s].add(t)
+        return succ
+
+    def is_dag(self) -> bool:
+        if not self._nodes:
+            return True
+        succ = self._projected_successors()
+        in_deg: dict[str, int] = {nid: 0 for nid in self._nodes}
+        for targets in succ.values():
+            for t in targets:
+                if t in in_deg:
+                    in_deg[t] += 1
+        queue: deque[str] = deque(nid for nid, d in in_deg.items() if d == 0)
+        visited = 0
+        while queue:
+            u = queue.popleft()
+            visited += 1
+            for v in succ[u]:
+                in_deg[v] -= 1
+                if in_deg[v] == 0:
+                    queue.append(v)
+        return visited == len(self._nodes)
+
+    def topological_sort(self) -> list[str] | None:
+        if not self._nodes:
+            return []
+        succ = self._projected_successors()
+        in_deg: dict[str, int] = {nid: 0 for nid in self._nodes}
+        for targets in succ.values():
+            for t in targets:
+                if t in in_deg:
+                    in_deg[t] += 1
+        queue: deque[str] = deque(nid for nid, d in in_deg.items() if d == 0)
+        order: list[str] = []
+        while queue:
+            u = queue.popleft()
+            order.append(u)
+            for v in succ[u]:
+                in_deg[v] -= 1
+                if in_deg[v] == 0:
+                    queue.append(v)
+        if len(order) != len(self._nodes):
+            return None
+        return order
+
+    def transitive_closure(self) -> set[tuple[str, str]]:
+        if not self._nodes:
+            return set()
+        succ = self._projected_successors()
+        closure: set[tuple[str, str]] = set()
+        for start in self._nodes:
+            visited: set[str] = set()
+            queue: deque[str] = deque()
+            for v in succ[start]:
+                if v not in visited:
+                    visited.add(v)
+                    queue.append(v)
+                    closure.add((start, v))
+            while queue:
+                u = queue.popleft()
+                for v in succ[u]:
+                    if v not in visited:
+                        visited.add(v)
+                        queue.append(v)
+                        closure.add((start, v))
+        return closure
+
+    def transitive_reduction(self) -> set[tuple[str, str]]:
+        closure = self.transitive_closure()
+        if not closure:
+            return set()
+        succ = self._projected_successors()
+        reduction: set[tuple[str, str]] = set()
+        for u in self._nodes:
+            direct_targets = succ[u]
+            for v in direct_targets:
+                reachable_without = False
+                for other in direct_targets:
+                    if other != v and (other, v) in closure:
+                        reachable_without = True
+                        break
+                if not reachable_without:
+                    reduction.add((u, v))
+        return reduction
+
+    def dag_longest_path(self) -> list[str]:
+        order = self.topological_sort()
+        if order is None:
+            return []
+        if not order:
+            return []
+        succ = self._projected_successors()
+        dist: dict[str, int] = {nid: 0 for nid in self._nodes}
+        parent: dict[str, str | None] = {nid: None for nid in self._nodes}
+        for u in order:
+            for v in succ[u]:
+                if dist[u] + 1 > dist[v]:
+                    dist[v] = dist[u] + 1
+                    parent[v] = u
+        end = max(self._nodes, key=lambda nid: dist[nid])
+        if dist[end] == 0:
+            return [order[0]]
+        path: list[str] = []
+        cur: str | None = end
+        while cur is not None:
+            path.append(cur)
+            cur = parent[cur]
+        path.reverse()
+        return path
+
+    def dag_longest_path_length(self) -> int:
+        order = self.topological_sort()
+        if order is None:
+            return -1
+        if not order:
+            return 0
+        succ = self._projected_successors()
+        dist: dict[str, int] = {nid: 0 for nid in self._nodes}
+        for u in order:
+            for v in succ[u]:
+                if dist[u] + 1 > dist[v]:
+                    dist[v] = dist[u] + 1
+        return max(dist.values())
+
+    def _projected_undirected_neighbors(self) -> dict[str, set[str]]:
+        nbrs: dict[str, set[str]] = {nid: set() for nid in self._nodes}
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    nbrs[members[i]].add(members[j])
+                    nbrs[members[j]].add(members[i])
+        return nbrs
+
+    def _edge_count_undirected(self) -> int:
+        seen: set[frozenset[str]] = set()
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    seen.add(frozenset({members[i], members[j]}))
+        return len(seen)
+
+    def is_tree(self) -> bool:
+        if not self._nodes:
+            return False
+        n = len(self._nodes)
+        if self._edge_count_undirected() != n - 1:
+            return False
+        start = next(iter(self._nodes))
+        visited: set[str] = {start}
+        nbrs = self._projected_undirected_neighbors()
+        queue: deque[str] = deque([start])
+        while queue:
+            u = queue.popleft()
+            for v in nbrs[u]:
+                if v not in visited:
+                    visited.add(v)
+                    queue.append(v)
+        return len(visited) == n
+
+    def is_forest(self) -> bool:
+        if not self._nodes:
+            return True
+        n = len(self._nodes)
+        if self._edge_count_undirected() > n - 1:
+            return False
+        nbrs = self._projected_undirected_neighbors()
+        visited: set[str] = set()
+        for start in self._nodes:
+            if start in visited:
+                continue
+            component: set[str] = {start}
+            queue: deque[str] = deque([start])
+            while queue:
+                u = queue.popleft()
+                for v in nbrs[u]:
+                    if v in component:
+                        continue
+                    component.add(v)
+                    visited.add(v)
+                    queue.append(v)
+            edge_count = 0
+            seen_pairs: set[frozenset[str]] = set()
+            for edge in self._edges.values():
+                members = list(edge.node_ids)
+                for i in range(len(members)):
+                    for j in range(i + 1, len(members)):
+                        pair = frozenset({members[i], members[j]})
+                        if pair not in seen_pairs and members[i] in component and members[j] in component:
+                            seen_pairs.add(pair)
+                            edge_count += 1
+            if edge_count != len(component) - 1:
+                return False
+        return True
+
+    def minimum_spanning_edges(self) -> list[str]:
+        if not self._nodes:
+            return []
+        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight, reverse=True)
+        parent: dict[str, str] = {nid: nid for nid in self._nodes}
+        rank: dict[str, int] = {nid: 0 for nid in self._nodes}
+
+        def find(x: str) -> str:
+            while parent[x] != x:
+                parent[x] = parent[parent[x]]
+                x = parent[x]
+            return x
+
+        def union(a: str, b: str) -> bool:
+            ra, rb = find(a), find(b)
+            if ra == rb:
+                return False
+            if rank[ra] < rank[rb]:
+                ra, rb = rb, ra
+            parent[rb] = ra
+            if rank[ra] == rank[rb]:
+                rank[ra] += 1
+            return True
+
+        result: list[str] = []
+        for edge in edges_sorted:
+            members = list(edge.node_ids)
+            if len(members) < 2:
+                continue
+            added = False
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    if union(members[i], members[j]):
+                        if not added:
+                            result.append(edge.id)  # noqa: PERF401
+                            added = True
+        return result
+
+    def minimum_spanning_tree(self) -> list[tuple[str, str]]:
+        edge_ids = self.minimum_spanning_edges()
+        result: list[tuple[str, str]] = []
+        for eid in edge_ids:
+            edge = self._edges.get(eid)
+            if edge:
+                members = list(edge.node_ids)
+                if len(members) >= 2:
+                    result.append((members[0], members[1]))
+        return result
+
+    def spanning_tree_count(self) -> int:
+        if not self._nodes:
+            return 0
+        n = len(self._nodes)
+        if n <= 1:
+            return 1
+        nbrs = self._projected_undirected_neighbors()
+        node_list = sorted(self._nodes.keys())
+        idx = {nid: i for i, nid in enumerate(node_list)}
+        import numpy as np
+
+        lap = np.zeros((n, n))
+        for i, nid in enumerate(node_list):
+            degree = len(nbrs[nid])
+            lap[i, i] = degree
+            for v in nbrs[nid]:
+                j = idx[v]
+                lap[i, j] -= 1.0
+        cofactor = lap[1:, 1:]
+        det = round(float(np.linalg.det(cofactor)))
+        return max(det, 0)
+
+    def tree_center(self) -> list[str]:
+        if not self._nodes:
+            return []
+        if not self.is_tree():
+            return []
+        nbrs = self._projected_undirected_neighbors()
+        degree: dict[str, int] = {nid: len(nbrs[nid]) for nid in self._nodes}
+        leaves: deque[str] = deque(nid for nid, d in degree.items() if d <= 1)
+        remaining = set(self._nodes.keys())
+        while len(remaining) > 2:
+            next_leaves: deque[str] = deque()
+            for _ in range(len(leaves)):
+                leaf = leaves.popleft()
+                remaining.discard(leaf)
+                for v in nbrs[leaf]:
+                    if v in remaining:
+                        degree[v] -= 1
+                        if degree[v] <= 1:
+                            next_leaves.append(v)
+            leaves = next_leaves
+        return list(remaining)

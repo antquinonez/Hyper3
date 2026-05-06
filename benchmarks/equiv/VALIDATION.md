@@ -227,18 +227,18 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Topological sort | gap | gap | | | | | Linear ordering respecting edge direction |
-| is_dag | gap | gap | | | | | DAG check |
-| Transitive closure | gap | gap | | | | | Compute reachability edges |
-| Transitive reduction | gap | gap | | | | | Remove redundant edges |
-| DAG longest path | gap | gap | | | | | Longest path in DAG |
-| DAG longest path length | gap | gap | | | | | Length of longest path in DAG |
-| Minimum spanning tree | gap | gap | | | | | Kruskal/Prim MST |
-| Minimum spanning edges | gap | gap | | | | | MST edge iterator |
-| Spanning tree count | gap | gap | | | | | Kirchhoff matrix-tree theorem |
-| is_tree | gap | gap | | | | | Tree check |
-| is_forest | gap | gap | | | | | Forest check |
-| Tree center | gap | | | | | | Center of tree (min eccentricity nodes) |
+| Topological sort | yes | yes | | | exact | NX | Kahn's algorithm on projected pairwise graph |
+| is_dag | yes | yes | | | exact | NX | Cycle detection via Kahn's |
+| Transitive closure | yes | yes | | | exact | NX | BFS from each node, matches nx.transitive_closure |
+| Transitive reduction | yes | yes | | | exact | NX | Redundant edge removal, matches nx.transitive_reduction |
+| DAG longest path | yes | yes | | | validated | topological DP | DP on topological order, path reconstruction |
+| DAG longest path length | yes | yes | | | exact | NX | Matches nx.dag_longest_path_length |
+| Minimum spanning tree | yes | yes | | | exact | NX | Kruskal with importance weights (sort desc) |
+| Minimum spanning edges | yes | yes | | | exact | NX | Same as MST, returns edge pairs |
+| Spanning tree count | yes | yes | | | exact | Kirchhoff | Laplacian cofactor determinant matches K4=16 |
+| is_tree | yes | yes | | | exact | NX | Edge count + connectivity check |
+| is_forest | yes | yes | | | exact | NX | Per-component tree check |
+| Tree center | yes | | | | validated | leaf peeling | Iterative leaf removal, matches eccentricity-based center |
 
 ## Flow & Matching Algorithms
 
@@ -298,7 +298,7 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 35 | 1 | 3 | 0 | 2 | 35 |
+| NetworkX | 45 | 1 | 3 | 1 | 2 | 24 |
 | XGI | 10 | 0 | 2 | 5 | 1 | 13 |
 | HGX | 10 | 0 | 0 | 0 | 0 | 31 |
 
@@ -319,13 +319,13 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Directed Hypergraph | 4 | 3 |
 | Generative Models | 12 | 2 |
 | Clustering Coefficients | 5 | 0 |
-| DAG & Tree Operations | 0 | 12 |
+| DAG & Tree Operations | 12 | 0 |
 | Flow & Matching | 0 | 8 |
 | Graph Coloring | 0 | 4 |
 | Hypergraph Structures | 0 | 8 |
 | Dynamics & Diffusion | 2 | 4 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **96** | **60** |
+| **Total** | **108** | **48** |
 
 ## How to update this document
 

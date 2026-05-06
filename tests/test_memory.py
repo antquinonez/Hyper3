@@ -2242,3 +2242,130 @@ class TestMemoryAnalyticsCoverage:
         cc = mem.s_walk_closeness(s=1, kind="nodes")
         assert isinstance(cc, dict)
 
+
+class TestDagTreeFacade:
+    def test_is_dag(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("a", "c")
+        mem.relate("b", "d")
+        mem.relate("c", "d")
+        assert mem.is_dag() is True
+
+    def test_is_dag_with_cycle(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "a")
+        assert mem.is_dag() is False
+
+    def test_topological_sort(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("a", "c")
+        mem.relate("b", "d")
+        mem.relate("c", "d")
+        order = mem.topological_sort()
+        assert order is not None
+        assert len(order) == 4
+        assert order.index("a") < order.index("b")
+        assert order.index("a") < order.index("c")
+
+    def test_transitive_closure(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        closure = mem.transitive_closure()
+        assert ("a", "b") in closure
+        assert ("b", "c") in closure
+        assert ("a", "c") in closure
+
+    def test_transitive_reduction(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("a", "c")
+        red = mem.transitive_reduction()
+        assert ("a", "b") in red
+        assert ("b", "c") in red
+        assert ("a", "c") not in red
+
+    def test_dag_longest_path(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "d")
+        path = mem.dag_longest_path()
+        assert path[0] == "a"
+        assert path[-1] == "d"
+        assert len(path) == 4
+
+    def test_dag_longest_path_length(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "d")
+        assert mem.dag_longest_path_length() == 3
+
+    def test_is_tree(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        mem.relate("a", "d", bidirectional=True)
+        assert mem.is_tree() is True
+
+    def test_is_forest(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        assert mem.is_forest() is True
+
+    def test_minimum_spanning_edges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=5.0, bidirectional=True)
+        mem.relate("b", "c", weight=3.0, bidirectional=True)
+        mem.relate("a", "c", weight=1.0, bidirectional=True)
+        mem.relate("c", "d", weight=2.0, bidirectional=True)
+        mst = mem.minimum_spanning_edges()
+        assert len(mst) == 3
+
+    def test_spanning_tree_count(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        for i, a in enumerate("abcd"):
+            for b in "abcd"[i + 1:]:
+                mem.relate(a, b, bidirectional=True)
+        assert mem.spanning_tree_count() == 16
+
+    def test_tree_center(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcde":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        mem.relate("d", "e", bidirectional=True)
+        center = mem.tree_center()
+        assert set(center) == {"c"}
+

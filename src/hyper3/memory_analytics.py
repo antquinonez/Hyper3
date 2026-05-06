@@ -704,3 +704,54 @@ class AnalyticsMixin(_MemoryBase):
             lbl_v = bg.nodes[v].get("label", v[:8])
             results.append((lbl_u, lbl_v))
         return results
+
+    def is_dag(self) -> bool:
+        return self._graph.is_dag()
+
+    def topological_sort(self) -> list[str] | None:
+        order = self._graph.topological_sort()
+        if order is None:
+            return None
+        return [self._node_label(nid) for nid in order]
+
+    def transitive_closure(self) -> set[tuple[str, str]]:
+        raw = self._graph.transitive_closure()
+        return {(self._node_label(u), self._node_label(v)) for u, v in raw}
+
+    def transitive_reduction(self) -> set[tuple[str, str]]:
+        raw = self._graph.transitive_reduction()
+        return {(self._node_label(u), self._node_label(v)) for u, v in raw}
+
+    def dag_longest_path(self) -> list[str]:
+        ids = self._graph.dag_longest_path()
+        return [self._node_label(nid) for nid in ids]
+
+    def dag_longest_path_length(self) -> int:
+        return self._graph.dag_longest_path_length()
+
+    def is_tree(self) -> bool:
+        return self._graph.is_tree()
+
+    def is_forest(self) -> bool:
+        return self._graph.is_forest()
+
+    def minimum_spanning_edges(self) -> list[tuple[str, str]]:
+        edge_ids = self._graph.minimum_spanning_edges()
+        result: list[tuple[str, str]] = []
+        for eid in edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge:
+                members = list(edge.node_ids)
+                if len(members) >= 2:
+                    result.append((self._node_label(members[0]), self._node_label(members[1])))
+        return result
+
+    def minimum_spanning_tree(self) -> list[tuple[str, str]]:
+        return self.minimum_spanning_edges()
+
+    def spanning_tree_count(self) -> int:
+        return self._graph.spanning_tree_count()
+
+    def tree_center(self) -> list[str]:
+        ids = self._graph.tree_center()
+        return [self._node_label(nid) for nid in ids]
