@@ -65,8 +65,26 @@ Showcase Examples (`showcase/`)
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
-Comparison Examples (`comparison/`)
-----------------
+Project Examples (`projects/`)
+------------------------------
+
+Production-grade data pipelines that fetch live external data, use Prefect
+orchestration, and run multi-stage analysis. Unlike showcase examples, projects
+require network access and external dependencies (requests, prefect).
+
+| Directory | File | Data Source | Key Analysis |
+|-----------|------|-------------|--------------|
+| `arxiv_navigator/` | `pipeline.py` | ArXiv API (cs.AI + cs.LG) | Anomaly detection, activation, centrality, communities, prolific authors |
+| `cve_vulnerability_intel/` | `pipeline.py` | NIST NVD API (+ fallback) | Transitive reasoning, blast radius, chokepoints, vulnerability clusters |
+| `dependency_scanner/` | `pipeline.py` | GitHub Advisory DB + PyPI | Dependency chains, blast radius, ecosystem communities |
+| `movie_recommendations/` | `pipeline.py` | Synthetic (offline) | Genre/actor/bridge/retrieval recommendation strategies |
+| `wikipedia_concepts/` | `pipeline.py` | Wikipedia API (+ offline) | Hub detection, anomaly analysis, ML sub-topic communities |
+
+Each project directory has its own README.md with pipeline architecture, Hyper3
+integration details, and output interpretation guides.
+
+Root Demos
+----------
 
 The project root contains additional demo scripts:
 
