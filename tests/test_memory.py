@@ -2453,3 +2453,85 @@ class TestFlowMatchingFacade:
         assert len(basis) == 1
         assert set(basis[0]) == {"a", "b", "c"}
 
+
+class TestHypergraphStructureFacade:
+    def test_encapsulation_dag(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        dag = mem.encapsulation_dag()
+        assert isinstance(dag, list)
+
+    def test_simpliciality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        assert isinstance(mem.simpliciality(), float)
+
+    def test_face_enumeration(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        result = mem.face_enumeration(frozenset({"a", "b"}))
+        assert "faces" in result
+        assert "cofaces" in result
+
+    def test_boundary_operator(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        bd = mem.boundary_operator(1)
+        assert isinstance(bd, dict)
+
+    def test_hodge_matrix(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        B, rows, cols = mem.hodge_matrix(1)
+        assert B.shape[0] >= 0
+
+    def test_hodge_laplacian(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        L = mem.hodge_laplacian(0)
+        assert L.shape[0] >= 0
+
+    def test_betti_curve(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        betti = mem.betti_curve()
+        assert len(betti) >= 1
+        assert betti[0] == 1
+
+    def test_persistence_diagram(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True, weight=1.0)
+        mem.relate("b", "c", bidirectional=True, weight=2.0)
+        pd = mem.persistence_diagram()
+        assert isinstance(pd, list)
+

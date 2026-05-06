@@ -818,3 +818,39 @@ class AnalyticsMixin(_MemoryBase):
     def minimum_cycle_basis(self) -> list[list[str]]:
         raw = self._graph.minimum_cycle_basis()
         return [[self._node_label(nid) for nid in cycle] for cycle in raw]
+
+    def encapsulation_dag(self) -> list[tuple[str, str]]:
+        raw = self._graph.encapsulation_dag()
+        edge_labels = {}
+        for edge in self._graph._edges.values():
+            label = edge.label if edge.label else edge.id[:8]
+            edge_labels[edge.id] = label
+        return [(edge_labels.get(c, c[:8]), edge_labels.get(p, p[:8])) for c, p in raw]
+
+    def hodge_matrix(self, k: int) -> tuple[Any, list[frozenset[str]], list[frozenset[str]]]:
+        return self._graph.hodge_matrix(k)
+
+    def hodge_laplacian(self, k: int) -> Any:
+        return self._graph.hodge_laplacian(k)
+
+    def simpliciality(self) -> float:
+        return self._graph.simpliciality()
+
+    def face_enumeration(self, simplex: frozenset[str]) -> dict[str, list[frozenset[str]]]:
+        id_to_label = {n.id: n.label for n in self._graph._nodes.values()}
+        label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
+        id_simplex = frozenset({label_to_id.get(l, l) for l in simplex})
+        raw = self._graph.face_enumeration(id_simplex)
+        return {
+            key: [frozenset({id_to_label.get(nid, nid) for nid in s}) for s in vals]
+            for key, vals in raw.items()
+        }
+
+    def boundary_operator(self, k: int) -> dict[frozenset[str], list[tuple[frozenset[str], int]]]:
+        return self._graph.boundary_operator(k)
+
+    def betti_curve(self, max_dim: int | None = None) -> list[int]:
+        return self._graph.betti_curve(max_dim=max_dim)
+
+    def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
+        return self._graph.persistence_diagram()

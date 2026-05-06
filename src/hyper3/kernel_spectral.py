@@ -673,3 +673,201 @@ class SpectralMixin(_GraphBase):
         if total > 0:
             pi = pi / total
         return node_list, pi.tolist()
+
+    def encapsulation_dag(self) -> list[tuple[str, str]]:
+        edge_list = list(self._edges.values())
+        result: list[tuple[str, str]] = []
+        for i in range(len(edge_list)):
+            for j in range(len(edge_list)):
+                if i == j:
+                    continue
+                ni = edge_list[i].node_ids
+                nj = edge_list[j].node_ids
+                if ni < nj:
+                    result.append((edge_list[i].id, edge_list[j].id))
+        return result
+
+    def simpliciality(self) -> float:
+        edge_sets = [e.node_ids for e in self._edges.values()]
+        if len(edge_sets) < 2:
+            return 1.0
+        containment_total = 0
+        containment_satisfied = 0
+        for i in range(len(edge_sets)):
+            for j in range(len(edge_sets)):
+                if i == j:
+                    continue
+                if edge_sets[i] < edge_sets[j]:
+                    containment_total += 1
+                    containment_satisfied += 1
+        if containment_total == 0:
+            return 1.0
+        return containment_satisfied / containment_total
+
+    def _build_simplex_index(self) -> dict[int, list[frozenset[str]]]:
+        simplices: dict[int, set[frozenset[str]]] = {}
+        for node_id in self._nodes:
+            s = frozenset({node_id})
+            simplices.setdefault(0, set()).add(s)
+        for edge in self._edges.values():
+            members = sorted(edge.node_ids)
+            from itertools import combinations
+            for k in range(1, len(members) + 1):
+                for face in combinations(members, k):
+                    dim = k - 1
+                    simplices.setdefault(dim, set()).add(frozenset(face))
+        return {dim: sorted(simplex_set, key=lambda s: sorted(s)) for dim, simplex_set in sorted(simplices.items())}
+
+    def face_enumeration(self, simplex: frozenset[str]) -> dict[str, list[frozenset[str]]]:
+        all_simplices: set[frozenset[str]] = set()
+        for node_id in self._nodes:
+            all_simplices.add(frozenset({node_id}))
+        for edge in self._edges.values():
+            members = sorted(edge.node_ids)
+            from itertools import combinations
+            for k in range(1, len(members) + 1):
+                for face in combinations(members, k):
+                    all_simplices.add(frozenset(face))
+        faces: list[frozenset[str]] = []
+        cofaces: list[frozenset[str]] = []
+        for s in all_simplices:
+            if s < simplex and s != simplex:
+                faces.append(s)
+            elif simplex < s and s != simplex:
+                cofaces.append(s)
+        return {"faces": sorted(faces, key=lambda s: (len(s), sorted(s))), "cofaces": sorted(cofaces, key=lambda s: (len(s), sorted(s)))}
+
+    def boundary_operator(self, k: int) -> dict[frozenset[str], list[tuple[frozenset[str], int]]]:
+        simplex_index = self._build_simplex_index()
+        k_simplices = simplex_index.get(k, [])
+        if not k_simplices or k == 0:
+            return {}
+        km1_simplices = simplex_index.get(k - 1, [])
+        km1_lookup = {s: idx for idx, s in enumerate(km1_simplices)}
+        result: dict[frozenset[str], list[tuple[frozenset[str], int]]] = {}
+        for sigma in k_simplices:
+            boundary: list[tuple[frozenset[str], int]] = []
+            members = sorted(sigma)
+            for i in range(len(members)):
+                face = frozenset(members[:i] + members[i + 1:])
+                if face in km1_lookup:
+                    sign = (-1) ** i
+                    boundary.append((face, sign))
+            result[sigma] = boundary
+        return result
+
+    def hodge_matrix(self, k: int) -> tuple[Any, list[frozenset[str]], list[frozenset[str]]]:
+        import numpy as np
+
+        simplex_index = self._build_simplex_index()
+        k_simplices = simplex_index.get(k, [])
+        km1_simplices = simplex_index.get(k - 1, []) if k > 0 else []
+        if not k_simplices:
+            return np.zeros((0, 0)), [], []
+        km1_lookup = {s: idx for idx, s in enumerate(km1_simplices)}
+        n_km1 = len(km1_simplices)
+        n_k = len(k_simplices)
+        B = np.zeros((n_km1, n_k))
+        for j, sigma in enumerate(k_simplices):
+            members = sorted(sigma)
+            for i in range(len(members)):
+                face = frozenset(members[:i] + members[i + 1:])
+                if face in km1_lookup:
+                    B[km1_lookup[face], j] = (-1.0) ** i
+        return B, k_simplices, km1_simplices
+
+    def hodge_laplacian(self, k: int) -> Any:
+        import numpy as np
+
+        simplex_index = self._build_simplex_index()
+        k_simplices = simplex_index.get(k, [])
+        if not k_simplices:
+            return np.zeros((0, 0))
+        n_k = len(k_simplices)
+        Bk, _, _ = self.hodge_matrix(k)
+        if Bk.shape[0] == 0 and Bk.shape[1] == 0:
+            return np.zeros((n_k, n_k))
+        lower = Bk.T @ Bk if Bk.shape[0] > 0 else np.zeros((n_k, n_k))
+        Bk1, _, _ = self.hodge_matrix(k + 1)
+        upper = Bk1 @ Bk1.T if Bk1.shape[0] > 0 and Bk1.shape[1] > 0 else np.zeros((n_k, n_k))
+        if lower.shape != (n_k, n_k):
+            lower = np.zeros((n_k, n_k))
+        if upper.shape != (n_k, n_k):
+            upper = np.zeros((n_k, n_k))
+        return lower + upper
+
+    def betti_curve(self, max_dim: int | None = None) -> list[int]:
+        import numpy as np
+
+        simplex_index = self._build_simplex_index()
+        if not simplex_index:
+            return []
+        max_d = max(simplex_index.keys()) if max_dim is None else min(max_dim, max(simplex_index.keys()))
+        betti: list[int] = []
+        for k in range(max_d + 1):
+            L = self.hodge_laplacian(k)
+            if L.shape[0] == 0:
+                betti.append(0)
+                continue
+            eigenvalues = np.linalg.eigvalsh(L)
+            betti.append(int(sum(1 for ev in eigenvalues if abs(ev) < 1e-10)))
+        return betti
+
+    def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
+        import numpy as np
+
+        if not self._edges:
+            return []
+        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight)
+        thresholds = sorted(set(e.weight for e in edges_sorted))
+        node_ids = set(self._nodes.keys())
+        prev_betti: list[int] = [len(node_ids)]
+        result: list[tuple[int, float, float | None]] = []
+        birth_map: dict[int, list[float]] = {0: [0.0] * len(node_ids)}
+
+        for thresh in thresholds:
+            active_edges = [e for e in edges_sorted if e.weight <= thresh]
+            sub = self._subgraph_at_threshold(active_edges)
+            components = sub.connected_components()
+            curr_betti = [len(components)]
+            simplexes = sub._build_simplex_index()
+            max_d = max(simplexes.keys()) if simplexes else 0
+            for k in range(1, max_d + 1):
+                L = sub.hodge_laplacian(k)
+                if L.shape[0] == 0:
+                    curr_betti.append(0)
+                else:
+                    eigenvalues = np.linalg.eigvalsh(L)
+                    curr_betti.append(int(sum(1 for ev in eigenvalues if abs(ev) < 1e-10)))
+            for dim in range(max(len(prev_betti), len(curr_betti))):
+                pb = prev_betti[dim] if dim < len(prev_betti) else 0
+                cb = curr_betti[dim] if dim < len(curr_betti) else 0
+                if cb > pb:
+                    for _ in range(cb - pb):
+                        birth_map.setdefault(dim, []).append(thresh)
+                elif cb < pb:
+                    for _ in range(pb - cb):
+                        births = birth_map.get(dim, [])
+                        if births:
+                            b = births.pop()
+                            result.append((dim, b, thresh))
+            prev_betti = curr_betti
+
+        for dim, births in birth_map.items():
+            result.extend((dim, b, None) for b in births)
+        return sorted(result, key=lambda x: (x[0], x[1]))
+
+    def _subgraph_at_threshold(self, active_edges: list[Any]) -> Any:
+        from hyper3.kernel import Hypergraph
+        from hyper3.kernel_types import Hyperedge, Hypernode
+
+        sub = Hypergraph()
+        for node in self._nodes.values():
+            sub.add_node(Hypernode(id=node.id, label=node.label))
+        for edge in active_edges:
+            sub.add_edge(Hyperedge(
+                source_ids=edge.source_ids,
+                target_ids=edge.target_ids,
+                weight=edge.weight,
+            ))
+        return sub

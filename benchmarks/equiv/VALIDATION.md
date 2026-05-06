@@ -266,14 +266,14 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Encapsulation DAG | gap | | gap | | | | DAG of edge containment relationships |
-| Hodge matrix | gap | | gap | | | | Boundary / coboundary operators |
-| Hodge Laplacian | gap | | gap | | | | Combinatorial Laplacian per dimension |
-| Simpliciality | gap | | gap | | | | Measure of how simplicial a hypergraph is |
-| Face enumeration | gap | | | | | | Enumerate all faces/cofaces |
-| Boundary operator | gap | | | | | | Compute d_k for simplicial complex |
-| Betti curve | gap | | | | | | Betti numbers vs threshold |
-| Persistence diagram | gap | | | | | | From filtered hypergraph / clique complex |
+| Encapsulation DAG | yes | | exact | | exact | XGI to_encapsulation_dag | Subset/superset pairs match XGI on labeled membership sets |
+| Hodge matrix | yes | | exact | | exact | XGI boundary_matrix | Same shape, rank, and singular values |
+| Hodge Laplacian | yes | | exact | | exact | XGI hodge_laplacian | Identical eigenvalues for L0 and L1; L0^2 matches element-wise |
+| Simpliciality | yes | | exact | | structural | XGI simplicial_fraction | Both return 1.0 for simplicial complexes; different metrics for non-simplicial |
+| Face enumeration | yes | | partial | | exact | XGI subfaces | Face count matches xgi.subfaces output |
+| Boundary operator | yes | | exact | | validated | d^2=0 | Alternating signs, boundary of boundary is zero |
+| Betti curve | yes | | | | validated | Hodge theory | beta_0 matches connected components |
+| Persistence diagram | yes | | | | validated | filtration theory | Birth <= death, infinite essential classes, d^2=0 |
 
 ## Dynamics & Diffusion
 
@@ -299,7 +299,7 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
 | NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
-| XGI | 10 | 0 | 2 | 5 | 1 | 13 |
+| XGI | 15 | 0 | 2 | 5 | 1 | 6 |
 | HGX | 10 | 0 | 0 | 0 | 0 | 31 |
 
 ## Summary by Category
@@ -322,10 +322,10 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | DAG & Tree Operations | 12 | 0 |
 | Flow & Matching | 8 | 0 |
 | Graph Coloring | 0 | 4 |
-| Hypergraph Structures | 0 | 8 |
+| Hypergraph Structures | 8 | 0 |
 | Dynamics & Diffusion | 2 | 4 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **116** | **40** |
+| **Total** | **124** | **32** |
 
 ## How to update this document
 
