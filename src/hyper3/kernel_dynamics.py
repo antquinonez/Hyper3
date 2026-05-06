@@ -9,8 +9,33 @@ from hyper3.kernel_types import Hyperedge, Hypernode
 from hyper3.results import _SimpleResultBase
 
 
+def _canonical_directed_motif(edges: list[tuple[int, int]], order: int) -> str:
+    from itertools import permutations
+
+    if not edges:
+        return f"d_motif_{order}_empty"
+
+    best: tuple[tuple[int, int], ...] | None = None
+    for perm in permutations(range(order)):
+        remapped = tuple(
+            sorted((perm[u], perm[v]) for u, v in edges if perm[u] != perm[v])
+        )
+        if best is None or remapped < best:
+            best = remapped
+
+    return f"d_motif_{order}_{best}"
+
+
 @dataclass
 class MotifResult(_SimpleResultBase):
+    observed: dict[str, int] = field(default_factory=dict)
+    null_mean: dict[str, float] = field(default_factory=dict)
+    null_std: dict[str, float] = field(default_factory=dict)
+    z_scores: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class DirectedMotifResult(_SimpleResultBase):
     observed: dict[str, int] = field(default_factory=dict)
     null_mean: dict[str, float] = field(default_factory=dict)
     null_std: dict[str, float] = field(default_factory=dict)
@@ -361,6 +386,119 @@ class DynamicsMixin:
         if lyap_count > 0:
             return float(lyap_sum / lyap_count)
         return 0.0
+
+    def detect_directed_motifs(
+        self,
+        order: int = 3,
+        runs_config_model: int = 10,
+        seed: int | None = None,
+    ) -> DirectedMotifResult:
+        adj = self._directed_pairwise_adjacency()
+        node_list = list(adj.keys())
+        if len(node_list) < order:
+            return DirectedMotifResult()
+
+        observed = self._count_directed_motifs(adj, node_list, order)
+        rng = random.Random(seed)
+
+        null_counts: dict[str, list[int]] = {k: [] for k in observed}
+        for _ in range(runs_config_model):
+            randomized = self._randomize_directed(adj, node_list, rng)
+            counts = self._count_directed_motifs(randomized, node_list, order)
+            for k in counts:
+                null_counts.setdefault(k, []).append(counts[k])
+
+        null_mean = {k: sum(v) / len(v) if v else 0.0 for k, v in null_counts.items()}
+        import numpy as np
+
+        null_std = {}
+        for k, v in null_counts.items():
+            null_std[k] = float(np.std(v)) if v else 0.0
+
+        z_scores = {}
+        for k in observed:
+            s = null_std.get(k, 0.0)
+            m = null_mean.get(k, 0.0)
+            if s > 0:
+                z_scores[k] = (observed[k] - m) / s
+            else:
+                z_scores[k] = 0.0
+
+        return DirectedMotifResult(
+            observed=observed,
+            null_mean=null_mean,
+            null_std=null_std,
+            z_scores=z_scores,
+        )
+
+    def _directed_pairwise_adjacency(self) -> dict[str, set[str]]:
+        adj: dict[str, set[str]] = {}
+        for nid in self._nodes:
+            adj[nid] = set()
+        for edge in self._edges.values():
+            for src in edge.source_ids:
+                for tgt in edge.target_ids:
+                    adj.setdefault(src, set()).add(tgt)
+        return adj
+
+    @staticmethod
+    def _count_directed_motifs(
+        adj: dict[str, set[str]],
+        node_list: list[str],
+        order: int,
+    ) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for combo in itertools.combinations(node_list, order):
+            idx_map = {n: i for i, n in enumerate(combo)}
+            edges: list[tuple[int, int]] = []
+            edges.extend(
+                (idx_map[n], idx_map[t])
+                for n in combo
+                for t in adj.get(n, set())
+                if t in idx_map
+            )
+            canonical = _canonical_directed_motif(edges, order)
+            counts[canonical] = counts.get(canonical, 0) + 1
+        return counts
+
+    @staticmethod
+    def _randomize_directed(
+        adj: dict[str, set[str]],
+        node_list: list[str],
+        rng: random.Random,
+    ) -> dict[str, set[str]]:
+        edges = [(u, v) for u in node_list for v in adj.get(u, set())]
+        if not edges:
+            return {n: set() for n in node_list}
+
+        edge_set = set(edges)
+        n_swaps = len(edges) * 3
+        for _ in range(n_swaps):
+            if len(edges) < 2:
+                break
+            i, j = rng.sample(range(len(edges)), 2)
+            u1, v1 = edges[i]
+            u2, v2 = edges[j]
+            candidates = [(u1, v2), (u2, v1)]
+            rng.shuffle(candidates)
+            for new_e1, new_e2 in [(candidates[0], candidates[1]),
+                                    ((u1, u2), (v2, v1)),
+                                    ((u1, u2), (v1, v2)),
+                                    ((u2, u1), (v2, v1))]:
+                if (new_e1[0] != new_e1[1] and new_e2[0] != new_e2[1]
+                        and new_e1 not in edge_set and new_e2 not in edge_set):
+                    edge_set.discard(edges[i])
+                    edge_set.discard(edges[j])
+                    edges[i] = new_e1
+                    edges[j] = new_e2
+                    edge_set.add(new_e1)
+                    edge_set.add(new_e2)
+                    break
+
+        result: dict[str, set[str]] = {n: set() for n in node_list}
+        for u, v in edges:
+            result[u].add(v)
+        return result
 
     def transition_matrix(self) -> Any:
         from hyper3.kernel_spectral import SpectralMixin

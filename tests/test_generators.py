@@ -3,6 +3,7 @@ import pytest
 from hyper3.generators import (
     barabasi_albert_graph,
     complete_hypergraph,
+    configuration_model,
     random_chung_lu,
     random_hypergraph,
     random_hypergraph_sbm,
@@ -14,6 +15,7 @@ from hyper3.generators import (
     star_hypergraph,
     watts_strogatz_graph,
 )
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 
 
 class TestRandomHypergraph:
@@ -303,3 +305,62 @@ class TestHypergraphSBM:
         g = random_hypergraph_sbm(6, 2, [3, 3], seed=42)
         for e in g.edges:
             assert e.label == "hsbm"
+
+
+class TestConfigurationModel:
+    def test_preserves_node_count(self):
+        g = random_hypergraph(8, {0: 0.5, 1: 0.2}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=42)
+        assert cm.node_count == g.node_count
+
+    def test_preserves_edge_count(self):
+        g = random_hypergraph(8, {0: 0.5, 1: 0.2}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=42)
+        assert cm.edge_count == g.edge_count
+
+    def test_preserves_degree_sequence(self):
+        g = random_hypergraph(10, {0: 0.4}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        orig_deg = sorted(sum(1 for e in g._edges.values() if n in e.node_ids) for n in g._nodes)
+        new_deg = sorted(sum(1 for e in cm._edges.values() if n in e.node_ids) for n in cm._nodes)
+        assert orig_deg == new_deg
+
+    def test_preserves_edge_size_distribution(self):
+        g = random_hypergraph(10, {0: 0.5, 1: 0.3}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        orig_sizes = sorted(len(e.node_ids) for e in g._edges.values())
+        new_sizes = sorted(len(e.node_ids) for e in cm._edges.values())
+        assert orig_sizes == new_sizes
+
+    def test_single_edge_unchanged(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.edge_count == 1
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.node_count == 0
+        assert cm.edge_count == 0
+
+    def test_isolated_nodes_preserved(self):
+        g = Hypergraph()
+        for i in range(5):
+            g.add_node(Hypernode(label=f"n{i}"))
+        nodes = list(g._nodes.keys())
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0]}), target_ids=frozenset({nodes[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2]}), target_ids=frozenset({nodes[3]})))
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.node_count == 5
+
+    def test_uniform_hypergraph(self):
+        g = random_uniform_hypergraph(8, 10, 3, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        assert cm.edge_count == g.edge_count
+        orig_deg = sorted(sum(1 for e in g._edges.values() if n in e.node_ids) for n in g._nodes)
+        new_deg = sorted(sum(1 for e in cm._edges.values() if n in e.node_ids) for n in cm._nodes)
+        assert orig_deg == new_deg

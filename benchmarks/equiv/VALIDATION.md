@@ -199,7 +199,7 @@ equivalence tests in `benchmarks/equiv/`.
 | SBM (pairwise) | yes | statistical | | | statistical | | See note below |
 | Scale-free hypergraph | yes | | | statistical | statistical | HGX scale_free_hypergraph | Same order of magnitude; both show power-law tail |
 | HSBM (k-uniform) | yes | | statistical | | statistical | XGI uniform_HSBM | Both produce intra-community majority edges; different sampling methods |
-| Configuration model | gap | | | gap | | | MCMC preserving degree seq |
+| Configuration model | yes | | | exact | exact | HGX configuration_model | MCMC pairwise reshuffle; degree sequence and edge sizes preserved exactly; HGX may deduplicate edges |
 | Activity-driven model | gap | | | gap | | | Temporal activity-driven |
 
 **SBM note:** H3 and NX use different edge iteration orders (H3 by node index,
@@ -256,10 +256,10 @@ edge counts. Both produce majority intra-community edges (>50%).
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Greedy coloring | gap | gap | | | | | Assign colors to avoid adjacent same-color |
-| Chromatic number | gap | gap | | | | | Exact or approximate |
-| Equitable coloring | gap | gap | | | | | Balanced color class sizes |
-| Strategy-based coloring | gap | gap | | | | | largest_first, smallest_last, etc. |
+| Greedy coloring | yes | exact | | | exact | NX greedy_color | Pairwise projection; same color count and valid coloring |
+| Chromatic number | yes | exact | | | exact | NX greedy upper bound | Greedy upper bound matches NX |
+| Equitable coloring | yes | exact | | | exact | NX equitable_color | Balanced color classes; same number of colors used |
+| Strategy-based coloring | yes | exact | | | exact | NX strategies | largest_first, smallest_last, DSATUR all match |
 
 ## Hypergraph-Specific Structures
 
@@ -279,7 +279,7 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
 | Motif detection (undirected) | yes | | | exact | exact | HGX compute_motifs | Degree-sequence hashing for order-3 motifs; z-scores via config model |
-| Motif detection (directed) | gap | | | gap | | | Directed motif detection |
+| Motif detection (directed) | yes | | | | validated | structural properties | Canonical directed subgraph isomorphism; z-scores via directed edge swap null model. HGX compute_directed_motifs requires hyperedges (3+ nodes), not pairwise edges |
 | Simplicial contagion | yes | | | statistical | statistical | HGX simplicial_contagion | SIS model with pairwise + 3-body infection; mean infected fraction matches over 20 trials |
 | Kuramoto synchronization | yes | | exact | | exact | XGI simulate_kuramoto | Euler integration; trajectories match XGI reimpl within 0.1 mean abs diff |
 | MSF synchronization | yes | | | | validated | Sprott+QR algorithm | Master Stability Function via Lyapunov exponent estimation |
@@ -298,9 +298,9 @@ edge counts. Both produce majority intra-community edges (>50%).
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
+| NetworkX | 55 | 1 | 3 | 3 | 2 | 12 |
 | XGI | 19 | 3 | 2 | 0 | 1 | 6 |
-| HGX | 13 | 3 | 1 | 0 | 0 | 31 |
+| HGX | 14 | 3 | 1 | 0 | 0 | 30 |
 
 ## Summary by Category
 
@@ -317,15 +317,15 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Community Detection | 9 | 2 |
 | Transformations | 6 | 1 |
 | Directed Hypergraph | 4 | 3 |
-| Generative Models | 12 | 2 |
+| Generative Models | 13 | 1 |
 | Clustering Coefficients | 5 | 0 |
 | DAG & Tree Operations | 12 | 0 |
 | Flow & Matching | 8 | 0 |
-| Graph Coloring | 0 | 4 |
+| Graph Coloring | 4 | 0 |
 | Hypergraph Structures | 8 | 0 |
-| Dynamics & Diffusion | 5 | 1 |
+| Dynamics & Diffusion | 6 | 0 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **130** | **26** |
+| **Total** | **137** | **16** |
 
 ## How to update this document
 

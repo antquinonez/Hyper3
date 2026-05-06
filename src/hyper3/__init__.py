@@ -103,6 +103,7 @@ from hyper3.frame_transform import (
 from hyper3.generators import (
     barabasi_albert_graph,
     complete_hypergraph,
+    configuration_model,
     random_chung_lu,
     random_hypergraph,
     random_hypergraph_sbm,

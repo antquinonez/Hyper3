@@ -34,8 +34,8 @@ def run() -> EquivRunner:
     _test_barabasi_albert_nx(t)
     _test_star_nx(t)
     _test_sbm_nx(t)
+    _test_configuration_model_hgx(t)
 
-    t.gap("configuration_model", "HGX: configuration_model(hg) -- MCMC preserving degree seq")
     t.gap("activity_driven_model", "HGX: HOADmodel -- Higher-Order Activity-Driven temporal")
 
     return t
@@ -351,6 +351,48 @@ def _test_star_nx(t: EquivRunner) -> None:
     G_nx = nx.star_graph(5)
     t.check_int("star_nx/nx_nodes", G_nx.number_of_nodes(), g.node_count)
     t.check_int("star_nx/nx_edges", G_nx.number_of_edges(), g.edge_count)
+
+
+def _test_configuration_model_hgx(t: EquivRunner) -> None:
+    from hypergraphx import Hypergraph as HgxHypergraph
+
+    from hyper3.generators import configuration_model, random_uniform_hypergraph
+    from hyper3.kernel_types import Hyperedge, Hypernode
+
+    g = random_uniform_hypergraph(8, 12, 2, seed=42)
+    cm = configuration_model(g, n_steps=500, seed=99)
+
+    t.check_int("config_model/node_count", cm.node_count, g.node_count)
+    t.check_int("config_model/edge_count", cm.edge_count, g.edge_count)
+
+    orig_deg = _h3_degree_seq(g)
+    new_deg = _h3_degree_seq(cm)
+    t.check("config_model/degree_preserved", orig_deg == new_deg,
+            f"orig={orig_deg}, new={new_deg}")
+
+    orig_sizes = sorted(len(e.node_ids) for e in g._edges.values())
+    new_sizes = sorted(len(e.node_ids) for e in cm._edges.values())
+    t.check("config_model/size_preserved", orig_sizes == new_sizes,
+            f"orig={orig_sizes}, new={new_sizes}")
+
+    g3 = random_uniform_hypergraph(10, 15, 3, seed=42)
+    cm3 = configuration_model(g3, n_steps=1000, seed=99)
+    t.check_int("config_model/uniform3_nodes", cm3.node_count, g3.node_count)
+    t.check_int("config_model/uniform3_edges", cm3.edge_count, g3.edge_count)
+
+    orig_deg3 = _h3_degree_seq(g3)
+    new_deg3 = _h3_degree_seq(cm3)
+    t.check("config_model/uniform3_degree_preserved", orig_deg3 == new_deg3,
+            f"orig={orig_deg3}, new={new_deg3}")
+
+    hgx = HgxHypergraph()
+    hgx.add_edges([(0, 1), (1, 2), (2, 3), (3, 4), (4, 0), (0, 2)])
+    from hypergraphx.generation.configuration_model import configuration_model as hgx_config
+    hgx_cm = hgx_config(hgx, n_steps=1000)
+    t.check("config_model/hgx_returns_hypergraph", hgx_cm is not None)
+    t.check_int("config_model/hgx_node_count", hgx_cm.num_nodes(), 5)
+    t.check("config_model/hgx_edges_positive", hgx_cm.num_edges() > 0,
+            f"HGX edges: {hgx_cm.num_edges()}")
 
 
 def _test_sbm_nx(t: EquivRunner) -> None:

@@ -619,3 +619,85 @@ def ring_lattice(
             g.add_edge(Hyperedge(source_ids=src, target_ids=tgt))
 
     return g
+
+
+def configuration_model(
+    g: Hypergraph,
+    *,
+    n_steps: int = 1000,
+    seed: int | None = None,
+) -> Hypergraph:
+    rng = random.Random(seed)
+    result = Hypergraph()
+    for node in g._nodes.values():
+        result.add_node(Hypernode(id=node.id, label=node.label, data=dict(node.data) if node.data else None, weight=node.weight))
+
+    edges_by_size: dict[int, list[tuple[list[str], str, str, float]]] = {}
+    for edge in g._edges.values():
+        members = sorted(edge.node_ids)
+        size = len(members)
+        edges_by_size.setdefault(size, []).append((members, edge.id, edge.label, edge.weight))
+
+    for size, entries in edges_by_size.items():
+        if len(entries) < 2 or size < 2:
+            for members, _eid, label, weight in entries:
+                src = frozenset({members[0]})
+                tgt = frozenset(members[1:])
+                result.add_edge(Hyperedge(source_ids=src, target_ids=tgt, label=label, weight=weight))
+            continue
+
+        current = [list(e[0]) for e in entries]
+        labels = [e[2] for e in entries]
+        weights = [e[3] for e in entries]
+
+        for _ in range(n_steps):
+            i = rng.randint(0, len(current) - 1)
+            j = rng.randint(0, len(current) - 1)
+            if i == j:
+                continue
+            reshuffle = _pairwise_reshuffle(
+                set(current[i]), set(current[j]), rng
+            )
+            ni, nj = reshuffle
+            if ni is None or nj is None:
+                continue
+            current[i] = sorted(ni)
+            current[j] = sorted(nj)
+
+        for idx, members in enumerate(current):
+            src = frozenset({members[0]})
+            tgt = frozenset(members[1:])
+            result.add_edge(Hyperedge(source_ids=src, target_ids=tgt, label=labels[idx], weight=weights[idx]))
+
+    return result
+
+
+def _pairwise_reshuffle(
+    f1: set[str],
+    f2: set[str],
+    rng: random.Random,
+) -> tuple[set[str] | None, set[str] | None]:
+    size1 = len(f1)
+    size2 = len(f2)
+    intersection = f1 & f2
+    remaining = list((f1 | f2) - intersection)
+    rng.shuffle(remaining)
+    g1 = set(intersection)
+    g2 = set(intersection)
+    for v in remaining:
+        need1 = len(g1) < size1
+        need2 = len(g2) < size2
+        if need1 and need2:
+            if rng.random() < 0.5:
+                g1.add(v)
+            else:
+                g2.add(v)
+        elif need1:
+            g1.add(v)
+        elif need2:
+            g2.add(v)
+    if len(g1) != size1 or len(g2) != size2:
+        return None, None
+    if g1 == f1 and g2 == f2:
+        return None, None
+    return g1, g2

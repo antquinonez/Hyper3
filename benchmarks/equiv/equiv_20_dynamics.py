@@ -19,6 +19,7 @@ def run() -> EquivRunner:
     t = EquivRunner("dynamics_diffusion")
 
     _test_motifs_hgx(t)
+    _test_directed_motifs_hgx(t)
     _test_contagion_hgx(t)
     _test_kuramoto_xgi(t)
     _test_random_walk_hgx(t)
@@ -60,6 +61,56 @@ def _test_motifs_hgx(t: EquivRunner) -> None:
 
     h3_triangles = h3_obs.get("motif_2_2_2", 0)
     t.check("motifs/h3_triangle_found", h3_triangles >= 1, f"H3 triangles: {h3_triangles}")
+
+
+def _test_directed_motifs_hgx(t: EquivRunner) -> None:
+    from hyper3 import Hypergraph as H3Graph
+    from hyper3.kernel_types import Hyperedge, Hypernode
+
+    g = H3Graph()
+    nodes = [Hypernode(label=str(i)) for i in range(4)]
+    for n in nodes:
+        g.add_node(n)
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[2].id})))
+
+    h3_result = g.detect_directed_motifs(order=3, runs_config_model=10, seed=42)
+
+    t.check("directed_motifs/h3_has_motifs", len(h3_result.observed) > 0,
+            f"H3 motifs: {h3_result.observed}")
+    t.check("directed_motifs/h3_has_z_scores", len(h3_result.z_scores) > 0,
+            "should have z-scores")
+    t.check("directed_motifs/h3_has_null_mean", len(h3_result.null_mean) > 0,
+            "should have null mean")
+
+    total = sum(h3_result.observed.values())
+    t.check("directed_motifs/h3_total_positive", total > 0,
+            f"total motifs: {total}")
+
+    n3 = sum(1 for k in h3_result.observed if k.startswith("d_motif_3"))
+    t.check("directed_motifs/h3_order3_types", n3 > 0,
+            f"order-3 types: {n3}")
+
+    multi_edge_motifs = sum(v for k, v in h3_result.observed.items() if k.count(",") >= 1)
+    t.check("directed_motifs/h3_chain_found", multi_edge_motifs >= 1,
+            f"multi-edge motifs: {multi_edge_motifs}")
+
+    g2 = H3Graph()
+    nodes2 = [Hypernode(label=str(i)) for i in range(3)]
+    for n in nodes2:
+        g2.add_node(n)
+    g2.add_edge(Hyperedge(source_ids=frozenset({nodes2[0].id}), target_ids=frozenset({nodes2[1].id})))
+    g2.add_edge(Hyperedge(source_ids=frozenset({nodes2[1].id}), target_ids=frozenset({nodes2[2].id})))
+    g2.add_edge(Hyperedge(source_ids=frozenset({nodes2[2].id}), target_ids=frozenset({nodes2[0].id})))
+
+    result2 = g2.detect_directed_motifs(order=3, runs_config_model=5, seed=42)
+    t.check("directed_motifs/cycle_has_motifs", len(result2.observed) > 0,
+            f"cycle motifs: {result2.observed}")
+    t.check("directed_motifs/cycle_single_combo",
+            sum(result2.observed.values()) == 1,
+            f"cycle total: {sum(result2.observed.values())}")
 
 
 def _test_contagion_hgx(t: EquivRunner) -> None:

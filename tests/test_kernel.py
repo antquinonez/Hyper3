@@ -5370,3 +5370,192 @@ class TestMSF:
         result = g.master_stability_function(lambda x, p: x, lambda x, p: x, lambda x, p: x)
         assert result.alpha_values == []
 
+
+class TestGreedyColor:
+    def test_path_graph_two_colors(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        colors = g.greedy_color()
+        assert max(colors.values()) + 1 == 2
+
+    def test_triangle_three_colors(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 3].id})))
+        colors = g.greedy_color()
+        assert max(colors.values()) + 1 == 3
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        colors = g.greedy_color()
+        assert colors == {}
+
+    def test_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        colors = g.greedy_color()
+        assert len(colors) == 1
+        assert colors[list(colors.keys())[0]] == 0
+
+    def test_no_adjacent_same_color(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        pairs = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5), (1, 4)]
+        for i, j in pairs:
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+        colors = g.greedy_color()
+        for i, j in pairs:
+            assert colors[nodes[i].id] != colors[nodes[j].id]
+
+    def test_hyperedge_projects_to_pairwise(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id, nodes[3].id})))
+        colors = g.greedy_color()
+        for i in range(4):
+            for j in range(i + 1, 4):
+                assert colors[nodes[i].id] != colors[nodes[j].id]
+
+    def test_all_strategies(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(5)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        for strategy in ["largest_first", "smallest_last", "random_sequential",
+                         "connected_sequential_bfs", "connected_sequential_dfs",
+                         "saturation_largest_first"]:
+            colors = g.greedy_color(strategy=strategy)
+            assert len(colors) == 5
+            assert max(colors.values()) + 1 <= 3
+
+    def test_interchange(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        colors = g.greedy_color(interchange=True)
+        assert max(colors.values()) + 1 == 2
+
+
+class TestChromaticNumber:
+    def test_path(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        assert g.chromatic_number() == 2
+
+    def test_empty(self):
+        g = Hypergraph()
+        assert g.chromatic_number() == 0
+
+    def test_complete_graph(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            for j in range(i + 1, 4):
+                g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[j].id})))
+        assert g.chromatic_number() == 4
+
+
+class TestEquitableColor:
+    def test_balanced_color_classes(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(5):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        colors = g.equitable_color(3)
+        class_sizes = {}
+        for c in colors.values():
+            class_sizes[c] = class_sizes.get(c, 0) + 1
+        sizes = list(class_sizes.values())
+        assert max(sizes) - min(sizes) <= 1
+
+    def test_empty(self):
+        g = Hypergraph()
+        colors = g.equitable_color(1)
+        assert colors == {}
+
+    def test_no_adjacent_same_color(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        colors = g.equitable_color(3)
+        for i in range(3):
+            assert colors[nodes[i].id] != colors[nodes[i + 1].id]
+
+
+class TestDirectedMotifs:
+    def test_chain(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        result = g.detect_directed_motifs(order=3, runs_config_model=5, seed=42)
+        assert len(result.observed) > 0
+        assert "z_scores" in result
+
+    def test_empty(self):
+        g = Hypergraph()
+        result = g.detect_directed_motifs()
+        assert result.observed == {}
+
+    def test_two_nodes_too_few(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(2)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        result = g.detect_directed_motifs(order=3)
+        assert result.observed == {}
+
+    def test_three_node_cycle(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 3].id})))
+        result = g.detect_directed_motifs(order=3, runs_config_model=0, seed=42)
+        assert len(result.observed) > 0
+        assert sum(result.observed.values()) == 1
+
+    def test_result_type(self):
+        from hyper3.kernel_dynamics import DirectedMotifResult
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        result = g.detect_directed_motifs(order=3, runs_config_model=2, seed=0)
+        assert isinstance(result, DirectedMotifResult)
+        assert "observed" in result
+        assert result["z_scores"] is not None
+
