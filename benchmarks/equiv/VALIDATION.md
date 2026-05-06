@@ -244,14 +244,14 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Max flow | gap | gap | | | | | Edmonds-Karp / Dinic |
-| Min cut (global) | gap | gap | | | | | Stoer-Wagner |
-| Min cut (s-t) | gap | gap | | | | | s-t minimum cut |
-| Max weight matching | gap | gap | | | | | Blossom algorithm |
-| Bipartite maximum matching | gap | gap | | | | | Hopcroft-Karp |
-| Bipartite max weight matching | gap | gap | | | | | Weighted bipartite matching |
-| Minimum edge cover | gap | gap | | | | | Smallest edge set covering all nodes |
-| Minimum cycle basis | gap | gap | | | | | Horton algorithm |
+| Max flow | yes | yes | | | exact | NX | Edmonds-Karp on projected pairwise graph |
+| Min cut (global) | yes | yes | | | exact | NX | Stoer-Wagner on undirected projection |
+| Min cut (s-t) | yes | yes | | | exact | NX | Via max-flow min-cut theorem |
+| Max weight matching | yes | yes | | | validated | greedy 1/2-approx | Greedy by weight desc, matches NX on tested graphs |
+| Bipartite maximum matching | yes | yes | | | exact | NX | Hopcroft-Karp |
+| Bipartite max weight matching | yes | yes | | | exact | NX | Greedy bipartite matching |
+| Minimum edge cover | yes | yes | | | validated | structural properties | Via matching + uncovered patches |
+| Minimum cycle basis | yes | yes | | | exact | NX | Horton's algorithm with GF(2) Gaussian elimination |
 
 ## Graph Coloring
 
@@ -298,7 +298,7 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 45 | 1 | 3 | 1 | 2 | 24 |
+| NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
 | XGI | 10 | 0 | 2 | 5 | 1 | 13 |
 | HGX | 10 | 0 | 0 | 0 | 0 | 31 |
 
@@ -320,12 +320,12 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Generative Models | 12 | 2 |
 | Clustering Coefficients | 5 | 0 |
 | DAG & Tree Operations | 12 | 0 |
-| Flow & Matching | 0 | 8 |
+| Flow & Matching | 8 | 0 |
 | Graph Coloring | 0 | 4 |
 | Hypergraph Structures | 0 | 8 |
 | Dynamics & Diffusion | 2 | 4 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **108** | **48** |
+| **Total** | **116** | **40** |
 
 ## How to update this document
 

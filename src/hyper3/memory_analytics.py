@@ -755,3 +755,66 @@ class AnalyticsMixin(_MemoryBase):
     def tree_center(self) -> list[str]:
         ids = self._graph.tree_center()
         return [self._node_label(nid) for nid in ids]
+
+    def max_flow(self, source: str, target: str) -> tuple[float, dict[tuple[str, str], float]]:
+        src = self._find_node(source)
+        tgt = self._find_node(target)
+        if not src or not tgt:
+            return 0.0, {}
+        flow_val, flow_dict = self._graph.max_flow(src.id, tgt.id)
+        labeled_flow: dict[tuple[str, str], float] = {}
+        for (u, v), f in flow_dict.items():
+            labeled_flow[(self._node_label(u), self._node_label(v))] = f
+        return flow_val, labeled_flow
+
+    def min_cut_global(self) -> tuple[float, tuple[set[str], set[str]]]:
+        cut_val, (left, right) = self._graph.min_cut_global()
+        return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
+
+    def min_cut_st(self, source: str, target: str) -> tuple[float, tuple[set[str], set[str]]]:
+        src = self._find_node(source)
+        tgt = self._find_node(target)
+        if not src or not tgt:
+            return 0.0, (set(), set())
+        cut_val, (left, right) = self._graph.min_cut_st(src.id, tgt.id)
+        return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
+
+    def max_weight_matching(self) -> set[frozenset[str]]:
+        raw = self._graph.max_weight_matching()
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def bipartite_maximum_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        left_ids = set()
+        right_ids = set()
+        for label in left:
+            node = self._find_node(label)
+            if node:
+                left_ids.add(node.id)
+        for label in right:
+            node = self._find_node(label)
+            if node:
+                right_ids.add(node.id)
+        raw = self._graph.bipartite_maximum_matching(left_ids, right_ids)
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def bipartite_max_weight_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        left_ids = set()
+        right_ids = set()
+        for label in left:
+            node = self._find_node(label)
+            if node:
+                left_ids.add(node.id)
+        for label in right:
+            node = self._find_node(label)
+            if node:
+                right_ids.add(node.id)
+        raw = self._graph.bipartite_max_weight_matching(left_ids, right_ids)
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def min_edge_cover(self) -> set[frozenset[str]]:
+        raw = self._graph.min_edge_cover()
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def minimum_cycle_basis(self) -> list[list[str]]:
+        raw = self._graph.minimum_cycle_basis()
+        return [[self._node_label(nid) for nid in cycle] for cycle in raw]

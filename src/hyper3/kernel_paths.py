@@ -525,10 +525,9 @@ class PathMixin(_GraphBase):
             added = False
             for i in range(len(members)):
                 for j in range(i + 1, len(members)):
-                    if union(members[i], members[j]):
-                        if not added:
-                            result.append(edge.id)  # noqa: PERF401
-                            added = True
+                    if union(members[i], members[j]) and not added:  # noqa: PERF401
+                        result.append(edge.id)
+                        added = True
         return result
 
     def minimum_spanning_tree(self) -> list[tuple[str, str]]:
@@ -585,3 +584,356 @@ class PathMixin(_GraphBase):
                             next_leaves.append(v)
             leaves = next_leaves
         return list(remaining)
+
+    def _build_capacity_map(self) -> dict[tuple[str, str], float]:
+        cap: dict[tuple[str, str], float] = {}
+        for edge in self._edges.values():
+            for s in edge.source_ids:
+                for t in edge.target_ids:
+                    if s == t:
+                        continue
+                    key = (s, t)
+                    cap[key] = cap.get(key, 0.0) + edge.weight
+        return cap
+
+    def _adj_from_capacity(self, cap: dict[tuple[str, str], float]) -> dict[str, dict[str, float]]:
+        adj: dict[str, dict[str, float]] = {nid: {} for nid in self._nodes}
+        for (u, v), c in cap.items():
+            adj[u][v] = adj[u].get(v, 0.0) + c
+            if v not in adj:
+                adj[v] = {}
+        return adj
+
+    def max_flow(self, source_id: str, target_id: str) -> tuple[float, dict[tuple[str, str], float]]:
+        if source_id not in self._nodes or target_id not in self._nodes:
+            return 0.0, {}
+        if source_id == target_id:
+            return 0.0, {}
+        cap = self._build_capacity_map()
+        residual: dict[tuple[str, str], float] = dict(cap)
+        for u, v in cap:
+            if (v, u) not in residual:
+                residual[(v, u)] = 0.0
+        flow: dict[tuple[str, str], float] = {(u, v): 0.0 for (u, v) in residual}
+        adj = self._adj_from_capacity(cap)
+        total_flow = 0.0
+        while True:
+            parent: dict[str, str | None] = {source_id: None}
+            visited: set[str] = {source_id}
+            queue: deque[str] = deque([source_id])
+            while queue:
+                u = queue.popleft()
+                if u == target_id:
+                    break
+                for v in list(adj.get(u, {}).keys()):
+                    if v not in visited and residual.get((u, v), 0.0) > 0:
+                        visited.add(v)
+                        parent[v] = u
+                        queue.append(v)
+            if target_id not in parent:
+                break
+            path_flow = float("inf")
+            v = target_id
+            while v != source_id:
+                u = parent[v]
+                assert u is not None
+                path_flow = min(path_flow, residual.get((u, v), 0.0))
+                v = u
+            v = target_id
+            while v != source_id:
+                u = parent[v]
+                assert u is not None
+                residual[(u, v)] = residual.get((u, v), 0.0) - path_flow
+                residual[(v, u)] = residual.get((v, u), 0.0) + path_flow
+                flow[(u, v)] = flow.get((u, v), 0.0) + path_flow
+                flow[(v, u)] = flow.get((v, u), 0.0) - path_flow
+                v = u
+            total_flow += path_flow
+        result_flow: dict[tuple[str, str], float] = {}
+        for (u, v) in cap:
+            f = flow.get((u, v), 0.0)
+            if f > 0:
+                result_flow[(u, v)] = f
+        return total_flow, result_flow
+
+    def min_cut_st(self, source_id: str, target_id: str) -> tuple[float, tuple[set[str], set[str]]]:
+        flow_value, flow_dict = self.max_flow(source_id, target_id)
+        cap = self._build_capacity_map()
+        residual: dict[tuple[str, str], float] = dict(cap)
+        for u, v in cap:
+            if (v, u) not in residual:
+                residual[(v, u)] = 0.0
+        adj = self._adj_from_capacity(cap)
+        for (u, v), f in flow_dict.items():
+            residual[(u, v)] = residual.get((u, v), 0.0) - f
+            residual[(v, u)] = residual.get((v, u), 0.0) + f
+        reachable: set[str] = {source_id}
+        queue: deque[str] = deque([source_id])
+        while queue:
+            u = queue.popleft()
+            for v in list(adj.get(u, {}).keys()):
+                if v not in reachable and residual.get((u, v), 0.0) > 0:
+                    reachable.add(v)
+                    queue.append(v)
+        source_side = reachable
+        sink_side = set(self._nodes.keys()) - reachable
+        return flow_value, (source_side, sink_side)
+
+    def min_cut_global(self) -> tuple[float, tuple[set[str], set[str]]]:
+        if len(self._nodes) < 2:
+            return 0.0, (set(self._nodes.keys()), set())
+        node_list = list(self._nodes.keys())
+        w: dict[frozenset[str], float] = {}
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    key = frozenset({members[i], members[j]})
+                    w[key] = w.get(key, 0.0) + edge.weight
+
+        active = list(node_list)
+        coalesced_map: dict[str, set[str]] = {nid: {nid} for nid in node_list}
+        global_best = float("inf")
+        global_partition: tuple[set[str], set[str]] = (set(node_list), set())
+
+        while len(active) > 1:
+            remaining = list(active)
+            in_a: set[str] = set()
+            weight_to_a: dict[str, float] = {nid: 0.0 for nid in remaining}
+            prev = None
+            last = None
+            last_w = -1.0
+            for _step in range(len(remaining)):
+                best = None
+                best_w = -1.0
+                for nid in remaining:
+                    if nid not in in_a and weight_to_a[nid] > best_w:
+                        best = nid
+                        best_w = weight_to_a[nid]
+                assert best is not None
+                in_a.add(best)
+                prev = last
+                last = best
+                last_w = best_w
+                for nid in remaining:
+                    if nid not in in_a:
+                        key = frozenset({best, nid})
+                        weight_to_a[nid] += w.get(key, 0.0)
+            if prev is not None and last is not None and last_w < global_best:
+                global_best = last_w
+                cut_node = last
+                group_a: set[str] = set()
+                for nid in coalesced_map:
+                    if cut_node in coalesced_map.get(nid, set()):
+                        group_a = coalesced_map[nid]
+                        break
+                global_partition = (set(group_a), set(node_list) - set(group_a))
+            if prev is not None and last is not None:
+                merged = coalesced_map.get(prev, {prev}) | coalesced_map.get(last, {last})
+                coalesced_map[prev] = merged
+                if last in coalesced_map:
+                    del coalesced_map[last]
+                remaining = [n for n in remaining if n != last]
+                for nid in remaining:
+                    if nid != prev:
+                        key_old = frozenset({last, nid})
+                        key_new = frozenset({prev, nid})
+                        w[key_new] = w.get(key_new, 0.0) + w.get(key_old, 0.0)
+                active = remaining
+            else:
+                break
+
+        if global_best == float("inf"):
+            global_best = 0.0
+        return global_best, global_partition
+
+    def _undirected_weighted_edges(self) -> list[tuple[str, str, float]]:
+        weight_map: dict[frozenset[str], float] = {}
+        pair_order: dict[frozenset[str], tuple[str, str]] = {}
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    pair = frozenset({members[i], members[j]})
+                    weight_map[pair] = weight_map.get(pair, 0.0) + edge.weight
+                    if pair not in pair_order:
+                        pair_order[pair] = (members[i], members[j])
+        return [(u, v, weight_map[pair]) for pair, (u, v) in pair_order.items()]
+
+    def max_weight_matching(self) -> set[frozenset[str]]:
+        edges = self._undirected_weighted_edges()
+        edges.sort(key=lambda e: e[2], reverse=True)
+        matched: set[str] = set()
+        result: set[frozenset[str]] = set()
+        for u, v, _w in edges:
+            if u not in matched and v not in matched:
+                matched.add(u)
+                matched.add(v)
+                result.add(frozenset({u, v}))
+        return result
+
+    def bipartite_maximum_matching(self, left_set: set[str], right_set: set[str]) -> set[frozenset[str]]:
+        adj: dict[str, list[str]] = {u: [] for u in left_set}
+        for edge in self._edges.values():
+            for s in edge.source_ids:
+                for t in edge.target_ids:
+                    if s in left_set and t in right_set:
+                        adj[s].append(t)
+                    elif t in left_set and s in right_set:
+                        adj[t].append(s)
+        match_left: dict[str, str | None] = {u: None for u in left_set}
+        match_right: dict[str, str | None] = {v: None for v in right_set}
+        dist: dict[str, float] = {}
+
+        def bfs_hopcroft() -> bool:
+            queue: deque[str] = deque()
+            for u in left_set:
+                if match_left[u] is None:
+                    dist[u] = 0
+                    queue.append(u)
+                else:
+                    dist[u] = float("inf")
+            found = False
+            while queue:
+                u = queue.popleft()
+                for v in adj[u]:
+                    mu = match_right[v]
+                    if mu is not None:
+                        if dist.get(mu, float("inf")) == float("inf"):
+                            dist[mu] = dist[u] + 1
+                            queue.append(mu)
+                    else:
+                        found = True
+            return found
+
+        def dfs_hopcroft(u: str) -> bool:
+            for v in adj[u]:
+                mu = match_right[v]
+                if mu is None or (dist.get(mu, float("inf")) == dist[u] + 1 and dfs_hopcroft(mu)):
+                    match_left[u] = v
+                    match_right[v] = u
+                    return True
+            dist[u] = float("inf")
+            return False
+
+        while bfs_hopcroft():
+            for u in left_set:
+                if match_left[u] is None:
+                    dfs_hopcroft(u)
+        result: set[frozenset[str]] = set()
+        for u, v in match_left.items():
+            if v is not None:
+                result.add(frozenset({u, v}))
+        return result
+
+    def bipartite_max_weight_matching(self, left_set: set[str], right_set: set[str]) -> set[frozenset[str]]:
+        edges = self._undirected_weighted_edges()
+        edges.sort(key=lambda e: e[2], reverse=True)
+        matched: set[str] = set()
+        result: set[frozenset[str]] = set()
+        for u, v, _w in edges:
+            bipartite = (u in left_set and v in right_set) or (v in left_set and u in right_set)
+            if bipartite and u not in matched and v not in matched:
+                matched.add(u)
+                matched.add(v)
+                result.add(frozenset({u, v}))
+        return result
+
+    def min_edge_cover(self) -> set[frozenset[str]]:
+        if not self._nodes:
+            return set()
+        matching = self.max_weight_matching()
+        covered: set[str] = set()
+        for pair in matching:
+            covered.update(pair)
+        result: set[frozenset[str]] = set(matching)
+        nbrs = self._projected_undirected_neighbors()
+        for nid in self._nodes:
+            if nid not in covered:
+                for v in nbrs[nid]:
+                    result.add(frozenset({nid, v}))
+                    covered.add(nid)
+                    covered.add(v)
+                    break
+        return result
+
+    def minimum_cycle_basis(self) -> list[list[str]]:
+        if not self._nodes:
+            return []
+        nbrs = self._projected_undirected_neighbors()
+        all_edges: set[frozenset[str]] = set()
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    all_edges.add(frozenset({members[i], members[j]}))
+
+        cycles: list[tuple[int, list[str], list[int]]] = []
+        for root in self._nodes:
+            parent: dict[str, str | None] = {root: None}
+            visited: set[str] = {root}
+            queue: deque[str] = deque([root])
+            while queue:
+                u = queue.popleft()
+                for v in nbrs[u]:
+                    if v not in visited:
+                        visited.add(v)
+                        parent[v] = u
+                        queue.append(v)
+            idx_list = sorted(all_edges)
+            edge_to_idx: dict[frozenset[str], int] = {e: i for i, e in enumerate(idx_list)}
+            m = len(idx_list)
+            for edge_pair in all_edges:
+                u, v = sorted(edge_pair)
+                path_u: list[str] = []
+                cur: str | None = u
+                while cur is not None:
+                    path_u.append(cur)
+                    cur = parent.get(cur)
+                path_v: list[str] = []
+                cur = v
+                while cur is not None:
+                    path_v.append(cur)
+                    cur = parent.get(cur)
+                lca = None
+                while path_u and path_v and path_u[-1] == path_v[-1]:
+                    lca = path_u[-1]
+                    path_u.pop()
+                    path_v.pop()
+                if lca is None and not path_u and not path_v:
+                    continue
+                cycle_nodes = path_u + [lca] + path_v[::-1] if lca is not None else path_u + path_v[::-1]
+                if len(cycle_nodes) < 3:
+                    continue
+                vector = [0] * m
+                for i in range(len(cycle_nodes)):
+                    a = cycle_nodes[i]
+                    b = cycle_nodes[(i + 1) % len(cycle_nodes)]
+                    key = frozenset({a, b})
+                    if key in edge_to_idx:
+                        vector[edge_to_idx[key]] = 1
+                cycles.append((len(cycle_nodes), cycle_nodes, vector))
+
+        unique_cycles: list[tuple[int, list[str], list[int]]] = []
+        seen: set[frozenset[str]] = set()
+        for length, nodes, vec in cycles:
+            fs = frozenset(nodes)
+            if fs not in seen:
+                seen.add(fs)
+                unique_cycles.append((length, nodes, vec))
+
+        unique_cycles.sort(key=lambda x: x[0])
+        basis: list[list[str]] = []
+        pivots: list[int] = []
+        basis_vecs: list[list[int]] = []
+        for _length, nodes, vec in unique_cycles:
+            v = list(vec)
+            for pivot, bv in zip(pivots, basis_vecs, strict=True):
+                if v[pivot] == 1:
+                    v = [(a + b) % 2 for a, b in zip(v, bv, strict=True)]
+            pivot_col = next((i for i, x in enumerate(v) if x == 1), -1)
+            if pivot_col >= 0:
+                basis.append(nodes)
+                pivots.append(pivot_col)
+                basis_vecs.append(v)
+        return basis

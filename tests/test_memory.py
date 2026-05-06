@@ -2369,3 +2369,87 @@ class TestDagTreeFacade:
         center = mem.tree_center()
         assert set(center) == {"c"}
 
+
+class TestFlowMatchingFacade:
+    def test_max_flow(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "sabt":
+            mem.store(l)
+        mem.relate("s", "a", weight=10.0)
+        mem.relate("s", "b", weight=5.0)
+        mem.relate("a", "t", weight=10.0)
+        mem.relate("b", "t", weight=10.0)
+        flow_val, flow_dict = mem.max_flow("s", "t")
+        assert flow_val > 0
+        assert isinstance(flow_dict, dict)
+
+    def test_min_cut_global(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=3.0, bidirectional=True)
+        mem.relate("b", "c", weight=1.0, bidirectional=True)
+        mem.relate("c", "d", weight=3.0, bidirectional=True)
+        mem.relate("a", "c", weight=2.0, bidirectional=True)
+        mem.relate("b", "d", weight=2.0, bidirectional=True)
+        cut_val, (left, right) = mem.min_cut_global()
+        assert cut_val == pytest.approx(10.0)
+        assert len(left) > 0 and len(right) > 0
+
+    def test_min_cut_st(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "sabt":
+            mem.store(l)
+        mem.relate("s", "a", weight=5.0)
+        mem.relate("a", "t", weight=3.0)
+        mem.relate("s", "b", weight=4.0)
+        mem.relate("b", "t", weight=6.0)
+        cut_val, (left, right) = mem.min_cut_st("s", "t")
+        assert cut_val == pytest.approx(7.0)
+
+    def test_max_weight_matching(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=5.0, bidirectional=True)
+        mem.relate("b", "c", weight=3.0, bidirectional=True)
+        mem.relate("c", "d", weight=4.0, bidirectional=True)
+        matching = mem.max_weight_matching()
+        assert len(matching) == 2
+        for pair in matching:
+            assert len(pair) == 2
+
+    def test_bipartite_maximum_matching(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "c")
+        mem.relate("a", "d")
+        mem.relate("b", "c")
+        matching = mem.bipartite_maximum_matching({"a", "b"}, {"c", "d"})
+        assert len(matching) == 2
+
+    def test_min_edge_cover(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        cover = mem.min_edge_cover()
+        covered = set()
+        for pair in cover:
+            covered.update(pair)
+        assert len(covered) == 4
+
+    def test_minimum_cycle_basis(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "a", bidirectional=True)
+        basis = mem.minimum_cycle_basis()
+        assert len(basis) == 1
+        assert set(basis[0]) == {"a", "b", "c"}
+
