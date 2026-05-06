@@ -26,8 +26,7 @@ def run() -> EquivRunner:
     _test_clique_projection(t)
 
     _test_simplicial_complex(t)
-
-    t.gap("directed_line_graph", "HGX: directed_line_graph(h) for DirectedHypergraph")
+    _test_directed_line_graph(t)
 
     return t
 
@@ -115,6 +114,40 @@ def _test_simplicial_complex(t: EquivRunner) -> None:
     t.check("simplicial_complex/non_empty", len(sc) > 0)
     for simplex in sc:
         t.check(f"simplicial_complex/is_frozenset/{hash(simplex)}", isinstance(simplex, frozenset))
+
+
+def _test_directed_line_graph(t: EquivRunner) -> None:
+    import networkx as nx
+
+    from hyper3.kernel import Hypergraph
+    from hyper3.kernel_types import Hyperedge, Hypernode
+
+    g = Hypergraph()
+    nodes = [Hypernode(label=str(i)) for i in range(4)]
+    for n in nodes:
+        g.add_node(n)
+    for i in range(3):
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+
+    dlg = g.to_directed_line_graph()
+    t.check("dlg/is_digraph", isinstance(dlg, nx.DiGraph))
+    t.check_int("dlg/node_count", dlg.number_of_nodes(), 3)
+    t.check_int("dlg/edge_count", dlg.number_of_edges(), 2)
+
+    edges = list(g._edges.keys())
+    t.check("dlg/chain_directed", dlg.has_edge(edges[0], edges[1]))
+    t.check("dlg/chain_directed", dlg.has_edge(edges[1], edges[2]))
+    t.check("dlg/no_reverse", not dlg.has_edge(edges[1], edges[0]))
+
+    g2 = Hypergraph()
+    nodes2 = [Hypernode(label=str(i)) for i in range(3)]
+    for n in nodes2:
+        g2.add_node(n)
+    for i in range(3):
+        g2.add_edge(Hyperedge(source_ids=frozenset({nodes2[i].id}), target_ids=frozenset({nodes2[(i + 1) % 3].id})))
+    dlg2 = g2.to_directed_line_graph()
+    t.check_int("dlg/cycle_edges", dlg2.number_of_edges(), 3)
+    t.check("dlg/cycle_is_strongly_connected", nx.is_strongly_connected(dlg2))
 
 
 if __name__ == "__main__":

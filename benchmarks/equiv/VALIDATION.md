@@ -42,7 +42,7 @@ equivalence tests in `benchmarks/equiv/`.
 | CRUD (store/relate/remove) | yes | | | | validated | structural properties | Node exists after store, edge after relate, gone after remove |
 | HIF import/export | gap | | gap | gap | | | Standard interchange format |
 | Metadata filtering | gap | | | gap | | | |
-| Subhypergraph by order | gap | | | gap | | | |
+| Subhypergraph by order | yes | | | exact | exact | HGX subhypergraph_by_orders | Filter edges by order; all nodes preserved (keep_nodes=True) |
 
 ## Metrics
 
@@ -66,9 +66,9 @@ equivalence tests in `benchmarks/equiv/`.
 | Periphery | yes | exact | | | exact | | Set equality with NX |
 | Center | yes | exact | | | exact | | Set equality with NX |
 | Degree assortativity | yes | exact | | | exact | | Matches NX to < 0.01 |
-| Attribute assortativity | gap | gap | | | | | Mixing by node attribute |
-| Average neighbor degree | gap | gap | | | | | Mean neighbor degree per node |
-| Average degree connectivity | gap | gap | | | | | Avg neighbor degree by degree bin |
+| Attribute assortativity | yes | exact | | | exact | NX attribute_assortativity_coefficient | Pairwise projection; matches NX on labeled graph |
+| Average neighbor degree | yes | exact | | | exact | NX average_neighbor_degree | Per-node values match NX on pairwise projection |
+| Average degree connectivity | yes | exact | | | exact | NX average_degree_connectivity | Per-degree-bin averages match NX |
 
 ## Centrality
 
@@ -112,8 +112,8 @@ equivalence tests in `benchmarks/equiv/`.
 | has_path | yes | exact | | | exact | | Matches NX has_path boolean |
 | find_paths | yes | | | | validated | structural properties | All returned paths start/end at correct nodes |
 | Hyperedge path | yes | | | | validated | structural properties | Hypergraph-specific; no pairwise equivalent |
-| Higher-order s-walk paths | gap | | | gap | | | HGX ho_shortest_paths |
-| s-walk distances | gap | | gap | | | | XGI s=2 distances |
+| Higher-order s-walk paths | yes | | | | validated | s-line graph BFS | Shortest paths in s-line graph via NX shortest_path |
+| s-walk distances | yes | | | | validated | s-line graph distances | All-pairs shortest path lengths in s-line graph |
 
 ## Matrices
 
@@ -169,7 +169,7 @@ equivalence tests in `benchmarks/equiv/`.
 | to_networkx | yes | exact | | | exact | | Node count preserved |
 | Clique expansion | yes | | | | validated | structural properties | Connected, correct node count |
 | Simplicial complex | yes | | | | validated | structural properties | Frozenset simplices |
-| Directed line graph | gap | | | gap | | | |
+| Directed line graph | yes | | | | validated | directed adjacency | Edge A→B if A.target ∩ B.source ≠ ∅ |
 
 ## Directed Hypergraph Operations
 
@@ -298,24 +298,24 @@ edge counts. Both produce majority intra-community edges (>50%).
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 55 | 1 | 3 | 3 | 2 | 12 |
+| NetworkX | 61 | 1 | 3 | 3 | 2 | 9 |
 | XGI | 19 | 3 | 2 | 0 | 1 | 6 |
-| HGX | 14 | 3 | 1 | 0 | 0 | 30 |
+| HGX | 15 | 3 | 1 | 0 | 0 | 29 |
 
 ## Summary by Category
 
 | Category | Implemented | Gaps |
 |----------|:-----------:|:----:|
-| Construction & CRUD | 4 | 3 |
+| Construction & CRUD | 5 | 2 |
 | Metrics | 5 | 2 |
-| Basic Graph Metrics | 6 | 3 |
+| Basic Graph Metrics | 9 | 0 |
 | Centrality | 15 | 0 |
 | Connected Components | 8 | 0 |
-| Paths | 5 | 2 |
+| Paths | 7 | 1 |
 | Matrices | 8 | 0 |
 | Spectral Methods | 10 | 0 |
 | Community Detection | 9 | 2 |
-| Transformations | 6 | 1 |
+| Transformations | 7 | 0 |
 | Directed Hypergraph | 4 | 3 |
 | Generative Models | 13 | 1 |
 | Clustering Coefficients | 5 | 0 |
@@ -325,7 +325,7 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Hypergraph Structures | 8 | 0 |
 | Dynamics & Diffusion | 6 | 0 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **137** | **16** |
+| **Total** | **144** | **9** |
 
 ## How to update this document
 

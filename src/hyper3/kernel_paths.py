@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from collections import deque
 
+import networkx as nx
+
 from hyper3.kernel_base import _GraphBase
 
 
@@ -937,3 +939,45 @@ class PathMixin(_GraphBase):
                 pivots.append(pivot_col)
                 basis_vecs.append(v)
         return basis
+
+    def _build_s_line_graph(self, s: int) -> nx.Graph:
+        lg = nx.Graph()
+        edge_ids = list(self._edges.keys())
+        for eid in edge_ids:
+            lg.add_node(eid)
+        for nid in self._nodes:
+            incident = self.incident_edges(nid)
+            for i in range(len(incident)):
+                for j in range(i + 1, len(incident)):
+                    e1 = incident[i]
+                    e2 = incident[j]
+                    overlap = len(e1.node_ids & e2.node_ids)
+                    if overlap >= s:
+                        lg.add_edge(e1.id, e2.id)
+        return lg
+
+    def s_walk_shortest_path(self, source_edge: str, target_edge: str, *, s: int = 1) -> list[str] | None:
+        lg = self._build_s_line_graph(s)
+        if source_edge not in lg or target_edge not in lg:
+            return None
+        try:
+            return nx.shortest_path(lg, source_edge, target_edge)
+        except nx.NetworkXNoPath:
+            return None
+
+    def s_walk_shortest_path_length(self, source_edge: str, target_edge: str, *, s: int = 1) -> float:
+        lg = self._build_s_line_graph(s)
+        if source_edge not in lg or target_edge not in lg:
+            return float("inf")
+        try:
+            return float(nx.shortest_path_length(lg, source_edge, target_edge))
+        except nx.NetworkXNoPath:
+            return float("inf")
+
+    def s_walk_distance_matrix(self, *, s: int = 1) -> dict[str, dict[str, float]]:
+        lg = self._build_s_line_graph(s)
+        lengths = dict(nx.all_pairs_shortest_path_length(lg))
+        result: dict[str, dict[str, float]] = {}
+        for src, targets in lengths.items():
+            result[src] = {tgt: float(d) for tgt, d in targets.items()}
+        return result

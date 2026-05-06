@@ -1,9 +1,14 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+import networkx as nx
 
 from hyper3.kernel_base import _GraphBase
 from hyper3.kernel_types import Hyperedge, Hypernode, Modality
+
+if TYPE_CHECKING:
+    from hyper3.kernel import Hypergraph
 
 
 class QueryMixin(_GraphBase):
@@ -374,3 +379,49 @@ class QueryMixin(_GraphBase):
 
         corr = np.corrcoef(src_degs, tgt_degs)[0, 1]
         return float(corr) if not np.isnan(corr) else 0.0
+
+    def subhypergraph_by_order(self, orders: set[int]) -> Hypergraph:
+        from hyper3.kernel import Hypergraph
+
+        result = Hypergraph()
+        for node in self._nodes.values():
+            result.add_node(Hypernode(id=node.id, label=node.label, data=dict(node.data) if node.data else None, weight=node.weight))
+        for edge in self._edges.values():
+            edge_order = len(edge.node_ids) - 1
+            if edge_order in orders:
+                result.add_edge(Hyperedge(source_ids=frozenset(edge.source_ids), target_ids=frozenset(edge.target_ids), label=edge.label, weight=edge.weight))
+        return result
+
+    def attribute_assortativity(self, attribute: str) -> float:
+        G = self._pairwise_undirected_nx()
+        node_attrs = {}
+        for nid, node in self._nodes.items():
+            val = node.data.get(attribute) if node.data else None
+            if val is not None:
+                node_attrs[nid] = val
+        nx.set_node_attributes(G, node_attrs, attribute)
+        nodes_with_attr = {n for n in G.nodes if n in node_attrs}
+        if len(nodes_with_attr) < 2:
+            return 0.0
+        subG = G.subgraph(nodes_with_attr)
+        return float(nx.attribute_assortativity_coefficient(subG, attribute))
+
+    def _pairwise_undirected_nx(self) -> nx.Graph:
+        G = nx.Graph()
+        for nid in self._nodes:
+            G.add_node(nid)
+        for edge in self._edges.values():
+            members = list(edge.node_ids)
+            for i in range(len(members)):
+                for j in range(i + 1, len(members)):
+                    G.add_edge(members[i], members[j])
+        return G
+
+    def average_neighbor_degree(self, nodes: set[str] | None = None) -> dict[str, float]:
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.average_neighbor_degree(G, nodes=nodes)
+        return {nid: v for nid, v in nx_result.items() if nid in self._nodes}
+
+    def average_degree_connectivity(self) -> dict[int, float]:
+        G = self._pairwise_undirected_nx()
+        return {int(k): float(v) for k, v in nx.average_degree_connectivity(G).items()}

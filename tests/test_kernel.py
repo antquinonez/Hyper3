@@ -5559,3 +5559,227 @@ class TestDirectedMotifs:
         assert "observed" in result
         assert result["z_scores"] is not None
 
+
+class TestSubhypergraphByOrder:
+    def test_filter_pairwise(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+        sub = g.subhypergraph_by_order({1})
+        assert sub.edge_count == 1
+        assert sub.node_count == 4
+
+    def test_filter_higher_order(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+        sub = g.subhypergraph_by_order({2})
+        assert sub.edge_count == 1
+        assert sub.node_count == 4
+
+    def test_multiple_orders(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+        sub = g.subhypergraph_by_order({1, 2})
+        assert sub.edge_count == 2
+
+    def test_empty_result(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        sub = g.subhypergraph_by_order({5})
+        assert sub.edge_count == 0
+        assert sub.node_count == 3
+
+    def test_preserves_all_nodes(self):
+        from hyper3.generators import random_hypergraph
+        g = random_hypergraph(8, {0: 0.5, 1: 0.3}, seed=42)
+        sub = g.subhypergraph_by_order({1})
+        assert sub.node_count == g.node_count
+
+
+class TestAttributeAssortativity:
+    def test_perfect_assortative(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}", data={"group": "a"}) for i in range(3)]
+        for i in range(3):
+            nodes[i].data = {"group": "a" if i < 2 else "b"}
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        r = g.attribute_assortativity("group")
+        assert -1.0 <= r <= 1.0
+
+    def test_no_attribute(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        r = g.attribute_assortativity("missing")
+        assert r == 0.0
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        assert g.attribute_assortativity("x") == 0.0
+
+
+class TestAverageNeighborDegree:
+    def test_path_graph(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        result = g.average_neighbor_degree()
+        assert len(result) == 4
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        result = g.average_neighbor_degree()
+        assert result == {}
+
+    def test_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        result = g.average_neighbor_degree()
+        assert len(result) == 1
+
+
+class TestAverageDegreeConnectivity:
+    def test_path_graph(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        result = g.average_degree_connectivity()
+        assert 1 in result
+        assert 2 in result
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        result = g.average_degree_connectivity()
+        assert result == {}
+
+
+class TestDirectedLineGraph:
+    def test_chain(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        dlg = g.to_directed_line_graph()
+        assert dlg.number_of_nodes() == 3
+        assert dlg.number_of_edges() == 2
+
+    def test_empty(self):
+        g = Hypergraph()
+        dlg = g.to_directed_line_graph()
+        assert dlg.number_of_nodes() == 0
+
+    def test_no_directed_adjacency(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        dlg = g.to_directed_line_graph()
+        assert dlg.number_of_edges() == 0
+
+    def test_cycle(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[(i + 1) % 3].id})))
+        dlg = g.to_directed_line_graph()
+        assert dlg.number_of_nodes() == 3
+        assert dlg.number_of_edges() == 3
+
+
+class TestSWalkPaths:
+    def test_path_exists(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        edges = list(g._edges.keys())
+        path = g.s_walk_shortest_path(edges[0], edges[2], s=1)
+        assert path is not None
+        assert path[0] == edges[0]
+        assert path[-1] == edges[2]
+
+    def test_path_length(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        edges = list(g._edges.keys())
+        length = g.s_walk_shortest_path_length(edges[0], edges[2], s=1)
+        assert length == 2.0
+
+    def test_no_path(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id}), target_ids=frozenset({nodes[3].id})))
+        edges = list(g._edges.keys())
+        path = g.s_walk_shortest_path(edges[0], edges[1], s=1)
+        assert path is None
+        assert g.s_walk_shortest_path_length(edges[0], edges[1], s=1) == float("inf")
+
+    def test_nonexistent_edge(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        assert g.s_walk_shortest_path("fake1", "fake2", s=1) is None
+        assert g.s_walk_shortest_path_length("fake1", "fake2", s=1) == float("inf")
+
+    def test_distance_matrix(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(3):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+        dm = g.s_walk_distance_matrix(s=1)
+        edges = list(g._edges.keys())
+        assert len(dm) == 3
+        assert dm[edges[0]][edges[0]] == 0.0
+        assert dm[edges[0]][edges[2]] == 2.0
+
+    def test_self_distance_zero(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id}), target_ids=frozenset({nodes[2].id})))
+        edges = list(g._edges.keys())
+        assert g.s_walk_shortest_path_length(edges[0], edges[0], s=1) == 0.0
+

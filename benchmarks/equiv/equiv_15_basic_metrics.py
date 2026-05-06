@@ -19,10 +19,9 @@ def run() -> EquivRunner:
     _test_periphery(t)
     _test_center(t)
     _test_degree_assortativity(t)
-
-    t.gap("assortativity_attribute", "nx.attribute_assortativity_coefficient(G, attr) -- mixing by node attribute")
-    t.gap("average_neighbor_degree", "nx.average_neighbor_degree(G) -- mean neighbor degree per node")
-    t.gap("average_degree_connectivity", "nx.average_degree_connectivity(G) -- avg neighbor degree by degree bin")
+    _test_attribute_assortativity(t)
+    _test_average_neighbor_degree(t)
+    _test_average_degree_connectivity(t)
 
     return t
 
@@ -99,6 +98,85 @@ def _test_degree_assortativity(t: EquivRunner) -> None:
     nx_r = nx.degree_assortativity_coefficient(G)
     h3_r = mem.graph.degree_assortativity()
     t.check_close("degree_assortativity", h3_r, nx_r, tol=0.01)
+
+
+def _test_attribute_assortativity(t: EquivRunner) -> None:
+    import networkx as nx
+
+    from hyper3.kernel import Hypergraph
+    from hyper3.kernel_types import Hyperedge, Hypernode
+
+    g = Hypergraph()
+    nodes = []
+    for i in range(6):
+        n = Hypernode(label=str(i), data={"group": "a" if i < 3 else "b"})
+        g.add_node(n)
+        nodes.append(n)
+
+    for i in range(5):
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id}), target_ids=frozenset({nodes[i + 1].id})))
+
+    h3_r = g.attribute_assortativity("group")
+
+    G = nx.path_graph(6)
+    attrs = {i: ("a" if i < 3 else "b") for i in range(6)}
+    nx.set_node_attributes(G, attrs, "group")
+    nx_r = nx.attribute_assortativity_coefficient(G, "group")
+
+    t.check_close("attribute_assortativity", h3_r, nx_r, tol=0.01)
+
+    g2 = Hypergraph()
+    n1 = Hypernode(label="x", data={"type": "red"})
+    n2 = Hypernode(label="y")
+    g2.add_node(n1)
+    g2.add_node(n2)
+    t.check("attribute_assortativity/no_attr", g2.attribute_assortativity("type") == 0.0)
+
+
+def _test_average_neighbor_degree(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx().to_undirected()
+
+    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_result = mem.graph.average_neighbor_degree()
+    h3_by_label = {label_map[nid]: v for nid, v in h3_result.items()}
+
+    nx_result = nx.average_neighbor_degree(G)
+
+    for node in nx_result:
+        t.check_close(
+            f"avg_neighbor_degree/{node}",
+            h3_by_label.get(node, 0.0),
+            nx_result[node],
+            tol=1e-10,
+        )
+
+
+def _test_average_degree_connectivity(t: EquivRunner) -> None:
+    import networkx as nx
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx().to_undirected()
+
+    h3_result = mem.graph.average_degree_connectivity()
+    nx_result = nx.average_degree_connectivity(G)
+
+    for k in sorted(set(h3_result) | set(nx_result)):
+        h3_v = h3_result.get(k)
+        nx_v = nx_result.get(k)
+        if h3_v is None:
+            t.check(f"degree_connectivity/k={k}", False, "missing in H3")
+            continue
+        if nx_v is None:
+            continue
+        t.check_close(
+            f"degree_connectivity/k={k}",
+            h3_v,
+            nx_v,
+            tol=1e-10,
+        )
 
 
 if __name__ == "__main__":

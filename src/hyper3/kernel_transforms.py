@@ -130,6 +130,20 @@ class TransformMixin(_GraphBase):
                     G.add_edge(edge_list[i].id, edge_list[j].id)
         return G
 
+    def to_directed_line_graph(self) -> nx.DiGraph:
+        G = nx.DiGraph()
+        edge_list = list(self._edges.values())
+        for edge in edge_list:
+            G.add_node(edge.id, label=edge.label)
+        for i in range(len(edge_list)):
+            targets_i = edge_list[i].target_ids
+            for j in range(len(edge_list)):
+                if i == j:
+                    continue
+                if targets_i & edge_list[j].source_ids:
+                    G.add_edge(edge_list[i].id, edge_list[j].id)
+        return G
+
     def to_bipartite_graph(self) -> Any:
         """Convert to a bipartite networkx Graph with vertex and edge nodes.
 

@@ -27,14 +27,3 @@ class ColoringMixin(_GraphBase):
         G = self._pairwise_undirected_nx()
         nx_coloring = nx.coloring.equitable_color(G, num_colors)
         return {nid: nx_coloring[nid] for nid in self._nodes if nid in nx_coloring}
-
-    def _pairwise_undirected_nx(self) -> nx.Graph:
-        G = nx.Graph()
-        for nid in self._nodes:
-            G.add_node(nid)
-        for edge in self._edges.values():
-            members = list(edge.node_ids)
-            for i in range(len(members)):
-                for j in range(i + 1, len(members)):
-                    G.add_edge(members[i], members[j])
-        return G
