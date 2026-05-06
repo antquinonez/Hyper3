@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from hyper3.kernel_base import _GraphBase
-from hyper3.results import SpectralEmbeddingResult
+from hyper3.results import AdjacencyTensorResult, SpectralEmbeddingResult
 
 
 class SpectralMixin(_GraphBase):
@@ -252,6 +252,85 @@ class SpectralMixin(_GraphBase):
         D = sp.diags(degrees)
         A = A - D
         return A.tocsr(), node_list
+
+    def adjacency_tensor(
+        self,
+        *,
+        order: int | None = None,
+        dense: bool = False,
+    ) -> AdjacencyTensorResult:
+        """Compute the order-(k) adjacency tensor for a k-uniform hypergraph.
+
+        For a k-uniform hypergraph (all edges of size k), the adjacency
+        tensor T is a symmetric order-k tensor where
+        T[i1, i2, ..., ik] = sum of weights of hyperedges containing all
+        of {i1, i2, ..., ik}.
+
+        Nonzero entries are returned in COO (coordinate) format.
+
+        Args:
+            order: Edge order (size minus 1). If None, uses the most
+                common edge order in the graph.
+            dense: If True, also build a dense numpy array.
+
+        Returns:
+            AdjacencyTensorResult with COO entries and optional dense array.
+        """
+        import numpy as np
+
+        size_counts: dict[int, int] = {}
+        for e in self._edges.values():
+            s = len(e.node_ids)
+            size_counts[s] = size_counts.get(s, 0) + 1
+
+        if not size_counts:
+            node_list = [n.id for n in self._nodes.values()]
+            return AdjacencyTensorResult(n_nodes=len(node_list), node_ids=node_list)
+
+        if order is None:  # noqa: SIM108
+            k = max(size_counts, key=lambda s: size_counts[s])
+        else:
+            k = order + 1
+
+        node_list = [n.id for n in self._nodes.values()]
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+        n = len(node_list)
+
+        entries: dict[tuple[int, ...], float] = {}
+        for edge in self._edges.values():
+            if len(edge.node_ids) != k:
+                continue
+            indices = sorted(node_idx[nid] for nid in edge.node_ids if nid in node_idx)
+            if len(indices) != k:
+                continue
+            key = tuple(indices)
+            entries[key] = entries.get(key, 0.0) + edge.weight
+
+        if not entries:
+            return AdjacencyTensorResult(
+                order=k - 1, n_nodes=n, node_ids=node_list,
+            )
+
+        coords = np.array(list(entries.keys()), dtype=np.int32)
+        values = np.array(list(entries.values()), dtype=np.float64)
+
+        result = AdjacencyTensorResult(
+            order=k - 1,
+            n_nodes=n,
+            n_nonzero=len(entries),
+            coords=coords,
+            values=values,
+            node_ids=node_list,
+        )
+
+        if dense:
+            shape = (n,) * k
+            T = np.zeros(shape, dtype=np.float64)
+            for idx_arr, val in zip(coords, values, strict=True):
+                T[tuple(idx_arr)] += val
+            result.dense_tensor = T
+
+        return result
 
     def normalized_laplacian(self) -> tuple[Any, list[str]]:
         """Compute the normalized hypergraph Laplacian L_norm = D_v^{-1/2} L D_v^{-1/2}.

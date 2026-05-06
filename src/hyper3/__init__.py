@@ -165,6 +165,7 @@ from hyper3.provenance import (
     ProvenanceTracker,
 )
 from hyper3.results import (
+    AdjacencyTensorResult,
     AnomalyAnalysis,
     BiasProfileResult,
     CommitResult,

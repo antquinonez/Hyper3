@@ -489,6 +489,22 @@ class SpectralEmbeddingResult(_SimpleResultBase):
 
 
 @dataclass
+class AdjacencyTensorResult(_SimpleResultBase):
+    """Result of adjacency tensor construction for a k-uniform hypergraph.
+
+    Stores nonzero entries in COO (coordinate) format.
+    T[coords[i]] = values[i] for each nonzero entry.
+    """
+    order: int = 0
+    n_nodes: int = 0
+    n_nonzero: int = 0
+    coords: Any = None
+    values: Any = None
+    node_ids: list[str] = field(default_factory=list)
+    dense_tensor: Any = None
+
+
+@dataclass
 class LabeledEdge(_SimpleResultBase):
     """A hyperedge with source and target labels resolved from internal IDs."""
     id: str = ""

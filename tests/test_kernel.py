@@ -3825,3 +3825,161 @@ class TestBipartiteWeightedProjection:
         g = Hypergraph()
         assert g.bipartite_weighted_projection() == {}
 
+
+class TestAdjacencyTensor:
+    def _make_uniform_3(self):
+        g = Hypergraph()
+        a, b, c, d = (Hypernode(label=l) for l in "abcd")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, c.id}),
+            weight=2.0,
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, d.id}),
+            weight=1.0,
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({c.id}),
+            target_ids=frozenset({a.id, d.id}),
+            weight=3.0,
+        ))
+        return g, a, b, c, d
+
+    def test_uniform_3_tensor(self):
+        g, a, b, c, d = self._make_uniform_3()
+        result = g.adjacency_tensor()
+        assert result.order == 2
+        assert result.n_nodes == 4
+        assert result.n_nonzero == 3
+        assert result.coords is not None
+        assert result.coords.shape[1] == 3
+        assert result.dense_tensor is None
+
+    def test_dense_tensor(self):
+        g, a, b, c, d = self._make_uniform_3()
+        result = g.adjacency_tensor(dense=True)
+        assert result.dense_tensor is not None
+        assert result.dense_tensor.shape == (4, 4, 4)
+        node_ids = result.node_ids
+        a_i = node_ids.index(a.id)
+        b_i = node_ids.index(b.id)
+        c_i = node_ids.index(c.id)
+        d_i = node_ids.index(d.id)
+        assert result.dense_tensor[a_i, b_i, c_i] == pytest.approx(2.0)
+        assert result.dense_tensor[a_i, b_i, d_i] == pytest.approx(1.0)
+        assert result.dense_tensor[a_i, c_i, d_i] == pytest.approx(3.0)
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        result = g.adjacency_tensor()
+        assert result.n_nodes == 0
+        assert result.n_nonzero == 0
+        assert result.coords is None
+
+    def test_nodes_no_edges(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a"))
+        g.add_node(Hypernode(id="b"))
+        result = g.adjacency_tensor()
+        assert result.n_nodes == 2
+        assert result.n_nonzero == 0
+
+    def test_order_param_mixed_graph(self):
+        g = Hypergraph()
+        a, b, c, d = (Hypernode(label=l) for l in "abcd")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, c.id}),
+        ))
+        result = g.adjacency_tensor(order=1)
+        assert result.order == 1
+        assert result.n_nonzero == 1
+
+        result_2 = g.adjacency_tensor(order=2)
+        assert result_2.order == 2
+        assert result_2.n_nonzero == 1
+
+    def test_auto_order_picks_most_common(self):
+        g = Hypergraph()
+        a, b, c, d = (Hypernode(label=l) for l in "abcd")
+        for n in [a, b, c, d]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({c.id}),
+            target_ids=frozenset({d.id}),
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, c.id}),
+        ))
+        result = g.adjacency_tensor()
+        assert result.order == 1
+
+    def test_weight_accumulation(self):
+        g = Hypergraph()
+        a, b, c = (Hypernode(label=l) for l in "abc")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, c.id}),
+            weight=2.0,
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id, c.id}),
+            weight=3.0,
+        ))
+        result = g.adjacency_tensor(order=2)
+        assert result.n_nonzero == 1
+        assert result.values[0] == pytest.approx(5.0)
+
+    def test_pairwise_consistent_with_unweighted(self):
+        g = Hypergraph()
+        a, b, c = (Hypernode(label=l) for l in "abc")
+        for n in [a, b, c]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({a.id}),
+            target_ids=frozenset({b.id}),
+        ))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({b.id}),
+            target_ids=frozenset({c.id}),
+        ))
+        result = g.adjacency_tensor(order=1, dense=True)
+        node_ids = result.node_ids
+        a_i = node_ids.index(a.id)
+        b_i = node_ids.index(b.id)
+        c_i = node_ids.index(c.id)
+        assert result.dense_tensor[a_i, b_i] == pytest.approx(1.0)
+        assert result.dense_tensor[b_i, c_i] == pytest.approx(1.0)
+        assert result.dense_tensor[a_i, c_i] == pytest.approx(0.0)
+
+    def test_no_edges_of_target_order(self):
+        g, a, b, c, d = self._make_uniform_3()
+        result = g.adjacency_tensor(order=5)
+        assert result.n_nonzero == 0
+        assert result.n_nodes == 4
+
+    def test_result_dict_access(self):
+        g, a, b, c, d = self._make_uniform_3()
+        result = g.adjacency_tensor()
+        assert "order" in result
+        assert result["order"] == 2
+        assert result["n_nodes"] == 4
+
