@@ -2535,3 +2535,33 @@ class TestHypergraphStructureFacade:
         pd = mem.persistence_diagram()
         assert isinstance(pd, list)
 
+
+class TestDynamicsFacade:
+    def test_detect_motifs(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        result = mem.detect_motifs(order=3, runs_config_model=3, seed=42)
+        assert "motif_2_2_2" in result.observed
+
+    def test_simplicial_contagion(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcde":
+            mem.store(l)
+        for _i, (a, b) in enumerate([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")]):
+            mem.relate(a, b, bidirectional=True)
+        result = mem.simplicial_contagion({"a"}, beta=0.5, timesteps=20, seed=42)
+        assert len(result.infected_fraction) == 21
+
+    def test_simulate_kuramoto(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        result = mem.simulate_kuramoto(k2=1.0, timesteps=100, dt=0.01, seed=42)
+        assert result.theta_time.shape[1] == 3
+

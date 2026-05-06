@@ -5224,3 +5224,149 @@ class TestPersistenceDiagram:
             g.add_node(Hypernode(label=l))
         assert g.persistence_diagram() == []
 
+
+class TestDetectMotifs:
+    def test_triangle_motifs(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abc"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[2].id}), target_ids=frozenset()))
+        result = g.detect_motifs(order=3, runs_config_model=5, seed=42)
+        assert "motif_2_2_2" in result.observed
+        assert result.observed["motif_2_2_2"] == 1
+
+    def test_path_motifs(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abcd"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id, nodes[3].id}), target_ids=frozenset()))
+        result = g.detect_motifs(order=3, runs_config_model=5, seed=42)
+        assert sum(result.observed.values()) > 0
+        assert "motif_1_1_2" in result.observed
+
+    def test_empty(self):
+        g = Hypergraph()
+        result = g.detect_motifs()
+        assert result.observed == {}
+
+    def test_z_scores(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(10)]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(9):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id, nodes[i + 1].id}), target_ids=frozenset()))
+        result = g.detect_motifs(order=3, runs_config_model=10, seed=42)
+        assert len(result.z_scores) > 0
+
+
+class TestSimplicialContagion:
+    def test_basic_spread(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abcde"]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id, nodes[i + 1].id}), target_ids=frozenset()))
+        result = g.simplicial_contagion(
+            {nodes[0].id}, beta=0.8, mu=0.1, timesteps=50, seed=42,
+        )
+        assert len(result.infected_fraction) == 51
+        assert result.infected_fraction[0] == pytest.approx(0.2, abs=0.01)
+        assert result.infected_fraction[-1] > result.infected_fraction[0]
+
+    def test_zero_beta(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abc"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        result = g.simplicial_contagion(
+            {nodes[0].id}, beta=0.0, mu=0.0, timesteps=10, seed=42,
+        )
+        assert all(f == pytest.approx(1 / 3, abs=0.01) for f in result.infected_fraction[1:])
+
+    def test_full_recovery(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abc"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        result = g.simplicial_contagion(
+            {nodes[0].id}, beta=0.0, mu=1.0, timesteps=5, seed=42,
+        )
+        assert result.infected_fraction[-1] == pytest.approx(0.0, abs=0.01)
+
+    def test_empty(self):
+        g = Hypergraph()
+        result = g.simplicial_contagion(set(), timesteps=10)
+        assert result.timesteps == 10
+
+
+class TestSimulateKuramoto:
+    def test_basic(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abc"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        result = g.simulate_kuramoto(k2=1.0, k3=0.0, timesteps=100, dt=0.01, seed=42)
+        assert result.theta_time.shape == (101, 3)
+        assert len(result.order_parameter) == 101
+        assert all(0 <= r <= 1 for r in result.order_parameter)
+
+    def test_sync_with_coupling(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abc"]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[2].id}), target_ids=frozenset()))
+        import numpy as np
+        omega = np.zeros(3)
+        result = g.simulate_kuramoto(k2=5.0, k3=0.0, omega=omega, timesteps=1000, dt=0.01, seed=42)
+        assert result.order_parameter[-1] > 0.8
+
+    def test_empty(self):
+        g = Hypergraph()
+        result = g.simulate_kuramoto(timesteps=10)
+        assert result.theta_time is None
+
+
+class TestMSF:
+    def test_basic_structure(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=l) for l in "abcde"]
+        for n in nodes:
+            g.add_node(n)
+        for i in range(4):
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id, nodes[i + 1].id}), target_ids=frozenset()))
+
+        import numpy as np
+
+        def F(x, p):
+            return np.array([-x[1], x[0]])
+
+        def JF(x, p):
+            return np.array([[0, -1], [1, 0]])
+
+        def JH(x, p):
+            return np.array([[0, 0], [0, 0]])
+
+        result = g.master_stability_function(F, JF, JH, integration_time=10.0, integration_step=0.01)
+        assert len(result.alpha_values) > 0
+        assert len(result.lambda_max) == len(result.alpha_values)
+
+    def test_empty(self):
+        g = Hypergraph()
+        result = g.master_stability_function(lambda x, p: x, lambda x, p: x, lambda x, p: x)
+        assert result.alpha_values == []
+

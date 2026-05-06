@@ -854,3 +854,64 @@ class AnalyticsMixin(_MemoryBase):
 
     def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
         return self._graph.persistence_diagram()
+
+    def detect_motifs(
+        self,
+        order: int = 3,
+        runs_config_model: int = 10,
+        seed: int | None = None,
+    ):
+        return self._graph.detect_motifs(order=order, runs_config_model=runs_config_model, seed=seed)
+
+    def simplicial_contagion(
+        self,
+        infected: set[str],
+        *,
+        beta: float = 0.1,
+        beta_delta: float = 0.05,
+        mu: float = 0.1,
+        timesteps: int = 100,
+        seed: int | None = None,
+    ):
+        label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
+        id_infected = {label_to_id[l] for l in infected if l in label_to_id}
+        return self._graph.simplicial_contagion(
+            id_infected, beta=beta, beta_delta=beta_delta, mu=mu,
+            timesteps=timesteps, seed=seed,
+        )
+
+    def simulate_kuramoto(
+        self,
+        *,
+        k2: float = 1.0,
+        k3: float = 0.5,
+        omega: Any | None = None,
+        theta0: Any | None = None,
+        timesteps: int = 10000,
+        dt: float = 0.002,
+        seed: int | None = None,
+    ):
+        return self._graph.simulate_kuramoto(
+            k2=k2, k3=k3, omega=omega, theta0=theta0,
+            timesteps=timesteps, dt=dt, seed=seed,
+        )
+
+    def master_stability_function(
+        self,
+        dynamics_func: Any,
+        dynamics_jacobian: Any,
+        coupling_func: Any,
+        params: dict[str, Any] | None = None,
+        *,
+        sigmas: list[float] | None = None,
+        interval: tuple[float, float] = (-5.0, 5.0),
+        integration_time: float = 200.0,
+        integration_step: float = 0.01,
+        seed: int | None = None,
+    ):
+        return self._graph.master_stability_function(
+            dynamics_func, dynamics_jacobian, coupling_func, params,
+            sigmas=sigmas, interval=interval,
+            integration_time=integration_time, integration_step=integration_step,
+            seed=seed,
+        )

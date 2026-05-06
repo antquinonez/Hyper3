@@ -278,11 +278,12 @@ edge counts. Both produce majority intra-community edges (>50%).
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Motif detection (undirected) | gap | | | gap | | | Isomorphism enumeration + config model comparison |
+| Motif detection (undirected) | yes | | | exact | exact | HGX compute_motifs | Degree-sequence hashing for order-3 motifs; z-scores via config model |
 | Motif detection (directed) | gap | | | gap | | | Directed motif detection |
-| Simplicial contagion | gap | | | gap | | | SIS with 3-body infection |
-| MSF synchronization | gap | | | gap | | | Master Stability Function on hypergraph |
-| Random walk (stationary) | yes | | | | validated | structural properties | Stationary distribution verified |
+| Simplicial contagion | yes | | | statistical | statistical | HGX simplicial_contagion | SIS model with pairwise + 3-body infection; mean infected fraction matches over 20 trials |
+| Kuramoto synchronization | yes | | exact | | exact | XGI simulate_kuramoto | Euler integration; trajectories match XGI reimpl within 0.1 mean abs diff |
+| MSF synchronization | yes | | | | validated | Sprott+QR algorithm | Master Stability Function via Lyapunov exponent estimation |
+| Random walk (stationary) | yes | | | exact | exact | HGX RW_stationary_state | Stationary distribution matches sorted HGX values within 0.05 |
 | Random walk (density) | yes | | | | validated | structural properties | Density-based random walk |
 
 ## Statistical Validation & Filtering
@@ -298,8 +299,8 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
 | NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
-| XGI | 17 | 3 | 2 | 0 | 1 | 6 |
-| HGX | 12 | 2 | 1 | 0 | 0 | 31 |
+| XGI | 18 | 3 | 2 | 0 | 1 | 6 |
+| HGX | 13 | 3 | 1 | 0 | 0 | 31 |
 
 ## Summary by Category
 
@@ -322,9 +323,9 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Flow & Matching | 8 | 0 |
 | Graph Coloring | 0 | 4 |
 | Hypergraph Structures | 8 | 0 |
-| Dynamics & Diffusion | 2 | 4 |
+| Dynamics & Diffusion | 5 | 1 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **124** | **32** |
+| **Total** | **127** | **29** |
 
 ## How to update this document
 
