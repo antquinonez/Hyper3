@@ -1,7 +1,7 @@
 """
 XGI Comparison: Hypergraph Construction & Basic Queries
 =======================================================
-Parallels Hyper3's basic/15_construction_and_queries.py.
+Parallels Hyper3's showcase/construction_and_queries/construction_and_queries.py.
 
 Uses XGI (XGI 0.10.1) to build hypergraphs with named edges, query
 node/edge structure, compute degrees, find connected components, and

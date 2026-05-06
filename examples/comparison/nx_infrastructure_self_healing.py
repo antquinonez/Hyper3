@@ -7,7 +7,7 @@ bias profiling, metamorphosis validation, and multiway merge insights that
 Hyper3 provides out of the box.
 
 Run with:
-    .venv/bin/python examples/comparison/infrastructure_self_healing.py
+    .venv/bin/python examples/comparison/nx_infrastructure_self_healing.py
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """
 XGI Comparison: Spectral Clustering
 ====================================
-Parallels Hyper3's intermediate/30_spectral_clustering.py.
+Parallels Hyper3's showcase/communities_and_clustering/spectral_clustering.py.
 
 Uses XGI 0.10.1 spectral_clustering with k-means on normalized
 Laplacian eigenvectors. Contrasts with Hyper3's spectral_clustering.

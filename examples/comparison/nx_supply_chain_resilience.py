@@ -6,7 +6,7 @@ Reimplementation of the Hyper3 supply chain example using networkx.DiGraph,
 numpy, and standard Python libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/comparison/supply_chain_resilience.py
+    .venv/bin/python examples/comparison/nx_supply_chain_resilience.py
 """
 
 from __future__ import annotations

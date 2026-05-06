@@ -12,7 +12,7 @@ Same pipeline as the Hyper3 Prefect flow, implemented with NetworkX:
    patterns, and ecosystem clusters using NetworkX primitives.
 
 Run:
-    .venv/bin/python examples/comparison/dependency_scanner/networkx_analysis.py
+    .venv/bin/python examples/comparison/nx_dependency_scanner.py
 """
 
 from __future__ import annotations

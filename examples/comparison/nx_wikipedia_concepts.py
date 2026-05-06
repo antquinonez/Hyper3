@@ -28,7 +28,7 @@ Requirements:
   pip install networkx requests
 
 Run:
-  .venv/bin/python examples/comparison/wikipedia_concepts/networkx_analysis.py
+  .venv/bin/python examples/comparison/nx_wikipedia_concepts.py
 """
 
 from __future__ import annotations

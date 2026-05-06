@@ -1,7 +1,7 @@
 """
 XGI Comparison: Shortest Paths & Traversal
 ===========================================
-Parallels Hyper3's intermediate/20_shortest_paths_and_traversal.py.
+Parallels Hyper3's showcase/paths_and_connectivity/shortest_paths_and_traversal.py.
 
 Uses XGI for s-walk based shortest paths on a hypergraph. Computes
 single-source distances and all-pairs shortest path lengths. Compares

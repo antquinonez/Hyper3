@@ -6,7 +6,7 @@ Reimplementation of the Hyper3 code dependency example using networkx.DiGraph,
 numpy, and standard Python libraries. No Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/comparison/code_dependency_analysis.py
+    .venv/bin/python examples/comparison/nx_code_dependency_analysis.py
 """
 
 from __future__ import annotations

@@ -97,68 +97,14 @@ The project root contains additional demo scripts:
 Comparison Examples (`comparison/`)
 ------------------------------------
 
-Two categories of comparison scripts:
+Non-Hyper3 reimplementations of Hyper3 showcase and project examples. 39
+scripts across networkx (API, domain, project), XGI, and pandas. Each solves
+the same problem with inline notes on capability differences.
 
-### Framework-level comparisons (XGI / HNX / NetworkX)
+See `comparison/README.md` for the complete file-to-counterpart mapping table.
 
-Runnable scripts implementing the same operations as Hyper3 examples
-15-22 using XGI, HyperNetX, or NetworkX. Each produces comparable output
-with inline notes on capability gaps.
-
-| File | Framework | Hyper3 Counterpart | Key Differences |
-|------|-----------|-------------------|-----------------|
-| `xgi_01_construction.py` | XGI | `showcase/construction_and_queries/` | XGI: integer node IDs, lazy stat objects. Hyper3: labeled nodes, n-ary edges, semantic metadata |
-| `xgi_02_statistics.py` | XGI | `showcase/statistics_and_metrics/` | XGI: `.asdict()/.aslist()/.aspandas()` stat API. Hyper3: `degree()`, `describe()`, `edges_labeled()` |
-| `xgi_03_directed.py` | XGI | `showcase/directed_hypergraphs/` | XGI: clean DiHypergraph API. Hyper3: `in_degree()`/`out_degree()`, semantic inference on edges |
-| `xgi_04_centrality.py` | XGI | `showcase/centrality_and_ranking/` | XGI: h-eigenvector, katz centrality. Hyper3: hypergraph PageRank, betweenness |
-| `xgi_05_community.py` | XGI | `showcase/communities_and_clustering/` | XGI: connected components only. Hyper3: label propagation, s-persistence, modularity |
-| `xgi_06_paths.py` | XGI | `showcase/paths_and_connectivity/` | XGI: s-walk distances. Hyper3: hyperedge-as-hop paths, weighted shortest path |
-| `xgi_07_spectral.py` | XGI | `showcase/spectral_and_matrix/` | XGI: Laplacian, multiorder Laplacian. Hyper3: spectral embedding, s-persistence |
-| `nx_08_temporal.py` | NetworkX | `showcase/generative_and_workflow/` | NX: no temporal support. Hyper3: Allen algebra, causal chains, `allen_relation()` |
-
-### Domain-level comparisons (NetworkX)
-
-Full domain examples re-implemented in raw NetworkX + numpy. Each `nx_*`
-script mirrors a corresponding Hyper3 domain or advanced example.
-
-| File | Equivalent Hyper3 Example | Key Differences |
-|------|--------------------------|-----------------|
-| `nx_threat_intel_full_chain.py` | `domain/threat_intel_full_chain.py` | Custom rule engine, spreading activation, Born-rule collapse, self-evolution (~110 LOC) |
-| `nx_financial_risk.py` | `domain/financial_risk_network.py` | Community detection, graph diffing, hierarchical abstraction, Hebbian learning |
-| `nx_medical_diagnosis.py` | `domain/medical_diagnosis.py` | Backward chaining, belief revision, uncertainty propagation |
-| `nx_structural_patterns.py` | `advanced/13_structural_patterns_and_communities.py` | Chain/diamond/fan-out detection, community detection |
-| `nx_it_troubleshooting.py` | `domain/it_troubleshooting/` | Backward chaining, n-ary hyperedge expansion to pairwise, custom graph wrapper (~130 LOC) |
-
-### Reference copies (`comparison/laminar/`)
+Reference copies (`comparison/laminar/`)
+........................................
 
 The original laminar examples remain in `comparison/laminar/` as
 reference copies. The canonical versions live in `showcase/`.
-
-Hyper3 Gaps (capabilities in XGI/HNX not in Hyper3)
-----------------------------------------------------
-
-- Generative models (`random_hypergraph`, `uniform_HPPM`)
-- Lazy stat objects (`NodeStat` with `.asdict()`, `.aslist()`, `.aspandas()`)
-- Multi-stat DataFrames (`nodes.multi(["degree", "clustering_coefficient"]).aspandas()`)
-- H-eigenvector / Z-eigenvector / Katz centrality
-- Spectral clustering (k-means on Laplacian eigenvectors)
-- Flag complex construction
-- Hypergraph dual construction
-- HIF (Hypergraph Interchange Format) support
-- User-defined statistics via decorators (`@nodestat_func`)
-
-Competitor Gaps (capabilities in Hyper3 not in XGI/HNX/NetworkX)
-----------------------------------------------------------------
-
-- N-ary hyperedge construction with semantic labels and metadata
-- Label-based API (`edges_labeled()`, `degree()`, `in_degree()`, `out_degree()`)
-- Rule-based reasoning (transitive, abductive, generalization rules)
-- Temporal reasoning (Allen interval algebra, causal chains, consistency checking)
-- Belief distributions with Born-rule sampling
-- Bayesian updating with priors, posteriors, Bayes factors, credible sets
-- Self-evolution (decay, prune, merge, reinforce, feedback-driven)
-- Provenance tracking with cascading retraction
-- Overlay commit/rollback for speculative investigation
-- Multiway expansion with state clustering analysis
-- Spreading activation and RRF-based retrieval
-- Learning-to-rank with relevance feedback

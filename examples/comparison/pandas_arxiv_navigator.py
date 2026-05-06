@@ -8,7 +8,7 @@ and prolific-author detection. Ends with a brief comparison to the
 Hyper3 approach.
 
 Run with:
-    .venv/bin/python examples/comparison/arxiv_navigator/pandas_analysis.py
+    .venv/bin/python examples/comparison/pandas_arxiv_navigator.py
 """
 
 from __future__ import annotations

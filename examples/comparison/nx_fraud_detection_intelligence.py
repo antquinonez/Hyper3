@@ -7,7 +7,7 @@ BFS with decay for spreading activation, and standard Python libraries. No
 Hyper3 imports.
 
 Run with:
-    .venv/bin/python examples/comparison/fraud_detection_intelligence.py
+    .venv/bin/python examples/comparison/nx_fraud_detection_intelligence.py
 """
 
 from __future__ import annotations

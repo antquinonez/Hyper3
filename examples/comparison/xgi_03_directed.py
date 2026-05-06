@@ -1,7 +1,7 @@
 """
 XGI Comparison: Directed Hypergraphs
 =====================================
-Parallels Hyper3's basic/17_directed_hypergraphs.py.
+Parallels Hyper3's showcase/directed_hypergraphs/directed_hypergraphs.py.
 
 Uses xgi.DiHypergraph to create directed edges with tail/head sets,
 compute in/out degree, access tail/head membership, and compare with

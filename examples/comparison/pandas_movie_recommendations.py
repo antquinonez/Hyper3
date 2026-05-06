@@ -10,7 +10,7 @@ finds recommendations via graph-based Jaccard similarity.
 Compare with: examples/projects/movie_recommendations/pipeline.py
 
 Run with:
-    .venv/bin/python examples/comparison/movie_recommendations/pandas_analysis.py
+    .venv/bin/python examples/comparison/pandas_movie_recommendations.py
 """
 
 from __future__ import annotations

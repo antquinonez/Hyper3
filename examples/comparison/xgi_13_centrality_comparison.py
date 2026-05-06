@@ -1,7 +1,7 @@
 """
 XGI Comparison: Centrality Measures
 ====================================
-Parallels Hyper3's intermediate/32_centrality_comparison.py.
+Parallels Hyper3's showcase/centrality_and_ranking/centrality_comparison.py.
 
 Uses XGI 0.10.1 to compute h-eigenvector centrality, Katz centrality,
 and node-edge centrality. Contrasts with Hyper3's katz_centrality

@@ -1,7 +1,7 @@
 """
 XGI Comparison: Statistics & Degree Analysis
 ============================================
-Parallels Hyper3's basic/16_statistics_and_metrics.py.
+Parallels Hyper3's showcase/statistics_and_metrics/statistics_and_metrics.py.
 
 Uses XGI's lazy stat objects (.asdict(), .aslist(), .aspandas()) to
 compute node degree and edge size statistics. Contrasts XGI's stat

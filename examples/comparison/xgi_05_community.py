@@ -1,7 +1,7 @@
 """
 XGI Comparison: Community Detection & Clustering
 =================================================
-Parallels Hyper3's intermediate/19_community_detection.py.
+Parallels Hyper3's showcase/communities_and_clustering/community_detection.py.
 
 Uses XGI for connected components and degree distribution on a hypergraph
 with natural community structure. Falls back to NetworkX for label propagation
