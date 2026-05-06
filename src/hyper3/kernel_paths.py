@@ -219,3 +219,74 @@ class PathMixin(_GraphBase):
                         dist[tgt] = dist[current] + 1.0
                         queue.append(tgt)
         return dist
+
+    def _all_eccentricities(self) -> dict[str, int]:
+        ecc: dict[str, int] = {}
+        for nid in self._nodes:
+            dists = self._bfs_all_distances(nid)
+            ecc[nid] = int(max(dists.values())) if dists else 0
+        return ecc
+
+    def eccentricity(self, node_id: str | None = None) -> int | dict[str, int]:
+        """Compute eccentricity: max shortest path length from a node.
+
+        For a single node, returns its eccentricity (integer hop count).
+        With no argument, returns per-node eccentricity for all nodes.
+
+        Eccentricity is measured within each node's connected component.
+        Isolated nodes have eccentricity 0.
+
+        Args:
+            node_id: Optional node ID. If None, compute for all nodes.
+
+        Returns:
+            Integer eccentricity if node_id given, else dict of node_id -> eccentricity.
+        """
+        if node_id is not None:
+            if node_id not in self._nodes:
+                return 0
+            dists = self._bfs_all_distances(node_id)
+            return int(max(dists.values())) if dists else 0
+        return self._all_eccentricities()
+
+    def diameter(self) -> int:
+        """Compute graph diameter: maximum eccentricity across all nodes.
+
+        Returns 0 for empty graphs or graphs with no edges.
+        """
+        if not self._nodes:
+            return 0
+        ecc = self._all_eccentricities()
+        return max(ecc.values()) if ecc else 0
+
+    def radius(self) -> int:
+        """Compute graph radius: minimum eccentricity across all nodes.
+
+        Returns 0 for empty graphs or graphs with no edges.
+        """
+        if not self._nodes:
+            return 0
+        ecc = self._all_eccentricities()
+        return min(ecc.values()) if ecc else 0
+
+    def periphery(self) -> list[str]:
+        """Return nodes with eccentricity equal to the diameter.
+
+        Returns empty list for empty graphs.
+        """
+        if not self._nodes:
+            return []
+        ecc = self._all_eccentricities()
+        d = max(ecc.values())
+        return [nid for nid, e in ecc.items() if e == d]
+
+    def center(self) -> list[str]:
+        """Return nodes with eccentricity equal to the radius.
+
+        Returns empty list for empty graphs.
+        """
+        if not self._nodes:
+            return []
+        ecc = self._all_eccentricities()
+        r = min(ecc.values())
+        return [nid for nid, e in ecc.items() if e == r]

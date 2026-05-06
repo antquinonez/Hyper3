@@ -60,12 +60,12 @@ equivalence tests in `benchmarks/equiv/`.
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Diameter | gap | gap | | | | | Longest shortest path |
-| Radius | gap | gap | | | | | Minimum eccentricity |
-| Eccentricity | gap | gap | | | | | Per-node max shortest path |
-| Periphery | gap | gap | | | | | Nodes at maximum eccentricity |
-| Center | gap | gap | | | | | Nodes at minimum eccentricity |
-| Degree assortativity | gap | gap | | | | | Pearson correlation of degrees across edges |
+| Eccentricity | yes | exact | | | exact | | Per-node values match NX |
+| Diameter | yes | exact | | | exact | | Matches NX diameter |
+| Radius | yes | exact | | | exact | | Matches NX radius |
+| Periphery | yes | exact | | | exact | | Set equality with NX |
+| Center | yes | exact | | | exact | | Set equality with NX |
+| Degree assortativity | yes | exact | | | exact | | Matches NX to < 0.01 |
 | Attribute assortativity | gap | gap | | | | | Mixing by node attribute |
 | Average neighbor degree | gap | gap | | | | | Mean neighbor degree per node |
 | Average degree connectivity | gap | gap | | | | | Avg neighbor degree by degree bin |
@@ -81,14 +81,14 @@ equivalence tests in `benchmarks/equiv/`.
 | PageRank | yes | mismatch | | | mismatch | | See Known mismatches |
 | Katz centrality | yes | structural | | | structural | NX katz_centrality_numpy | Centrality sums agree within tolerance; direction agrees |
 | Subhypergraph centrality | yes | | | | validated | Estrada & Rodriguez-Velazquez 2005 | No NX/XGI/HGX equivalent; verified all-positive, all nodes present |
-| H-eigenvector centrality | gap | | | gap | | | Benson 2018 |
-| Z-eigenvector centrality | gap | | | gap | | | |
-| C-eigenvector centrality | gap | | | gap | | | |
-| Node-edge centrality | gap | | gap | | | | XGI joint node-edge |
-| s-walk betweenness (nodes) | gap | | | gap | | | |
-| s-walk betweenness (edges) | gap | | | gap | | | |
-| s-walk closeness (nodes) | gap | | | gap | | | |
-| s-walk closeness (edges) | gap | | | gap | | | |
+| H-eigenvector centrality | yes | | | | validated | Benson 2018 | Product-of-neighbors tensor iteration; sums to 1 |
+| Z-eigenvector centrality | yes | | | | validated | Benson 2018 | Same iteration without root step; sums to 1 |
+| C-eigenvector centrality | yes | exact | | | exact | | Matches NX eigenvector_centrality on pairwise projection |
+| Node-edge centrality | yes | | | | validated | Tudisco & Higham 2021 | Joint node+edge scores via incidence matrix products |
+| s-walk betweenness (edges) | yes | | | | validated | structural properties | s-line graph + Brandes; non-negative, all edges present |
+| s-walk betweenness (nodes) | yes | | | | validated | structural properties | Bipartite projection + Brandes; non-negative, all nodes present |
+| s-walk closeness (edges) | yes | | | | validated | structural properties | s-line graph closeness; values in [0, 1] |
+| s-walk closeness (nodes) | yes | | | | validated | structural properties | Bipartite projection closeness; values in [0, 1] |
 
 ## Connected Components
 
@@ -298,9 +298,9 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 28 | 1 | 3 | 0 | 2 | 38 |
-| XGI | 10 | 0 | 2 | 5 | 1 | 14 |
-| HGX | 10 | 0 | 0 | 0 | 0 | 38 |
+| NetworkX | 35 | 1 | 3 | 0 | 2 | 35 |
+| XGI | 10 | 0 | 2 | 5 | 1 | 13 |
+| HGX | 10 | 0 | 0 | 0 | 0 | 31 |
 
 ## Summary by Category
 
@@ -308,8 +308,8 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 |----------|:-----------:|:----:|
 | Construction & CRUD | 4 | 3 |
 | Metrics | 5 | 2 |
-| Basic Graph Metrics | 0 | 9 |
-| Centrality | 7 | 8 |
+| Basic Graph Metrics | 6 | 3 |
+| Centrality | 15 | 0 |
 | Connected Components | 8 | 0 |
 | Paths | 5 | 2 |
 | Matrices | 8 | 0 |
@@ -325,7 +325,7 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Hypergraph Structures | 0 | 8 |
 | Dynamics & Diffusion | 2 | 4 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **82** | **74** |
+| **Total** | **96** | **60** |
 
 ## How to update this document
 

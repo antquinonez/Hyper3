@@ -341,3 +341,36 @@ class QueryMixin(_GraphBase):
         y = np.array(y_list)
         corr = np.corrcoef(x, y)[0, 1]
         return float(corr) if not np.isnan(corr) else 0.0
+
+    def degree_assortativity(self) -> float:
+        """Compute Newman degree assortativity coefficient.
+
+        For each directed edge (u -> v), records (deg(u), deg(v)).  For
+        undirected edges (bidirectional), each direction contributes one
+        pair.  Returns the Pearson correlation of these (source_degree,
+        target_degree) pairs, matching ``nx.degree_assortativity_coefficient``.
+
+        Returns:
+            Pearson correlation in [-1, 1].  Returns 0.0 if there are
+            fewer than 2 data points.
+        """
+        import numpy as np
+
+        if not self._edges:
+            return 0.0
+
+        degree_map = {nid: len(self.incident_edges(nid)) for nid in self._nodes}
+        src_degs: list[float] = []
+        tgt_degs: list[float] = []
+
+        for edge in self._edges.values():
+            for s in edge.source_ids:
+                for t in edge.target_ids:
+                    src_degs.append(float(degree_map.get(s, 0)))
+                    tgt_degs.append(float(degree_map.get(t, 0)))
+
+        if len(src_degs) < 2:
+            return 0.0
+
+        corr = np.corrcoef(src_degs, tgt_degs)[0, 1]
+        return float(corr) if not np.isnan(corr) else 0.0

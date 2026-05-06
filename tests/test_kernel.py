@@ -2539,6 +2539,308 @@ class TestGraphStatistics:
         assert g.max_edge_order() == 0
 
 
+class TestDistanceMetrics:
+    def _make_path(self, n: int) -> tuple[Hypergraph, list[str]]:
+        g = Hypergraph()
+        ids = []
+        for i in range(n):
+            node = Hypernode(label=f"n{i}")
+            g.add_node(node)
+            ids.append(node.id)
+        for i in range(n - 1):
+            g.add_edge(Hyperedge(source_ids=frozenset({ids[i]}), target_ids=frozenset({ids[i + 1]})))
+            g.add_edge(Hyperedge(source_ids=frozenset({ids[i + 1]}), target_ids=frozenset({ids[i]})))
+        return g, ids
+
+    def test_eccentricity_single_node(self):
+        g = Hypergraph()
+        n = Hypernode(label="a")
+        g.add_node(n)
+        assert g.eccentricity(n.id) == 0
+
+    def test_eccentricity_pair(self):
+        g, ids = self._make_path(2)
+        assert g.eccentricity(ids[0]) == 1
+        assert g.eccentricity(ids[1]) == 1
+
+    def test_eccentricity_path(self):
+        g, ids = self._make_path(5)
+        ecc = g.eccentricity()
+        assert ecc[ids[0]] == 4
+        assert ecc[ids[2]] == 2
+        assert ecc[ids[4]] == 4
+
+    def test_eccentricity_missing_node(self):
+        g = Hypergraph()
+        assert g.eccentricity("missing") == 0
+
+    def test_diameter_path(self):
+        g, _ = self._make_path(5)
+        assert g.diameter() == 4
+
+    def test_diameter_empty(self):
+        g = Hypergraph()
+        assert g.diameter() == 0
+
+    def test_diameter_single_node(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(label="a"))
+        assert g.diameter() == 0
+
+    def test_radius_path(self):
+        g, ids = self._make_path(5)
+        assert g.radius() == 2
+
+    def test_radius_empty(self):
+        g = Hypergraph()
+        assert g.radius() == 0
+
+    def test_periphery_path(self):
+        g, ids = self._make_path(5)
+        p = g.periphery()
+        assert set(p) == {ids[0], ids[4]}
+
+    def test_periphery_empty(self):
+        g = Hypergraph()
+        assert g.periphery() == []
+
+    def test_center_path(self):
+        g, ids = self._make_path(5)
+        c = g.center()
+        assert c == [ids[2]]
+
+    def test_center_path_even(self):
+        g, ids = self._make_path(4)
+        c = g.center()
+        assert set(c) == {ids[1], ids[2]}
+
+    def test_center_empty(self):
+        g = Hypergraph()
+        assert g.center() == []
+
+    def test_diameter_triangle(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abc":
+            n = Hypernode(label=l)
+            g.add_node(n)
+            ids.append(n.id)
+        for i in range(3):
+            j = (i + 1) % 3
+            g.add_edge(Hyperedge(source_ids=frozenset({ids[i]}), target_ids=frozenset({ids[j]})))
+            g.add_edge(Hyperedge(source_ids=frozenset({ids[j]}), target_ids=frozenset({ids[i]})))
+        assert g.diameter() == 1
+        assert g.radius() == 1
+
+
+class TestDegreeAssortativity:
+    def test_empty(self):
+        g = Hypergraph()
+        assert g.degree_assortativity() == 0.0
+
+    def test_single_edge(self):
+        g = Hypergraph()
+        ids = []
+        for l in "ab":
+            n = Hypernode(label=l)
+            g.add_node(n)
+            ids.append(n.id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0]}), target_ids=frozenset({ids[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1]}), target_ids=frozenset({ids[0]})))
+        assert g.degree_assortativity() == pytest.approx(0.0, abs=1e-10)
+
+    def test_returns_float(self):
+        g = Hypergraph()
+        for l in "abcd":
+            g.add_node(Hypernode(label=l))
+        ids = [g.get_node_by_label(l).id for l in "abcd"]
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0]}), target_ids=frozenset({ids[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1]}), target_ids=frozenset({ids[0]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1]}), target_ids=frozenset({ids[2]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[2]}), target_ids=frozenset({ids[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[2]}), target_ids=frozenset({ids[3]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[3]}), target_ids=frozenset({ids[2]})))
+        r = g.degree_assortativity()
+        assert -1.0 <= r <= 1.0
+
+
+class TestHEigenvectorCentrality:
+    def _make_hypergraph(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abcd":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0], ids[1]}), target_ids=frozenset({ids[2]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1], ids[2]}), target_ids=frozenset({ids[3]})))
+        return g, ids
+
+    def test_returns_dict(self):
+        g, _ = self._make_hypergraph()
+        hc = g.h_eigenvector_centrality()
+        assert isinstance(hc, dict)
+        assert len(hc) == 4
+
+    def test_all_positive(self):
+        g, _ = self._make_hypergraph()
+        hc = g.h_eigenvector_centrality()
+        assert all(v >= 0 for v in hc.values())
+
+    def test_sums_to_one(self):
+        g, _ = self._make_hypergraph()
+        hc = g.h_eigenvector_centrality()
+        assert abs(sum(hc.values()) - 1.0) < 1e-6
+
+    def test_empty(self):
+        g = Hypergraph()
+        assert g.h_eigenvector_centrality() == {}
+
+    def test_no_edges(self):
+        g = Hypergraph()
+        for l in "abc":
+            g.add_node(Hypernode(label=l))
+        hc = g.h_eigenvector_centrality()
+        assert len(hc) == 3
+
+
+class TestZEigenvectorCentrality:
+    def _make_hypergraph(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abcd":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0], ids[1]}), target_ids=frozenset({ids[2]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1], ids[2]}), target_ids=frozenset({ids[3]})))
+        return g, ids
+
+    def test_returns_dict(self):
+        g, _ = self._make_hypergraph()
+        zc = g.z_eigenvector_centrality()
+        assert isinstance(zc, dict)
+        assert len(zc) == 4
+
+    def test_all_positive(self):
+        g, _ = self._make_hypergraph()
+        zc = g.z_eigenvector_centrality()
+        assert all(v >= 0 for v in zc.values())
+
+    def test_sums_to_one(self):
+        g, _ = self._make_hypergraph()
+        zc = g.z_eigenvector_centrality()
+        assert abs(sum(zc.values()) - 1.0) < 1e-6
+
+    def test_empty(self):
+        g = Hypergraph()
+        assert g.z_eigenvector_centrality() == {}
+
+
+class TestCEigenvectorCentrality:
+    def test_matches_eigenvector(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abcd":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0]}), target_ids=frozenset({ids[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1]}), target_ids=frozenset({ids[2]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[2]}), target_ids=frozenset({ids[3]})))
+        cc = g.c_eigenvector_centrality()
+        ec = g.eigenvector_centrality()
+        for nid in cc:
+            assert abs(cc[nid] - ec[nid]) < 1e-6
+
+
+class TestNodeEdgeCentrality:
+    def test_returns_tuple(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abc":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0], ids[1]}), target_ids=frozenset({ids[2]})))
+        nc, ec = g.node_edge_centrality()
+        assert isinstance(nc, dict)
+        assert isinstance(ec, dict)
+        assert len(nc) == 3
+        assert len(ec) == 1
+
+    def test_all_positive(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abc":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0], ids[1]}), target_ids=frozenset({ids[2]})))
+        nc, ec = g.node_edge_centrality()
+        assert all(v >= 0 for v in nc.values())
+        assert all(v >= 0 for v in ec.values())
+
+    def test_empty(self):
+        g = Hypergraph()
+        nc, ec = g.node_edge_centrality()
+        assert nc == {}
+        assert ec == {}
+
+    def test_no_edges(self):
+        g = Hypergraph()
+        for l in "abc":
+            g.add_node(Hypernode(label=l))
+        nc, ec = g.node_edge_centrality()
+        assert len(nc) == 3
+        assert ec == {}
+
+
+class TestSWalkCentralities:
+    def _make_hypergraph(self):
+        g = Hypergraph()
+        ids = []
+        for l in "abcd":
+            g.add_node(Hypernode(label=l))
+            ids.append(g.get_node_by_label(l).id)
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0], ids[1]}), target_ids=frozenset({ids[2]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[1], ids[2]}), target_ids=frozenset({ids[3]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({ids[0]}), target_ids=frozenset({ids[3]})))
+        return g, ids
+
+    def test_s_walk_betweenness_edges(self):
+        g, _ = self._make_hypergraph()
+        bc = g.s_walk_betweenness(s=1, kind="edges")
+        assert isinstance(bc, dict)
+        assert len(bc) == 3
+
+    def test_s_walk_betweenness_nodes(self):
+        g, _ = self._make_hypergraph()
+        bc = g.s_walk_betweenness(s=1, kind="nodes")
+        assert isinstance(bc, dict)
+        assert len(bc) == 4
+
+    def test_s_walk_closeness_edges(self):
+        g, _ = self._make_hypergraph()
+        cc = g.s_walk_closeness(s=1, kind="edges")
+        assert isinstance(cc, dict)
+        assert len(cc) == 3
+        assert all(0 <= v <= 1 for v in cc.values())
+
+    def test_s_walk_closeness_nodes(self):
+        g, _ = self._make_hypergraph()
+        cc = g.s_walk_closeness(s=1, kind="nodes")
+        assert isinstance(cc, dict)
+        assert len(cc) == 4
+
+    def test_s_walk_empty(self):
+        g = Hypergraph()
+        assert g.s_walk_betweenness(s=1, kind="edges") == {}
+        assert g.s_walk_betweenness(s=1, kind="nodes") == {}
+        assert g.s_walk_closeness(s=1, kind="edges") == {}
+        assert g.s_walk_closeness(s=1, kind="nodes") == {}
+
+    def test_s_walk_betweenness_s2(self):
+        g, _ = self._make_hypergraph()
+        bc = g.s_walk_betweenness(s=2, kind="edges")
+        assert isinstance(bc, dict)
+
+
 class TestClusteringCoefficient:
     def test_triangle(self):
         g = Hypergraph()

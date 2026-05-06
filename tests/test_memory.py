@@ -2132,3 +2132,113 @@ class TestMemoryAnalyticsCoverage:
         assert "a" in node_labels
         assert "e1" in node_labels
 
+    def test_eccentricity_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        ecc = mem.eccentricity()
+        assert isinstance(ecc, dict)
+        assert ecc["b"] == 1
+        assert ecc["a"] == 2
+        assert mem.eccentricity("b") == 1
+        assert mem.eccentricity("missing") == 0
+
+    def test_diameter_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.diameter() == 2
+
+    def test_radius_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.radius() == 1
+
+    def test_periphery_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        p = mem.periphery()
+        assert set(p) == {"a", "c"}
+
+    def test_center_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.center() == ["b"]
+
+    def test_degree_assortativity_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        r = mem.degree_assortativity()
+        assert isinstance(r, float)
+        assert -1.0 <= r <= 1.0
+
+    def test_h_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        hc = mem.h_eigenvector_centrality()
+        assert isinstance(hc, dict)
+        assert len(hc) == 3
+
+    def test_z_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        zc = mem.z_eigenvector_centrality()
+        assert isinstance(zc, dict)
+        assert len(zc) == 3
+
+    def test_c_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        cc = mem.c_eigenvector_centrality()
+        assert isinstance(cc, dict)
+        assert len(cc) == 3
+
+    def test_node_edge_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        nc, ec = mem.node_edge_centrality()
+        assert isinstance(nc, dict)
+        assert isinstance(ec, dict)
+        assert len(nc) == 3
+
+    def test_s_walk_betweenness_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        bc = mem.s_walk_betweenness(s=1, kind="edges")
+        assert isinstance(bc, dict)
+
+    def test_s_walk_closeness_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        cc = mem.s_walk_closeness(s=1, kind="nodes")
+        assert isinstance(cc, dict)
+

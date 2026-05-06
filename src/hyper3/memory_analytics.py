@@ -541,6 +541,42 @@ class AnalyticsMixin(_MemoryBase):
         """Return the maximum edge order (cardinality - 1) across all edges."""
         return self._graph.max_edge_order()
 
+    def eccentricity(self, concept: str | None = None) -> int | dict[str, int]:
+        """Compute eccentricity keyed by label.
+
+        With a concept label, returns its eccentricity (int).
+        Without, returns per-node eccentricity dict keyed by label.
+        """
+        if concept is not None:
+            node = self._find_node(concept)
+            if not node:
+                return 0
+            return self._graph.eccentricity(node.id)
+        raw = self._graph._all_eccentricities()
+        return {self._node_label(nid): e for nid, e in raw.items()}
+
+    def diameter(self) -> int:
+        """Compute graph diameter (maximum eccentricity)."""
+        return self._graph.diameter()
+
+    def radius(self) -> int:
+        """Compute graph radius (minimum eccentricity)."""
+        return self._graph.radius()
+
+    def periphery(self) -> list[str]:
+        """Return labels of nodes with eccentricity equal to the diameter."""
+        ids = self._graph.periphery()
+        return [self._node_label(nid) for nid in ids]
+
+    def center(self) -> list[str]:
+        """Return labels of nodes with eccentricity equal to the radius."""
+        ids = self._graph.center()
+        return [self._node_label(nid) for nid in ids]
+
+    def degree_assortativity(self) -> float:
+        """Compute Newman degree assortativity coefficient."""
+        return self._graph.degree_assortativity()
+
     def clustering_coefficient(self, concept: str) -> float:
         """Compute the local clustering coefficient for a concept.
 
@@ -579,6 +615,37 @@ class AnalyticsMixin(_MemoryBase):
         if top_k is not None:
             return dict(_top_k(scores, top_k))
         return scores
+
+    def h_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute H-eigenvector centrality (Benson 2018) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.h_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def z_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute Z-eigenvector centrality (Benson 2018) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.z_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def c_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute C-eigenvector centrality (clique motif eigenvector) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.c_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def node_edge_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> tuple[dict[str, float], dict[str, float]]:
+        """Compute joint node-edge centrality (Tudisco & Higham 2021)."""
+        node_raw, edge_raw = self._graph.node_edge_centrality(max_iter=max_iter, tol=tol)
+        node_out = {self._node_label(nid): s for nid, s in node_raw.items()}
+        edge_out: dict[str, float] = {}
+        for eid, s in edge_raw.items():
+            edge_obj = self._graph.get_edge(eid)
+            key = edge_obj.label if edge_obj and edge_obj.label else eid[:8]
+            edge_out[key] = s
+        return node_out, edge_out
+
+    def s_walk_betweenness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        """Compute s-walk betweenness centrality."""
+        return self._graph.s_walk_betweenness(s=s, kind=kind)
+
+    def s_walk_closeness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        """Compute s-walk closeness centrality."""
+        return self._graph.s_walk_closeness(s=s, kind=kind)
 
     def spectral_clustering(self, *, k: int = 2) -> list[set[str]]:
         """Partition nodes into k clusters using spectral clustering.

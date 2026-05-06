@@ -13,13 +13,6 @@ from benchmarks.equiv.shared import EquivRunner
 def run() -> EquivRunner:
     t = EquivRunner("gaps_hgx")
 
-    t.gap("h_eigenvector_centrality", "HEC_centrality(HG) -- H-eigenvector (Benson 2018)")
-    t.gap("z_eigenvector_centrality", "ZEC_centrality(HG) -- Z-eigenvector")
-    t.gap("c_eigenvector_centrality", "CEC_centrality(HG) -- C-eigenvector")
-    t.gap("s_betweenness", "s_betweenness(H, s=1) -- s-walk edge betweenness")
-    t.gap("s_betweenness_nodes", "s_betweenness_nodes(H) -- s-walk node betweenness")
-    t.gap("s_closeness", "s_closeness(H, s=1) -- s-walk edge closeness")
-    t.gap("s_closeness_nodes", "s_closeness_nodes(H) -- s-walk node closeness")
     t.gap("motif_detection", "compute_motifs(HG, order=3) -- isomorphism enumeration + config model comparison")
     t.gap("directed_motif_detection", "compute_directed_motifs(DHG, order=3)")
     t.gap("simplicial_contagion", "simplicial_contagion(HG, I0, T, beta, beta_D, mu) -- SIS with 3-body infection")
