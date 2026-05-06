@@ -187,18 +187,18 @@ equivalence tests in `benchmarks/equiv/`.
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
 |---------|:---|:--|:----|:----|:-----------|-------------------|-------|
-| Erdos-Renyi hypergraph | yes | | partial | | validated | structural properties | |
-| Uniform random hypergraph | yes | | partial | | validated | structural properties | |
-| Complete hypergraph | yes | exact | | | exact | | Same node count as NX complete_graph; edge count matches C(n,2) |
-| Star hypergraph | yes | exact | | | exact | | Same node/edge count as NX star_graph |
-| Ring lattice | yes | | | | validated | structural properties | Hypergraph ring lattice; no direct NX equivalent |
-| Chung-Lu | yes | | | | validated | structural properties | Weighted sampling without replacement |
+| Erdos-Renyi hypergraph | yes | | statistical | | statistical | XGI fast_random_hypergraph | Mean/std match within tolerance over 50 trials |
+| Uniform random hypergraph | yes | | exact | exact | exact | XGI uniform_erdos_renyi + HGX random_uniform | Exact node/edge count match with HGX; statistical with XGI |
+| Complete hypergraph | yes | exact | exact | | exact | XGI complete_hypergraph | Same node/edge count as NX and XGI |
+| Star hypergraph | yes | exact | | | exact | NX | Same node/edge count as NX star_graph |
+| Ring lattice | yes | | exact | | exact | XGI ring_lattice | Same node count, edge sizes, connectivity |
+| Chung-Lu | yes | | statistical | | statistical | XGI chung_lu_hypergraph | Both produce positive edge counts in same order of magnitude |
 | Barabasi-Albert | yes | structural | | | structural | NX barabasi_albert_graph | Same node count and connectivity; edge count differs (H3 bidirectional) |
-| Watts-Strogatz | yes | exact | | | exact | | Same node and edge count as NX watts_strogatz_graph |
-| Random shuffle | yes | | | | validated | structural properties | Preserves node/edge counts, changes hash |
+| Watts-Strogatz | yes | exact | structural | | structural | XGI watts_strogatz_hypergraph | Both connected at p=0; reproducible with same seed |
+| Random shuffle | yes | | exact | structural | exact | XGI shuffle_hyperedges + HGX random_shuffle | Node/edge counts preserved in both; HGX may merge duplicates |
 | SBM (pairwise) | yes | statistical | | | statistical | | See note below |
-| Scale-free hypergraph | yes | | | | validated | Boguna et al. 2004 | Power-law tail: top 10% nodes hold >30% degree |
-| HSBM (k-uniform) | yes | | partial | | statistical | | See note below |
+| Scale-free hypergraph | yes | | | statistical | statistical | HGX scale_free_hypergraph | Same order of magnitude; both show power-law tail |
+| HSBM (k-uniform) | yes | | statistical | | statistical | XGI uniform_HSBM | Both produce intra-community majority edges; different sampling methods |
 | Configuration model | gap | | | gap | | | MCMC preserving degree seq |
 | Activity-driven model | gap | | | gap | | | Temporal activity-driven |
 
@@ -208,10 +208,9 @@ mean edge counts match within 3.0 edges, and both match the theoretical
 expected count (intra pairs * p_in + cross pairs * p_out) within 2 std devs.
 
 **HSBM note:** H3 enumerates all C(n, k) combinations with independent
-Bernoulli trials. Over 100 trials, mean edge count matches theoretical
-expectation within 2.0 edges (mean=14.9, expected=15.0, std=3.2 vs
-theoretical 3.1). XGI's uniform_HSBM uses geometric skip sampling and allows
-duplicate edges (multihypergraph), so edge counts are not directly comparable.
+Bernoulli trials. XGI's uniform_HSBM uses a probability tensor with geometric
+skip sampling and allows duplicate edges (multihypergraph), producing higher
+edge counts. Both produce majority intra-community edges (>50%).
 
 ## Clustering Coefficients
 
@@ -299,8 +298,8 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
 | NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
-| XGI | 15 | 0 | 2 | 5 | 1 | 6 |
-| HGX | 10 | 0 | 0 | 0 | 0 | 31 |
+| XGI | 17 | 3 | 2 | 0 | 1 | 6 |
+| HGX | 12 | 2 | 1 | 0 | 0 | 31 |
 
 ## Summary by Category
 
