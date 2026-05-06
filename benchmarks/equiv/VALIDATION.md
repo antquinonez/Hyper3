@@ -56,6 +56,20 @@ equivalence tests in `benchmarks/equiv/`.
 | Lazy stat objects | gap | | gap | | | | XGI nodes.degree.asdict() etc. |
 | Multi-stat dataframes | gap | | gap | | | | XGI nodes.multi().aspandas() |
 
+## Basic Graph Metrics
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Diameter | gap | gap | | | | | Longest shortest path |
+| Radius | gap | gap | | | | | Minimum eccentricity |
+| Eccentricity | gap | gap | | | | | Per-node max shortest path |
+| Periphery | gap | gap | | | | | Nodes at maximum eccentricity |
+| Center | gap | gap | | | | | Nodes at minimum eccentricity |
+| Degree assortativity | gap | gap | | | | | Pearson correlation of degrees across edges |
+| Attribute assortativity | gap | gap | | | | | Mixing by node attribute |
+| Average neighbor degree | gap | gap | | | | | Mean neighbor degree per node |
+| Average degree connectivity | gap | gap | | | | | Avg neighbor degree by degree bin |
+
 ## Centrality
 
 | Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
@@ -71,8 +85,10 @@ equivalence tests in `benchmarks/equiv/`.
 | Z-eigenvector centrality | gap | | | gap | | | |
 | C-eigenvector centrality | gap | | | gap | | | |
 | Node-edge centrality | gap | | gap | | | | XGI joint node-edge |
-| s-walk betweenness | gap | | | gap | | | |
-| s-walk closeness | gap | | | gap | | | |
+| s-walk betweenness (nodes) | gap | | | gap | | | |
+| s-walk betweenness (edges) | gap | | | gap | | | |
+| s-walk closeness (nodes) | gap | | | gap | | | |
+| s-walk closeness (edges) | gap | | | gap | | | |
 
 ## Connected Components
 
@@ -207,13 +223,109 @@ duplicate edges (multihypergraph), so edge counts are not directly comparable.
 | Square clustering | yes | exact | | | exact | | |
 | Triangles | yes | exact | | | exact | | |
 
+## DAG & Tree Operations
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Topological sort | gap | gap | | | | | Linear ordering respecting edge direction |
+| is_dag | gap | gap | | | | | DAG check |
+| Transitive closure | gap | gap | | | | | Compute reachability edges |
+| Transitive reduction | gap | gap | | | | | Remove redundant edges |
+| DAG longest path | gap | gap | | | | | Longest path in DAG |
+| DAG longest path length | gap | gap | | | | | Length of longest path in DAG |
+| Minimum spanning tree | gap | gap | | | | | Kruskal/Prim MST |
+| Minimum spanning edges | gap | gap | | | | | MST edge iterator |
+| Spanning tree count | gap | gap | | | | | Kirchhoff matrix-tree theorem |
+| is_tree | gap | gap | | | | | Tree check |
+| is_forest | gap | gap | | | | | Forest check |
+| Tree center | gap | | | | | | Center of tree (min eccentricity nodes) |
+
+## Flow & Matching Algorithms
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Max flow | gap | gap | | | | | Edmonds-Karp / Dinic |
+| Min cut (global) | gap | gap | | | | | Stoer-Wagner |
+| Min cut (s-t) | gap | gap | | | | | s-t minimum cut |
+| Max weight matching | gap | gap | | | | | Blossom algorithm |
+| Bipartite maximum matching | gap | gap | | | | | Hopcroft-Karp |
+| Bipartite max weight matching | gap | gap | | | | | Weighted bipartite matching |
+| Minimum edge cover | gap | gap | | | | | Smallest edge set covering all nodes |
+| Minimum cycle basis | gap | gap | | | | | Horton algorithm |
+
+## Graph Coloring
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Greedy coloring | gap | gap | | | | | Assign colors to avoid adjacent same-color |
+| Chromatic number | gap | gap | | | | | Exact or approximate |
+| Equitable coloring | gap | gap | | | | | Balanced color class sizes |
+| Strategy-based coloring | gap | gap | | | | | largest_first, smallest_last, etc. |
+
+## Hypergraph-Specific Structures
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Encapsulation DAG | gap | | gap | | | | DAG of edge containment relationships |
+| Hodge matrix | gap | | gap | | | | Boundary / coboundary operators |
+| Hodge Laplacian | gap | | gap | | | | Combinatorial Laplacian per dimension |
+| Simpliciality | gap | | gap | | | | Measure of how simplicial a hypergraph is |
+| Face enumeration | gap | | | | | | Enumerate all faces/cofaces |
+| Boundary operator | gap | | | | | | Compute d_k for simplicial complex |
+| Betti curve | gap | | | | | | Betti numbers vs threshold |
+| Persistence diagram | gap | | | | | | From filtered hypergraph / clique complex |
+
+## Dynamics & Diffusion
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Motif detection (undirected) | gap | | | gap | | | Isomorphism enumeration + config model comparison |
+| Motif detection (directed) | gap | | | gap | | | Directed motif detection |
+| Simplicial contagion | gap | | | gap | | | SIS with 3-body infection |
+| MSF synchronization | gap | | | gap | | | Master Stability Function on hypergraph |
+| Random walk (stationary) | yes | | | | validated | structural properties | Stationary distribution verified |
+| Random walk (density) | yes | | | | validated | structural properties | Density-based random walk |
+
+## Statistical Validation & Filtering
+
+| Feature | H3 | NX | XGI | HGX | Validation | Validated against | Notes |
+|---------|:---|:--|:----|:----|:-----------|-------------------|-------|
+| Statistically Validated Hypergraph (SVH) | gap | | | gap | | | Statistical significance filter |
+| Statistically Validated Cores (SVC) | gap | | | gap | | | Core-based significance filter |
+| Structural reducibility | gap | | | gap | | | Kirkley et al. 2025 |
+
 ## Summary by Framework
 
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
-| NetworkX | 28 | 1 | 3 | 0 | 2 | 5 |
-| XGI | 10 | 0 | 2 | 5 | 1 | 6 |
+| NetworkX | 28 | 1 | 3 | 0 | 2 | 38 |
+| XGI | 10 | 0 | 2 | 5 | 1 | 14 |
 | HGX | 10 | 0 | 0 | 0 | 0 | 38 |
+
+## Summary by Category
+
+| Category | Implemented | Gaps |
+|----------|:-----------:|:----:|
+| Construction & CRUD | 4 | 3 |
+| Metrics | 5 | 2 |
+| Basic Graph Metrics | 0 | 9 |
+| Centrality | 7 | 8 |
+| Connected Components | 8 | 0 |
+| Paths | 5 | 2 |
+| Matrices | 8 | 0 |
+| Spectral Methods | 10 | 0 |
+| Community Detection | 6 | 5 |
+| Transformations | 6 | 1 |
+| Directed Hypergraph | 4 | 3 |
+| Generative Models | 12 | 2 |
+| Clustering Coefficients | 5 | 0 |
+| DAG & Tree Operations | 0 | 12 |
+| Flow & Matching | 0 | 8 |
+| Graph Coloring | 0 | 4 |
+| Hypergraph Structures | 0 | 8 |
+| Dynamics & Diffusion | 2 | 4 |
+| Statistical Validation | 0 | 3 |
+| **Total** | **82** | **74** |
 
 ## How to update this document
 

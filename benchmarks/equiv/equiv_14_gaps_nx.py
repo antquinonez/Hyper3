@@ -13,7 +13,6 @@ from benchmarks.equiv.shared import EquivRunner
 def run() -> EquivRunner:
     t = EquivRunner("gaps_nx")
 
-    t.gap("louvain_communities", "nx.community.louvain_communities(G)")
     t.gap("girvan_newman", "nx.community.girvan_newman(G) -- hierarchical by edge betweenness")
     t.gap("minimum_cycle_basis", "nx.minimum_cycle_basis(G)")
     t.gap("max_weight_matching", "nx.max_weight_matching(G) -- Blossom algorithm")
