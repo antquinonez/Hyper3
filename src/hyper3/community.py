@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from hyper3.kernel import Hypergraph
@@ -30,6 +31,15 @@ class CommunityResult(_SimpleResultBase):
     coverage: float = 0.0
     largest_community_size: int = 0
     avg_community_size: float = 0.0
+
+
+@dataclass
+class HierarchicalCommunityResult(_SimpleResultBase):
+    communities: list[Community] = field(default_factory=list)
+    community_count: int = 0
+    dendrogram: list[list[float]] = field(default_factory=list)
+    edge_labels: dict[int, int] = field(default_factory=dict)
+    linkage_method: str = "average"
 
 
 class CommunityDetector:
@@ -315,6 +325,213 @@ class CommunityDetector:
                 final_labels[orig_nid] = cid_map[c]
 
         return self._build_result(final_labels, neighbor_map)
+
+    def detect_girvan_newman(
+        self,
+        *,
+        n_communities: int = 2,
+        edge_label: str | None = None,
+    ) -> CommunityResult:
+        neighbor_map = self._build_neighbor_map(edge_label)
+        adj: dict[str, dict[str, float]] = {}
+        for nid, neighbors in neighbor_map.items():
+            for nb_id, w in neighbors:
+                adj.setdefault(nid, {})[nb_id] = w
+        for n in self._graph.nodes:
+            adj.setdefault(n.id, {})
+
+        for edge in self._graph.edges:
+            if edge_label and edge.label != edge_label:
+                continue
+            if not edge.target_ids:
+                members = list(edge.node_ids)
+                for i in range(len(members)):
+                    for j in range(i + 1, len(members)):
+                        adj.setdefault(members[i], {})[members[j]] = edge.weight
+                        adj.setdefault(members[j], {})[members[i]] = edge.weight
+
+        node_ids = [n.id for n in self._graph.nodes]
+        if not node_ids:
+            return CommunityResult()
+
+        current_adj: dict[str, dict[str, float]] = {
+            nid: dict(adj.get(nid, {})) for nid in node_ids
+        }
+
+        while True:
+            labels = self._connected_labels(current_adj, node_ids)
+            groups: dict[int, list[str]] = {}
+            for nid, lab in labels.items():
+                groups.setdefault(lab, []).append(nid)
+            if len(groups) >= n_communities:
+                break
+            bridge = self._highest_betweenness_edge(current_adj, node_ids)
+            if bridge is None:
+                break
+            a, b = bridge
+            current_adj.get(a, {}).pop(b, None)
+            current_adj.get(b, {}).pop(a, None)
+
+        return self._build_result(labels, neighbor_map)
+
+    @staticmethod
+    def _connected_labels(
+        adj: dict[str, dict[str, float]],
+        node_ids: list[str],
+    ) -> dict[str, int]:
+        labels: dict[str, int] = {}
+        visited: set[str] = set()
+        label = 0
+        for start in node_ids:
+            if start in visited:
+                continue
+            queue = [start]
+            visited.add(start)
+            while queue:
+                nid = queue.pop(0)
+                labels[nid] = label
+                for nb in adj.get(nid, {}):
+                    if nb not in visited:
+                        visited.add(nb)
+                        queue.append(nb)
+            label += 1
+        return labels
+
+    @staticmethod
+    def _highest_betweenness_edge(
+        adj: dict[str, dict[str, float]],
+        node_ids: list[str],
+    ) -> tuple[str, str] | None:
+        edge_count: dict[frozenset[str], float] = defaultdict(float)
+        for source in node_ids:
+            dist: dict[str, float] = {source: 0.0}
+            sigma: dict[str, float] = defaultdict(float)
+            sigma[source] = 1.0
+            pred: dict[str, list[str]] = defaultdict(list)
+            queue = [source]
+            while queue:
+                nid = queue.pop(0)
+                for nb in adj.get(nid, {}):
+                    if nb not in dist:
+                        dist[nb] = dist[nid] + 1
+                        queue.append(nb)
+                    if dist.get(nb) == dist[nid] + 1:
+                        sigma[nb] += sigma[nid]
+                        pred[nb].append(nid)
+
+            delta: dict[str, float] = defaultdict(float)
+            reverse_order = sorted(
+                [n for n in dist if n != source],
+                key=lambda n: dist[n],
+                reverse=True,
+            )
+            for nid in reverse_order:
+                for p in pred[nid]:
+                    contrib = sigma[p] / sigma[nid] * (1.0 + delta[nid])
+                    pair = frozenset({p, nid})
+                    edge_count[pair] += contrib
+                    delta[p] += contrib
+
+        if not edge_count:
+            return None
+        best = max(edge_count, key=lambda k: edge_count[k])
+        a, b = list(best)
+        return (a, b)
+
+    def detect_hyperlink_communities(
+        self,
+        *,
+        cut_height: float | None = None,
+        n_communities: int | None = None,
+    ) -> HierarchicalCommunityResult:
+        import numpy as np
+
+        edges_list = list(self._graph.edges)
+        if not edges_list:
+            return HierarchicalCommunityResult()
+
+        n_edges = len(edges_list)
+        edge_members: list[frozenset[str]] = [frozenset(e.node_ids) for e in edges_list]
+
+        node_to_edges: dict[str, list[int]] = defaultdict(list)
+        for idx, members in enumerate(edge_members):
+            for nid in members:
+                node_to_edges[nid].append(idx)
+
+        dist_matrix = np.ones((n_edges, n_edges), dtype=float)
+        np.fill_diagonal(dist_matrix, 0.0)
+
+        for edge_indices in node_to_edges.values():
+            for i_pos in range(len(edge_indices)):
+                for j_pos in range(i_pos + 1, len(edge_indices)):
+                    ei = edge_indices[i_pos]
+                    ej = edge_indices[j_pos]
+                    if dist_matrix[ei, ej] < 1.0:
+                        continue
+                    intersection = len(edge_members[ei] & edge_members[ej])
+                    union = len(edge_members[ei] | edge_members[ej])
+                    if union > 0:
+                        jaccard = intersection / union
+                        dist_matrix[ei, ej] = 1.0 - jaccard
+                        dist_matrix[ej, ei] = 1.0 - jaccard
+
+        import scipy.cluster.hierarchy as sch
+        import scipy.spatial.distance as ssd
+
+        condensed = ssd.squareform(dist_matrix)
+        dendrogram = sch.linkage(condensed, method="average")
+
+        if cut_height is not None:
+            labels_arr = sch.fcluster(dendrogram, t=cut_height, criterion="distance")
+        elif n_communities is not None:
+            labels_arr = sch.fcluster(dendrogram, t=n_communities, criterion="maxclust")
+        else:
+            labels_arr = sch.fcluster(dendrogram, t=2, criterion="maxclust")
+
+        edge_labels_map: dict[int, int] = {}
+        for idx, lab in enumerate(labels_arr):
+            edge_labels_map[idx] = int(lab) - 1
+
+        node_community: dict[str, set[int]] = defaultdict(set)
+        for idx, members in enumerate(edge_members):
+            for nid in members:
+                node_community[nid].add(edge_labels_map[idx])
+
+        node_ids = [n.id for n in self._graph.nodes]
+        overlap_groups: dict[int, set[str]] = defaultdict(set)
+        for nid in node_ids:
+            if nid not in node_community or not node_community[nid]:
+                continue
+            for ec in sorted(node_community[nid]):
+                overlap_groups[ec].add(nid)
+
+        communities: list[Community] = []
+        for cid in sorted(overlap_groups):
+            members = list(overlap_groups[cid])
+            if not members:
+                continue
+            member_lab: list[str] = []
+            for nid in members:
+                node = self._graph.get_node(nid)
+                member_lab.append(node.label if node else nid[:8])
+            communities.append(
+                Community(
+                    community_id=cid,
+                    member_ids=members,
+                    member_labels=member_lab,
+                    size=len(members),
+                )
+            )
+
+        communities.sort(key=lambda c: c.size, reverse=True)
+
+        return HierarchicalCommunityResult(
+            communities=communities,
+            community_count=len(communities),
+            dendrogram=dendrogram.tolist(),
+            edge_labels=edge_labels_map,
+            linkage_method="average",
+        )
 
     def _build_neighbor_map(
         self,

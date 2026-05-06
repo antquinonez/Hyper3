@@ -2565,3 +2565,27 @@ class TestDynamicsFacade:
         result = mem.simulate_kuramoto(k2=1.0, timesteps=100, dt=0.01, seed=42)
         assert result.theta_time.shape[1] == 3
 
+
+class TestCommunityFacade:
+    def test_girvan_newman(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(8):
+            mem.store(str(i))
+        pairs = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(3,4)]
+        for i, j in pairs:
+            mem.relate(str(i), str(j), bidirectional=True)
+        result = mem.detect_communities(method="girvan_newman")
+        assert result.community_count == 2
+
+    def test_hyperlink_communities(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(str(i))
+        mem.relate("0", "1", bidirectional=True)
+        mem.relate("1", "2", bidirectional=True)
+        mem.relate("2", "3", bidirectional=True)
+        mem.relate("3", "4", bidirectional=True)
+        mem.relate("4", "5", bidirectional=True)
+        result = mem.detect_hyperlink_communities()
+        assert result.community_count > 0
+

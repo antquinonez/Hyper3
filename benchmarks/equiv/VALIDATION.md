@@ -153,11 +153,11 @@ equivalence tests in `benchmarks/equiv/`.
 | Greedy modularity communities | yes | structural | | | structural | NX greedy_modularity_communities | Both produce valid disjoint covers; community counts may differ |
 | Louvain | yes | exact | | | exact | | Identical partition, modularity within 0.01 |
 | Core-periphery | yes | | | | validated | Borgatti & Everett 2000 | Scores in [0, 1]; no standard framework equivalent |
-| Girvan-Newman | gap | gap | | | | | Hierarchical by edge betweenness |
+| Girvan-Newman | yes | structural | | | structural | NX community.girvan_newman | Edge-betweenness removal on pairwise projection; community sizes match NX |
 | HyMMSBM | gap | | | gap | | | Mixed-membership SBM |
-| HySC | gap | | | gap | | | Hypergraph spectral clustering |
+| HySC | yes | | structural | | statistical | XGI spectral_clustering | Same Zhou et al. 2006 algorithm; cluster agreement >= 70% with XGI on ring-of-cliques |
 | HypergraphMT | gap | | | gap | | | Mesoscale theory |
-| Hyperlink communities | gap | | | gap | | | Ahn-Bagrow-Leicht |
+| Hyperlink communities | yes | | | | validated | Ahn-Bagrow-Leicht; scipy linkage | Jaccard distance between edges + average linkage; dendrogram matches reference implementation |
 
 ## Transformations
 
@@ -299,7 +299,7 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Framework | Exact match | Statistical | Structural | Validated only | Mismatch | Gaps |
 |-----------|:-----------:|:-----------:|:----------:|:--------------:|:--------:|:----:|
 | NetworkX | 51 | 1 | 3 | 3 | 2 | 16 |
-| XGI | 18 | 3 | 2 | 0 | 1 | 6 |
+| XGI | 19 | 3 | 2 | 0 | 1 | 6 |
 | HGX | 13 | 3 | 1 | 0 | 0 | 31 |
 
 ## Summary by Category
@@ -314,7 +314,7 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Paths | 5 | 2 |
 | Matrices | 8 | 0 |
 | Spectral Methods | 10 | 0 |
-| Community Detection | 6 | 5 |
+| Community Detection | 9 | 2 |
 | Transformations | 6 | 1 |
 | Directed Hypergraph | 4 | 3 |
 | Generative Models | 12 | 2 |
@@ -325,7 +325,7 @@ edge counts. Both produce majority intra-community edges (>50%).
 | Hypergraph Structures | 8 | 0 |
 | Dynamics & Diffusion | 5 | 1 |
 | Statistical Validation | 0 | 3 |
-| **Total** | **127** | **29** |
+| **Total** | **130** | **26** |
 
 ## How to update this document
 

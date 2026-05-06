@@ -278,6 +278,103 @@ class TestLouvain:
         result = det.detect_louvain()
         assert result.community_count == 1
 
+
+class TestGirvanNewman:
+    def _build_graph(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(8)]
+        for n in nodes:
+            g.add_node(n)
+        pairs = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(3,4)]
+        for i, j in pairs:
+            g.add_edge(Hyperedge(source_ids=frozenset({nodes[i].id, nodes[j].id}), target_ids=frozenset()))
+        return g, nodes
+
+    def test_two_communities(self):
+        g, nodes = self._build_graph()
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman(n_communities=2)
+        assert result.community_count == 2
+        all_members = set()
+        for c in result.communities:
+            all_members.update(c.member_ids)
+        assert len(all_members) == 8
+
+    def test_single_component(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman(n_communities=2)
+        assert result.community_count == 2
+
+    def test_empty(self):
+        g = Hypergraph()
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman()
+        assert result.community_count == 0
+
+    def test_disconnected(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(4)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id, nodes[3].id}), target_ids=frozenset()))
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman(n_communities=2)
+        assert result.community_count == 2
+
+
+class TestHyperlinkCommunities:
+    def test_basic(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id, nodes[3].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
+        det = CommunityDetector(g)
+        result = det.detect_hyperlink_communities()
+        assert result.community_count > 0
+        assert len(result.dendrogram) > 0
+        assert len(result.edge_labels) == 3
+
+    def test_cut_height(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id}), target_ids=frozenset()))
+        det = CommunityDetector(g)
+        result = det.detect_hyperlink_communities(cut_height=0.5)
+        assert result.community_count > 0
+
+    def test_n_communities(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=str(i)) for i in range(6)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
+        det = CommunityDetector(g)
+        result = det.detect_hyperlink_communities(n_communities=2)
+        assert result.community_count >= 2
+
+    def test_empty(self):
+        g = Hypergraph()
+        det = CommunityDetector(g)
+        result = det.detect_hyperlink_communities()
+        assert result.community_count == 0
+
+
+class TestLouvainExtended:
     def test_louvain_empty_graph(self):
         g = Hypergraph()
         det = CommunityDetector(g)

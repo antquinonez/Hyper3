@@ -47,6 +47,7 @@ from hyper3.community import (
     Community,
     CommunityDetector,
     CommunityResult,
+    HierarchicalCommunityResult,
 )
 from hyper3.constraints import (
     BoundaryNavigator,
