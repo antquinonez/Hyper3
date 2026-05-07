@@ -594,14 +594,14 @@ def main() -> None:
         max_total_states=50,
     )
 
-    expansion = result.get("expansion", {})
-    overlay = result.get("overlay", {})
+    expansion = result.expansion
+    overlay = result.overlay or {}
 
     print(f"  Seeds: {sorted(seeds)}")
     print(f"  (chosen to form depends_on chains for transitive inference)")
-    print(f"  States created:     {expansion.get('states_created', 0)}")
-    print(f"  Rules applied:      {expansion.get('rules_applied', 0)}")
-    print(f"  Max depth reached:  {expansion.get('max_depth', 0)}")
+    print(f"  States created:     {expansion.states_created if expansion else 0}")
+    print(f"  Rules applied:      {expansion.rules_applied if expansion else 0}")
+    print(f"  Max depth reached:  {expansion.max_depth if expansion else 0}")
     if overlay:
         print(f"  Overlay committed:  {overlay.get('node_count', 0)} nodes, {overlay.get('edge_count', 0)} edges")
 

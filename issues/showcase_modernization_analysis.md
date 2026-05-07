@@ -50,10 +50,10 @@ These examples use only basic CRUD, statistics, centrality, and connectivity API
 
 ## Outdated Patterns in Existing Examples
 
-1. Dict-style access on typed results instead of attribute access (overlay_commit_rollback, iterative_frame_reasoning)
-2. Direct engine imports bypassing the facade (StateConvergenceEngine in 3 examples)
-3. Private state manipulation (mem._meta._state.architectural_fitness)
-4. Raw graph iteration instead of facade methods
+1. ~~Dict-style access on typed results instead of attribute access (overlay_commit_rollback, iterative_frame_reasoning, advanced_rules)~~ **Fixed** — replaced with typed attribute access
+2. ~~Direct engine imports bypassing the facade (StateConvergenceEngine in 3 examples)~~ **Fixed** — changed to import from public `hyper3` package
+3. ~~Private state manipulation (mem._meta._state.architectural_fitness)~~ **Accepted** — no public API alternative; documented as demo-only in self_evolving_cognition
+4. Raw graph iteration (`mem.graph.nodes`) instead of facade methods — **Accepted** — no facade method exists to list all node labels; this is a facade API gap
 
 ## Suggested New Examples
 

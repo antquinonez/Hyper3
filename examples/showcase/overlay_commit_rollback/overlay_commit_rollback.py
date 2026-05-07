@@ -386,7 +386,7 @@ def analyze_hypothesis(
                     if node:
                         blast_radius.add(node.label)
 
-    confidence_map = result.get("confidence", {})
+    confidence_map = result.confidence or {}
     avg_conf = (
         sum(confidence_map.values()) / len(confidence_map)
         if confidence_map
@@ -410,7 +410,7 @@ def print_hypothesis_report(
     analysis: dict,
 ) -> None:
     exp = analysis["result"].expansion
-    overlay_info = analysis["result"].get("overlay", {})
+    overlay_info = analysis["result"].overlay or {}
 
     print(f"  Hypothesis: {name}")
     print(f"  Description: {description}")

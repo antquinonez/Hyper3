@@ -167,14 +167,12 @@ def main() -> None:
     print("SECTION 5: Causal Merge Insight Preservation")
     print("=" * 70)
 
-    from hyper3.multiway import MultiwayEngine, MultiwayGraph
-    from hyper3.multiway_causal import StateConvergenceEngine
+    from hyper3 import MultiwayEngine, MultiwayGraph, StateConvergenceEngine, MultiwayState
 
     graph = mem.graph
     mw_graph = MultiwayGraph()
     causal = StateConvergenceEngine(graph, mw_graph, threshold=0.5)
 
-    from hyper3.multiway import MultiwayState
     shared_nodes = {"node_a", "node_b"}
     s1 = MultiwayState(
         parent_id=None,

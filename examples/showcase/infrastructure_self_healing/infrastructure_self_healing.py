@@ -388,8 +388,7 @@ def main() -> None:
     print("SECTION 8: Multiway Reasoning with Merge Insights")
     print("=" * 70)
 
-    from hyper3.multiway import MultiwayEngine, MultiwayGraph
-    from hyper3.multiway_causal import StateConvergenceEngine
+    from hyper3 import MultiwayEngine, StateConvergenceEngine
 
     mw = MultiwayEngine(mem.graph)
     rules = [

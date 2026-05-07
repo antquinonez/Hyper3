@@ -392,13 +392,14 @@ def analyze_perspective(
     print(f"\n  --- {perspective_label} ({frame_name} frame) ---")
 
     result = mem.reason_with_frame(seed_labels, frame_name=frame_name)
-    expansion = result.get("expansion", {})
-    frame_config = result.get("frame_config", {})
-    print(f"    Expansion: {expansion.get('edges_produced', 0)} edges, "
-          f"{expansion.get('states_created', 0)} states, "
-          f"{expansion.get('rules_applied', 0)} rule applications")
-    print(f"    Algorithm: {frame_config.get('algorithm', 'N/A')}, "
-          f"info_loss: {frame_config.get('information_loss', 0):.3f}")
+    exp = result.expansion
+    fc = result.frame_config or {}
+    ep = exp.edges_produced if exp else 0
+    sc = exp.states_created if exp else 0
+    ra = exp.rules_applied if exp else 0
+    print(f"    Expansion: {ep} edges, {sc} states, {ra} rule applications")
+    print(f"    Algorithm: {fc.get('algorithm', 'N/A')}, "
+          f"info_loss: {fc.get('information_loss', 0):.3f}")
 
     if frame_name == "classical":
         reachable = _traverse(mem, seed_labels, max_depth=4)
@@ -452,8 +453,8 @@ def analyze_perspective(
     return {
         "reachable_labels": reachable_labels,
         "sorted_assets": sorted_assets,
-        "expansion": expansion,
-        "frame_config": frame_config,
+        "expansion": exp,
+        "frame_config": fc,
     }
 
 
