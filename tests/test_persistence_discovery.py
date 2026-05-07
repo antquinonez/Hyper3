@@ -607,10 +607,10 @@ class TestUnifiedPersistence:
         mem.link("a", "b", label="connects")
         mem.link("b", "c", label="connects")
 
-        qs = mem.create_distribution(["a"], amplitudes=[1.0])
+        mem.create_distribution(["a"], amplitudes=[1.0])
 
         mem.add_rules(TransitiveRule())
-        result = mem.reason({"a", "c"}, depth=2)
+        mem.reason({"a", "c"}, depth=2)
 
         path = str(tmp_path / "full_save.json")
         mem.save(path, full=True)
@@ -640,7 +640,7 @@ class TestUnifiedPersistence:
     def test_load_old_bare_snapshot(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("alpha")
-        qs = mem.create_distribution(["alpha"], amplitudes=[1.0])
+        mem.create_distribution(["alpha"], amplitudes=[1.0])
 
         path = str(tmp_path / "bare_snapshot.json")
         mem.save_state(path)
@@ -649,4 +649,68 @@ class TestUnifiedPersistence:
         mem2.add("alpha")
         mem2.load_state(path)
         assert len(list(mem2.belief_layer.active_distributions)) >= 1
+
+
+class TestSerializerLoadWithRules:
+    def test_load_with_rules_roundtrip(self, tmp_path):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="n1", label="alpha"))
+        g.add_node(Hypernode(id="n2", label="beta"))
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({"n1"}),
+            target_ids=frozenset({"n2"}),
+            label="connects",
+        ))
+        log = __import__("hyper3").EventLog()
+        rules = [TransitiveRule(edge_label="connects")]
+        s = Serializer()
+        path = str(tmp_path / "with_rules.json")
+        s.save_with_rules(g, log, rules, path)
+        g2, log2, rules2 = s.load_with_rules(path)
+        assert g2.node_count == 2
+        assert g2.edge_count == 1
+        assert g2.get_node("n1").label == "alpha"
+        assert len(rules2) == 1
+        assert isinstance(rules2[0], TransitiveRule)
+        assert rules2[0]._edge_label == "connects"
+
+    def test_load_with_rules_empty_rules(self, tmp_path):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x", label="x"))
+        log = __import__("hyper3").EventLog()
+        s = Serializer()
+        path = str(tmp_path / "no_rules.json")
+        s.save_with_rules(g, log, [], path)
+        g2, log2, rules2 = s.load_with_rules(path)
+        assert g2.node_count == 1
+        assert rules2 == []
+
+
+class TestSerializerImportEdgelistEdgeCases:
+    def test_import_edgelist_skips_blank_lines(self, tmp_path):
+        s = Serializer()
+        path = str(tmp_path / "blank.tsv")
+        with open(path, "w") as f:
+            f.write("a\tb\trel\t1.0\n\n\nc\td\tlink\t2.0\n")
+        g = s.import_edgelist(path)
+        assert g.edge_count == 2
+        assert g.node_count == 4
+
+    def test_import_edgelist_skips_short_lines(self, tmp_path):
+        s = Serializer()
+        path = str(tmp_path / "short.tsv")
+        with open(path, "w") as f:
+            f.write("only_one_field\na\tb\na2\tb2\tlabel\t1.0\n")
+        g = s.import_edgelist(path)
+        assert g.edge_count == 1
+        assert g.node_count == 2
+
+    def test_import_edgelist_mixed_blank_and_short(self, tmp_path):
+        s = Serializer()
+        path = str(tmp_path / "mixed.tsv")
+        with open(path, "w") as f:
+            f.write("\nshort\na\tb\n\nx\ty\trel\t3.0\n\n")
+        g = s.import_edgelist(path)
+        assert g.edge_count == 1
+        assert g.get_node("x").label == "x"
 

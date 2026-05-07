@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from hyper3 import GraphDescription, HypergraphMemory, top_k
+from hyper3 import BulkResult, GraphDescription, HypergraphMemory, NodeInfo, NodeNotFoundError, top_k
+from hyper3.memory_persistence import _json_fallback
 
 
 class TestHasNode:
@@ -396,3 +400,310 @@ class TestCentralityTopK:
         mem.link("a", "b", label="x")
         bc = mem.betweenness_centrality(top_k=None)
         assert len(bc) == 2
+
+
+class TestGet:
+    def test_missing_concept_returns_default(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.get("missing") is None
+
+    def test_missing_concept_custom_default(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.get("missing", default="fallback") == "fallback"
+
+    def test_no_key_returns_label_and_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data={"type": "t", "val": 42})
+        result = mem.get("x")
+        assert result == {"label": "x", "type": "t", "val": 42}
+
+    def test_no_key_non_dict_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data="plain_string")
+        result = mem.get("x")
+        assert result == {"label": "x"}
+
+    def test_key_returns_value(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data={"color": "red"})
+        assert mem.get("x", "color") == "red"
+
+    def test_key_missing_returns_default(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data={"color": "red"})
+        assert mem.get("x", "size") is None
+        assert mem.get("x", "size", default=0) == 0
+
+    def test_key_non_dict_data_returns_default(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data=42)
+        assert mem.get("x", "anything") is None
+        assert mem.get("x", "anything", default="nope") == "nope"
+
+
+class TestSet:
+    def test_missing_concept_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        with pytest.raises(NodeNotFoundError, match="ghost"):
+            mem.set("ghost", x=1)
+
+    def test_none_data_initialized_to_dict(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x")
+        mem.set("x", color="blue", size=10)
+        assert mem.get("x", "color") == "blue"
+        assert mem.get("x", "size") == 10
+
+    def test_updates_existing_dict(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data={"color": "red"})
+        mem.set("x", color="green", shape="circle")
+        assert mem.get("x", "color") == "green"
+        assert mem.get("x", "shape") == "circle"
+
+
+class TestInfo:
+    def test_missing_returns_none(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        assert mem.info("ghost") is None
+
+    def test_returns_nodeinfo(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data={"type": "t"})
+        result = mem.info("x")
+        assert isinstance(result, NodeInfo)
+        assert result.label == "x"
+        assert result.data == {"type": "t"}
+        assert result.weight == 1.0
+        assert result.access_count >= 1
+
+    def test_non_dict_data_returns_empty_data(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x", data="string_data")
+        result = mem.info("x")
+        assert isinstance(result, NodeInfo)
+        assert result.data == {}
+
+
+class TestLinkHyper:
+    def test_creates_hyperedge(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        edge = mem.link_hyper({"a", "b"}, {"c"}, label="joint", weight=2.5)
+        assert edge.label == "joint"
+        assert edge.weight == 2.5
+
+    def test_edge_data_forwarded(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        edge = mem.link_hyper({"a"}, {"b"}, label="x", extra="val")
+        assert edge.data == {"extra": "val"}
+
+
+class TestAddAll:
+    def test_nodes_only(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.add_all(nodes={"a": {}, "b": {"type": "t"}})
+        assert result.nodes_added == 2
+        assert result.nodes_skipped == 0
+        assert result.edges_added == 0
+        assert result.edges_skipped == 0
+        assert mem.has("a")
+        assert mem.has("b")
+
+    def test_nodes_existing_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a", data={"v": 1})
+        result = mem.add_all(nodes={"a": {"v": 2}, "b": {}})
+        assert result.nodes_added == 1
+        assert result.nodes_skipped == 1
+        assert mem.get("a", "v") == 2
+
+    def test_edges_only_dict_spec(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.add_all(edges=[{"source": "a", "target": "b", "label": "x", "weight": 3.0}])
+        assert result.edges_added == 1
+        assert result.nodes_added == 0
+
+    def test_edges_only_tuple_spec(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.add_all(edges=[("a", "b", "y")])
+        assert result.edges_added == 1
+
+    def test_tuple_spec_with_weight(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.add_all(edges=[("a", "b", "z", 5.0)])
+        assert result.edges_added == 1
+
+    def test_tuple_spec_short(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.add_all(edges=[("a", "b")])
+        assert result.edges_added == 1
+        edges = list(mem._graph.edges)
+        assert any(e.label == "" for e in edges)
+
+    def test_edges_missing_nodes_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.add_all(edges=[("a", "b", "x")])
+        assert result.edges_added == 0
+        assert result.edges_skipped == 1
+
+    def test_both_nodes_and_edges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.add_all(
+            nodes={"a": {}, "b": {}},
+            edges=[("a", "b", "connects")],
+        )
+        assert isinstance(result, BulkResult)
+        assert result.nodes_added == 2
+        assert result.edges_added == 1
+
+    def test_empty_call(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.add_all()
+        assert result.nodes_added == 0
+        assert result.edges_added == 0
+
+
+class TestMaybeEvolveWithFeedback:
+    def test_evolve_with_feedback_triggered(self):
+        mem = HypergraphMemory(evolve_interval=2)
+        mem.add("a")
+        mem.add("b")
+        assert hasattr(mem, "_feedback")
+        assert mem._feedback is not None
+        stats_after = mem.stats()
+        assert stats_after.nodes == 2
+
+
+class TestLoadRecordsEdgeWithoutEndpoints:
+    def test_edge_missing_source_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.load_records([], [{"target": "b", "label": "x"}])
+        assert result.edges == 0
+
+    def test_edge_missing_target_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        result = mem.load_records([], [{"source": "a", "label": "x"}])
+        assert result.edges == 0
+
+    def test_edge_empty_source_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        result = mem.load_records([], [{"source": "", "target": "a", "label": "x"}])
+        assert result.edges == 0
+
+
+class TestLoadBareSnapshot:
+    def test_load_state_file_via_load(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("alpha")
+        mem.add("beta")
+        mem.link("alpha", "beta", label="knows")
+        path = str(tmp_path / "state.json")
+        mem.save_state(path)
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.load(path)
+        assert mem2.stats().nodes == 0
+
+
+class TestLoadFallbackPaths:
+    def test_load_with_rules_after_snapshot_failure(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="links")
+        path = str(tmp_path / "mixed.json")
+        mem.save(path, include_rules=True)
+        p = Path(path)
+        data = json.loads(p.read_text())
+        data["snapshot"] = {"cache_items": None}
+        p.write_text(json.dumps(data))
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.load(path)
+        assert mem2.has("x")
+        assert mem2.has("y")
+
+    def test_load_plain_after_rules_corruption(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("p")
+        mem.add("q")
+        mem.link("p", "q", label="rel")
+        path = str(tmp_path / "corrupt_rules.json")
+        mem.save(path, include_rules=False)
+        p = Path(path)
+        data = json.loads(p.read_text())
+        data["rules"] = None
+        p.write_text(json.dumps(data))
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.load(path)
+        assert mem2.has("p")
+        assert mem2.has("q")
+        assert mem2.rules == []
+
+
+class TestTryLoadBareSnapshot:
+    def test_invalid_json_returns_none(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        p = tmp_path / "bad.txt"
+        p.write_text("not valid json {{{")
+        assert mem._try_load_bare_snapshot(str(p)) is None
+
+    def test_has_graph_key_returns_none(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        p = tmp_path / "graph.json"
+        p.write_text(json.dumps({"graph": {"nodes": [], "edges": []}}))
+        assert mem._try_load_bare_snapshot(str(p)) is None
+
+    def test_no_version_no_saved_at_returns_none(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        p = tmp_path / "no_meta.json"
+        p.write_text(json.dumps({"data": [1, 2, 3]}))
+        assert mem._try_load_bare_snapshot(str(p)) is None
+
+    def test_valid_bare_snapshot_returned(self, tmp_path):
+        from hyper3.snapshot import SystemSnapshot
+
+        mem = HypergraphMemory(evolve_interval=0)
+        p = tmp_path / "bare.json"
+        p.write_text(json.dumps({"version": 1, "saved_at": 1234567890.0}))
+        result = mem._try_load_bare_snapshot(str(p))
+        assert isinstance(result, SystemSnapshot)
+        assert result.version == 1
+        assert result.saved_at == 1234567890.0
+
+
+class TestJsonFallback:
+    def test_set_sorted(self):
+        assert _json_fallback({3, 1, 2}) == [1, 2, 3]
+
+    def test_frozenset_sorted(self):
+        assert _json_fallback(frozenset([3, 1, 2])) == [1, 2, 3]
+
+    def test_tuple_to_list(self):
+        assert _json_fallback((1, 2, 3)) == [1, 2, 3]
+
+    def test_str_fallback(self):
+        assert _json_fallback(42) == "42"
+
+    def test_object_str_fallback(self):
+        class Widget:
+            def __str__(self):
+                return "widget"
+
+        assert _json_fallback(Widget()) == "widget"

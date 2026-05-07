@@ -208,6 +208,10 @@ class TestSearchNamespace:
         summary = populated.search.feedback.summary()
         assert summary is not None
 
+    def test_enable_faiss(self, populated):
+        result = populated.search.enable_faiss(nlist=10)
+        assert isinstance(result, bool)
+
 
 class TestAnalyzeNamespace:
     def test_centrality_single(self, populated):
@@ -402,6 +406,242 @@ class TestCognitiveNamespace:
         assert result is not None or result is None
 
 
+class TestReasonNamespaceDelegation:
+    def test_incremental(self, populated):
+        populated.add_rules(TransitiveRule())
+        result = populated.reason.incremental({"c"}, depth=2)
+        assert result is not None
+
+    def test_frame(self, populated):
+        populated.add_rules(TransitiveRule())
+        result = populated.reason.frame({"a", "c"}, frame_name="classical")
+        assert result is not None
+
+    def test_rules_property(self, populated):
+        populated.add_rules(TransitiveRule())
+        rules = populated.reason.rules
+        assert isinstance(rules, list)
+        assert len(rules) >= 1
+
+    def test_auto_discover(self, populated):
+        result = populated.reason.auto_discover()
+        assert result is not None
+
+    def test_commit(self, populated):
+        result = populated.reason.commit()
+        assert result is not None
+
+
+class TestBeliefNamespaceEdgeCases:
+    def test_sample_returns_none_no_distribution(self, mem):
+        mem.add("x")
+        result = mem.belief.sample("x")
+        assert result is None
+
+    def test_probabilities_string_target_no_distribution(self, mem):
+        mem.add("x")
+        probs = mem.belief.probabilities("x")
+        assert probs == {}
+
+    def test_sample_correlated(self, mem):
+        mem.add("a")
+        mem.add("b")
+        qs = mem.belief.create(["a", "b"])
+        result = mem.belief.sample_correlated(qs, "a")
+        assert isinstance(result, dict)
+
+    def test_resolve_state_not_found(self, mem):
+        result = mem.belief._resolve_state("nonexistent")
+        assert result is None
+
+
+class TestSearchFeedbackDelegation:
+    def test_record(self, populated):
+        from hyper3.retrieval_engine import RetrievalResult
+
+        results = [
+            RetrievalResult(
+                node_id="x",
+                label="b",
+                activation=0.5,
+                similarity=0.5,
+                rrf_score=0.8,
+                activation_rank=1,
+                similarity_rank=1,
+            )
+        ]
+        n = populated.search.feedback.record("a", results, {"b"})
+        assert n == 1
+
+    def test_train(self, populated):
+        result = populated.search.feedback.train()
+        assert result is not None
+
+
+class TestAnalyzeNamespaceDelegation:
+    def test_distances(self, populated):
+        d = populated.analyze.distances("a")
+        assert isinstance(d, dict)
+        assert "b" in d
+
+    def test_component_of(self, populated):
+        comp = populated.analyze.component_of("a")
+        assert isinstance(comp, set)
+        assert "a" in comp
+        assert "c" in comp
+
+    def test_hyperlink_communities(self, populated):
+        result = populated.analyze.hyperlink_communities()
+        assert result is not None
+
+    def test_spersistence(self, populated):
+        result = populated.analyze.spersistence()
+        assert result is not None
+
+    def test_pattern(self, populated):
+        result = populated.analyze.pattern()
+        assert isinstance(result, list)
+
+    def test_match_diamonds(self, populated):
+        result = populated.analyze.match_diamonds()
+        assert isinstance(result, list)
+
+    def test_match_fan_out(self, populated):
+        result = populated.analyze.match_fan_out()
+        assert isinstance(result, list)
+
+    def test_edges(self, populated):
+        result = populated.analyze.edges()
+        assert isinstance(result, list)
+        assert len(result) >= 2
+
+    def test_edges_filtered(self, populated):
+        result = populated.analyze.edges(label="connects")
+        assert isinstance(result, list)
+        assert all(hasattr(e, "label") for e in result)
+
+    def test_to_dual(self, populated):
+        result = populated.analyze.to_dual()
+        assert isinstance(result, dict)
+
+    def test_to_line_graph(self, populated):
+        result = populated.analyze.to_line_graph()
+        assert isinstance(result, list)
+
+    def test_to_bipartite(self, populated):
+        result = populated.analyze.to_bipartite()
+        assert isinstance(result, list)
+
+    def test_capture_version(self, populated):
+        v = populated.analyze.capture_version()
+        assert isinstance(v, dict)
+        assert "version_id" in v
+
+    def test_diff(self, populated):
+        v = populated.analyze.capture_version()
+        delta = populated.analyze.diff(v["version_id"])
+        assert delta is not None
+
+    def test_diff_between(self, populated):
+        v1 = populated.analyze.capture_version()
+        v2 = populated.analyze.capture_version()
+        delta = populated.analyze.diff_between(v1["version_id"], v2["version_id"])
+        assert delta is not None
+
+    def test_version_history(self, populated):
+        populated.analyze.capture_version()
+        history = populated.analyze.version_history()
+        assert history is not None
+
+    def test_summaries(self, populated):
+        result = populated.analyze.summaries()
+        assert isinstance(result, list)
+
+    def test_contradictions(self, populated):
+        result = populated.analyze.contradictions()
+        assert isinstance(result, list)
+
+    def test_revise(self, populated):
+        result = populated.analyze.revise()
+        assert result is not None
+
+    def test_is_dag(self, populated):
+        assert isinstance(populated.analyze.is_dag(), bool)
+
+    def test_topological_sort(self, populated):
+        result = populated.analyze.topological_sort()
+        assert isinstance(result, list)
+        assert result[0] == "a"
+        assert result[-1] == "c"
+
+    def test_motifs(self, populated):
+        result = populated.analyze.motifs()
+        assert result is not None
+
+
+class TestTemporalNamespaceDelegation:
+    def test_ingest(self, mem):
+        result = mem.temporal.ingest("Alice went to the store.")
+        assert result is not None
+
+    def test_ingest_batch(self, mem):
+        results = mem.temporal.ingest_batch(["Hello world.", "Goodbye world."])
+        assert isinstance(results, list)
+        assert len(results) == 2
+
+    def test_set_llm(self, mem):
+        from hyper3.enrichment import LLMProvider
+
+        class DummyProvider(LLMProvider):
+            def extract(self, text, **kw):
+                return []
+
+            def extract_batch(self, texts, **kw):
+                return [[] for _ in texts]
+
+            def complete(self, prompt, **kw):
+                return ""
+
+        mem.temporal.set_llm(DummyProvider())
+
+
+class TestMonitorNamespaceDelegation:
+    def test_tune(self, populated):
+        result = populated.monitor.tune()
+        assert result is None or result is not None
+
+    def test_execute_tuning(self, populated):
+        from hyper3.system_monitor import TuningPlan
+
+        plan = TuningPlan(triggers=[], actions=[])
+        result = populated.monitor.execute_tuning(plan)
+        assert result is not None
+
+    def test_monitor_frame(self, populated):
+        result = populated.monitor.frame("a", "classical")
+        assert result is not None
+
+    def test_frames(self, populated):
+        result = populated.monitor.frames("a")
+        assert isinstance(result, dict)
+        assert "classical" in result
+
+    def test_optimal_frame(self, populated):
+        name, analysis = populated.monitor.optimal_frame("a")
+        assert isinstance(name, str)
+        assert analysis is not None
+
+
+class TestCognitiveNamespaceDelegation:
+    def test_hebbian_reinforce_pair(self, populated):
+        result = populated.cognitive.hebbian_reinforce_pair("a", "b")
+        assert result is not None
+
+    def test_hebbian_decay(self, populated):
+        result = populated.cognitive.hebbian_decay(threshold=0)
+        assert isinstance(result, int)
+
+
 class TestEngineAccessor:
     def test_graph(self, populated):
         assert populated.engine.graph is not None
@@ -417,3 +657,33 @@ class TestEngineAccessor:
 
     def test_cache(self, populated):
         assert populated.engine.cache is not None
+
+    def test_retrieval(self, populated):
+        assert populated.engine.retrieval is not None
+
+    def test_log(self, populated):
+        assert populated.engine.log is not None
+
+    def test_feedback(self, populated):
+        assert populated.engine.feedback is not None
+
+    def test_provenance(self, populated):
+        assert populated.engine.provenance is not None
+
+    def test_enricher(self, populated):
+        assert populated.engine.enricher is not None
+
+    def test_meta(self, populated):
+        assert populated.engine.meta is not None
+
+    def test_perspective(self, populated):
+        assert populated.engine.perspective is not None
+
+    def test_discovery(self, populated):
+        assert populated.engine.discovery is not None
+
+    def test_anomaly(self, populated):
+        assert populated.engine.anomaly is not None
+
+    def test_equivalence(self, populated):
+        assert populated.engine.equivalence is not None

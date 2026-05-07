@@ -1046,3 +1046,238 @@ class TestSystemMonitorAutoTuneWithDiffer:
         differ.capture()
         result = mem._meta.auto_tune()
         assert isinstance(result, TuningResult)
+
+
+class TestAssessStateComplexityLevels:
+    def test_complexity_level_2_high_density(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        ra = mem.rule_analytics
+        ra._position.graph_activity_density = 0.8
+        mem._meta.set_rule_analytics(ra)
+        state = mem._meta.assess_state()
+        assert state.complexity_level == 2
+
+    def test_complexity_level_3_many_insights(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        ra = mem.rule_analytics
+        ra._position.graph_activity_density = 0.1
+        from hyper3.rule_analytics import HighLevelInsight
+        for i in range(5):
+            ra._insights.append(HighLevelInsight(principle=f"p{i}"))
+        mem._meta.set_rule_analytics(ra)
+        state = mem._meta.assess_state()
+        assert state.complexity_level == 3
+
+    def test_moderate_reasoning_mode_exact_ratio(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=label, label=label))
+        evo = GraphMaintenanceEngine(g)
+        log = EventLog()
+        disc = RuleDiscoveryEngine(g)
+        layer = SystemMonitor(g, evo, log, disc)
+        discovered = []
+        for i in range(5):
+            dr = DiscoveredRule(pattern_type="test", pattern={})
+            if i < 2:
+                dr.rule = TransitiveRule()
+            discovered.append(dr)
+        disc._discovered = discovered
+        state = layer.assess_state()
+        assert state.reasoning_mode == "moderate"
+
+
+class TestIntrospectRuleAnalyticsAnalyze:
+    def test_rule_analytics_health_populated(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
+        mem._meta.set_rule_analytics(mem.rule_analytics)
+        report = mem._meta.introspect()
+        assert report.rule_analytics_health is not None
+        assert report.rule_analytics_health.graph_activity_density >= 0.0
+
+
+class TestRunRuleDiscoveryNoEngine:
+    def test_returns_zero_patterns(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem._meta._discovery = None
+        result = mem._meta._run_rule_discovery()
+        assert result == {"discovered_patterns": 0}
+
+
+class TestIncreaseConnectivityBranches:
+    def test_dict_subclass_similarity(self):
+        from collections import defaultdict
+
+        mem = HypergraphMemory(evolve_interval=0)
+        iso = Hypernode(label="iso", data=defaultdict(int, {"x": 1}))
+        partner = Hypernode(label="partner", data={"x": 2, "y": 3})
+        mem.graph.add_node(iso)
+        mem.graph.add_node(partner)
+        result = mem._meta._increase_connectivity()
+        assert result["bridged"] >= 1
+
+    def test_non_dict_non_matching_data_zero_similarity(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        iso = Hypernode(label="iso", data=[1, 2, 3])
+        partner = Hypernode(label="partner", data="hello")
+        mem.graph.add_node(iso)
+        mem.graph.add_node(partner)
+        result = mem._meta._increase_connectivity()
+        assert result["bridged"] == 0
+
+    def test_metadata_based_similarity(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        iso = Hypernode(label="iso")
+        iso.metadata.custom = {"tag1": True, "tag2": True}
+        partner = Hypernode(label="partner")
+        partner.metadata.custom = {"tag2": True, "tag3": True}
+        mem.graph.add_node(iso)
+        mem.graph.add_node(partner)
+        result = mem._meta._increase_connectivity()
+        assert result["bridged"] >= 1
+
+
+class TestOptimizeWeightsEdgeCases:
+    def test_empty_source_ids_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        node_a = mem.graph.get_node_by_label("a")
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset(),
+            target_ids=frozenset({node_a.id}),
+            label="empty",
+        ))
+        result = mem._meta._optimize_weights()
+        assert result["reinforced"] == 0
+
+    def test_missing_source_nodes_skipped(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        node_a = mem.graph.get_node_by_label("a")
+        temp = Hypernode(id="temp_id", label="temp")
+        mem.graph.add_node(temp)
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({"temp_id"}),
+            target_ids=frozenset({node_a.id}),
+            label="bad_src",
+        ))
+        del mem.graph._nodes["temp_id"]
+        mem.graph._neighbor_cache = None
+        result = mem._meta._optimize_weights()
+        assert result["reinforced"] == 0
+
+
+class TestExpandSeedSetWithRuleMatches:
+    def test_expand_produces_edges_from_transitive_match(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
+        x = mem.graph.get_node_by_label("x")
+        a = mem.graph.get_node_by_label("a")
+        b = mem.graph.get_node_by_label("b")
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({x.id, a.id}),
+            target_ids=frozenset({b.id}),
+            label="rel",
+        ))
+        mem.graph.add_edge(Hyperedge(
+            source_ids=frozenset({b.id}),
+            target_ids=frozenset({a.id}),
+            label="rel",
+        ))
+        mem._rules = [TransitiveRule(edge_label="rel")]
+        mem._meta.set_rules(mem._rules)
+        result = mem._meta._expand_seed_set()
+        assert result["new_edges"] >= 1
+
+
+class TestPromotePatternToRuleBranches:
+    def _setup_ra(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        ra = mem.rule_analytics
+        mem._meta.set_rule_analytics(ra)
+        return mem, ra
+
+    def test_low_significance_not_promoted(self):
+        mem, ra = self._setup_ra()
+        from hyper3.rule_analytics import DetectedPattern
+        ra._meta_patterns.append(DetectedPattern(
+            pattern_type="recurring_relation",
+            description="test",
+            occurrence_count=5,
+            significance=0.1,
+        ))
+        result = mem._meta._promote_pattern_to_rule()
+        assert result["promoted"] is False
+        assert result["significance"] == 0.1
+
+    def test_recurring_relation_creates_transitive_rule(self):
+        mem, ra = self._setup_ra()
+        from hyper3.rule_analytics import DetectedPattern
+        ra._meta_patterns.append(DetectedPattern(
+            pattern_type="recurring_relation",
+            description="test",
+            occurrence_count=5,
+            significance=0.8,
+            abstract_structure={"edge_label": "causes"},
+        ))
+        mem._meta._rules = []
+        result = mem._meta._promote_pattern_to_rule()
+        assert result["promoted"] is True
+        assert result["pattern_type"] == "recurring_relation"
+        assert "transitive" in result["rule_name"]
+        assert len(mem._meta._rules) == 1
+
+    def test_hub_motif_creates_hub_rule(self):
+        mem, ra = self._setup_ra()
+        from hyper3.rule_analytics import DetectedPattern
+        ra._meta_patterns.append(DetectedPattern(
+            pattern_type="hub_motif",
+            description="test",
+            occurrence_count=5,
+            significance=0.8,
+        ))
+        mem._meta._rules = []
+        result = mem._meta._promote_pattern_to_rule()
+        assert result["promoted"] is True
+        assert result["pattern_type"] == "hub_motif"
+        assert "hub" in result["rule_name"].lower()
+
+    def test_inverse_pair_creates_inverse_rule(self):
+        mem, ra = self._setup_ra()
+        from hyper3.rule_analytics import DetectedPattern
+        ra._meta_patterns.append(DetectedPattern(
+            pattern_type="inverse_pair",
+            description="test",
+            occurrence_count=5,
+            significance=0.8,
+            abstract_structure={"edge_label": "causes", "inverse_label": "caused_by"},
+        ))
+        mem._meta._rules = []
+        result = mem._meta._promote_pattern_to_rule()
+        assert result["promoted"] is True
+        assert result["pattern_type"] == "inverse_pair"
+        assert "inverse" in result["rule_name"].lower()
+
+    def test_unknown_pattern_type_creates_transitive_default(self):
+        mem, ra = self._setup_ra()
+        from hyper3.rule_analytics import DetectedPattern
+        ra._meta_patterns.append(DetectedPattern(
+            pattern_type="mystery_pattern",
+            description="test",
+            occurrence_count=5,
+            significance=0.8,
+        ))
+        mem._meta._rules = []
+        result = mem._meta._promote_pattern_to_rule()
+        assert result["promoted"] is True
+        assert result["pattern_type"] == "mystery_pattern"
+        assert "transitive" in result["rule_name"]
