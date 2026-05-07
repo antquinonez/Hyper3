@@ -37,9 +37,15 @@ class TestNamespaceProperties:
 
     def test_namespace_types(self):
         from hyper3.namespaces import (
-            ReasonNamespace, BeliefNamespace, BayesNamespace,
-            SearchNamespace, AnalyzeNamespace, TemporalNamespace,
-            MonitorNamespace, CognitiveNamespace, EngineAccessor,
+            AnalyzeNamespace,
+            BayesNamespace,
+            BeliefNamespace,
+            CognitiveNamespace,
+            EngineAccessor,
+            MonitorNamespace,
+            ReasonNamespace,
+            SearchNamespace,
+            TemporalNamespace,
         )
         mem = HypergraphMemory()
         assert isinstance(mem.reason, ReasonNamespace)
@@ -191,3 +197,68 @@ class TestRenamedProperties:
     def test_temporal_engine_accessible(self):
         mem = HypergraphMemory()
         assert mem.temporal_engine is not None
+
+
+class TestDirSurface:
+    EXPECTED_SURFACE = {
+        "add", "link", "link_hyper", "add_all", "ensure",
+        "get", "set", "has", "info",
+        "store", "relate", "relate_hyperedge", "has_node", "recall",
+        "evolve", "evolve_with_feedback",
+        "save", "load", "save_state", "load_state",
+        "export_json", "import_json", "export_edgelist", "import_edgelist",
+        "load_records",
+        "ingest", "ingest_batch", "set_llm_provider",
+        "describe", "stats", "introspect",
+        "neighbors", "edges_labeled", "query_nodes", "query_hyperedges",
+        "shortest_path", "find_paths", "single_source_distances",
+        "connected_components", "is_connected", "largest_connected_component",
+        "has_cycle", "is_dag", "is_tree", "is_forest",
+        "topological_sort", "transitive_closure", "transitive_reduction",
+        "dag_longest_path", "dag_longest_path_length",
+        "degree", "in_degree", "out_degree", "degree_distribution", "degree_assortativity",
+        "clustering_coefficient", "average_clustering_coefficient",
+        "density", "diameter", "radius", "eccentricity", "center", "periphery",
+        "node_label", "node_data", "resolve_id",
+        "explain", "retract_inference", "commit_inferences", "rollback_inferences",
+        "add_rules",
+        "spread_hyperedge",
+        "graph", "log", "cache", "rules",
+        "operation_feedback", "provenance", "retrieval", "enricher",
+        "reason", "belief", "bayes", "search", "analyze",
+        "temporal", "monitor", "cognitive", "engine",
+        "belief_layer", "temporal_engine",
+        "size",
+    }
+
+    def test_dir_exactly_matches_expected_surface(self):
+        mem = HypergraphMemory()
+        public = {x for x in dir(mem) if not x.startswith("_")}
+        assert public == self.EXPECTED_SURFACE, (
+            f"dir() surface mismatch.\n"
+            f"Extra: {sorted(public - self.EXPECTED_SURFACE)}\n"
+            f"Missing: {sorted(self.EXPECTED_SURFACE - public)}"
+        )
+
+    def test_old_methods_hidden_from_dir(self):
+        mem = HypergraphMemory()
+        public = {x for x in dir(mem) if not x.startswith("_")}
+        hidden = {
+            "create_distribution", "sample", "sample_correlated",
+            "correlate", "detect_structural_anomalies",
+            "set_prior", "update_belief", "revise_beliefs",
+            "find_similar", "detect_communities", "spectral_embedding",
+            "analyze_in_frame", "multi_frame_analysis",
+            "add_temporal_event", "temporal_query",
+            "introspect_system", "validate_reasoning",
+            "prove", "hebbian_reinforce",
+        }
+        for method in hidden:
+            assert method not in public, f"Old method {method} should be hidden from dir()"
+
+    def test_hidden_methods_still_callable(self):
+        mem = HypergraphMemory()
+        mem.store("x")
+        assert mem.create_distribution is not None
+        assert mem.find_similar is not None
+        assert mem.detect_communities is not None

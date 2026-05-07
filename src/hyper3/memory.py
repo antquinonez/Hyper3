@@ -102,6 +102,40 @@ class HypergraphMemory(
       reasoning validation, capability detection
     """
 
+    _PUBLIC_API = frozenset({
+        "add", "link", "link_hyper", "add_all", "ensure",
+        "get", "set", "has", "info",
+        "store", "relate", "relate_hyperedge", "has_node", "recall",
+        "evolve", "evolve_with_feedback",
+        "save", "load", "save_state", "load_state",
+        "export_json", "import_json", "export_edgelist", "import_edgelist",
+        "load_records",
+        "ingest", "ingest_batch", "set_llm_provider",
+        "describe", "stats", "introspect",
+        "neighbors", "edges_labeled", "query_nodes", "query_hyperedges",
+        "shortest_path", "find_paths", "single_source_distances",
+        "connected_components", "is_connected", "largest_connected_component",
+        "has_cycle", "is_dag", "is_tree", "is_forest",
+        "topological_sort", "transitive_closure", "transitive_reduction",
+        "dag_longest_path", "dag_longest_path_length",
+        "degree", "in_degree", "out_degree", "degree_distribution", "degree_assortativity",
+        "clustering_coefficient", "average_clustering_coefficient",
+        "density", "diameter", "radius", "eccentricity", "center", "periphery",
+        "node_label", "node_data", "resolve_id",
+        "explain", "retract_inference", "commit_inferences", "rollback_inferences",
+        "add_rules",
+        "spread_hyperedge",
+        "graph", "log", "cache", "rules",
+        "operation_feedback", "provenance", "retrieval", "enricher",
+        "reason", "belief", "bayes", "search", "analyze",
+        "temporal", "monitor", "cognitive", "engine",
+        "belief_layer", "temporal_engine",
+        "size",
+    })
+
+    def __dir__(self) -> list[str]:
+        return sorted(self._PUBLIC_API)
+
     def __contains__(self, concept: object) -> bool:
         """Check whether a concept label exists in the graph (``"x" in mem``)."""
         if not isinstance(concept, str):
