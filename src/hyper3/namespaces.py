@@ -132,8 +132,7 @@ class BeliefNamespace:
             result = self._mem.sample_distribution(target, context=context)
         if result is None:
             return None
-        node = self._mem._graph.get_node(result.node_id)
-        return node.label if node else result.node_id
+        return self._mem.node_label(result.node_id)
 
     def sample_many(self, target: str | BeliefState, n: int = 1000,
                     *, context: dict[str, float] | None = None) -> dict[str, int]:
@@ -150,8 +149,7 @@ class BeliefNamespace:
             return {}
         result: dict[str, float] = {}
         for outcome in qs.outcomes:
-            node = self._mem._graph.get_node(outcome.node_id)
-            label = node.label if node else outcome.node_id
+            label = self._mem.node_label(outcome.node_id)
             result[label] = abs(outcome.amplitude) ** 2
         return result
 
@@ -177,14 +175,14 @@ class BeliefNamespace:
 
     def density_matrix(self, state):
         state_id = state.id if hasattr(state, "id") else state
-        return self._mem._belief.compute_density_matrix(state_id)
+        return self._mem.compute_density_matrix(state_id)
 
     def _resolve_state(self, concept: str) -> BeliefState | None:
-        node = self._mem._find_node(concept)
-        if not node:
+        node_id = self._mem.resolve_id(concept)
+        if node_id is None:
             return None
-        for qs in self._mem._belief._states.values():
-            if any(o.node_id == node.id for o in qs.outcomes):
+        for qs in self._mem.all_distributions():
+            if any(o.node_id == node_id for o in qs.outcomes):
                 return qs
         return None
 
@@ -241,10 +239,7 @@ class SearchNamespace:
         raw = self._mem.retrieve(concept, top_k=top_k, use_ltr=use_ltr)
         hits: list[SearchHit] = []
         for r in raw:
-            data = {}
-            node = self._mem._find_node(r.label)
-            if node and isinstance(node.data, dict):
-                data = node.data
+            data = self._mem.node_data(r.label) or {}
             hits.append(SearchHit(label=r.label, score=r.rrf_score, data=data))
         return hits
 
@@ -444,7 +439,7 @@ class TemporalNamespace:
 
     @property
     def events(self) -> list[TemporalEvent]:
-        return list(self._mem.temporal_engine._events.values())
+        return self._mem.list_temporal_events()
 
     def detect_causal_chains(self, *, min_chain_length: int = 3,
                              max_chains: int = 1000) -> list[list[str]]:

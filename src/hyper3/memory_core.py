@@ -758,3 +758,21 @@ class CoreMixin(_MemoryBase):
         """Return the human-readable label for a node ID, or a truncated ID fallback."""
         node = self._graph.get_node(node_id)
         return node.label if node else node_id[:8]
+
+    def node_label(self, node_id: str) -> str:
+        """Return the human-readable label for an internal node ID."""
+        return self._node_label(node_id)
+
+    def node_data(self, concept: str) -> dict[str, Any] | None:
+        """Return the data dict for a concept label, or None if not found."""
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        if isinstance(node.data, dict):
+            return dict(node.data)
+        return {}
+
+    def resolve_id(self, concept: str) -> str | None:
+        """Resolve a concept label to its internal node ID, or None."""
+        node = self._find_node(concept)
+        return node.id if node else None

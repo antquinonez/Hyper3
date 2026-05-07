@@ -104,6 +104,18 @@ class _MemoryBase:
         """Return the human-readable label for a node ID, or a truncated ID fallback."""
         ...
 
+    def node_label(self, node_id: str) -> str:
+        """Public: return the human-readable label for an internal node ID."""
+        ...
+
+    def node_data(self, concept: str) -> dict[str, Any] | None:
+        """Public: return the data dict for a concept label, or None."""
+        ...
+
+    def resolve_id(self, concept: str) -> str | None:
+        """Public: resolve a concept label to its internal node ID, or None."""
+        ...
+
     def _maybe_evolve(self) -> None:
         """Increment the operation counter and trigger evolution if the interval is reached."""
         ...

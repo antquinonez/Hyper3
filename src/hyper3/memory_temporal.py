@@ -146,3 +146,7 @@ class TemporalMixin(_MemoryBase):
     def enricher(self) -> LLMEnricher:
         """Lazily initialize and return the text enricher."""
         return self._enricher
+
+    def list_temporal_events(self) -> list[TemporalEvent]:
+        """Return all registered temporal events."""
+        return list(self._temporal._events.values())

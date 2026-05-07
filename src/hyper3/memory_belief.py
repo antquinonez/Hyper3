@@ -309,3 +309,11 @@ class BeliefMixin(_MemoryBase):
             n.setdefault("transferable_patterns", [])
             normalized.append(n)
         return normalized
+
+    def compute_density_matrix(self, state_id: str):
+        """Compute the density matrix for a belief state by ID."""
+        return self._belief.compute_density_matrix(state_id)
+
+    def all_distributions(self) -> list[BeliefState]:
+        """Return all active belief distributions."""
+        return list(self._belief._states.values())
