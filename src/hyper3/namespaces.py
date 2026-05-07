@@ -639,6 +639,30 @@ class SearchNamespace:
         raw = self._mem.activate(concept, energy=energy, top_k=top_k)
         return [ActivationHit(label=r.label, energy=r.activation) for r in raw]
 
+    def set_provider(self, provider: Any) -> None:
+        """Set a custom embedding provider for semantic similarity.
+
+        Args:
+            provider: An ``EmbeddingProvider`` instance.
+        """
+        self._mem.set_embedding_provider(provider)
+
+    def enable_faiss(self, *, nlist: int = 100, nprobe: int = 10,
+                     use_gpu: bool = False) -> bool:
+        """Enable FAISS-based fast similarity search.
+
+        Requires the ``faiss`` package (install with ``pip install hyper3[faiss]``).
+
+        Args:
+            nlist: Number of Voronoi cells for the IVF index.
+            nprobe: Number of cells to probe at query time.
+            use_gpu: Whether to use GPU-accelerated FAISS.
+
+        Returns:
+            True if FAISS was enabled successfully.
+        """
+        return self._mem.enable_faiss(nlist=nlist, nprobe=nprobe, use_gpu=use_gpu)
+
     def diffuse(self, concept: str, *, energy: float = 1.0, mode: str = "linear",
                  iterations: int | None = None) -> list[ActivationHit]:
         """Spread activation across hyperedge boundaries.
@@ -943,7 +967,7 @@ class AnalyzeNamespace:
         Returns:
             List of LabeledEdge objects.
         """
-        return self._mem.edges_labeled(label=label)
+        return self._mem.edges_labeled(edge_label=label)
 
     def to_dual(self) -> dict[str, list[str]]:
         """Compute the dual hypergraph (nodes become edges, edges become nodes).

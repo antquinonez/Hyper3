@@ -43,13 +43,13 @@ from hyper3.capabilities import (
     detect_capability_level,
     require_capability,
 )
-from hyper3.concept_set import ConceptSet
 from hyper3.community import (
     Community,
     CommunityDetector,
     CommunityResult,
     HierarchicalCommunityResult,
 )
+from hyper3.concept_set import ConceptSet
 from hyper3.constraints import (
     BoundaryNavigator,
     ConstraintCheck,
@@ -221,11 +221,6 @@ from hyper3.results import (
     to_dataframe,
     top_k,
 )
-from hyper3.types_api import (
-    CentralityMethod,
-    CommunityMethod,
-    TemporalRelation,
-)
 from hyper3.retrieval_activation import (
     ActivationConfig,
     ActivationResult,
@@ -300,6 +295,11 @@ from hyper3.temporal import (
     TimeInterval,
 )
 from hyper3.traversal import ObserverSlice, SliceConfig, TraversalEngine
+from hyper3.types_api import (
+    CentralityMethod,
+    CommunityMethod,
+    TemporalRelation,
+)
 from hyper3.uncertainty import (
     ConfidenceChain,
     ConfidenceScore,

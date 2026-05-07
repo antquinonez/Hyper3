@@ -91,7 +91,7 @@ class TestListTemporalEvents:
 
 class TestPublicBoundaryIntegration:
     def test_node_label_after_resolve_id(self, mem):
-        node = mem.add("test_node", data={"field": "value"})
+        mem.add("test_node", data={"field": "value"})
         node_id = mem.resolve_id("test_node")
         assert node_id is not None
         assert mem.node_label(node_id) == "test_node"

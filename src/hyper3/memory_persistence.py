@@ -23,9 +23,6 @@ from hyper3.snapshot import (
     restore_snapshot,
 )
 from hyper3.snapshot import (
-    load_state as _load_snapshot,
-)
-from hyper3.snapshot import (
     save_state as _save_snapshot,
 )
 from hyper3.structural_anomaly import StructuralAnomalyDetector
@@ -193,8 +190,8 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("save", path=path, rules_saved=include_rules and len(self._rules) > 0)
 
     def _save_full(self, path: str, *, include_rules: bool) -> None:
-        from pathlib import Path
         import json
+        from pathlib import Path
 
         payload: dict[str, Any] = {
             "graph": self._serializer.serialize_graph(self._graph),
