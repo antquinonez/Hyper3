@@ -127,6 +127,55 @@ def main() -> None:
         print(f"  component {i}: {sorted(comp)}")
 
     print("\n" + "=" * 70)
+    print("SECTION 4: EVOLUTION IMPACT ON CONNECTIVITY")
+    print("=" * 70)
+
+    mem4 = HypergraphMemory(evolve_interval=0)
+    for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
+        mem4.store(c, data={})
+
+    mem4.relate("a", "b", label="link", weight=5.0)
+    mem4.relate("b", "c", label="link", weight=5.0)
+    mem4.relate("c", "d", label="link", weight=5.0)
+    mem4.relate("e", "f", label="link", weight=5.0)
+    mem4.relate("f", "g", label="weak", weight=0.1)
+    mem4.relate("g", "h", label="weak", weight=0.1)
+
+    before_comp = mem4.connected_components()
+    before_count = len(before_comp)
+    before_nodes = mem4.graph.node_count
+    before_edges = mem4.graph.edge_count
+
+    evolve_result = mem4.evolve()
+
+    after_comp = mem4.connected_components()
+    after_count = len(after_comp)
+    after_nodes = mem4.graph.node_count
+    after_edges = mem4.graph.edge_count
+
+    print(f"\nbefore evolution:")
+    print(f"  nodes: {before_nodes}, edges: {before_edges}, components: {before_count}")
+    print(f"after evolution:")
+    print(f"  nodes: {after_nodes}, edges: {after_edges}, components: {after_count}")
+    print(f"  decayed: {evolve_result.decayed}, pruned: {evolve_result.pruned}, merged: {evolve_result.merged}")
+    if after_count != before_count:
+        print(f"  component count changed: {before_count} -> {after_count}")
+        for i, comp in enumerate(after_comp):
+            print(f"    component {i}: {sorted(comp)}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 5: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    cr = mem3.detect_communities(seed=42)
+    print(f"\ncommunity detection on mixed-edge graph:")
+    print(f"  communities found: {cr.community_count}")
+    print(f"  modularity: {cr.modularity:.4f}")
+    print(f"  coverage: {cr.coverage:.4f}")
+    for comm in cr.communities:
+        print(f"  community {comm.community_id}: {sorted(comm.member_labels)} (size={comm.size})")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

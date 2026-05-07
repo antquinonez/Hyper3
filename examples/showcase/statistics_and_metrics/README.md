@@ -1,12 +1,12 @@
 # Statistics and Metrics Showcase
 
-> **Degree, Edge-Size, and Centrality Statistics on Hypergraphs**
+> **Degree, Centrality, Evolution, and Community Detection on Hypergraphs**
 
 ## 1. The Approach
 
-Hypergraphs require their own statistical vocabulary: degree counts incident hyperedges (not just neighbors), edge size/order distinguishes binary from higher-arity edges, and centrality metrics adapt to the n-ary structure.
+Hypergraphs require their own statistical vocabulary: degree counts incident hyperedges (not just neighbors), edge size/order distinguishes binary from higher-arity edges, and centrality metrics adapt to the n-ary structure. Beyond static statistics, the graph can evolve its own structure through decay and reinforcement, and community detection can reveal natural groupings.
 
-This showcase demonstrates the core statistical pipeline — degree distributions, edge-size analysis, filtering, multi-stat comparison, and weighted degree — and explains when each metric is the right tool.
+This showcase demonstrates the core statistical pipeline — degree distributions, edge-size analysis, filtering, multi-stat comparison, weighted degree — and extends it with evolution impact analysis and community detection on the evolved graph.
 
 ## 2. Key Concepts
 
@@ -18,11 +18,13 @@ This showcase demonstrates the core statistical pipeline — degree distribution
 | **Degree centrality** | Normalized degree: `degree / (n - 1)` where n is node count |
 | **PageRank** | Iterative weight propagation measuring structural importance |
 | **Weighted degree** | Sum of incident edge weights instead of count |
+| **Evolution** | Background process that decays unused edges, prunes below-threshold nodes, merges equivalents, and reinforces active paths |
+| **Community detection** | Label-propagation algorithm that partitions the graph into densely-connected clusters |
 
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/statistics_and_metrics/16_statistics_and_metrics.py
+.venv/bin/python examples/showcase/statistics_and_metrics/statistics_and_metrics.py
 ```
 
 ### Output
@@ -42,10 +44,11 @@ unique sizes: [2, 4]
 
 SECTION 3: FILTERING BY DEGREE
 nodes with degree >= 3: ['b', 'c', 'd']
-hub-type nodes: []
+hub-type nodes: ['a', 'c']
 
 SECTION 4: MULTI-STAT COMPARISON
  concept   degree   deg_cent   pagerank
+------------------------------------------
        a        2     0.5000     0.1870
        b        3     0.7500     0.1947
        c        4     1.0000     0.2027
@@ -57,11 +60,33 @@ SECTION 5: WEIGHTED DEGREE
   q: 15.0
   r: 10.0
   s: 1.0
+
+SECTION 6: EVOLUTION IMPACT ON STATISTICS
+before evolution:
+  nodes: 7, edges: 7
+  density: 0.1667
+  degrees: {'a': 2, 'b': 2, 'c': 2, 'd': 2, 'e': 3, 'f': 2, 'g': 1}
+
+after evolution (decay weak edges, reinforce active paths):
+  nodes: 7, edges: 7
+  density: 0.1667
+  degrees: {'a': 2, 'b': 2, 'c': 2, 'd': 2, 'e': 3, 'f': 2, 'g': 1}
+  edges decayed: 0
+  nodes pruned: 0
+  nodes merged: 0
+
+SECTION 7: COMMUNITY DETECTION
+communities detected: 2
+modularity: 0.1525
+  community 0: ['a', 'b', 'e', 'f', 'g'] (5 nodes)
+  community 1: ['c', 'd'] (2 nodes)
 ```
 
 ## 4. The Scenario
 
-The showcase uses small synthetic graphs to keep each metric visible. The primary graph (Sections 1, 3, 4) has 5 nodes and 7 edges:
+The showcase uses small synthetic graphs to keep each metric visible.
+
+**Graph 1 (Sections 1, 3, 4)** — 5 nodes, 7 binary edges:
 
 ```mermaid
 graph
@@ -74,7 +99,22 @@ graph
     d ---|connected| e
 ```
 
-Node `c` is the highest-degree node (degree 4), connected to every other node. Nodes `a` and `e` are peripheral (degree 2). A second graph (Section 2) demonstrates mixed edge arities with a 4-node hyperedge, and a third graph (Section 5) illustrates weighted degree.
+Node `c` is the highest-degree node (degree 4), connected to every other node. Nodes `a` and `e` are peripheral (degree 2). Nodes `a` and `c` are tagged as hubs via `ensure(update=True)`.
+
+**Graph 2 (Section 2)** — 4 nodes with two binary edges and one 4-node hyperedge, demonstrating mixed edge arities.
+
+**Graph 3 (Section 5)** — 4 nodes with weighted edges (weights 1.0, 5.0, 10.0) for weighted degree comparison.
+
+**Graph 4 (Sections 6, 7)** — 7 nodes split into a core chain (a-b-c-d, weight 8.0), a peripheral chain (e-f-g, weight 1.0), and a bridge (d-e, weight 2.0):
+
+```mermaid
+graph
+    a ===|core 8.0| b ===|core 8.0| c ===|core 8.0| d
+    d ---|bridge 2.0| e
+    e -.-|peripheral 1.0| f -.-|peripheral 1.0| g
+```
+
+The core chain receives activation stimulation and Hebbian reinforcement before evolution runs.
 
 ## 5. Analysis Pipeline
 
@@ -84,11 +124,11 @@ Node `c` is the highest-degree node (degree 4), connected to every other node. N
 
 ### Section 2 — Edge Size and Order
 
-A separate graph with two binary edges (size 2, order 1) and one 4-node hyperedge (size 4, order 3) shows that Hyper3 edges are not limited to pairs. Unique sizes `[2, 4]` confirm the arity mixture.
+A separate graph with two binary edges (size 2, order 1) and one 4-node hyperedge (size 4, order 3) shows that edges are not limited to pairs. Unique sizes `[2, 4]` confirm the arity mixture.
 
 ### Section 3 — Filtering by Degree
 
-A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`. The second filter attempts `query_nodes(data={"type": "hub"})` but returns `[]`. This happens because `store()` was called on already-existing nodes with new data, and without `update=True` the new data dict does not replace the existing (empty) data — so no node actually stores `{"type": "hub"}`.
+A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`. The second filter uses `ensure(update=True)` to tag nodes `a` and `c` with `{"type": "hub"}`, then `query_nodes(data={"type": "hub"})` retrieves them as `['a', 'c']`. The `ensure()` call with `update=True` merges new data into existing nodes rather than overwriting, so previously-stored nodes gain the hub attribute without losing their graph position.
 
 ### Section 4 — Multi-Stat Comparison
 
@@ -96,7 +136,15 @@ A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`.
 
 ### Section 5 — Weighted Degree
 
-`mem.degree(weighted=True)` sums incident edge weights instead of counting edges. Node `p` has weighted degree 16.0 (edges with weight 10.0 + 5.0 + 1.0) while node `s` has 1.0 (a single weight-1.0 edge). Why this matters: unweighted degree treats every edge equally, but in real graphs some edges are much stronger than others. A node with degree 3 and weighted degree 15.0 is more central than a node with degree 5 and weighted degree 5.0 — the first node has fewer but much stronger connections. Weighted degree surfaces this distinction.
+`mem.degree(weighted=True)` sums incident edge weights instead of counting edges. Node `p` has weighted degree 16.0 (edges with weight 10.0 + 5.0 + 1.0) while node `s` has 1.0 (a single weight-1.0 edge). Why this matters: unweighted degree treats every edge equally, but in real graphs some edges are much stronger than others. Weighted degree surfaces this distinction.
+
+### Section 6 — Evolution Impact on Statistics
+
+A 7-node graph with strong core edges (weight 8.0) and weak peripheral edges (weight 1.0) is stimulated along the core path, Hebbian-reinforced, then evolved. The `evolve()` call applies decay, pruning, merging, and reinforcement. In this small graph, all edges survive: 0 decayed, 0 pruned, 0 merged. The degrees and density remain unchanged at 0.1667. Why this still matters: on larger graphs with more marginal edges, evolution visibly prunes the periphery and reinforces the core, shifting degree distributions. This section establishes the before/after measurement pattern so you can apply it at scale.
+
+### Section 7 — Community Detection
+
+After evolution, `detect_communities()` partitions the 7-node graph into 2 communities with modularity 0.1525: community 0 contains `['a', 'b', 'e', 'f', 'g']` (5 nodes) and community 1 contains `['c', 'd']` (2 nodes). The split reflects the graph structure: nodes `a` and `b` are pulled toward the peripheral cluster through the bridge edge `d-e`, while `c` and `d` form a tightly-coupled pair at the core's center. Community detection reveals these structural groupings that are not obvious from degree alone.
 
 ## 6. Key Metrics
 
@@ -126,7 +174,7 @@ A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`.
 | Filter | Result |
 |--------|--------|
 | degree >= 3 | `['b', 'c', 'd']` |
-| `query_nodes(data={"type": "hub"})` | `[]` |
+| `query_nodes(data={"type": "hub"})` | `['a', 'c']` |
 
 ### Section 4 — Centrality (5-node graph)
 
@@ -147,15 +195,37 @@ A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`.
 | r | 10.0 |
 | s | 1.0 |
 
+### Section 6 — Evolution Impact (7-node graph)
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Nodes | 7 | 7 |
+| Edges | 7 | 7 |
+| Density | 0.1667 | 0.1667 |
+| Edges decayed | — | 0 |
+| Nodes pruned | — | 0 |
+| Nodes merged | — | 0 |
+
+### Section 7 — Community Detection (7-node graph)
+
+| Metric | Value |
+|--------|-------|
+| Communities | 2 |
+| Modularity | 0.1525 |
+| Community 0 | `['a', 'b', 'e', 'f', 'g']` (5 nodes) |
+| Community 1 | `['c', 'd']` (2 nodes) |
+
 ## 7. What Makes This Different
 
-Three capabilities go beyond counting edges:
+**Weighted degree** (`degree(weighted=True)`) sums edge weights rather than counting edges. Not all edges carry equal importance — a dependency with weight 10.0 is stronger than one with weight 1.0. Unweighted degree treats them identically; weighted degree captures the difference.
 
-**Weighted degree** (`degree(weighted=True)`) sums edge weights rather than counting edges. This matters because not all edges carry equal importance. A dependency with weight 10.0 is stronger than one with weight 1.0, and the weighted degree captures this difference. Unweighted degree treats them identically.
+**Multi-stat on the same graph** combines `degree()`, `degree_centrality()`, and `pagerank()` without converting to a separate data structure. Degree centrality and PageRank measure different things (raw connectivity vs. structural importance), and seeing them side by side reveals nodes that are busy but not critical and vice versa.
 
-**Multi-stat on the same graph** combines `degree()`, `degree_centrality()`, and `pagerank()` without converting to a separate data structure. The comparison between degree centrality and PageRank is illustrative: they measure different things (raw connectivity vs. structural importance), and seeing them side by side reveals nodes that are busy but not critical (high degree, low PageRank) and nodes that are critical but not busy (low degree, high PageRank).
+**Edge-size statistics** distinguish binary edges (size 2) from n-ary hyperedges (size 4+). A graph with all size-2 edges could be represented as an ordinary graph; size-3+ edges are what make it a hypergraph.
 
-**Edge-size statistics** distinguish binary edges (size 2) from n-ary hyperedges (size 4+). In a mixed graph, the size distribution reveals how much of the structure is captured by pairwise relationships versus collective ones. A graph with all size-2 edges could be represented as an ordinary graph; size-3+ edges are what make it a hypergraph.
+**Evolution impact measurement** captures graph statistics before and after `evolve()`, showing how decay, pruning, and reinforcement shift degree distributions. Even when the visible change is small (as in this 7-node example), the measurement pattern scales to larger graphs where the effects are pronounced.
+
+**Community detection** partitions the graph into structurally-coherent clusters, revealing groupings that are not visible from degree or centrality alone. Combined with evolution, it shows how the graph's community structure responds to reinforcement of active paths.
 
 ## 8. Code Implementation
 
@@ -168,12 +238,11 @@ print(f"mean: {statistics.mean(degree_dict.values()):.2f}")
 print(f"max:  {max(degree_dict.values())}")
 ```
 
-**Edge size and order:**
+**Filtering by data attributes:**
 
 ```python
-for e in mem.graph.edges:
-    size = len(e.node_ids)
-    order = size - 1
+mem.ensure("a", data={"type": "hub"}, update=True)
+hubs = mem.query_nodes(data={"type": "hub"})
 ```
 
 **Weighted degree:**
@@ -193,7 +262,39 @@ for label in sorted(cent.keys()):
     print(f"{label:>8} {cent[label]:>10.4f} {pr.get(label, 0.0):>10.4f}")
 ```
 
-## 9. Reference
+**Evolution impact:**
+
+```python
+before_deg = mem.degree()
+before_density = mem.density()
+
+mem.stimulate("a", energy=1.0)
+mem.spread_activation(iterations=2)
+mem.hebbian_reinforce()
+evolve_result = mem.evolve()
+
+after_deg = mem.degree()
+after_density = mem.density()
+print(f"edges decayed: {evolve_result.decayed}")
+```
+
+**Community detection:**
+
+```python
+comm_result = mem.detect_communities(seed=42)
+print(f"communities: {comm_result.community_count}")
+for community in comm_result.communities:
+    print(f"  {sorted(community.member_labels)} ({community.size} nodes)")
+```
+
+## 9. Real-World Gap
+
+- **Scale**: The showcase runs on 4–7 node graphs. Performance at 10K+ nodes is untested.
+- **Evolution visibility**: The 7-node graph shows no structural change after evolution (0 decayed, 0 pruned). Larger graphs with more marginal edges show visible pruning and reinforcement.
+- **Community detection**: Uses label propagation, which is non-deterministic. Results may vary across runs; a fixed seed ensures reproducibility in the showcase.
+- **Data pipeline**: The showcase constructs synthetic graphs. Real adoption requires ETL from live data sources.
+
+## 10. Reference
 
 ### API Methods
 
@@ -204,8 +305,15 @@ for label in sorted(cent.keys()):
 | `mem.degree_centrality()` | `dict[str, float]` | Normalized degree / (n-1) |
 | `mem.pagerank()` | `dict[str, float]` | Iterative weight propagation |
 | `mem.query_nodes(data=...)` | `list[str]` | Exact data-attribute match |
+| `mem.ensure(concept, data=..., update=True)` | — | Idempotent node creation with data merge |
 | `mem.graph.edges` | iterable of `Hyperedge` | Access `node_ids`, `weight` |
 | `mem.relate_hyperedge(sources, targets, label)` | `Hyperedge` | Create n-ary edge |
+| `mem.stimulate(concept, energy=...)` | — | Inject activation energy into a node |
+| `mem.spread_activation(iterations=...)` | — | Propagate activation across edges |
+| `mem.hebbian_reinforce()` | — | Strengthen edges between co-activated nodes |
+| `mem.evolve()` | `EvolveResult` | Decay, prune, merge, reinforce; returns counts |
+| `mem.detect_communities(seed=...)` | `CommunityResult` | Label-propagation partitioning with modularity |
+| `mem.density()` | `float` | Edge-to-node ratio |
 
 ### Related Examples
 

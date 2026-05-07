@@ -108,6 +108,47 @@ def main() -> None:
     print(f"  both london and prague are in the europass_zone hyperedge")
 
     print("\n" + "=" * 70)
+    print("SECTION 6: REASONING - Inferring Indirect Train Routes")
+    print("=" * 70)
+
+    from hyper3.rules import TransitiveRule
+
+    mem.add_rules(
+        TransitiveRule(edge_label="train", new_label="indirect_train"),
+    )
+
+    result = mem.reason(seed_concepts={"london"}, max_depth=3)
+
+    print(f"\nreasoning from 'london' with TransitiveRule(edge_label='train'):")
+    if result.expansion:
+        print(f"  states created: {result.expansion.states_created}")
+        print(f"  rules applied: {result.expansion.rules_applied}")
+        print(f"  edges produced: {result.expansion.edges_produced}")
+        print(f"  max depth: {result.expansion.max_depth}")
+
+    indirect = [
+        (e.label, e.source_labels[0], e.target_labels[0])
+        for e in mem.edges_labeled(edge_label="indirect_train")
+        if e.source_labels and e.target_labels
+    ]
+    print(f"\nindirect train routes inferred: {len(indirect)}")
+    for lbl, src, tgt in indirect:
+        print(f"  {src} -[{lbl}]-> {tgt}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: SPREADING ACTIVATION")
+    print("=" * 70)
+
+    mem.clear_activations()
+    mem.stimulate("london", energy=1.0)
+    activated = mem.spread_activation(iterations=3)
+
+    print(f"\nstimulated 'london' with energy=1.0, spread 3 iterations:")
+    print(f"  activated nodes: {len(activated)}")
+    for act in activated:
+        print(f"    {act.label}: activation={act.activation:.4f}, depth={act.depth}")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

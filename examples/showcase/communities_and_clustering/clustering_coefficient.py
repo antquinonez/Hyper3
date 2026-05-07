@@ -111,6 +111,56 @@ def main() -> None:
     print(f"  average: {avg_hcc:.4f}")
 
     print("\n" + "=" * 70)
+    print("SECTION 5: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    mixed = HypergraphMemory(evolve_interval=0)
+    for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
+        mixed.store(c, data={})
+    mixed.relate("a", "b", label="e", weight=5.0)
+    mixed.relate("b", "c", label="e", weight=5.0)
+    mixed.relate("c", "a", label="e", weight=5.0)
+    mixed.relate("d", "e", label="e", weight=5.0)
+    mixed.relate("e", "f", label="e", weight=5.0)
+    mixed.relate("f", "d", label="e", weight=5.0)
+    mixed.relate("g", "h", label="e", weight=5.0)
+    mixed.relate("h", "g", label="e", weight=5.0)
+    mixed.relate("c", "d", label="bridge", weight=1.0)
+
+    cr = mixed.detect_communities(seed=42)
+    print(f"\ncommunity detection on mixed graph:")
+    print(f"  communities: {cr.community_count}")
+    print(f"  modularity: {cr.modularity:.4f}")
+    for comm in cr.communities:
+        labels_sorted = sorted(comm.member_labels)
+        avg_cc = sum(mixed.clustering_coefficient(l) for l in labels_sorted) / len(labels_sorted)
+        print(f"  community {comm.community_id}: {labels_sorted} (size={comm.size}, avg_cc={avg_cc:.4f})")
+
+    print("\n" + "=" * 70)
+    print("SECTION 6: SPREADING ACTIVATION")
+    print("=" * 70)
+
+    mixed.clear_activations()
+
+    cc_values = {}
+    for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
+        cc_values[c] = mixed.clustering_coefficient(c)
+
+    high_cc_node = max(cc_values, key=cc_values.get)
+    print(f"\nclustering coefficients:")
+    for c, cc in sorted(cc_values.items()):
+        print(f"  {c}: {cc:.4f}")
+    print(f"\nstimulating highest-clustering node: '{high_cc_node}' (cc={cc_values[high_cc_node]:.4f})")
+
+    mixed.stimulate(high_cc_node, energy=1.0)
+    activated = mixed.spread_activation(iterations=3)
+
+    print(f"\nactivated nodes after spreading from '{high_cc_node}':")
+    for act in activated:
+        cc = cc_values.get(act.label, 0.0)
+        print(f"  {act.label}: activation={act.activation:.4f}, depth={act.depth}, cc={cc:.4f}")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

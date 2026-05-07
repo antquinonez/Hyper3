@@ -1,12 +1,11 @@
 """
-Centrality Comparison: Degree, Betweenness, PageRank, Katz
-===========================================================
-Parallels XGI Comparing Centralities.
+Centrality Comparison with Structural Analysis
+===============================================
+Compares all centrality measures on a small network, then uses
+structural anomaly detection and community detection to explain
+where different measures agree or disagree.
 
-Compares all centrality measures on a small network, ranking nodes
-and showing where different measures agree or disagree.
-
-Run: .venv/bin/python examples/showcase/centrality_and_ranking/32_centrality_comparison.py
+Run: .venv/bin/python examples/showcase/centrality_and_ranking/centrality_comparison.py
 """
 
 from __future__ import annotations
@@ -45,11 +44,6 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SECTION 2: Compute All Centralities")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("xgi.h_eigenvector_centrality(H)")
-    print("xgi.katz_centrality(H)")
-    print("xgi.node_edge_centrality(H)")
 
     deg = mem.degree_centrality()
     betw = mem.betweenness_centrality()
@@ -99,6 +93,27 @@ def main() -> None:
         ranked2 = sorted(all_labels, key=lambda k: -s2.get(k, 0))
         agree = sum(1 for a, b in zip(ranked1, ranked2) if a == b)
         print(f"  {n1:>12} vs {n2:<12}: {agree}/{len(all_labels)} positions agree")
+
+    print("\n" + "=" * 70)
+    print("SECTION 5: STRUCTURAL ANOMALY DETECTION")
+    print("=" * 70)
+
+    for concept in ["hub", "d", "a"]:
+        anomaly = mem.detect_structural_anomalies(concept)
+        print(f"\n{concept}:")
+        print(f"  anomaly status: {anomaly.anomaly_status}")
+        print(f"  boundary score: {anomaly.boundary_score:.4f}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 6: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    comm_result = mem.detect_communities(seed=42)
+    print(f"\ncommunities detected: {comm_result.community_count}")
+    print(f"modularity: {comm_result.modularity:.4f}")
+    for i, community in enumerate(comm_result.communities):
+        labels = sorted(community.member_labels)
+        print(f"  community {i}: {labels} ({community.size} nodes)")
 
     print("\n" + "=" * 70)
     print("DONE")

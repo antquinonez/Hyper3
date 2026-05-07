@@ -110,6 +110,31 @@ def main() -> None:
     print(f"\nfrom x: {dist_x}")
 
     print("\n" + "=" * 70)
+    print("SECTION 5: GRAPH VERSIONING")
+    print("=" * 70)
+
+    version_info = mem.capture_version()
+    print(f"\ncaptured version: {version_info}")
+
+    mem.relate("s", "c", label="new_road", weight=1.5)
+    mem.relate("b", "t", label="new_highway", weight=1.0)
+
+    delta = mem.diff_from_version(version_info["version_id"])
+    if delta:
+        print(f"\ndelta from version {version_info['version_id']}:")
+        print(f"  total changes: {delta.total_changes}")
+        print(f"  edges added: {len(delta.edges_added)}")
+        for ea in delta.edges_added:
+            print(f"    + {ea.new_label}: {ea.source_label} -> {ea.target_label} (weight={ea.new_weight})")
+        print(f"  nodes before: {delta.node_count_before}, after: {delta.node_count_after}")
+        print(f"  edges before: {delta.edge_count_before}, after: {delta.edge_count_after}")
+    else:
+        print("  no delta computed")
+
+    path_after = mem.shortest_path("s", "t", weighted=True)
+    print(f"\nshortest path (weighted) after new edges: {path_after}")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

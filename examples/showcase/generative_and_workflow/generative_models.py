@@ -1,6 +1,6 @@
 """
 Generative Models: Building Random Hypergraphs
-===============================================
+==============================================
 Parallels XGI Tutorial 4 (generative models).
 
 Demonstrates Hyper3's generator functions for creating random, structured,
@@ -126,6 +126,45 @@ def main() -> None:
     g10 = random_chung_lu(8, k1, k2, seed=42)
     print(f"\nchung_lu(n=8): nodes={g10.node_count}, edges={g10.edge_count}")
     print(f"  unique edge sizes: {g10.unique_edge_sizes()}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: ANALYSIS ON GENERATED GRAPHS")
+    print("=" * 70)
+
+    from hyper3.community import CommunityDetector
+    from hyper3 import HypergraphMemory
+
+    print("\n--- Community detection on SBM graph ---")
+    sbm_detector = CommunityDetector(g4)
+    sbm_cr = sbm_detector.detect_label_propagation(seed=42)
+    print(f"  communities found: {sbm_cr.community_count}")
+    print(f"  modularity: {sbm_cr.modularity:.4f}")
+    for comm in sbm_cr.communities:
+        labels = sorted(comm.member_labels)
+        print(f"  community {comm.community_id}: {labels} (size={comm.size})")
+
+    print("\n--- Reasoning on random graph ---")
+    mem = HypergraphMemory(evolve_interval=0)
+    for node in g1.nodes:
+        mem.store(node.label, data={})
+    for edge in g1.edges:
+        srcs = list(edge.source_ids)
+        tgts = list(edge.target_ids)
+        if srcs and tgts:
+            src_label = g1.get_node(srcs[0]).label if g1.get_node(srcs[0]) else srcs[0]
+            tgt_label = g1.get_node(tgts[0]).label if g1.get_node(tgts[0]) else tgts[0]
+            mem.relate(src_label, tgt_label, label=edge.label or "link", weight=edge.weight)
+
+    from hyper3.rules import TransitiveRule
+
+    mem.add_rules(TransitiveRule(edge_label="link", new_label="inferred_link"))
+
+    result = mem.reason(seed_concepts={"n0"}, max_depth=2)
+    print(f"\nreasoning on random_hypergraph from 'n0':")
+    if result.expansion:
+        print(f"  edges produced: {result.expansion.edges_produced}")
+        print(f"  rules applied: {result.expansion.rules_applied}")
+        print(f"  states created: {result.expansion.states_created}")
 
     print("\n" + "=" * 70)
     print("DONE")

@@ -1,16 +1,11 @@
 """
-Laminar Comparison: Hypergraph Construction & Basic Queries
-============================================================
-Parallels:
-  - XGI: "XGI in 5 minutes" tutorial
-  - HNX: "Basic 1 - HNX Basics"
-  - NetworkX: basic graph construction
-
+Hypergraph Construction, Queries, and Reasoning
+================================================
 Shows how to build hypergraphs, add nodes/edges, query structure,
-and access basic statistics in each library, then adds Hyper3-only
-layers (metadata, modalities, semantics).
+access basic statistics, and then apply reasoning and evolution
+to demonstrate Hyper3's adaptive capabilities.
 
-Run: .venv/bin/python examples/showcase/construction_and_queries/15_construction_and_queries.py
+Run: .venv/bin/python examples/showcase/construction_and_queries/construction_and_queries.py
 """
 
 from __future__ import annotations
@@ -18,37 +13,15 @@ from __future__ import annotations
 
 def main() -> None:
     print("=" * 70)
-    print("SECTION 1: CONSTRUCTION — XGI / HNX / NetworkX patterns")
+    print("SECTION 1: CONSTRUCTION")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("H = xgi.Hypergraph([[1,2,3], [3,4], [4,5,6,7]])")
-    print("H.add_node(8)")
-    print("H.add_edge([7, 8])")
-    print(f"nodes: {len([1,2,3,4,5,6,7,8])}, edges: 4")
-
-    print("\n--- HNX equivalent ---")
-    print("h = hnx.Hypergraph({'e1': [1,2,3], 'e2': [3,4], 'e3': [4,5,6,7]})")
-    print(f"nodes: 8, edges: 3")
-
-    print("\n--- NetworkX equivalent (pairwise only) ---")
-    print("G = nx.Graph()")
-    print("G.add_edges_from([(1,3), (3,4), (4,5), (4,6), (4,7)])")
-    print(f"nodes: 7, edges: 5 (pairwise, no n-ary)")
-
-    print("\n--- Hyper3 ---")
     from hyper3 import HypergraphMemory
 
     mem = HypergraphMemory(evolve_interval=0)
 
-    mem.store("alice")
-    mem.store("bob")
-    mem.store("carol")
-    mem.store("dave")
-    mem.store("eve")
-    mem.store("frank")
-    mem.store("grace")
-    mem.store("henry")
+    for name in ["alice", "bob", "carol", "dave", "eve", "frank", "grace", "henry"]:
+        mem.store(name, data={})
 
     mem.relate("alice", "bob", label="collaborates")
     mem.relate("bob", "carol", label="collaborates")
@@ -61,7 +34,7 @@ def main() -> None:
     print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
 
     print("\n" + "=" * 70)
-    print("SECTION 2: N-ARY HYPEREDGES (Hyper3 advantage)")
+    print("SECTION 2: N-ARY HYPEREDGES")
     print("=" * 70)
 
     mem.relate_hyperedge(
@@ -84,18 +57,8 @@ def main() -> None:
     print("SECTION 3: BASIC QUERIES")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("H.nodes  -> [0, 1, 2, ...]")
-    print("H.edges.members()  -> [{0,9}, {0,10}, ...]")
-    print("xgi.max_edge_order(H)  -> 2")
-    print("xgi.unique_edge_sizes(H)  -> [2, 3]")
-
-    print("\n--- Hyper3 ---")
     all_labels = [n.label for n in mem.graph.nodes]
     print(f"all nodes: {all_labels}")
-
-    labeled = mem.graph.labeled_edges
-    print(f"labeled edges: {[(e['label'], len(e.get('source_labels', []))) for e in labeled]}")
 
     desc = mem.describe()
     print(f"\ngraph description:")
@@ -107,12 +70,12 @@ def main() -> None:
     print(f"  components: {desc.components}")
 
     print("\n" + "=" * 70)
-    print("SECTION 4: SEMANTIC METADATA (Hyper3-only layer)")
+    print("SECTION 4: SEMANTIC METADATA")
     print("=" * 70)
 
-    mem.store("alice", data={"role": "engineer", "team": "platform", "level": 5})
-    mem.store("dave", data={"role": "manager", "team": "platform", "level": 7})
-    mem.store("eve", data={"role": "designer", "team": "ux", "level": 4})
+    mem.ensure("alice", data={"role": "engineer", "team": "platform", "level": 5}, update=True)
+    mem.ensure("dave", data={"role": "manager", "team": "platform", "level": 7}, update=True)
+    mem.ensure("eve", data={"role": "designer", "team": "ux", "level": 4}, update=True)
 
     engineers = mem.query_nodes(data={"role": "engineer"})
     print(f"engineers: {engineers}")
@@ -133,6 +96,58 @@ def main() -> None:
 
     collab_partners = mem.neighbors("dave", edge_label="collaborates")
     print(f"dave collaborators: {collab_partners}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 6: REASONING (Hyper3 advantage)")
+    print("=" * 70)
+
+    from hyper3 import TransitiveRule
+
+    mem.add_rules(
+        TransitiveRule(edge_label="collaborates", new_label="indirect_collaboration"),
+    )
+
+    result = mem.reason(seed_concepts={"alice"}, max_depth=3)
+    print(f"\nreasoning from 'alice':")
+    print(f"  edges produced: {result.expansion.edges_produced}")
+    print(f"  states created: {result.expansion.states_created}")
+
+    indirect = [
+        (e.label, e.source_labels[0], e.target_labels[0])
+        for e in mem.edges_labeled(edge_label="indirect_collaboration")
+        if e.source_labels and e.target_labels
+    ]
+    if indirect:
+        print(f"\nindirect collaborations inferred:")
+        for lbl, src, tgt in indirect:
+            print(f"  {src} -[{lbl}]-> {tgt}")
+    else:
+        print(f"\nno indirect collaborations inferred (need longer collaborates chains)")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: SELF-EVOLUTION (Hyper3 advantage)")
+    print("=" * 70)
+
+    before_nodes = mem.graph.node_count
+    before_edges = mem.graph.edge_count
+
+    for _ in range(3):
+        mem.stimulate("dave", energy=1.0)
+    mem.spread_activation(iterations=2)
+    mem.hebbian_reinforce()
+
+    evolve_result = mem.evolve()
+    print(f"\nevolution cycle:")
+    print(f"  nodes before/after: {before_nodes}/{mem.graph.node_count}")
+    print(f"  edges before/after: {before_edges}/{mem.graph.edge_count}")
+    print(f"  edges decayed: {evolve_result.decayed}")
+    print(f"  nodes pruned: {evolve_result.pruned}")
+    print(f"  nodes merged: {evolve_result.merged}")
+
+    desc_after = mem.describe()
+    print(f"\npost-evolution description:")
+    print(f"  density: {desc_after.density:.4f}")
+    print(f"  components: {desc_after.components}")
 
     print("\n" + "=" * 70)
     print("DONE")

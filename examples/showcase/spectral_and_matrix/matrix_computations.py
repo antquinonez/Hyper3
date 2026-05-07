@@ -123,6 +123,22 @@ def main() -> None:
         print(f"  {u_labels[i]}: [{row}]")
 
     print("\n" + "=" * 70)
+    print("SECTION 4: COMMUNITY DETECTION ON N-ARY EDGE GRAPH")
+    print("=" * 70)
+
+    from hyper3.community import CommunityDetector
+
+    detector = CommunityDetector(g2)
+    cr = detector.detect_label_propagation(seed=42)
+
+    print(f"\ncommunities from n-ary hyperedge structure:")
+    print(f"  communities found: {cr.community_count}")
+    print(f"  modularity: {cr.modularity:.4f}")
+    print(f"  coverage: {cr.coverage:.4f}")
+    for comm in cr.communities:
+        print(f"  community {comm.community_id}: {sorted(comm.member_labels)} (size={comm.size})")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

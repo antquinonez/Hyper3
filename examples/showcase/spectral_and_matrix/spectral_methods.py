@@ -108,6 +108,28 @@ def main() -> None:
         print(f"  s={s_val}: {num_comp} components -> {comps}")
 
     print("\n" + "=" * 70)
+    print("SECTION 6: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    cr = mem.detect_communities(seed=42)
+    print(f"\nlabel propagation communities:")
+    print(f"  communities found: {cr.community_count}")
+    print(f"  modularity: {cr.modularity:.4f}")
+    print(f"  coverage: {cr.coverage:.4f}")
+    for comm in cr.communities:
+        labels_sorted = sorted(comm.member_labels)
+        print(f"  community {comm.community_id}: {labels_sorted} (size={comm.size})")
+
+    spectral_groups = {}
+    for label, vec in embeddings.items():
+        dominant = int(np.argmax(np.abs(vec)))
+        spectral_groups.setdefault(dominant, []).append(label)
+
+    print(f"\nspectral embedding clusters (by dominant eigenvector):")
+    for dim, members in sorted(spectral_groups.items()):
+        print(f"  dim {dim}: {sorted(members)}")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

@@ -99,6 +99,31 @@ def main() -> None:
         print(f"dual incidence: shape={H_dual.shape}")
 
     print("\n" + "=" * 70)
+    print("SECTION 4: COMMUNITY DETECTION - Original vs Dual")
+    print("=" * 70)
+
+    from hyper3.community import CommunityDetector
+
+    orig_detector = CommunityDetector(g)
+    orig_cr = orig_detector.detect_label_propagation(seed=42)
+    print(f"\noriginal graph communities:")
+    print(f"  communities: {orig_cr.community_count}")
+    print(f"  modularity: {orig_cr.modularity:.4f}")
+    for comm in orig_cr.communities:
+        print(f"  community {comm.community_id}: {sorted(comm.member_labels)} (size={comm.size})")
+
+    if dual.node_count > 0 and dual.edge_count > 0:
+        dual_detector = CommunityDetector(dual)
+        dual_cr = dual_detector.detect_label_propagation(seed=42)
+        print(f"\ndual graph communities:")
+        print(f"  communities: {dual_cr.community_count}")
+        print(f"  modularity: {dual_cr.modularity:.4f}")
+        for comm in dual_cr.communities:
+            print(f"  community {comm.community_id}: {sorted(comm.member_labels)} (size={comm.size})")
+    else:
+        print("\ndual graph too sparse for community detection")
+
+    print("\n" + "=" * 70)
     print("DONE")
 
 

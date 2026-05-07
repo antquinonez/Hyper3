@@ -1,15 +1,11 @@
 """
-Laminar Comparison: Centrality & PageRank
-==========================================
-Parallels:
-  - XGI: "Comparing Centralities" case study (5 centrality types)
-  - HNX: "s-Centrality" tutorial
-  - NetworkX: standard centrality
+Centrality, PageRank, and Structural Analysis
+==============================================
+Shows degree, betweenness, and PageRank centrality on a non-trivial
+organizational network, then uses structural anomaly detection and
+community detection to identify hidden patterns.
 
-Shows degree, betweenness, and PageRank centrality in Hyper3,
-with hypergraph-native implementations.
-
-Run: .venv/bin/python examples/showcase/centrality_and_ranking/18_centrality_and_pagerank.py
+Run: .venv/bin/python examples/showcase/centrality_and_ranking/centrality_and_pagerank.py
 """
 
 from __future__ import annotations
@@ -71,11 +67,6 @@ def main() -> None:
     print("SECTION 2: DEGREE CENTRALITY")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.degree(H)  -> dict of degrees (normalized by n-1)")
-    print("--- HNX equivalent ---")
-    print("hnx.s_closeness_centrality(h)  -> s-walk-based centrality")
-
     deg_cent = mem.degree_centrality()
     print(f"\n{'concept':>8} {'deg_centrality':>15}")
     print("-" * 27)
@@ -86,11 +77,6 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SECTION 3: BETWEENNESS CENTRALITY")
     print("=" * 70)
-
-    print("\n--- NetworkX equivalent ---")
-    print("nx.betweenness_centrality(G, normalized=True)")
-    print("--- XGI equivalent ---")
-    print("xgi.node_edge_centrality(H)  -> hypergraph-native")
 
     betw = mem.betweenness_centrality()
     print(f"\n{'concept':>8} {'betweenness':>12}")
@@ -103,11 +89,6 @@ def main() -> None:
     print("SECTION 4: PAGERANK (hypergraph-native)")
     print("=" * 70)
 
-    print("\n--- NetworkX equivalent ---")
-    print("nx.pagerank(G, alpha=0.85)")
-    print("\n--- Hyper3 uses incidence-based transition: ---")
-    print("P = D_v^{-1} H W D_e^{-1} H^T  (Zhou et al. 2006)")
-
     pr = mem.pagerank(alpha=0.85)
     print(f"\n{'concept':>8} {'pagerank':>10}")
     print("-" * 22)
@@ -119,11 +100,8 @@ def main() -> None:
     print(f"\npagerank sum (should be ~1.0): {pr_sum:.6f}")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: MULTI-CENTRALITY COMPARISON (XGI case study pattern)")
+    print("SECTION 5: MULTI-CENTRALITY COMPARISON")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("seaborn.pairplot(df) with 5 centrality columns")
 
     print(f"\n{'concept':>8} {'degree':>8} {'between':>8} {'pagerank':>10}")
     print("-" * 40)
@@ -134,13 +112,37 @@ def main() -> None:
     print(f"\ntop-3 by pagerank: {top_k}")
 
     print("\n" + "=" * 70)
-    print("SECTION 6: WEIGHTED ANALYSIS (Hyper3 advantage)")
+    print("SECTION 6: WEIGHTED ANALYSIS")
     print("=" * 70)
 
     print("\nUsing edge weights as transition probabilities:")
-    pr_weighted = mem.pagerank(alpha=0.85, weighted=True)
-    print(f"\ntop-3 weighted pagerank: {mem.pagerank(alpha=0.85, weighted=True, top_k=3)}")
+    print(f"top-3 weighted pagerank: {mem.pagerank(alpha=0.85, weighted=True, top_k=3)}")
     print(f"top-3 unweighted pagerank: {mem.pagerank(alpha=0.85, weighted=False, top_k=3)}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: STRUCTURAL ANOMALY DETECTION")
+    print("=" * 70)
+
+    for concept in ["alice", "iris", "bob", "eve"]:
+        anomaly = mem.detect_structural_anomalies(concept)
+        print(f"\n{concept}:")
+        print(f"  anomaly status: {anomaly.anomaly_status}")
+        print(f"  boundary score: {anomaly.boundary_score:.4f}")
+        if anomaly.structural_insights:
+            for insight in anomaly.structural_insights[:3]:
+                print(f"  insight: {insight}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 8: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    comm_result = mem.detect_communities(seed=42)
+    print(f"\ncommunities detected: {comm_result.community_count}")
+    print(f"modularity: {comm_result.modularity:.4f}")
+    print(f"coverage: {comm_result.coverage:.4f}")
+    for i, community in enumerate(comm_result.communities):
+        labels = sorted(community.member_labels)
+        print(f"  community {i}: {labels} ({community.size} nodes)")
 
     print("\n" + "=" * 70)
     print("DONE")

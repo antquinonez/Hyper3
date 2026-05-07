@@ -6,7 +6,7 @@ Parallels:
   - XGI: temporal hypergraph concepts
 
 Shows Allen interval algebra, temporal event ordering, causal chain
-detection, and constraint checking — capabilities unique to Hyper3
+detection, and constraint checking -- capabilities unique to Hyper3
 in this comparison space.
 
 Run: .venv/bin/python examples/showcase/generative_and_workflow/22_temporal_reasoning.py
@@ -121,6 +121,53 @@ def main() -> None:
     print(f"\nindirect causal chains inferred:")
     for lbl, src, tgt in indirect:
         print(f"  {src} -[{lbl}]-> {tgt}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 6: BELIEF DISTRIBUTIONS")
+    print("=" * 70)
+
+    uncertain_events = [
+        ("lockdown_possible", {}),
+        ("travel_restriction", {}),
+        ("vaccine_mandate", {}),
+    ]
+    for name, data in uncertain_events:
+        mem.store(name, data=data)
+
+    concepts = [name for name, _ in uncertain_events]
+    qs = mem.create_distribution(concepts, use_context_field=False)
+
+    print(f"\nbelief distribution over uncertain outcomes:")
+    print(f"  distribution id: {qs.id}")
+    print(f"  number of outcomes: {qs.outcome_count}")
+
+    for outcome in qs.outcomes:
+        node = mem.graph.get_node(outcome.node_id)
+        label = node.label if node else outcome.node_id
+        print(f"  {label}: probability={outcome.probability:.4f}")
+
+    sampled = mem.sample(qs)
+    if sampled:
+        node = mem.graph.get_node(sampled.node_id)
+        label = node.label if node else sampled.node_id
+        print(f"\nsampled outcome: {label} (probability={sampled.probability:.4f})")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: SPREADING ACTIVATION")
+    print("=" * 70)
+
+    mem.clear_activations()
+
+    key_events = ["outbreak_detected", "vaccine_development", "recovery_begins"]
+    for event in key_events:
+        mem.stimulate(event, energy=1.0)
+
+    activated = mem.spread_activation(iterations=3)
+
+    print(f"\nstimulated {len(key_events)} key events, spread 3 iterations:")
+    print(f"  total activated: {len(activated)}")
+    for act in activated:
+        print(f"    {act.label}: activation={act.activation:.4f}, depth={act.depth}")
 
     print("\n" + "=" * 70)
     print("DONE")

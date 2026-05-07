@@ -1,6 +1,6 @@
 # Community Detection and Clustering
 
-> Three scripts demonstrating label propagation communities, spectral clustering, and clustering coefficients on hypergraphs from 4 to 30 nodes.
+> Three scripts demonstrating label propagation communities, spectral clustering, and clustering coefficients — with community-aware clustering analysis and spreading activation — on hypergraphs from 3 to 30 nodes.
 
 ## 1. The Approach
 
@@ -12,7 +12,7 @@ This showcase runs three scripts:
 
 - **`community_detection.py`** — Label propagation on a 14-node graph with 3 planted clusters and bridge edges
 - **`spectral_clustering.py`** — Spectral clustering via Laplacian eigenvectors + k-means on a 30-node stochastic block model
-- **`clustering_coefficient.py`** — Local and average clustering coefficients across triangle, chain, star, and complete topologies
+- **`clustering_coefficient.py`** — Local and average clustering coefficients across canonical topologies, community detection on a mixed graph, and spreading activation from the highest-clustering node
 
 ## 2. Key Concepts
 
@@ -24,6 +24,7 @@ This showcase runs three scripts:
 | **Clustering coefficient** | Fraction of a node's neighbor pairs that are themselves connected. 1.0 means every neighbor pair has an edge; 0.0 means none do. |
 | **Stochastic block model (SBM)** | Random graph generator with planted community structure. High intra-cluster edge probability (`p_in`), low inter-cluster probability (`p_out`). |
 | **Modularity** | Quality score for a partition: how much more intra-community edge weight exists than expected by chance. Range [-0.5, 1.0]; higher is better. |
+| **Spreading activation** | Propagates a stimulus from a seed node through the graph, with activation strength decaying over distance. Reveals which nodes are reachable and how strongly connected they are to the seed. |
 
 ## 3. Quick Start
 
@@ -64,6 +65,19 @@ cluster agreement (greedy match): 100.00%
        chain          0.0000
         star          0.0000
     complete          1.0000
+
+community detection on mixed graph:
+  communities: 2
+  modularity: 0.2392
+  community 5: ['a', 'b', 'c', 'd', 'e', 'f'] (size=6, avg_cc=0.7778)
+  community 7: ['g', 'h'] (size=2, avg_cc=0.0000)
+
+stimulating highest-clustering node: 'a' (cc=1.0000)
+
+activated nodes after spreading from 'a':
+  c: activation=1.0000, depth=1, cc=0.3333
+  b: activation=0.9898, depth=1, cc=1.0000
+  a: activation=0.8755, depth=0, cc=1.0000
 ```
 
 ## 4. Script Walkthroughs
@@ -97,7 +111,9 @@ Why spectral clustering matters: label propagation relies on local neighbor voti
 
 ### 4.3 Clustering Coefficient (`clustering_coefficient.py`)
 
-The script constructs four canonical topologies and measures local clustering at every node:
+The script constructs four canonical topologies, measures local clustering at every node, then applies community detection and spreading activation to a mixed graph.
+
+#### Sections 1-4: Canonical Topologies and Hypergraph Clustering
 
 | Topology | Nodes | Avg clustering | Why |
 |----------|-------|---------------|-----|
@@ -109,6 +125,48 @@ The script constructs four canonical topologies and measures local clustering at
 Clustering coefficient is undefined for nodes with fewer than 2 neighbors (degree < 2), which return 0.0. In the star graph, the hub has 5 neighbors but none of those neighbors connect to each other, giving clustering 0.0. The leaves each have degree 1, also returning 0.0.
 
 The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hyperedge (`{a,b} -> {c,d}`, weight 5.0). All four nodes have clustering coefficient 1.0000 because the pairwise edges form a complete graph (a-b, b-c, c-d, d-a, a-c). The n-ary hyperedge does not affect clustering coefficient calculations — only pairwise edges contribute.
+
+#### Section 5: Community Detection on a Mixed Graph
+
+The script constructs an 8-node mixed graph with two triangles (a-b-c and d-e-f), a reciprocal pair (g-h), and a single bridge edge (c-d, weight 1.0). Triangle and pair edges use weight 5.0.
+
+Label propagation with `seed=42` detects 2 communities:
+
+| Community | Nodes | Size | Avg CC | Why this grouping |
+|-----------|-------|------|--------|-------------------|
+| 5 | [a, b, c, d, e, f] | 6 | 0.7778 | Two triangles connected by the weak bridge (c-d) merge into one community |
+| 7 | [g, h] | 2 | 0.0000 | Isolated pair with no path to the main cluster |
+
+The per-community average clustering reveals a structural split: community 5 has high internal cohesion (avg CC 0.7778) because four of its six nodes sit inside complete triangles, while c and d have lower clustering (0.3333) because each has one extra neighbor (the bridge) whose connections don't close the triangle. Community 7 has zero clustering because g and h have no shared neighbors.
+
+Modularity is 0.2392 — positive, meaning the partition captures some intra-community structure, but lower than the 14-node graph's 0.5797. The weak bridge pulls the two triangles into one community, reducing the modularity gain.
+
+#### Section 6: Spreading Activation from Highest-Clustering Node
+
+The script computes clustering coefficients for all 8 nodes in the mixed graph:
+
+| Node | CC | Role |
+|------|----|------|
+| a | 1.0000 | Pure triangle member |
+| b | 1.0000 | Pure triangle member |
+| e | 1.0000 | Pure triangle member |
+| f | 1.0000 | Pure triangle member |
+| c | 0.3333 | Triangle + bridge endpoint |
+| d | 0.3333 | Triangle + bridge endpoint |
+| g | 0.0000 | Isolated pair member |
+| h | 0.0000 | Isolated pair member |
+
+Node `a` is selected (highest CC, alphabetically first among ties at 1.0000) and stimulated with energy 1.0. After 3 iterations of spreading activation:
+
+| Node | Activation | Depth | CC |
+|------|-----------|-------|----|
+| c | 1.0000 | 1 | 0.3333 |
+| b | 0.9898 | 1 | 1.0000 |
+| a | 0.8755 | 0 | 1.0000 |
+
+Activation reaches 3 nodes — all within the first triangle (a-b-c). Node c receives the highest activation despite having the lowest CC in the triangle, because edge weights and network topology concentrate activation flow through it. The bridge (c-d) is too weak (weight 1.0 vs triangle weight 5.0) and the spread iterations too few for activation to reach the second triangle (d-e-f) or the isolated pair (g-h).
+
+Why this matters: clustering coefficient identifies structurally central nodes within cohesive groups, and spreading activation reveals the reachability boundary from those nodes. A node with high CC in a dense cluster activates its immediate triangle neighbors but may not reach nodes beyond weak bridges. This combination helps distinguish between local density (clustering) and global influence (activation spread).
 
 ## 5. Key Metrics
 
@@ -138,6 +196,14 @@ The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hy
 | | Star avg CC | 0.0000 |
 | | Complete avg CC | 1.0000 |
 | | N-ary hypergraph avg CC | 1.0000 |
+| | Mixed graph nodes | 8 |
+| | Mixed graph communities | 2 |
+| | Mixed graph modularity | 0.2392 |
+| | Community 5 avg CC | 0.7778 |
+| | Community 7 avg CC | 0.0000 |
+| | Activation seed node | a (CC=1.0000) |
+| | Activated nodes (3 iterations) | 3 (a, b, c) |
+| | Max activation (depth 1) | c: 1.0000 |
 
 ## 6. What Makes This Different
 
@@ -146,6 +212,10 @@ The script also builds a 4-node hypergraph with pairwise edges plus one n-ary hy
 **Hyperedge-aware community detection.** Community detection operates on the full mixed graph — pairwise and n-ary edges contribute equally. Adding strong cross-cluster hyperedges (weight 10.0) collapses the three communities into one. This reveals a structural tension: hyperedges that span communities can pull detection toward a single-group solution. When mixing edge types, the relative weights between intra-community pairwise edges and cross-community hyperedges determine whether communities remain detectable.
 
 **Clustering coefficients on hypergraphs.** The clustering coefficient implementation handles graphs that contain both pairwise and n-ary edges. The n-ary edges are excluded from clustering calculations (only pairwise edges form neighbor pairs), so the metric reflects the pairwise substructure. This is a design choice: including n-ary edges in neighbor counting would inflate the coefficient for nodes that participate in large hyperedges, even if their pairwise neighborhood is sparse.
+
+**Community detection complementing clustering analysis.** Running community detection alongside clustering coefficients reveals how local density (CC) and global group structure (communities) interact. In the mixed graph, community 5 has high average clustering (0.7778) because most nodes sit in complete triangles, while the bridge endpoints (c, d) have lower CC (0.3333) due to their extra cross-group neighbor. Community detection identifies the groups; clustering coefficient grades how cohesive each group is. Together they distinguish between tight-knit clusters and loosely-connected aggregations.
+
+**Spreading activation as a reachability probe.** Stimulating the highest-clustering node and observing which nodes receive activation reveals the effective neighborhood radius of dense clusters. Activation from node `a` reaches only its triangle neighbors (a, b, c) — not the second triangle or the isolated pair. This shows that high local clustering does not imply global reachability. The weak bridge (weight 1.0) acts as a barrier to activation spread, just as it acts as a structural boundary for community detection.
 
 ## 7. Code Implementation
 
@@ -190,6 +260,41 @@ cc = mem.clustering_coefficient("a")     # 1.0
 avg = mem.average_clustering_coefficient() # 1.0
 ```
 
+Community detection with per-community clustering:
+
+```python
+from hyper3 import HypergraphMemory
+
+mem = HypergraphMemory(evolve_interval=0)
+mem.store("a")
+mem.store("b")
+mem.store("c")
+mem.relate("a", "b", label="e", weight=5.0)
+mem.relate("b", "c", label="e", weight=5.0)
+mem.relate("c", "a", label="e", weight=5.0)
+
+result = mem.detect_communities(seed=42)
+for comm in result.communities:
+    avg_cc = sum(mem.clustering_coefficient(l) for l in comm.member_labels) / comm.size
+    print(f"  community {comm.community_id}: avg_cc={avg_cc:.4f}")
+```
+
+Spreading activation from highest-clustering node:
+
+```python
+from hyper3 import HypergraphMemory
+
+mem = HypergraphMemory(evolve_interval=0)
+
+cc_values = {c: mem.clustering_coefficient(c) for c in ["a", "b", "c"]}
+seed_node = max(cc_values, key=cc_values.get)
+
+mem.stimulate(seed_node, energy=1.0)
+activated = mem.spread_activation(iterations=3)
+for act in activated:
+    print(f"  {act.label}: activation={act.activation:.4f}, depth={act.depth}")
+```
+
 ## 8. Reference
 
 ### API Methods
@@ -208,13 +313,17 @@ avg = mem.average_clustering_coefficient() # 1.0
 | `is_connected()` | `Hypergraph` | `bool` | Single connected component check |
 | `clustering_coefficient(concept)` | `HypergraphMemory` | `float` | Local coefficient for one node |
 | `average_clustering_coefficient()` | `HypergraphMemory` | `float` | Mean across all nodes |
+| `stimulate(concept, energy=)` | `HypergraphMemory` | `None` | Inject activation energy at a seed node |
+| `spread_activation(iterations=)` | `HypergraphMemory` | `list[ActivationResult]` | Propagate activation and return activated nodes with activation levels and depths |
+| `clear_activations()` | `HypergraphMemory` | `None` | Reset all node activations to zero |
 | `CommunityDetector(graph)` | module-level | detector | Standalone detector for direct use on `Hypergraph` |
 | `detect_label_propagation(seed=)` | `CommunityDetector` | `CommunityResult` | Same algorithm as `mem.detect_communities()` |
 
 ### Real-World Gap
 
-- **Scale**: These scripts run on 4–30 nodes. Performance at 10K+ nodes is untested.
+- **Scale**: These scripts run on 3–30 nodes. Performance at 10K+ nodes is untested.
 - **Synthetic data**: All graphs are hand-constructed or generated by SBM. Real graphs have noisy labels, missing edges, and overlapping communities.
 - **Non-determinism**: Label propagation is probabilistic. Different seeds may produce different community assignments, especially on graphs with weak community structure.
 - **Hyperedge impact**: The scripts demonstrate that strong cross-community hyperedges can collapse community detection. Production use requires calibrating edge weights to preserve meaningful community boundaries.
 - **Directed edges**: Clustering coefficients and community detection treat the graph as undirected for these computations. Directed community structure (e.g., feed-forward vs feedback groups) is not captured.
+- **Activation spread**: Spreading activation uses fixed iteration count and decay. Production use would require tuning decay rates, iteration depth, and convergence thresholds for the specific graph.

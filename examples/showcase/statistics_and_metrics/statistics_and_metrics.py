@@ -1,14 +1,11 @@
 """
-Laminar Comparison: Statistics & Degree Analysis
+Statistics, Metrics, and Adaptive Graph Dynamics
 =================================================
-Parallels:
-  - XGI: "Tutorial 6 - Statistics" (NodeStat, EdgeStat, filtering, multi-stat)
-  - HNX: basic stats
-
 Shows degree computation, edge-size analysis, filtering by degree,
-multi-stat queries, and extends with Hyper3's weighted and semantic stats.
+multi-stat queries, weighted degree, and how evolution and Hebbian
+learning change graph statistics over time.
 
-Run: .venv/bin/python examples/showcase/statistics_and_metrics/16_statistics_and_metrics.py
+Run: .venv/bin/python examples/showcase/statistics_and_metrics/statistics_and_metrics.py
 """
 
 from __future__ import annotations
@@ -18,24 +15,16 @@ import statistics
 
 def main() -> None:
     print("=" * 70)
-    print("SECTION 1: DEGREE STATISTICS — XGI pattern")
+    print("SECTION 1: DEGREE STATISTICS")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("H = xgi.Hypergraph([[1,2,3], [2,3,4,5], [3,4,5]])")
-    print("H.nodes.degree.asdict()  -> {1: 1, 2: 2, 3: 3, 4: 2, 5: 2}")
-    print("H.nodes.degree.aslist()  -> [1, 2, 3, 2, 2]")
-    print("H.nodes.degree.max()     -> 3")
-    print("H.nodes.degree.mean()    -> 2.0")
-
-    print("\n--- Hyper3 ---")
     from hyper3 import HypergraphMemory
 
     mem = HypergraphMemory(evolve_interval=0)
 
     concepts = ["a", "b", "c", "d", "e"]
     for c in concepts:
-        mem.store(c)
+        mem.store(c, data={})
 
     mem.relate("a", "b", label="connected")
     mem.relate("a", "c", label="connected")
@@ -57,10 +46,6 @@ def main() -> None:
     print("SECTION 2: EDGE SIZE / ORDER STATISTICS")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("H.edges.order.asdict()   -> {0: 2, 1: 3, 2: 2}")
-    print("H.edges.size.asdict()    -> {0: 3, 1: 4, 2: 3}")
-
     mem2 = HypergraphMemory(evolve_interval=0)
     for c in ["w", "x", "y", "z"]:
         mem2.store(c)
@@ -81,29 +66,22 @@ def main() -> None:
     print(f"unique sizes: {sorted(set(edge_sizes))}")
 
     print("\n" + "=" * 70)
-    print("SECTION 3: FILTERING BY DEGREE — XGI pattern")
+    print("SECTION 3: FILTERING BY DEGREE")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("H.nodes.filterby('degree', 5, mode='geq')  -> high-degree nodes")
-    print("H.nodes.filterby_attr('color', 'red')      -> nodes with attr")
 
     high_degree = [label for label, deg in degree_dict.items() if deg >= 3]
     print(f"nodes with degree >= 3: {high_degree}")
 
-    mem.store("a", data={"type": "hub", "priority": "high"})
-    mem.store("c", data={"type": "hub", "priority": "high"})
-    mem.store("e", data={"type": "leaf", "priority": "low"})
+    mem.ensure("a", data={"type": "hub", "priority": "high"}, update=True)
+    mem.ensure("c", data={"type": "hub", "priority": "high"}, update=True)
+    mem.ensure("e", data={"type": "leaf", "priority": "low"}, update=True)
 
     hubs = mem.query_nodes(data={"type": "hub"})
     print(f"hub-type nodes: {hubs}")
 
     print("\n" + "=" * 70)
-    print("SECTION 4: MULTI-STAT COMPARISON — XGI pattern")
+    print("SECTION 4: MULTI-STAT COMPARISON")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("H.nodes.multi(['degree', 'clustering_coefficient']).aspandas()")
 
     cent = mem.degree_centrality()
     pr = mem.pagerank()
@@ -114,7 +92,7 @@ def main() -> None:
         print(f"{label:>8} {degree_dict.get(label, 0):>8} {cent[label]:>10.4f} {pr.get(label, 0.0):>10.4f}")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: WEIGHTED DEGREE (Hyper3 advantage)")
+    print("SECTION 5: WEIGHTED DEGREE")
     print("=" * 70)
 
     mem3 = HypergraphMemory(evolve_interval=0)
@@ -131,6 +109,63 @@ def main() -> None:
     print("\nweighted degree (sum of incident edge weights):")
     for label, wd in sorted(weighted_deg.items()):
         print(f"  {label}: {wd:.1f}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 6: EVOLUTION IMPACT ON STATISTICS")
+    print("=" * 70)
+
+    mem4 = HypergraphMemory(evolve_interval=0)
+    for c in ["a", "b", "c", "d", "e", "f", "g"]:
+        mem4.store(c)
+
+    mem4.relate("a", "b", label="core", weight=8.0)
+    mem4.relate("b", "c", label="core", weight=8.0)
+    mem4.relate("c", "d", label="core", weight=8.0)
+    mem4.relate("a", "e", label="peripheral", weight=1.0)
+    mem4.relate("e", "f", label="peripheral", weight=1.0)
+    mem4.relate("f", "g", label="peripheral", weight=1.0)
+    mem4.relate("d", "e", label="bridge", weight=2.0)
+
+    before_deg = mem4.degree()
+    before_density = mem4.density()
+    before_nodes = mem4.graph.node_count
+    before_edges = mem4.graph.edge_count
+
+    print(f"\nbefore evolution:")
+    print(f"  nodes: {before_nodes}, edges: {before_edges}")
+    print(f"  density: {before_density:.4f}")
+    print(f"  degrees: {dict(sorted(before_deg.items()))}")
+
+    mem4.stimulate("a", energy=1.0)
+    mem4.stimulate("b", energy=1.0)
+    mem4.stimulate("c", energy=1.0)
+    mem4.spread_activation(iterations=2)
+    mem4.hebbian_reinforce()
+
+    evolve_result = mem4.evolve()
+
+    after_deg = mem4.degree()
+    after_density = mem4.density()
+    after_nodes = mem4.graph.node_count
+    after_edges = mem4.graph.edge_count
+
+    print(f"\nafter evolution (decay weak edges, reinforce active paths):")
+    print(f"  nodes: {after_nodes}, edges: {after_edges}")
+    print(f"  density: {after_density:.4f}")
+    print(f"  degrees: {dict(sorted(after_deg.items()))}")
+    print(f"  edges decayed: {evolve_result.decayed}")
+    print(f"  nodes pruned: {evolve_result.pruned}")
+    print(f"  nodes merged: {evolve_result.merged}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: COMMUNITY DETECTION")
+    print("=" * 70)
+
+    comm_result = mem4.detect_communities(seed=42)
+    print(f"\ncommunities detected: {comm_result.community_count}")
+    print(f"modularity: {comm_result.modularity:.4f}")
+    for i, community in enumerate(comm_result.communities):
+        print(f"  community {i}: {sorted(community.member_labels)} ({community.size} nodes)")
 
     print("\n" + "=" * 70)
     print("DONE")

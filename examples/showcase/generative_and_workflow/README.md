@@ -18,14 +18,16 @@ This group covers three capabilities that form a natural progression:
 | **Stochastic Block Model (SBM)** | Generates hypergraphs with planted community structure: high edge probability within blocks, low between blocks |
 | **Allen interval algebra** | A set of 13 relations between time intervals (before, meets, overlaps, contains, etc.) that capture every possible temporal relationship |
 | **Causal chain** | A directed path through temporal events where each step is connected by a causal edge label |
+| **Belief distribution** | A set of possible outcomes for an uncertain concept, each with a probability derived from complex amplitudes via the Born rule |
+| **Spreading activation** | An iterative process that propagates stimulation energy from seed nodes outward through the graph |
 | **Complete workflow** | An end-to-end pipeline: generate → statistics → centralities → spectral clustering → coefficients → transformations |
 
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/generative_and_workflow/27_generative_models.py
-.venv/bin/python examples/showcase/generative_and_workflow/22_temporal_reasoning.py
-.venv/bin/python examples/showcase/generative_and_workflow/36_complete_workflow.py
+.venv/bin/python examples/showcase/generative_and_workflow/generative_models.py
+.venv/bin/python examples/showcase/generative_and_workflow/temporal_reasoning.py
+.venv/bin/python examples/showcase/generative_and_workflow/complete_workflow.py
 ```
 
 ### Generative Models
@@ -45,6 +47,12 @@ SECTION 4: complete_hypergraph and star_hypergraph
 complete(5): nodes=5, edges=10
 star(7): nodes=7, edges=6
   center degree: 6
+
+SECTION 7: ANALYSIS ON GENERATED GRAPHS
+  communities found: 1
+  modularity: 0.0000
+  reasoning edges produced: 1
+  reasoning states created: 2
 ```
 
 ### Temporal Reasoning
@@ -58,13 +66,28 @@ SECTION 2: ALLEN INTERVAL RELATIONS
 ------------------------------------------------------------
    outbreak_detected    quarantine_issued AllenRelation.MEETS
    quarantine_issued           travel_ban AllenRelation.OVERLAPS
-     recovery_begins          second_wave AllenRelation.CONTAINS
+     supply_disruption      economic_impact AllenRelation.OVERLAPS
+       recovery_begins          second_wave AllenRelation.CONTAINS
+ vaccine_development      recovery_begins AllenRelation.MEETS
 
 SECTION 3: CAUSAL CHAIN DETECTION
 causal chains found: 48
 
 SECTION 4: TEMPORAL CONSISTENCY
 temporal consistency: consistent
+
+SECTION 6: BELIEF DISTRIBUTIONS
+  number of outcomes: 3
+  lockdown_possible: probability=0.3333
+  travel_restriction: probability=0.3333
+  vaccine_mandate: probability=0.3333
+
+SECTION 7: SPREADING ACTIVATION
+stimulated 3 key events, spread 3 iterations:
+  total activated: 9
+    economic_impact: activation=1.0000, depth=1
+    recovery_begins: activation=0.8683, depth=0
+    outbreak_detected: activation=0.8343, depth=0
 ```
 
 ### Complete Workflow
@@ -89,7 +112,7 @@ SECTION 7: Summary Dashboard
 
 ### generative_models.py — Random and Structured Hypergraphs
 
-This script exercises seven generator functions, each producing a hypergraph with different structural characteristics.
+This script exercises seven generator functions and then applies analysis (community detection, reasoning) to the generated graphs.
 
 **Erdos-Renyi (`random_hypergraph`)** — Each possible edge of each arity is included independently with a given probability. Produces graphs with no planted structure. Use when you need a baseline with no community bias. With 15 nodes and probabilities `{0: 0.3, 1: 0.1}`, the output has 18 edges and degree distribution `{1: 6, 2: 5, 3: 4}` — a roughly bell-shaped spread.
 
@@ -103,7 +126,9 @@ This script exercises seven generator functions, each producing a hypergraph wit
 
 **Chung-Lu (`random_chung_lu`)** — Matches a prescribed degree sequence. Given expected degrees `[3, 3, 3, 2, 2, 1, 1, 1]` and edge sizes `[2, 2, 3, 3]`, produces 5 edges across 8 nodes. Use when you need a graph whose degree distribution matches a target.
 
-### temporal_reasoning.py — Allen Interval Algebra and Causal Chains
+**Analysis of Generated Graphs (Section 7)** — After generation, the script applies community detection to the SBM graph and reasoning to the random hypergraph. Community detection via label propagation finds 1 community containing all 20 nodes (modularity 0.0000) — the SBM's high intra-block density with only 2 blocks merges them into a single component. Reasoning with `TransitiveRule` on the Erdos-Renyi graph from seed node `n0` produces 1 new inferred edge via 1 rule application across 2 multiway states. This demonstrates that generated graphs can be used directly as inputs to analysis and reasoning pipelines without manual construction.
+
+### temporal_reasoning.py — Allen Interval Algebra, Causal Chains, Belief, and Activation
 
 This script models a pandemic scenario with 9 events, each assigned a time interval via `add_temporal_event()`.
 
@@ -111,6 +136,7 @@ This script models a pandemic scenario with 9 events, each assigned a time inter
 
 - `outbreak_detected` [0, 1] meets `quarantine_issued` [1, 3] — the first ends exactly when the second starts.
 - `quarantine_issued` [1, 3] overlaps `travel_ban` [1.5, 4] — they share a partial time window but neither contains the other.
+- `supply_disruption` [2, 5] overlaps `economic_impact` [4, 10] — concurrent effects with partial intersection.
 - `recovery_begins` [8, 15] contains `second_wave` [12, 14] — the second interval falls entirely within the first.
 - `vaccine_development` [3, 8] meets `recovery_begins` [8, 15] — another boundary-to-boundary transition.
 
@@ -120,7 +146,15 @@ These relations capture temporal nuance that simple "before/after" comparisons m
 
 **Temporal consistency checking** verifies that no event is marked as causing another event that starts earlier. The output reports `consistent` — no temporal contradictions detected.
 
-**Temporal + reasoning** applies the `TransitiveRule` on the `causes` edge label to infer indirect causal links. Starting from `outbreak_detected`, reasoning produces 2 new edges: `outbreak_detected -> supply_disruption` and `outbreak_detected -> economic_impact`, both labeled `indirectly_causes`.
+**Temporal + reasoning** applies the `TransitiveRule` on the `causes` edge label to infer indirect causal links. Starting from `outbreak_detected`, reasoning produces 2 new edges: `outbreak_detected -> economic_impact` and `outbreak_detected -> supply_disruption`, both labeled `indirectly_causes`.
+
+**Belief Distributions (Section 6)** — The script creates three uncertain policy outcomes (`lockdown_possible`, `travel_restriction`, `vaccine_mandate`) and represents them as a belief distribution. Each outcome starts with equal probability (0.3333). Sampling via the Born rule collapses this superposition to a single outcome — in this run, `travel_restriction`. Belief distributions let the system reason about uncertain futures without committing to a single interpretation until a sampling event forces a decision.
+
+Why this matters: traditional knowledge graphs represent uncertainty as a single confidence score. Belief distributions represent it as a full probability distribution over outcomes, enabling probabilistic reasoning, correlation tracking between uncertain concepts, and context-dependent sampling.
+
+**Spreading Activation (Section 7)** — Three key events (`outbreak_detected`, `vaccine_development`, `recovery_begins`) receive stimulation energy of 1.0 each. After 3 iterations of spreading, 9 nodes are activated. `economic_impact` reaches the highest activation (1.0000) at depth 1, reflecting its position as a convergence point with multiple incoming causal paths. `herd_immunity` and `second_wave` both activate at 0.3742, indicating they are reachable but further from the seeds.
+
+Why this matters: spreading activation surfaces nodes that are structurally close to seeds but not directly connected. A node like `economic_impact` (activation 1.0000, depth 1) is a critical convergence point — it receives energy from multiple paths simultaneously, making it more activated than some of the seeds themselves.
 
 ### complete_workflow.py — End-to-End Pipeline
 
@@ -161,6 +195,16 @@ The three metrics identify different nodes as most central because they measure 
 | `ring_lattice(10, 4, 2)` | 10 | 20 | — | True |
 | `random_chung_lu(8, ...)` | 8 | 5 | — | — |
 
+### Generative Models — Analysis on Generated Graphs
+
+| Metric | Value |
+|--------|-------|
+| SBM communities found (label propagation) | 1 |
+| SBM modularity | 0.0000 |
+| Reasoning edges produced (from n0) | 1 |
+| Reasoning rules applied | 1 |
+| Reasoning states created | 2 |
+
 ### Temporal Reasoning (9-event pandemic scenario)
 
 | Metric | Value |
@@ -171,6 +215,25 @@ The three metrics identify different nodes as most central because they measure 
 | Allen relations computed | 5 pairs |
 | Temporal consistency | Consistent |
 | Inferred indirect causes | 2 |
+| Belief distribution outcomes | 3 |
+| Belief probability per outcome | 0.3333 |
+| Spreading activation seeds | 3 |
+| Spreading activation total activated | 9 |
+| Highest activation (non-seed) | economic_impact (1.0000) |
+
+### Temporal Reasoning — Spreading Activation Detail
+
+| Node | Activation | Depth |
+|------|-----------|-------|
+| economic_impact | 1.0000 | 1 |
+| recovery_begins | 0.8683 | 0 |
+| outbreak_detected | 0.8343 | 0 |
+| supply_disruption | 0.7005 | 1 |
+| travel_ban | 0.5668 | 1 |
+| quarantine_issued | 0.4627 | 1 |
+| vaccine_development | 0.4222 | 0 |
+| herd_immunity | 0.3742 | 1 |
+| second_wave | 0.3742 | 1 |
 
 ### Complete Workflow (24-node SBM)
 
@@ -192,9 +255,13 @@ The three metrics identify different nodes as most central because they measure 
 
 ## 6. What Makes This Different
 
-**Generative models produce hypergraphs with known structure for validation.** Testing a clustering algorithm requires knowing what the correct clusters are. An SBM with three blocks of 8 nodes lets you verify that spectral clustering recovers the planted partition — which it does, finding exactly 3 clusters of 8. Without generative models, you would need hand-constructed graphs or real data with unknown ground truth.
+**Generative models produce hypergraphs with known structure for validation.** Testing a clustering algorithm requires knowing what the correct clusters are. An SBM with three blocks of 8 nodes lets you verify that spectral clustering recovers the planted partition — which it does, finding exactly 3 clusters of 8. Without generative models, you would need hand-constructed graphs or real data with unknown ground truth. The analysis section goes further: community detection runs directly on the SBM output, and reasoning with `TransitiveRule` runs on the Erdos-Renyi output, demonstrating that generated graphs feed directly into analysis pipelines.
 
 **Allen interval algebra captures temporal relationships beyond simple before/after ordering.** Two events can meet (boundary-to-boundary handoff), overlap (concurrent with partial intersection), or contain one another (one entirely within the other). These distinctions matter in event-driven systems: a response that meets a trigger is a direct handoff, while overlapping events have concurrent effects that may interact. The 48 causal chains detected in the pandemic scenario emerge from the combination of temporal intervals and causal edge labels — neither alone would produce the same result.
+
+**Belief distributions represent uncertainty as full probability distributions, not single scores.** Three uncertain policy outcomes (`lockdown_possible`, `travel_restriction`, `vaccine_mandate`) are modeled as a belief distribution with equal probability (0.3333 each). Sampling via the Born rule collapses this to a single outcome. This enables probabilistic reasoning about uncertain futures — the system holds multiple interpretations simultaneously and commits only when forced.
+
+**Spreading activation surfaces structurally important nodes that are not directly connected to seeds.** Stimulating three key events activates 9 nodes total. `economic_impact` achieves the highest activation (1.0000) despite not being a seed, because it receives energy from multiple converging paths. This identifies convergence points that matter for understanding cascade dynamics.
 
 **The complete workflow demonstrates that all analysis APIs operate on the same graph object.** No data export, format conversion, or intermediate representation is needed. The same `Hypergraph` produced by `random_sbm()` is passed directly to `density()`, `pagerank()`, `spectral_clustering()`, `average_clustering_coefficient()`, `to_dual()`, and `to_line_graph()`. This eliminates the glue code that typically connects generation, analysis, and transformation steps.
 
@@ -220,6 +287,28 @@ mem.add_temporal_event("quarantine", start=1.0, end=3.0)
 relation = mem.allen_relation("outbreak", "quarantine")
 ```
 
+**Create a belief distribution and sample:**
+
+```python
+mem = HypergraphMemory(evolve_interval=0)
+mem.store("option_a")
+mem.store("option_b")
+mem.store("option_c")
+
+qs = mem.create_distribution(["option_a", "option_b", "option_c"], use_context_field=False)
+sampled = mem.sample(qs)
+```
+
+**Run spreading activation from seed nodes:**
+
+```python
+mem.stimulate("outbreak_detected", energy=1.0)
+mem.stimulate("vaccine_development", energy=1.0)
+activated = mem.spread_activation(iterations=3)
+for act in activated:
+    print(f"  {act.label}: activation={act.activation:.4f}")
+```
+
 **Full analysis pipeline:**
 
 ```python
@@ -241,35 +330,43 @@ The temporal reasoning operates on intervals attached to nodes and does not inte
 
 The spectral clustering and community detection produce non-overlapping partitions. Real communities in co-authorship or protein-interaction networks are overlapping — a node belongs to multiple groups simultaneously.
 
+Belief distributions in this showcase use uniform initial probabilities. Real-world usage would require domain-specific prior distributions and correlation structures between uncertain outcomes to produce meaningful probabilistic reasoning.
+
+Spreading activation parameters (energy, iterations, decay) require manual tuning. Adaptive parameter selection based on graph structure is not yet implemented.
+
 ## 9. Reference
 
 ### API Methods
 
 | Method | Returns | Script |
 |--------|---------|--------|
-| `random_hypergraph(n, ps, seed)` | `Hypergraph` | 27 |
-| `random_uniform_hypergraph(n, m, k, seed)` | `Hypergraph` | 27 |
-| `random_sbm(n, k, sizes, p_in, p_out, seed)` | `Hypergraph` | 27, 36 |
-| `complete_hypergraph(n, order)` | `Hypergraph` | 27 |
-| `star_hypergraph(n)` | `Hypergraph` | 27 |
-| `ring_lattice(n, d, k, prefix)` | `Hypergraph` | 27 |
-| `random_chung_lu(n, k1, k2, seed)` | `Hypergraph` | 27 |
-| `mem.add_temporal_event(concept, start, end)` | `None` | 22 |
-| `mem.allen_relation(a, b)` | `AllenRelation` | 22 |
-| `mem.temporal.detect_causal_chains()` | `list[list[str]]` | 22 |
-| `mem.temporal.check_constraint_consistency()` | `list` | 22 |
-| `g.density()` | `float` | 27, 36 |
-| `g.degree_distribution()` | `dict[int, int]` | 27, 36 |
-| `g.pagerank(alpha)` | `dict[str, float]` | 36 |
-| `g.katz_centrality(alpha)` | `dict[str, float]` | 36 |
-| `g.betweenness_centrality()` | `dict[str, float]` | 36 |
-| `g.spectral_clustering(k)` | `list[set[str]]` | 36 |
-| `g.normalized_laplacian()` | `(matrix, array)` | 36 |
-| `g.average_clustering_coefficient()` | `float` | 36 |
-| `g.clustering_coefficient(node_id)` | `float` | 36 |
-| `g.to_dual()` | `Hypergraph` | 36 |
-| `g.to_line_graph()` | `networkx.Graph` | 36 |
-| `g.to_bipartite_graph()` | `networkx.Graph` | 36 |
+| `random_hypergraph(n, ps, seed)` | `Hypergraph` | generative_models |
+| `random_uniform_hypergraph(n, m, k, seed)` | `Hypergraph` | generative_models |
+| `random_sbm(n, k, sizes, p_in, p_out, seed)` | `Hypergraph` | generative_models, complete_workflow |
+| `complete_hypergraph(n, order)` | `Hypergraph` | generative_models |
+| `star_hypergraph(n)` | `Hypergraph` | generative_models |
+| `ring_lattice(n, d, k, prefix)` | `Hypergraph` | generative_models |
+| `random_chung_lu(n, k1, k2, seed)` | `Hypergraph` | generative_models |
+| `mem.add_temporal_event(concept, start, end)` | `None` | temporal_reasoning |
+| `mem.allen_relation(a, b)` | `AllenRelation` | temporal_reasoning |
+| `mem.temporal.detect_causal_chains()` | `list[list[str]]` | temporal_reasoning |
+| `mem.temporal.check_constraint_consistency()` | `list` | temporal_reasoning |
+| `mem.create_distribution(concepts, ...)` | `QuantumState` | temporal_reasoning |
+| `mem.sample(qs)` | `Outcome` | temporal_reasoning |
+| `mem.stimulate(concept, energy)` | `None` | temporal_reasoning |
+| `mem.spread_activation(iterations)` | `list[ActivationResult]` | temporal_reasoning |
+| `g.density()` | `float` | generative_models, complete_workflow |
+| `g.degree_distribution()` | `dict[int, int]` | generative_models, complete_workflow |
+| `g.pagerank(alpha)` | `dict[str, float]` | complete_workflow |
+| `g.katz_centrality(alpha)` | `dict[str, float]` | complete_workflow |
+| `g.betweenness_centrality()` | `dict[str, float]` | complete_workflow |
+| `g.spectral_clustering(k)` | `list[set[str]]` | complete_workflow |
+| `g.normalized_laplacian()` | `(matrix, array)` | complete_workflow |
+| `g.average_clustering_coefficient()` | `float` | complete_workflow |
+| `g.clustering_coefficient(node_id)` | `float` | complete_workflow |
+| `g.to_dual()` | `Hypergraph` | complete_workflow |
+| `g.to_line_graph()` | `Graph` | complete_workflow |
+| `g.to_bipartite_graph()` | `Graph` | complete_workflow |
 
 ### Related Examples
 
