@@ -170,7 +170,7 @@ class TestGraphDiffIntegration:
         mem.link("B", "C", label="implies")
         mem.capture_version()
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="transitively_implies"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         delta = mem.diff_from_version(0)
         assert delta is not None
         assert len(delta.edges_added) == 1

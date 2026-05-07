@@ -129,9 +129,10 @@ class TestAnalyzeNamespaceMethods:
         "match_fan_out", "subgraph", "describe",
         "to_dual", "to_line_graph", "to_bipartite",
         "capture_version", "diff", "diff_between", "version_history",
-        "collapse", "expand", "summaries",
+        "collapse", "expand_summary", "summaries",
         "contradictions", "revise",
-        "s_persistence",
+        "spersistence",
+        "edges",
     }
 
     def test_all_methods_exist(self):
@@ -181,7 +182,7 @@ class TestCognitiveNamespaceMethods:
 
 
 class TestEngineAccessorProperties:
-    EXPECTED = {"graph", "belief", "retrieval", "cache"}
+    EXPECTED = {"graph", "belief", "retrieval", "cache", "evolution", "equivalence"}
 
     def test_all_properties_exist(self):
         mem = HypergraphMemory()
@@ -202,33 +203,19 @@ class TestRenamedProperties:
 class TestDirSurface:
     EXPECTED_SURFACE = {
         "add", "link", "link_hyper", "add_all", "ensure",
-        "get", "set", "has", "info",
-        "store", "relate", "relate_hyperedge", "has_node", "recall",
+        "get", "set", "has", "info", "size",
         "evolve", "evolve_with_feedback",
         "save", "load", "save_state", "load_state",
         "export_json", "import_json", "export_edgelist", "import_edgelist",
         "load_records",
         "ingest", "ingest_batch", "set_llm_provider",
-        "describe", "stats", "introspect",
-        "neighbors", "edges_labeled", "query_nodes", "query_hyperedges",
-        "shortest_path", "find_paths", "single_source_distances",
-        "connected_components", "is_connected", "largest_connected_component",
-        "has_cycle", "is_dag", "is_tree", "is_forest",
-        "topological_sort", "transitive_closure", "transitive_reduction",
-        "dag_longest_path", "dag_longest_path_length",
-        "degree", "in_degree", "out_degree", "degree_distribution", "degree_assortativity",
-        "clustering_coefficient", "average_clustering_coefficient",
-        "density", "diameter", "radius", "eccentricity", "center", "periphery",
+        "neighbors", "query_nodes", "query_hyperedges",
         "node_label", "node_data", "resolve_id",
-        "explain", "retract_inference", "commit_inferences", "rollback_inferences",
-        "add_rules",
-        "spread_hyperedge",
-        "graph", "log", "cache", "rules",
-        "operation_feedback", "provenance", "retrieval", "enricher",
+        "add_rules", "spread_hyperedge",
+        "explain", "retract_inference",
         "reason", "belief", "bayes", "search", "analyze",
         "temporal", "monitor", "cognitive", "engine",
-        "belief_layer", "temporal_engine",
-        "size",
+        "graph", "log", "cache", "rules",
     }
 
     def test_dir_exactly_matches_expected_surface(self):
@@ -244,21 +231,43 @@ class TestDirSurface:
         mem = HypergraphMemory()
         public = {x for x in dir(mem) if not x.startswith("_")}
         hidden = {
+            "store", "relate", "relate_hyperedge", "has_node", "recall",
+            "describe", "stats", "introspect",
             "create_distribution", "sample", "sample_correlated",
             "correlate", "detect_structural_anomalies",
             "set_prior", "update_belief", "revise_beliefs",
             "find_similar", "detect_communities", "spectral_embedding",
             "analyze_in_frame", "multi_frame_analysis",
             "add_temporal_event", "temporal_query",
-            "introspect_system", "validate_reasoning",
+            "shortest_path", "find_paths", "single_source_distances",
+            "connected_components", "is_connected",
+            "has_cycle", "is_dag",
+            "degree", "in_degree", "out_degree",
+            "density", "diameter", "pagerank",
+            "betweenness_centrality",
+            "commit_inferences", "rollback_inferences",
             "prove", "hebbian_reinforce",
+            "edges_labeled",
+            "belief_layer", "temporal_engine",
+            "operation_feedback", "provenance", "retrieval", "enricher",
         }
         for method in hidden:
             assert method not in public, f"Old method {method} should be hidden from dir()"
 
     def test_hidden_methods_still_callable(self):
         mem = HypergraphMemory()
-        mem.store("x")
+        mem.add("x")
+        assert mem.store is not None
+        assert mem.relate is not None
+        assert mem.has_node is not None
+        assert mem.recall is not None
         assert mem.create_distribution is not None
         assert mem.find_similar is not None
         assert mem.detect_communities is not None
+        assert mem.describe is not None
+        assert mem.stats is not None
+        assert mem.introspect is not None
+        assert mem.shortest_path is not None
+        assert mem.pagerank is not None
+        assert mem.belief_layer is not None
+        assert mem.temporal_engine is not None

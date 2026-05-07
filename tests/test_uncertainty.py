@@ -63,7 +63,7 @@ class TestUncertaintyEngine:
         mem.link("A", "B", label="implies")
         mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="transitively_implies"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = UncertaintyEngine(mem.graph, mem._provenance)
         score = engine.compute_confidence("A")
         assert score is not None
@@ -103,7 +103,7 @@ class TestUncertaintyEngine:
         mem.link("A", "B", label="implies")
         mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="inferred"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=2, max_total_states=20)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=2, max_total_states=20)
         engine = UncertaintyEngine(mem.graph, mem._provenance, depth_decay=0.5)
         score_c = engine.compute_confidence("C")
         assert score_c is not None
@@ -178,7 +178,7 @@ class TestUncertaintyEngineDeep:
         mem.link("A", "B", label="implies")
         mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="transitively_implies"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = UncertaintyEngine(mem.graph, mem._provenance)
         score_c = engine.compute_confidence("C")
         assert score_c is not None
@@ -231,7 +231,7 @@ class TestUncertaintyEngineDeep:
         mem.add("B")
         mem.link("A", "B", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="transitively_implies"))
-        mem.reason(seed_concepts={"A", "B"}, max_depth=2, max_total_states=20)
+        mem.reason(seeds={"A", "B"}, max_depth=2, max_total_states=20)
         engine = UncertaintyEngine(mem.graph, mem._provenance)
         chain = engine.trace_chain("A", "B")
         assert chain is not None

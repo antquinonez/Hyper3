@@ -2,8 +2,8 @@ import pytest
 
 from hyper3 import (
     HypergraphMemory,
-    TransitiveRule,
     InverseRule,
+    TransitiveRule,
 )
 from hyper3.temporal import AllenRelation
 
@@ -84,7 +84,7 @@ class TestBeliefNamespace:
     def test_sample_with_string_target(self, mem):
         mem.add("p")
         mem.add("q")
-        qs = mem.belief.create(["p", "q"])
+        mem.belief.create(["p", "q"])
         label = mem.belief.sample("p")
         assert label in ("p", "q", None)
 
@@ -291,10 +291,10 @@ class TestAnalyzeNamespace:
         result = populated.analyze.communities(method="label_propagation", seed=42)
         assert result is not None
 
-    def test_collapse_and_expand(self, populated):
+    def test_collapse_and_expand_summary(self, populated):
         result = populated.analyze.collapse({"a", "b"}, label="ab_group")
         if result is not None:
-            expanded = populated.analyze.expand("ab_group")
+            expanded = populated.analyze.expand_summary("ab_group")
             assert expanded is not None
 
 
@@ -325,7 +325,7 @@ class TestTemporalNamespace:
         assert len(events) == 2
 
     def test_get_event(self, mem):
-        event = mem.temporal.add_event("findme", 0.0, 1.0)
+        mem.temporal.add_event("findme", 0.0, 1.0)
         found = mem.temporal.get_event("findme")
         assert found is not None
 

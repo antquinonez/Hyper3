@@ -77,7 +77,7 @@ class TestBackwardChainBasic:
         mem.link("A", "B", label="depends_on")
         mem.link("B", "C", label="depends_on")
         mem.add_rules(TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         result = mem.prove("C", known_facts={"A"}, edge_label="depends_on")
         assert not result.achievable
         assert result.goal_label == "C"
@@ -154,7 +154,7 @@ class TestBackwardChainIntegration:
             TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
             InverseRule(edge_label="causes", inverse_label="caused_by"),
         )
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3)
         result = mem.prove("C", known_facts={"A"})
         assert result is not None
         assert result.goal_label == "C"
@@ -183,7 +183,7 @@ class TestBackwardChainProveBatch:
         mem.link("A", "B", label="implies")
         mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="implies"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         results = mem.prove_batch(["B", "C"], known_facts={"A"})
         assert isinstance(results[0].achievable, bool)
         assert isinstance(results[1].achievable, bool)
@@ -205,7 +205,7 @@ class TestBackwardChainEngineAdvanced:
         mem.link("A", "B", label="implies")
         mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="implies"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("C", known_facts=set())
         assert not result.achievable
@@ -220,7 +220,7 @@ class TestBackwardChainEngineAdvanced:
         mem.link("A", "B", label="implies")
         mem.link("A", "C", label="implies")
         mem.add_rules(InverseRule(edge_label="implies", inverse_label="implied_by"))
-        mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
+        mem.reason(seeds={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = BackwardChainEngine(mem.graph, mem._rules, max_alternatives=5)
         result = engine.prove("B", known_facts={"A"})
         assert result is not None
@@ -254,7 +254,7 @@ class TestBackwardChainEngineAdvanced:
             if i > 0:
                 mem.link(f"N{i-1}", f"N{i}", label="step")
         mem.add_rules(TransitiveRule(edge_label="step", new_label="step"))
-        mem.reason(seed_concepts={f"N{i}" for i in range(6)}, max_depth=5, max_total_states=100)
+        mem.reason(seeds={f"N{i}" for i in range(6)}, max_depth=5, max_total_states=100)
         engine = BackwardChainEngine(mem.graph, mem._rules, max_depth=1)
         result = engine.prove("N5", known_facts={"N0"})
         assert not result.achievable

@@ -5,18 +5,11 @@ CentralityMethod = Literal[
     "in_degree",
     "out_degree",
     "betweenness",
-    "closeness",
     "pagerank",
     "katz",
-    "eigenvector",
     "h_eigenvector",
     "z_eigenvector",
     "c_eigenvector",
-    "node_edge",
-    "s_walk_betweenness",
-    "s_walk_closeness",
-    "subgraph",
-    "core_periphery",
 ]
 
 CommunityMethod = Literal[

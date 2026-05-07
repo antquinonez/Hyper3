@@ -150,3 +150,21 @@ class TemporalMixin(_MemoryBase):
     def list_temporal_events(self) -> list[TemporalEvent]:
         """Return all registered temporal events."""
         return list(self._temporal._events.values())
+
+    def get_temporal_event(self, event_id: str) -> TemporalEvent | None:
+        return self._temporal.get_event(event_id)
+
+    def detect_temporal_causal_chains(self, *, min_chain_length: int = 3,
+                                       max_chains: int = 1000) -> list[list[str]]:
+        return self._temporal.detect_causal_chains(
+            min_chain_length=min_chain_length, max_chains=max_chains)
+
+    def infer_temporal_constraints(self):
+        return self._temporal.infer_constraints()
+
+    def check_temporal_constraint_consistency(self) -> list[dict[str, Any]]:
+        return self._temporal.check_constraint_consistency()
+
+    def add_temporal_constraint(self, event_a: str, event_b: str, relation: AllenRelation,
+                                 confidence: float = 1.0):
+        return self._temporal.add_constraint(event_a, event_b, relation, confidence=confidence)

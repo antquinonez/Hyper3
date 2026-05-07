@@ -259,7 +259,7 @@ class TestSystemMonitorAssessState:
         mem.add("b")
         mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
-        mem.reason(seed_concepts={"a", "b"}, max_depth=2, max_total_states=20)
+        mem.reason(seeds={"a", "b"}, max_depth=2, max_total_states=20)
         state = mem._meta.assess_state()
         assert isinstance(state.complexity_level, int)
 
@@ -271,7 +271,7 @@ class TestSystemMonitorIntrospectRuleAnalytics:
         mem.add("b")
         mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
-        mem.reason(seed_concepts={"a", "b"}, max_depth=2, max_total_states=20)
+        mem.reason(seeds={"a", "b"}, max_depth=2, max_total_states=20)
         report = mem._meta.introspect(rules=mem._rules)
         assert report.system_health is not None
         assert report.system_health.fitness >= 0.0
