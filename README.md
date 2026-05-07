@@ -437,16 +437,16 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 ```bash
 .venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 .venv/bin/python examples/showcase/microservices_reasoning/reasoning_walkthrough.py
-.venv/bin/python examples/basic/03_retrieval_and_feedback.py
-.venv/bin/python examples/intermediate/04_temporal_reasoning.py
-.venv/bin/python examples/intermediate/05_provenance_and_retraction.py
-.venv/bin/python examples/intermediate/06_graph_analytics.py
-.venv/bin/python examples/intermediate/07_text_enrichment.py
-.venv/bin/python examples/advanced/08_overlay_commit_rollback.py
-.venv/bin/python examples/showcase/multiway_reasoning/01_multiway_lateral_insights.py
-.venv/bin/python examples/advanced/14_hypergraph_native.py
-.venv/bin/python examples/domain/medical_diagnosis.py
-.venv/bin/python examples/domain/financial_risk_network.py
+.venv/bin/python examples/showcase/retrieval_and_feedback/retrieval_and_feedback.py
+.venv/bin/python examples/showcase/temporal_reasoning/temporal_reasoning.py
+.venv/bin/python examples/showcase/provenance_and_retraction/provenance_and_retraction.py
+.venv/bin/python examples/showcase/network_analytics/graph_analytics.py
+.venv/bin/python examples/showcase/text_enrichment/text_enrichment.py
+.venv/bin/python examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py
+.venv/bin/python examples/showcase/multiway_reasoning/multiway_lateral_insights.py
+.venv/bin/python examples/showcase/hypergraph_native/hypergraph_native.py
+.venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
+.venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
 ```
 
 See `examples/README.md` for the full index of 50+ examples.

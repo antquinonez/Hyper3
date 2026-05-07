@@ -1,7 +1,7 @@
 """
 XGI Comparison: Generative Models
 ==================================
-Parallels Hyper3's intermediate/27_generative_models.py.
+Parallels Hyper3's showcase/generative_and_workflow/generative_models.py.
 
 Uses XGI 0.10.1 to create random hypergraphs via Erdos-Renyi,
 uniform, Chung-Lu, and stochastic block model generators.

@@ -31,8 +31,8 @@ def run() -> EquivRunner:
     _test_greedy_modularity_communities(t)
 
     _test_core_periphery(t)
+    _test_louvain(t)
 
-    t.gap("louvain_communities", "NX: louvain_communities(G)")
     t.gap("girvan_newman", "NX: girvan_newman(G)")
     t.gap("hy_mmsbm", "HGX: HyMMSBM -- Mixed-Membership Stochastic Block Model")
     t.gap("hysc", "HGX: HySC -- Hypergraph Spectral Clustering")
@@ -101,6 +101,8 @@ def _test_modularity(t: EquivRunner) -> None:
 
 
 def _test_greedy_modularity_communities(t: EquivRunner) -> None:
+    import networkx as nx
+
     mem = build_pairwise_h3()
     g = mem.graph
 
@@ -118,6 +120,10 @@ def _test_greedy_modularity_communities(t: EquivRunner) -> None:
     total = sum(len(c) for c in communities)
     t.check_int("greedy_modularity/disjoint", total, g.node_count)
 
+    G = build_pairwise_nx()
+    nx_comms = nx.community.greedy_modularity_communities(G.to_undirected())
+    t.check("greedy_modularity/nx_also_produces_communities", len(nx_comms) >= 1)
+
 
 def _test_core_periphery(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
@@ -125,6 +131,37 @@ def _test_core_periphery(t: EquivRunner) -> None:
     t.check("core_periphery/returns_dict", isinstance(scores, dict))
     t.check("core_periphery/all_nodes_present", len(scores) == mem.graph.node_count)
     t.check("core_periphery/scores_in_range", all(0 <= v <= 1 for v in scores.values()))
+
+
+def _test_louvain(t: EquivRunner) -> None:
+    import networkx as nx
+    from networkx.algorithms.community import louvain_communities
+
+    from hyper3.community import CommunityDetector
+
+    mem = build_pairwise_h3()
+    G = build_pairwise_nx()
+
+    det = CommunityDetector(mem.graph)
+    h3_result = det.detect_louvain(seed=42)
+    nx_comms = louvain_communities(G.to_undirected(), seed=42)
+    nx_mod = nx.community.modularity(G.to_undirected(), nx_comms)
+
+    t.check("louvain/h3_produces_communities", h3_result.community_count >= 1)
+    t.check("louvain/h3_modularity_nonnegative", h3_result.modularity >= -0.01)
+
+    t.check_int("louvain/nx_community_count", len(nx_comms), h3_result.community_count)
+
+    h3_as_sets = [frozenset(c.member_labels) for c in h3_result.communities]
+    nx_as_sets = [frozenset(c) for c in nx_comms]
+    t.check_set_membership("louvain/same_partition", h3_as_sets, nx_as_sets)
+
+    t.check("louvain/nx_modularity_valid", 0.0 <= nx_mod <= 1.0)
+
+    t.check(
+        "louvain/h3_modularity_matches_nx",
+        abs(h3_result.modularity - nx_mod) < 0.01,
+    )
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, Modality, top_k
+from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
 
 THREAT_ACTORS = [
@@ -624,6 +624,103 @@ def main():
         mw_type = n.data.get("type", n.data.get("tactic", "")) if isinstance(n.data, dict) else ""
         suffix = f" ({mw_type})" if mw_type else ""
         print(f"    {n.label}{suffix}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 10: Indirect Attack Chain Inference")
+    print("=" * 70)
+
+    mem.add_rules(
+        TransitiveRule(edge_label="exploits", new_label="exploits_indirectly"),
+        TransitiveRule(edge_label="uses", new_label="uses_indirectly"),
+        InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
+    )
+
+    reason_result = mem.reason(seed_concepts={"APT28", "Lazarus", "Conti"}, max_depth=3)
+
+    if reason_result.expansion:
+        print(f"  Inferred edges produced: {reason_result.expansion.edges_produced}")
+        print(f"  Rules applied: {reason_result.expansion.rules_applied}")
+        print(f"  States created: {reason_result.expansion.states_created}")
+    else:
+        print(f"  Reasoning error: {reason_result.error}")
+
+    indirect_exploits = mem.pattern_match(edge_label="exploits_indirectly")
+    indirect_uses = mem.pattern_match(edge_label="uses_indirectly")
+    print(f"\n  Indirect exploit chains: {len(indirect_exploits)}")
+    for e in indirect_exploits[:8]:
+        src = e.source_labels[0] if e.source_labels else "?"
+        tgt = e.target_labels[0] if e.target_labels else "?"
+        print(f"    {src} --[exploits_indirectly]--> {tgt}")
+    if len(indirect_exploits) > 8:
+        print(f"    ... and {len(indirect_exploits) - 8} more")
+
+    print(f"\n  Indirect tool-use chains: {len(indirect_uses)}")
+    for e in indirect_uses[:8]:
+        src = e.source_labels[0] if e.source_labels else "?"
+        tgt = e.target_labels[0] if e.target_labels else "?"
+        print(f"    {src} --[uses_indirectly]--> {tgt}")
+    if len(indirect_uses) > 8:
+        print(f"    ... and {len(indirect_uses) - 8} more")
+
+    print("\n  Indirect chains reveal the full attack surface by propagating")
+    print("  exploit and tool-use relationships through intermediate nodes,")
+    print("  exposing multi-hop attack paths that single-edge queries miss.")
+    print()
+
+    print("=" * 70)
+    print("SECTION 11: Threat Ecosystem Communities")
+    print("=" * 70)
+
+    comm_result = mem.detect_communities(seed=42)
+    print(f"  Communities detected: {comm_result.community_count}")
+    print(f"  Modularity: {comm_result.modularity:.4f}")
+    print(f"  Coverage: {comm_result.coverage:.4f}")
+
+    sorted_comms = sorted(comm_result.communities, key=lambda c: c.size, reverse=True)
+    top_comms = sorted_comms[:5]
+
+    for i, comm in enumerate(top_comms, 1):
+        members = comm.member_labels
+        actors = [l for l in members if l in {a["label"] for a in THREAT_ACTORS}]
+        cves = [l for l in members if l in {c["label"] for c in CVES}]
+        malware = [l for l in members if l in {m["label"] for m in MALWARE}]
+        ttps = [l for l in members if l in {t["label"] for t in TTPS}]
+        infra = [l for l in members if l in {inf["label"] for inf in INFRASTRUCTURE}]
+        industries = [l for l in members if l in {ind["label"] for ind in INDUSTRIES}]
+
+        print(f"\n  Community {i} ({comm.size} nodes):")
+        if actors:
+            print(f"    Actors ({len(actors)}): {', '.join(sorted(actors)[:6])}{'...' if len(actors) > 6 else ''}")
+        if cves:
+            print(f"    CVEs ({len(cves)}): {', '.join(sorted(cves)[:6])}{'...' if len(cves) > 6 else ''}")
+        if malware:
+            print(f"    Malware ({len(malware)}): {', '.join(sorted(malware)[:6])}{'...' if len(malware) > 6 else ''}")
+        if ttps:
+            print(f"    TTPs ({len(ttps)}): {', '.join(sorted(ttps)[:4])}{'...' if len(ttps) > 4 else ''}")
+        if infra:
+            print(f"    Infrastructure ({len(infra)}): {', '.join(sorted(infra)[:4])}")
+        if industries:
+            print(f"    Industries ({len(industries)}): {', '.join(sorted(industries))}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 12: Structural Anomaly Detection on Threat Actors")
+    print("=" * 70)
+
+    anomaly_actors = ["APT28", "Lazarus", "Conti", "Sandworm", "Volt_Typhoon"]
+    for actor in anomaly_actors:
+        result = mem.detect_structural_anomalies(actor)
+        print(f"\n  {actor}:")
+        print(f"    Status:  {result.anomaly_status}")
+        print(f"    Score:   {result.boundary_score:.4f}")
+        if result.structural_insights:
+            for insight in result.structural_insights[:4]:
+                print(f"    Insight: {insight}")
+            if len(result.structural_insights) > 4:
+                print(f"    ... and {len(result.structural_insights) - 4} more insights")
+        else:
+            print("    No structural insights")
     print()
 
     print("=" * 70)

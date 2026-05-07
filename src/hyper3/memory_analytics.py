@@ -541,6 +541,42 @@ class AnalyticsMixin(_MemoryBase):
         """Return the maximum edge order (cardinality - 1) across all edges."""
         return self._graph.max_edge_order()
 
+    def eccentricity(self, concept: str | None = None) -> int | dict[str, int]:
+        """Compute eccentricity keyed by label.
+
+        With a concept label, returns its eccentricity (int).
+        Without, returns per-node eccentricity dict keyed by label.
+        """
+        if concept is not None:
+            node = self._find_node(concept)
+            if not node:
+                return 0
+            return self._graph.eccentricity(node.id)
+        raw = self._graph._all_eccentricities()
+        return {self._node_label(nid): e for nid, e in raw.items()}
+
+    def diameter(self) -> int:
+        """Compute graph diameter (maximum eccentricity)."""
+        return self._graph.diameter()
+
+    def radius(self) -> int:
+        """Compute graph radius (minimum eccentricity)."""
+        return self._graph.radius()
+
+    def periphery(self) -> list[str]:
+        """Return labels of nodes with eccentricity equal to the diameter."""
+        ids = self._graph.periphery()
+        return [self._node_label(nid) for nid in ids]
+
+    def center(self) -> list[str]:
+        """Return labels of nodes with eccentricity equal to the radius."""
+        ids = self._graph.center()
+        return [self._node_label(nid) for nid in ids]
+
+    def degree_assortativity(self) -> float:
+        """Compute Newman degree assortativity coefficient."""
+        return self._graph.degree_assortativity()
+
     def clustering_coefficient(self, concept: str) -> float:
         """Compute the local clustering coefficient for a concept.
 
@@ -579,6 +615,37 @@ class AnalyticsMixin(_MemoryBase):
         if top_k is not None:
             return dict(_top_k(scores, top_k))
         return scores
+
+    def h_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute H-eigenvector centrality (Benson 2018) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.h_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def z_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute Z-eigenvector centrality (Benson 2018) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.z_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def c_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute C-eigenvector centrality (clique motif eigenvector) keyed by label."""
+        return {self._node_label(nid): s for nid, s in self._graph.c_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
+
+    def node_edge_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> tuple[dict[str, float], dict[str, float]]:
+        """Compute joint node-edge centrality (Tudisco & Higham 2021)."""
+        node_raw, edge_raw = self._graph.node_edge_centrality(max_iter=max_iter, tol=tol)
+        node_out = {self._node_label(nid): s for nid, s in node_raw.items()}
+        edge_out: dict[str, float] = {}
+        for eid, s in edge_raw.items():
+            edge_obj = self._graph.get_edge(eid)
+            key = edge_obj.label if edge_obj and edge_obj.label else eid[:8]
+            edge_out[key] = s
+        return node_out, edge_out
+
+    def s_walk_betweenness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        """Compute s-walk betweenness centrality."""
+        return self._graph.s_walk_betweenness(s=s, kind=kind)
+
+    def s_walk_closeness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        """Compute s-walk closeness centrality."""
+        return self._graph.s_walk_closeness(s=s, kind=kind)
 
     def spectral_clustering(self, *, k: int = 2) -> list[set[str]]:
         """Partition nodes into k clusters using spectral clustering.
@@ -637,3 +704,214 @@ class AnalyticsMixin(_MemoryBase):
             lbl_v = bg.nodes[v].get("label", v[:8])
             results.append((lbl_u, lbl_v))
         return results
+
+    def is_dag(self) -> bool:
+        return self._graph.is_dag()
+
+    def topological_sort(self) -> list[str] | None:
+        order = self._graph.topological_sort()
+        if order is None:
+            return None
+        return [self._node_label(nid) for nid in order]
+
+    def transitive_closure(self) -> set[tuple[str, str]]:
+        raw = self._graph.transitive_closure()
+        return {(self._node_label(u), self._node_label(v)) for u, v in raw}
+
+    def transitive_reduction(self) -> set[tuple[str, str]]:
+        raw = self._graph.transitive_reduction()
+        return {(self._node_label(u), self._node_label(v)) for u, v in raw}
+
+    def dag_longest_path(self) -> list[str]:
+        ids = self._graph.dag_longest_path()
+        return [self._node_label(nid) for nid in ids]
+
+    def dag_longest_path_length(self) -> int:
+        return self._graph.dag_longest_path_length()
+
+    def is_tree(self) -> bool:
+        return self._graph.is_tree()
+
+    def is_forest(self) -> bool:
+        return self._graph.is_forest()
+
+    def minimum_spanning_edges(self) -> list[tuple[str, str]]:
+        edge_ids = self._graph.minimum_spanning_edges()
+        result: list[tuple[str, str]] = []
+        for eid in edge_ids:
+            edge = self._graph.get_edge(eid)
+            if edge:
+                members = list(edge.node_ids)
+                if len(members) >= 2:
+                    result.append((self._node_label(members[0]), self._node_label(members[1])))
+        return result
+
+    def minimum_spanning_tree(self) -> list[tuple[str, str]]:
+        return self.minimum_spanning_edges()
+
+    def spanning_tree_count(self) -> int:
+        return self._graph.spanning_tree_count()
+
+    def tree_center(self) -> list[str]:
+        ids = self._graph.tree_center()
+        return [self._node_label(nid) for nid in ids]
+
+    def max_flow(self, source: str, target: str) -> tuple[float, dict[tuple[str, str], float]]:
+        src = self._find_node(source)
+        tgt = self._find_node(target)
+        if not src or not tgt:
+            return 0.0, {}
+        flow_val, flow_dict = self._graph.max_flow(src.id, tgt.id)
+        labeled_flow: dict[tuple[str, str], float] = {}
+        for (u, v), f in flow_dict.items():
+            labeled_flow[(self._node_label(u), self._node_label(v))] = f
+        return flow_val, labeled_flow
+
+    def min_cut_global(self) -> tuple[float, tuple[set[str], set[str]]]:
+        cut_val, (left, right) = self._graph.min_cut_global()
+        return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
+
+    def min_cut_st(self, source: str, target: str) -> tuple[float, tuple[set[str], set[str]]]:
+        src = self._find_node(source)
+        tgt = self._find_node(target)
+        if not src or not tgt:
+            return 0.0, (set(), set())
+        cut_val, (left, right) = self._graph.min_cut_st(src.id, tgt.id)
+        return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
+
+    def max_weight_matching(self) -> set[frozenset[str]]:
+        raw = self._graph.max_weight_matching()
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def bipartite_maximum_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        left_ids = set()
+        right_ids = set()
+        for label in left:
+            node = self._find_node(label)
+            if node:
+                left_ids.add(node.id)
+        for label in right:
+            node = self._find_node(label)
+            if node:
+                right_ids.add(node.id)
+        raw = self._graph.bipartite_maximum_matching(left_ids, right_ids)
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def bipartite_max_weight_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        left_ids = set()
+        right_ids = set()
+        for label in left:
+            node = self._find_node(label)
+            if node:
+                left_ids.add(node.id)
+        for label in right:
+            node = self._find_node(label)
+            if node:
+                right_ids.add(node.id)
+        raw = self._graph.bipartite_max_weight_matching(left_ids, right_ids)
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def min_edge_cover(self) -> set[frozenset[str]]:
+        raw = self._graph.min_edge_cover()
+        return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
+
+    def minimum_cycle_basis(self) -> list[list[str]]:
+        raw = self._graph.minimum_cycle_basis()
+        return [[self._node_label(nid) for nid in cycle] for cycle in raw]
+
+    def encapsulation_dag(self) -> list[tuple[str, str]]:
+        raw = self._graph.encapsulation_dag()
+        edge_labels = {}
+        for edge in self._graph._edges.values():
+            label = edge.label if edge.label else edge.id[:8]
+            edge_labels[edge.id] = label
+        return [(edge_labels.get(c, c[:8]), edge_labels.get(p, p[:8])) for c, p in raw]
+
+    def hodge_matrix(self, k: int) -> tuple[Any, list[frozenset[str]], list[frozenset[str]]]:
+        return self._graph.hodge_matrix(k)
+
+    def hodge_laplacian(self, k: int) -> Any:
+        return self._graph.hodge_laplacian(k)
+
+    def simpliciality(self) -> float:
+        return self._graph.simpliciality()
+
+    def face_enumeration(self, simplex: frozenset[str]) -> dict[str, list[frozenset[str]]]:
+        id_to_label = {n.id: n.label for n in self._graph._nodes.values()}
+        label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
+        id_simplex = frozenset({label_to_id.get(l, l) for l in simplex})
+        raw = self._graph.face_enumeration(id_simplex)
+        return {
+            key: [frozenset({id_to_label.get(nid, nid) for nid in s}) for s in vals]
+            for key, vals in raw.items()
+        }
+
+    def boundary_operator(self, k: int) -> dict[frozenset[str], list[tuple[frozenset[str], int]]]:
+        return self._graph.boundary_operator(k)
+
+    def betti_curve(self, max_dim: int | None = None) -> list[int]:
+        return self._graph.betti_curve(max_dim=max_dim)
+
+    def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
+        return self._graph.persistence_diagram()
+
+    def detect_motifs(
+        self,
+        order: int = 3,
+        runs_config_model: int = 10,
+        seed: int | None = None,
+    ):
+        return self._graph.detect_motifs(order=order, runs_config_model=runs_config_model, seed=seed)
+
+    def simplicial_contagion(
+        self,
+        infected: set[str],
+        *,
+        beta: float = 0.1,
+        beta_delta: float = 0.05,
+        mu: float = 0.1,
+        timesteps: int = 100,
+        seed: int | None = None,
+    ):
+        label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
+        id_infected = {label_to_id[l] for l in infected if l in label_to_id}
+        return self._graph.simplicial_contagion(
+            id_infected, beta=beta, beta_delta=beta_delta, mu=mu,
+            timesteps=timesteps, seed=seed,
+        )
+
+    def simulate_kuramoto(
+        self,
+        *,
+        k2: float = 1.0,
+        k3: float = 0.5,
+        omega: Any | None = None,
+        theta0: Any | None = None,
+        timesteps: int = 10000,
+        dt: float = 0.002,
+        seed: int | None = None,
+    ):
+        return self._graph.simulate_kuramoto(
+            k2=k2, k3=k3, omega=omega, theta0=theta0,
+            timesteps=timesteps, dt=dt, seed=seed,
+        )
+
+    def master_stability_function(
+        self,
+        dynamics_func: Any,
+        dynamics_jacobian: Any,
+        coupling_func: Any,
+        params: dict[str, Any] | None = None,
+        *,
+        sigmas: list[float] | None = None,
+        interval: tuple[float, float] = (-5.0, 5.0),
+        integration_time: float = 200.0,
+        integration_step: float = 0.01,
+        seed: int | None = None,
+    ):
+        return self._graph.master_stability_function(
+            dynamics_func, dynamics_jacobian, coupling_func, params,
+            sigmas=sigmas, interval=interval,
+            integration_time=integration_time, integration_step=integration_step,
+            seed=seed,
+        )

@@ -1,7 +1,7 @@
 """
 XGI Comparison: Centrality & PageRank
 ======================================
-Parallels Hyper3's intermediate/18_centrality_and_pagerank.py.
+Parallels Hyper3's showcase/centrality_and_ranking/centrality_and_pagerank.py.
 
 Uses XGI's centrality functions (node_edge_centrality, katz_centrality,
 clique_eigenvector_centrality) on an 8-node hypergraph, plus NetworkX

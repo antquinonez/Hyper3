@@ -401,3 +401,206 @@ class CentralityMixin(_GraphBase):
         if norm > 0:
             x = x / norm
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
+    def h_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        import numpy as np
+
+        if not self._nodes:
+            return {}
+        node_list = list(self._nodes.keys())
+        n = len(node_list)
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+
+        max_order = 1
+        edge_members: list[list[int]] = []
+        for edge in self._edges.values():
+            members = [node_idx[nid] for nid in edge.node_ids if nid in node_idx]
+            if len(members) >= 2:
+                edge_members.append(members)
+                if len(members) > max_order:
+                    max_order = len(members)
+
+        if not edge_members:
+            return {nid: 1.0 / n for nid in node_list}
+
+        x = np.ones(n) / n
+        exp = max_order - 1
+
+        for _ in range(max_iter):
+            new_x = np.zeros(n)
+            for members in edge_members:
+                prod_all = np.prod(x[members])
+                for node_i in members:
+                    new_x[node_i] += prod_all / x[node_i] if x[node_i] > 0 else 0.0
+            if exp > 1:
+                mask = new_x > 0
+                new_x[mask] = np.power(new_x[mask], 1.0 / exp)
+            s = np.sum(np.abs(new_x))
+            if s > 0:
+                new_x = new_x / s
+            if np.linalg.norm(new_x - x) < tol:
+                x = new_x
+                break
+            x = new_x
+
+        return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
+    def z_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        import numpy as np
+
+        if not self._nodes:
+            return {}
+        node_list = list(self._nodes.keys())
+        n = len(node_list)
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+
+        edge_members: list[list[int]] = []
+        for edge in self._edges.values():
+            members = [node_idx[nid] for nid in edge.node_ids if nid in node_idx]
+            if len(members) >= 2:
+                edge_members.append(members)
+
+        if not edge_members:
+            return {nid: 1.0 / n for nid in node_list}
+
+        x = np.ones(n) / n
+
+        for _ in range(max_iter):
+            new_x = np.zeros(n)
+            for members in edge_members:
+                prod_all = np.prod(x[members])
+                for node_i in members:
+                    new_x[node_i] += prod_all / x[node_i] if x[node_i] > 0 else 0.0
+            s = np.sum(np.abs(new_x))
+            if s > 0:
+                new_x = new_x / s
+            if np.linalg.norm(new_x - x) < tol:
+                x = new_x
+                break
+            x = new_x
+
+        return {nid: float(x[i]) for i, nid in enumerate(node_list)}
+
+    def c_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        return self.eigenvector_centrality(max_iter=max_iter, tol=tol)
+
+    def node_edge_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> tuple[dict[str, float], dict[str, float]]:
+        import numpy as np
+
+        if not self._nodes:
+            return {}, {}
+
+        node_list = list(self._nodes.keys())
+        edge_list = list(self._edges.keys())
+        n = len(node_list)
+        m = len(edge_list)
+        node_idx = {nid: i for i, nid in enumerate(node_list)}
+
+        if m == 0:
+            return {nid: 1.0 / n for nid in node_list}, {}
+
+        from scipy import sparse as sp
+
+        rows: list[int] = []
+        cols: list[int] = []
+        for j, eid in enumerate(edge_list):
+            edge = self._edges[eid]
+            for nid in edge.node_ids:
+                if nid in node_idx:
+                    rows.append(node_idx[nid])
+                    cols.append(j)
+        I_mat = sp.csr_matrix((np.ones(len(rows)), (rows, cols)), shape=(n, m))
+
+        x = np.ones(n) / n
+        y = np.ones(m) / m
+
+        for _ in range(max_iter):
+            y_sq = y ** 2
+            Iy2 = np.asarray(I_mat @ y_sq).flatten()
+            u = np.sqrt(np.abs(x) * np.sqrt(np.abs(Iy2)))
+
+            x_sq = x ** 2
+            Itx2 = np.asarray(I_mat.T @ x_sq).flatten()
+            v = np.sqrt(np.abs(y) * np.sqrt(np.abs(Itx2)))
+
+            u_sum = np.sum(np.abs(u))
+            v_sum = np.sum(np.abs(v))
+            if u_sum > 0:
+                u = u / u_sum
+            if v_sum > 0:
+                v = v / v_sum
+
+            err = np.linalg.norm(u - x) + np.linalg.norm(v - y)
+            x, y = u, v
+            if err < tol:
+                break
+
+        node_cent = {nid: float(x[i]) for i, nid in enumerate(node_list)}
+        edge_cent = {eid: float(y[j]) for j, eid in enumerate(edge_list)}
+        return node_cent, edge_cent
+
+    def _s_line_graph(self, s: int):
+        import networkx as nx
+
+        lg = nx.Graph()
+        edge_ids = list(self._edges.keys())
+        for eid in edge_ids:
+            lg.add_node(eid)
+
+        for nid in self._nodes:
+            incident = self.incident_edges(nid)
+            for i in range(len(incident)):
+                for j in range(i + 1, len(incident)):
+                    e1 = incident[i]
+                    e2 = incident[j]
+                    overlap = len(e1.node_ids & e2.node_ids)
+                    if overlap >= s:
+                        lg.add_edge(e1.id, e2.id)
+        return lg
+
+    def _bipartite_projection(self):
+        import networkx as nx
+
+        bp = nx.Graph()
+        node_prefix = "N:"
+        edge_prefix = "E:"
+        for nid in self._nodes:
+            bp.add_node(f"{node_prefix}{nid}", bipartite=0)
+        for eid, edge in self._edges.items():
+            bp.add_node(f"{edge_prefix}{eid}", bipartite=1)
+            for nid in edge.node_ids:
+                if nid in self._nodes:
+                    bp.add_edge(f"{edge_prefix}{eid}", f"{node_prefix}{nid}")
+        return bp, node_prefix, edge_prefix
+
+    def s_walk_betweenness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        import networkx as nx
+
+        if kind == "edges":
+            lg = self._s_line_graph(s)
+            if lg.number_of_nodes() == 0:
+                return {}
+            bc = nx.betweenness_centrality(lg, normalized=True)
+            return {eid: v for eid, v in bc.items()}
+        else:
+            bp, npre, epre = self._bipartite_projection()
+            if bp.number_of_nodes() == 0:
+                return {}
+            bc = nx.betweenness_centrality(bp, normalized=True)
+            return {k[len(npre):]: v for k, v in bc.items() if k.startswith(npre)}
+
+    def s_walk_closeness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
+        import networkx as nx
+
+        if kind == "edges":
+            lg = self._s_line_graph(s)
+            if lg.number_of_nodes() == 0:
+                return {}
+            cc = nx.closeness_centrality(lg)
+            return {eid: v for eid, v in cc.items()}
+        else:
+            bp, npre, epre = self._bipartite_projection()
+            if bp.number_of_nodes() == 0:
+                return {}
+            cc = nx.closeness_centrality(bp)
+            return {k[len(npre):]: v for k, v in cc.items() if k.startswith(npre)}

@@ -47,6 +47,7 @@ from hyper3.community import (
     Community,
     CommunityDetector,
     CommunityResult,
+    HierarchicalCommunityResult,
 )
 from hyper3.constraints import (
     BoundaryNavigator,
@@ -102,9 +103,12 @@ from hyper3.frame_transform import (
 from hyper3.generators import (
     barabasi_albert_graph,
     complete_hypergraph,
+    configuration_model,
     random_chung_lu,
     random_hypergraph,
+    random_hypergraph_sbm,
     random_sbm,
+    random_scale_free_hypergraph,
     random_shuffle,
     random_uniform_hypergraph,
     ring_lattice,
@@ -165,6 +169,7 @@ from hyper3.provenance import (
     ProvenanceTracker,
 )
 from hyper3.results import (
+    AdjacencyTensorResult,
     AnomalyAnalysis,
     BiasProfileResult,
     CommitResult,

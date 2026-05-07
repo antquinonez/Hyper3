@@ -1,7 +1,7 @@
 """
 XGI Comparison: Spectral Methods & Laplacians
 ==============================================
-Parallels Hyper3's intermediate/21_spectral_methods.py.
+Parallels Hyper3's showcase/spectral_and_matrix/spectral_methods.py.
 
 Uses XGI for incidence matrix, multiorder Laplacian, and eigenvalue
 computation on a hypergraph with community structure. Compares with

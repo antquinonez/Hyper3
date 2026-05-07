@@ -46,10 +46,8 @@ Run this sequence after substantive changes. All gates must pass:
 .venv/bin/ruff check src/hyper3/ tests/
 
 # 4. All examples (must complete without error)
-for f in examples/basic/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
-for f in examples/intermediate/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
-for f in examples/advanced/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
-for f in examples/domain/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 5. All demos (must complete without error)
 for f in demos/demo*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done

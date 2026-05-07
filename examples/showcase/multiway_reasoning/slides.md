@@ -213,11 +213,11 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 | Example | Focus |
 |---------|-------|
-| `examples/advanced/13_self_evolving_cognition.py` | Feedback-driven evolution |
-| `examples/advanced/12_adaptive_learning.py` | Rule effectiveness learning |
-| `examples/domain/infrastructure_self_healing.py` | Multiway reasoning integration |
-| `examples/domain/medical_diagnosis.py` | Backward chaining |
-| `examples/domain/fraud_detection_intelligence.py` | Cycle detection |
+| `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` | Feedback-driven evolution |
+| `examples/showcase/adaptive_learning/adaptive_learning.py` | Rule effectiveness learning |
+| `examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py` | Multiway reasoning integration |
+| `examples/showcase/medical_diagnosis/medical_diagnosis.py` | Backward chaining |
+| `examples/showcase/fraud_detection/fraud_detection_intelligence.py` | Cycle detection |
 
 ---
 
@@ -227,4 +227,4 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 > "We do not force the architecture to guess. By establishing structural sovereignty through hyperedges, we allow the intelligence to flow outward in all directions, letting the true narrative emerge effortlessly from the data."
 
-[View the code →](examples/showcase/multiway_reasoning/01_multiway_lateral_insights.py)
+[View the code →](examples/showcase/multiway_reasoning/multiway_lateral_insights.py)

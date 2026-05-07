@@ -1,7 +1,7 @@
 """
 NetworkX Comparison: IT Troubleshooting Engine (Backward Chaining)
 ================================================================
-Parallels Hyper3's examples/domain/it_troubleshooting/demo.py.
+Parallels Hyper3's examples/showcase/it_troubleshooting/demo.py.
 
 This implementation demonstrates what would be required in plain Python
 + NetworkX to replicate Hyper3's backward chaining capability.

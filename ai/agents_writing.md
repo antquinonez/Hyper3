@@ -30,7 +30,7 @@ After writing or modifying an example, validate it runs:
 .venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
 
 # Batch-validate all examples
-for f in examples/basic/*.py examples/intermediate/*.py examples/advanced/*.py examples/domain/*.py; do
+for f in examples/showcase/*/*.py; do
   echo "--- Running $f ---"
   .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK" || echo "FAILED"
 done
@@ -144,4 +144,54 @@ When the example script changes (new nodes, different rules, changed parameters)
 
 # 4. Verify the script itself still passes
 .venv/bin/python examples/showcase/<topic>/<script>.py > /dev/null 2>&1 && echo "OK" || echo "FAILED"
+```
+
+### SR-11: Be self-contained — no competitor name-dropping
+
+Showcase READMEs explain what Hyper3 does and why it matters. Do not reference other frameworks (XGI, HyperNetX, NetworkX, Laminar, etc.) in the narrative text unless the comparison directly helps the reader understand a concept.
+
+**Allowed**: Mentioning another framework when it provides essential background (e.g., "traditional graph libraries assume edges connect exactly two nodes" without naming specific libraries).
+
+**Not allowed**: "This showcase parallels XGI's Tutorial 6", "XGI provides `NodeStat` and `EdgeStat` objects", "Hyper3 adds capabilities on top of XGI's DiHypergraph", comparison tables with columns for each framework, or framing the showcase as a migration guide from another tool.
+
+Readers of a Hyper3 showcase should not need to know what XGI is. If a concept is best explained by contrasting it with how another framework works, explain the contrast in terms of the underlying data model ("undirected membership sets") rather than by name ("XGI's representation").
+
+### SR-12: Explain why features and techniques matter
+
+Every capability demonstrated in a showcase must answer the question "why would I use this?" Do not just describe what a feature does — explain what problem it solves or what insight it provides that would be missing without it.
+
+**Pattern**: When introducing a feature, follow the structure:
+
+1. What the feature does (factual description)
+2. What would be different without it (the gap it fills)
+3. Concrete example from the showcase data
+
+**Examples**:
+
+- **N-ary hyperedges**: "Why this matters: the `joint_project` edge represents a collective relationship. With pairwise edges, removing Carol would require finding and updating each edge separately."
+- **Directional degree**: "Why direction matters: substrate_x's in-degree (3) and out-degree (1) tell different stories. The in-degree says 'three things bind to this substrate' — it's a convergence point. The out-degree says 'this substrate feeds one product.' Without direction, these roles are conflated."
+- **Weighted degree**: "Unweighted degree treats every edge equally, but in real graphs some edges are much stronger than others. Weighted degree surfaces this distinction."
+- **Degree vs PageRank**: "Degree centrality counts connections (who has the most edges), while PageRank weights connections by the importance of the connecting nodes. This distinction matters when deciding what to monitor."
+
+Avoid adding "why it matters" as a separate paragraph bolted onto every section. Weave it into the analysis pipeline where the reader naturally asks the question — typically right after the first demonstration of the feature.
+
+### SR-13: Descriptive section headings, not comparative ones
+
+Section 9 ("What Makes This Different") should explain the capabilities and why they matter, not compare Hyper3 against a list of other frameworks. Write it as a list of distinct capabilities with explanations of what each provides, not a feature-comparison table.
+
+**Avoid**:
+
+```
+| Capability | NetworkX | XGI | Hyper3 |
+|-----------|----------|-----|--------|
+| N-ary edges | No | Yes | Yes |
+```
+
+**Prefer**:
+
+```
+**N-ary directed hyperedges** capture collective relationships in a single edge.
+The `joint_project` edge ({alice, bob, carol} -> {dave}) means all three
+collaborators jointly deliver to Dave. Decomposing this into three pairwise
+edges would lose the collective semantics.
 ```

@@ -1,7 +1,7 @@
 """
 XGI Comparison: Dual and Graph Transformations
 ===============================================
-Parallels Hyper3's intermediate/31_graph_transformations.py.
+Parallels Hyper3's showcase/spectral_and_matrix/graph_transformations.py.
 
 Uses XGI 0.10.1 to compute duals, line graphs, and bipartite graphs.
 Contrasts with Hyper3's to_dual(), to_line_graph(), to_bipartite_graph().

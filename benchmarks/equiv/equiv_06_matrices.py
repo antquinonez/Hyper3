@@ -36,8 +36,7 @@ def run() -> EquivRunner:
 
     _test_multiorder_laplacian(t)
     _test_dual_random_walk_adjacency(t)
-
-    t.gap("adjacency_tensor", "HGX: adjacency_tensor(HG) -- order-(m+1) tensor for uniform hypergraph")
+    _test_adjacency_tensor(t)
 
     return t
 
@@ -218,6 +217,52 @@ def _test_dual_random_walk_adjacency(t: EquivRunner) -> None:
     A_arr = np.asarray(A_dual)
     t.check("dual_random_walk_adjacency/square", A_arr.shape[0] == A_arr.shape[1])
     t.check("dual_random_walk_adjacency/edge_count_dim", A_arr.shape[0] == mem.graph.edge_count)
+
+
+def _test_adjacency_tensor(t: EquivRunner) -> None:
+    from hyper3 import Hyperedge, Hypergraph, Hypernode
+
+    g = Hypergraph()
+    nodes = [Hypernode(label=f"n{i}") for i in range(6)]
+    for n in nodes:
+        g.add_node(n)
+
+    triples = [(0, 1, 2), (2, 3, 4), (4, 5, 0)]
+    for i0, i1, i2 in triples:
+        g.add_edge(Hyperedge(
+            source_ids=frozenset({nodes[i0].id}),
+            target_ids=frozenset({nodes[i1].id, nodes[i2].id}),
+        ))
+
+    result = g.adjacency_tensor()
+    t.check("adjacency_tensor/order", result.order == 2)
+    t.check("adjacency_tensor/n_nodes", result.n_nodes == 6)
+    t.check("adjacency_tensor/n_nonzero", result.n_nonzero == 3)
+    t.check("adjacency_tensor/coords_shape", result.coords.shape[1] == 3)
+
+    for row in result.coords:
+        assert len(row) == 3
+        assert all(0 <= idx < 6 for idx in row)
+    t.check("adjacency_tensor/coords_in_range", True)
+
+    result_dense = g.adjacency_tensor(dense=True)
+    t.check("adjacency_tensor/dense_shape", result_dense.dense_tensor.shape == (6, 6, 6))
+
+    total = float(result_dense.dense_tensor.sum())
+    t.check_close("adjacency_tensor/dense_total", total, 3.0, tol=1e-8)
+
+    if assert_hgx_available(t):
+        import hypergraphx as hgx
+
+        H = hgx.Hypergraph(weighted=True)
+        for i0, i1, i2 in triples:
+            H.add_edge((i0, i1, i2))
+
+        hgx_T = hgx.linalg.adjacency_tensor(H)
+        t.check("adjacency_tensor/hgx_shape", hgx_T.shape == (6, 6, 6))
+
+        hgx_nonzero = int(np.count_nonzero(hgx_T))
+        t.check("adjacency_tensor/hgx_nonzero_entries", hgx_nonzero == 3 * 6)
 
 
 if __name__ == "__main__":

@@ -31,10 +31,10 @@ def run() -> EquivRunner:
     _test_hypergraph_h3_xgi(t)
     _test_directed_h3_hgx(t)
     _test_h3_crud(t)
+    _test_subhypergraph_by_order_hgx(t)
 
     t.gap("hif_import", "HGX/XGI: read_hif/write_hif standard format")
     t.gap("metadata_filtering", "HGX: filter_hypergraph with node/edge criteria")
-    t.gap("subhypergraph_by_order", "HGX: subhypergraph_by_orders(size=3)")
 
     return t
 
@@ -141,6 +141,44 @@ def _test_h3_crud(t: EquivRunner) -> None:
     t.check("crud/has_node_after_remove", mem.has_node("alpha"))
     mem.graph.remove_node(mem.graph.get_node_by_label("alpha").id)
     t.check("crud/node_gone_after_remove", not mem.has_node("alpha"))
+
+
+def _test_subhypergraph_by_order_hgx(t: EquivRunner) -> None:
+    from hyper3.kernel import Hypergraph
+    from hyper3.kernel_types import Hyperedge, Hypernode
+
+    g = Hypergraph()
+    nodes = [Hypernode(label=str(i)) for i in range(5)]
+    for n in nodes:
+        g.add_node(n)
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id, nodes[1].id}), target_ids=frozenset()))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[1].id, nodes[2].id}), target_ids=frozenset()))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+    g.add_edge(Hyperedge(source_ids=frozenset({nodes[2].id, nodes[3].id, nodes[4].id}), target_ids=frozenset()))
+
+    sub_pairwise = g.subhypergraph_by_order({1})
+    t.check_int("subhypergraph_order/pairwise_edges", sub_pairwise.edge_count, 2)
+    t.check_int("subhypergraph_order/pairwise_nodes", sub_pairwise.node_count, 5)
+
+    sub_3node = g.subhypergraph_by_order({2})
+    t.check_int("subhypergraph_order/3node_edges", sub_3node.edge_count, 2)
+    t.check_int("subhypergraph_order/3node_nodes", sub_3node.node_count, 5)
+
+    sub_all = g.subhypergraph_by_order({1, 2})
+    t.check_int("subhypergraph_order/all_edges", sub_all.edge_count, 4)
+
+    sub_empty = g.subhypergraph_by_order({5})
+    t.check_int("subhypergraph_order/empty_edges", sub_empty.edge_count, 0)
+    t.check_int("subhypergraph_order/empty_nodes", sub_empty.node_count, 5)
+
+    if assert_hgx_available(t):
+        from hypergraphx import Hypergraph as HgxHypergraph
+
+        hgx = HgxHypergraph()
+        hgx.add_edges([(0, 1), (1, 2), (0, 1, 2), (2, 3, 4)])
+        hgx_sub = hgx.subhypergraph_by_orders(sizes=[2], keep_nodes=True)
+        t.check_int("subhypergraph_order/hgx_pairwise_edges", hgx_sub.num_edges(), 2)
+        t.check_int("subhypergraph_order/hgx_pairwise_nodes", hgx_sub.num_nodes(), 5)
 
 
 if __name__ == "__main__":

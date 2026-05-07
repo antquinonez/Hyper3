@@ -1,7 +1,7 @@
 """
 XGI Comparison: Matrix Computations
 ====================================
-Parallels Hyper3's intermediate/28_matrix_computations.py.
+Parallels Hyper3's showcase/spectral_and_matrix/matrix_computations.py.
 
 Uses XGI 0.10.1 to compute incidence matrices, Laplacians, and
 adjacency matrices. Contrasts XGI's matrix API with Hyper3's.

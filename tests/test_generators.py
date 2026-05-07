@@ -3,15 +3,19 @@ import pytest
 from hyper3.generators import (
     barabasi_albert_graph,
     complete_hypergraph,
+    configuration_model,
     random_chung_lu,
     random_hypergraph,
+    random_hypergraph_sbm,
     random_sbm,
+    random_scale_free_hypergraph,
     random_shuffle,
     random_uniform_hypergraph,
     ring_lattice,
     star_hypergraph,
     watts_strogatz_graph,
 )
+from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 
 
 class TestRandomHypergraph:
@@ -197,3 +201,166 @@ class TestRandomShuffle:
         s1 = random_shuffle(g, p=1.0, seed=42)
         s2 = random_shuffle(g, p=1.0, seed=42)
         assert s1.edge_count == s2.edge_count
+
+
+class TestScaleFreeHypergraph:
+    def test_basic_creation(self):
+        g = random_scale_free_hypergraph(50, {2: 30, 3: 10}, seed=42)
+        assert g.node_count == 50
+        assert g.edge_count == 40
+
+    def test_seed_reproducibility(self):
+        g1 = random_scale_free_hypergraph(20, {2: 15, 3: 5}, seed=42)
+        g2 = random_scale_free_hypergraph(20, {2: 15, 3: 5}, seed=42)
+        assert g1.edge_count == g2.edge_count
+
+        id_to_label_1 = {n.id: n.label for n in g1.nodes}
+        id_to_label_2 = {n.id: n.label for n in g2.nodes}
+        e1 = sorted(sorted(id_to_label_1[nid] for nid in e.node_ids) for e in g1.edges)
+        e2 = sorted(sorted(id_to_label_2[nid] for nid in e.node_ids) for e in g2.edges)
+        assert e1 == e2
+
+    def test_degree_skew(self):
+        g = random_scale_free_hypergraph(100, {2: 200}, alpha=1.5, seed=42)
+        degrees = {}
+        for e in g.edges:
+            for nid in e.node_ids:
+                degrees[nid] = degrees.get(nid, 0) + 1
+        deg_vals = list(degrees.values())
+        assert max(deg_vals) > sum(deg_vals) / len(deg_vals) * 3
+
+    def test_empty_edges(self):
+        g = random_scale_free_hypergraph(10, {}, seed=42)
+        assert g.node_count == 10
+        assert g.edge_count == 0
+
+    def test_prefix(self):
+        g = random_scale_free_hypergraph(5, {2: 3}, seed=42, prefix="v")
+        labels = {n.label for n in g.nodes}
+        assert labels == {"v0", "v1", "v2", "v3", "v4"}
+
+    def test_zero_nodes(self):
+        g = random_scale_free_hypergraph(0, {2: 5}, seed=42)
+        assert g.node_count == 0
+        assert g.edge_count == 0
+
+    def test_size_exceeds_n_raises(self):
+        with pytest.raises(ValueError, match="exceeds"):
+            random_scale_free_hypergraph(3, {5: 1}, seed=42)
+
+
+class TestHypergraphSBM:
+    def test_basic_pairwise(self):
+        g = random_hypergraph_sbm(30, 3, [10, 10, 10], seed=42)
+        assert g.node_count == 30
+        assert g.edge_count > 0
+
+    def test_community_structure(self):
+        g = random_hypergraph_sbm(
+            30, 2, [15, 15],
+            edge_size=2, p_in=0.9, p_out=0.01,
+            seed=42,
+        )
+        from hyper3.community import CommunityDetector
+
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.modularity > 0.3
+
+    def test_3_uniform(self):
+        g = random_hypergraph_sbm(12, 2, [6, 6], edge_size=3, p_in=0.8, p_out=0.05, seed=42)
+        for e in g.edges:
+            assert len(e.node_ids) == 3
+
+    def test_seed_reproducibility(self):
+        g1 = random_hypergraph_sbm(20, 2, [10, 10], seed=42)
+        g2 = random_hypergraph_sbm(20, 2, [10, 10], seed=42)
+        assert g1.edge_count == g2.edge_count
+
+    def test_zero_probabilities(self):
+        g = random_hypergraph_sbm(10, 2, [5, 5], p_in=0.0, p_out=0.0, seed=42)
+        assert g.edge_count == 0
+
+    def test_prefix(self):
+        g = random_hypergraph_sbm(6, 2, [3, 3], seed=42, prefix="v")
+        labels = {n.label for n in g.nodes}
+        assert labels == {"v0", "v1", "v2", "v3", "v4", "v5"}
+
+    def test_edge_size_exceeds_n(self):
+        g = random_hypergraph_sbm(3, 1, [3], edge_size=5, seed=42)
+        assert g.node_count == 3
+        assert g.edge_count == 0
+
+    def test_sizes_mismatch_raises(self):
+        with pytest.raises(ValueError, match="sum to"):
+            random_hypergraph_sbm(10, 2, [3, 3], seed=42)
+
+    def test_all_edges_with_prob_one(self):
+        g = random_hypergraph_sbm(6, 2, [3, 3], edge_size=2, p_in=1.0, p_out=1.0, seed=42)
+        from math import comb
+
+        assert g.edge_count == comb(6, 2)
+
+    def test_edge_label(self):
+        g = random_hypergraph_sbm(6, 2, [3, 3], seed=42)
+        for e in g.edges:
+            assert e.label == "hsbm"
+
+
+class TestConfigurationModel:
+    def test_preserves_node_count(self):
+        g = random_hypergraph(8, {0: 0.5, 1: 0.2}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=42)
+        assert cm.node_count == g.node_count
+
+    def test_preserves_edge_count(self):
+        g = random_hypergraph(8, {0: 0.5, 1: 0.2}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=42)
+        assert cm.edge_count == g.edge_count
+
+    def test_preserves_degree_sequence(self):
+        g = random_hypergraph(10, {0: 0.4}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        orig_deg = sorted(sum(1 for e in g._edges.values() if n in e.node_ids) for n in g._nodes)
+        new_deg = sorted(sum(1 for e in cm._edges.values() if n in e.node_ids) for n in cm._nodes)
+        assert orig_deg == new_deg
+
+    def test_preserves_edge_size_distribution(self):
+        g = random_hypergraph(10, {0: 0.5, 1: 0.3}, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        orig_sizes = sorted(len(e.node_ids) for e in g._edges.values())
+        new_sizes = sorted(len(e.node_ids) for e in cm._edges.values())
+        assert orig_sizes == new_sizes
+
+    def test_single_edge_unchanged(self):
+        g = Hypergraph()
+        nodes = [Hypernode(label=f"n{i}") for i in range(3)]
+        for n in nodes:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0].id}), target_ids=frozenset({nodes[1].id, nodes[2].id})))
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.edge_count == 1
+
+    def test_empty_graph(self):
+        g = Hypergraph()
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.node_count == 0
+        assert cm.edge_count == 0
+
+    def test_isolated_nodes_preserved(self):
+        g = Hypergraph()
+        for i in range(5):
+            g.add_node(Hypernode(label=f"n{i}"))
+        nodes = list(g._nodes.keys())
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[0]}), target_ids=frozenset({nodes[1]})))
+        g.add_edge(Hyperedge(source_ids=frozenset({nodes[2]}), target_ids=frozenset({nodes[3]})))
+        cm = configuration_model(g, n_steps=100, seed=42)
+        assert cm.node_count == 5
+
+    def test_uniform_hypergraph(self):
+        g = random_uniform_hypergraph(8, 10, 3, seed=42)
+        cm = configuration_model(g, n_steps=500, seed=99)
+        assert cm.edge_count == g.edge_count
+        orig_deg = sorted(sum(1 for e in g._edges.values() if n in e.node_ids) for n in g._nodes)
+        new_deg = sorted(sum(1 for e in cm._edges.values() if n in e.node_ids) for n in cm._nodes)
+        assert orig_deg == new_deg

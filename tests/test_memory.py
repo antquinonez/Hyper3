@@ -2132,3 +2132,460 @@ class TestMemoryAnalyticsCoverage:
         assert "a" in node_labels
         assert "e1" in node_labels
 
+    def test_eccentricity_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        ecc = mem.eccentricity()
+        assert isinstance(ecc, dict)
+        assert ecc["b"] == 1
+        assert ecc["a"] == 2
+        assert mem.eccentricity("b") == 1
+        assert mem.eccentricity("missing") == 0
+
+    def test_diameter_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.diameter() == 2
+
+    def test_radius_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.radius() == 1
+
+    def test_periphery_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        p = mem.periphery()
+        assert set(p) == {"a", "c"}
+
+    def test_center_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        assert mem.center() == ["b"]
+
+    def test_degree_assortativity_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        r = mem.degree_assortativity()
+        assert isinstance(r, float)
+        assert -1.0 <= r <= 1.0
+
+    def test_h_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        hc = mem.h_eigenvector_centrality()
+        assert isinstance(hc, dict)
+        assert len(hc) == 3
+
+    def test_z_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        zc = mem.z_eigenvector_centrality()
+        assert isinstance(zc, dict)
+        assert len(zc) == 3
+
+    def test_c_eigenvector_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        cc = mem.c_eigenvector_centrality()
+        assert isinstance(cc, dict)
+        assert len(cc) == 3
+
+    def test_node_edge_centrality_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        nc, ec = mem.node_edge_centrality()
+        assert isinstance(nc, dict)
+        assert isinstance(ec, dict)
+        assert len(nc) == 3
+
+    def test_s_walk_betweenness_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        bc = mem.s_walk_betweenness(s=1, kind="edges")
+        assert isinstance(bc, dict)
+
+    def test_s_walk_closeness_facade(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
+        cc = mem.s_walk_closeness(s=1, kind="nodes")
+        assert isinstance(cc, dict)
+
+
+class TestDagTreeFacade:
+    def test_is_dag(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("a", "c")
+        mem.relate("b", "d")
+        mem.relate("c", "d")
+        assert mem.is_dag() is True
+
+    def test_is_dag_with_cycle(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "a")
+        assert mem.is_dag() is False
+
+    def test_topological_sort(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("a", "c")
+        mem.relate("b", "d")
+        mem.relate("c", "d")
+        order = mem.topological_sort()
+        assert order is not None
+        assert len(order) == 4
+        assert order.index("a") < order.index("b")
+        assert order.index("a") < order.index("c")
+
+    def test_transitive_closure(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        closure = mem.transitive_closure()
+        assert ("a", "b") in closure
+        assert ("b", "c") in closure
+        assert ("a", "c") in closure
+
+    def test_transitive_reduction(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("a", "c")
+        red = mem.transitive_reduction()
+        assert ("a", "b") in red
+        assert ("b", "c") in red
+        assert ("a", "c") not in red
+
+    def test_dag_longest_path(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "d")
+        path = mem.dag_longest_path()
+        assert path[0] == "a"
+        assert path[-1] == "d"
+        assert len(path) == 4
+
+    def test_dag_longest_path_length(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b")
+        mem.relate("b", "c")
+        mem.relate("c", "d")
+        assert mem.dag_longest_path_length() == 3
+
+    def test_is_tree(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        mem.relate("a", "d", bidirectional=True)
+        assert mem.is_tree() is True
+
+    def test_is_forest(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        assert mem.is_forest() is True
+
+    def test_minimum_spanning_edges(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=5.0, bidirectional=True)
+        mem.relate("b", "c", weight=3.0, bidirectional=True)
+        mem.relate("a", "c", weight=1.0, bidirectional=True)
+        mem.relate("c", "d", weight=2.0, bidirectional=True)
+        mst = mem.minimum_spanning_edges()
+        assert len(mst) == 3
+
+    def test_spanning_tree_count(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        for i, a in enumerate("abcd"):
+            for b in "abcd"[i + 1:]:
+                mem.relate(a, b, bidirectional=True)
+        assert mem.spanning_tree_count() == 16
+
+    def test_tree_center(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcde":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        mem.relate("d", "e", bidirectional=True)
+        center = mem.tree_center()
+        assert set(center) == {"c"}
+
+
+class TestFlowMatchingFacade:
+    def test_max_flow(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "sabt":
+            mem.store(l)
+        mem.relate("s", "a", weight=10.0)
+        mem.relate("s", "b", weight=5.0)
+        mem.relate("a", "t", weight=10.0)
+        mem.relate("b", "t", weight=10.0)
+        flow_val, flow_dict = mem.max_flow("s", "t")
+        assert flow_val > 0
+        assert isinstance(flow_dict, dict)
+
+    def test_min_cut_global(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=3.0, bidirectional=True)
+        mem.relate("b", "c", weight=1.0, bidirectional=True)
+        mem.relate("c", "d", weight=3.0, bidirectional=True)
+        mem.relate("a", "c", weight=2.0, bidirectional=True)
+        mem.relate("b", "d", weight=2.0, bidirectional=True)
+        cut_val, (left, right) = mem.min_cut_global()
+        assert cut_val == pytest.approx(10.0)
+        assert len(left) > 0 and len(right) > 0
+
+    def test_min_cut_st(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "sabt":
+            mem.store(l)
+        mem.relate("s", "a", weight=5.0)
+        mem.relate("a", "t", weight=3.0)
+        mem.relate("s", "b", weight=4.0)
+        mem.relate("b", "t", weight=6.0)
+        cut_val, (left, right) = mem.min_cut_st("s", "t")
+        assert cut_val == pytest.approx(7.0)
+
+    def test_max_weight_matching(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", weight=5.0, bidirectional=True)
+        mem.relate("b", "c", weight=3.0, bidirectional=True)
+        mem.relate("c", "d", weight=4.0, bidirectional=True)
+        matching = mem.max_weight_matching()
+        assert len(matching) == 2
+        for pair in matching:
+            assert len(pair) == 2
+
+    def test_bipartite_maximum_matching(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "c")
+        mem.relate("a", "d")
+        mem.relate("b", "c")
+        matching = mem.bipartite_maximum_matching({"a", "b"}, {"c", "d"})
+        assert len(matching) == 2
+
+    def test_min_edge_cover(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcd":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "d", bidirectional=True)
+        cover = mem.min_edge_cover()
+        covered = set()
+        for pair in cover:
+            covered.update(pair)
+        assert len(covered) == 4
+
+    def test_minimum_cycle_basis(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("c", "a", bidirectional=True)
+        basis = mem.minimum_cycle_basis()
+        assert len(basis) == 1
+        assert set(basis[0]) == {"a", "b", "c"}
+
+
+class TestHypergraphStructureFacade:
+    def test_encapsulation_dag(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        dag = mem.encapsulation_dag()
+        assert isinstance(dag, list)
+
+    def test_simpliciality(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        assert isinstance(mem.simpliciality(), float)
+
+    def test_face_enumeration(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        result = mem.face_enumeration(frozenset({"a", "b"}))
+        assert "faces" in result
+        assert "cofaces" in result
+
+    def test_boundary_operator(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        bd = mem.boundary_operator(1)
+        assert isinstance(bd, dict)
+
+    def test_hodge_matrix(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        B, rows, cols = mem.hodge_matrix(1)
+        assert B.shape[0] >= 0
+
+    def test_hodge_laplacian(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        L = mem.hodge_laplacian(0)
+        assert L.shape[0] >= 0
+
+    def test_betti_curve(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        betti = mem.betti_curve()
+        assert len(betti) >= 1
+        assert betti[0] == 1
+
+    def test_persistence_diagram(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True, weight=1.0)
+        mem.relate("b", "c", bidirectional=True, weight=2.0)
+        pd = mem.persistence_diagram()
+        assert isinstance(pd, list)
+
+
+class TestDynamicsFacade:
+    def test_detect_motifs(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        mem.relate("a", "c", bidirectional=True)
+        result = mem.detect_motifs(order=3, runs_config_model=3, seed=42)
+        assert "motif_2_2_2" in result.observed
+
+    def test_simplicial_contagion(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abcde":
+            mem.store(l)
+        for _i, (a, b) in enumerate([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")]):
+            mem.relate(a, b, bidirectional=True)
+        result = mem.simplicial_contagion({"a"}, beta=0.5, timesteps=20, seed=42)
+        assert len(result.infected_fraction) == 21
+
+    def test_simulate_kuramoto(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for l in "abc":
+            mem.store(l)
+        mem.relate("a", "b", bidirectional=True)
+        mem.relate("b", "c", bidirectional=True)
+        result = mem.simulate_kuramoto(k2=1.0, timesteps=100, dt=0.01, seed=42)
+        assert result.theta_time.shape[1] == 3
+
+
+class TestCommunityFacade:
+    def test_girvan_newman(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(8):
+            mem.store(str(i))
+        pairs = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(3,4)]
+        for i, j in pairs:
+            mem.relate(str(i), str(j), bidirectional=True)
+        result = mem.detect_communities(method="girvan_newman")
+        assert result.community_count == 2
+
+    def test_hyperlink_communities(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        for i in range(6):
+            mem.store(str(i))
+        mem.relate("0", "1", bidirectional=True)
+        mem.relate("1", "2", bidirectional=True)
+        mem.relate("2", "3", bidirectional=True)
+        mem.relate("3", "4", bidirectional=True)
+        mem.relate("4", "5", bidirectional=True)
+        result = mem.detect_hyperlink_communities()
+        assert result.community_count > 0
+
