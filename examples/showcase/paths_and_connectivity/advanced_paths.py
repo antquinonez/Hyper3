@@ -42,12 +42,12 @@ def main() -> None:
 
     print(f"\nnodes: {mem.size[0]}, edges: {mem.size[1]}")
 
-    path_weighted = mem.shortest_path("s", "t", weighted=True)
-    path_unweighted = mem.shortest_path("s", "t", weighted=False)
+    path_weighted = mem.analyze.shortest_path("s", "t", weighted=True)
+    path_unweighted = mem.analyze.shortest_path("s", "t", weighted=False)
     print(f"\nshortest path (weighted):   {path_weighted}")
     print(f"shortest path (unweighted): {path_unweighted}")
 
-    all_paths = mem.find_paths("s", "t", max_paths=5)
+    all_paths = mem.analyze.paths("s", "t", max_paths=5)
     print(f"\nall paths s -> t:")
     for i, p in enumerate(all_paths):
         print(f"  path {i}: {' -> '.join(p)}")
@@ -131,7 +131,7 @@ def main() -> None:
     else:
         print("  no delta computed")
 
-    path_after = mem.shortest_path("s", "t", weighted=True)
+    path_after = mem.analyze.shortest_path("s", "t", weighted=True)
     print(f"\nshortest path (weighted) after new edges: {path_after}")
 
     print("\n" + "=" * 70)

@@ -106,7 +106,7 @@ class RecipeSubstitutionEngine:
                     existing.add(node)
 
         result = self.mem.reason(
-            seed_concepts=seeds,
+            seeds=seeds,
             max_depth=3,
             max_total_states=30,
             auto_commit=True,
@@ -130,13 +130,13 @@ class RecipeSubstitutionEngine:
 
     def explain_substitution(self, from_ingredient: str,
                              to_ingredient: str) -> dict | None:
-        from_node = self.mem.graph.get_node_by_label(from_ingredient)
-        to_node = self.mem.graph.get_node_by_label(to_ingredient)
+        from_node = self.mem.engine.graph.get_node_by_label(from_ingredient)
+        to_node = self.mem.engine.graph.get_node_by_label(to_ingredient)
 
         if not from_node or not to_node:
             return None
 
-        edges = self.mem.graph.outgoing_edges(from_node.id)
+        edges = self.mem.engine.graph.outgoing_edges(from_node.id)
         for edge in edges:
             if to_node.id in edge.target_ids and edge.label == "substitutes_for":
                 return {
@@ -175,17 +175,17 @@ class RecipeSubstitutionEngine:
         return self.mem.evolve()
 
     def get_ingredient_info(self, ingredient: str) -> dict | None:
-        node = self.mem.graph.get_node_by_label(ingredient)
+        node = self.mem.engine.graph.get_node_by_label(ingredient)
         return node.data if node else None
 
     def _edge_weight(self, from_label: str, to_label: str, edge_label: str) -> float:
-        from_node = self.mem.graph.get_node_by_label(from_label)
+        from_node = self.mem.engine.graph.get_node_by_label(from_label)
         if not from_node:
             return 1.0
-        to_node = self.mem.graph.get_node_by_label(to_label)
+        to_node = self.mem.engine.graph.get_node_by_label(to_label)
         if not to_node:
             return 1.0
-        for edge in self.mem.graph.outgoing_edges(from_node.id):
+        for edge in self.mem.engine.graph.outgoing_edges(from_node.id):
             if edge.label == edge_label and to_node.id in edge.target_ids:
                 return edge.weight
         return 1.0

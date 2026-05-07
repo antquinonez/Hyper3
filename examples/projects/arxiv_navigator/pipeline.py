@@ -200,11 +200,10 @@ def spreading_activation_analysis(mem: HypergraphMemory, papers: list[ArxivPaper
         return {"trending": None, "related": []}
 
     paper_labels = set(mem.query_nodes(data={"kind": "paper"}))
-    mem.stimulate(trending.arxiv_id, energy=2.0)
-    activated = mem.spread_activation(iterations=3)
+    activated = mem.activate(trending.arxiv_id, energy=2.0)
     related: list[dict[str, Any]] = []
     for ar in activated[:15]:
-        node = mem.graph.get_node(ar.node_id)
+        node = mem.engine.graph.get_node(ar.node_id)
         label = node.label if node else ar.node_id
         if label in paper_labels and label != trending.arxiv_id:
             related.append({
@@ -221,12 +220,12 @@ def spreading_activation_analysis(mem: HypergraphMemory, papers: list[ArxivPaper
 def centrality_analysis(mem: HypergraphMemory) -> dict[str, Any]:
     logger = logging.getLogger(__name__)
     logger.info("Computing betweenness centrality")
-    bc = mem.betweenness_centrality(top_k=15)
+    bc = mem.analyze.centrality("betweenness", top_k=15)
     paper_labels = set(mem.query_nodes(data={"kind": "paper"}))
     bridge_papers: list[dict[str, Any]] = []
     for label, score in bc.items():
         if label in paper_labels:
-            node = mem.graph.get_node_by_label(label)
+            node = mem.engine.graph.get_node_by_label(label)
             bridge_papers.append({
                 "paper": label,
                 "betweenness": round(score, 6),
@@ -356,7 +355,7 @@ def arxiv_research_navigator() -> dict[str, Any]:
 
     mem = build_graph(papers)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     logger.info("Graph summary: %s", desc.node_types)
 
     anomalies = anomaly_analysis(mem, papers)
@@ -382,7 +381,7 @@ def main() -> None:
         print("No papers retrieved from arXiv API.")
         return
     mem = build_graph.fn(papers)
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\n  Graph summary: {desc.node_types}")
     anomalies = anomaly_analysis.fn(mem, papers)
     activation = spreading_activation_analysis.fn(mem, papers)

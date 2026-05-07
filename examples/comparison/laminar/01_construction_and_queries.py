@@ -64,12 +64,12 @@ def main() -> None:
     print("SECTION 2: N-ARY HYPEREDGES (Hyper3 advantage)")
     print("=" * 70)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"alice", "bob", "carol"},
         targets={"dave"},
         label="joint_project",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"dave"},
         targets={"eve", "frank", "grace", "henry"},
         label="team_assignment",
@@ -91,13 +91,13 @@ def main() -> None:
     print("xgi.unique_edge_sizes(H)  -> [2, 3]")
 
     print("\n--- Hyper3 ---")
-    all_labels = [n.label for n in mem.graph.nodes]
+    all_labels = [n.label for n in mem.engine.graph.nodes]
     print(f"all nodes: {all_labels}")
 
-    labeled = mem.graph.labeled_edges
+    labeled = mem.analyze.edges()
     print(f"labeled edges: {[(e['label'], len(e.get('source_labels', []))) for e in labeled]}")
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\ngraph description:")
     print(f"  nodes: {desc.node_count}")
     print(f"  edges: {desc.edge_count}")

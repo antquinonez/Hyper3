@@ -223,7 +223,7 @@ def build_knowledge_graph(
 def analyze_transitive_chains(mem: HypergraphMemory) -> int:
     logger = logging.getLogger(__name__)
     result = mem.reason(
-        seed_concepts=set(),
+        seeds=set(),
         max_depth=3,
         exhaustive=True,
     )
@@ -248,11 +248,9 @@ def analyze_blast_radius(
     for adv in critical[:5]:
         adv_label = adv.ghsa_id
         try:
-            mem.stimulate(adv_label, energy=1.0)
-            activated = mem.spread_activation(iterations=5)
+            activated = mem.search.activate(adv_label, energy=1.0)
             reachable = [r.label for r in activated][:20]
             blast_radii[adv_label] = reachable
-            mem.clear_activations()
         except Exception:
             blast_radii[adv_label] = []
 
@@ -263,7 +261,7 @@ def analyze_blast_radius(
 @task
 def analyze_chokepoints(mem: HypergraphMemory) -> dict[str, float]:
     logger = logging.getLogger(__name__)
-    centrality_map = mem.betweenness_centrality(top_k=15)
+    centrality_map = mem.analyze.centrality("betweenness", top_k=15)
     top = {k: v for k, v in centrality_map.items() if v > 0}
 
     logger.info("Top chokepoint: %s (%.4f)", next(iter(top)) if top else "N/A", next(iter(top.values())) if top else 0.0)
@@ -302,7 +300,7 @@ def analyze_ecosystem_communities(mem: HypergraphMemory) -> list[dict[str, Any]]
         ecosystems: dict[str, int] = {}
         types: dict[str, int] = {}
         for member_label in comm.member_labels:
-            node = mem.graph.get_node_by_label(member_label)
+            node = mem.engine.graph.get_node_by_label(member_label)
             if node:
                 eco = node.data.get("ecosystem", "unknown")
                 ecosystems[eco] = ecosystems.get(eco, 0) + 1
@@ -427,7 +425,7 @@ def dependency_security_scanner(
 
     mem = build_knowledge_graph(advisories, pypi_packages)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     logger.info("Graph composition: %s", desc.node_types)
 
     edges_produced = analyze_transitive_chains(mem)
@@ -460,7 +458,7 @@ def main(per_page: int = 50) -> None:
         if result is not None:
             pypi_packages[pkg_name] = result
     mem = build_knowledge_graph.fn(advisories, pypi_packages)
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\n  Graph composition: {desc.node_types}")
     edges_produced = analyze_transitive_chains.fn(mem)
     blast_radii = analyze_blast_radius.fn(mem, advisories)

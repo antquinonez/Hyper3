@@ -159,7 +159,7 @@ def main() -> None:
 
     mem.add_rules(TransitiveRule(edge_label="link", new_label="inferred_link"))
 
-    result = mem.reason(seed_concepts={"n0"}, max_depth=2)
+    result = mem.reason(seeds={"n0"}, max_depth=2)
     print(f"\nreasoning on random_hypergraph from 'n0':")
     if result.expansion:
         print(f"  edges produced: {result.expansion.edges_produced}")

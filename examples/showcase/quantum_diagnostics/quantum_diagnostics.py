@@ -306,7 +306,7 @@ def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
         "memory_leak_api",
         "kafka_partition_rebalance",
     ]
-    evidence_count = len([n for n in mem.graph.nodes if n.data.get("source")])
+    evidence_count = len([n for n in mem.engine.graph.nodes if n.data.get("source")])
     print(f"  Root cause hypotheses: {len(hypotheses)}")
     print(f"  Evidence nodes: {evidence_count}")
     print()
@@ -324,7 +324,7 @@ def section_2_distribution(mem: HypergraphMemory, hypotheses: list[str]) -> None
     print("  Spreading activation may shift weights based on graph connectivity.")
     print()
 
-    qs = mem.create_distribution(concepts=hypotheses)
+    qs = mem.belief.create(outcomes=hypotheses)
     print(f"  Distribution of {qs.outcome_count} hypotheses:")
     for interp in qs.outcomes:
         print(f"    {interp.label:40s} amp={interp.amplitude:.4f}  prob={interp.probability:.4f}")
@@ -367,10 +367,10 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     counts: dict[str, int] = {h: 0 for h in hypotheses}
     n_trials = 1000
     for _ in range(n_trials):
-        qs_trial = mem.create_distribution(concepts=hypotheses, amplitudes=None, use_context_field=False)
+        qs_trial = mem.belief.create(outcomes=hypotheses, amplitudes=None, use_context=False)
         answer = mem.sample(qs_trial, context=context_weights)
         if answer:
-            node = mem.graph.get_node(answer.node_id)
+            node = mem.engine.graph.get_node(answer.node_id)
             label = node.label if node else answer.node_id
             counts[label] = counts.get(label, 0) + 1
 
@@ -400,9 +400,9 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("  table -- a classical correlation matrix, not quantum entanglement.")
     print()
 
-    qs = mem.create_distribution(concepts=hypotheses, use_context_field=False)
+    qs = mem.belief.create(outcomes=hypotheses, use_context=False)
 
-    ent = mem.correlate(
+    ent = mem.belief.correlate(
         group_a=["certificate_expiry", "dns_resolution_failure"],
         group_b=["memory_leak_api", "db_connection_pool_exhaustion"],
         correlations={
@@ -421,11 +421,11 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
     print(f"    dns_failure  <-> memory_leak:        +0.15 (weak)")
 
-    cascaded = mem.sample_correlated(qs, "certificate_expiry")
+    cascaded = mem.belief.sample_correlated(qs, "certificate_expiry")
     print(f"\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
-            node = mem.graph.get_node(partner_id)
+            node = mem.engine.graph.get_node(partner_id)
             label = node.label if node else partner_id[:12]
             print(f"    {label}: prediction={prediction}")
     else:
@@ -444,30 +444,30 @@ def section_5_interference(mem: HypergraphMemory) -> None:
     print("  It compares |sum(amps)|^2 vs sum(|amp|^2) -- standard wave math.")
     print()
 
-    qs_constructive = mem.create_distribution(
-        concepts=["certificate_expiry", "certificate_expiry"],
+    qs_constructive = mem.belief.create(
+        outcomes=["certificate_expiry", "certificate_expiry"],
         amplitudes=[0.7, 0.5],
-        use_context_field=False,
+        use_context=False,
     )
     print("  Constructive case: two evidence sources both support certificate_expiry")
     print("    amplitudes: [+0.70, +0.50]")
-    patterns_c = mem.compute_interactions(qs_constructive)
+    patterns_c = mem.belief.interactions(qs_constructive)
     for p in patterns_c:
-        node = mem.graph.get_node(p.node_id)
+        node = mem.engine.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
 
-    qs_destructive = mem.create_distribution(
-        concepts=["dns_resolution_failure", "dns_resolution_failure"],
+    qs_destructive = mem.belief.create(
+        outcomes=["dns_resolution_failure", "dns_resolution_failure"],
         amplitudes=[0.7, -0.5],
-        use_context_field=False,
+        use_context=False,
     )
     print("\n  Destructive case: one source supports DNS failure, another contradicts")
     print("    amplitudes: [+0.70, -0.50]")
-    patterns_d = mem.compute_interactions(qs_destructive)
+    patterns_d = mem.belief.interactions(qs_destructive)
     for p in patterns_d:
-        node = mem.graph.get_node(p.node_id)
+        node = mem.engine.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
@@ -524,10 +524,10 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"    Entropy: {entropy_max:.6f} bits = log2(4) = {np.log2(4):.6f}")
 
     print("\n  Quick check: pure state entropy (should be 0)")
-    qs_pure = mem.create_distribution(
-        concepts=hypotheses[:3],
+    qs_pure = mem.belief.create(
+        outcomes=hypotheses[:3],
         amplitudes=[0.6, 0.3, 0.1],
-        use_context_field=False,
+        use_context=False,
     )
     rho_pure = mem.belief.density_matrix(qs_pure.id)
     if rho_pure is not None:

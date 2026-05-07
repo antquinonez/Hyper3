@@ -34,7 +34,7 @@ from hyper3 import (
 
 
 def _label(mem: HypergraphMemory, nid: str) -> str:
-    node = mem.graph.get_node(nid)
+    node = mem.engine.graph.get_node(nid)
     return node.label if node else nid[:8]
 
 
@@ -393,7 +393,7 @@ def main() -> None:
     print(f"    35 services | 20 hosts | 15 metrics | 15 alerts")
     print(f"    15 deployments | 10 external deps | 15 correlations")
     edge_counter: Counter[str] = Counter()
-    for edge in mem.graph.edges:
+    for edge in mem.engine.graph.edges:
         if edge.label:
             edge_counter[edge.label] += 1
     print(f"  Edge types: {dict(edge_counter)}")
@@ -442,8 +442,8 @@ def main() -> None:
     print("=" * 70)
 
     transitive = TransitiveRule(edge_label="depends_on", new_label="inferred_depends_on")
-    all_ids = frozenset(n.id for n in mem.graph.nodes)
-    t_matches = transitive.find_matches(mem.graph, all_ids)
+    all_ids = frozenset(n.id for n in mem.engine.graph.nodes)
+    t_matches = transitive.find_matches(mem.engine.graph, all_ids)
 
     print(f"  Found {len(t_matches)} transitive dependency chains")
     print(f"  (A depends_on B depends_on C => A inferred_depends_on C)")
@@ -477,7 +477,7 @@ def main() -> None:
     min_support = 2
     confidence_threshold = 0.6
     causal = HubInferenceRule(min_support=min_support, confidence_threshold=confidence_threshold, causes_label="causes")
-    c_matches = causal.find_matches(mem.graph, all_ids)
+    c_matches = causal.find_matches(mem.engine.graph, all_ids)
 
     print(f"  Found {len(c_matches)} causal relationships")
     print(f"  (min_support={min_support}, confidence_threshold={confidence_threshold})")
@@ -501,7 +501,7 @@ def main() -> None:
     print("=" * 70)
 
     gen = GeneralizationRule(similarity_threshold=0.8, label_prefix="category_")
-    g_matches = gen.find_matches(mem.graph, all_ids)
+    g_matches = gen.find_matches(mem.engine.graph, all_ids)
 
     print(f"  Found {len(g_matches)} service abstraction pairs (similarity >= 0.8)")
     print()
@@ -511,7 +511,7 @@ def main() -> None:
         la = m.context["label_a"]
         lb = m.context["label_b"]
         sim = m.context["similarity"]
-        node_a = mem.graph.get_node_by_label(la)
+        node_a = mem.engine.graph.get_node_by_label(la)
         if node_a and node_a.data:
             team = node_a.data.get("team", "unknown")
         else:
@@ -526,7 +526,7 @@ def main() -> None:
     print()
     print("  Applying generalization to create abstract category nodes...")
     for m in g_matches[:5]:
-        gen.apply(mem.graph, m)
+        gen.apply(mem.engine.graph, m)
     print(f"  Created {min(5, len(g_matches))} category nodes")
     print(f"  Graph now: {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
@@ -544,7 +544,7 @@ def main() -> None:
     assert mem.embedding_engine is not None
     analogical.set_embedding_engine(mem.embedding_engine)
 
-    a_matches = analogical.find_matches(mem.graph, all_ids)
+    a_matches = analogical.find_matches(mem.engine.graph, all_ids)
 
     print(f"  Found {len(a_matches)} structural analogies (A:B :: C:D)")
     print()
@@ -589,7 +589,7 @@ def main() -> None:
     pre_edges = mem.size[1]
 
     result = mem.reason(
-        seed_concepts=seeds,
+        seeds=seeds,
         max_depth=3,
         max_total_states=50,
     )
@@ -615,7 +615,7 @@ def main() -> None:
 
     new_edge_labels: Counter[str] = Counter()
     inferred_edges = 0
-    for edge in mem.graph.edges:
+    for edge in mem.engine.graph.edges:
         if edge.metadata.custom.get("inferred"):
             inferred_edges += 1
             if edge.label:

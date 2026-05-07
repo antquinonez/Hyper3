@@ -32,13 +32,13 @@ def _build_flow_h3():
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(6):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n1", weight=10.0)
-    mem.relate("n0", "n2", weight=5.0)
-    mem.relate("n1", "n2", weight=15.0)
-    mem.relate("n1", "n3", weight=10.0)
-    mem.relate("n2", "n4", weight=10.0)
-    mem.relate("n3", "n5", weight=10.0)
-    mem.relate("n4", "n5", weight=10.0)
+    mem.link("n0", "n1", weight=10.0)
+    mem.link("n0", "n2", weight=5.0)
+    mem.link("n1", "n2", weight=15.0)
+    mem.link("n1", "n3", weight=10.0)
+    mem.link("n2", "n4", weight=10.0)
+    mem.link("n3", "n5", weight=10.0)
+    mem.link("n4", "n5", weight=10.0)
     return mem
 
 
@@ -68,11 +68,11 @@ def _build_undirected_h3():
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(4):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n1", weight=3.0, bidirectional=True)
-    mem.relate("n1", "n2", weight=1.0, bidirectional=True)
-    mem.relate("n2", "n3", weight=3.0, bidirectional=True)
-    mem.relate("n0", "n2", weight=2.0, bidirectional=True)
-    mem.relate("n1", "n3", weight=2.0, bidirectional=True)
+    mem.link("n0", "n1", weight=3.0, bidirectional=True)
+    mem.link("n1", "n2", weight=1.0, bidirectional=True)
+    mem.link("n2", "n3", weight=3.0, bidirectional=True)
+    mem.link("n0", "n2", weight=2.0, bidirectional=True)
+    mem.link("n1", "n3", weight=2.0, bidirectional=True)
     return mem
 
 
@@ -158,11 +158,11 @@ def _test_bipartite_maximum_matching(t: EquivRunner) -> None:
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(6):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n3", weight=1.0)
-    mem.relate("n0", "n4", weight=1.0)
-    mem.relate("n1", "n3", weight=1.0)
-    mem.relate("n1", "n5", weight=1.0)
-    mem.relate("n2", "n4", weight=1.0)
+    mem.link("n0", "n3", weight=1.0)
+    mem.link("n0", "n4", weight=1.0)
+    mem.link("n1", "n3", weight=1.0)
+    mem.link("n1", "n5", weight=1.0)
+    mem.link("n2", "n4", weight=1.0)
 
     G = nx.DiGraph()
     for i in range(6):
@@ -187,9 +187,9 @@ def _test_bipartite_max_weight_matching(t: EquivRunner) -> None:
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(4):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n2", weight=5.0)
-    mem.relate("n0", "n3", weight=1.0)
-    mem.relate("n1", "n3", weight=3.0)
+    mem.link("n0", "n2", weight=5.0)
+    mem.link("n0", "n3", weight=1.0)
+    mem.link("n1", "n3", weight=3.0)
 
     G = nx.Graph()
     for i in range(4):
@@ -227,11 +227,11 @@ def _test_minimum_cycle_basis(t: EquivRunner) -> None:
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(4):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n1", bidirectional=True)
-    mem.relate("n1", "n2", bidirectional=True)
-    mem.relate("n2", "n0", bidirectional=True)
-    mem.relate("n2", "n3", bidirectional=True)
-    mem.relate("n3", "n0", bidirectional=True)
+    mem.link("n0", "n1", bidirectional=True)
+    mem.link("n1", "n2", bidirectional=True)
+    mem.link("n2", "n0", bidirectional=True)
+    mem.link("n2", "n3", bidirectional=True)
+    mem.link("n3", "n0", bidirectional=True)
 
     G = nx.Graph()
     for i in range(4):

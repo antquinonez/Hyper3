@@ -49,9 +49,9 @@ def main() -> None:
 
     mem = HypergraphMemory(evolve_interval=0)
     for label, data in nodes:
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     for src, tgt, lbl in edges:
-        mem.relate(src, tgt, label=lbl)
+        mem.link(src, tgt, label=lbl)
 
     print(f"\n  Graph: {len(nodes)} nodes, {len(edges)} edges")
 
@@ -60,7 +60,7 @@ def main() -> None:
     # --- Degree Centrality ---
     print_header("Degree Centrality")
     with Timer() as t_h3:
-        h3_dc = mem.degree_centrality()
+        h3_dc = mem.analyze.centrality("degree")
     with Timer() as t_nx:
         nx_dc = nx.degree_centrality(nx_graph)
 
@@ -75,7 +75,7 @@ def main() -> None:
     # --- Betweenness Centrality ---
     print_header("Betweenness Centrality")
     with Timer() as t_h3:
-        h3_bc = mem.betweenness_centrality()
+        h3_bc = mem.analyze.centrality("betweenness")
     with Timer() as t_nx:
         nx_bc = nx.betweenness_centrality(nx_graph)
 
@@ -102,7 +102,7 @@ def main() -> None:
 
     for src, tgt in test_pairs:
         with Timer() as t_h3:
-            h3_path = mem.shortest_path(src, tgt)
+            h3_path = mem.analyze.shortest_path(src, tgt)
         with Timer() as t_nx:
             try:
                 nx_path = nx.shortest_path(nx_graph, src, tgt)
@@ -147,7 +147,7 @@ def main() -> None:
     print_header("Connected Components (undirected)")
     nx_undirected = nx_graph.to_undirected()
     with Timer() as t_h3:
-        h3_comps = mem.connected_components()
+        h3_comps = mem.analyze.components()
     with Timer() as t_nx:
         nx_comps = list(nx.connected_components(nx_undirected))
 

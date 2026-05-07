@@ -61,7 +61,7 @@ def main() -> None:
     print("--- NetworkX equivalent ---")
     print("nx.connected_components(G)")
 
-    comp_result = mem.connected_components()
+    comp_result = mem.analyze.components()
     print(f"connected components: {len(comp_result)}")
     for i, comp in enumerate(comp_result):
         print(f"  component {i}: {sorted(comp)}")
@@ -99,13 +99,13 @@ def main() -> None:
     print("SECTION 5: HYPEREDGE-AWARE COMMUNITIES (Hyper3 advantage)")
     print("=" * 70)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"a1", "a2", "a3"},
         targets={"b1", "b2"},
         label="cross_team_project",
         weight=10.0,
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"b3", "b4"},
         targets={"c1", "c2", "c3"},
         label="cross_team_project",

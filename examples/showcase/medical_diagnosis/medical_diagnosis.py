@@ -246,7 +246,7 @@ def main() -> None:
         InverseRule(edge_label="causes", inverse_label="caused_by"),
     )
     mem.reason(
-        seed_concepts=set(DISEASES.keys()) | set(SYMPTOMS.keys()),
+        seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()),
         max_depth=3, max_total_states=80,
     )
 
@@ -361,7 +361,7 @@ def main() -> None:
     ]
     ddx_amplitudes = [0.70, 0.35, 0.30, 0.20, 0.25]
 
-    qs = mem.create_distribution(ddx_concepts, amplitudes=ddx_amplitudes)
+    qs = mem.belief.create(ddx_concepts, amplitudes=ddx_amplitudes)
 
     print(f"  Born-rule probability distribution over differential diagnoses:")
     total_prob = sum(abs(a) ** 2 for a in ddx_amplitudes)
@@ -377,7 +377,7 @@ def main() -> None:
     for _ in range(n_samples):
         outcome = mem.sample(qs)
         if outcome is not None:
-            node = mem.graph.get_node(outcome.node_id)
+            node = mem.engine.graph.get_node(outcome.node_id)
             label = node.label if node else outcome.node_id
             frequency[label] = frequency.get(label, 0) + 1
             samples_raw.append(label)

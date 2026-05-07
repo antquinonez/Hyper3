@@ -43,24 +43,24 @@ def _test_pairwise_h3_nx(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    t.check_int("pairwise/node_count", mem.graph.node_count, G.number_of_nodes())
+    t.check_int("pairwise/node_count", mem.engine.graph.node_count, G.number_of_nodes())
     t.check_int(
         "pairwise/edge_count",
-        mem.graph.edge_count,
+        mem.engine.graph.edge_count,
         G.number_of_edges(),
     )
 
     for node in G.nodes():
         t.check(
             f"pairwise/has_node/{node}",
-            mem.has_node(node),
+            mem.has(node),
         )
 
     for src, tgt in G.edges():
         has_edge = any(
-            e.source_ids == {mem.graph.get_node_by_label(src).id}
-            and e.target_ids == {mem.graph.get_node_by_label(tgt).id}
-            for e in mem.graph.edges
+            e.source_ids == {mem.engine.graph.get_node_by_label(src).id}
+            and e.target_ids == {mem.engine.graph.get_node_by_label(tgt).id}
+            for e in mem.engine.graph.edges
         )
         t.check(f"pairwise/has_edge/{src}->{tgt}", has_edge)
 
@@ -72,15 +72,15 @@ def _test_hypergraph_h3_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_hgx()
 
-    t.check_int("hypergraph_hgx/node_count", mem.graph.node_count, H.num_nodes())
-    t.check_int("hypergraph_hgx/edge_count", mem.graph.edge_count, H.num_edges())
+    t.check_int("hypergraph_hgx/node_count", mem.engine.graph.node_count, H.num_nodes())
+    t.check_int("hypergraph_hgx/edge_count", mem.engine.graph.edge_count, H.num_edges())
 
     for hyperedge in HYPEREDGES:
         hgx_has = H.check_edge(hyperedge)
         t.check(f"hypergraph_hgx/edge_exists/{hyperedge}", hgx_has)
 
     hgx_sizes = sorted(H.distribution_sizes().keys())
-    h3_sizes = sorted(mem.graph.unique_edge_sizes())
+    h3_sizes = sorted(mem.engine.graph.unique_edge_sizes())
     t.check(
         "hypergraph_hgx/edge_sizes_match",
         hgx_sizes == h3_sizes,
@@ -96,8 +96,8 @@ def _test_hypergraph_h3_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_xgi()
 
-    t.check_int("hypergraph_xgi/node_count", mem.graph.node_count, H.num_nodes)
-    t.check_int("hypergraph_xgi/edge_count", mem.graph.edge_count, H.num_edges)
+    t.check_int("hypergraph_xgi/node_count", mem.engine.graph.node_count, H.num_nodes)
+    t.check_int("hypergraph_xgi/edge_count", mem.engine.graph.edge_count, H.num_edges)
 
     for e_id in H.edges:
         members = H.edges.members(e_id)
@@ -114,8 +114,8 @@ def _test_directed_h3_hgx(t: EquivRunner) -> None:
     mem = build_directed_h3()
     H = build_directed_hgx()
 
-    t.check_int("directed_hgx/node_count", mem.graph.node_count, H.num_nodes())
-    t.check_int("directed_hgx/edge_count", mem.graph.edge_count, H.num_edges())
+    t.check_int("directed_hgx/node_count", mem.engine.graph.node_count, H.num_nodes())
+    t.check_int("directed_hgx/edge_count", mem.engine.graph.edge_count, H.num_edges())
 
     from benchmarks.equiv.shared import DIRECTED_HYPEREDGES
 
@@ -129,18 +129,18 @@ def _test_h3_crud(t: EquivRunner) -> None:
 
     mem = HypergraphMemory(evolve_interval=0)
 
-    mem.store("alpha", data={"type": "test"})
-    mem.store("beta", data={"type": "test"})
-    t.check("crud/store_creates_node", mem.has_node("alpha"))
-    t.check("crud/store_creates_second", mem.has_node("beta"))
+    mem.add("alpha", data={"type": "test"})
+    mem.add("beta", data={"type": "test"})
+    t.check("crud/store_creates_node", mem.has("alpha"))
+    t.check("crud/store_creates_second", mem.has("beta"))
 
-    e = mem.relate("alpha", "beta", label="links", weight=2.0)
+    e = mem.link("alpha", "beta", label="links", weight=2.0)
     t.check("crud/relate_creates_edge", e is not None)
-    t.check_int("crud/edge_count_after_relate", mem.graph.edge_count, 1)
+    t.check_int("crud/edge_count_after_relate", mem.engine.graph.edge_count, 1)
 
-    t.check("crud/has_node_after_remove", mem.has_node("alpha"))
-    mem.graph.remove_node(mem.graph.get_node_by_label("alpha").id)
-    t.check("crud/node_gone_after_remove", not mem.has_node("alpha"))
+    t.check("crud/has_node_after_remove", mem.has("alpha"))
+    mem.engine.graph.remove_node(mem.engine.graph.get_node_by_label("alpha").id)
+    t.check("crud/node_gone_after_remove", not mem.has("alpha"))
 
 
 def _test_subhypergraph_by_order_hgx(t: EquivRunner) -> None:

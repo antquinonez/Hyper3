@@ -43,8 +43,8 @@ def main() -> None:
     mem.link("n0", "n4", label="bridge", weight=1.0)
     mem.link("n4", "n8", label="bridge", weight=1.0)
 
-    mem.relate_hyperedge(sources={"n0", "n1"}, targets={"n2", "n3"}, label="cluster_edge", weight=5.0)
-    mem.relate_hyperedge(sources={"n4", "n5"}, targets={"n6", "n7"}, label="cluster_edge", weight=5.0)
+    mem.link_hyper(sources={"n0", "n1"}, targets={"n2", "n3"}, label="cluster_edge", weight=5.0)
+    mem.link_hyper(sources={"n4", "n5"}, targets={"n6", "n7"}, label="cluster_edge", weight=5.0)
 
     print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
     print("structure: 3 dense clusters (4 nodes each) with bridge edges")
@@ -58,7 +58,7 @@ def main() -> None:
     print("--- HNX equivalent ---")
     print("hnx.incidence_matrix(h)  -> numpy array")
 
-    g = mem.graph
+    g = mem.engine.graph
     inc_data, node_ids, edge_ids = g.incidence_matrix()
     print(f"\nincidence matrix shape: ({inc_data.shape[0]}, {inc_data.shape[1]})")
     print(f"  rows (nodes): {inc_data.shape[0]}, cols (edges): {inc_data.shape[1]}")

@@ -20,7 +20,7 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     def _id(label: str) -> str:
-        n = mem.graph.get_node_by_label(label)
+        n = mem.engine.graph.get_node_by_label(label)
         return n.id if n else label
 
     print("=" * 70)
@@ -50,7 +50,7 @@ def main() -> None:
         mem.add(concept)
     mem.link("epsilon", "zeta", label="connects")
 
-    _sample_edges = list(mem.graph.edges)[:3]
+    _sample_edges = list(mem.engine.graph.edges)[:3]
     mem.operation_feedback.record_inference_outcome(_sample_edges[0].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[1].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[2].id, accepted=False)
@@ -83,7 +83,7 @@ def main() -> None:
     if correlated:
         print(f"  Nodes appearing across multiple operations: {len(correlated)}")
         for nid, info in list(correlated.items())[:3]:
-            n = mem.graph.get_node(nid)
+            n = mem.engine.graph.get_node(nid)
             label = n.label if n else nid[:8]
             print(f"    {label}: positive_rate={info['positive_rate']:.2f}, "
                   f"types={info['signal_types']}")
@@ -169,7 +169,7 @@ def main() -> None:
 
     from hyper3 import MultiwayEngine, MultiwayGraph, StateConvergenceEngine, MultiwayState
 
-    graph = mem.graph
+    graph = mem.engine.graph
     mw_graph = MultiwayGraph()
     causal = StateConvergenceEngine(graph, mw_graph, threshold=0.5)
 

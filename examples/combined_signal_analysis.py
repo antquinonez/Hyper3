@@ -238,13 +238,11 @@ def run_query(
     top_k: int = 10,
     iterations: int = 3,
 ) -> list[dict]:
-    mem.clear_activations()
-    mem.stimulate(concept)
-    mem.spread_activation(iterations=iterations)
+    mem.search.activate(concept)
     activated = mem.activate(concept, top_k=top_k * 2, iterations=iterations)
 
     engine = mem.embedding_engine
-    seed_node = mem.graph.get_node_by_label(concept)
+    seed_node = mem.engine.graph.get_node_by_label(concept)
     if not seed_node:
         return []
 

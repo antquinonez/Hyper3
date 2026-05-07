@@ -319,9 +319,9 @@ graph LR
 Find nodes with no edges -- these are isolated indicators that need more context:
 
 ```python
-all_labels = {n.label for n in mem.graph.nodes}
+all_labels = {n.label for n in mem.engine.graph.nodes}
 connected_labels = set()
-for edge in mem.graph.labeled_edges:
+for edge in mem.engine.graph.labeled_edges:
     connected_labels.update(edge["source_labels"])
     connected_labels.update(edge["target_labels"])
 

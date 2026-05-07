@@ -136,17 +136,17 @@ Hyper3 advantages:
   - in_degree() / out_degree() return label-keyed dicts directly
   - edges_labeled() filters by label with cardinality info
   - neighbors(direction="in"|"out"|"any") for directed traversal
-  - relate_hyperedge(sources={...}, targets={...}) with weights
+  - link_hyper(sources={...}, targets={...}) with weights
   - Semantic inference: TransitiveRule respects edge direction
   - outgoing_edges() / incoming_edges() for directional access
   - betweenness_centrality() is hypergraph-native and directed
 
 Common patterns:
   XGI:  DH.add_edge(({0,1}, {2,3}))
-  H3:   mem.relate_hyperedge(sources={"a","b"}, targets={"c","d"})
+  H3:   mem.link_hyper(sources={"a","b"}, targets={"c","d"})
   
   XGI:  DH.nodes.in_degree.asdict()
-  H3:   mem.in_degree()
+  H3:   mem.analyze.centrality("in_degree")
   
   XGI:  DH.edges.dimembers(e)   -> (tail, head)
   H3:   edge.source_ids, edge.target_ids

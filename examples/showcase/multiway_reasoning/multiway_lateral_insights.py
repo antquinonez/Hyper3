@@ -301,7 +301,7 @@ def score_branch_against_symptoms(
     if total == 0:
         return 0.0
     for eid in produced:
-        edge = mem.graph.get_edge(eid)
+        edge = mem.engine.graph.get_edge(eid)
         if edge and (edge.source_ids & symptom_ids or edge.target_ids & symptom_ids):
             hits += 1
     active_symptom_overlap = len(leaf.active_node_ids & symptom_ids)
@@ -311,19 +311,19 @@ def score_branch_against_symptoms(
 def summarize_state(mem: HypergraphMemory, state, max_labels: int = 6) -> dict:
     labels: list[str] = []
     for nid in list(state.active_node_ids)[:max_labels]:
-        node = mem.graph.get_node(nid)
+        node = mem.engine.graph.get_node(nid)
         labels.append(node.label if node else nid[:8])
     produced_labels: list[str] = []
     for eid in state.produced_edge_ids:
-        edge = mem.graph.get_edge(eid)
+        edge = mem.engine.graph.get_edge(eid)
         if edge:
             src_labels = []
             for sid in edge.source_ids:
-                n = mem.graph.get_node(sid)
+                n = mem.engine.graph.get_node(sid)
                 src_labels.append(n.label if n else sid[:8])
             tgt_labels = []
             for tid in edge.target_ids:
-                n = mem.graph.get_node(tid)
+                n = mem.engine.graph.get_node(tid)
                 tgt_labels.append(n.label if n else tid[:8])
             produced_labels.append(f"{' '.join(src_labels)}-[{edge.label}]->{' '.join(tgt_labels)}")
     return {
@@ -383,7 +383,7 @@ def main():
         "lb-us-east", "lb-global",
     }
     result = mem.reason(
-        seed_concepts=seed,
+        seeds=seed,
         max_depth=3,
         max_total_states=50,
     )
@@ -412,7 +412,7 @@ def main():
     ]
     symptom_ids: set[str] = set()
     for s_label in symptom_labels:
-        node = mem.graph.get_node_by_label(s_label)
+        node = mem.engine.graph.get_node_by_label(s_label)
         if node:
             symptom_ids.add(node.id)
 
@@ -503,7 +503,7 @@ def main():
         for s in states:
             targets: set[str] = set()
             for eid in s.produced_edge_ids:
-                edge = mem.graph.get_edge(eid)
+                edge = mem.engine.graph.get_edge(eid)
                 if edge:
                     targets |= edge.target_ids
             target_sets[s.id] = targets
@@ -554,7 +554,7 @@ def main():
                 novel_lateral = ins.get("novel_in_lateral", [])
                 novel_labels = []
                 for nid in novel_lateral:
-                    node = mem.graph.get_node(nid)
+                    node = mem.engine.graph.get_node(nid)
                     if node:
                         novel_labels.append(node.label)
                 print(f"    Branch [{rule}], distance={distance:.2f}")
@@ -577,15 +577,15 @@ def main():
                 s_edge_labels: set[str] = set()
                 s_node_labels: set[str] = set()
                 for eid in s.produced_edge_ids:
-                    edge = mem.graph.get_edge(eid)
+                    edge = mem.engine.graph.get_edge(eid)
                     if edge:
                         src = next(iter(edge.source_ids), "")
                         tgt = next(iter(edge.target_ids), "")
-                        sn = mem.graph.get_node(src)
-                        tn = mem.graph.get_node(tgt)
+                        sn = mem.engine.graph.get_node(src)
+                        tn = mem.engine.graph.get_node(tgt)
                         s_edge_labels.add(f"{sn.label if sn else src[:8]}-{edge.label}->{tn.label if tn else tgt[:8]}")
                 for nid in s.produced_node_ids:
-                    n = mem.graph.get_node(nid)
+                    n = mem.engine.graph.get_node(nid)
                     s_node_labels.add(n.label if n else nid[:8])
                 rule = s.rule_applied or "root"
                 edge_label_sets.append((rule, s_edge_labels))

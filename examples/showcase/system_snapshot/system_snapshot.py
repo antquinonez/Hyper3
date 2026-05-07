@@ -47,14 +47,13 @@ def main() -> None:
     mem.link("quantum_computing", "error_correction", label="influences", weight=3.5)
     mem.link("error_correction", "cryptography", label="influences", weight=2.0)
 
-    result = mem.reason(seed_concepts={"quantum_computing", "machine_learning"}, max_depth=3)
+    result = mem.reason(seeds={"quantum_computing", "machine_learning"}, max_depth=3)
     print(f"reasoning: edges_produced={result.expansion.edges_produced}, states_created={result.expansion.states_created}")
 
-    mem.create_distribution(["quantum_computing", "machine_learning", "cryptography"])
+    mem.belief.create(["quantum_computing", "machine_learning", "cryptography"])
 
-    mem.stimulate("quantum_computing", energy=2.0)
-    mem.stimulate("machine_learning", energy=1.5)
-    mem.spread_activation(iterations=2)
+    mem.search.activate("quantum_computing", energy=2.0)
+    mem.search.activate("machine_learning", energy=1.5)
 
     retrieve_results = mem.retrieve("machine_learning", top_k=3)
     mem.record_feedback("machine_learning", retrieve_results, relevant_labels={"machine_learning"})
@@ -118,21 +117,21 @@ def main() -> None:
     mem2.load(graph_path)
     mem2.load_state(snapshot_path)
 
-    print(f"restored graph: nodes={mem2.graph.node_count}, edges={mem2.graph.edge_count}")
+    print(f"restored graph: nodes={mem2.size[0]}, edges={mem2.size[1]}")
     print(f"original graph: nodes={mem.size[0]}, edges={mem.size[1]}")
-    print(f"nodes match: {mem2.graph.node_count == mem.size[0]}")
-    print(f"edges match: {mem2.graph.edge_count == mem.size[1]}")
+    print(f"nodes match: {mem2.size[0] == mem.size[0]}")
+    print(f"edges match: {mem2.size[1] == mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 5: VERIFY RESTORED STATE")
     print("=" * 70)
 
     for concept in concepts:
-        assert mem2.has_node(concept), f"missing node: {concept}"
+        assert mem2.has(concept), f"missing node: {concept}"
     print(f"all {len(concepts)} concepts restored: True")
 
-    desc1 = mem.describe()
-    desc2 = mem2.describe()
+    desc1 = mem.analyze.describe()
+    desc2 = mem2.analyze.describe()
     print(f"density match: {desc1.density:.4f} vs {desc2.density:.4f}")
 
     score1 = mem.compute_confidence("quantum_computing")

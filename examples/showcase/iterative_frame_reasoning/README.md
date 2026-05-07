@@ -384,7 +384,7 @@ frame_config = result.get("frame_config", {})
 
 ```python
 detector = RobustReachabilityDetector(mem.perspective)
-inv = detector.find_invariants(list(seed_ids), mem.graph)
+inv = detector.find_invariants(list(seed_ids), mem.engine.graph)
 print(f"Invariant nodes: {len(inv.invariant_nodes)}")
 print(f"Confidence: {inv.confidence:.3f}")
 ```
@@ -420,7 +420,7 @@ disagreeing = union_all - intersection_all
 | `mem.degree_centrality()` | Compute degree centrality for all nodes |
 | `mem.neighbors(label, edge_label, direction)` | Get directed neighbor labels |
 | `mem.query_nodes(type=...)` | Filter nodes by data attributes |
-| `mem.graph.incident_edges(node_id)` | Get all edges touching a node |
+| `mem.engine.graph.incident_edges(node_id)` | Get all edges touching a node |
 
 ### Edge Label Reference
 

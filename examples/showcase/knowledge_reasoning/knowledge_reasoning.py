@@ -56,7 +56,7 @@ def main() -> None:
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     )
 
-    result = mem.reason(seed_concepts={"smoking"}, max_depth=3)
+    result = mem.reason(seeds={"smoking"}, max_depth=3)
     print(f"\ntransitive reasoning from 'smoking':")
     print(f"  states created: {result.expansion.states_created}")
     print(f"  rules applied: {result.expansion.rules_applied}")

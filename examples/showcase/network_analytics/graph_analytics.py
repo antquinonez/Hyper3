@@ -533,7 +533,7 @@ def compute_risk_scores(
         vc = vuln_count.get(label, 0)
         dc = degree.get(label, 0.0)
         bc = betweenness.get(label, 0.0)
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         crit = node.data.get("criticality", 1) if node else 1
         patch = node.data.get("patch_level", 0.5) if node else 0.5
         scores[label] = vc * 10 + dc * 50 + bc * 80 + crit * 3 + (1.0 - patch) * 15
@@ -546,7 +546,7 @@ def find_cross_zone_violations(mem: HypergraphMemory) -> list[tuple[str, str, st
     route_edges = mem.pattern_match(edge_label="routes_to")
     seg_zones: dict[str, str] = {}
     for lbl in mem.query_nodes(data={"kind": "segment"}):
-        node = mem.graph.get_node_by_label(lbl)
+        node = mem.engine.graph.get_node_by_label(lbl)
         if node:
             seg_zones[lbl] = node.data.get("zone", "unknown")
 
@@ -569,8 +569,8 @@ def find_cross_zone_violations(mem: HypergraphMemory) -> list[tuple[str, str, st
         tgt_label = edge.target_labels[0] if edge.target_labels else ""
 
         if src_label and tgt_label:
-            src_node = mem.graph.get_node_by_label(src_label)
-            tgt_node = mem.graph.get_node_by_label(tgt_label)
+            src_node = mem.engine.graph.get_node_by_label(src_label)
+            tgt_node = mem.engine.graph.get_node_by_label(tgt_label)
             if src_node and tgt_node:
                 sz = src_node.data.get("zone", "")
                 tz = tgt_node.data.get("zone", "")
@@ -627,7 +627,7 @@ def main():
     print(f"  {'Host':25s} {'Degree':>8s}  {'Zone':12s}  Crit Patch")
     print(f"  {'-' * 25} {'-' * 8}  {'-' * 12}  ---- -----")
     for label, score in top_exposed:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         zone = node.data.get("zone", "?") if node else "?"
         crit = node.data.get("criticality", 0) if node else 0
         patch = node.data.get("patch_level", 0) if node else 0
@@ -646,7 +646,7 @@ def main():
     print(f"  {'Node':25s} {'Betweenness':>12s}  {'Kind':10s}")
     print(f"  {'-' * 25} {'-' * 12}  {'-' * 10}")
     for label, score in top_choke:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         kind = node.data.get("kind", "?") if node else "?"
         print(f"  {label:25s} {score:12.4f}  {kind:10s}")
     print()
@@ -655,7 +655,7 @@ def main():
     host_bw = {lbl: s for lbl, s in betweenness.items() if lbl in set(hosts)}
     top5_choke = top_k(host_bw, k=5)
     for i, (label, score) in enumerate(top5_choke, 1):
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         zone = node.data.get("zone", "?") if node else "?"
         crit = node.data.get("criticality", 0) if node else 0
         print(f"    {i}. {label:25s} betweenness={score:.4f}  zone={zone}  criticality={crit}")
@@ -673,7 +673,7 @@ def main():
     for i, comp in enumerate(components):
         zones: dict[str, int] = defaultdict(int)
         for lbl in comp:
-            node = mem.graph.get_node_by_label(lbl)
+            node = mem.engine.graph.get_node_by_label(lbl)
             if node:
                 zones[node.data.get("zone", "unknown")] += 1
         zones_str = ", ".join(f"{z}:{c}" for z, c in sorted(zones.items()))
@@ -704,10 +704,10 @@ def main():
         for i in range(len(cycle)):
             src = cycle[i]
             tgt = cycle[(i + 1) % len(cycle)]
-            src_node = mem.graph.get_node_by_label(src)
-            tgt_node = mem.graph.get_node_by_label(tgt)
+            src_node = mem.engine.graph.get_node_by_label(src)
+            tgt_node = mem.engine.graph.get_node_by_label(tgt)
             if src_node and tgt_node:
-                for edge in mem.graph.outgoing_edges(src_node.id):
+                for edge in mem.engine.graph.outgoing_edges(src_node.id):
                     if tgt_node.id in edge.target_ids and edge.label == "trusts":
                         has_trust = True
                         break
@@ -793,7 +793,7 @@ def main():
     print(f"  {'Host':25s} {'Risk':>7s}  {'Vulns':>5s}  {'Deg':>6s}  {'Btw':>7s}  Zone")
     print(f"  {'-' * 25} {'-' * 7}  {'-' * 5}  {'-' * 6}  {'-' * 7}  {'-' * 12}")
     for label, risk in top_risk:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         zone = node.data.get("zone", "?") if node else "?"
         vc = vuln_count.get(label, 0)
         dc = degree.get(label, 0)
@@ -833,7 +833,7 @@ def main():
         if path:
             zones_in_path = []
             for p in path:
-                n = mem.graph.get_node_by_label(p)
+                n = mem.engine.graph.get_node_by_label(p)
                 if n:
                     zones_in_path.append(n.data.get("zone", "?"))
             print(f"    {desc}:")
@@ -852,7 +852,7 @@ def main():
     print("  Added TransitiveRule: trusts -> trusts_indirectly\n")
 
     reason_result = mem.reason(
-        seed_concepts={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
+        seeds={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
         max_depth=4,
     )
     print(f"  Reasoning expansion:")
@@ -898,7 +898,7 @@ def main():
 
     host_zone = {}
     for lbl in mem.query_nodes(data={"kind": "host"}):
-        node = mem.graph.get_node_by_label(lbl)
+        node = mem.engine.graph.get_node_by_label(lbl)
         if node:
             host_zone[lbl] = node.data.get("zone", "unknown")
 

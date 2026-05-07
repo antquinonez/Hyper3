@@ -234,7 +234,7 @@ def _link_playbooks_to_incidents(mem: HypergraphMemory) -> None:
 
 def _link_infrastructure(mem: HypergraphMemory) -> None:
     for srv in SERVERS:
-        node = mem.graph.get_node_by_label(srv)
+        node = mem.engine.graph.get_node_by_label(srv)
         if node and node.data:
             region = node.data.get("region", "us-east-1")
             mem.link(srv, region, label="located_in")
@@ -342,17 +342,17 @@ def main() -> None:
 
     print(f"\n  Sample results by basis for different problem types:")
     for concepts, problem_type in problem_sets:
-        qs = mem.create_distribution(concepts)
+        qs = mem.belief.create(concepts)
         if qs is None:
             continue
         print(f"\n    Problem: {problem_type}")
         for basis_name in ["pragmatic", "temporal", "linguistic"]:
-            qs_fresh = mem.create_distribution(concepts)
+            qs_fresh = mem.belief.create(concepts)
             if qs_fresh is None:
                 continue
             result = mem.sample_with_profile(qs_fresh, basis_name)
             if result:
-                node = mem.graph.get_node(result.node_id)
+                node = mem.engine.graph.get_node(result.node_id)
                 label = node.label if node else result.node_id
                 print(f"      {basis_name:12s} -> {label}")
             else:

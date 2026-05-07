@@ -86,7 +86,7 @@ def main() -> None:
     for i, chain in enumerate(chains):
         chain_labels = []
         for node_id in chain:
-            n = mem.graph.get_node(node_id)
+            n = mem.engine.graph.get_node(node_id)
             chain_labels.append(n.label if n else node_id)
         events_str = " -> ".join(chain_labels)
         print(f"  chain {i+1}: {events_str}")
@@ -113,7 +113,7 @@ def main() -> None:
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     )
 
-    result = mem.reason(seed_concepts={"outbreak_detected"}, max_depth=3)
+    result = mem.reason(seeds={"outbreak_detected"}, max_depth=3)
     print(f"\nreasoning from 'outbreak_detected':")
     print(f"  edges produced: {result.expansion.edges_produced}")
 

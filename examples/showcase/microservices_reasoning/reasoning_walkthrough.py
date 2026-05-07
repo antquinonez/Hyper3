@@ -447,7 +447,7 @@ def main():
     queue_labels = mem.query_nodes(data={"type": "queue"})
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] == "depends_on" and le["source_labels"] and le["target_labels"]:
             direct_dep_map[le["target_labels"][0]].append(le["source_labels"][0])
 
@@ -474,10 +474,10 @@ def main():
     print("SECTION 5: Running Reasoning on Critical Infrastructure")
     print("=" * 70)
 
-    all_labels = {n.label for n in mem.graph.nodes}
+    all_labels = {n.label for n in mem.engine.graph.nodes}
 
     result = mem.reason(
-        seed_concepts=all_labels,
+        seeds=all_labels,
         max_depth=4,
         max_total_states=300,
     )
@@ -495,7 +495,7 @@ def main():
     print("=" * 70)
 
     indirect_reverse: dict[str, set[str]] = defaultdict(set)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] == "indirectly_depends_on" and le["source_labels"] and le["target_labels"]:
             indirect_reverse[le["target_labels"][0]].add(le["source_labels"][0])
 
@@ -537,7 +537,7 @@ def main():
     edge_labels_of_interest = {"depends_on", "indirectly_depends_on"}
 
     deps_forward: dict[str, list[str]] = defaultdict(list)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] in edge_labels_of_interest and le["source_labels"] and le["target_labels"]:
             deps_forward[le["source_labels"][0]].append(le["target_labels"][0])
 
@@ -586,7 +586,7 @@ def main():
         total = direct | transitive
 
         svc_data_map: dict[str, dict] = {}
-        for n in mem.graph.nodes:
+        for n in mem.engine.graph.nodes:
             if n.label in total:
                 svc_data_map[n.label] = n.data
 

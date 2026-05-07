@@ -93,7 +93,7 @@ def main() -> None:
 
     from hyper3 import StructuralAnomalyDetector
 
-    detector = StructuralAnomalyDetector(mem.graph)
+    detector = StructuralAnomalyDetector(mem.engine.graph)
 
     for svc in ["api_gateway", "auth_svc", "logging_svc", "config_svc"]:
         indicator = detector.assess_anomaly(svc)
@@ -108,7 +108,7 @@ def main() -> None:
     print("SECTION 4: BOUNDARY REGION MAPPING")
     print("=" * 70)
 
-    all_concepts = [n.label for n in mem.graph.nodes]
+    all_concepts = [n.label for n in mem.engine.graph.nodes]
     regions = mem.map_boundaries(all_concepts)
 
     status_counts = {"low_risk": 0, "boundary": 0, "anomalous": 0}

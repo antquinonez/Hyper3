@@ -52,7 +52,7 @@ def main() -> None:
     for c in constraints:
         print(f"  {type(c).__name__}")
 
-    a_node = mem.graph.get_node_by_label("concept_a")
+    a_node = mem.engine.graph.get_node_by_label("concept_a")
     a_id = a_node.id if a_node else ""
 
     self_loop_edge = Hyperedge(
@@ -64,21 +64,21 @@ def main() -> None:
 
     valid_edge = Hyperedge(
         source_ids=frozenset({a_id}),
-        target_ids=frozenset({mem.graph.get_node_by_label("concept_f").id}),
+        target_ids=frozenset({mem.engine.graph.get_node_by_label("concept_f").id}),
         label="new_relation",
         weight=2.0,
     )
 
     heavy_edge = Hyperedge(
         source_ids=frozenset({a_id}),
-        target_ids=frozenset({mem.graph.get_node_by_label("concept_g").id}),
+        target_ids=frozenset({mem.engine.graph.get_node_by_label("concept_g").id}),
         label="heavy",
         weight=500.0,
     )
 
-    print(f"\nvalid edge: {nav.check_edge(valid_edge, mem.graph)}")
-    print(f"self-loop edge: {nav.check_edge(self_loop_edge, mem.graph)}")
-    print(f"heavy edge (500.0): {nav.check_edge(heavy_edge, mem.graph)}")
+    print(f"\nvalid edge: {nav.check_edge(valid_edge, mem.engine.graph)}")
+    print(f"self-loop edge: {nav.check_edge(self_loop_edge, mem.engine.graph)}")
+    print(f"heavy edge (500.0): {nav.check_edge(heavy_edge, mem.engine.graph)}")
 
     print("\n" + "=" * 70)
     print("SECTION 3: INDIVIDUAL CONSTRAINT DEEP DIVES")
@@ -86,23 +86,23 @@ def main() -> None:
 
     sl = NoSelfLoopConstraint()
     print("\nNoSelfLoopConstraint:")
-    print(f"  self-loop valid: {sl.is_valid(self_loop_edge, mem.graph)}")
-    print(f"  self-loop check: {sl.check(self_loop_edge, mem.graph)}")
+    print(f"  self-loop valid: {sl.is_valid(self_loop_edge, mem.engine.graph)}")
+    print(f"  self-loop check: {sl.check(self_loop_edge, mem.engine.graph)}")
 
     wi = WeightInflationConstraint(max_weight=100.0, growth_factor=2.0)
     light_edge = Hyperedge(
         source_ids=frozenset({a_id}),
-        target_ids=frozenset({mem.graph.get_node_by_label("concept_h").id}),
+        target_ids=frozenset({mem.engine.graph.get_node_by_label("concept_h").id}),
         label="light",
         weight=0.001,
     )
     print("\nWeightInflationConstraint (max=100, growth=2x):")
-    print(f"  weight=500.0 valid: {wi.is_valid(heavy_edge, mem.graph)}")
-    print(f"  weight=500.0 check: {wi.check(heavy_edge, mem.graph)}")
-    print(f"  weight=2.0 valid: {wi.is_valid(valid_edge, mem.graph)}")
-    print(f"  weight=0.001 valid: {wi.is_valid(light_edge, mem.graph)}")
+    print(f"  weight=500.0 valid: {wi.is_valid(heavy_edge, mem.engine.graph)}")
+    print(f"  weight=500.0 check: {wi.check(heavy_edge, mem.engine.graph)}")
+    print(f"  weight=2.0 valid: {wi.is_valid(valid_edge, mem.engine.graph)}")
+    print(f"  weight=0.001 valid: {wi.is_valid(light_edge, mem.engine.graph)}")
 
-    existing_edge = mem.graph.edges[0]
+    existing_edge = mem.engine.graph.edges[0]
     dup_edge = Hyperedge(
         source_ids=existing_edge.source_ids,
         target_ids=existing_edge.target_ids,
@@ -111,21 +111,21 @@ def main() -> None:
     )
     dc = DuplicateEdgeConstraint()
     print("\nDuplicateEdgeConstraint:")
-    print(f"  duplicate valid: {dc.is_valid(dup_edge, mem.graph)}")
-    print(f"  duplicate check: {dc.check(dup_edge, mem.graph)}")
-    print(f"  unique valid: {dc.is_valid(valid_edge, mem.graph)}")
+    print(f"  duplicate valid: {dc.is_valid(dup_edge, mem.engine.graph)}")
+    print(f"  duplicate check: {dc.check(dup_edge, mem.engine.graph)}")
+    print(f"  unique valid: {dc.is_valid(valid_edge, mem.engine.graph)}")
 
     deep_edge = Hyperedge(
         source_ids=frozenset({a_id}),
-        target_ids=frozenset({mem.graph.get_node_by_label("concept_i").id}),
+        target_ids=frozenset({mem.engine.graph.get_node_by_label("concept_i").id}),
         label="deep_inference",
         weight=1.0,
     )
     deep_edge.metadata.custom["provenance_depth"] = 15
     pd = ProvenanceDepthConstraint(max_depth=10)
     print("\nProvenanceDepthConstraint (max_depth=10):")
-    print(f"  depth=15 valid: {pd.is_valid(deep_edge, mem.graph)}")
-    print(f"  depth=15 check: {pd.check(deep_edge, mem.graph)}")
+    print(f"  depth=15 valid: {pd.is_valid(deep_edge, mem.engine.graph)}")
+    print(f"  depth=15 check: {pd.check(deep_edge, mem.engine.graph)}")
 
     print("\n" + "=" * 70)
     print("SECTION 4: CUSTOM PIPELINE CONFIGURATION")
@@ -143,17 +143,17 @@ def main() -> None:
     custom_nav.remove_constraint(WeightInflationConstraint)
     print(f"after remove: {[type(c).__name__ for c in custom_nav.constraints]}")
 
-    print(f"\nheavy edge with custom pipeline: {custom_nav.check_edge(heavy_edge, mem.graph)}")
-    print(f"dup edge with custom pipeline: {custom_nav.check_edge(dup_edge, mem.graph)}")
+    print(f"\nheavy edge with custom pipeline: {custom_nav.check_edge(heavy_edge, mem.engine.graph)}")
+    print(f"dup edge with custom pipeline: {custom_nav.check_edge(dup_edge, mem.engine.graph)}")
 
     print("\n" + "=" * 70)
     print("SECTION 5: BATCH VALIDATION")
     print("=" * 70)
 
-    f_id = mem.graph.get_node_by_label("concept_f").id
-    g_id = mem.graph.get_node_by_label("concept_g").id
-    h_id = mem.graph.get_node_by_label("concept_h").id
-    j_id = mem.graph.get_node_by_label("concept_j").id
+    f_id = mem.engine.graph.get_node_by_label("concept_f").id
+    g_id = mem.engine.graph.get_node_by_label("concept_g").id
+    h_id = mem.engine.graph.get_node_by_label("concept_h").id
+    j_id = mem.engine.graph.get_node_by_label("concept_j").id
 
     proposals = [
         Hyperedge(source_ids=frozenset({a_id}), target_ids=frozenset({f_id}), label="valid_1", weight=2.0),
@@ -174,7 +174,7 @@ def main() -> None:
     ]
 
     full_nav = BoundaryNavigator()
-    valid, rejected = full_nav.validate_and_filter(proposals, mem.graph)
+    valid, rejected = full_nav.validate_and_filter(proposals, mem.engine.graph)
     print(f"proposals: {len(proposals)}")
     print(f"accepted: {len(valid)}")
     print(f"rejected: {len(rejected)}")
@@ -197,14 +197,14 @@ def main() -> None:
     from hyper3 import TransitiveRule
 
     mem.add_rules(TransitiveRule(edge_label="relates_to", new_label="indirect"))
-    mem.reason(seed_concepts={"concept_a"}, max_depth=3)
+    mem.reason(seeds={"concept_a"}, max_depth=3)
 
-    inferred_edges = [e for e in mem.graph.edges if e.label == "indirect"]
+    inferred_edges = [e for e in mem.engine.graph.edges if e.label == "indirect"]
 
     print(f"inferred edges from reasoning: {len(inferred_edges)}")
 
     if inferred_edges:
-        valid_inferred, rejected_inferred = full_nav.validate_and_filter(inferred_edges, mem.graph)
+        valid_inferred, rejected_inferred = full_nav.validate_and_filter(inferred_edges, mem.engine.graph)
         print(f"valid inferred: {len(valid_inferred)}")
         print(f"rejected inferred: {len(rejected_inferred)}")
         if rejected_inferred:

@@ -39,7 +39,7 @@ def _test_dual(t: EquivRunner) -> None:
     t.check("dual/returns_dict", isinstance(dual, dict))
     t.check("dual/has_entries", len(dual) > 0)
 
-    original_edge_count = mem.graph.edge_count
+    original_edge_count = mem.engine.graph.edge_count
     dual_node_count = len(dual)
     t.check_int("dual/edge_count_equals_dual_nodes", dual_node_count, original_edge_count)
 
@@ -61,7 +61,7 @@ def _test_line_graph(t: EquivRunner) -> None:
 
     t.check("line_graph/returns_list", isinstance(lg, list))
 
-    edge_count = mem.graph.edge_count
+    edge_count = mem.engine.graph.edge_count
     if edge_count > 1:
         t.check("line_graph/has_edges", len(lg) > 0)
 
@@ -81,26 +81,26 @@ def _test_bipartite(t: EquivRunner) -> None:
     t.check("bipartite/returns_list", isinstance(bipartite, list))
     t.check("bipartite/has_entries", len(bipartite) > 0)
 
-    total_incidence = sum(len(e.node_ids) for e in mem.graph.edges)
+    total_incidence = sum(len(e.node_ids) for e in mem.engine.graph.edges)
     t.check_int("bipartite/incidence_count", len(bipartite), total_incidence)
 
 
 def _test_to_networkx(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
 
-    G = mem.graph.to_networkx()
+    G = mem.engine.graph.to_networkx()
 
     t.check("to_networkx/returns_digraph", G is not None)
-    t.check_int("to_networkx/node_count", G.number_of_nodes(), mem.graph.node_count)
+    t.check_int("to_networkx/node_count", G.number_of_nodes(), mem.engine.graph.node_count)
 
 
 def _test_clique_projection(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
 
-    cp = mem.graph.clique_projection()
+    cp = mem.engine.graph.clique_projection()
 
     t.check("clique_projection/returns_hypergraph", cp is not None)
-    t.check_int("clique_projection/node_count", cp.node_count, mem.graph.node_count)
+    t.check_int("clique_projection/node_count", cp.node_count, mem.engine.graph.node_count)
     t.check("clique_projection/has_edges", cp.edge_count > 0)
     t.check("clique_projection/is_connected", cp.is_connected())
 
@@ -108,7 +108,7 @@ def _test_clique_projection(t: EquivRunner) -> None:
 def _test_simplicial_complex(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
 
-    sc = mem.graph.simplicial_complex()
+    sc = mem.engine.graph.simplicial_complex()
 
     t.check("simplicial_complex/returns_list", isinstance(sc, list))
     t.check("simplicial_complex/non_empty", len(sc) > 0)

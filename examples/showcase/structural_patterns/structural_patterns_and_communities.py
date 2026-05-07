@@ -321,9 +321,9 @@ def main() -> None:
 
     hub_nodes = {lbl for lbl in largest.member_labels}
     cross_community_edges = 0
-    for edge in mem.graph.edges:
-        src_node = mem.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
-        tgt_node = mem.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
+    for edge in mem.engine.graph.edges:
+        src_node = mem.engine.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
+        tgt_node = mem.engine.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
         if src_node and tgt_node:
             s_in = src_node.label in hub_nodes
             t_in = tgt_node.label in hub_nodes

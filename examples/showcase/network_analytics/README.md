@@ -607,7 +607,7 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 | `mem.query_nodes(data)` | Find nodes matching data attributes |
 | `top_k(scores, k)` | Return top-k entries from a dict |
 | `mem.neighbors(label, edge_label, direction)` | Get neighbors filtered by edge label and direction |
-| `mem.graph.get_node_by_label(label)` | Get node object by label |
+| `mem.engine.graph.get_node_by_label(label)` | Get node object by label |
 | `mem.add_rules(rules)` | Register inference rules for reasoning |
 | `mem.reason(seed_concepts, max_depth)` | Apply rules to expand the graph, producing inferred edges |
 | `mem.edges_labeled(edge_label)` | Return all edges with a given label |

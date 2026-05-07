@@ -478,7 +478,7 @@ def main():
     activated = mem.activate("alert_circular_001", energy=1.0, top_k=15)
     print("  Spreading activation from alert_circular_001:")
     for r in activated:
-        data = mem.graph.get_node_by_label(r.label)
+        data = mem.engine.graph.get_node_by_label(r.label)
         dtype = data.data.get("type", data.data.get("role", "?")) if data and data.data else "?"
         print(f"    {r.label:35s} activation={r.activation:.3f} depth={r.depth} [{dtype}]")
     print()
@@ -486,7 +486,7 @@ def main():
     retrieved = mem.retrieve("acct_zenith_holdings", top_k=15, iterations=3)
     print("  Retrieval from acct_zenith_holdings (suspicious hub account):")
     for r in retrieved[:10]:
-        data = mem.graph.get_node_by_label(r.label)
+        data = mem.engine.graph.get_node_by_label(r.label)
         dtype = data.data.get("type", data.data.get("role", "?")) if data and data.data else "?"
         print(f"    {r.label:35s} [{dtype}]")
     print()
@@ -502,7 +502,7 @@ def main():
     )
 
     reason_result = mem.reason(
-        seed_concepts={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
+        seeds={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
         max_depth=3,
         max_total_states=50,
     )
@@ -547,15 +547,14 @@ def main():
     similar = mem.search.similar("acct_zenith_holdings", top_k=10)
     print("  Accounts similar to acct_zenith_holdings:")
     for s in similar:
-        other = s.label_b if s.label_a == "acct_zenith_holdings" else s.label_a
-        print(f"    {other:35s} similarity={s.similarity:.3f}")
+        print(f"    {s.label:35s} score={s.score:.3f}")
     print()
 
     print("=" * 70)
     print("SECTION 5: Funnel Account Identification")
     print("=" * 70)
 
-    degree = mem.degree_centrality()
+    degree = mem.analyze.centrality("degree")
     transferred = mem.pattern_match(edge_label="transferred_to")
 
     in_degree: dict[str, int] = {}
@@ -577,7 +576,7 @@ def main():
     funnel_accounts.sort(key=lambda x: -x[3])
     print(f"  Funnel accounts (in_degree >= 2 AND out_degree >= 2):")
     for acct, ind, outd, total in funnel_accounts:
-        node = mem.graph.get_node_by_label(acct)
+        node = mem.engine.graph.get_node_by_label(acct)
         flagged = node.data.get("flagged", False) if node and node.data else False
         flag_str = "FLAGGED" if flagged else "clean"
         print(f"    {acct:30s} in={ind} out={outd} total={total} [{flag_str}]")
@@ -601,7 +600,7 @@ def main():
         if data.get("type") in ("vpn", "tor"):
             flagged_node_labels.add(label)
 
-    components = mem.connected_components()
+    components = mem.analyze.components()
     suspicious_clusters = []
     for comp in components:
         overlap = comp & flagged_node_labels
@@ -626,7 +625,7 @@ def main():
             print(f"      IPs/Devices: {', '.join(sorted(ip_in)[:6])}")
     print()
 
-    betweenness = mem.betweenness_centrality()
+    betweenness = mem.analyze.centrality("betweenness")
     suspect_persons = {l: d for l, d in persons.items() if d.get("risk_score", 0) >= 0.50}
     ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
     print("  Risk ranking of suspects (by betweenness centrality):")
@@ -643,10 +642,10 @@ def main():
     print("=" * 70)
 
     suspects = ["viktor_kingpin", "lena_lieutenant", "katya_recruiter", "pavel_tech", "irina_accountant"]
-    qs = mem.create_distribution(suspects)
+    qs = mem.belief.create(suspects)
     print(f"  Belief state over {len(suspects)} suspects:")
     for outcome in qs.outcomes:
-        node = mem.graph.get_node(outcome.node_id)
+        node = mem.engine.graph.get_node(outcome.node_id)
         label = node.label if node else outcome.node_id
         prob = abs(outcome.amplitude) ** 2
         print(f"    {label:25s} probability={prob:.4f}")
@@ -657,7 +656,7 @@ def main():
     for i in range(10):
         answer = mem.sample(qs)
         if answer:
-            node = mem.graph.get_node(answer.node_id)
+            node = mem.engine.graph.get_node(answer.node_id)
             label = node.label if node else answer.node_id
             sample_counts[label] = sample_counts.get(label, 0) + 1
             print(f"    Draw {i + 1}: {label}")

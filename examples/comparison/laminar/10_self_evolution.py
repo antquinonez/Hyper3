@@ -43,9 +43,9 @@ def main() -> None:
     print("\n--- No competitor equivalent ---")
     print("XGI, HNX: static hypergraphs, no weight decay")
 
-    before = {e.id: e.weight for e in mem.graph.edges}
+    before = {e.id: e.weight for e in mem.engine.graph.edges}
     result = mem.evolve()
-    after = {e.id: e.weight for e in mem.graph.edges}
+    after = {e.id: e.weight for e in mem.engine.graph.edges}
 
     print(f"\nevolve result:")
     print(f"  decays: {result.decayed}")
@@ -82,17 +82,16 @@ def main() -> None:
 
     mem2 = HypergraphMemory(evolve_interval=0)
     for node in ["x", "y", "z", "w"]:
-        mem2.store(node)
+        mem2.add(node)
 
-    mem2.relate("x", "y", label="linked", weight=1.0)
-    mem2.relate("y", "z", label="linked", weight=1.0)
-    mem2.relate("z", "w", label="linked", weight=1.0)
+    mem2.link("x", "y", label="linked", weight=1.0)
+    mem2.link("y", "z", label="linked", weight=1.0)
+    mem2.link("z", "w", label="linked", weight=1.0)
 
-    mem2.stimulate("x")
-    mem2.stimulate("y")
-    mem2.spread_activation()
+    mem2.search.activate("x")
+    mem2.search.activate("y")
 
-    hebb_result = mem2.hebbian_reinforce()
+    hebb_result = mem2.cognitive.hebbian_reinforce()
     print(f"\nHebbian reinforcement:")
     print(f"  edges strengthened: {hebb_result.edges_strengthened}")
     print(f"  edges weakened: {hebb_result.edges_weakened}")

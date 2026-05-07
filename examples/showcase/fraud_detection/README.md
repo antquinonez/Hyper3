@@ -558,7 +558,7 @@ for outcome in qs.outcomes:
     prob = abs(outcome.amplitude) ** 2
 
 answer = mem.sample(qs)
-node = mem.graph.get_node(answer.node_id)
+node = mem.engine.graph.get_node(answer.node_id)
 label = node.label if node else answer.node_id
 ```
 

@@ -409,9 +409,9 @@ print(f"Coverage:    {result.coverage:.1%}")
 
 ```python
 largest = max(result.communities, key=lambda c: c.size)
-for edge in mem.graph.edges:
-    src_node = mem.graph.get_node(list(edge.source_ids)[0])
-    tgt_node = mem.graph.get_node(list(edge.target_ids)[0])
+for edge in mem.engine.graph.edges:
+    src_node = mem.engine.graph.get_node(list(edge.source_ids)[0])
+    tgt_node = mem.engine.graph.get_node(list(edge.target_ids)[0])
     if src_node.label in hub_nodes and tgt_node.label not in hub_nodes:
         cross_community_edges += 1
 ```

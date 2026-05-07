@@ -258,7 +258,7 @@ result = mem.reason(
 **2. Explain an inferred edge**
 
 ```python
-explanation = mem.provenance.explain(edge_id, graph=mem.graph)
+explanation = mem.provenance.explain(edge_id, graph=mem.engine.graph)
 print(f"Rule: {explanation.rule_name}")
 print(f"Depth: {explanation.depth}")
 print(explanation.render())

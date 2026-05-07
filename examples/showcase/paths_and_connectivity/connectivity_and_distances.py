@@ -37,9 +37,9 @@ def main() -> None:
     mem.link("y", "z", label="link")
 
     print(f"\nnodes: {mem.size[0]}, edges: {mem.size[1]}")
-    print(f"is_connected: {mem.is_connected()}")
+    print(f"is_connected: {mem.analyze.is_connected()}")
 
-    components = mem.connected_components()
+    components = mem.analyze.components()
     print(f"connected components: {len(components)}")
     for i, comp in enumerate(components):
         print(f"  component {i}: {sorted(comp)}")
@@ -68,7 +68,7 @@ def main() -> None:
     for c in chain:
         mem2.ensure(c)
     for i in range(len(chain) - 1):
-        mem2.relate(chain[i], chain[i + 1], label="next", weight=2.0)
+        mem2.link(chain[i], chain[i + 1], label="next", weight=2.0)
 
     print(f"\nchain: {' -> '.join(chain)}")
 
@@ -100,8 +100,8 @@ def main() -> None:
     for c in ["a", "b", "c", "d", "e", "x", "y", "z"]:
         mem3.ensure(c)
 
-    mem3.relate("a", "b", label="pair")
-    mem3.relate("b", "c", label="pair")
+    mem3.link("a", "b", label="pair")
+    mem3.link("b", "c", label="pair")
 
     mem3.relate_hyperedge(
         sources={"a", "b", "c"},
@@ -116,13 +116,13 @@ def main() -> None:
         weight=2.0,
     )
 
-    print(f"\nnodes: {mem3.graph.node_count}, edges: {mem3.graph.edge_count}")
-    print(f"density: {mem3.density():.4f}")
+    print(f"\nnodes: {mem3.size[0]}, edges: {mem3.size[1]}")
+    print(f"density: {mem3.analyze.describe().density:.4f}")
     print(f"unique edge sizes: {mem3.unique_edge_sizes()}")
     print(f"max edge order: {mem3.max_edge_order()}")
 
-    print(f"\nis_connected: {mem3.is_connected()}")
-    components3 = mem3.connected_components()
+    print(f"\nis_connected: {mem3.analyze.is_connected()}")
+    components3 = mem3.analyze.components()
     for i, comp in enumerate(components3):
         print(f"  component {i}: {sorted(comp)}")
 
@@ -132,26 +132,26 @@ def main() -> None:
 
     mem4 = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-        mem4.store(c, data={})
+        mem4.add(c, data={})
 
-    mem4.relate("a", "b", label="link", weight=5.0)
-    mem4.relate("b", "c", label="link", weight=5.0)
-    mem4.relate("c", "d", label="link", weight=5.0)
-    mem4.relate("e", "f", label="link", weight=5.0)
-    mem4.relate("f", "g", label="weak", weight=0.1)
-    mem4.relate("g", "h", label="weak", weight=0.1)
+    mem4.link("a", "b", label="link", weight=5.0)
+    mem4.link("b", "c", label="link", weight=5.0)
+    mem4.link("c", "d", label="link", weight=5.0)
+    mem4.link("e", "f", label="link", weight=5.0)
+    mem4.link("f", "g", label="weak", weight=0.1)
+    mem4.link("g", "h", label="weak", weight=0.1)
 
-    before_comp = mem4.connected_components()
+    before_comp = mem4.analyze.components()
     before_count = len(before_comp)
-    before_nodes = mem4.graph.node_count
-    before_edges = mem4.graph.edge_count
+    before_nodes = mem4.size[0]
+    before_edges = mem4.size[1]
 
     evolve_result = mem4.evolve()
 
-    after_comp = mem4.connected_components()
+    after_comp = mem4.analyze.components()
     after_count = len(after_comp)
-    after_nodes = mem4.graph.node_count
-    after_edges = mem4.graph.edge_count
+    after_nodes = mem4.size[0]
+    after_edges = mem4.size[1]
 
     print(f"\nbefore evolution:")
     print(f"  nodes: {before_nodes}, edges: {before_edges}, components: {before_count}")
@@ -167,7 +167,7 @@ def main() -> None:
     print("SECTION 5: COMMUNITY DETECTION")
     print("=" * 70)
 
-    cr = mem3.detect_communities(seed=42)
+    cr = mem3.analyze.communities(seed=42)
     print(f"\ncommunity detection on mixed-edge graph:")
     print(f"  communities found: {cr.community_count}")
     print(f"  modularity: {cr.modularity:.4f}")

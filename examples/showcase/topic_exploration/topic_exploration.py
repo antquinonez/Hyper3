@@ -159,7 +159,7 @@ def main():
         concepts.update(group)
 
     for label, data in concepts.items():
-        mem.store(label, data=data)
+        mem.add(label, data=data)
 
     print(f"  Stored {len(concepts)} concepts across 5 domains")
     print()
@@ -318,7 +318,7 @@ def main():
             unique_edges.append((src, tgt, label))
 
     for src, tgt, label in unique_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     print(f"  {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
@@ -524,7 +524,7 @@ def main():
         max_states=80,
     )
 
-    indirect_count = sum(1 for e in mem.graph.edges if e.label == "indirectly_causes")
+    indirect_count = sum(1 for e in mem.engine.graph.edges if e.label == "indirectly_causes")
     print(f"  TransitiveRule discovered {indirect_count} indirect causal links")
     expansion = result.expansion
     if expansion:
@@ -624,7 +624,7 @@ def main():
     print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Connected components: {stats.components}")
     print(f"  Domains: phenomenon, driver, impact, solution, measurement")
-    print(f"  Direct causal edges: {len([e for e in mem.graph.labeled_edges if e['label'] == 'causes'])}")
+    print(f"  Direct causal edges: {len([e for e in mem.analyze.edges() if e['label'] == 'causes'])}")
     print(f"  Indirect causal links inferred: {indirect_count}")
     print(f"  Feedback mechanisms: {len(feedback_concepts.labels)}")
     print(f"  Unaddressed impacts: {len(unaddressed)}")

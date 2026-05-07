@@ -170,7 +170,7 @@ def main() -> None:
     mem.add_rules(InverseRule(edge_label="blocks", inverse_label="blocked_by"))
 
     def _id(label: str) -> str:
-        n = mem.graph.get_node_by_label(label)
+        n = mem.engine.graph.get_node_by_label(label)
         return n.id if n else label
 
     print("=" * 70)
@@ -244,7 +244,7 @@ def main() -> None:
                        "orphan-debug-endpoint", "legacy-xml-api-01",
                        "unused-data-pipeline-01", "ghost-replica-set-01",
                        "abandoned-ml-experiment-01", "zombie-cron-worker-01"]:
-        n = mem.graph.get_node_by_label(stale_name)
+        n = mem.engine.graph.get_node_by_label(stale_name)
         sid = n.id if n else stale_name
         stale_ids[stale_name] = sid
         for _ in range(3):
@@ -257,7 +257,7 @@ def main() -> None:
     mem.operation_feedback.record_collapse_outcome("qs_stale_3", stale_ids.get("legacy-xml-api-01", "x"), correct=False)
 
     for healthy_name in ["api-gw-01", "order-svc-01", "payment-svc-01", "db-pg-primary", "cache-redis-01"]:
-        n = mem.graph.get_node_by_label(healthy_name)
+        n = mem.engine.graph.get_node_by_label(healthy_name)
         hid = n.id if n else healthy_name
         mem.operation_feedback.record_collapse_outcome(f"qs_{healthy_name}", hid, correct=True)
         for _ in range(3):
@@ -304,7 +304,7 @@ def main() -> None:
 
     remaining_stale = 0
     remaining_healthy = 0
-    for node in mem.graph.nodes:
+    for node in mem.engine.graph.nodes:
         if node.data and node.data.get("stale"):
             remaining_stale += 1
         elif node.data and node.data.get("category") == "server":
@@ -320,7 +320,7 @@ def main() -> None:
     correlated = summary_after["correlated_nodes"]
     print(f"  Nodes appearing across multiple operation types: {len(correlated)}")
     for nid, info in sorted(correlated.items(), key=lambda x: x[1]["signal_count"], reverse=True)[:8]:
-        n = mem.graph.get_node(nid)
+        n = mem.engine.graph.get_node(nid)
         label = n.label if n else f"[removed:{nid[:12]}]"
         print(f"    {label:<30} signals={info['signal_count']}, "
               f"positive_rate={info['positive_rate']:.2f}, "
@@ -390,7 +390,7 @@ def main() -> None:
 
     from hyper3 import MultiwayEngine, StateConvergenceEngine
 
-    mw = MultiwayEngine(mem.graph)
+    mw = MultiwayEngine(mem.engine.graph)
     rules = [
         TransitiveRule(edge_label="calls"),
         TransitiveRule(edge_label="routes_to"),
@@ -407,7 +407,7 @@ def main() -> None:
           f"{mw_result.rules_applied} rules applied")
 
     mw_graph = mw.multiway
-    causal = StateConvergenceEngine(mem.graph, mw_graph, threshold=0.4)
+    causal = StateConvergenceEngine(mem.engine.graph, mw_graph, threshold=0.4)
     invariants = causal.merge_invariant_states()
     print(f"  Causal invariants found: {len(invariants)}")
     for inv in invariants[:5]:

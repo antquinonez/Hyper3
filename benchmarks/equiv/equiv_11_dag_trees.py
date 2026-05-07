@@ -38,12 +38,12 @@ def _build_dag_h3():
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(6):
         mem.ensure(f"n{i}")
-    mem.relate("n0", "n1")
-    mem.relate("n0", "n2")
-    mem.relate("n1", "n3")
-    mem.relate("n2", "n3")
-    mem.relate("n3", "n4")
-    mem.relate("n3", "n5")
+    mem.link("n0", "n1")
+    mem.link("n0", "n2")
+    mem.link("n1", "n3")
+    mem.link("n2", "n3")
+    mem.link("n3", "n4")
+    mem.link("n3", "n5")
     return mem
 
 
@@ -66,7 +66,7 @@ def _build_tree_h3():
         mem.ensure(f"n{i}")
     tree_edges = [(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6)]
     for u, v in tree_edges:
-        mem.relate(f"n{u}", f"n{v}", bidirectional=True)
+        mem.link(f"n{u}", f"n{v}", bidirectional=True)
     return mem
 
 
@@ -210,7 +210,7 @@ def _test_spanning_tree_count(t: EquivRunner) -> None:
         mem.ensure(f"n{i}")
     for i in range(4):
         for j in range(i + 1, 4):
-            mem.relate(f"n{i}", f"n{j}", bidirectional=True)
+            mem.link(f"n{i}", f"n{j}", bidirectional=True)
 
     import networkx as nx
 

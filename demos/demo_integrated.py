@@ -32,17 +32,17 @@ def main():
         "infrastructure_damage": {"mod": Modality.CONCEPTUAL, "tags": {"type": "impact"}},
     }
     for label, cfg in concepts.items():
-        mem.store(label, modalities={cfg["mod"]}, tags=cfg["tags"])
+        mem.add(label, modalities={cfg["mod"]}, tags=cfg["tags"])
 
-    mem.relate("heavy_rain", "flood", label="causes")
-    mem.relate("flood", "evacuation", label="causes")
-    mem.relate("flood", "crop_damage", label="causes")
-    mem.relate("flood", "infrastructure_damage", label="causes")
-    mem.relate("crop_damage", "insurance_claim", label="triggers")
-    mem.relate("infrastructure_damage", "insurance_claim", label="triggers")
-    mem.relate("rain", "heavy_rain", label="intensifies_to")
+    mem.link("heavy_rain", "flood", label="causes")
+    mem.link("flood", "evacuation", label="causes")
+    mem.link("flood", "crop_damage", label="causes")
+    mem.link("flood", "infrastructure_damage", label="causes")
+    mem.link("crop_damage", "insurance_claim", label="triggers")
+    mem.link("infrastructure_damage", "insurance_claim", label="triggers")
+    mem.link("rain", "heavy_rain", label="intensifies_to")
 
-    print(f"  Stored {mem.graph.node_count} concepts, {mem.graph.edge_count} relations")
+    print(f"  Stored {mem.size[0]} concepts, {mem.size[1]} relations")
     print()
 
     # --- 2. MULTIWAY REASONING ---------------------------------------------
@@ -74,17 +74,17 @@ def main():
     print(f"  Leaf branches:    {exp['branches']}")
     print(f"  Causal invariants: {ci.get('merges_performed', 0)}")
     print(f"  States reduced:   {ci.get('reduction', 0)}")
-    print(f"\n  Graph after reasoning: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"\n  Graph after reasoning: {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     # --- 3. INFERRED KNOWLEDGE ---------------------------------------------
     print("=" * 70)
     print("3. INFERRED KNOWLEDGE")
     print("=" * 70)
-    for edge in mem.graph.edges:
+    for edge in mem.engine.graph.edges:
         if edge.metadata.custom.get("inferred"):
-            sources = [mem.graph.get_node(nid) for nid in edge.source_ids]
-            targets = [mem.graph.get_node(nid) for nid in edge.target_ids]
+            sources = [mem.engine.graph.get_node(nid) for nid in edge.source_ids]
+            targets = [mem.engine.graph.get_node(nid) for nid in edge.target_ids]
             s_labels = [n.label for n in sources if n]
             t_labels = [n.label for n in targets if n]
             rule = edge.metadata.custom.get("rule", "?")
@@ -104,7 +104,7 @@ def main():
                 rule = lat.rule_applied if lat else "?"
                 print(f"    Lateral branch [{rule}], distance={ins.get('state_distance', ins.get('jaccard_distance', 0.0))}")
                 for nid in ins["novel_in_lateral"]:
-                    n = mem.graph.get_node(nid)
+                    n = mem.engine.graph.get_node(nid)
                     if n:
                         print(f"      Discovered: {n.label}")
     print()
@@ -114,11 +114,11 @@ def main():
     print("5. BELIEF DISTRIBUTIONS")
     print("=" * 70)
 
-    qs = mem.create_distribution(["flood", "crop_damage", "infrastructure_damage"])
+    qs = mem.belief.create(["flood", "crop_damage", "infrastructure_damage"])
     print(f"\n  Distribution of: flood, crop_damage, infrastructure_damage")
     print(f"  Interpretations: {qs.outcome_count}")
     for interp in qs.outcomes:
-        node = mem.graph.get_node(interp.node_id)
+        node = mem.engine.graph.get_node(interp.node_id)
         label = node.label if node else "?"
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
     print()
@@ -128,14 +128,14 @@ def main():
     print("6. EVOLVING AMPLITUDES WITH CONTEXT")
     print("=" * 70)
 
-    mem.belief.evolve_amplitudes(qs.id, {
+    mem.engine.belief.evolve_amplitudes(qs.id, {
         qs.outcomes[0].node_id: 0.3,
         qs.outcomes[1].node_id: 2.0,
         qs.outcomes[2].node_id: 1.5,
     })
     print("\n  After boosting crop_damage and infrastructure_damage:")
     for interp in qs.outcomes:
-        node = mem.graph.get_node(interp.node_id)
+        node = mem.engine.graph.get_node(interp.node_id)
         label = node.label if node else "?"
         print(f"    {label}: amplitude={interp.amplitude:.3f}, probability={interp.probability:.3f}")
     print()
@@ -146,7 +146,7 @@ def main():
     print("=" * 70)
 
     selected = mem.sample(qs)
-    node = mem.graph.get_node(selected.node_id)
+    node = mem.engine.graph.get_node(selected.node_id)
     label = node.label if node else selected.node_id
     print(f"\n  Sampled to: {label}")
     print(f"  Final amplitude: {selected.amplitude:.3f}")

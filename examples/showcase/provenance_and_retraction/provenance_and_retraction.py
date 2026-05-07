@@ -120,16 +120,16 @@ def main():
 
     # Find inferred edges and explain them
     inferred_edges = []
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if not le["source_labels"] or not le["target_labels"]:
             continue
-        raw = mem.graph.get_edge(le["id"])
+        raw = mem.engine.graph.get_edge(le["id"])
         if raw and raw.metadata.custom.get("inferred"):
             inferred_edges.append((raw, le["source_labels"][0], le["target_labels"][0]))
 
     print(f"  {len(inferred_edges)} inferred edges. Explaining each:")
     for edge, src_label, tgt_label in inferred_edges[:6]:
-        explanation = mem.provenance.explain(edge.id, graph=mem.graph)
+        explanation = mem.provenance.explain(edge.id, graph=mem.engine.graph)
         if explanation:
             print(f"\n  {src_label} --[{edge.label}]--> {tgt_label}")
             print(f"    Rule: {explanation.rule_name}")
@@ -184,7 +184,7 @@ def main():
         print(f"\n  Retracted: {src_label} --[{edge.label}]--> {tgt_label}")
         print(f"  Cascading removals: {len(retracted_ids)}")
         for rid in retracted_ids:
-            e = mem.graph.get_edge(rid)
+            e = mem.engine.graph.get_edge(rid)
             if e:
                 pass  # edge already removed
             print(f"    Removed edge {rid[:12]}...")

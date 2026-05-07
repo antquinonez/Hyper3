@@ -45,10 +45,10 @@ def main() -> None:
     print("SECTION 2: Compute All Centralities")
     print("=" * 70)
 
-    deg = mem.degree_centrality()
-    betw = mem.betweenness_centrality()
-    pr = mem.pagerank(alpha=0.85)
-    katz = mem.katz_centrality(alpha=0.1)
+    deg = mem.analyze.centrality("degree")
+    betw = mem.analyze.centrality("betweenness")
+    pr = mem.analyze.centrality("pagerank", alpha=0.85)
+    katz = mem.analyze.centrality("katz", alpha=0.1)
 
     print("\n" + "=" * 70)
     print("SECTION 3: Rank Nodes by Each Measure")

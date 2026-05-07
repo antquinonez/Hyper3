@@ -516,11 +516,11 @@ def main():
                    "core.config_base", "core.logging_base",
                    "core.auth_base", "core.crypto"}
     result = mem.reason(
-        seed_concepts=chain_seeds,
+        seeds=chain_seeds,
         max_depth=3,
         max_total_states=50,
     )
-    new_count = sum(1 for e in mem.graph.edges if e.label == "indirectly_depends_on")
+    new_count = sum(1 for e in mem.engine.graph.edges if e.label == "indirectly_depends_on")
     print(f"  TransitiveRule applied: {new_count} indirect dependencies discovered")
     expansion = result.expansion
     if expansion:
@@ -550,7 +550,7 @@ def main():
         if age >= 2:
             outdated.append((label, data))
             deps_count = sum(
-                1 for le in mem.graph.labeled_edges
+                1 for le in mem.engine.graph.labeled_edges
                 if le["label"] in ("depends_on", "imports")
                 and label in le["target_labels"]
             )
@@ -617,7 +617,7 @@ def main():
             if tgt_sub == "test":
                 continue
             count = 0
-            for e in mem.graph.labeled_edges:
+            for e in mem.engine.graph.labeled_edges:
                 if e["label"] not in ("depends_on", "imports", "extends"):
                     continue
                 if (e["source_labels"] and e["target_labels"]

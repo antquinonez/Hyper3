@@ -42,7 +42,7 @@ def _test_degree_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_deg = mem.degree_centrality()
+    h3_deg = mem.analyze.centrality("degree")
     nx_deg = nx.degree_centrality(G)
 
     for node in G.nodes():
@@ -60,7 +60,7 @@ def _test_betweenness_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_betw = mem.betweenness_centrality()
+    h3_betw = mem.analyze.centrality("betweenness")
     nx_betw = nx.betweenness_centrality(G.to_undirected(), normalized=True)
 
     for node in G.nodes():
@@ -93,10 +93,10 @@ def _test_pagerank(t: EquivRunner) -> None:
         ("n1", "n4", 2.0),
     ]
     for src, tgt, w in directed_edges:
-        mem.relate(src, tgt, label="links", weight=w)
+        mem.link(src, tgt, label="links", weight=w)
         G.add_edge(src, tgt, weight=w)
 
-    h3_pr = mem.pagerank(alpha=0.85, weighted=False)
+    h3_pr = mem.analyze.centrality("pagerank", alpha=0.85, weighted=False)
     nx_pr = nx.pagerank(G, alpha=0.85)
 
     h3_sum = sum(h3_pr.values())
@@ -122,8 +122,8 @@ def _test_closeness_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_cc = mem.graph.closeness_centrality()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_cc = mem.engine.graph.closeness_centrality()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_cc_labels = {label_map[k]: v for k, v in h3_cc.items()}
     nx_cc = nx.closeness_centrality(G)
 
@@ -144,8 +144,8 @@ def _test_eigenvector_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_ec = mem.graph.eigenvector_centrality()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_ec = mem.engine.graph.eigenvector_centrality()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_ec_labels = {label_map[k]: v for k, v in h3_ec.items()}
     nx_ec = nx.eigenvector_centrality(G.to_undirected(), max_iter=1000)
 
@@ -164,9 +164,9 @@ def _test_katz_centrality_solve(t: EquivRunner) -> None:
     from benchmarks.equiv.shared import build_pairwise_nx
 
     mem = build_pairwise_h3()
-    kc = mem.graph.katz_centrality_solve(alpha=0.1)
+    kc = mem.engine.graph.katz_centrality_solve(alpha=0.1)
     t.check("katz_centrality_solve/returns_dict", isinstance(kc, dict))
-    t.check("katz_centrality_solve/all_nodes_present", len(kc) == mem.graph.node_count)
+    t.check("katz_centrality_solve/all_nodes_present", len(kc) == mem.engine.graph.node_count)
     t.check("katz_centrality_solve/all_positive", all(v > 0 for v in kc.values()))
 
     G = build_pairwise_nx()
@@ -178,7 +178,7 @@ def _test_katz_centrality_solve(t: EquivRunner) -> None:
         t.check("katz_centrality_solve/nx_available", False)
 
     if nx_kc is not None:
-        {n.id: n.label for n in mem.graph.nodes}
+        {n.id: n.label for n in mem.engine.graph.nodes}
         h3_sum = sum(kc.values())
         nx_sum = sum(nx_kc.values())
         t.check_close("katz_centrality_solve/sum_close", h3_sum, nx_sum, tol=0.5)
@@ -186,27 +186,27 @@ def _test_katz_centrality_solve(t: EquivRunner) -> None:
 
 def _test_subhypergraph_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    sc = mem.graph.subhypergraph_centrality()
+    sc = mem.engine.graph.subhypergraph_centrality()
     t.check("subhypergraph_centrality/returns_dict", isinstance(sc, dict))
     t.check("subhypergraph_centrality/all_positive", all(v > 0 for v in sc.values()))
-    t.check("subhypergraph_centrality/all_nodes_present", len(sc) == mem.graph.node_count)
+    t.check("subhypergraph_centrality/all_nodes_present", len(sc) == mem.engine.graph.node_count)
     t.check("subhypergraph_centrality/no_nx_equivalent", True)
 
 
 def _test_h_eigenvector_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    hc = mem.graph.h_eigenvector_centrality()
+    hc = mem.engine.graph.h_eigenvector_centrality()
     t.check("h_eigenvector_centrality/returns_dict", isinstance(hc, dict))
-    t.check("h_eigenvector_centrality/all_nodes_present", len(hc) == mem.graph.node_count)
+    t.check("h_eigenvector_centrality/all_nodes_present", len(hc) == mem.engine.graph.node_count)
     t.check("h_eigenvector_centrality/all_nonneg", all(v >= 0 for v in hc.values()))
     t.check_close("h_eigenvector_centrality/sums_to_1", sum(hc.values()), 1.0, tol=1e-4)
 
 
 def _test_z_eigenvector_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    zc = mem.graph.z_eigenvector_centrality()
+    zc = mem.engine.graph.z_eigenvector_centrality()
     t.check("z_eigenvector_centrality/returns_dict", isinstance(zc, dict))
-    t.check("z_eigenvector_centrality/all_nodes_present", len(zc) == mem.graph.node_count)
+    t.check("z_eigenvector_centrality/all_nodes_present", len(zc) == mem.engine.graph.node_count)
     t.check("z_eigenvector_centrality/all_nonneg", all(v >= 0 for v in zc.values()))
     t.check_close("z_eigenvector_centrality/sums_to_1", sum(zc.values()), 1.0, tol=1e-4)
 
@@ -217,8 +217,8 @@ def _test_c_eigenvector_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx().to_undirected()
 
-    cc = mem.graph.c_eigenvector_centrality()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    cc = mem.engine.graph.c_eigenvector_centrality()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     cc_labels = {label_map[k]: v for k, v in cc.items()}
 
     nx_ec = nx.eigenvector_centrality(G, max_iter=1000)
@@ -233,33 +233,33 @@ def _test_c_eigenvector_centrality(t: EquivRunner) -> None:
 
 def _test_node_edge_centrality(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    nc, ec = mem.graph.node_edge_centrality()
+    nc, ec = mem.engine.graph.node_edge_centrality()
     t.check("node_edge_centrality/node_dict", isinstance(nc, dict))
     t.check("node_edge_centrality/edge_dict", isinstance(ec, dict))
-    t.check("node_edge_centrality/all_nodes_present", len(nc) == mem.graph.node_count)
-    t.check("node_edge_centrality/all_edges_present", len(ec) == mem.graph.edge_count)
+    t.check("node_edge_centrality/all_nodes_present", len(nc) == mem.engine.graph.node_count)
+    t.check("node_edge_centrality/all_edges_present", len(ec) == mem.engine.graph.edge_count)
     t.check("node_edge_centrality/node_nonneg", all(v >= 0 for v in nc.values()))
     t.check("node_edge_centrality/edge_nonneg", all(v >= 0 for v in ec.values()))
 
 
 def _test_s_walk_betweenness(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    bc_edges = mem.graph.s_walk_betweenness(s=1, kind="edges")
-    bc_nodes = mem.graph.s_walk_betweenness(s=1, kind="nodes")
+    bc_edges = mem.engine.graph.s_walk_betweenness(s=1, kind="edges")
+    bc_nodes = mem.engine.graph.s_walk_betweenness(s=1, kind="nodes")
     t.check("s_walk_betweenness/edges_dict", isinstance(bc_edges, dict))
     t.check("s_walk_betweenness/nodes_dict", isinstance(bc_nodes, dict))
-    t.check("s_walk_betweenness/nodes_count", len(bc_nodes) == mem.graph.node_count)
+    t.check("s_walk_betweenness/nodes_count", len(bc_nodes) == mem.engine.graph.node_count)
     t.check("s_walk_betweenness/edges_nonneg", all(v >= 0 for v in bc_edges.values()))
     t.check("s_walk_betweenness/nodes_nonneg", all(v >= 0 for v in bc_nodes.values()))
 
 
 def _test_s_walk_closeness(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    cc_edges = mem.graph.s_walk_closeness(s=1, kind="edges")
-    cc_nodes = mem.graph.s_walk_closeness(s=1, kind="nodes")
+    cc_edges = mem.engine.graph.s_walk_closeness(s=1, kind="edges")
+    cc_nodes = mem.engine.graph.s_walk_closeness(s=1, kind="nodes")
     t.check("s_walk_closeness/edges_dict", isinstance(cc_edges, dict))
     t.check("s_walk_closeness/nodes_dict", isinstance(cc_nodes, dict))
-    t.check("s_walk_closeness/nodes_count", len(cc_nodes) == mem.graph.node_count)
+    t.check("s_walk_closeness/nodes_count", len(cc_nodes) == mem.engine.graph.node_count)
     t.check("s_walk_closeness/nodes_bounded", all(0 <= v <= 1 for v in cc_nodes.values()))
 
 

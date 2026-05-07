@@ -309,8 +309,8 @@ print(discovery_result.new_rules_added)  # 7
 from hyper3 import TransitiveRule
 
 transitive = TransitiveRule(edge_label="depends_on", new_label="inferred_depends_on")
-all_ids = frozenset(n.id for n in mem.graph.nodes)
-matches = transitive.find_matches(mem.graph, all_ids)
+all_ids = frozenset(n.id for n in mem.engine.graph.nodes)
+matches = transitive.find_matches(mem.engine.graph, all_ids)
 # Each match has bindings["A"], bindings["B"], bindings["C"]
 ```
 
@@ -320,7 +320,7 @@ matches = transitive.find_matches(mem.graph, all_ids)
 from hyper3 import HubInferenceRule
 
 causal = HubInferenceRule(min_support=2, confidence_threshold=0.6, causes_label="causes")
-matches = causal.find_matches(mem.graph, all_ids)
+matches = causal.find_matches(mem.engine.graph, all_ids)
 for m in matches:
     print(m.context["support"], m.context["confidence"])
 ```
@@ -331,9 +331,9 @@ for m in matches:
 from hyper3 import GeneralizationRule
 
 gen = GeneralizationRule(similarity_threshold=0.8, label_prefix="category_")
-matches = gen.find_matches(mem.graph, all_ids)
+matches = gen.find_matches(mem.engine.graph, all_ids)
 for m in matches[:5]:
-    gen.apply(mem.graph, m)
+    gen.apply(mem.engine.graph, m)
 ```
 
 ### Structural analogies
@@ -344,7 +344,7 @@ from hyper3 import StructuralProjectionRule, HashEmbeddingProvider
 mem.set_embedding_provider(HashEmbeddingProvider(dim=32))
 analogical = StructuralProjectionRule(similarity_threshold=0.7)
 analogical.set_embedding_engine(mem.embedding_engine)
-matches = analogical.find_matches(mem.graph, all_ids)
+matches = analogical.find_matches(mem.engine.graph, all_ids)
 # Each match has bindings["A"], bindings["B"], bindings["C"], bindings["D"]
 ```
 

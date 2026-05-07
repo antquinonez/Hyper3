@@ -81,9 +81,9 @@ def main() -> None:
         with Timer() as t_h3:
             mem = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
-                mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+                mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
-                mem.relate(src, tgt, label=lbl)
+                mem.link(src, tgt, label=lbl)
         h3_build = t_h3.elapsed
 
         # --- Shortest Path ---
@@ -96,7 +96,7 @@ def main() -> None:
         nx_sp = t_nx.elapsed
 
         with Timer() as t_h3:
-            h3_path = mem.shortest_path(test_pair[0], test_pair[1])
+            h3_path = mem.analyze.shortest_path(test_pair[0], test_pair[1])
         h3_sp = t_h3.elapsed
 
         # --- Betweenness Centrality ---
@@ -105,7 +105,7 @@ def main() -> None:
         nx_bc_t = t_nx.elapsed
 
         with Timer() as t_h3:
-            h3_bc = mem.betweenness_centrality()
+            h3_bc = mem.analyze.centrality("betweenness")
         h3_bc_t = t_h3.elapsed
 
         # --- BFS Traversal ---

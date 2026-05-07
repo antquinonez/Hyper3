@@ -48,7 +48,7 @@ def _test_incidence_matrix_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_hgx()
 
-    h3_H, h3_nodes, h3_edges = mem.graph.incidence_matrix_unsigned()
+    h3_H, h3_nodes, h3_edges = mem.engine.graph.incidence_matrix_unsigned()
     hgx_H, mapping = H.binary_incidence_matrix(return_mapping=True)
 
     h3_mat = np.asarray(h3_H.todense() if hasattr(h3_H, "todense") else h3_H)
@@ -61,7 +61,7 @@ def _test_incidence_matrix_hgx(t: EquivRunner) -> None:
     t.check("incidence_hgx/edge_count", h3_mat.shape[1] == hgx_mat.shape[1])
 
     for i, nid in enumerate(h3_nodes):
-        node = mem.graph.get_node(nid)
+        node = mem.engine.graph.get_node(nid)
         if node:
             int_id = label_to_int(node.label)
             if int_id in mapping:
@@ -83,7 +83,7 @@ def _test_incidence_matrix_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_xgi()
 
-    h3_H, h3_nodes, h3_edges = mem.graph.incidence_matrix_unsigned()
+    h3_H, h3_nodes, h3_edges = mem.engine.graph.incidence_matrix_unsigned()
     xgi_H = xgi.incidence_matrix(H, sparse=False)
 
     h3_mat = np.asarray(h3_H.todense() if hasattr(h3_H, "todense") else h3_H)
@@ -99,7 +99,7 @@ def _test_adjacency_matrix_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_hgx()
 
-    h3_A, h3_nodes = mem.graph.adjacency_matrix()
+    h3_A, h3_nodes = mem.engine.graph.adjacency_matrix()
     hgx_A, mapping = H.adjacency_matrix(return_mapping=True)
 
     h3_arr = np.asarray(h3_A.todense() if hasattr(h3_A, "todense") else h3_A)
@@ -120,7 +120,7 @@ def _test_laplacian_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     build_hypergraph_hgx()
 
-    h3_L = mem.graph.hypergraph_laplacian()
+    h3_L = mem.engine.graph.hypergraph_laplacian()
     h3_L_arr = np.asarray(h3_L)
 
     t.check("laplacian_hgx/square", h3_L_arr.shape[0] == h3_L_arr.shape[1])
@@ -139,7 +139,7 @@ def _test_laplacian_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_xgi()
 
-    h3_L = mem.graph.hypergraph_laplacian()
+    h3_L = mem.engine.graph.hypergraph_laplacian()
     h3_L_arr = np.asarray(h3_L)
 
     xgi_L = xgi.laplacian(H, sparse=False)
@@ -156,7 +156,7 @@ def _test_normalized_laplacian_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     build_hypergraph_xgi()
 
-    h3_L, h3_nodes = mem.graph.normalized_laplacian()
+    h3_L, h3_nodes = mem.engine.graph.normalized_laplacian()
     h3_L_arr = np.asarray(h3_L)
 
     t.check("norm_laplacian_xgi/square", h3_L_arr.shape[0] == h3_L_arr.shape[1])
@@ -171,7 +171,7 @@ def _test_pairwise_adjacency_nx(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_A, h3_node_ids = mem.graph.adjacency_matrix()
+    h3_A, h3_node_ids = mem.engine.graph.adjacency_matrix()
     nx_A = nx.adjacency_matrix(G).todense()
 
     h3_arr = np.asarray(h3_A.todense() if hasattr(h3_A, "todense") else h3_A)
@@ -190,33 +190,33 @@ def _test_pairwise_adjacency_nx(t: EquivRunner) -> None:
 def _test_incidence_matrix_by_order(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
 
-    im1_mat, im1_nodes, im1_edges = mem.graph.incidence_matrix_by_order(order=1)
+    im1_mat, im1_nodes, im1_edges = mem.engine.graph.incidence_matrix_by_order(order=1)
     im1_arr = np.asarray(im1_mat.todense() if hasattr(im1_mat, "todense") else im1_mat)
     t.check("incidence_by_order_1/has_entries", im1_arr.shape[1] >= 1)
-    t.check("incidence_by_order_1/node_count", im1_arr.shape[0] == mem.graph.node_count)
+    t.check("incidence_by_order_1/node_count", im1_arr.shape[0] == mem.engine.graph.node_count)
 
-    im2_mat, im2_nodes, im2_edges = mem.graph.incidence_matrix_by_order(order=2)
+    im2_mat, im2_nodes, im2_edges = mem.engine.graph.incidence_matrix_by_order(order=2)
     im2_arr = np.asarray(im2_mat.todense() if hasattr(im2_mat, "todense") else im2_mat)
     t.check("incidence_by_order_2/has_entries", im2_arr.shape[1] >= 1)
-    t.check("incidence_by_order_2/node_count", im2_arr.shape[0] == mem.graph.node_count)
+    t.check("incidence_by_order_2/node_count", im2_arr.shape[0] == mem.engine.graph.node_count)
 
 
 def _test_multiorder_laplacian(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     sigmas = {2: 1.0, 3: 0.5}
-    L = mem.graph.multiorder_laplacian(sigmas=sigmas)
+    L = mem.engine.graph.multiorder_laplacian(sigmas=sigmas)
     L_arr = np.asarray(L)
     t.check("multiorder_laplacian/square", L_arr.shape[0] == L_arr.shape[1])
-    t.check("multiorder_laplacian/node_count", L_arr.shape[0] == mem.graph.node_count)
+    t.check("multiorder_laplacian/node_count", L_arr.shape[0] == mem.engine.graph.node_count)
     t.check("multiorder_laplacian/symmetric", bool(np.allclose(L_arr, L_arr.T, atol=1e-10)))
 
 
 def _test_dual_random_walk_adjacency(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
-    A_dual, rows, cols = mem.graph.dual_random_walk_adjacency()
+    A_dual, rows, cols = mem.engine.graph.dual_random_walk_adjacency()
     A_arr = np.asarray(A_dual)
     t.check("dual_random_walk_adjacency/square", A_arr.shape[0] == A_arr.shape[1])
-    t.check("dual_random_walk_adjacency/edge_count_dim", A_arr.shape[0] == mem.graph.edge_count)
+    t.check("dual_random_walk_adjacency/edge_count_dim", A_arr.shape[0] == mem.engine.graph.edge_count)
 
 
 def _test_adjacency_tensor(t: EquivRunner) -> None:

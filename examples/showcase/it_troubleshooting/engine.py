@@ -8,7 +8,7 @@ class ITTroubleshootingEngine:
     - Goal-directed reasoning: prove/disprove a hypothesis via mem.prove()
     - N-ary condition groups for complex issue relationships
     - Root cause analysis with confidence scoring via mem.compute_confidence()
-    - Causal path discovery via mem.find_paths()
+    - Causal path discovery via mem.analyze.paths()
     - Provenance tracking for explainable proofs
 
     Different from transitive reasoning - this PROVES a hypothesis
@@ -69,7 +69,7 @@ class ITTroubleshootingEngine:
             self.mem.link(cause, effect, label=label, weight=1.0)
 
     def _add_condition_groups(self):
-        self.mem.relate_hyperedge(
+        self.mem.link_hyper(
             sources={"power_failure", "hardware_failure"},
             targets={"server_wont_boot"},
             label="either_condition",
@@ -97,8 +97,8 @@ class ITTroubleshootingEngine:
         observed = {s for s, val in evidence.items() if val}
 
         for symptom in observed:
-            paths = self.mem.find_paths(
-                hypothesis, symptom, edge_label="causes", max_depth=6, max_paths=3
+            paths = self.mem.analyze.paths(
+                hypothesis, symptom, label="causes", max_depth=6, max_paths=3
             )
             if paths:
                 proven = True
@@ -253,5 +253,5 @@ class ITTroubleshootingEngine:
         Returns:
             Dict with issue data, or None if not found.
         """
-        node = self.mem.graph.get_node_by_label(issue)
+        node = self.mem.engine.graph.get_node_by_label(issue)
         return node.data if node else None

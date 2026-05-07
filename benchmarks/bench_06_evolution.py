@@ -55,21 +55,21 @@ def add_noise_nodes(mem: HypergraphMemory, count: int) -> list[str]:
     noise_ids = []
     for i in range(count):
         label = f"{NOISE_PREFIX}{i}"
-        mem.store(label, data={"type": "noise", "idx": i})
+        mem.add(label, data={"type": "noise", "idx": i})
         noise_ids.append(label)
     for i in range(count - 1):
         src = f"{NOISE_PREFIX}{i}"
         tgt = f"{NOISE_PREFIX}{i + 1}"
-        mem.relate(src, tgt, label="noise_edge")
+        mem.link(src, tgt, label="noise_edge")
     if count > 10:
-        mem.relate(f"{NOISE_PREFIX}0", "algorithm", label="noise_edge")
+        mem.link(f"{NOISE_PREFIX}0", "algorithm", label="noise_edge")
     return noise_ids
 
 
 def query_important_nodes(mem: HypergraphMemory, important: set[str]) -> dict[str, bool]:
     found = {}
     for label in important:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         found[label] = node is not None
     return found
 
@@ -101,29 +101,29 @@ def main() -> None:
             # Hyper3 evolution
             mem = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
-                mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+                mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
-                mem.relate(src, tgt, label=lbl)
+                mem.link(src, tgt, label=lbl)
             add_noise_nodes(mem, noise_count)
 
             for label in IMPORTANT_NODES:
-                node = mem.graph.get_node_by_label(label)
+                node = mem.engine.graph.get_node_by_label(label)
                 if node:
                     node.touch(time.time())
                     node.touch(time.time())
 
-            pre_size = mem.graph.node_count
+            pre_size = mem.size[0]
 
             with Timer() as t:
                 mem._evolution.decay_weights(0.95)
                 mem._evolution.prune_dead_nodes()
                 mem._evolution.merge_equivalences()
                 for label in IMPORTANT_NODES:
-                    node = mem.graph.get_node_by_label(label)
+                    node = mem.engine.graph.get_node_by_label(label)
                     if node:
                         mem._evolution.reinforce(node.id)
 
-            post_size = mem.graph.node_count
+            post_size = mem.size[0]
             found = query_important_nodes(mem, IMPORTANT_NODES)
             retained = retention_rate(found)
 
@@ -139,13 +139,13 @@ def main() -> None:
             # Age-based pruning
             mem2 = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
-                mem2.store(label, data=data, modalities={Modality.CONCEPTUAL})
+                mem2.add(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
-                mem2.relate(src, tgt, label=lbl)
+                mem2.link(src, tgt, label=lbl)
             add_noise_nodes(mem2, noise_count)
 
             all_nodes = []
-            for n in mem2.graph.nodes:
+            for n in mem2.engine.graph.nodes:
                 all_nodes.append((n.id, n.created_at, n.access_count))
 
             with Timer() as t:
@@ -153,11 +153,11 @@ def main() -> None:
                 to_remove = age_pruner.prune(all_nodes)
                 for nid in to_remove:
                     try:
-                        mem2.graph.remove_node(nid)
+                        mem2.engine.graph.remove_node(nid)
                     except Exception:
                         pass
 
-            post_size2 = mem2.graph.node_count
+            post_size2 = mem2.size[0]
             found2 = query_important_nodes(mem2, IMPORTANT_NODES)
             retained2 = retention_rate(found2)
 
@@ -173,13 +173,13 @@ def main() -> None:
             # Random pruning
             mem3 = HypergraphMemory(evolve_interval=0)
             for label, data in nodes:
-                mem3.store(label, data=data, modalities={Modality.CONCEPTUAL})
+                mem3.add(label, data=data, modalities={Modality.CONCEPTUAL})
             for src, tgt, lbl in edges:
-                mem3.relate(src, tgt, label=lbl)
+                mem3.link(src, tgt, label=lbl)
             add_noise_nodes(mem3, noise_count)
 
             all_nodes3 = []
-            for n in mem3.graph.nodes:
+            for n in mem3.engine.graph.nodes:
                 all_nodes3.append((n.id, n.created_at, n.access_count))
 
             with Timer() as t:
@@ -187,11 +187,11 @@ def main() -> None:
                 to_remove3 = rand_pruner.prune(all_nodes3)
                 for nid in to_remove3:
                     try:
-                        mem3.graph.remove_node(nid)
+                        mem3.engine.graph.remove_node(nid)
                     except Exception:
                         pass
 
-            post_size3 = mem3.graph.node_count
+            post_size3 = mem3.size[0]
             found3 = query_important_nodes(mem3, IMPORTANT_NODES)
             retained3 = retention_rate(found3)
 
@@ -211,18 +211,18 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
     nodes, edges = build_cs_knowledge_graph()
     for label, data in nodes:
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     for src, tgt, lbl in edges:
-        mem.relate(src, tgt, label=lbl)
+        mem.link(src, tgt, label=lbl)
 
-    initial_weights = {e.id: e.weight for e in mem.graph.edges}
+    initial_weights = {e.id: e.weight for e in mem.engine.graph.edges}
     decay_headers = ["Decay Factor", "Mean Weight", "Min Weight", "Edges < 0.5", "Edges < 0.1"]
     decay_rows = []
     for decay in [0.99, 0.95, 0.9, 0.8, 0.5]:
-        for e in mem.graph.edges:
+        for e in mem.engine.graph.edges:
             e.weight = initial_weights.get(e.id, 1.0)
         mem._evolution.decay_weights(decay)
-        weights = [e.weight for e in mem.graph.edges]
+        weights = [e.weight for e in mem.engine.graph.edges]
         mean_w = sum(weights) / len(weights) if weights else 0
         min_w = min(weights) if weights else 0
         below_half = sum(1 for w in weights if w < 0.5)

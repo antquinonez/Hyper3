@@ -353,7 +353,7 @@ def analyze_hypothesis(
     symptom_ids: set[str],
 ) -> dict:
     result = mem.reason(
-        seed_concepts=seeds,
+        seeds=seeds,
         max_depth=3,
         max_total_states=30,
         auto_commit=False,
@@ -369,8 +369,8 @@ def analyze_hypothesis(
             edge = overlay.get_edge(eid)
             if not edge:
                 continue
-            _src = mem.graph.get_node(next(iter(edge.source_ids)))
-            _tgt = mem.graph.get_node(next(iter(edge.target_ids)))
+            _src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
+            _tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
             src_label = _src.label if _src else ""
             tgt_label = _tgt.label if _tgt else ""
             conf = overlay.get_confidence(eid)
@@ -382,7 +382,7 @@ def analyze_hypothesis(
             })
             for nid in edge.source_ids | edge.target_ids:
                 if nid in symptom_ids:
-                    node = mem.graph.get_node(nid)
+                    node = mem.engine.graph.get_node(nid)
                     if node:
                         blast_radius.add(node.label)
 
@@ -496,7 +496,7 @@ def main() -> None:
 
     symptom_ids: set[str] = set()
     for label, _ in SYMPTOMS:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             symptom_ids.add(node.id)
     print(f"  {len(symptom_ids)} symptom services require explanation")

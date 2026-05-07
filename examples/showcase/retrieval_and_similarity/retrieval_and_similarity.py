@@ -75,13 +75,13 @@ def main() -> None:
     print("\n--- No direct competitor equivalent ---")
     print("XGI/HNX: no associative recall mechanism")
 
-    mem.stimulate("python")
-    activation_results = mem.spread_activation()
+    mem.search.activate("python")
+    activation_results = mem.search.activate("python")
     print(f"\nspreading activation from 'python':")
-    sorted_results = sorted(activation_results, key=lambda r: r.activation, reverse=True)
+    sorted_results = sorted(activation_results, key=lambda r: r.energy, reverse=True)
     for item in sorted_results[:10]:
-        bar = "#" * int(item.activation * 20)
-        print(f"  {item.label:>15}: {item.activation:.4f} {bar}")
+        bar = "#" * int(item.energy * 20)
+        print(f"  {item.label:>15}: {item.energy:.4f} {bar}")
 
     print("\n" + "=" * 70)
     print("SECTION 3: SEMANTIC SIMILARITY")
@@ -93,12 +93,12 @@ def main() -> None:
     similar = mem.search.similar("python", top_k=5)
     print(f"\nmost similar to 'python':")
     for item in similar:
-        print(f"  {item.concept:>15}: {item.similarity:.4f}")
+        print(f"  {item.label:>15}: {item.score:.4f}")
 
     similar_rust = mem.search.similar("rust", top_k=5)
     print(f"\nmost similar to 'rust':")
     for item in similar_rust:
-        print(f"  {item.concept:>15}: {item.similarity:.4f}")
+        print(f"  {item.label:>15}: {item.score:.4f}")
 
     print("\n" + "=" * 70)
     print("SECTION 4: COMBINED RETRIEVAL (Activation + Similarity)")

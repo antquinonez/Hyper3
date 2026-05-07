@@ -445,7 +445,7 @@ def main():
     print(f"  Edges: {mem.size[1]}")
 
     categories: dict[str, int] = {}
-    for node in mem.graph.nodes:
+    for node in mem.engine.graph.nodes:
         cat = node.data.get("category", "unknown") if isinstance(node.data, dict) else "unknown"
         categories[cat] = categories.get(cat, 0) + 1
     for cat, count in sorted(categories.items()):
@@ -480,7 +480,7 @@ def main():
     print(f"  {'Label':30s} {'Cosine':>8s} {'Euclid':>8s}")
     print(f"  {'-'*30} {'-'*8} {'-'*8}")
     for s in similar:
-        print(f"  {s.label_b:30s} {s.similarity:8.4f} {s.embedding_distance:8.4f}")
+        print(f"  {s.label:30s} {s.score:8.4f}")
     print()
 
     # =====================================================================
@@ -614,7 +614,7 @@ def main():
         act = mem.activate(query, energy=1.0, top_k=5, iterations=3)
         sim = mem.search.similar(query, top_k=5, threshold=-1.0)
         act_labels = [r.label for r in act]
-        sim_labels = [s.label_b for s in sim]
+        sim_labels = [s.label for s in sim]
         overlap = set(act_labels) & set(sim_labels)
 
         print(f"  {query} ({description}):")

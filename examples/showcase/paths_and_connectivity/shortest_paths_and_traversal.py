@@ -41,7 +41,7 @@ def main() -> None:
     for src, tgt, label, weight in routes:
         mem.link(src, tgt, label=label, weight=weight)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"london", "paris"},
         targets={"berlin", "prague"},
         label="europass_zone",
@@ -59,15 +59,15 @@ def main() -> None:
     print("--- NetworkX equivalent ---")
     print("nx.shortest_path(G, 'london', 'rome', weight='weight')")
 
-    sp = mem.shortest_path("london", "rome")
+    sp = mem.analyze.shortest_path("london", "rome")
     print(f"\nshortest path london -> rome: {sp}")
     print(f"  length (hops): {len(sp) - 1 if sp else 0}")
 
-    sp2 = mem.shortest_path("london", "vienna")
+    sp2 = mem.analyze.shortest_path("london", "vienna")
     print(f"\nshortest path london -> vienna: {sp2}")
     print(f"  length (hops): {len(sp2) - 1 if sp2 else 0}")
 
-    sp3 = mem.shortest_path("madrid", "prague")
+    sp3 = mem.analyze.shortest_path("madrid", "prague")
     print(f"\nshortest path madrid -> prague: {sp3}")
     print(f"  length (hops): {len(sp3) - 1 if sp3 else 0}")
 
@@ -78,7 +78,7 @@ def main() -> None:
     print("\n--- NetworkX equivalent ---")
     print("nx.all_simple_paths(G, source, target)")
 
-    all_paths = mem.find_paths("london", "rome")
+    all_paths = mem.analyze.paths("london", "rome")
     print(f"\nall paths london -> rome: {len(all_paths)}")
     for i, path in enumerate(all_paths):
         print(f"  path {i+1}: {' -> '.join(path) if path else 'none'}")
@@ -100,11 +100,11 @@ def main() -> None:
     print("SECTION 5: HYPEREDGE AS SINGLE HOP (Hyper3 advantage)")
     print("=" * 70)
 
-    sp_he = mem.shortest_path("london", "prague")
+    sp_he = mem.analyze.shortest_path("london", "prague")
     print(f"\nshortest path london -> prague: {sp_he}")
     print(f"  hyperedge 'europass_zone' treats {{london,paris}} -> {{berlin,prague}} as 1 hop")
 
-    sp_direct = mem.shortest_path("london", "prague")
+    sp_direct = mem.analyze.shortest_path("london", "prague")
     print(f"  both london and prague are in the europass_zone hyperedge")
 
     print("\n" + "=" * 70)
@@ -117,7 +117,7 @@ def main() -> None:
         TransitiveRule(edge_label="train", new_label="indirect_train"),
     )
 
-    result = mem.reason(seed_concepts={"london"}, max_depth=3)
+    result = mem.reason(seeds={"london"}, max_depth=3)
 
     print(f"\nreasoning from 'london' with TransitiveRule(edge_label='train'):")
     if result.expansion:
@@ -139,14 +139,12 @@ def main() -> None:
     print("SECTION 7: SPREADING ACTIVATION")
     print("=" * 70)
 
-    mem.clear_activations()
-    mem.stimulate("london", energy=1.0)
-    activated = mem.spread_activation(iterations=3)
+    activated = mem.search.activate("london", energy=1.0)
 
     print(f"\nstimulated 'london' with energy=1.0, spread 3 iterations:")
     print(f"  activated nodes: {len(activated)}")
     for act in activated:
-        print(f"    {act.label}: activation={act.activation:.4f}, depth={act.depth}")
+        print(f"    {act.label}: energy={act.energy:.4f}")
 
     print("\n" + "=" * 70)
     print("DONE")

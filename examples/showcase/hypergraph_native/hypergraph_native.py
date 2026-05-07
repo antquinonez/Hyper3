@@ -1,7 +1,7 @@
 """Hypergraph-Native Algorithms: N-ary Edges and Structural Analysis.
 
 Demonstrates six hypergraph-native capabilities that go beyond pairwise graphs:
-  1. N-ary hyperedges — relate_hyperedge() connects multiple sources to multiple targets
+  1. N-ary hyperedges — link_hyper() connects multiple sources to multiple targets
   2. Multi-resolution structure — s_persistence() reveals nested component hierarchies
   3. Spectral embedding — eigenvectors of the hypergraph Laplacian for node similarity
   4. Hyperedge similarity — Jaccard/Sorensen-Dice overlap between hyperedge node sets
@@ -45,47 +45,47 @@ def main() -> None:
     for d in diseases:
         mem.add(d, data={"kind": "disease"})
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"TP53", "MDM2", "ATM"},
         targets={"p53_signaling"},
         label="complex_regulates",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"BRCA1", "BRCA2", "RAD51"},
         targets={"dna_repair"},
         label="complex_regulates",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"CDK2", "CDK4", "RB1", "E2F1"},
         targets={"cell_cycle"},
         label="complex_regulates",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"AKT1", "PIK3CA", "PTEN", "MTOR"},
         targets={"pi3k_akt"},
         label="complex_regulates",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"EGFR", "KRAS", "BRAF", "MAPK1", "RAF1"},
         targets={"mapk_signaling"},
         label="complex_regulates",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"TP53", "BRCA1", "BRCA2"},
         targets={"breast_cancer"},
         label="complex_associated_with",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"EGFR", "KRAS", "APC"},
         targets={"lung_cancer"},
         label="complex_associated_with",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"APC", "CTNNB1", "KRAS", "BRAF"},
         targets={"colorectal_cancer"},
         label="complex_associated_with",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"EGFR", "PTEN", "TP53"},
         targets={"glioblastoma"},
         label="complex_associated_with",
@@ -110,14 +110,14 @@ def main() -> None:
     print(f"  Hyperedges containing TP53: {len(tp53_hyperedges)}")
     for he in tp53_hyperedges:
         src_labels = sorted(
-            mem.graph.get_node(sid).label
+            mem.engine.graph.get_node(sid).label
             for sid in he.source_ids
-            if mem.graph.get_node(sid)
+            if mem.engine.graph.get_node(sid)
         )
         tgt_labels = sorted(
-            mem.graph.get_node(tid).label
+            mem.engine.graph.get_node(tid).label
             for tid in he.target_ids
-            if mem.graph.get_node(tid)
+            if mem.engine.graph.get_node(tid)
         )
         print(f"    [{', '.join(src_labels)}] --[{he.label}]--> [{', '.join(tgt_labels)}]")
 
@@ -208,7 +208,7 @@ def main() -> None:
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"  Nodes: {desc.node_count}  ({desc.node_types})")
     print(f"  Edges: {desc.edge_count}")
     print(f"  N-ary edges: {len(n_ary)}")

@@ -371,7 +371,7 @@ def section5_bridge_movies(mem: HypergraphMemory, movies: list[MovieData]) -> No
     print("=" * 70)
     print("SECTION 5: BRIDGE MOVIES (BETWEENNESS CENTRALITY)")
     print("=" * 70)
-    bc = mem.betweenness_centrality(top_k=10)
+    bc = mem.analyze.centrality("betweenness", top_k=10)
     movie_labels = set(mem.query_nodes(type="movie"))
     genre_labels = set(mem.query_nodes(type="genre"))
     print(f"\nTop-10 bridge nodes (gateway recommendations):\n")
@@ -405,13 +405,13 @@ def section6_retrieval(mem: HypergraphMemory, movies: list[MovieData]) -> None:
     if seed_data:
         print(f"  Genres: {', '.join(seed_data.genres)}")
         print(f"  Rating: {seed_data.rating}")
-    mem.stimulate(seed_movie, energy=1.0)
-    activation_results = mem.spread_activation(iterations=4)
+    mem.search.activate(seed_movie, energy=1.0)
+    activation_results = mem.search.activate(seed_movie, energy=1.0)
     print(f"\nPure activation (top-10):")
     movie_labels = set(mem.query_nodes(type="movie"))
     act_movies = [a for a in activation_results if a.label in movie_labels and a.label != seed_movie]
     for a in act_movies[:10]:
-        print(f"  {a.label:35s}  activation={a.activation:.4f}  depth={a.depth}")
+        print(f"  {a.label:35s}  energy={a.energy:.4f}")
     retrieval_results = mem.retrieve(seed_movie, top_k=15, iterations=4)
     ret_movies = [r for r in retrieval_results if r.label in movie_labels and r.label != seed_movie]
     print(f"\nRRF retrieval (top-10, activation + similarity fused):")

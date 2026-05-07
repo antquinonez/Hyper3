@@ -43,7 +43,7 @@ components = {
 }
 
 for name, data in components.items():
-    mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+    mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
 causal_chain = [
     ("battery",            "starter_motor",      "powers"),
@@ -65,7 +65,7 @@ causal_chain = [
 ]
 
 for src, tgt, label in causal_chain:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 
 extra_chains = [
     ("ignition_coil", "engine_computer", "powers"),
@@ -74,9 +74,9 @@ extra_chains = [
     ("gasoline", "fuel_pump", "feeds"),
 ]
 for src, tgt, label in extra_chains:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 
-print(f"Stored {mem.graph.node_count} components, {mem.graph.edge_count} causal relationships")
+print(f"Stored {mem.size[0]} components, {mem.size[1]} causal relationships")
 print()
 
 # ─── STEP 2: Rule discovery ──────────────────────────────────────────
@@ -135,16 +135,16 @@ print(f"Inferred edges (new knowledge): {exp['edges_produced']}")
 print()
 
 print("Inferred causal chains the system discovered:")
-for edge in mem.graph.edges:
+for edge in mem.engine.graph.edges:
     if edge.metadata.custom.get("inferred"):
         src_labels = []
         tgt_labels = []
         for sid in edge.source_ids:
-            n = mem.graph.get_node(sid)
+            n = mem.engine.graph.get_node(sid)
             if n:
                 src_labels.append(n.label)
         for tid in edge.target_ids:
-            n = mem.graph.get_node(tid)
+            n = mem.engine.graph.get_node(tid)
             if n:
                 tgt_labels.append(n.label)
         rule = edge.metadata.custom.get("rule", "unknown")
@@ -161,7 +161,7 @@ Instead of guessing, we hold ALL THREE as a belief distribution.
 Each has an amplitude (confidence weight).
 """)
 
-qs = mem.create_distribution(
+qs = mem.belief.create(
     ["battery", "fuel_pump", "spark_plug"],
     amplitudes=[0.6, 0.3, 0.25],
 )
@@ -173,7 +173,7 @@ print()
 
 # Correlation: if battery is dead, starter_motor and ignition_coil are also dead
 print("Correlation: battery failure constrains other components")
-ent = mem.correlate(
+ent = mem.belief.correlate(
     ["battery"],
     ["starter_motor", "ignition_coil"],
     {("battery", "starter_motor"): 0.95, ("battery", "ignition_coil"): 0.9},
@@ -185,7 +185,7 @@ print()
 # Now we get new evidence: "headlights are dim" → battery confirmed weak
 print("New evidence arrives: 'headlights are dim' → battery is weak")
 answer = mem.sample(qs, context={"battery": 3.0})
-collapsed_node = mem.graph.get_node(answer.node_id)
+collapsed_node = mem.engine.graph.get_node(answer.node_id)
 collapsed_label = collapsed_node.label if collapsed_node else answer.node_id
 print(f"Sampled: {collapsed_label} (amplitude={answer.amplitude:.3f})")
 print()
@@ -200,15 +200,15 @@ Multiple evidence sources can interfere:
 - Destructive: conflicting evidence cancels out
 """)
 
-qs2 = mem.create_distribution(
+qs2 = mem.belief.create(
     ["battery", "fuel_pump", "spark_plug", "alternator", "timing_belt"],
     amplitudes=[0.7, -0.3, 0.4, -0.5, 0.2],
 )
-patterns = mem.compute_interactions(qs2)
+patterns = mem.belief.interactions(qs2)
 print("Interference analysis:")
 for p in patterns:
     kind = "CONSTRUCTIVE ▲" if p.is_constructive else "DESTRUCTIVE ▼" if p.is_destructive else "neutral"
-    node = mem.graph.get_node(p.node_id)
+    node = mem.engine.graph.get_node(p.node_id)
     label = node.label if node else p.node_id
     print(f"  {label:20s} [{kind}]  constructive={p.constructive:+.3f}  destructive={p.destructive:+.3f}  net={p.net_amplitude:+.3f}")
 print()
@@ -233,7 +233,7 @@ questions = [
 ]
 
 for question, expected in questions:
-    result = mem.detect_structural_anomalies(question)
+    result = mem.analyze.anomalies(question)
     print(f"  Q: {question}")
     print(f"    Status: {result.anomaly_status}  |  Level: {result.reasoning_level}  |  Score: {result.boundary_score:.3f}")
     if result.boundary_warnings:
@@ -338,12 +338,12 @@ import tempfile, os
 tmpdir = tempfile.mkdtemp()
 path = os.path.join(tmpdir, "mechanic_knowledge.json")
 mem.save(path)
-print(f"Saved {mem.graph.node_count} nodes, {mem.graph.edge_count} edges, {mem.log.size} events")
+print(f"Saved {mem.size[0]} nodes, {mem.size[1]} edges, {mem.log.size} events")
 print(f"File: {path}")
 
 mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load(path)
-print(f"Loaded into fresh memory: {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
+print(f"Loaded into fresh memory: {mem2.size[0]} nodes, {mem2.size[1]} edges")
 print(f"Event log preserved: {mem2.log.size} events")
 
 os.remove(path)

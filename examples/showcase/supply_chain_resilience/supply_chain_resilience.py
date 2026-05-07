@@ -509,13 +509,13 @@ def main():
 
     print("\n  Top 10 by degree centrality (most connected / highest ripple):")
     for name, score in top_k(deg, k=10):
-        node = mem.graph.get_node_by_label(name)
+        node = mem.engine.graph.get_node_by_label(name)
         cat = node.data.get("category", "?") if node and node.data else "?"
         print(f"    {name:35s} deg={score:.3f}  [{cat}]")
 
     print("\n  Top 10 by betweenness centrality (critical chokepoints):")
     for name, score in top_k(btw, k=10):
-        node = mem.graph.get_node_by_label(name)
+        node = mem.engine.graph.get_node_by_label(name)
         cat = node.data.get("category", "?") if node and node.data else "?"
         print(f"    {name:35s} btw={score:.3f}  [{cat}]")
     print()
@@ -553,7 +553,7 @@ def main():
     ]
     print(f"\n  Single-source suppliers with NO backup coverage ({len(unprotected_suppliers)}):")
     for name in unprotected_suppliers:
-        node = mem.graph.get_node_by_label(name)
+        node = mem.engine.graph.get_node_by_label(name)
         d = node.data if node and node.data else {}
         print(f"    {name:35s} country={d.get('country', '?'):15s} "
               f"material={d.get('material', '?')}")
@@ -585,7 +585,7 @@ def main():
         TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by"),
     )
     result1 = mem.reason(
-        seed_concepts=cascade_seeds,
+        seeds=cascade_seeds,
         max_depth=3,
         max_total_states=50,
     )
@@ -600,7 +600,7 @@ def main():
         InverseRule(edge_label="supplies_to", inverse_label="supplied_by"),
     )
     result2 = mem.reason(
-        seed_concepts=cascade_seeds,
+        seeds=cascade_seeds,
         max_depth=3,
         max_total_states=50,
     )
@@ -649,7 +649,7 @@ def main():
             for i, path in enumerate(paths[:2]):
                 lead_total = 0
                 for step in path:
-                    n = mem.graph.get_node_by_label(step)
+                    n = mem.engine.graph.get_node_by_label(step)
                     if n and n.data and "lead_time_days" in n.data:
                         lead_total += n.data["lead_time_days"]
                 print(f"    Path {i+1} ({len(path)} hops, lead_time_sum={lead_total}d):")
@@ -662,7 +662,7 @@ def main():
     for i, comp in enumerate(sorted(components, key=len, reverse=True)[:3]):
         cats: dict[str, int] = {}
         for lbl in comp:
-            n = mem.graph.get_node_by_label(lbl)
+            n = mem.engine.graph.get_node_by_label(lbl)
             if n and n.data:
                 c = n.data.get("category", "unknown")
                 cats[c] = cats.get(c, 0) + 1
@@ -698,23 +698,23 @@ def main():
     worst_chain_lead = 0
     worst_chain_path: list[str] = []
     for t3_name in tier3_suppliers:
-        t3_node = mem.graph.get_node_by_label(t3_name)
+        t3_node = mem.engine.graph.get_node_by_label(t3_name)
         if not t3_node:
             continue
         t3_lt = suppliers[t3_name]["lead_time_days"]
-        for e1 in mem.graph.incident_edges(t3_node.id):
+        for e1 in mem.engine.graph.incident_edges(t3_node.id):
             if e1.label != "supplies_to":
                 continue
             for t2_id in e1.target_ids:
-                t2_node = mem.graph.get_node(t2_id)
+                t2_node = mem.engine.graph.get_node(t2_id)
                 if not t2_node or t2_node.data.get("tier") != 2:
                     continue
                 t2_lt = t2_node.data.get("lead_time_days", 0)
-                for e2 in mem.graph.incident_edges(t2_id):
+                for e2 in mem.engine.graph.incident_edges(t2_id):
                     if e2.label != "supplies_to":
                         continue
                     for t1_id in e2.target_ids:
-                        t1_node = mem.graph.get_node(t1_id)
+                        t1_node = mem.engine.graph.get_node(t1_id)
                         if not t1_node or t1_node.data.get("tier") != 1:
                             continue
                         t1_lt = t1_node.data.get("lead_time_days", 0)
@@ -727,7 +727,7 @@ def main():
         print(f"\n  Worst-case supply chain lead time: {worst_chain_lead}d")
         print(f"    Path: {' -> '.join(worst_chain_path)}")
         for step in worst_chain_path:
-            n = mem.graph.get_node_by_label(step)
+            n = mem.engine.graph.get_node_by_label(step)
             if n and n.data:
                 print(f"      {step}: {n.data.get('lead_time_days', '?')}d  "
                       f"[{n.data.get('material', '?')}]")
@@ -757,7 +757,7 @@ def main():
     dc_no_backup = [name for name, data in dist_centers.items() if not data.get("backup")]
     print(f"\n  Distribution centers without backup ({len(dc_no_backup)}):")
     for name in dc_no_backup:
-        node = mem.graph.get_node_by_label(name)
+        node = mem.engine.graph.get_node_by_label(name)
         d = node.data if node and node.data else {}
         print(f"    {name:25s} region={d.get('region', '?')} capacity={d.get('capacity', '?')}")
 
@@ -768,7 +768,7 @@ def main():
     print(f"\n  Suppliers not listed as backup providers ({len(suppliers_without_backup_entry)}):")
     critical_no_backup = []
     for name in suppliers_without_backup_entry:
-        node = mem.graph.get_node_by_label(name)
+        node = mem.engine.graph.get_node_by_label(name)
         d = node.data if node and node.data else {}
         if d.get("single_source") or d.get("reliability_score", 1.0) < 0.80:
             critical_no_backup.append((name, d))
@@ -785,7 +785,7 @@ def main():
         for edge_info in mem.pattern_match(edge_label="affected_by", target_label=name):
             src_labels = edge_info.source_labels
             if src_labels and src_labels[0].startswith("risk_"):
-                risk_node = mem.graph.get_node_by_label(src_labels[0])
+                risk_node = mem.engine.graph.get_node_by_label(src_labels[0])
                 if risk_node and risk_node.data:
                     risk_count += risk_node.data.get("impact", 0)
         has_backup = name in backup_srcs

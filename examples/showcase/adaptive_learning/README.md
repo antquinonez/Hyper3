@@ -459,10 +459,10 @@ This showcase constructs a synthetic graph and records pre-defined outcomes. Pro
 | `mem.introspect()` | Get system health report |
 | `mem.check_metamorphosis()` | Check for structural metamorphosis triggers |
 | `mem.propose_tuning(triggers)` | Generate a remediation plan |
-| `mem.graph.node_count` | Total number of nodes |
-| `mem.graph.edge_count` | Total number of edges |
-| `mem.graph.get_node(node_id)` | Get node by ID |
-| `mem.graph.get_node_by_label(label)` | Get node by label |
+| `mem.engine.graph.node_count` | Total number of nodes |
+| `mem.engine.graph.edge_count` | Total number of edges |
+| `mem.engine.graph.get_node(node_id)` | Get node by ID |
+| `mem.engine.graph.get_node_by_label(label)` | Get node by label |
 
 ### Related Examples
 

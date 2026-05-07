@@ -57,7 +57,7 @@ def main() -> None:
     print("=" * 70)
 
     result = mem.reason(
-        seed_concepts={"supplier_acme", "supplier_globex", "widget_alpha"},
+        seeds={"supplier_acme", "supplier_globex", "widget_alpha"},
         max_depth=3,
     )
     print(f"edges produced: {result.expansion.edges_produced}")
