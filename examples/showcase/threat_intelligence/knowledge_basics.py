@@ -381,36 +381,36 @@ def main():
     print("=" * 70)
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
 
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        mem.add(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
 
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
 
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
 
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        mem.add(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
 
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        mem.add(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
 
-    print(f"  Stored {mem.graph.node_count} nodes")
+    print(f"  Stored {mem.size[0]} nodes")
 
     edge_count = 0
     for rel_label, pairs in RELATIONSHIP_MAP.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
+            mem.link(src, tgt, label=rel_label)
             edge_count += 1
 
     for src, tgt in ACTOR_TO_TTP:
-        mem.relate(src, tgt, label="uses_tactic")
+        mem.link(src, tgt, label="uses_tactic")
         edge_count += 1
 
-    print(f"  Created {mem.graph.edge_count} edges ({edge_count} requested)")
+    print(f"  Created {mem.size[1]} edges ({edge_count} requested)")
     print()
 
     print("=" * 70)
@@ -672,7 +672,7 @@ def main():
     print("SECTION 11: Threat Ecosystem Communities")
     print("=" * 70)
 
-    comm_result = mem.detect_communities(seed=42)
+    comm_result = mem.analyze.communities(seed=42)
     print(f"  Communities detected: {comm_result.community_count}")
     print(f"  Modularity: {comm_result.modularity:.4f}")
     print(f"  Coverage: {comm_result.coverage:.4f}")
@@ -710,7 +710,7 @@ def main():
 
     anomaly_actors = ["APT28", "Lazarus", "Conti", "Sandworm", "Volt_Typhoon"]
     for actor in anomaly_actors:
-        result = mem.detect_structural_anomalies(actor)
+        result = mem.analyze.anomalies(actor)
         print(f"\n  {actor}:")
         print(f"    Status:  {result.anomaly_status}")
         print(f"    Score:   {result.boundary_score:.4f}")

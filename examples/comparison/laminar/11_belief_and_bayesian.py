@@ -22,10 +22,10 @@ def main() -> None:
 
     mem = HypergraphMemory(evolve_interval=0)
 
-    mem.store("patient", data={"type": "entity"})
-    mem.store("healthy", data={"type": "state"})
-    mem.store("disease_a", data={"type": "state"})
-    mem.store("disease_b", data={"type": "state"})
+    mem.add("patient", data={"type": "entity"})
+    mem.add("healthy", data={"type": "state"})
+    mem.add("disease_a", data={"type": "state"})
+    mem.add("disease_b", data={"type": "state"})
 
     print("\n--- No competitor equivalent ---")
     print("Set prior and update with evidence")
@@ -55,13 +55,13 @@ def main() -> None:
     print("SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS")
     print("=" * 70)
 
-    mem.store("bank", data={"type": "ambiguous"})
-    mem.store("financial", data={"type": "sense"})
-    mem.store("river_edge", data={"type": "sense"})
-    mem.store("billiards", data={"type": "sense"})
-    mem.store("drinking", data={"type": "sense"})
-    mem.store("river", data={"type": "sense"})
-    mem.store("ocean", data={"type": "sense"})
+    mem.add("bank", data={"type": "ambiguous"})
+    mem.add("financial", data={"type": "sense"})
+    mem.add("river_edge", data={"type": "sense"})
+    mem.add("billiards", data={"type": "sense"})
+    mem.add("drinking", data={"type": "sense"})
+    mem.add("river", data={"type": "sense"})
+    mem.add("ocean", data={"type": "sense"})
 
     mem.create_distribution(
         ["financial", "river_edge", "billiards"],
@@ -91,8 +91,8 @@ def main() -> None:
 
     print("\n--- No competitor equivalent ---")
 
-    mem.store("water", data={"type": "concept"})
-    mem.store("fish", data={"type": "concept"})
+    mem.add("water", data={"type": "concept"})
+    mem.add("fish", data={"type": "concept"})
 
     mem.create_distribution(
         ["financial", "river_edge", "billiards"],

@@ -292,7 +292,7 @@ class BeliefMixin(_MemoryBase):
         return result
 
     @property
-    def belief(self) -> BeliefLayer:
+    def belief_layer(self) -> BeliefLayer:
         """The belief layer for distribution and resolution."""
         return self._belief
 

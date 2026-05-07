@@ -234,19 +234,19 @@ def main():
     section(1, "Building the Threat Intelligence Knowledge Graph")
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        mem.add(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        mem.add(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        mem.add(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
     for ioc in STALE_IOC:
-        mem.store(ioc["label"], data=ioc["data"], modalities={Modality.SENSORY})
+        mem.add(ioc["label"], data=ioc["data"], modalities={Modality.SENSORY})
         n = mem.graph.get_node_by_label(ioc["label"])
         if n:
             n.weight = 0.05
@@ -254,11 +254,11 @@ def main():
     edge_count = 0
     for rel_label, pairs in RELATIONSHIPS.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
+            mem.link(src, tgt, label=rel_label)
             edge_count += 1
 
-    print(f"  Nodes:  {mem.graph.node_count}")
-    print(f"  Edges:  {mem.graph.edge_count}")
+    print(f"  Nodes:  {mem.size[0]}")
+    print(f"  Edges:  {mem.size[1]}")
     actor_set = {a["label"] for a in THREAT_ACTORS}
     cve_set = {c["label"] for c in CVES}
     mw_set = {m["label"] for m in MALWARE}
@@ -271,7 +271,7 @@ def main():
     print("  AbductiveRule: if APT targets sector S, hypothesize about causation.")
     print()
 
-    pre_edges = mem.graph.edge_count
+    pre_edges = mem.size[1]
 
     mem.add_rules(
         InverseRule(edge_label="exploits", inverse_label="exploited_by"),
@@ -288,7 +288,7 @@ def main():
         auto_commit=True,
     )
 
-    new_edges = mem.graph.edge_count - pre_edges
+    new_edges = mem.size[1] - pre_edges
 
     print(f"  States explored:    {result.expansion.states_created}")
     print(f"  Rules applied:      {result.expansion.rules_applied}")
@@ -413,8 +413,8 @@ def main():
         mem.recall("Lazarus", max_depth=2, max_nodes=20)
         mem.recall("CVE-2023-44228", max_depth=2, max_nodes=20)
 
-    pre_nodes = mem.graph.node_count
-    pre_edges_evolve = mem.graph.edge_count
+    pre_nodes = mem.size[0]
+    pre_edges_evolve = mem.size[1]
     stale_labels = {ioc["label"] for ioc in STALE_IOC}
 
     stale_labels = {ioc["label"] for ioc in STALE_IOC}

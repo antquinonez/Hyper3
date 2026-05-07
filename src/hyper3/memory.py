@@ -31,6 +31,17 @@ from hyper3.memory_temporal import TemporalMixin
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
+from hyper3.namespaces import (
+    AnalyzeNamespace,
+    BayesNamespace,
+    BeliefNamespace,
+    CognitiveNamespace,
+    EngineAccessor,
+    MonitorNamespace,
+    ReasonNamespace,
+    SearchNamespace,
+    TemporalNamespace,
+)
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import ProvenanceTracker
@@ -172,3 +183,66 @@ class HypergraphMemory(
         self._abstraction_nav: AbstractionNavigator | None = None
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None
+        self._ns_reason: ReasonNamespace | None = None
+        self._ns_belief: BeliefNamespace | None = None
+        self._ns_bayes: BayesNamespace | None = None
+        self._ns_search: SearchNamespace | None = None
+        self._ns_analyze: AnalyzeNamespace | None = None
+        self._ns_temporal: TemporalNamespace | None = None
+        self._ns_monitor: MonitorNamespace | None = None
+        self._ns_cognitive: CognitiveNamespace | None = None
+        self._ns_engine: EngineAccessor | None = None
+
+    @property
+    def reason(self) -> ReasonNamespace:
+        if self._ns_reason is None:
+            self._ns_reason = ReasonNamespace(self)
+        return self._ns_reason
+
+    @property
+    def belief(self) -> BeliefNamespace:
+        if self._ns_belief is None:
+            self._ns_belief = BeliefNamespace(self)
+        return self._ns_belief
+
+    @property
+    def bayes(self) -> BayesNamespace:
+        if self._ns_bayes is None:
+            self._ns_bayes = BayesNamespace(self)
+        return self._ns_bayes
+
+    @property
+    def search(self) -> SearchNamespace:
+        if self._ns_search is None:
+            self._ns_search = SearchNamespace(self)
+        return self._ns_search
+
+    @property
+    def analyze(self) -> AnalyzeNamespace:
+        if self._ns_analyze is None:
+            self._ns_analyze = AnalyzeNamespace(self)
+        return self._ns_analyze
+
+    @property
+    def temporal(self) -> TemporalNamespace:
+        if self._ns_temporal is None:
+            self._ns_temporal = TemporalNamespace(self)
+        return self._ns_temporal
+
+    @property
+    def monitor(self) -> MonitorNamespace:
+        if self._ns_monitor is None:
+            self._ns_monitor = MonitorNamespace(self)
+        return self._ns_monitor
+
+    @property
+    def cognitive(self) -> CognitiveNamespace:
+        if self._ns_cognitive is None:
+            self._ns_cognitive = CognitiveNamespace(self)
+        return self._ns_cognitive
+
+    @property
+    def engine(self) -> EngineAccessor:
+        if self._ns_engine is None:
+            self._ns_engine = EngineAccessor(self)
+        return self._ns_engine

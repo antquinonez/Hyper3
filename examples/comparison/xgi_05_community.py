@@ -108,7 +108,7 @@ def main() -> None:
 
     print()
     print("--- Hyper3 equivalent ---")
-    print("mem.detect_communities(seed=42)  -> CommunityResult with modularity, coverage")
+    print("mem.analyze.communities(seed=42)  -> CommunityResult with modularity, coverage")
 
     print()
     print("=" * 70)

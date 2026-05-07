@@ -43,11 +43,11 @@ class MedicalTimelineTracker:
         Returns:
             Symptom label.
         """
-        if not self.mem.has_node(name):
+        if not self.mem.has(name):
             start_ts = self._iso_to_timestamp(start)
             end_ts = self._iso_to_timestamp(end)
             data = {"start": start, "end": end, **properties}
-            self.mem.store(name, data=data)
+            self.mem.add(name, data=data)
             self.mem.add_temporal_event(name, start=start_ts, end=end_ts, **properties)
         return name
 
@@ -62,12 +62,12 @@ class MedicalTimelineTracker:
         Returns:
             Visit ID.
         """
-        if not self.mem.has_node(visit_id):
-            self.mem.store(visit_id, data=properties)
+        if not self.mem.has(visit_id):
+            self.mem.add(visit_id, data=properties)
 
         for symptom in symptoms:
-            if not self.mem.has_node(symptom):
-                self.mem.store(symptom)
+            if not self.mem.has(symptom):
+                self.mem.add(symptom)
 
         self.mem.relate_hyperedge(
             sources={visit_id},

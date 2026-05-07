@@ -137,8 +137,8 @@ class TestIntegrationFullPipeline:
             assert analysis.solution_approach == expected_approaches[frame]
 
         custom = SamplingProfile(name="diagnostic", dimensions=["severity", "frequency"])
-        mem.belief.add_basis(custom)
-        basis = mem.belief.get_basis("diagnostic")
+        mem.belief_layer.add_basis(custom)
+        basis = mem.belief_layer.get_basis("diagnostic")
         assert basis is not None
         assert basis.name == "diagnostic"
 

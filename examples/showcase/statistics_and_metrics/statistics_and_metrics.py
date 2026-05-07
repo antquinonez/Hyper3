@@ -24,15 +24,15 @@ def main() -> None:
 
     concepts = ["a", "b", "c", "d", "e"]
     for c in concepts:
-        mem.store(c, data={})
+        mem.add(c, data={})
 
-    mem.relate("a", "b", label="connected")
-    mem.relate("a", "c", label="connected")
-    mem.relate("b", "c", label="connected")
-    mem.relate("b", "d", label="connected")
-    mem.relate("c", "d", label="connected")
-    mem.relate("c", "e", label="connected")
-    mem.relate("d", "e", label="connected")
+    mem.link("a", "b", label="connected")
+    mem.link("a", "c", label="connected")
+    mem.link("b", "c", label="connected")
+    mem.link("b", "d", label="connected")
+    mem.link("c", "d", label="connected")
+    mem.link("c", "e", label="connected")
+    mem.link("d", "e", label="connected")
 
     degree_dict = mem.degree()
 

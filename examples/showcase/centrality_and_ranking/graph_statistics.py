@@ -29,20 +29,20 @@ def main() -> None:
         ("python", {"type": "language"}),
         ("project_x", {"type": "project"}),
     ]:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
-    mem.relate("alice", "bob", label="collaborates", weight=5.0)
-    mem.relate("alice", "carol", label="collaborates", weight=3.0)
-    mem.relate("bob", "dave", label="reports_to", weight=4.0)
-    mem.relate("carol", "eve", label="collaborates", weight=2.0)
-    mem.relate("alice", "python", label="uses", weight=5.0)
-    mem.relate("bob", "python", label="uses", weight=4.0)
-    mem.relate("eve", "python", label="uses", weight=3.0)
-    mem.relate("alice", "project_x", label="leads", weight=5.0)
-    mem.relate("bob", "project_x", label="works_on", weight=4.0)
-    mem.relate("carol", "project_x", label="works_on", weight=3.0)
-    mem.relate("dave", "project_x", label="works_on", weight=2.0)
-    mem.relate("eve", "project_x", label="works_on", weight=2.0)
+    mem.link("alice", "bob", label="collaborates", weight=5.0)
+    mem.link("alice", "carol", label="collaborates", weight=3.0)
+    mem.link("bob", "dave", label="reports_to", weight=4.0)
+    mem.link("carol", "eve", label="collaborates", weight=2.0)
+    mem.link("alice", "python", label="uses", weight=5.0)
+    mem.link("bob", "python", label="uses", weight=4.0)
+    mem.link("eve", "python", label="uses", weight=3.0)
+    mem.link("alice", "project_x", label="leads", weight=5.0)
+    mem.link("bob", "project_x", label="works_on", weight=4.0)
+    mem.link("carol", "project_x", label="works_on", weight=3.0)
+    mem.link("dave", "project_x", label="works_on", weight=2.0)
+    mem.link("eve", "project_x", label="works_on", weight=2.0)
     mem.relate_hyperedge(
         sources={"alice", "bob"},
         targets={"project_x"},
@@ -100,8 +100,8 @@ def main() -> None:
     print("SECTION 4: EVOLUTION IMPACT ON STATISTICS")
     print("=" * 70)
 
-    before_nodes = mem.graph.node_count
-    before_edges = mem.graph.edge_count
+    before_nodes = mem.size[0]
+    before_edges = mem.size[1]
     before_density = mem.density()
 
     mem.stimulate("alice", energy=1.0)

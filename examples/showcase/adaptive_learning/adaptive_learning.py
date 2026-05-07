@@ -82,25 +82,25 @@ PLAYBOOKS = [
 
 def _build_graph(mem: HypergraphMemory) -> None:
     for srv in SERVERS:
-        mem.store(srv, data={"type": "server", "region": REGIONS[hash(srv) % len(REGIONS)]})
+        mem.add(srv, data={"type": "server", "region": REGIONS[hash(srv) % len(REGIONS)]})
 
     for svc in SERVICES:
-        mem.store(svc, data={"type": "service"})
+        mem.add(svc, data={"type": "service"})
 
     for alt in ALERT_TYPES:
-        mem.store(alt, data={"type": "alert"})
+        mem.add(alt, data={"type": "alert"})
 
     for inc in INCIDENT_TYPES:
-        mem.store(inc, data={"type": "incident"})
+        mem.add(inc, data={"type": "incident"})
 
     for pb in PLAYBOOKS:
-        mem.store(pb, data={"type": "playbook"})
+        mem.add(pb, data={"type": "playbook"})
 
     for env in ENVIRONMENTS:
-        mem.store(env, data={"type": "environment"})
+        mem.add(env, data={"type": "environment"})
 
     for region in REGIONS:
-        mem.store(region, data={"type": "region"})
+        mem.add(region, data={"type": "region"})
 
     _link_servers_to_services(mem)
     _link_service_dependencies(mem)
@@ -141,7 +141,7 @@ def _link_servers_to_services(mem: HypergraphMemory) -> None:
     }
     for svc, servers in service_servers.items():
         for srv in servers:
-            mem.relate(srv, svc, label="hosts")
+            mem.link(srv, svc, label="hosts")
 
 
 def _link_service_dependencies(mem: HypergraphMemory) -> None:
@@ -170,7 +170,7 @@ def _link_service_dependencies(mem: HypergraphMemory) -> None:
         ("vpn-gateway-01", "dns-service"), ("vpn-gateway-01", "auth-service"),
     ]
     for src, tgt in deps:
-        mem.relate(src, tgt, label="depends_on")
+        mem.link(src, tgt, label="depends_on")
 
 
 def _link_alerts_to_services(mem: HypergraphMemory) -> None:
@@ -195,7 +195,7 @@ def _link_alerts_to_services(mem: HypergraphMemory) -> None:
         ("dns-resolution-failure", "dns-service"), ("dns-resolution-failure", "cdn-layer"),
     ]
     for alt, svc in links:
-        mem.relate(alt, svc, label="triggers_on")
+        mem.link(alt, svc, label="triggers_on")
 
 
 def _link_incidents_to_alerts(mem: HypergraphMemory) -> None:
@@ -212,7 +212,7 @@ def _link_incidents_to_alerts(mem: HypergraphMemory) -> None:
         ("certificate-expiry", "security-breach"),
     ]
     for alt, inc in links:
-        mem.relate(alt, inc, label="escalates_to")
+        mem.link(alt, inc, label="escalates_to")
 
 
 def _link_playbooks_to_incidents(mem: HypergraphMemory) -> None:
@@ -229,7 +229,7 @@ def _link_playbooks_to_incidents(mem: HypergraphMemory) -> None:
         ("migrate-region", "full-outage"),
     ]
     for pb, inc in links:
-        mem.relate(pb, inc, label="remediates")
+        mem.link(pb, inc, label="remediates")
 
 
 def _link_infrastructure(mem: HypergraphMemory) -> None:
@@ -237,10 +237,10 @@ def _link_infrastructure(mem: HypergraphMemory) -> None:
         node = mem.graph.get_node_by_label(srv)
         if node and node.data:
             region = node.data.get("region", "us-east-1")
-            mem.relate(srv, region, label="located_in")
-            mem.relate(srv, "production", label="deployed_in")
+            mem.link(srv, region, label="located_in")
+            mem.link(srv, "production", label="deployed_in")
     for svc in SERVICES:
-        mem.relate(svc, "production", label="deployed_in")
+        mem.link(svc, "production", label="deployed_in")
 
 
 def main() -> None:
@@ -251,8 +251,8 @@ def main() -> None:
     print("=" * 70)
 
     _build_graph(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -304,7 +304,7 @@ def main() -> None:
     print("SECTION 3: Measurement Basis Learning (Thompson Sampling)")
     print("=" * 70)
 
-    quantum = mem.belief
+    quantum = mem.engine.belief
 
     training_outcomes = [
         ("pragmatic", True), ("pragmatic", True), ("pragmatic", True),
@@ -475,7 +475,7 @@ def main() -> None:
     print("SECTION 6: Adaptive Learning Summary")
     print("=" * 70)
 
-    print(f"  Graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
 
     print(f"\n  Rule effectiveness rankings (top 5):")
     best = rule_analytics.get_best_rules(5)

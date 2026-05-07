@@ -33,8 +33,8 @@ def main():
     print("  (Registers TransitiveRule for causal chain discovery)")
     engine = ITTroubleshootingEngine()
 
-    print(f"  Total nodes: {engine.mem.graph.node_count}")
-    print(f"  Total edges: {engine.mem.graph.edge_count}")
+    print(f"  Total nodes: {engine.mem.size[0]}")
+    print(f"  Total edges: {engine.mem.size[1]}")
 
     print("\nSECTION 2: Proving root cause: power_failure -> server_wont_boot")
     print("  (Using mem.find_paths() for causal path discovery)")

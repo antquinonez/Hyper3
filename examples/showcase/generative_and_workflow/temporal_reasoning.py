@@ -36,7 +36,7 @@ def main() -> None:
         ("herd_immunity", 14.0, 20.0),
     ]
     for name, start, end in events:
-        mem.store(name, data={"type": "event"})
+        mem.add(name, data={"type": "event"})
         mem.add_temporal_event(name, start=start, end=end)
 
     causal_edges = [
@@ -51,9 +51,9 @@ def main() -> None:
         ("second_wave", "recovery_begins", "interrupts"),
     ]
     for src, tgt, label in causal_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"events: {mem.graph.node_count}, causal edges: {mem.graph.edge_count}")
+    print(f"events: {mem.size[0]}, causal edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: ALLEN INTERVAL RELATIONS")
@@ -132,7 +132,7 @@ def main() -> None:
         ("vaccine_mandate", {}),
     ]
     for name, data in uncertain_events:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     concepts = [name for name, _ in uncertain_events]
     qs = mem.create_distribution(concepts, use_context_field=False)

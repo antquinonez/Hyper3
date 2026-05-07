@@ -17,8 +17,8 @@ class JobSkillMatchingEngine:
         )
 
     def add_skill(self, name: str, **properties) -> str:
-        if not self.mem.has_node(name):
-            self.mem.store(name, data=properties)
+        if not self.mem.has(name):
+            self.mem.add(name, data=properties)
         return name
 
     def add_job(self, title: str, skills: list[str], **properties) -> str:
@@ -32,8 +32,8 @@ class JobSkillMatchingEngine:
         Returns:
             Job title label.
         """
-        if not self.mem.has_node(title):
-            self.mem.store(title, data={"type": "job", **properties})
+        if not self.mem.has(title):
+            self.mem.add(title, data={"type": "job", **properties})
 
         for skill in skills:
             self.add_skill(skill)
@@ -50,7 +50,7 @@ class JobSkillMatchingEngine:
                                 confidence: float = 0.8) -> None:
         self.add_skill(from_skill)
         self.add_skill(to_skill)
-        self.mem.relate(
+        self.mem.link(
             from_skill, to_skill,
             label="substitutes_for",
             weight=confidence,
@@ -68,7 +68,7 @@ class JobSkillMatchingEngine:
         Returns:
             List of dicts with keys: label, confidence, depth, path.
         """
-        if not self.mem.has_node(skill):
+        if not self.mem.has(skill):
             return []
 
         result = []

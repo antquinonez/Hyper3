@@ -218,19 +218,19 @@ def main() -> None:
 
     all_entities = {**DISEASES, **SYMPTOMS, **LAB_FINDINGS, **IMAGING, **RISK_FACTORS, **MEDICATIONS}
     for name, data in all_entities.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt in CAUSES_EDGES:
-        mem.relate(src, tgt, label="causes")
+        mem.link(src, tgt, label="causes")
     for src, tgt in RISK_FACTOR_EDGES:
-        mem.relate(src, tgt, label="increases_risk")
+        mem.link(src, tgt, label="increases_risk")
     for src, tgt in TREATS_EDGES:
-        mem.relate(src, tgt, label="treats")
+        mem.link(src, tgt, label="treats")
     for src, tgt, label in CONFLICTS:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print(f"    causes:          {len(CAUSES_EDGES)}")
     print(f"    increases_risk:  {len(RISK_FACTOR_EDGES)}")
     print(f"    treats:          {len(TREATS_EDGES)}")
@@ -278,10 +278,10 @@ def main() -> None:
     print("SECTION 3: Belief Revision - Contradictory Findings")
     print("=" * 70)
 
-    mem.store("patient_ct_result", data={"finding": "chest_infiltrate_xray"})
-    mem.relate("patient_ct_result", "pneumonia", label="supports")
-    mem.store("negative_blood_culture", data={"finding": "no_bacteremia"})
-    mem.relate("negative_blood_culture", "pneumonia", label="opposes")
+    mem.add("patient_ct_result", data={"finding": "chest_infiltrate_xray"})
+    mem.link("patient_ct_result", "pneumonia", label="supports")
+    mem.add("negative_blood_culture", data={"finding": "no_bacteremia"})
+    mem.link("negative_blood_culture", "pneumonia", label="opposes")
 
     contradictions = mem.detect_contradictions()
     print(f"  Clinical contradictions detected: {len(contradictions)}")
@@ -407,7 +407,7 @@ def main() -> None:
     print(f"  Running structural anomaly detection on {len(anomaly_concepts)} concepts:")
     print()
     for concept in anomaly_concepts:
-        result = mem.detect_structural_anomalies(concept)
+        result = mem.analyze.anomalies(concept)
         print(f"    {concept}:")
         print(f"      status={result.anomaly_status}  boundary_score={result.boundary_score:.3f}")
         for insight in result.structural_insights[:3]:

@@ -178,13 +178,13 @@ def main() -> None:
     print("=" * 70)
 
     for name, data in SERVERS.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt, label in DEPENDENCIES:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     for src, tgt, label in FAILURE_MODES:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     stats = mem.stats()
     print(f"  Servers: {len(SERVERS)}")
@@ -217,7 +217,7 @@ def main() -> None:
     print(f"\n  Round 1 evolve: decayed={result1.decayed}, pruned={result1.pruned}, "
           f"merged={result1.merged}")
     print(f"  Fitness trend after Round 1: {mem.operation_feedback.get_fitness_trend()}")
-    print(f"  Nodes: {mem.graph.node_count}, Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}, Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -225,15 +225,15 @@ def main() -> None:
     print("=" * 70)
 
     for name, data in NOISY_NODES.items():
-        node = mem.store(name, data=data)
+        node = mem.add(name, data=data)
         node.weight = data["health"]
 
-    mem.relate("stale-metric-aggregator-01", "db-pg-primary", label="reads_from")
-    mem.relate("legacy-xml-api-01", "lb-ha-01", label="routes_to")
-    mem.relate("zombie-cron-worker-01", "queue-rmq-01", label="publishes_to")
+    mem.link("stale-metric-aggregator-01", "db-pg-primary", label="reads_from")
+    mem.link("legacy-xml-api-01", "lb-ha-01", label="routes_to")
+    mem.link("zombie-cron-worker-01", "queue-rmq-01", label="publishes_to")
 
     print(f"  Added {len(NOISY_NODES)} noisy/stale nodes with low weights")
-    print(f"  Total nodes: {mem.graph.node_count}")
+    print(f"  Total nodes: {mem.size[0]}")
 
     for i in range(5):
         evo = mem.evolve()
@@ -299,7 +299,7 @@ def main() -> None:
     summary_after = mem.feedback_summary()
     print(f"\n  Post-recovery health: {summary_after['overall_health']:.2f}")
     print(f"  Post-recovery trend: {summary_after['fitness_trend']}")
-    print(f"  Nodes remaining: {mem.graph.node_count}")
+    print(f"  Nodes remaining: {mem.size[0]}")
     print()
 
     remaining_stale = 0

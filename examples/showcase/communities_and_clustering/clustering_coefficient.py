@@ -90,11 +90,11 @@ def main() -> None:
     hmem = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d"]:
         hmem.ensure(c)
-    hmem.relate("a", "b", label="e")
-    hmem.relate("b", "c", label="e")
-    hmem.relate("c", "d", label="e")
-    hmem.relate("d", "a", label="e")
-    hmem.relate("a", "c", label="e")
+    hmem.link("a", "b", label="e")
+    hmem.link("b", "c", label="e")
+    hmem.link("c", "d", label="e")
+    hmem.link("d", "a", label="e")
+    hmem.link("a", "c", label="e")
     hmem.relate_hyperedge(
         sources={"a", "b"},
         targets={"c", "d"},
@@ -102,7 +102,7 @@ def main() -> None:
         weight=5.0,
     )
 
-    print(f"\nn-ary hypergraph: nodes={hmem.graph.node_count}, edges={hmem.graph.edge_count}")
+    print(f"\nn-ary hypergraph: nodes={hmem.size[0]}, edges={hmem.size[1]}")
     for concept in sorted(m.label for m in hmem.graph.nodes):
         cc = hmem.clustering_coefficient(concept)
         print(f"  {concept}: clustering={cc:.4f}")

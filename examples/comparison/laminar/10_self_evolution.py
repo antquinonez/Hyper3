@@ -23,17 +23,17 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for node in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]:
-        mem.store(node, data={"type": "concept"})
+        mem.add(node, data={"type": "concept"})
 
-    mem.relate("alpha", "beta", label="related", weight=5.0)
-    mem.relate("beta", "gamma", label="related", weight=5.0)
-    mem.relate("gamma", "delta", label="related", weight=5.0)
-    mem.relate("delta", "epsilon", label="related", weight=1.0)
-    mem.relate("epsilon", "zeta", label="related", weight=1.0)
-    mem.relate("zeta", "eta", label="related", weight=0.5)
-    mem.relate("eta", "theta", label="related", weight=0.3)
+    mem.link("alpha", "beta", label="related", weight=5.0)
+    mem.link("beta", "gamma", label="related", weight=5.0)
+    mem.link("gamma", "delta", label="related", weight=5.0)
+    mem.link("delta", "epsilon", label="related", weight=1.0)
+    mem.link("epsilon", "zeta", label="related", weight=1.0)
+    mem.link("zeta", "eta", label="related", weight=0.5)
+    mem.link("eta", "theta", label="related", weight=0.3)
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
     print("edge weights: 5.0 (core) -> 1.0 (mid) -> 0.3 (peripheral)")
 
     print("\n" + "=" * 70)

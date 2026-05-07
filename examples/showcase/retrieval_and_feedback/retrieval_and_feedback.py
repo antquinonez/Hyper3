@@ -121,7 +121,7 @@ def _build_kb(mem: HypergraphMemory) -> None:
 
     def _store_group(labels: list[str], type_name: str, category: str, kw: list[str]) -> None:
         for label in labels:
-            mem.store(label, data={"type": type_name, "category": category, "keywords": kw})
+            mem.add(label, data={"type": type_name, "category": category, "keywords": kw})
 
     _store_group(security_threats, "threat", "security", ["attack", "exploit", "adversary"])
     _store_group(security_vulns, "vulnerability", "security", ["cve", "flaw", "weakness"])
@@ -426,7 +426,7 @@ def _build_kb(mem: HypergraphMemory) -> None:
         _add(sev, alert, "subclass_of")
 
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
 
 def main():
@@ -441,8 +441,8 @@ def main():
     print("=" * 70)
 
     _build_kb(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
 
     categories: dict[str, int] = {}
     for node in mem.graph.nodes:
@@ -476,7 +476,7 @@ def main():
     print("=" * 70)
     print("  (HashEmbeddingProvider is a deterministic placeholder)")
 
-    similar = mem.find_similar("ransomware", top_k=15, threshold=-1.0)
+    similar = mem.search.similar("ransomware", top_k=15, threshold=-1.0)
     print(f"  {'Label':30s} {'Cosine':>8s} {'Euclid':>8s}")
     print(f"  {'-'*30} {'-'*8} {'-'*8}")
     for s in similar:
@@ -612,7 +612,7 @@ def main():
 
     for query, description in comparison_queries:
         act = mem.activate(query, energy=1.0, top_k=5, iterations=3)
-        sim = mem.find_similar(query, top_k=5, threshold=-1.0)
+        sim = mem.search.similar(query, top_k=5, threshold=-1.0)
         act_labels = [r.label for r in act]
         sim_labels = [s.label_b for s in sim]
         overlap = set(act_labels) & set(sim_labels)

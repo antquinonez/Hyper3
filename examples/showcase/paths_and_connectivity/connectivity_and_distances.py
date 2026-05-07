@@ -29,14 +29,14 @@ def main() -> None:
     for c in ["a", "b", "c", "d", "x", "y", "z", "isolated"]:
         mem.ensure(c)
 
-    mem.relate("a", "b", label="link")
-    mem.relate("b", "c", label="link")
-    mem.relate("c", "d", label="link")
+    mem.link("a", "b", label="link")
+    mem.link("b", "c", label="link")
+    mem.link("c", "d", label="link")
 
-    mem.relate("x", "y", label="link")
-    mem.relate("y", "z", label="link")
+    mem.link("x", "y", label="link")
+    mem.link("y", "z", label="link")
 
-    print(f"\nnodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"\nnodes: {mem.size[0]}, edges: {mem.size[1]}")
     print(f"is_connected: {mem.is_connected()}")
 
     components = mem.connected_components()

@@ -158,7 +158,7 @@ def build_knowledge_graph(
 
     for adv in advisories:
         adv_label = adv.ghsa_id
-        mem.store(adv_label, data={
+        mem.add(adv_label, data={
             "type": "advisory",
             "cve_id": adv.cve_id,
             "severity": adv.severity,
@@ -167,8 +167,8 @@ def build_knowledge_graph(
         })
 
         if adv.cve_id:
-            mem.store(adv.cve_id, data={"type": "cve"})
-            mem.relate(adv.cve_id, adv_label, label="identified_as")
+            mem.add(adv.cve_id, data={"type": "cve"})
+            mem.link(adv.cve_id, adv_label, label="identified_as")
 
         for pkg_info in adv.packages:
             pkg_name = pkg_info["name"]
@@ -176,22 +176,22 @@ def build_knowledge_graph(
 
             if pkg_name in pypi_packages:
                 pypi = pypi_packages[pkg_name]
-                mem.store(pkg_name, data={
+                mem.add(pkg_name, data={
                     "type": "package",
                     "version": pypi.version,
                     "ecosystem": ecosystem,
                 })
 
-                mem.relate(adv_label, pkg_name, label="affects", weight={"CRITICAL": 10.0, "HIGH": 7.0, "MODERATE": 4.0, "LOW": 1.0}.get(adv.severity, 1.0))
+                mem.link(adv_label, pkg_name, label="affects", weight={"CRITICAL": 10.0, "HIGH": 7.0, "MODERATE": 4.0, "LOW": 1.0}.get(adv.severity, 1.0))
 
                 for patched in adv.patched_versions:
                     fixed_label = f"{pkg_name}=={patched}"
-                    mem.store(fixed_label, data={
+                    mem.add(fixed_label, data={
                         "type": "fixed_version",
                         "package": pkg_name,
                         "version": patched,
                     })
-                    mem.relate(adv_label, fixed_label, label="fixes")
+                    mem.link(adv_label, fixed_label, label="fixes")
 
                 deps = _parse_requires_dist(pypi.requires_dist)
                 for dep_name, extras in deps:
@@ -201,14 +201,14 @@ def build_knowledge_graph(
                         "extras": extras,
                         "ecosystem": "pypi",
                     })
-                    mem.relate(pkg_name, dep_label, label="depends_on")
+                    mem.link(pkg_name, dep_label, label="depends_on")
             else:
-                mem.store(pkg_name, data={
+                mem.add(pkg_name, data={
                     "type": "package",
                     "ecosystem": ecosystem,
                     "version": "unknown",
                 })
-                mem.relate(adv_label, pkg_name, label="affects", weight={"CRITICAL": 10.0, "HIGH": 7.0, "MODERATE": 4.0, "LOW": 1.0}.get(adv.severity, 1.0))
+                mem.link(adv_label, pkg_name, label="affects", weight={"CRITICAL": 10.0, "HIGH": 7.0, "MODERATE": 4.0, "LOW": 1.0}.get(adv.severity, 1.0))
 
     stats = mem.stats()
     logger.info(
@@ -292,7 +292,7 @@ def analyze_advisory_patterns(mem: HypergraphMemory) -> dict[str, int]:
 def analyze_ecosystem_communities(mem: HypergraphMemory) -> list[dict[str, Any]]:
     logger = logging.getLogger(__name__)
     try:
-        result = mem.detect_communities(method="label_propagation", seed=42)
+        result = mem.analyze.communities(method="label_propagation", seed=42)
     except Exception:
         logger.warning("Community detection failed; returning empty")
         return []

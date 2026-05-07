@@ -228,13 +228,13 @@ def main() -> None:
 
     all_nodes = {**COMPANIES, **PRODUCTS, **TECHNOLOGIES, **PEOPLE, **STANDARDS}
     for name, data in all_nodes.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt, label, weight in EDGES:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -286,7 +286,7 @@ def main() -> None:
     print("SECTION 5: Community Detection - Natural Clusters")
     print("=" * 70)
 
-    result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities: {result.community_count}")
     print(f"  Modularity:  {result.modularity:.3f}")
     print(f"  Coverage:    {result.coverage:.1%}")
@@ -335,7 +335,7 @@ def main() -> None:
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
     print(f"  Patterns: {len(use_chains)} dependency chains, {len(fan_outs)} hubs, {len(diamonds)} diamonds")
     print(f"  Communities: {result.community_count} (modularity={result.modularity:.3f})")
     print()

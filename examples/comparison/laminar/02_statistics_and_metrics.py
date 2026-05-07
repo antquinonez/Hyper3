@@ -35,15 +35,15 @@ def main() -> None:
 
     concepts = ["a", "b", "c", "d", "e"]
     for c in concepts:
-        mem.store(c)
+        mem.add(c)
 
-    mem.relate("a", "b", label="connected")
-    mem.relate("a", "c", label="connected")
-    mem.relate("b", "c", label="connected")
-    mem.relate("b", "d", label="connected")
-    mem.relate("c", "d", label="connected")
-    mem.relate("c", "e", label="connected")
-    mem.relate("d", "e", label="connected")
+    mem.link("a", "b", label="connected")
+    mem.link("a", "c", label="connected")
+    mem.link("b", "c", label="connected")
+    mem.link("b", "d", label="connected")
+    mem.link("c", "d", label="connected")
+    mem.link("c", "e", label="connected")
+    mem.link("d", "e", label="connected")
 
     degree_dict = mem.degree()
 
@@ -91,9 +91,9 @@ def main() -> None:
     high_degree = [label for label, deg in degree_dict.items() if deg >= 3]
     print(f"nodes with degree >= 3: {high_degree}")
 
-    mem.store("a", data={"type": "hub", "priority": "high"})
-    mem.store("c", data={"type": "hub", "priority": "high"})
-    mem.store("e", data={"type": "leaf", "priority": "low"})
+    mem.add("a", data={"type": "hub", "priority": "high"})
+    mem.add("c", data={"type": "hub", "priority": "high"})
+    mem.add("e", data={"type": "leaf", "priority": "low"})
 
     hubs = mem.query_nodes(data={"type": "hub"})
     print(f"hub-type nodes: {hubs}")

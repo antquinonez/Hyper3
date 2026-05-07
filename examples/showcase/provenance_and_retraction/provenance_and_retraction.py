@@ -55,7 +55,7 @@ def main():
         "apoptosis": {"type": "mechanism"},
     }
     for name, data in entities.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     # Evidence-backed relationships
     relations = [
@@ -74,9 +74,9 @@ def main():
         ("dna_damage", "ovarian_cancer", "associated_with"),
     ]
     for src, tgt, label in relations:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"  {mem.graph.node_count} entities, {mem.graph.edge_count} relationships")
+    print(f"  {mem.size[0]} entities, {mem.size[1]} relationships")
     print()
 
     # =====================================================================
@@ -172,7 +172,7 @@ def main():
     print("SECTION 5: Cascading Retraction")
     print("=" * 70)
 
-    print(f"  Graph before retraction: {mem.graph.edge_count} edges")
+    print(f"  Graph before retraction: {mem.size[1]} edges")
     print(f"  Provenance records: {mem.provenance.record_count}")
 
     # Retract a specific inference
@@ -189,7 +189,7 @@ def main():
                 pass  # edge already removed
             print(f"    Removed edge {rid[:12]}...")
 
-    print(f"\n  Graph after retraction: {mem.graph.edge_count} edges")
+    print(f"\n  Graph after retraction: {mem.size[1]} edges")
     print(f"  Provenance records: {mem.provenance.record_count}")
     print()
 

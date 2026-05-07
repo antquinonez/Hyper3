@@ -516,5 +516,62 @@ class LabeledEdge(_SimpleResultBase):
     target_cardinality: int = 1
 
 
+@dataclass
+class NodeInfo(_SimpleResultBase):
+    label: str = ""
+    data: dict[str, Any] = field(default_factory=dict)
+    weight: float = 1.0
+    access_count: int = 0
+
+
+@dataclass
+class EdgeInfo(_SimpleResultBase):
+    id: str = ""
+    label: str = ""
+    source: str | list[str] = ""
+    target: str | list[str] = ""
+    weight: float = 1.0
+    is_hyperedge: bool = False
+    data: dict[str, Any] | None = None
+
+
+@dataclass
+class SearchHit(_SimpleResultBase):
+    label: str = ""
+    score: float = 0.0
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ActivationHit(_SimpleResultBase):
+    label: str = ""
+    energy: float = 0.0
+
+
+@dataclass
+class BulkResult(_SimpleResultBase):
+    nodes_added: int = 0
+    edges_added: int = 0
+    nodes_skipped: int = 0
+    edges_skipped: int = 0
+
+
+@dataclass
+class AnomalyReport(_SimpleResultBase):
+    concept: str = ""
+    status: str = "low_risk"
+    score: float = 0.0
+    indicators: list[str] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+
+
 def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
     return sorted(scores.items(), key=lambda x: -x[1])[:k]
+
+
+def to_dataframe(scores: dict[str, float]) -> Any:
+    try:
+        import pandas as pd
+        return pd.DataFrame([{"label": k, "score": v} for k, v in scores.items()])
+    except ImportError as exc:
+        raise ImportError("pandas is required for to_dataframe(). Install with: pip install pandas") from exc

@@ -174,7 +174,7 @@ def main():
 
     all_nodes = {**suppliers, **products, **factories, **dist_centers, **transport, **risks, **customers}
     for name, data in all_nodes.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     supplies_to = [
         ("sup_t3_australia_bauxite", "sup_t2_australia_iron"),
@@ -482,11 +482,11 @@ def main():
     total_edges = 0
     for edges, label in edge_groups:
         for src, tgt in edges:
-            mem.relate(src, tgt, label=label)
+            mem.link(src, tgt, label=label)
         total_edges += len(edges)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print(f"    supplies_to:      {len(supplies_to)}")
     print(f"    manufactured_at:   {len(manufactured_at)}")
     print(f"    stored_at:         {len(stored_at)}")

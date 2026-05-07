@@ -33,13 +33,13 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for node in ["enzyme_a", "enzyme_b", "enzyme_c", "substrate_x", "product_y"]:
-        mem.store(node, data={"type": node.split("_")[0]})
+        mem.add(node, data={"type": node.split("_")[0]})
 
-    mem.relate("enzyme_a", "substrate_x", label="binds", weight=3.0)
-    mem.relate("enzyme_b", "substrate_x", label="binds", weight=2.0)
-    mem.relate("enzyme_c", "substrate_x", label="binds", weight=1.0)
+    mem.link("enzyme_a", "substrate_x", label="binds", weight=3.0)
+    mem.link("enzyme_b", "substrate_x", label="binds", weight=2.0)
+    mem.link("enzyme_c", "substrate_x", label="binds", weight=1.0)
 
-    mem.relate("substrate_x", "product_y", label="catalyzes", weight=5.0)
+    mem.link("substrate_x", "product_y", label="catalyzes", weight=5.0)
 
     mem.relate_hyperedge(
         sources={"enzyme_a", "enzyme_b", "enzyme_c"},
@@ -48,7 +48,7 @@ def main() -> None:
         weight=10.0,
     )
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: IN-DEGREE / OUT-DEGREE — XGI pattern")
@@ -97,8 +97,8 @@ def main() -> None:
         TransitiveRule(edge_label="catalyzes", new_label="enables_production"),
     )
 
-    mem.store("downstream_product")
-    mem.relate("product_y", "downstream_product", label="catalyzes", weight=3.0)
+    mem.add("downstream_product")
+    mem.link("product_y", "downstream_product", label="catalyzes", weight=3.0)
 
     result = mem.reason(seed_concepts={"substrate_x"}, max_depth=2)
     print(f"\nreasoning from 'substrate_x':")

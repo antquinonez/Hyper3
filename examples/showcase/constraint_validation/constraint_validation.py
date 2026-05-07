@@ -32,15 +32,15 @@ def main() -> None:
                 "concept_e", "concept_f", "concept_g", "concept_h",
                 "concept_i", "concept_j"]
     for e in entities:
-        mem.store(e, data={"type": "entity"})
+        mem.add(e, data={"type": "entity"})
 
-    mem.relate("concept_a", "concept_b", label="relates_to", weight=2.0)
-    mem.relate("concept_b", "concept_c", label="relates_to", weight=1.5)
-    mem.relate("concept_c", "concept_d", label="relates_to", weight=3.0)
-    mem.relate("concept_d", "concept_e", label="relates_to", weight=1.0)
-    mem.relate("concept_a", "concept_c", label="influences", weight=2.5)
+    mem.link("concept_a", "concept_b", label="relates_to", weight=2.0)
+    mem.link("concept_b", "concept_c", label="relates_to", weight=1.5)
+    mem.link("concept_c", "concept_d", label="relates_to", weight=3.0)
+    mem.link("concept_d", "concept_e", label="relates_to", weight=1.0)
+    mem.link("concept_a", "concept_c", label="influences", weight=2.5)
 
-    print(f"base graph: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"base graph: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: DEFAULT CONSTRAINT PIPELINE")

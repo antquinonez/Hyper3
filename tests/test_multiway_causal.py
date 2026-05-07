@@ -298,7 +298,7 @@ class TestHypergraphMemoryIntegration:
 
     def test_belief_property(self):
         mem = HypergraphMemory()
-        assert isinstance(mem.belief, BeliefLayer)
+        assert isinstance(mem.belief_layer, BeliefLayer)
 
     def test_full_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)

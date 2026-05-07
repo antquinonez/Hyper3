@@ -179,7 +179,7 @@ def main():
     all_nodes.update(alerts)
 
     for label, data in all_nodes.items():
-        mem.store(label, data=data)
+        mem.add(label, data=data)
 
     owns_edges = [
         ("viktor_kingpin", "acct_viktor_personal"),
@@ -460,11 +460,11 @@ def main():
     total_edges = 0
     for label, pairs in edge_groups.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=label)
+            mem.link(src, tgt, label=label)
         total_edges += len(pairs)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print(f"  Edge breakdown:")
     for label, pairs in edge_groups.items():
         print(f"    {label}: {len(pairs)}")
@@ -544,7 +544,7 @@ def main():
         print(f"    Cycle {i + 1}: {' -> '.join(cycle)} -> {cycle[0]}")
     print()
 
-    similar = mem.find_similar("acct_zenith_holdings", top_k=10)
+    similar = mem.search.similar("acct_zenith_holdings", top_k=10)
     print("  Accounts similar to acct_zenith_holdings:")
     for s in similar:
         other = s.label_b if s.label_a == "acct_zenith_holdings" else s.label_a
@@ -682,7 +682,7 @@ def main():
         "boris_mule1",
     ]
     for concept in anomaly_targets:
-        result = mem.detect_structural_anomalies(concept)
+        result = mem.analyze.anomalies(concept)
         print(f"  {concept}:")
         print(f"    status={result.anomaly_status}  boundary_score={result.boundary_score:.4f}")
         if result.structural_insights:

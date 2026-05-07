@@ -87,10 +87,10 @@ def main() -> None:
         "svc-inventory": {"response_time_p95": 60, "error_rate": 0.02, "throughput": 5000, "team": "commerce", "tier": "critical"},
     }
     for name, data in services.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for i in range(1, 21):
-        mem.store(
+        mem.add(
             f"host-prod-{i:02d}",
             data={"cpu_avg": 40 + i, "memory_avg": 55 + i, "disk_usage": 25 + i * 2, "os": "linux" if i % 3 != 0 else "ubuntu"},
         )
@@ -112,7 +112,7 @@ def main() -> None:
         "metric-deployment-failure": {"severity": "critical", "pattern_type": "spike"},
         "metric-external-api-slow": {"severity": "medium", "pattern_type": "degradation"},
     }.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for name, data in {
         "alert-high-latency-api": {"priority": "P1", "category": "performance", "acknowledged": True},
@@ -131,7 +131,7 @@ def main() -> None:
         "alert-external-degradation": {"priority": "P2", "category": "third_party", "acknowledged": False},
         "alert-cascading-failure": {"priority": "P0", "category": "incident", "acknowledged": False},
     }.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for name, data in {
         "deploy-v2.3.1": {"version": "2.3.1", "changelist_size": 12, "rollback": False},
@@ -150,7 +150,7 @@ def main() -> None:
         "deploy-hotfix-001": {"version": "hotfix-001", "changelist_size": 2, "rollback": False},
         "deploy-hotfix-002": {"version": "hotfix-002", "changelist_size": 3, "rollback": False},
     }.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for name, data in {
         "ext-stripe": {"availability": 99.9, "latency": 150},
@@ -164,7 +164,7 @@ def main() -> None:
         "ext-cloudflare": {"availability": 99.99, "latency": 20},
         "ext-elasticsearch": {"availability": 99.8, "latency": 120},
     }.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for name, data in {
         "corr-api-auth-latency": {"discovery_type": "manual", "confidence": 0.92},
@@ -183,7 +183,7 @@ def main() -> None:
         "corr-loyalty-promo-abuse": {"discovery_type": "manual", "confidence": 0.65},
         "corr-audit-compliance-gap": {"discovery_type": "manual", "confidence": 0.72},
     }.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt in [
         ("svc-api-gateway", "svc-auth"), ("svc-api-gateway", "svc-catalog"),
@@ -216,7 +216,7 @@ def main() -> None:
         ("svc-loyalty", "svc-promo"), ("svc-promo", "svc-pricing"),
         ("svc-docs", "svc-catalog"),
     ]:
-        mem.relate(src, tgt, label="depends_on")
+        mem.link(src, tgt, label="depends_on")
 
     for svc, hnum in [
         ("svc-api-gateway", 1), ("svc-auth", 1), ("svc-user", 2),
@@ -232,7 +232,7 @@ def main() -> None:
         ("svc-scheduler", 15), ("svc-webhook", 15), ("svc-queue", 16),
         ("svc-cache", 16), ("svc-docs", 17),
     ]:
-        mem.relate(svc, f"host-prod-{hnum:02d}", label="deployed_to")
+        mem.link(svc, f"host-prod-{hnum:02d}", label="deployed_to")
 
     for src, tgt in [
         ("metric-latency-spike-api", "alert-high-latency-api"),
@@ -256,7 +256,7 @@ def main() -> None:
         ("metric-external-api-slow", "alert-external-degradation"),
         ("metric-external-api-slow", "alert-cascading-failure"),
     ]:
-        mem.relate(src, tgt, label="triggers")
+        mem.link(src, tgt, label="triggers")
 
     for src, tgt in [
         ("deploy-v2.3.1", "metric-latency-spike-api"),
@@ -275,7 +275,7 @@ def main() -> None:
         ("deploy-v3.1.1", "metric-queue-backlog"),
         ("deploy-v3.2.0", "metric-external-api-slow"),
     ]:
-        mem.relate(src, tgt, label="causes")
+        mem.link(src, tgt, label="causes")
 
     for src, tgt in [
         ("alert-high-latency-api", "alert-cascading-failure"),
@@ -294,7 +294,7 @@ def main() -> None:
         ("deploy-hotfix-001", "deploy-v2.3.3"),
         ("deploy-hotfix-002", "deploy-hotfix-001"),
     ]:
-        mem.relate(src, tgt, label="follows")
+        mem.link(src, tgt, label="follows")
 
     for src, tgt in [
         ("alert-cascading-failure", "alert-high-latency-api"),
@@ -313,7 +313,7 @@ def main() -> None:
         ("deploy-v3.2.0", "alert-connection-leak"),
         ("deploy-v3.0.1", "alert-queue-overflow"),
     ]:
-        mem.relate(src, tgt, label="mitigates")
+        mem.link(src, tgt, label="mitigates")
 
     for src, tgt in [
         ("host-prod-01", "metric-latency-spike-api"),
@@ -327,7 +327,7 @@ def main() -> None:
         ("host-prod-16", "metric-cache-miss-rate"),
         ("host-prod-06", "metric-timeout-gateway"),
     ]:
-        mem.relate(src, tgt, label="monitors")
+        mem.link(src, tgt, label="monitors")
 
     for src, tgt in [
         ("svc-api-gateway", "metric-latency-spike-api"),
@@ -346,7 +346,7 @@ def main() -> None:
         ("svc-shipping", "metric-external-api-slow"),
         ("host-prod-01", "metric-memory-pressure-prod-03"),
     ]:
-        mem.relate(src, tgt, label="affects")
+        mem.link(src, tgt, label="affects")
 
     for corr, alert, metric in [
         ("corr-api-auth-latency", "alert-high-latency-api", "metric-latency-spike-auth"),
@@ -358,10 +358,10 @@ def main() -> None:
         ("corr-external-gateway-timeout", "alert-gateway-timeout", "metric-timeout-gateway"),
         ("corr-memory-connection-leak", "alert-connection-leak", "metric-connection-pool-exhaust"),
     ]:
-        mem.relate(corr, alert, label="triggers")
-        mem.relate(corr, alert, label="correlates_with")
-        mem.relate(corr, alert, label="follows")
-        mem.relate(corr, metric, label="causes")
+        mem.link(corr, alert, label="triggers")
+        mem.link(corr, alert, label="correlates_with")
+        mem.link(corr, alert, label="follows")
+        mem.link(corr, metric, label="causes")
 
     for corr, alert, metric in [
         ("corr-disk-deploy-failure", "alert-deploy-rollback", "metric-deployment-failure"),
@@ -372,8 +372,8 @@ def main() -> None:
         ("corr-loyalty-promo-abuse", "alert-order-errors", "metric-error-burst-order"),
         ("corr-audit-compliance-gap", "alert-auth-failures", "metric-latency-spike-auth"),
     ]:
-        mem.relate(corr, alert, label="correlates_with")
-        mem.relate(corr, metric, label="correlates_with")
+        mem.link(corr, alert, label="correlates_with")
+        mem.link(corr, metric, label="correlates_with")
 
     for src, tgt in [
         ("metric-latency-spike-api", "corr-api-auth-latency"),
@@ -385,10 +385,10 @@ def main() -> None:
         ("metric-timeout-gateway", "corr-external-gateway-timeout"),
         ("metric-connection-pool-exhaust", "corr-memory-connection-leak"),
     ]:
-        mem.relate(src, tgt, label="indicates")
+        mem.link(src, tgt, label="indicates")
 
-    initial_nodes = mem.graph.node_count
-    initial_edges = mem.graph.edge_count
+    initial_nodes = mem.size[0]
+    initial_edges = mem.size[1]
     print(f"  Nodes: {initial_nodes}, Edges: {initial_edges}")
     print(f"    35 services | 20 hosts | 15 metrics | 15 alerts")
     print(f"    15 deployments | 10 external deps | 15 correlations")
@@ -528,7 +528,7 @@ def main() -> None:
     for m in g_matches[:5]:
         gen.apply(mem.graph, m)
     print(f"  Created {min(5, len(g_matches))} category nodes")
-    print(f"  Graph now: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph now: {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     # =====================================================================
@@ -585,8 +585,8 @@ def main() -> None:
         "svc-api-gateway", "svc-auth", "svc-user",
         "svc-order", "svc-payment", "svc-billing", "svc-checkout",
     }
-    pre_nodes = mem.graph.node_count
-    pre_edges = mem.graph.edge_count
+    pre_nodes = mem.size[0]
+    pre_edges = mem.size[1]
 
     result = mem.reason(
         seed_concepts=seeds,
@@ -605,8 +605,8 @@ def main() -> None:
     if overlay:
         print(f"  Overlay committed:  {overlay.get('node_count', 0)} nodes, {overlay.get('edge_count', 0)} edges")
 
-    post_nodes = mem.graph.node_count
-    post_edges = mem.graph.edge_count
+    post_nodes = mem.size[0]
+    post_edges = mem.size[1]
     print()
     print(f"  Graph growth:")
     print(f"    Before reasoning: {pre_nodes} nodes, {pre_edges} edges")
@@ -641,7 +641,7 @@ def main() -> None:
     print(f"  Causal links:       {len(c_matches)} co-occurrence patterns")
     print(f"  Abstractions:       {len(g_matches)} similar-service pairs")
     print(f"  Analogies:          {len(a_matches)} structural (A:B::C:D)")
-    print(f"  Final graph:        {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Final graph:        {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
     print("  Key takeaway: rule-based reasoning transforms raw telemetry")
     print("  edges into actionable knowledge — hidden dependencies, causal")

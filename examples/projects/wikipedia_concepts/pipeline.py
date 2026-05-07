@@ -417,8 +417,8 @@ def build_graph_from_offline(
     edge_count = 0
     for source, targets in concepts_data.items():
         for target in targets:
-            if mem.has_node(source) and mem.has_node(target):
-                mem.relate(source, target, label="links_to")
+            if mem.has(source) and mem.has(target):
+                mem.link(source, target, label="links_to")
                 edge_count += 1
 
     s = mem.stats()
@@ -440,8 +440,8 @@ def build_graph(link_map: dict[str, list[str]]) -> HypergraphMemory:
     edge_count = 0
     for source, targets in link_map.items():
         for target in targets:
-            if mem.has_node(source) and mem.has_node(target):
-                mem.relate(source, target, label="links_to")
+            if mem.has(source) and mem.has(target):
+                mem.link(source, target, label="links_to")
                 edge_count += 1
 
     s = mem.stats()
@@ -460,7 +460,7 @@ def analyze_anomalies(mem: HypergraphMemory, top_n: int = 10) -> list[dict[str, 
 
     results: list[dict[str, Any]] = []
     for concept in top_concepts:
-        anomaly = mem.detect_structural_anomalies(concept)
+        anomaly = mem.analyze.anomalies(concept)
         results.append({
             "concept": concept,
             "centrality": centrality.get(concept, 0.0),
@@ -571,7 +571,7 @@ def analyze_centrality(mem: HypergraphMemory, top_n: int = 20) -> dict[str, floa
 @task
 def analyze_communities(mem: HypergraphMemory, min_size: int = 3) -> list[dict[str, Any]]:
     logger = logging.getLogger(__name__)
-    result = mem.detect_communities(method="label_propagation", seed=42)
+    result = mem.analyze.communities(method="label_propagation", seed=42)
 
     communities: list[dict[str, Any]] = []
     for comm in result.communities:

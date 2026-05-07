@@ -26,23 +26,23 @@ def main() -> None:
     institutions = ["mit", "stanford"]
 
     for t in topics:
-        mem.store(t, data={"type": "topic"})
+        mem.add(t, data={"type": "topic"})
     for a in authors:
-        mem.store(a, data={"type": "author"})
+        mem.add(a, data={"type": "author"})
     for p in papers:
-        mem.store(p, data={"type": "paper"})
+        mem.add(p, data={"type": "paper"})
     for i in institutions:
-        mem.store(i, data={"type": "institution"})
+        mem.add(i, data={"type": "institution"})
 
-    mem.relate("alice_chen", "mit", label="affiliated_with", weight=1.0)
-    mem.relate("bob_smith", "stanford", label="affiliated_with", weight=1.0)
-    mem.relate("carol_wu", "mit", label="affiliated_with", weight=1.0)
-    mem.relate("alice_chen", "paper_transformer", label="writes", weight=1.0)
-    mem.relate("bob_smith", "paper_cnn", label="writes", weight=1.0)
-    mem.relate("carol_wu", "paper_gan", label="writes", weight=1.0)
-    mem.relate("paper_transformer", "nlp", label="cites", weight=2.0)
-    mem.relate("paper_cnn", "computer_vision", label="cites", weight=2.0)
-    mem.relate("paper_gan", "computer_vision", label="cites", weight=1.5)
+    mem.link("alice_chen", "mit", label="affiliated_with", weight=1.0)
+    mem.link("bob_smith", "stanford", label="affiliated_with", weight=1.0)
+    mem.link("carol_wu", "mit", label="affiliated_with", weight=1.0)
+    mem.link("alice_chen", "paper_transformer", label="writes", weight=1.0)
+    mem.link("bob_smith", "paper_cnn", label="writes", weight=1.0)
+    mem.link("carol_wu", "paper_gan", label="writes", weight=1.0)
+    mem.link("paper_transformer", "nlp", label="cites", weight=2.0)
+    mem.link("paper_cnn", "computer_vision", label="cites", weight=2.0)
+    mem.link("paper_gan", "computer_vision", label="cites", weight=1.5)
 
     v0 = mem.capture_version()
     print(f"v0 captured: version_id={v0['version_id']}, nodes={v0['node_count']}, edges={v0['edge_count']}")
@@ -51,12 +51,12 @@ def main() -> None:
     print("SECTION 2: FIRST EDIT SESSION - ADD COLLABORATIONS")
     print("=" * 70)
 
-    mem.relate("alice_chen", "carol_wu", label="collaborates_with", weight=2.0)
-    mem.relate("bob_smith", "carol_wu", label="collaborates_with", weight=1.5)
-    mem.store("paper_diffusion", data={"type": "paper"})
-    mem.relate("alice_chen", "paper_diffusion", label="writes", weight=1.0)
-    mem.relate("carol_wu", "paper_diffusion", label="writes", weight=1.0)
-    mem.relate("paper_diffusion", "machine_learning", label="cites", weight=2.5)
+    mem.link("alice_chen", "carol_wu", label="collaborates_with", weight=2.0)
+    mem.link("bob_smith", "carol_wu", label="collaborates_with", weight=1.5)
+    mem.add("paper_diffusion", data={"type": "paper"})
+    mem.link("alice_chen", "paper_diffusion", label="writes", weight=1.0)
+    mem.link("carol_wu", "paper_diffusion", label="writes", weight=1.0)
+    mem.link("paper_diffusion", "machine_learning", label="cites", weight=2.5)
 
     v1 = mem.capture_version()
     print(f"v1 captured: version_id={v1['version_id']}, nodes={v1['node_count']}, edges={v1['edge_count']}")
@@ -76,8 +76,8 @@ def main() -> None:
     print("SECTION 3: SECOND EDIT SESSION - CROSS-DOMAIN LINKS")
     print("=" * 70)
 
-    mem.relate("nlp", "computer_vision", label="cross_domain", weight=1.0)
-    mem.relate("machine_learning", "nlp", label="subfield_of", weight=1.0)
+    mem.link("nlp", "computer_vision", label="cross_domain", weight=1.0)
+    mem.link("machine_learning", "nlp", label="subfield_of", weight=1.0)
 
     v2 = mem.capture_version()
     print(f"v2 captured: version_id={v2['version_id']}, nodes={v2['node_count']}, edges={v2['edge_count']}")
@@ -104,13 +104,13 @@ def main() -> None:
     print("SECTION 5: ERRONEOUS EDIT AND ROLLBACK")
     print("=" * 70)
 
-    mem.store("bad_node_1", data={"type": "error"})
-    mem.store("bad_node_2", data={"type": "error"})
-    mem.relate("bad_node_1", "alice_chen", label="spurious", weight=0.1)
-    mem.relate("bad_node_2", "paper_cnn", label="spurious", weight=0.1)
-    mem.relate("nlp", "bad_node_1", label="spurious", weight=0.1)
+    mem.add("bad_node_1", data={"type": "error"})
+    mem.add("bad_node_2", data={"type": "error"})
+    mem.link("bad_node_1", "alice_chen", label="spurious", weight=0.1)
+    mem.link("bad_node_2", "paper_cnn", label="spurious", weight=0.1)
+    mem.link("nlp", "bad_node_1", label="spurious", weight=0.1)
 
-    print(f"before rollback: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"before rollback: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     rollback_delta = mem.diff_from_version(v2["version_id"])
     if rollback_delta:
@@ -138,9 +138,9 @@ def main() -> None:
     if mem.differ:
         mem.differ.rollback_to_version(v2["version_id"])
 
-    print(f"after rollback: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"after rollback: nodes={mem.size[0]}, edges={mem.size[1]}")
 
-    has_bad = mem.has_node("bad_node_1") or mem.has_node("bad_node_2")
+    has_bad = mem.has("bad_node_1") or mem.has("bad_node_2")
     print(f"bad nodes removed: {not has_bad}")
 
     print("\n" + "=" * 70)

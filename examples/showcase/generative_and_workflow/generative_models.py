@@ -146,14 +146,14 @@ def main() -> None:
     print("\n--- Reasoning on random graph ---")
     mem = HypergraphMemory(evolve_interval=0)
     for node in g1.nodes:
-        mem.store(node.label, data={})
+        mem.add(node.label, data={})
     for edge in g1.edges:
         srcs = list(edge.source_ids)
         tgts = list(edge.target_ids)
         if srcs and tgts:
             src_label = g1.get_node(srcs[0]).label if g1.get_node(srcs[0]) else srcs[0]
             tgt_label = g1.get_node(tgts[0]).label if g1.get_node(tgts[0]) else tgts[0]
-            mem.relate(src_label, tgt_label, label=edge.label or "link", weight=edge.weight)
+            mem.link(src_label, tgt_label, label=edge.label or "link", weight=edge.weight)
 
     from hyper3.rules import TransitiveRule
 

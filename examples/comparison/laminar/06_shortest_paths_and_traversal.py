@@ -26,7 +26,7 @@ def main() -> None:
 
     cities = ["london", "paris", "berlin", "rome", "madrid", "vienna", "prague"]
     for city in cities:
-        mem.store(city, data={"type": "city"})
+        mem.add(city, data={"type": "city"})
 
     routes = [
         ("london", "paris", "train", 3.0),
@@ -39,7 +39,7 @@ def main() -> None:
         ("madrid", "rome", "flight", 3.0),
     ]
     for src, tgt, label, weight in routes:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
     mem.relate_hyperedge(
         sources={"london", "paris"},
@@ -48,7 +48,7 @@ def main() -> None:
         weight=10.0,
     )
 
-    print(f"cities: {mem.graph.node_count}, routes: {mem.graph.edge_count}")
+    print(f"cities: {mem.size[0]}, routes: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: SHORTEST PATH")

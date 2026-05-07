@@ -21,17 +21,17 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for name in ["alice", "bob", "carol", "dave", "eve", "frank", "grace", "henry"]:
-        mem.store(name, data={})
+        mem.add(name, data={})
 
-    mem.relate("alice", "bob", label="collaborates")
-    mem.relate("bob", "carol", label="collaborates")
-    mem.relate("carol", "dave", label="reports_to")
-    mem.relate("dave", "eve", label="collaborates")
-    mem.relate("dave", "frank", label="collaborates")
-    mem.relate("dave", "grace", label="collaborates")
-    mem.relate("grace", "henry", label="mentors")
+    mem.link("alice", "bob", label="collaborates")
+    mem.link("bob", "carol", label="collaborates")
+    mem.link("carol", "dave", label="reports_to")
+    mem.link("dave", "eve", label="collaborates")
+    mem.link("dave", "frank", label="collaborates")
+    mem.link("dave", "grace", label="collaborates")
+    mem.link("grace", "henry", label="mentors")
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: N-ARY HYPEREDGES")
@@ -128,8 +128,8 @@ def main() -> None:
     print("SECTION 7: SELF-EVOLUTION (Hyper3 advantage)")
     print("=" * 70)
 
-    before_nodes = mem.graph.node_count
-    before_edges = mem.graph.edge_count
+    before_nodes = mem.size[0]
+    before_edges = mem.size[1]
 
     for _ in range(3):
         mem.stimulate("dave", energy=1.0)
@@ -138,8 +138,8 @@ def main() -> None:
 
     evolve_result = mem.evolve()
     print(f"\nevolution cycle:")
-    print(f"  nodes before/after: {before_nodes}/{mem.graph.node_count}")
-    print(f"  edges before/after: {before_edges}/{mem.graph.edge_count}")
+    print(f"  nodes before/after: {before_nodes}/{mem.size[0]}")
+    print(f"  edges before/after: {before_edges}/{mem.size[1]}")
     print(f"  edges decayed: {evolve_result.decayed}")
     print(f"  nodes pruned: {evolve_result.pruned}")
     print(f"  nodes merged: {evolve_result.merged}")

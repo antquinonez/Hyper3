@@ -41,7 +41,7 @@ def main() -> None:
         ("postgres", {"type": "database"}),
     ]
     for name, data in concepts:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     edges = [
         ("python", "ml", "used_for"),
@@ -64,9 +64,9 @@ def main() -> None:
         ("data_science", "postgres", "uses"),
     ]
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"concepts: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"concepts: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: SPREADING ACTIVATION RETRIEVAL")
@@ -90,12 +90,12 @@ def main() -> None:
     print("\n--- NetworkX equivalent ---")
     print("nx.similarity.simulate_graph(G)  -> basic structural similarity")
 
-    similar = mem.find_similar("python", top_k=5)
+    similar = mem.search.similar("python", top_k=5)
     print(f"\nmost similar to 'python':")
     for item in similar:
         print(f"  {item.concept:>15}: {item.similarity:.4f}")
 
-    similar_rust = mem.find_similar("rust", top_k=5)
+    similar_rust = mem.search.similar("rust", top_k=5)
     print(f"\nmost similar to 'rust':")
     for item in similar_rust:
         print(f"  {item.concept:>15}: {item.similarity:.4f}")

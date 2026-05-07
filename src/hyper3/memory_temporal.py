@@ -71,7 +71,7 @@ class TemporalMixin(_MemoryBase):
         return ea.interval.relate_to(eb.interval)
 
     @property
-    def temporal(self) -> TemporalReasoner:
+    def temporal_engine(self) -> TemporalReasoner:
         """Lazily initialize and return the temporal reasoner."""
         return self._temporal
 

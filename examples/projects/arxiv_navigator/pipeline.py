@@ -110,7 +110,7 @@ def build_graph(papers: list[ArxivPaper]) -> HypergraphMemory:
     for paper in papers:
         snippet = paper.abstract[:200] + ("..." if len(paper.abstract) > 200 else "")
         year = paper.published[:4]
-        mem.store(
+        mem.add(
             paper.arxiv_id,
             data={
                 "kind": "paper",
@@ -127,14 +127,14 @@ def build_graph(papers: list[ArxivPaper]) -> HypergraphMemory:
                 author,
                 data={"kind": "author"},
             )
-            mem.relate(paper.arxiv_id, author, label="authored_by")
+            mem.link(paper.arxiv_id, author, label="authored_by")
 
         for cat in paper.categories:
             mem.ensure(
                 cat,
                 data={"kind": "category"},
             )
-            mem.relate(paper.arxiv_id, cat, label="published_in")
+            mem.link(paper.arxiv_id, cat, label="published_in")
 
     author_index: dict[str, list[str]] = {}
     for paper in papers:
@@ -144,7 +144,7 @@ def build_graph(papers: list[ArxivPaper]) -> HypergraphMemory:
     for author, paper_ids in author_index.items():
         for i in range(len(paper_ids)):
             for j in range(i + 1, len(paper_ids)):
-                mem.relate(paper_ids[i], paper_ids[j], label="shares_author")
+                mem.link(paper_ids[i], paper_ids[j], label="shares_author")
 
     cat_index: dict[str, list[str]] = {}
     for paper in papers:
@@ -156,12 +156,12 @@ def build_graph(papers: list[ArxivPaper]) -> HypergraphMemory:
             continue
         for i in range(min(len(paper_ids), 20)):
             for j in range(i + 1, min(len(paper_ids), 20)):
-                mem.relate(paper_ids[i], paper_ids[j], label="shares_category")
+                mem.link(paper_ids[i], paper_ids[j], label="shares_category")
 
     logger.info(
         "Graph built: %d nodes, %d edges",
-        mem.graph.node_count,
-        mem.graph.edge_count,
+        mem.size[0],
+        mem.size[1],
     )
     return mem
 
@@ -172,7 +172,7 @@ def anomaly_analysis(mem: HypergraphMemory, papers: list[ArxivPaper]) -> list[di
     logger.info("Running structural anomaly detection")
     results: list[dict[str, Any]] = []
     for paper in papers:
-        det = mem.detect_structural_anomalies(
+        det = mem.analyze.anomalies(
             paper.arxiv_id,
             context={"high_centrality": True, "structural_anomaly": True},
             max_level=2,
@@ -240,7 +240,7 @@ def centrality_analysis(mem: HypergraphMemory) -> dict[str, Any]:
 def community_analysis(mem: HypergraphMemory) -> dict[str, Any]:
     logger = logging.getLogger(__name__)
     logger.info("Detecting research communities")
-    result = mem.detect_communities(method="label_propagation", seed=42)
+    result = mem.analyze.communities(method="label_propagation", seed=42)
     paper_labels = set(mem.query_nodes(data={"kind": "paper"}))
     clusters: list[dict[str, Any]] = []
     for comm in result.communities[:8]:

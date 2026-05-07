@@ -147,19 +147,19 @@ def main():
 
     for domain_services in domains.values():
         for name, data in domain_services:
-            mem.store(name, data={**data, "type": "microservice"}, modalities={Modality.CONCEPTUAL})
+            mem.add(name, data={**data, "type": "microservice"}, modalities={Modality.CONCEPTUAL})
 
     for name, data in infrastructure.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     for name, data in external.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     svc_count = sum(len(v) for v in domains.values())
     print(f"  Microservices:      {svc_count}")
     print(f"  Infrastructure:     {len(infrastructure)}")
     print(f"  External services:  {len(external)}")
-    print(f"  Total nodes:        {mem.graph.node_count}")
+    print(f"  Total nodes:        {mem.size[0]}")
     print()
 
     print("=" * 70)
@@ -434,9 +434,9 @@ def main():
         + caching + publishes + subscribes + routes + ext_deps
     )
     for src, tgt, label in all_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"  Total edges created: {mem.graph.edge_count}")
+    print(f"  Total edges created: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -487,7 +487,7 @@ def main():
     print(f"  States explored:   {exp.states_created}")
     print(f"  Rules applied:     {exp.rules_applied}")
     print(f"  Edges inferred:    {exp.edges_produced}")
-    print(f"  Graph:             {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph:             {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     print("=" * 70)

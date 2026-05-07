@@ -594,3 +594,59 @@ class TestStandardFormatIO:
         finally:
             os.unlink(path)
 
+
+class TestUnifiedPersistence:
+    def test_save_full_round_trip(self, tmp_path):
+        from hyper3.belief import BeliefLayer
+        from hyper3.rules import TransitiveRule
+
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("a")
+        mem.store("b")
+        mem.store("c")
+        mem.relate("a", "b", label="connects")
+        mem.relate("b", "c", label="connects")
+
+        qs = mem.create_distribution(["a"], amplitudes=[1.0])
+
+        mem.add_rules(TransitiveRule())
+        result = mem.reason({"a", "c"}, depth=2)
+
+        path = str(tmp_path / "full_save.json")
+        mem.save(path, full=True)
+
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.load(path)
+
+        assert mem2.has_node("a")
+        assert mem2.has_node("b")
+        assert mem2.has_node("c")
+        assert len(list(mem2.belief_layer.active_distributions)) == 1
+
+    def test_save_partial_then_load(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("x")
+        mem.store("y")
+        mem.relate("x", "y", label="rel")
+
+        path = str(tmp_path / "partial.json")
+        mem.save(path, include_rules=False)
+
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.load(path)
+        assert mem2.has_node("x")
+        assert mem2.has_node("y")
+
+    def test_load_old_bare_snapshot(self, tmp_path):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.store("alpha")
+        qs = mem.create_distribution(["alpha"], amplitudes=[1.0])
+
+        path = str(tmp_path / "bare_snapshot.json")
+        mem.save_state(path)
+
+        mem2 = HypergraphMemory(evolve_interval=0)
+        mem2.store("alpha")
+        mem2.load_state(path)
+        assert len(list(mem2.belief_layer.active_distributions)) >= 1
+

@@ -197,23 +197,23 @@ def main() -> None:
     print("=" * 70)
 
     for cause in ROOT_CAUSES:
-        mem.store(cause, data={"type": "root_cause", "prior": PRIORS[cause]})
+        mem.add(cause, data={"type": "root_cause", "prior": PRIORS[cause]})
 
     for evidence in EVIDENCE_NODES:
-        mem.store(evidence, data={"type": "evidence"})
+        mem.add(evidence, data={"type": "evidence"})
 
     edge_count = 0
     for evidence, cause_likelihoods in LIKELIHOODS.items():
         for cause, lh in cause_likelihoods.items():
             weight = round(lh * 10.0, 1)
-            mem.relate(evidence, cause, label="indicates", weight=weight)
+            mem.link(evidence, cause, label="indicates", weight=weight)
             edge_count += 1
 
     print(f"  Root cause nodes:  {len(ROOT_CAUSES)}")
     print(f"  Evidence nodes:    {len(EVIDENCE_NODES)}")
     print(f"  Indicator edges:   {edge_count}")
-    print(f"  Total graph nodes: {mem.graph.node_count}")
-    print(f"  Total graph edges: {mem.graph.edge_count}")
+    print(f"  Total graph nodes: {mem.size[0]}")
+    print(f"  Total graph edges: {mem.size[1]}")
 
     print("\n  Evidence-to-cause connectivity:")
     for evidence in EVIDENCE_NODES:
@@ -390,7 +390,7 @@ def main() -> None:
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
     print(f"  Root causes analyzed: {len(ROOT_CAUSES)}")
     print(f"  Evidence observed:    {len(OBSERVATION_ORDER)}")
     print(f"  MAP root cause:       {map_cause} (P = {map_prob:.4f})")

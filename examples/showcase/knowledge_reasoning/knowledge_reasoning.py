@@ -38,12 +38,12 @@ def main() -> None:
         nodes.add(src)
         nodes.add(tgt)
     for node in nodes:
-        mem.store(node, data={"type": "concept"})
+        mem.add(node, data={"type": "concept"})
 
     for src, tgt, label in facts:
-        mem.relate(src, tgt, label=label, weight=3.0)
+        mem.link(src, tgt, label=label, weight=3.0)
 
-    print(f"concepts: {mem.graph.node_count}, facts: {mem.graph.edge_count}")
+    print(f"concepts: {mem.size[0]}, facts: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: RULE-BASED TRANSITIVE INFERENCE")

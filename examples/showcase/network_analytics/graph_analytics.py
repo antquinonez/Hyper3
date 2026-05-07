@@ -68,7 +68,7 @@ def build_hosts(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "host"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -99,7 +99,7 @@ def build_segments(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "segment"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -124,7 +124,7 @@ def build_controls(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "control"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -151,7 +151,7 @@ def build_services(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "service"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -176,7 +176,7 @@ def build_vulnerabilities(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "vulnerability"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -197,7 +197,7 @@ def build_users(mem: HypergraphMemory) -> list[str]:
     ]
     for label, data in specs:
         data["kind"] = "user"
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     return [s[0] for s in specs]
 
 
@@ -230,7 +230,7 @@ def build_edges(mem: HypergraphMemory) -> int:
         "k8s-worker-02": "seg-k8s-pod", "api-gateway": "seg-cloud-edge",
     }
     for host, seg in host_seg.items():
-        mem.relate(host, seg, label="connects_to")
+        mem.link(host, seg, label="connects_to")
         edges += 1
 
     host_services = {
@@ -282,7 +282,7 @@ def build_edges(mem: HypergraphMemory) -> int:
     }
     for host, svcs in host_services.items():
         for svc in svcs:
-            mem.relate(host, svc, label="runs")
+            mem.link(host, svc, label="runs")
             edges += 1
 
     exposure = {
@@ -306,7 +306,7 @@ def build_edges(mem: HypergraphMemory) -> int:
     }
     for host, svcs in exposure.items():
         for svc in svcs:
-            mem.relate(host, svc, label="exposed_on")
+            mem.link(host, svc, label="exposed_on")
             edges += 1
 
     vuln_map = {
@@ -344,7 +344,7 @@ def build_edges(mem: HypergraphMemory) -> int:
     }
     for host, vulns in vuln_map.items():
         for vuln in vulns:
-            mem.relate(host, vuln, label="vulnerable_to")
+            mem.link(host, vuln, label="vulnerable_to")
             edges += 1
 
     protections = {
@@ -383,7 +383,7 @@ def build_edges(mem: HypergraphMemory) -> int:
     }
     for host, ctrls in protections.items():
         for ctrl in ctrls:
-            mem.relate(host, ctrl, label="protected_by")
+            mem.link(host, ctrl, label="protected_by")
             edges += 1
 
     trust = [
@@ -423,7 +423,7 @@ def build_edges(mem: HypergraphMemory) -> int:
         ("monitoring-01", "log-collector", "trusts"),
     ]
     for src, tgt, lbl in trust:
-        mem.relate(src, tgt, label=lbl)
+        mem.link(src, tgt, label=lbl)
         edges += 1
 
     access = [
@@ -469,7 +469,7 @@ def build_edges(mem: HypergraphMemory) -> int:
         ("service-account", "nas-01"),
     ]
     for user, host in access:
-        mem.relate(user, host, label="has_access")
+        mem.link(user, host, label="has_access")
         edges += 1
 
     routes = [
@@ -502,7 +502,7 @@ def build_edges(mem: HypergraphMemory) -> int:
         ("seg-dmz-2", "seg-honeypot"),
     ]
     for src, tgt in routes:
-        mem.relate(src, tgt, label="routes_to")
+        mem.link(src, tgt, label="routes_to")
         edges += 1
 
     return edges
@@ -607,8 +607,8 @@ def main():
     print(f"  Services:          {len(services)}")
     print(f"  Vulnerabilities:   {len(vulns)}")
     print(f"  Users/roles:       {len(users)}")
-    print(f"  Total nodes:       {mem.graph.node_count}")
-    print(f"  Total edges:       {mem.graph.edge_count}")
+    print(f"  Total nodes:       {mem.size[0]}")
+    print(f"  Total edges:       {mem.size[1]}")
     print()
 
     # =====================================================================
@@ -890,7 +890,7 @@ def main():
     print("SECTION 11: Network Segment Detection")
     print("=" * 70)
 
-    comm_result = mem.detect_communities(seed=42)
+    comm_result = mem.analyze.communities(seed=42)
     print(f"  Communities detected: {comm_result.community_count}")
     print(f"  Modularity:            {comm_result.modularity:.4f}")
     print(f"  Coverage:              {comm_result.coverage:.4f}")
@@ -947,7 +947,7 @@ def main():
     print(f"  {'Host':20s} {'Status':14s} {'Score':>7s}  Insights")
     print(f"  {'-' * 20} {'-' * 14} {'-' * 7}  {'-' * 45}")
     for concept in anomaly_targets:
-        result = mem.detect_structural_anomalies(concept)
+        result = mem.analyze.anomalies(concept)
         insights_preview = result.structural_insights[:2]
         insights_str = "; ".join(insights_preview) if insights_preview else "(none)"
         if len(insights_str) > 60:
@@ -963,7 +963,7 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Network: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Network: {mem.size[0]} nodes, {mem.size[1]} edges")
     print(f"  Connected components: {len(components)}")
     print(f"  Total cycles detected: {len(cycles)}")
     print(f"  Cross-zone violations: {len(violations)}")

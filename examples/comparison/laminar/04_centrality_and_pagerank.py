@@ -37,7 +37,7 @@ def main() -> None:
         ("jack", {"role": "engineer", "dept": "engineering"}),
     ]
     for name, data in people:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     edges = [
         ("alice", "bob", "manages", 5.0),
@@ -56,7 +56,7 @@ def main() -> None:
         ("jack", "grace", "collaborates", 2.0),
     ]
     for src, tgt, label, weight in edges:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
     mem.relate_hyperedge(
         sources={"alice", "iris", "eve"},
@@ -65,7 +65,7 @@ def main() -> None:
         weight=8.0,
     )
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: DEGREE CENTRALITY")

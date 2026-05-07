@@ -35,15 +35,15 @@ def main() -> None:
         "BRAF", "MAPK1", "RAF1", "APC", "CTNNB1", "VEGFA",
     ]
     for p in proteins:
-        mem.store(p, data={"kind": "protein"})
+        mem.add(p, data={"kind": "protein"})
 
     pathways = ["p53_signaling", "cell_cycle", "dna_repair", "pi3k_akt", "mapk_signaling"]
     for pw in pathways:
-        mem.store(pw, data={"kind": "pathway"})
+        mem.add(pw, data={"kind": "pathway"})
 
     diseases = ["breast_cancer", "lung_cancer", "colorectal_cancer", "glioblastoma"]
     for d in diseases:
-        mem.store(d, data={"kind": "disease"})
+        mem.add(d, data={"kind": "disease"})
 
     mem.relate_hyperedge(
         sources={"TP53", "MDM2", "ATM"},
@@ -92,9 +92,9 @@ def main() -> None:
     )
 
     for p in ["TP53", "BRCA1", "KRAS", "EGFR", "PIK3CA"]:
-        mem.relate(p, "dna_repair", label="participates_in")
+        mem.link(p, "dna_repair", label="participates_in")
 
-    pairwise_edges = mem.graph.edge_count
+    pairwise_edges = mem.size[1]
     print(f"  Proteins: {len(proteins)}, Pathways: {len(pathways)}, Diseases: {len(diseases)}")
     print(f"  Total edges (including n-ary): {pairwise_edges}")
 

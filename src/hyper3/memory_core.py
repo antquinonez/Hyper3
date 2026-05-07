@@ -14,7 +14,7 @@ from hyper3.kernel import (
     Modality,
 )
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolveResult, MergeReport
+from hyper3.results import BulkResult, EdgeInfo, EvolveResult, MergeReport, NodeInfo
 
 
 class CoreMixin(_MemoryBase):
@@ -148,6 +148,166 @@ class CoreMixin(_MemoryBase):
             True if a matching node exists, False otherwise.
         """
         return self._find_node(concept) is not None
+
+    def has(self, concept: str) -> bool:
+        return self.has_node(concept)
+
+    def get(self, concept: str, key: str | None = None, *, default: Any = None) -> Any:
+        node = self._find_node(concept)
+        if node is None:
+            return default
+        if key is None:
+            result = {"label": node.label}
+            if isinstance(node.data, dict):
+                result.update(node.data)
+            return result
+        if isinstance(node.data, dict):
+            return node.data.get(key, default)
+        return default
+
+    def set(self, concept: str, **kwargs: Any) -> None:
+        node = self._find_node(concept)
+        if node is None:
+            raise NodeNotFoundError(concept)
+        if node.data is None:
+            node.data = {}
+        if isinstance(node.data, dict):
+            node.data.update(kwargs)
+
+    def info(self, concept: str) -> NodeInfo | None:
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        return NodeInfo(
+            label=node.label,
+            data=node.data if isinstance(node.data, dict) else {},
+            weight=node.weight,
+            access_count=node.access_count,
+        )
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return (self._graph.node_count, self._graph.edge_count)
+
+    def add(
+        self,
+        concept: str,
+        *,
+        data: Any = None,
+        update: bool = False,
+        **kwargs: Any,
+    ) -> NodeInfo:
+        if kwargs:
+            data = {**(data if isinstance(data, dict) else {} or {}), **kwargs}
+        node = self.store(concept, data=data, update=update)
+        return NodeInfo(
+            label=node.label,
+            data=node.data if isinstance(node.data, dict) else {},
+            weight=node.weight,
+            access_count=node.access_count,
+        )
+
+    def link(
+        self,
+        source: str,
+        target: str,
+        *,
+        label: str = "",
+        weight: float = 1.0,
+        bidirectional: bool = False,
+        **edge_data: Any,
+    ) -> EdgeInfo:
+        edge = self.relate(
+            source, target, label=label, weight=weight,
+            bidirectional=bidirectional, edge_data=edge_data or None,
+        )
+        src_label = self._node_label(list(edge.source_ids)[0])
+        tgt_label = self._node_label(list(edge.target_ids)[0])
+        return EdgeInfo(
+            id=edge.id,
+            label=edge.label,
+            source=src_label,
+            target=tgt_label,
+            weight=edge.weight,
+        )
+
+    def link_hyper(
+        self,
+        sources: set[str],
+        targets: set[str],
+        *,
+        label: str = "",
+        weight: float = 1.0,
+        **edge_data: Any,
+    ) -> EdgeInfo:
+        edge = self.relate_hyperedge(
+            sources, targets, label=label, weight=weight,
+            edge_data=edge_data or None,
+        )
+        src_labels = [self._node_label(nid) for nid in edge.source_ids]
+        tgt_labels = [self._node_label(nid) for nid in edge.target_ids]
+        return EdgeInfo(
+            id=edge.id,
+            label=edge.label,
+            source=src_labels,
+            target=tgt_labels,
+            weight=edge.weight,
+            is_hyperedge=True,
+        )
+
+    def add_all(
+        self,
+        *,
+        nodes: dict[str, dict[str, Any]] | None = None,
+        edges: list[tuple[str, str, str] | dict[str, Any]] | None = None,
+    ) -> BulkResult:
+        nodes_added = 0
+        nodes_skipped = 0
+        edges_added = 0
+        edges_skipped = 0
+
+        self._graph.begin_batch()
+        try:
+            if nodes:
+                for label, data in nodes.items():
+                    existing = self._find_node(label)
+                    if existing:
+                        if isinstance(data, dict) and isinstance(existing.data, dict):
+                            existing.data.update(data)
+                        nodes_skipped += 1
+                    else:
+                        self.store(label, data=data)
+                        nodes_added += 1
+
+            if edges:
+                for spec in edges:
+                    try:
+                        if isinstance(spec, dict):
+                            src = spec.get("source", "")
+                            tgt = spec.get("target", "")
+                            lbl = spec.get("label", "")
+                            w = spec.get("weight", 1.0)
+                        else:
+                            if len(spec) >= 3:
+                                src, tgt, lbl = spec[0], spec[1], spec[2]
+                                w = spec[3] if len(spec) > 3 else 1.0
+                            else:
+                                src, tgt = spec[0], spec[1]
+                                lbl = ""
+                                w = 1.0
+                        self.relate(src, tgt, label=lbl, weight=w)
+                        edges_added += 1
+                    except (NodeNotFoundError, ValueError):
+                        edges_skipped += 1
+        finally:
+            self._graph.end_batch()
+
+        return BulkResult(
+            nodes_added=nodes_added,
+            edges_added=edges_added,
+            nodes_skipped=nodes_skipped,
+            edges_skipped=edges_skipped,
+        )
 
     def ensure(
         self,

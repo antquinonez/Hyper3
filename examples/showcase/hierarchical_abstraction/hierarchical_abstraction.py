@@ -31,23 +31,23 @@ def main() -> None:
 
     for members in teams.values():
         for person in members:
-            mem.store(person, data={"type": "employee"})
+            mem.add(person, data={"type": "employee"})
     for dept in departments:
-        mem.store(dept, data={"type": "department"})
+        mem.add(dept, data={"type": "department"})
     for div in divisions:
-        mem.store(div, data={"type": "division"})
+        mem.add(div, data={"type": "division"})
 
     for team_members in teams.values():
         for i in range(len(team_members) - 1):
-            mem.relate(team_members[i], team_members[i + 1], label="reports_to", weight=1.0)
+            mem.link(team_members[i], team_members[i + 1], label="reports_to", weight=1.0)
 
-    mem.relate("alice", "bob", label="collaborates_with", weight=1.0)
-    mem.relate("carol", "dave", label="collaborates_with", weight=1.0)
+    mem.link("alice", "bob", label="collaborates_with", weight=1.0)
+    mem.link("carol", "dave", label="collaborates_with", weight=1.0)
 
-    mem.relate("alice", "dept_engineering", label="managed_by", weight=1.0)
-    mem.relate("carol", "dept_product", label="managed_by", weight=1.0)
-    mem.relate("dept_engineering", "division_tech", label="reports_to", weight=1.0)
-    mem.relate("dept_product", "division_tech", label="reports_to", weight=1.0)
+    mem.link("alice", "dept_engineering", label="managed_by", weight=1.0)
+    mem.link("carol", "dept_product", label="managed_by", weight=1.0)
+    mem.link("dept_engineering", "division_tech", label="reports_to", weight=1.0)
+    mem.link("dept_product", "division_tech", label="reports_to", weight=1.0)
 
     desc = mem.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
@@ -69,7 +69,7 @@ def main() -> None:
             print(f"  external connections: {summary.external_connections}")
             print(f"  detail labels: {summary.mapping.detail_labels}")
 
-    print(f"\nafter team collapse: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"\nafter team collapse: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     summaries = mem.list_summaries()
     print(f"active summaries: {len(summaries)}")
@@ -108,7 +108,7 @@ def main() -> None:
             print(f"  internal edges: {summary.internal_edge_count}")
             print(f"  external connections: {summary.external_connections}")
 
-    print(f"\nafter department collapse: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"\nafter department collapse: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     summaries2 = mem.list_summaries()
     print(f"total active summaries: {len(summaries2)}")
@@ -124,7 +124,7 @@ def main() -> None:
         print(f"  expanded edges: {len(expand_result.expanded_edges)}")
         print(f"  summary removed: {expand_result.summary_removed}")
 
-    print(f"\nafter expand: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"\nafter expand: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     remaining_summaries = mem.list_summaries()
     print(f"remaining summaries: {len(remaining_summaries)}")

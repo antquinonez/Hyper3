@@ -129,7 +129,7 @@ def build_infrastructure(mem: HypergraphMemory) -> set[str]:
         all_entities.update(group)
 
     for name, data in all_entities.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     relations = [
         ("seg_public", "cdn_edge", "contains"),
@@ -330,7 +330,7 @@ def build_infrastructure(mem: HypergraphMemory) -> set[str]:
     ]
 
     for src, tgt, label in relations:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     return set(all_entities.keys())
 
@@ -609,8 +609,8 @@ def main():
     print("=" * 70)
 
     all_labels = build_infrastructure(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
 
     mem.add_rules(
         TransitiveRule(edge_label="depends_on", new_label="indirect_depends_on"),
@@ -674,7 +674,7 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Infrastructure: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Infrastructure: {mem.size[0]} nodes, {mem.size[1]} edges")
     total_new = sum(
         r["expansion"].get("edges_produced", 0)
         for r in perspective_results.values()

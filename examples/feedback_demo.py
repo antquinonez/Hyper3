@@ -76,53 +76,53 @@ def build_medical_kb(mem: HypergraphMemory) -> None:
     }
 
     for name, data in conditions.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
-    mem.relate("type 2 diabetes", "obesity", label="risk_factor")
-    mem.relate("type 2 diabetes", "sedentary lifestyle", label="risk_factor")
-    mem.relate("type 2 diabetes", "metformin", label="treated_by")
-    mem.relate("type 2 diabetes", "insulin", label="treated_by")
-    mem.relate("type 2 diabetes", "chronic kidney disease", label="complication")
-    mem.relate("type 2 diabetes", "heart disease", label="complication")
-    mem.relate("type 2 diabetes", "stroke", label="complication")
+    mem.link("type 2 diabetes", "obesity", label="risk_factor")
+    mem.link("type 2 diabetes", "sedentary lifestyle", label="risk_factor")
+    mem.link("type 2 diabetes", "metformin", label="treated_by")
+    mem.link("type 2 diabetes", "insulin", label="treated_by")
+    mem.link("type 2 diabetes", "chronic kidney disease", label="complication")
+    mem.link("type 2 diabetes", "heart disease", label="complication")
+    mem.link("type 2 diabetes", "stroke", label="complication")
 
-    mem.relate("hypertension", "obesity", label="risk_factor")
-    mem.relate("hypertension", "smoking", label="risk_factor")
-    mem.relate("hypertension", "lisinopril", label="treated_by")
-    mem.relate("hypertension", "beta blockers", label="treated_by")
-    mem.relate("hypertension", "stroke", label="complication")
-    mem.relate("hypertension", "heart disease", label="complication")
-    mem.relate("hypertension", "chronic kidney disease", label="complication")
+    mem.link("hypertension", "obesity", label="risk_factor")
+    mem.link("hypertension", "smoking", label="risk_factor")
+    mem.link("hypertension", "lisinopril", label="treated_by")
+    mem.link("hypertension", "beta blockers", label="treated_by")
+    mem.link("hypertension", "stroke", label="complication")
+    mem.link("hypertension", "heart disease", label="complication")
+    mem.link("hypertension", "chronic kidney disease", label="complication")
 
-    mem.relate("heart disease", "hypertension", label="risk_factor")
-    mem.relate("heart disease", "high cholesterol", label="risk_factor")
-    mem.relate("heart disease", "smoking", label="risk_factor")
-    mem.relate("heart disease", "type 2 diabetes", label="risk_factor")
-    mem.relate("heart disease", "statins", label="treated_by")
-    mem.relate("heart disease", "beta blockers", label="treated_by")
+    mem.link("heart disease", "hypertension", label="risk_factor")
+    mem.link("heart disease", "high cholesterol", label="risk_factor")
+    mem.link("heart disease", "smoking", label="risk_factor")
+    mem.link("heart disease", "type 2 diabetes", label="risk_factor")
+    mem.link("heart disease", "statins", label="treated_by")
+    mem.link("heart disease", "beta blockers", label="treated_by")
 
-    mem.relate("obesity", "type 2 diabetes", label="complication")
-    mem.relate("obesity", "sleep apnea", label="complication")
-    mem.relate("obesity", "osteoarthritis", label="complication")
-    mem.relate("obesity", "heart disease", label="complication")
-    mem.relate("obesity", "sedentary lifestyle", label="risk_factor")
-    mem.relate("obesity", "weight loss surgery", label="treated_by")
+    mem.link("obesity", "type 2 diabetes", label="complication")
+    mem.link("obesity", "sleep apnea", label="complication")
+    mem.link("obesity", "osteoarthritis", label="complication")
+    mem.link("obesity", "heart disease", label="complication")
+    mem.link("obesity", "sedentary lifestyle", label="risk_factor")
+    mem.link("obesity", "weight loss surgery", label="treated_by")
 
-    mem.relate("depression", "chronic stress", label="risk_factor")
-    mem.relate("depression", "cognitive behavioral therapy", label="treated_by")
-    mem.relate("depression", "SSRIs", label="treated_by")
+    mem.link("depression", "chronic stress", label="risk_factor")
+    mem.link("depression", "cognitive behavioral therapy", label="treated_by")
+    mem.link("depression", "SSRIs", label="treated_by")
 
-    mem.relate("sleep apnea", "obesity", label="risk_factor")
-    mem.relate("sleep apnea", "CPAP machine", label="treated_by")
+    mem.link("sleep apnea", "obesity", label="risk_factor")
+    mem.link("sleep apnea", "CPAP machine", label="treated_by")
 
-    mem.relate("chronic kidney disease", "type 2 diabetes", label="risk_factor")
-    mem.relate("chronic kidney disease", "hypertension", label="risk_factor")
+    mem.link("chronic kidney disease", "type 2 diabetes", label="risk_factor")
+    mem.link("chronic kidney disease", "hypertension", label="risk_factor")
 
-    mem.relate("stroke", "hypertension", label="risk_factor")
-    mem.relate("stroke", "type 2 diabetes", label="risk_factor")
+    mem.link("stroke", "hypertension", label="risk_factor")
+    mem.link("stroke", "type 2 diabetes", label="risk_factor")
 
-    mem.relate("osteoarthritis", "obesity", label="risk_factor")
-    mem.relate("osteoarthritis", "physical therapy", label="treated_by")
+    mem.link("osteoarthritis", "obesity", label="risk_factor")
+    mem.link("osteoarthritis", "physical therapy", label="treated_by")
 
 
 def print_results(label: str, results, expected: set[str] | None = None):
@@ -151,7 +151,7 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
     mem.set_embedding_provider(provider)
     build_medical_kb(mem)
-    print(f"KB: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges\n")
+    print(f"KB: {mem.size[0]} nodes, {mem.size[1]} edges\n")
 
     expected_diabetes = {"metformin", "insulin", "obesity", "heart disease", "chronic kidney disease", "stroke", "hypertension"}
     expected_depression = {"SSRIs", "cognitive behavioral therapy", "chronic stress"}

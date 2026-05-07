@@ -31,45 +31,45 @@ def main() -> None:
     infra = ["load_balancer"]
 
     for s in services:
-        mem.store(s, data={"type": "service"})
+        mem.add(s, data={"type": "service"})
     for d in databases:
-        mem.store(d, data={"type": "database"})
+        mem.add(d, data={"type": "database"})
     for q in queues:
-        mem.store(q, data={"type": "message_queue"})
+        mem.add(q, data={"type": "message_queue"})
     for i in infra:
-        mem.store(i, data={"type": "infrastructure"})
+        mem.add(i, data={"type": "infrastructure"})
 
-    mem.relate("load_balancer", "api_gateway", label="routes_to", weight=5.0)
-    mem.relate("api_gateway", "auth_svc", label="routes_to", weight=4.0)
-    mem.relate("api_gateway", "user_svc", label="routes_to", weight=4.0)
-    mem.relate("api_gateway", "order_svc", label="routes_to", weight=3.0)
-    mem.relate("api_gateway", "search_svc", label="routes_to", weight=3.0)
-    mem.relate("api_gateway", "payment_svc", label="routes_to", weight=3.0)
-    mem.relate("api_gateway", "inventory_svc", label="routes_to", weight=2.0)
-    mem.relate("api_gateway", "notification_svc", label="routes_to", weight=2.0)
-    mem.relate("api_gateway", "analytics_svc", label="routes_to", weight=1.5)
+    mem.link("load_balancer", "api_gateway", label="routes_to", weight=5.0)
+    mem.link("api_gateway", "auth_svc", label="routes_to", weight=4.0)
+    mem.link("api_gateway", "user_svc", label="routes_to", weight=4.0)
+    mem.link("api_gateway", "order_svc", label="routes_to", weight=3.0)
+    mem.link("api_gateway", "search_svc", label="routes_to", weight=3.0)
+    mem.link("api_gateway", "payment_svc", label="routes_to", weight=3.0)
+    mem.link("api_gateway", "inventory_svc", label="routes_to", weight=2.0)
+    mem.link("api_gateway", "notification_svc", label="routes_to", weight=2.0)
+    mem.link("api_gateway", "analytics_svc", label="routes_to", weight=1.5)
 
-    mem.relate("auth_svc", "user_svc", label="calls", weight=3.0)
-    mem.relate("user_svc", "order_svc", label="calls", weight=2.0)
-    mem.relate("order_svc", "auth_svc", label="calls", weight=2.0)
+    mem.link("auth_svc", "user_svc", label="calls", weight=3.0)
+    mem.link("user_svc", "order_svc", label="calls", weight=2.0)
+    mem.link("order_svc", "auth_svc", label="calls", weight=2.0)
 
-    mem.relate("order_svc", "payment_svc", label="calls", weight=3.0)
-    mem.relate("order_svc", "inventory_svc", label="calls", weight=2.5)
-    mem.relate("payment_svc", "queue_orders", label="publishes_to", weight=2.0)
-    mem.relate("notification_svc", "queue_orders", label="subscribes_to", weight=1.5)
-    mem.relate("payment_svc", "queue_notifications", label="publishes_to", weight=1.0)
-    mem.relate("notification_svc", "queue_notifications", label="subscribes_to", weight=1.5)
+    mem.link("order_svc", "payment_svc", label="calls", weight=3.0)
+    mem.link("order_svc", "inventory_svc", label="calls", weight=2.5)
+    mem.link("payment_svc", "queue_orders", label="publishes_to", weight=2.0)
+    mem.link("notification_svc", "queue_orders", label="subscribes_to", weight=1.5)
+    mem.link("payment_svc", "queue_notifications", label="publishes_to", weight=1.0)
+    mem.link("notification_svc", "queue_notifications", label="subscribes_to", weight=1.5)
 
-    mem.relate("user_svc", "db_primary", label="reads_from", weight=3.0)
-    mem.relate("order_svc", "db_primary", label="reads_from", weight=3.0)
-    mem.relate("order_svc", "db_primary", label="writes_to", weight=3.0)
-    mem.relate("analytics_svc", "db_analytics", label="reads_from", weight=2.0)
-    mem.relate("logging_svc", "db_primary", label="writes_to", weight=1.0)
-    mem.relate("logging_svc", "db_analytics", label="writes_to", weight=1.0)
-    mem.relate("logging_svc", "db_cache", label="writes_to", weight=1.0)
-    mem.relate("cache_svc", "db_cache", label="reads_from", weight=2.0)
-    mem.relate("config_svc", "cache_svc", label="calls", weight=1.0)
-    mem.relate("search_svc", "cache_svc", label="calls", weight=2.0)
+    mem.link("user_svc", "db_primary", label="reads_from", weight=3.0)
+    mem.link("order_svc", "db_primary", label="reads_from", weight=3.0)
+    mem.link("order_svc", "db_primary", label="writes_to", weight=3.0)
+    mem.link("analytics_svc", "db_analytics", label="reads_from", weight=2.0)
+    mem.link("logging_svc", "db_primary", label="writes_to", weight=1.0)
+    mem.link("logging_svc", "db_analytics", label="writes_to", weight=1.0)
+    mem.link("logging_svc", "db_cache", label="writes_to", weight=1.0)
+    mem.link("cache_svc", "db_cache", label="reads_from", weight=2.0)
+    mem.link("config_svc", "cache_svc", label="calls", weight=1.0)
+    mem.link("search_svc", "cache_svc", label="calls", weight=2.0)
 
     desc = mem.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
@@ -81,7 +81,7 @@ def main() -> None:
 
     key_services = ["api_gateway", "auth_svc", "user_svc", "order_svc", "logging_svc", "config_svc"]
     for svc in key_services:
-        result = mem.detect_structural_anomalies(svc)
+        result = mem.analyze.anomalies(svc)
         print(f"\n{svc}:")
         print(f"  status: {result.anomaly_status}")
         print(f"  boundary score: {result.boundary_score:.4f}")
@@ -151,7 +151,7 @@ def main() -> None:
     sorted_bc = sorted(bc.items(), key=lambda x: x[1], reverse=True)
     print("\ntop-5 betweenness centrality:")
     for label, score in sorted_bc[:5]:
-        anomaly = mem.detect_structural_anomalies(label)
+        anomaly = mem.analyze.anomalies(label)
         print(f"  {label}: centrality={score:.4f}, anomaly_status={anomaly.anomaly_status}")
 
     analysis = detector.analyze()

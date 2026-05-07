@@ -215,29 +215,29 @@ def main() -> None:
 
     all_entities = {**COUNTERPARTIES, **INSTRUMENTS, **RISK_FACTORS, **REGULATORS}
     for name, data in all_entities.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt, label, weight in EXPOSURES:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
     for src, tgt, label in RISK_EXPOSURE_EDGES:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     for src, tgt in RISK_AMPLIFICATION:
-        mem.relate(src, tgt, label="amplifies")
+        mem.link(src, tgt, label="amplifies")
 
     for reg, cp in REGULATORY_EDGES:
-        mem.relate(reg, cp, label="regulates")
+        mem.link(reg, cp, label="regulates")
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
     print("SECTION 2: Community Detection - Risk Clusters")
     print("=" * 70)
 
-    result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities found: {result.community_count}")
     print(f"  Modularity: {result.modularity:.3f}")
     print(f"  Coverage: {result.coverage:.1%}")
@@ -268,14 +268,14 @@ def main() -> None:
     print(f"  Baseline version {v0['version_id']}: {v0['node_count']} nodes, {v0['edge_count']} edges")
     print()
 
-    mem.store("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
-    mem.relate("archegos_capital", "sp500_futures", label="holds")
-    mem.relate("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
-    mem.relate("archegos_capital", "vix_futures", label="holds")
-    mem.relate("archegos_capital", "sec", label="regulated_by")
+    mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
+    mem.link("archegos_capital", "sp500_futures", label="holds")
+    mem.link("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
+    mem.link("archegos_capital", "vix_futures", label="holds")
+    mem.link("archegos_capital", "sec", label="regulated_by")
 
-    if mem.has_node("credit_suisse"):
-        mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
+    if mem.has("credit_suisse"):
+        mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
 
     v1 = mem.capture_version()
     print(f"  After adding Archegos exposure (version {v1['version_id']})")
@@ -313,13 +313,13 @@ def main() -> None:
         print(f"    {s.summary_label}: {', '.join(s.detail_labels)}")
     print()
 
-    us_result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    us_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after abstraction: {us_result.community_count}")
     print()
 
     mem.expand_summary("us_banking_sector")
     print("  Expanded 'us_banking_sector' back to individual banks")
-    expanded_result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    expanded_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after expansion: {expanded_result.community_count}")
     print()
 

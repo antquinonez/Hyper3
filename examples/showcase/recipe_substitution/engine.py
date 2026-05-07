@@ -22,15 +22,15 @@ class RecipeSubstitutionEngine:
         )
 
     def add_ingredient(self, name: str, **properties) -> str:
-        if not self.mem.has_node(name):
-            self.mem.store(name, data=properties)
+        if not self.mem.has(name):
+            self.mem.add(name, data=properties)
         return name
 
     def add_substitution(self, from_ingredient: str, to_ingredient: str,
                          *, confidence: float = 0.8) -> None:
         self.add_ingredient(from_ingredient)
         self.add_ingredient(to_ingredient)
-        self.mem.relate(
+        self.mem.link(
             from_ingredient, to_ingredient,
             label="substitutes_for",
             weight=confidence,
@@ -42,7 +42,7 @@ class RecipeSubstitutionEngine:
             self.add_ingredient(ing)
 
         for a, b in combinations(ingredients, 2):
-            self.mem.relate(a, b, label="substitutes_for", weight=confidence)
+            self.mem.link(a, b, label="substitutes_for", weight=confidence)
 
     def find_substitutes(self, ingredient: str, *, max_depth: int = 3) -> list[dict]:
         """Find all substitutes via mem.neighbors() BFS traversal.
@@ -56,7 +56,7 @@ class RecipeSubstitutionEngine:
         Returns:
             List of dicts with keys: label, confidence, depth, path.
         """
-        if not self.mem.has_node(ingredient):
+        if not self.mem.has(ingredient):
             return []
 
         result = []
