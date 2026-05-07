@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from hyper3 import HypergraphMemory, Modality, top_k
+from hyper3 import HypergraphMemory, Modality, TransitiveRule, top_k
 
 
 def build_hosts(mem: HypergraphMemory) -> list[str]:
@@ -839,6 +839,122 @@ def main():
             print(f"    {desc}:")
             print(f"      {' -> '.join(path)}")
             print(f"      Zone traversal: {' -> '.join(zones_in_path)}")
+    print()
+
+    # =====================================================================
+    # SECTION 10: Trust Chain Inference
+    # =====================================================================
+    print("=" * 70)
+    print("SECTION 10: Trust Chain Inference")
+    print("=" * 70)
+
+    mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
+    print("  Added TransitiveRule: trusts -> trusts_indirectly\n")
+
+    reason_result = mem.reason(
+        seed_concepts={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
+        max_depth=4,
+    )
+    print(f"  Reasoning expansion:")
+    print(f"    States created: {reason_result.states_created}")
+    if reason_result.expansion:
+        print(f"    Edges produced: {reason_result.expansion.edges_produced}")
+    print()
+
+    indirect_edges = mem.edges_labeled(edge_label="trusts_indirectly")
+    print(f"  Inferred indirect trust edges ({len(indirect_edges)}):")
+    for edge in indirect_edges:
+        src = ", ".join(edge.source_labels)
+        tgt = ", ".join(edge.target_labels)
+        print(f"    {src} -> {tgt}  (weight={edge.weight:.2f})")
+    print()
+
+    restricted_hosts = set(mem.query_nodes(data={"kind": "host", "zone": "restricted"}))
+    reachable_restricted = set()
+    for edge in indirect_edges:
+        for lbl in edge.target_labels:
+            if lbl in restricted_hosts:
+                reachable_restricted.add(lbl)
+        for lbl in edge.source_labels:
+            if lbl in restricted_hosts:
+                reachable_restricted.add(lbl)
+    print(f"  Restricted-zone hosts reachable via indirect trust ({len(reachable_restricted)}):")
+    for h in sorted(reachable_restricted):
+        print(f"    {h}")
+    print()
+
+    # =====================================================================
+    # SECTION 11: Network Segment Detection
+    # =====================================================================
+    print("=" * 70)
+    print("SECTION 11: Network Segment Detection")
+    print("=" * 70)
+
+    comm_result = mem.detect_communities(seed=42)
+    print(f"  Communities detected: {comm_result.community_count}")
+    print(f"  Modularity:            {comm_result.modularity:.4f}")
+    print(f"  Coverage:              {comm_result.coverage:.4f}")
+    print()
+
+    host_zone = {}
+    for lbl in mem.query_nodes(data={"kind": "host"}):
+        node = mem.graph.get_node_by_label(lbl)
+        if node:
+            host_zone[lbl] = node.data.get("zone", "unknown")
+
+    zone_mixing = []
+    for comm in comm_result.communities:
+        zones_in_comm: dict[str, list[str]] = defaultdict(list)
+        for member in comm.member_labels:
+            zone = host_zone.get(member, "non-host")
+            zones_in_comm[zone].append(member)
+
+        is_mixing = len(zones_in_comm) > 1 and any(
+            z != "non-host" for z in zones_in_comm
+        )
+
+        print(f"  Community {comm.community_id} ({comm.size} members):")
+        for zone, members in sorted(zones_in_comm.items()):
+            sample = members[:5]
+            suffix = f" +{len(members) - 5} more" if len(members) > 5 else ""
+            print(f"    {zone:12s}: {', '.join(sample)}{suffix}")
+
+        if is_mixing:
+            host_zones = {z: ms for z, ms in zones_in_comm.items() if z != "non-host"}
+            zone_mixing.append((comm.community_id, dict(host_zones)))
+    print()
+
+    if zone_mixing:
+        print(f"  Zone-mixing communities ({len(zone_mixing)}):")
+        for cid, zones in zone_mixing:
+            zone_summary = ", ".join(f"{z}({len(ms)})" for z, ms in sorted(zones.items()))
+            print(f"    Community {cid}: {zone_summary}")
+    else:
+        print("  No zone-mixing communities detected.")
+    print()
+
+    # =====================================================================
+    # SECTION 12: Structural Anomaly Detection
+    # =====================================================================
+    print("=" * 70)
+    print("SECTION 12: Structural Anomaly Detection")
+    print("=" * 70)
+
+    anomaly_targets = [
+        "dc-01", "admin-bastion", "db-primary",
+        "admin-jump-01", "web-04", "iot-gateway",
+    ]
+    print(f"  {'Host':20s} {'Status':14s} {'Score':>7s}  Insights")
+    print(f"  {'-' * 20} {'-' * 14} {'-' * 7}  {'-' * 45}")
+    for concept in anomaly_targets:
+        result = mem.detect_structural_anomalies(concept)
+        insights_preview = result.structural_insights[:2]
+        insights_str = "; ".join(insights_preview) if insights_preview else "(none)"
+        if len(insights_str) > 60:
+            insights_str = insights_str[:57] + "..."
+        print(
+            f"  {concept:20s} {result.anomaly_status:14s} {result.boundary_score:7.3f}  {insights_str}"
+        )
     print()
 
     # =====================================================================

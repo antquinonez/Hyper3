@@ -347,6 +347,71 @@ def main() -> None:
     print()
 
     print("=" * 70)
+    print("SECTION 6: Probabilistic Default Risk Assessment")
+    print("=" * 70)
+
+    qs = mem.create_distribution(
+        ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
+        amplitudes=[0.7, 0.4, 0.15, 0.10],
+        use_context_field=True,
+    )
+
+    total_prob = sum(abs(o.amplitude) ** 2 for o in qs.outcomes)
+    print(f"  Default risk distribution ({qs.outcome_count} outcomes):")
+    for o in qs.outcomes:
+        node = mem.graph.get_node(o.node_id)
+        lbl = node.label if node else o.node_id
+        prob = abs(o.amplitude) ** 2 / total_prob if total_prob > 0 else 0.0
+        print(f"    {lbl:<25} P(default) = {prob:.3f}")
+    print()
+
+    print(f"  Stochastic default sampling (10 draws):")
+    for i in range(10):
+        answer = mem.sample(qs)
+        if answer:
+            node = mem.graph.get_node(answer.node_id)
+            lbl = node.label if node else answer.node_id
+            print(f"    Draw {i + 1:2d}: {lbl}")
+        else:
+            print(f"    Draw {i + 1:2d}: no result")
+    print()
+
+    qs_risk = mem.create_distribution(
+        ["interest_rate_risk", "credit_spread_risk", "fx_risk", "liquidity_risk"],
+        amplitudes=[0.6, 0.5, 0.3, 0.2],
+        use_context_field=True,
+    )
+    total_risk = sum(abs(o.amplitude) ** 2 for o in qs_risk.outcomes)
+    print(f"  Risk factor distribution:")
+    for o in qs_risk.outcomes:
+        node = mem.graph.get_node(o.node_id)
+        lbl = node.label if node else o.node_id
+        prob = abs(o.amplitude) ** 2 / total_risk if total_risk > 0 else 0.0
+        print(f"    {lbl:<25} P(dominant) = {prob:.3f}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 7: Multi-Frame Risk Analysis")
+    print("=" * 70)
+
+    frames = mem.multi_frame_analysis("credit_suisse")
+    print(f"  Multi-frame analysis for 'credit_suisse' ({len(frames)} frames):")
+    print()
+    for frame_name, analysis in frames.items():
+        print(f"  [{frame_name}]")
+        print(f"    Complexity:         {analysis.complexity:.3f}")
+        print(f"    Solution approach:  {analysis.solution_approach}")
+        for s in analysis.strengths[:2]:
+            print(f"    Strength:          {s}")
+        for w in analysis.weaknesses[:2]:
+            print(f"    Weakness:          {w}")
+        print()
+
+    optimal_name, optimal_analysis = mem.select_optimal_frame("credit_suisse")
+    print(f"  Optimal frame: {optimal_name} (complexity={optimal_analysis.complexity:.3f})")
+    print()
+
+    print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()

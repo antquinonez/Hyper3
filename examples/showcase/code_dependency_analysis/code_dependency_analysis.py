@@ -629,7 +629,87 @@ def main():
     print()
 
     # =====================================================================
-    # SECTION 10: Summary
+    # SECTION 10: Package-Level Abstraction
+    # =====================================================================
+
+    print("=" * 70)
+    print("SECTION 10: Package-Level Abstraction")
+    print("=" * 70)
+
+    core_labels = set(core_modules.keys())
+    third_party_labels = set(third_party.keys())
+
+    pkg_core = mem.collapse_subgraph(
+        core_labels,
+        summary_label="pkg_core",
+        summary_data={"category": "package", "modules": len(core_labels)},
+    )
+    if pkg_core:
+        print(f"  pkg_core collapsed: {pkg_core.edges_collapsed} edges, "
+              f"{pkg_core.external_connections} external connections")
+
+    pkg_tp = mem.collapse_subgraph(
+        third_party_labels,
+        summary_label="pkg_third_party",
+        summary_data={"category": "package", "modules": len(third_party_labels)},
+    )
+    if pkg_tp:
+        print(f"  pkg_third_party collapsed: {pkg_tp.edges_collapsed} edges, "
+              f"{pkg_tp.external_connections} external connections")
+
+    summaries = mem.list_summaries()
+    print(f"  Active summaries: {[s.summary_label for s in summaries]}")
+
+    abstract_degree = mem.degree_centrality()
+    print("  Top 5 modules in abstracted graph:")
+    for label, score in top_k(abstract_degree, k=5):
+        print(f"    {label:<35s} centrality={score:.3f}")
+
+    expand_result = mem.expand_summary("pkg_core")
+    if expand_result:
+        print(f"  Expanded pkg_core back to individual nodes")
+    print()
+
+    # =====================================================================
+    # SECTION 11: Dependency Change Tracking
+    # =====================================================================
+
+    print("=" * 70)
+    print("SECTION 11: Dependency Change Tracking")
+    print("=" * 70)
+
+    baseline = mem.capture_version()
+    print(f"  Baseline: version_id={baseline['version_id']}, "
+          f"nodes={baseline['node_count']}, edges={baseline['edge_count']}")
+
+    mem.store("svc.graphql", data={
+        "category": "service",
+        "api_version": "v1",
+        "team": "platform",
+        "endpoint_count": 6,
+        "latency_p95": 55,
+    })
+    mem.relate("svc.graphql", "core.engine", label="depends_on")
+    mem.relate("svc.graphql", "core.pipeline", label="depends_on")
+    mem.relate("svc.graphql", "svc.auth", label="depends_on")
+    mem.relate("svc.graphql", "util.tracing", label="imports")
+
+    updated = mem.capture_version()
+    print(f"  After adding svc.graphql: version_id={updated['version_id']}, "
+          f"nodes={updated['node_count']}, edges={updated['edge_count']}")
+
+    delta = mem.diff_from_version(baseline["version_id"])
+    if delta:
+        print(f"  Changes from baseline:")
+        print(f"    Nodes added: {len(delta.nodes_added)}")
+        print(f"    Nodes removed: {len(delta.nodes_removed)}")
+        print(f"    Edges added: {len(delta.edges_added)}")
+        print(f"    Edges removed: {len(delta.edges_removed)}")
+        print(f"    Total changes: {delta.total_changes}")
+    print()
+
+    # =====================================================================
+    # SUMMARY
     # =====================================================================
 
     print("=" * 70)

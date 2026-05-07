@@ -352,6 +352,74 @@ def main() -> None:
     print()
 
     print("=" * 70)
+    print("SECTION 7: Probabilistic Differential Diagnosis")
+    print("=" * 70)
+
+    ddx_concepts = [
+        "pneumonia", "pulmonary_embolism", "bronchitis",
+        "pleural_effusion", "copd_exacerbation",
+    ]
+    ddx_amplitudes = [0.70, 0.35, 0.30, 0.20, 0.25]
+
+    qs = mem.create_distribution(ddx_concepts, amplitudes=ddx_amplitudes)
+
+    print(f"  Born-rule probability distribution over differential diagnoses:")
+    total_prob = sum(abs(a) ** 2 for a in ddx_amplitudes)
+    for concept, amp in zip(ddx_concepts, ddx_amplitudes):
+        prob = abs(amp) ** 2 / total_prob
+        bar = "#" * int(prob * 50)
+        print(f"    {concept:<28} |amp|={amp:.2f}  P={prob:.3f}  {bar}")
+    print()
+
+    n_samples = 15
+    frequency: dict[str, int] = {}
+    samples_raw: list[str] = []
+    for _ in range(n_samples):
+        outcome = mem.sample(qs)
+        if outcome is not None:
+            node = mem.graph.get_node(outcome.node_id)
+            label = node.label if node else outcome.node_id
+            frequency[label] = frequency.get(label, 0) + 1
+            samples_raw.append(label)
+
+    print(f"  Sampling {n_samples} times from diagnostic superposition:")
+    print(f"    Raw samples: {', '.join(samples_raw)}")
+    print()
+    print(f"  Frequency table:")
+    for concept in sorted(frequency, key=frequency.get, reverse=True):
+        count = frequency[concept]
+        bar = "#" * count
+        print(f"    {concept:<28} {count:>2}/{n_samples}  {bar}")
+    print()
+    print(f"  Diagnostic uncertainty is naturally represented as a superposition")
+    print(f"  of candidate diagnoses, collapsed by context or further testing.")
+    print()
+
+    print("=" * 70)
+    print("SECTION 8: Structural Anomaly Detection on Clinical Concepts")
+    print("=" * 70)
+
+    anomaly_concepts = [
+        "pneumonia", "cough", "fever", "dyspnea", "tachycardia",
+        "pulmonary_embolism",
+    ]
+
+    print(f"  Running structural anomaly detection on {len(anomaly_concepts)} concepts:")
+    print()
+    for concept in anomaly_concepts:
+        result = mem.detect_structural_anomalies(concept)
+        print(f"    {concept}:")
+        print(f"      status={result.anomaly_status}  boundary_score={result.boundary_score:.3f}")
+        for insight in result.structural_insights[:3]:
+            print(f"      - {insight}")
+        print()
+
+    print(f"  Anomalous symptoms are diagnostic bottlenecks: high convergence")
+    print(f"  of disease-causes-symptom edges means additional testing is")
+    print(f"  most needed to disambiguate these critical nodes.")
+    print()
+
+    print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()

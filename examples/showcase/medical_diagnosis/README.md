@@ -1,6 +1,6 @@
 # Clinical Diagnosis Knowledge Graph Showcase
 
-> **Backward Chaining, Belief Revision, and Uncertainty Propagation on a 92-Node Clinical Knowledge Graph**
+> **Backward Chaining, Belief Revision, Uncertainty Propagation, Probabilistic Diagnosis, and Structural Anomaly Detection on a 92-Node Clinical Knowledge Graph**
 
 ## 1. The Approach
 
@@ -8,7 +8,7 @@ Differential diagnosis is a backward reasoning problem: given a set of patient f
 
 **The Traditional Bottleneck:** Medical knowledge bases typically store diseases, symptoms, and treatments in separate lookup tables. Cross-referencing requires querying each table independently and mentally combining results. When a symptom supports both disease A and disease B, there is no mechanism to track competing hypotheses or flag contradictions in the evidence.
 
-**The Hyper3 Approach:** Store diseases, symptoms, lab findings, imaging results, risk factors, and medications as nodes in a unified hypergraph. Semantic edge labels (`causes`, `increases_risk`, `treats`, `supports`, `opposes`) encode clinical relationships. Backward chaining traces from a suspected diagnosis to the evidence required to confirm or rule it out. Belief revision detects and resolves contradictory findings automatically. Uncertainty propagation tracks confidence as evidence accumulates through inference chains.
+**The Hyper3 Approach:** Store diseases, symptoms, lab findings, imaging results, risk factors, and medications as nodes in a unified hypergraph. Semantic edge labels (`causes`, `increases_risk`, `treats`, `supports`, `opposes`) encode clinical relationships. Backward chaining traces from a suspected diagnosis to the evidence required to confirm or rule it out. Belief revision detects and resolves contradictory findings automatically. Uncertainty propagation tracks confidence as evidence accumulates through inference chains. Belief distributions represent diagnostic uncertainty as a quantum superposition of candidate diagnoses, with Born-rule sampling collapsing to a specific diagnosis when context demands it.
 
 ## 2. A Simple Analogy
 
@@ -22,8 +22,11 @@ Imagine a detective board where diseases are suspects, symptoms are clues, and l
 | **Backward Chaining** | Working from a suspected diagnosis backward to the evidence needed to prove it |
 | **Belief Revision** | Detecting and resolving contradictory findings in the evidence graph |
 | **Uncertainty Propagation** | Tracking how confidence decreases as inference chains get longer |
+| **Belief Distribution** | A quantum superposition of candidate diagnoses, each with a complex amplitude |
+| **Born-Rule Sampling** | Collapsing a belief distribution to a single diagnosis with probability proportional to amplitude squared |
 | **Diamond Pattern** | Two diseases that share a common symptom (convergent evidence) |
 | **Fan-out** | Number of symptoms a disease produces (high fan-out = more distinctive) |
+| **Structural Anomaly** | A concept flagged as a diagnostic bottleneck due to its graph topology |
 | **Premise Satisfaction** | How many required evidence items are present vs. total needed |
 | **Confidence Score** | How certain the system is about a node, based on its evidence base |
 
@@ -37,7 +40,7 @@ Run the showcase to build a 92-node clinical knowledge graph and perform differe
 
 ### What You'll See
 
-The example builds a clinical graph covering 15 diseases, 21 symptoms, 15 lab findings, 11 imaging results, 15 risk factors, and 15 medications, then runs backward chaining, belief revision, uncertainty propagation, and structural pattern matching:
+The example builds a clinical graph covering 15 diseases, 21 symptoms, 15 lab findings, 11 imaging results, 15 risk factors, and 15 medications, then runs backward chaining, belief revision, uncertainty propagation, structural pattern matching, probabilistic diagnosis, and structural anomaly detection:
 
 ```
 ======================================================================
@@ -161,7 +164,7 @@ graph TD
 
 ## 6. Analysis Pipeline
 
-The showcase walks through 6 sections that demonstrate clinical reasoning on the knowledge graph.
+The showcase walks through 8 sections that demonstrate clinical reasoning on the knowledge graph.
 
 ### Phase 1: Building the Clinical Knowledge Graph
 
@@ -238,8 +241,8 @@ for dx in ["pneumonia", "pulmonary_embolism", "lung_cancer"]:
 
 | Metric | Value |
 |--------|-------|
-| Average confidence | 0.964 |
-| High confidence nodes (>0.8) | 83 |
+| Average confidence | 0.966 |
+| High confidence nodes (>0.8) | 84 |
 | Low confidence nodes (<0.3) | 0 |
 | Nodes below 0.5 | 0 |
 | pneumonia confidence | 0.722 (inferred) |
@@ -260,17 +263,17 @@ fans = mem.match_fan_out(edge_label="causes", min_fan=5, max_results=5)
 
 **Why patterns matter:** Diamond patterns reveal symptoms shared by multiple diseases — these are the diagnostic bottlenecks where additional evidence (labs, imaging) is needed to differentiate. Fan-out patterns reveal which diseases produce the most findings — these are the ones most likely to explain a wide presentation but also the hardest to distinguish from each other.
 
-**Diamond patterns (10 found):** All 5 displayed diamonds converge on `fever` — the least specific symptom in the graph. Tuberculosis and influenza both cause fever (score 0.091), tuberculosis and bronchitis both cause fever (score 0.182), tuberculosis and pneumonia both cause fever (score 0.176). Higher scores indicate diseases that share more overlapping manifestations beyond just fever.
+**Diamond patterns (10 found):** All 5 displayed diamonds converge on `cough` — the symptom caused by the most diseases in the graph. Lung cancer and bronchitis both cause cough (score 0.300), lung cancer and tuberculosis both cause cough (score 0.273), bronchitis and pneumonia both cause cough (score 0.267). Higher scores indicate diseases that share more overlapping manifestations beyond the shared symptom.
 
 **Fan-out analysis:**
 
 | Disease | Fan-out | Sample Symptoms |
 |---------|---------|----------------|
-| pneumonia | 13 | fever, tachycardia, elevated_wbc, hypoxemia |
-| pulmonary_embolism | 7 | sudden_onset_dyspnea, tachycardia, hypoxemia, elevated_d_dimer |
-| lung_cancer | 7 | lung_mass_ct, cough, fatigue, chest_opacity_ct |
-| bronchitis | 6 | fever, cough, fatigue, productive_cough |
-| asthma_exacerbation | 5 | tachycardia, hypoxemia, dry_cough, dyspnea |
+| pneumonia | 13 | cough, hypoxemia, elevated_procalcitonin, elevated_crp |
+| pulmonary_embolism | 7 | hypoxemia, pulmonary_embolism_ct, sudden_onset_dyspnea, elevated_d_dimer |
+| lung_cancer | 7 | cough, dyspnea, weight_loss, lung_mass_ct |
+| bronchitis | 6 | cough, dyspnea, fatigue, productive_cough |
+| asthma_exacerbation | 5 | hypoxemia, dyspnea, dry_cough, tachycardia |
 
 Pneumonia's fan-out of 13 means it produces 13 distinct findings — making it both the most likely to match a broad presentation and the most useful to rule out (ruling out pneumonia eliminates 13 findings from the differential).
 
@@ -283,6 +286,70 @@ treat_chains = mem.match_chains(edge_label="treats", min_length=1, max_length=2,
 ```
 
 **Result:** 15 treatment edges connecting medications to diseases. Pneumonia has the most treatment options (amoxicillin, azithromycin, levofloxacin, ceftriaxone, oxygen_therapy), reflecting its prevalence and the range of antibiotic coverage needed for different pathogens.
+
+### Phase 7: Probabilistic Differential Diagnosis
+
+Create a belief distribution over the candidate diagnoses, assigning amplitudes proportional to clinical likelihood, then sample from the distribution using the Born rule:
+
+```python
+ddx_concepts = [
+    "pneumonia", "pulmonary_embolism", "bronchitis",
+    "pleural_effusion", "copd_exacerbation",
+]
+ddx_amplitudes = [0.70, 0.35, 0.30, 0.20, 0.25]
+
+qs = mem.create_distribution(ddx_concepts, amplitudes=ddx_amplitudes)
+outcome = mem.sample(qs)
+```
+
+**Why belief distributions are the natural fit for differential diagnosis:** A differential diagnosis is fundamentally a probability distribution over candidate diseases — the clinician holds multiple hypotheses simultaneously until evidence collapses the uncertainty. Belief distributions represent this exactly: each candidate diagnosis is a quantum state with a complex amplitude, and the probability of selecting any one diagnosis is the squared magnitude of its amplitude (the Born rule). This is not an analogy — it is a direct mathematical representation of diagnostic uncertainty.
+
+Without belief distributions, differential diagnosis must be represented as a simple ranked list, losing the magnitude of uncertainty between candidates. A ranked list says "pneumonia is more likely than pulmonary embolism" but not "pneumonia is four times more likely." The amplitude encoding preserves this: pneumonia's probability of 0.609 is four times pulmonary embolism's 0.152.
+
+**Born-rule probability distribution:**
+
+| Diagnosis | Amplitude | Probability | Interpretation |
+|-----------|-----------|-------------|----------------|
+| pneumonia | 0.70 | 0.609 | Strong candidate — matches 4 of 6 findings, high fan-out |
+| pulmonary_embolism | 0.35 | 0.152 | Moderate — sudden onset dyspnea and pleuritic pain fit, but less overlap |
+| bronchitis | 0.30 | 0.112 | Moderate — cough and fever fit, but typically milder presentation |
+| copd_exacerbation | 0.25 | 0.078 | Lower — requires COPD history to be plausible |
+| pleural_effusion | 0.20 | 0.050 | Unlikely — pleuritic pain fits, but fewer symptom matches |
+
+**Sampling results (15 draws):** pneumonia appeared 14 times, pulmonary_embolism appeared 1 time. The sampling frequency approximates the Born-rule probabilities — pneumonia's observed frequency of 14/15 (0.933) overshoots its theoretical probability (0.609) due to the small sample size, but the dominance of the highest-amplitude diagnosis is clear.
+
+**Why sampling matters:** Each sample represents what a clinician would conclude given the current evidence — a "diagnostic collapse" from uncertainty to a specific diagnosis. In practice, new evidence (lab results, imaging) would update the amplitudes before the next sample, narrowing the distribution toward the correct diagnosis.
+
+### Phase 8: Structural Anomaly Detection on Clinical Concepts
+
+Run structural anomaly detection on key clinical concepts to identify diagnostic bottlenecks — nodes where many diseases converge:
+
+```python
+anomaly_concepts = [
+    "pneumonia", "cough", "fever", "dyspnea", "tachycardia",
+    "pulmonary_embolism",
+]
+
+for concept in anomaly_concepts:
+    result = mem.detect_structural_anomalies(concept)
+```
+
+**Why anomaly detection matters:** In a clinical knowledge graph, a symptom caused by many diseases is a diagnostic bottleneck — it appears in many presentations but discriminates between few. Structural anomaly detection identifies these bottlenecks automatically through graph topology, flagging concepts where additional testing would be most valuable. Without this analysis, a clinician might not realize that a common symptom like cough is the least informative finding because so many diseases produce it.
+
+**Results:**
+
+| Concept | Status | Boundary Score | Key Insight |
+|---------|--------|---------------|-------------|
+| pneumonia | anomalous | 0.418 | Cyclic dependency structure — many diseases and findings form feedback loops |
+| dyspnea | anomalous | 0.414 | Highest-scoring symptom — caused by 9 diseases |
+| tachycardia | anomalous | 0.411 | Non-specific finding — multiple causes and downstream effects |
+| cough | anomalous | 0.404 | Caused by 6 diseases, diamond convergence point |
+| fever | anomalous | 0.401 | Low-specificity symptom, caused by 5 diseases |
+| pulmonary_embolism | anomalous | 0.391 | High-connectivity disease, many causes and manifestations |
+
+All 6 concepts are flagged as anomalous, with boundary scores ranging from 0.391 to 0.418. The structural insight is consistent across all nodes: cyclic dependency structures arise because the `caused_by` inverse edges (generated by the InverseRule in Phase 2) create bidirectional paths between diseases and symptoms. Symptoms score as anomalous because many diseases converge on them (high in-degree from `caused_by` edges). Diseases score as anomalous because they connect to many symptoms (high out-degree from `causes` edges).
+
+**Clinical interpretation:** The symptoms cough, fever, dyspnea, and tachycardia are diagnostic bottlenecks. A patient presenting with any of these in isolation provides little discriminative power. The anomaly detection confirms what the diamond pattern analysis revealed in Phase 5 — these are the nodes where targeted testing (specific lab tests, imaging) provides the most diagnostic value because they have the most competing explanations to disambiguate.
 
 ## 7. Understanding the Output
 
@@ -311,6 +378,22 @@ treat_chains = mem.match_chains(edge_label="treats", min_length=1, max_length=2,
 | 5 - 10 | Moderate — distinctive enough to narrow the differential with targeted testing |
 | < 5 | Low — few manifestations, easy to miss, often requires specific testing |
 
+### Anomaly Status Interpretation
+
+| Status | Interpretation |
+|--------|---------------|
+| anomalous | Diagnostic bottleneck — high convergence or cyclic structure, targeted testing needed |
+| boundary | Approaching anomaly — some structural tension, worth monitoring |
+| low_risk | Well-characterized node — few competing explanations |
+
+### Belief Distribution Interpretation
+
+| Born-Rule Probability | Diagnostic Confidence |
+|-----------------------|----------------------|
+| > 0.5 | Leading candidate — strongly supported by evidence |
+| 0.1 - 0.5 | Active consideration — plausible, awaiting further evidence |
+| < 0.1 | Low priority — unlikely but not ruled out |
+
 ## 8. Key Metrics
 
 | Metric | Value |
@@ -333,12 +416,24 @@ treat_chains = mem.match_chains(edge_label="treats", min_length=1, max_length=2,
 | Differential diagnosis candidates | 5 |
 | Contradictions detected | 1 |
 | Edges removed by belief revision | 1 |
-| Average confidence | 0.964 |
-| High confidence nodes (>0.8) | 83 |
+| Average confidence | 0.966 |
+| High confidence nodes (>0.8) | 84 |
 | Diamond patterns found | 10 |
 | Top differential | pneumonia (confidence=0.00, ranked by connectivity) |
 | Pneumonia fan-out | 13 |
 | Treatment edges | 15 |
+| Pneumonia Born-rule probability | 0.609 |
+| Pulmonary embolism Born-rule probability | 0.152 |
+| Bronchitis Born-rule probability | 0.112 |
+| COPD exacerbation Born-rule probability | 0.078 |
+| Pleural effusion Born-rule probability | 0.050 |
+| Sampling draws | 15 |
+| Pneumonia samples | 14/15 |
+| Pulmonary embolism samples | 1/15 |
+| Anomaly concepts tested | 6 |
+| Anomalous concepts | 6 |
+| Highest boundary score | pneumonia (0.418) |
+| Lowest boundary score | pulmonary_embolism (0.391) |
 
 ## 9. What Makes This Different
 
@@ -351,6 +446,10 @@ treat_chains = mem.match_chains(edge_label="treats", min_length=1, max_length=2,
 **Confidence propagation through inference chains.** Confidence scores decrease with inference depth, encoding the clinical reality that indirect evidence is less reliable than direct observation. The system flags low-confidence nodes for further investigation automatically.
 
 **Structural pattern matching.** Diamond patterns reveal shared symptoms that create diagnostic ambiguity. Fan-out patterns reveal which diseases are hardest to distinguish. These emerge from graph topology rather than requiring hand-coded clinical rules.
+
+**Belief distributions as quantum superposition of diagnoses.** Differential diagnosis is the natural application for belief distributions: the clinician holds multiple candidate diseases simultaneously, and each has a probability proportional to how well it explains the evidence. `create_distribution()` encodes these candidates as a quantum state; `sample()` collapses the superposition to a single diagnosis using the Born rule (probability = amplitude squared). This captures the magnitude of uncertainty between candidates — not just their ranking — so that a dominant candidate like pneumonia (P=0.609) is clearly distinguished from a plausible alternative like pulmonary embolism (P=0.152).
+
+**Structural anomaly detection for diagnostic bottlenecks.** `detect_structural_anomalies()` identifies symptoms and diseases that are structural bottlenecks in the clinical graph — nodes where many edges converge, creating diagnostic ambiguity. This tells the clinician which findings are least discriminative and where targeted testing provides the most value, without requiring any hand-coded clinical heuristics.
 
 ## 10. Code Implementation
 
@@ -413,7 +512,28 @@ contradictions = mem.detect_contradictions()
 revision = mem.revise_beliefs(strategy="higher_weight")
 ```
 
-**6. Structural Analysis**
+**6. Probabilistic Differential Diagnosis**
+
+```python
+qs = mem.create_distribution(
+    ["pneumonia", "pulmonary_embolism", "bronchitis"],
+    amplitudes=[0.70, 0.35, 0.30],
+)
+outcome = mem.sample(qs)
+node = mem.graph.get_node(outcome.node_id)
+print(f"Sampled diagnosis: {node.label}")
+```
+
+**7. Structural Anomaly Detection**
+
+```python
+result = mem.detect_structural_anomalies("cough")
+print(f"Status: {result.anomaly_status}, score: {result.boundary_score:.3f}")
+for insight in result.structural_insights:
+    print(f"  - {insight}")
+```
+
+**8. Structural Analysis**
 
 ```python
 diamonds = mem.match_diamonds(edge_label="causes", max_matches=10)
@@ -434,6 +554,8 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 
 5. **Regulatory and safety requirements.** Clinical decision support systems require validation, regulatory approval, and error handling that goes far beyond what a knowledge graph engine provides. The showcase demonstrates the reasoning approach, not a deployable clinical tool.
 
+6. **Amplitude calibration.** The showcase assigns diagnostic amplitudes manually. In production, amplitudes would need to be calibrated from epidemiological data (prevalence), clinical studies (sensitivity/specificity), and patient-specific priors. The Born-rule sampling framework is ready for this, but the calibration pipeline is out of scope.
+
 ## 12. Reference
 
 ### Core Concept Glossary
@@ -443,9 +565,13 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | **Differential Diagnosis** | A ranked list of candidate diseases for a given set of findings |
 | **Backward Chaining** | Tracing from a hypothesis to the evidence needed to confirm it |
 | **Belief Revision** | Resolving contradictory evidence by removing lower-weight edges |
+| **Belief Distribution** | A quantum superposition of candidate diagnoses with complex amplitudes |
+| **Born-Rule Sampling** | Collapsing a belief distribution with probability proportional to amplitude squared |
 | **Confidence Score** | Node-level certainty derived from evidence topology |
 | **Diamond Pattern** | Two source nodes converging on a single target (shared symptom) |
 | **Fan-out** | Number of outgoing edges from a node (disease manifestations) |
+| **Structural Anomaly** | A node flagged as a bottleneck by its graph topology |
+| **Boundary Score** | Numeric measure of how close a node is to anomalous structure |
 | **Premise** | A required evidence node for a hypothesis to be proven |
 
 ### Key API Methods
@@ -465,6 +591,9 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | `mem.match_diamonds(edge_label)` | Find convergent symptom patterns |
 | `mem.match_fan_out(edge_label, min_fan)` | Find diseases with many manifestations |
 | `mem.match_chains(edge_label, min_length)` | Find inference chains of minimum length |
+| `mem.create_distribution(concepts, amplitudes)` | Create a belief distribution over candidate diagnoses |
+| `mem.sample(distribution)` | Collapse a belief distribution to a single diagnosis via the Born rule |
+| `mem.detect_structural_anomalies(concept)` | Identify diagnostic bottlenecks through graph topology |
 
 ### Related Examples
 

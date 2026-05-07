@@ -1,6 +1,6 @@
 # Code Dependency & Blast Radius Analysis
 
-> **Modeling a 129-node monorepo as a hypergraph to find blast radii, circular dependencies, coupling hotspots, and test-coverage gaps**
+> **Modeling a 129-node monorepo as a hypergraph to find blast radii, circular dependencies, coupling hotspots, abstraction views, and dependency drift**
 
 ## 1. The Approach
 
@@ -8,13 +8,13 @@ Monorepos accumulate hidden dependencies over time. A module you have never edit
 
 Traditional dependency tools list direct imports. They do not answer the questions that matter during an incident: "If this core module changes, what breaks?" or "Which modules are both undertested and depended on by many others?"
 
-**The Hyper3 approach:** Model every module as a node and every import/configure/extend/test relationship as a labeled directed edge. Then apply centrality analysis, cycle detection, BFS blast-radius traversal, and transitive rule inference on a single graph. The graph holds the full picture; each analysis is a different query over the same structure.
+**The Hyper3 approach:** Model every module as a node and every import/configure/extend/test relationship as a labeled directed edge. Then apply centrality analysis, cycle detection, BFS blast-radius traversal, transitive rule inference, subgraph abstraction, and version-tracked diffing on a single graph. The graph holds the full picture; each analysis is a different query over the same structure.
 
 ## 2. A Simple Analogy
 
 Imagine a city's water pipe network. Each building (module) connects to mains (core libraries), which connect to reservoirs (third-party packages). A pipe break at the reservoir level is obvious. But a break at a junction box three streets over may silently cut water to a neighborhood nobody thought to check — because nobody mapped the transitive path from reservoir through junction to that neighborhood.
 
-Dependency graphs are that pipe map. Centrality tells you which junction boxes matter most. Cycle detection finds loops where water would flow in circles. Blast radius tells you how many buildings go dry if a given pipe breaks.
+Dependency graphs are that pipe map. Centrality tells you which junction boxes matter most. Cycle detection finds loops where water would flow in circles. Blast radius tells you how many buildings go dry if a given pipe breaks. Subgraph abstraction lets you zoom out to see the water district boundaries instead of every individual pipe.
 
 ## 3. Key Concepts
 
@@ -29,10 +29,12 @@ Dependency graphs are that pipe map. Centrality tells you which junction boxes m
 | **Coupling matrix** | Count of edges between subsystem pairs — shows which areas are tightly coupled |
 | **TransitiveRule** | Discovers indirect chains: A→B, B→C means A indirectly depends on C |
 | **Test-coverage gap** | A module with low test coverage and many dependents — changes propagate unverified |
+| **Subgraph collapse** | Replace a group of nodes with a single summary node for zoomed-out analysis |
+| **Version snapshot** | A point-in-time record of graph state, used to detect added/removed nodes and edges |
 
 ## 4. Quick Start
 
-Run the showcase to build the monorepo graph and execute all 10 analysis sections:
+Run the showcase to build the monorepo graph and execute all 11 analysis sections:
 
 ```bash
 .venv/bin/python examples/showcase/code_dependency_analysis/code_dependency_analysis.py
@@ -54,17 +56,41 @@ SECTION 2: Creating Dependency Edges
 ...
 
 ======================================================================
+SECTION 10: Package-Level Abstraction
+======================================================================
+  pkg_core collapsed: 98 edges, 58 external connections
+  pkg_third_party collapsed: 37 edges, 36 external connections
+  Active summaries: ['pkg_core', 'pkg_third_party']
+  Top 5 modules in abstracted graph:
+    pkg_core                            centrality=0.562
+    pkg_third_party                     centrality=0.285
+    ...
+  Expanded pkg_core back to individual nodes
+
+======================================================================
+SECTION 11: Dependency Change Tracking
+======================================================================
+  Baseline: version_id=0, nodes=130, edges=2376
+  After adding svc.graphql: version_id=1, nodes=131, edges=2380
+  Changes from baseline:
+    Nodes added: 1
+    Nodes removed: 0
+    Edges added: 4
+    Edges removed: 0
+    Total changes: 5
+
+======================================================================
 SUMMARY
 ======================================================================
-  Graph: 129 nodes, 393 edges
+  Graph: 131 nodes, 2380 edges
   Circular dependencies: 8 cycles
-  Connected components: 3
+  Connected components: 18
   Indirect dependencies found: 50
   Outdated packages: 17
   Low-coverage at-risk modules: 18
 
   Highest-risk module: core.engine (criticality=0.103)
-  Its blast radius: 116 modules affected by a change
+  Its blast radius: 103 modules affected by a change
 ```
 
 ## 5. The Scenario
@@ -168,7 +194,7 @@ graph TB
 
 ## 6. The Analysis Pipeline
 
-The showcase runs 10 analysis sections that build on each other.
+The showcase runs 11 analysis sections that build on each other.
 
 ### Section 1-2: Graph Construction
 
@@ -248,7 +274,7 @@ result = mem.reason(
 
 **Why this matters:** Direct dependencies are visible in import statements. Indirect dependencies are not. If `svc.auth` depends on `core.auth_base`, and `core.auth_base` depends on `cfg.auth`, then `svc.auth` indirectly depends on `cfg.auth`. The transitive rule makes this explicit.
 
-**Result:** 50 indirect dependencies discovered across 51 states. The rule reached depth 2. Examples include `cfg.queue -> cfg.endpoints`, `svc.auth -> core.registry`, and `svc.auth -> core.event_bus`.
+**Result:** 50 indirect dependencies discovered across 51 states. The rule reached depth 2. Examples include `data.repo_user -> 3p.psycopg2`, `util.tracing -> core.validator`, and `svc.payments -> core.pipeline`.
 
 ### Section 7: Outdated Third-Party Dependencies
 
@@ -287,10 +313,11 @@ for label, data in all_modules.items():
 **Why this matters:** A module with 40% test coverage and 49 dependents is a risk multiplier. Any change to it propagates to 49 other modules with minimal automated verification. The graph combines coverage data (on nodes) with dependency data (edges) to find these risk intersections.
 
 **Result:** 18 modules qualify as at-risk. The highest-impact gaps are:
-- `core.crypto` — 40% coverage, 37 dependents (authentication and security)
+- `core.encoder` — 40% coverage, 12 dependents
+- `core.graph` — 40% coverage, 29 dependents
+- `core.crypto` — 40% coverage, 31 dependents
 - `core.engine` — 46% coverage, 49 dependents (everything depends on it)
-- `core.retry` — 52% coverage, 49 dependents (resilience logic)
-- `core.cache_base` — 46% coverage, 40 dependents (caching infrastructure)
+- `core.cache_base` — 46% coverage, 35 dependents
 
 ### Section 9: Subsystem Coupling Analysis
 
@@ -317,21 +344,69 @@ for src_sub, src_labels in subsystems.items():
 - Config depends on third-party (`3p.django`) 5 times — configuration framework coupling
 - Data layer depends on third-party 15 times — ORM and driver dependencies
 
-### Section 10: Summary
+### Section 10: Package-Level Abstraction
+
+Collapse groups of related nodes into single summary nodes for zoomed-out analysis, then expand them back when detail is needed:
+
+```python
+pkg_core = mem.collapse_subgraph(
+    core_labels,
+    summary_label="pkg_core",
+    summary_data={"category": "package", "modules": len(core_labels)},
+)
+summaries = mem.list_summaries()
+expand_result = mem.expand_summary("pkg_core")
+```
+
+**Why this matters:** A 129-node graph is manageable, but real monorepos have thousands of modules. When evaluating architecture at the subsystem level, you do not need to see every internal edge within core — you need to know how the core subsystem as a whole connects to services, data, and third-party packages. `collapse_subgraph()` replaces 30 core nodes with a single `pkg_core` node, re-routing 58 external connections through it and collapsing 98 internal edges. Running centrality on the collapsed graph reveals that `pkg_core` (0.562) dominates the architecture — more than twice the centrality of any individual service. `expand_summary()` reverses the collapse, restoring the original 30 nodes for detailed analysis.
+
+**Result:**
+- `pkg_core`: 98 internal edges collapsed, 58 external connections preserved
+- `pkg_third_party`: 37 internal edges collapsed, 36 external connections preserved
+- In the abstracted graph, `pkg_core` has centrality 0.562 — confirming the core subsystem is the architectural backbone
+- `pkg_third_party` ranks second at 0.285 — external dependencies form a secondary hub
+- `pkg_core` was expanded back to individual nodes; `pkg_third_party` remains collapsed
+
+### Section 11: Dependency Change Tracking
+
+Capture a version snapshot of the graph, make changes, then compute the diff:
+
+```python
+baseline = mem.capture_version()
+
+mem.store("svc.graphql", data={...})
+mem.relate("svc.graphql", "core.engine", label="depends_on")
+mem.relate("svc.graphql", "core.pipeline", label="depends_on")
+mem.relate("svc.graphql", "svc.auth", label="depends_on")
+mem.relate("svc.graphql", "util.tracing", label="imports")
+
+delta = mem.diff_from_version(baseline["version_id"])
+```
+
+**Why this matters:** Dependency graphs evolve on every commit. Without version tracking, answering "what changed since last week?" requires re-running the full analysis and comparing output by hand. `capture_version()` records a point-in-time snapshot. `diff_from_version()` returns a structured delta listing exactly which nodes and edges were added or removed. In this example, adding `svc.graphql` with 4 dependencies produces a diff of 5 changes (1 node + 4 edges), immediately quantifiable without manual comparison.
+
+**Result:**
+- Baseline snapshot: version_id=0, 130 nodes, 2376 edges
+- After adding `svc.graphql`: version_id=1, 131 nodes, 2380 edges
+- Diff: 1 node added, 0 removed, 4 edges added, 0 removed — 5 total changes
+
+### Summary
 
 The final section aggregates all findings:
 
 ```
-Graph: 129 nodes, 393 edges
+Graph: 131 nodes, 2380 edges
 Circular dependencies: 8 cycles
-Connected components: 3
+Connected components: 18
 Indirect dependencies found: 50
 Outdated packages: 17
 Low-coverage at-risk modules: 18
 
 Highest-risk module: core.engine (criticality=0.103)
-Its blast radius: 116 modules affected by a change
+Its blast radius: 103 modules affected by a change
 ```
+
+The final graph reflects all modifications: transitive inference (section 6), subgraph collapse/expand (section 10), and the addition of `svc.graphql` (section 11). The blast radius and component count differ from the pre-abstraction values (116 modules, 3 components) because the graph structure changed during the abstraction operations.
 
 ## 7. Understanding the Output
 
@@ -378,28 +453,105 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 | Services -> Services (non-zero) | Inter-service coupling — may indicate missing shared module |
 | Data -> Third-party (high) | Expected: ORM and database driver dependencies |
 
+### Subgraph Collapse Interpretation
+
+`collapse_subgraph()` replaces a set of nodes with a summary node. The result reports how many internal edges were collapsed (edges between collapsed nodes) and how many external connections were preserved (edges from collapsed nodes to the rest of the graph).
+
+| Metric | Meaning |
+|--------|---------|
+| Edges collapsed | Internal edges absorbed into the summary — no longer visible in graph traversal |
+| External connections | Edges between the collapsed group and the rest of the graph, preserved through the summary node |
+
+### Version Diff Interpretation
+
+`diff_from_version()` returns structured counts of graph changes since a snapshot.
+
+| Field | Meaning |
+|-------|---------|
+| `nodes_added` / `nodes_removed` | Modules added to or removed from the graph |
+| `edges_added` / `edges_removed` | Dependency edges created or deleted |
+| `total_changes` | Sum of all additions and removals |
+
 ## 8. Key Metrics
+
+### Initial Graph (Sections 1-2)
 
 | Metric | Value |
 |--------|-------|
 | Module nodes | 129 |
 | Dependency edges (initial) | 343 |
+
+### After Transitive Inference (Section 6)
+
+| Metric | Value |
+|--------|-------|
 | Dependency edges (after inference) | 393 |
-| Connected components | 3 |
-| Circular dependency cycles | 8 |
-| Distinct cycle groups | 2 (core.resolver <-> core.handler, svc.orders <-> svc.billing) |
 | Indirect dependencies discovered | 50 |
 | Reasoning states created | 51 |
 | Reasoning rules applied | 50 |
 | Reasoning max depth | 2 |
+
+### Analysis Results (Sections 3-9)
+
+| Metric | Value |
+|--------|-------|
+| Connected components (pre-abstraction) | 3 |
+| Circular dependency cycles | 8 |
+| Distinct cycle groups | 2 (`core.resolver` <-> `core.handler`, `svc.orders` <-> `svc.billing`) |
+| Highest-risk module | `core.engine` (criticality 0.103) |
+| Top centrality score | `core.engine` (degree 0.242, betweenness 0.010) |
+| Blast radius of `core.engine` (pre-abstraction) | 116 modules |
+| Blast radius of `core.config_base` (pre-abstraction) | 116 modules |
 | Outdated third-party packages | 17 |
 | Oldest packages | `3p.psycopg2`, `3p.urllib3` (5 years) |
 | Highest-dependents outdated package | `3p.sqlalchemy` (14 dependents) |
 | Low-coverage at-risk modules | 18 |
-| Highest-risk module | `core.engine` (criticality 0.103) |
-| Blast radius of core.engine | 116 modules |
-| Blast radius of core.config_base | 116 modules |
-| Top centrality score | `core.engine` (degree 0.242, betweenness 0.010) |
+| Only 5 of 17 third-party packages pinned | — |
+
+### Subsystem Coupling (Section 9)
+
+| Source -> Target | Edge Count |
+|-----------------|------------|
+| Services -> Core | 93 |
+| Services -> Shared | 53 |
+| Data -> Third-party | 15 |
+| Services -> Data | 17 |
+| Services -> Third-party | 11 |
+| Config -> Third-party | 5 |
+| Config -> Config | 13 |
+| Data -> Data | 20 |
+| Services -> Services | 14 |
+
+### Package Abstraction (Section 10)
+
+| Metric | Value |
+|--------|-------|
+| `pkg_core` edges collapsed | 98 |
+| `pkg_core` external connections | 58 |
+| `pkg_third_party` edges collapsed | 37 |
+| `pkg_third_party` external connections | 36 |
+| `pkg_core` centrality in abstracted graph | 0.562 |
+| `pkg_third_party` centrality in abstracted graph | 0.285 |
+| Active summaries after collapse | `pkg_core`, `pkg_third_party` |
+
+### Change Tracking (Section 11)
+
+| Metric | Value |
+|--------|-------|
+| Baseline snapshot | version_id=0, 130 nodes, 2376 edges |
+| After adding `svc.graphql` | version_id=1, 131 nodes, 2380 edges |
+| Nodes added | 1 |
+| Edges added | 4 |
+| Total changes | 5 |
+
+### Final State (Summary)
+
+| Metric | Value |
+|--------|-------|
+| Final node count | 131 |
+| Final edge count | 2380 |
+| Connected components | 18 |
+| `core.engine` blast radius (final) | 103 modules |
 
 ### Module Distribution
 
@@ -422,6 +574,10 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 **Multi-attribute risk scoring combines graph structure with node data.** Test coverage lives on nodes as a data attribute. Dependency count comes from graph traversal. The at-risk analysis intersects both dimensions to find modules that are both undertested and heavily depended upon — a combination that neither metric alone reveals.
 
 **Subsystem coupling is derived, not declared.** The coupling matrix is computed by counting edges between module categories. No one annotated that services depend on third-party packages 11 times — the graph structure reveals this when queried by category.
+
+**Subgraph collapse provides zoom-level analysis.** `collapse_subgraph()` replaces a set of nodes with a single summary node, re-routing external edges through it. This answers questions like "how does the core subsystem as a whole connect to services?" without seeing the 30 internal nodes. `expand_summary()` reverses the collapse, restoring individual nodes when you need detail. The collapsed graph shows `pkg_core` at centrality 0.562 — confirming core is the architectural backbone in a single number that would otherwise require aggregating 30 individual centrality scores.
+
+**Version snapshots track dependency drift.** `capture_version()` records a point-in-time snapshot of the graph. `diff_from_version()` compares the current graph against a snapshot, returning structured counts of nodes and edges added or removed. This turns "what changed since last week?" from a manual comparison into a single graph operation that returns a diff of 5 changes when one service is added.
 
 ## 10. Code Implementation
 
@@ -501,6 +657,38 @@ for label, data in all_modules.items():
         print(f"  {label}: coverage={tc:.0%} dependents={dep_count}")
 ```
 
+**7. Subgraph collapse and expand**
+
+```python
+pkg_core = mem.collapse_subgraph(
+    core_labels,
+    summary_label="pkg_core",
+    summary_data={"category": "package", "modules": len(core_labels)},
+)
+print(f"collapsed {pkg_core.edges_collapsed} edges, "
+      f"{pkg_core.external_connections} external connections")
+
+abstract_centrality = mem.degree_centrality()
+for label, score in top_k(abstract_centrality, k=5):
+    print(f"  {label}: centrality={score:.3f}")
+
+expand_result = mem.expand_summary("pkg_core")
+```
+
+**8. Version snapshot and diff**
+
+```python
+baseline = mem.capture_version()
+
+mem.store("svc.graphql", data={...})
+mem.relate("svc.graphql", "core.engine", label="depends_on")
+
+delta = mem.diff_from_version(baseline["version_id"])
+print(f"Nodes added: {len(delta.nodes_added)}")
+print(f"Edges added: {len(delta.edges_added)}")
+print(f"Total changes: {delta.total_changes}")
+```
+
 ## 11. Real-World Gap
 
 The showcase constructs a synthetic 129-module graph. Real monorepos have thousands of modules with dependency relationships that change on every commit. The gaps between this showcase and production use are:
@@ -514,6 +702,10 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 4. **Version resolution.** The showcase treats third-party packages as single nodes. Real dependency management involves version ranges, resolution conflicts, and transitive version constraints. These would require version-aware edge semantics.
 
 5. **Coverage data.** Test coverage percentages come from synthetic data. Real coverage requires ingesting coverage reports (`.coverage`, `lcov`, Istanbul) and joining them with module nodes.
+
+6. **Abstraction semantics.** The showcase collapses subgraphs by category. Production use may need semantic grouping (e.g., "all modules owned by the payments team" or "all modules in the authentication domain") that requires richer metadata or ownership annotations.
+
+7. **Version history.** `capture_version()` takes a point-in-time snapshot. Production change tracking would need scheduled snapshots (e.g., one per CI build), retention policies, and comparison across non-adjacent versions.
 
 ## 12. Reference
 
@@ -531,6 +723,11 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 | `mem.reason(seed_concepts, max_depth)` | Apply rules via multiway expansion |
 | `mem.pattern_match(edge_label)` | Find edges by label |
 | `mem.stats()` | Graph statistics (nodes, edges, components) |
+| `mem.collapse_subgraph(labels, summary_label, summary_data)` | Replace a node group with a summary node |
+| `mem.list_summaries()` | List active summary nodes |
+| `mem.expand_summary(label)` | Expand a summary node back to individual nodes |
+| `mem.capture_version()` | Record a point-in-time graph snapshot |
+| `mem.diff_from_version(version_id)` | Compute diff between current graph and a snapshot |
 | `top_k(scores, k)` | Return top-k items from a score dict |
 
 ### Related Examples

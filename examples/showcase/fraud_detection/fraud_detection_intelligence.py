@@ -639,7 +639,96 @@ def main():
     print()
 
     print("=" * 70)
-    print("SECTION 7: Investigation Summary")
+    print("SECTION 7: Probabilistic Fraud Scoring")
+    print("=" * 70)
+
+    suspects = ["viktor_kingpin", "lena_lieutenant", "katya_recruiter", "pavel_tech", "irina_accountant"]
+    qs = mem.create_distribution(suspects)
+    print(f"  Belief state over {len(suspects)} suspects:")
+    for outcome in qs.outcomes:
+        node = mem.graph.get_node(outcome.node_id)
+        label = node.label if node else outcome.node_id
+        prob = abs(outcome.amplitude) ** 2
+        print(f"    {label:25s} probability={prob:.4f}")
+    print()
+
+    print("  Born-rule sampling (10 draws):")
+    sample_counts: dict[str, int] = {}
+    for i in range(10):
+        answer = mem.sample(qs)
+        if answer:
+            node = mem.graph.get_node(answer.node_id)
+            label = node.label if node else answer.node_id
+            sample_counts[label] = sample_counts.get(label, 0) + 1
+            print(f"    Draw {i + 1}: {label}")
+        else:
+            print(f"    Draw {i + 1}: no outcome")
+    print()
+    if sample_counts:
+        print("  Sample distribution:")
+        for label, count in sorted(sample_counts.items(), key=lambda x: -x[1]):
+            print(f"    {label:25s} draws={count}/10")
+    print()
+
+    print("=" * 70)
+    print("SECTION 8: Structural Anomaly Detection")
+    print("=" * 70)
+
+    anomaly_targets = [
+        "viktor_kingpin",
+        "acct_zenith_holdings",
+        "katya_recruiter",
+        "acct_global_trading",
+        "boris_mule1",
+    ]
+    for concept in anomaly_targets:
+        result = mem.detect_structural_anomalies(concept)
+        print(f"  {concept}:")
+        print(f"    status={result.anomaly_status}  boundary_score={result.boundary_score:.4f}")
+        if result.structural_insights:
+            for insight in result.structural_insights[:3]:
+                print(f"    insight: {insight}")
+        if result.boundary_warnings:
+            for warning in result.boundary_warnings:
+                print(f"    warning: {warning}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 9: Evidence Chain Provenance")
+    print("=" * 70)
+
+    known_evidence = set()
+    for label, data in accounts.items():
+        if data.get("flagged"):
+            known_evidence.add(label)
+    for label, data in entities.items():
+        if not data.get("verified", True):
+            known_evidence.add(label)
+    for label, data in ip_devices.items():
+        if data.get("type") in ("vpn", "tor"):
+            known_evidence.add(label)
+    for label, data in alerts.items():
+        if data.get("status") in ("active", "escalated"):
+            known_evidence.add(label)
+    for label, data in patterns.items():
+        known_evidence.add(label)
+    for label, data in entities.items():
+        if data.get("type") == "address":
+            known_evidence.add(label)
+
+    provenance_targets = ["viktor_kingpin", "katya_recruiter", "lena_lieutenant"]
+    for suspect in provenance_targets:
+        result = mem.prove(suspect, known_facts=known_evidence)
+        status = "ACHIEVABLE" if result.achievable else "partial"
+        print(f"  {suspect}:")
+        print(f"    status={status}  confidence={result.confidence:.4f}")
+        print(f"    premises={result.satisfied_premises}/{result.total_premises_needed}")
+        if result.missing_premises:
+            print(f"    missing: {', '.join(result.missing_premises[:6])}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 10: Investigation Summary")
     print("=" * 70)
 
     stats = mem.stats()
