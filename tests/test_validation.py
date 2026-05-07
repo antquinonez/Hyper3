@@ -11,13 +11,13 @@ from hyper3.validation import (
 
 def _make_mem():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.store("d")
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
-    mem.relate("c", "d", label="rel")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.add("d")
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
+    mem.link("c", "d", label="rel")
     mem._rules = [TransitiveRule()]
     return mem
 
@@ -80,7 +80,7 @@ class TestValidationEngine:
 
     def test_no_rules_returns_empty_report(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"x"})
         assert report.recommendation == "equivalent"
@@ -192,9 +192,9 @@ class TestValidationCoverage:
 
     def test_run_simple_node_production_and_cleanup(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._rules = [_NodeCreatorRule()]
         engine = ValidationEngine(mem)
         report = engine.run_comparison({"a", "b"})
@@ -216,8 +216,8 @@ class TestValidationCoverage:
 
     def test_contradictions_label_conflict(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         nid_x = mem._find_node("x").id
         nid_y = mem._find_node("y").id
         e1 = mem._graph.add_edge(Hyperedge(
@@ -241,8 +241,8 @@ class TestValidationCoverage:
 
     def test_contradictions_weight_divergence(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         nid_x = mem._find_node("x").id
         nid_y = mem._find_node("y").id
         e1 = mem._graph.add_edge(Hyperedge(
@@ -267,9 +267,9 @@ class TestValidationCoverage:
 
     def test_contradictions_direction_conflict(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.store("z")
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
         nid_x = mem._find_node("x").id
         nid_y = mem._find_node("y").id
         nid_z = mem._find_node("z").id

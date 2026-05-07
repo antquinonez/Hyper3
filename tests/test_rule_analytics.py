@@ -133,13 +133,13 @@ class TestRuleAnalytics:
 
 def _setup_chain():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.store("d")
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
-    mem.relate("c", "d", label="rel")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.add("d")
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
+    mem.link("c", "d", label="rel")
     return mem
 
 

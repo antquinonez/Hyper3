@@ -22,11 +22,11 @@ from hyper3.rules import TransitiveRule
 
 def _make_mem():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
     mem._rules = [TransitiveRule()]
     return mem
 

@@ -21,14 +21,14 @@ class TestIntegrationFullPipeline:
         mem = HypergraphMemory(evolve_interval=0)
 
         for name in ["ignition", "fuel", "combustion", "heat", "rotation", "electricity", "battery"]:
-            mem.store(name, modalities={Modality.CONCEPTUAL})
+            mem.add(name, modalities={Modality.CONCEPTUAL})
 
-        mem.relate("battery", "electricity", label="powers")
-        mem.relate("electricity", "ignition", label="causes")
-        mem.relate("ignition", "combustion", label="causes")
-        mem.relate("fuel", "combustion", label="enables")
-        mem.relate("combustion", "heat", label="causes")
-        mem.relate("combustion", "rotation", label="causes")
+        mem.link("battery", "electricity", label="powers")
+        mem.link("electricity", "ignition", label="causes")
+        mem.link("ignition", "combustion", label="causes")
+        mem.link("fuel", "combustion", label="enables")
+        mem.link("combustion", "heat", label="causes")
+        mem.link("combustion", "rotation", label="causes")
 
         mem.add_rules(
             TransitiveRule(edge_label="causes"),
@@ -61,31 +61,31 @@ class TestIntegrationFullPipeline:
 
             mem = HypergraphMemory(evolve_interval=0)
             for name in ["x", "y", "z"]:
-                mem.store(name)
-            mem.relate("x", "y", label="rel")
-            mem.relate("y", "z", label="rel")
+                mem.add(name)
+            mem.link("x", "y", label="rel")
+            mem.link("y", "z", label="rel")
             mem.add_rules(TransitiveRule(edge_label="rel"))
             r1 = mem.reason({"x", "y", "z"}, max_depth=2)
             assert r1["expansion"]["rules_applied"] == 1
             mem.save(path)
-            edges_after_session1 = mem.graph.edge_count
+            edges_after_session1 = mem.size[1]
             assert edges_after_session1 == 3
 
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2.graph.node_count == 3
-            assert mem2.graph.edge_count == edges_after_session1
+            assert mem2.size[0] == 3
+            assert mem2.size[1] == edges_after_session1
             assert mem2.log.size == 7
 
-            mem2.store("w")
-            mem2.relate("z", "w", label="rel")
+            mem2.add("w")
+            mem2.link("z", "w", label="rel")
             mem2.add_rules(TransitiveRule(edge_label="rel"))
-            assert mem2.graph.edge_count == 4
+            assert mem2.size[1] == 4
 
     def test_belief_diagnostic_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for name in ["battery_weak", "battery_dead", "alternator_bad", "starter_bad"]:
-            mem.store(name)
+            mem.add(name)
 
         qs = mem.create_distribution(["battery_weak", "alternator_bad", "starter_bad"])
 
@@ -103,9 +103,9 @@ class TestIntegrationFullPipeline:
 
     def test_anomaly_boundary_mapping(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("simple_concept")
-        mem.store("self-referential structure")
-        mem.store("all universal statements")
+        mem.add("simple_concept")
+        mem.add("self-referential structure")
+        mem.add("all universal statements")
 
         regions = mem.map_boundaries(["simple_concept", "self-referential structure", "all universal statements"])
         assert len(regions) == 3
@@ -118,8 +118,8 @@ class TestIntegrationFullPipeline:
 
     def test_multi_frame_analysis_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("engine", data={"type": "mechanical"})
-        mem.relate("engine", "engine", label="self_ref")
+        mem.add("engine", data={"type": "mechanical"})
+        mem.link("engine", "engine", label="self_ref")
 
         optimal_name, optimal = mem.select_optimal_frame("engine")
         assert optimal_name in {"classical", "quantum", "hypergraph", "probabilistic"}
@@ -145,9 +145,9 @@ class TestIntegrationFullPipeline:
     def test_rule_analytics_monitor_stats_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"concept_{i}")
+            mem.add(f"concept_{i}")
         for i in range(9):
-            mem.relate(f"concept_{i}", f"concept_{i+1}", label="chain")
+            mem.link(f"concept_{i}", f"concept_{i+1}", label="chain")
 
         rule_analytics = mem.rule_analytics
         rule_analytics.record_rule_application("transitive")
@@ -172,14 +172,14 @@ class TestIntegrationFullPipeline:
     def test_rule_discovery_and_application_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d", "e"]:
-            mem.store(label)
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
-        mem.relate("c", "d", label="next")
-        mem.relate("d", "e", label="next")
-        mem.relate("b", "a", label="prev")
-        mem.relate("c", "b", label="prev")
-        mem.relate("d", "c", label="prev")
+            mem.add(label)
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.link("c", "d", label="next")
+        mem.link("d", "e", label="next")
+        mem.link("b", "a", label="prev")
+        mem.link("c", "b", label="prev")
+        mem.link("d", "c", label="prev")
 
         result = mem.auto_discover_and_apply()
         assert result["total_patterns"] == 4
@@ -191,12 +191,12 @@ class TestIntegrationFullPipeline:
 
     def test_evolution_decay_and_prune(self):
         mem = HypergraphMemory(evolve_interval=0, decay_threshold=0.5)
-        mem.store("heavy")
-        mem.store("light")
-        mem.relate("heavy", "light")
+        mem.add("heavy")
+        mem.add("light")
+        mem.link("heavy", "light")
 
         for _ in range(9):
-            mem.store("heavy")
+            mem.add("heavy")
 
         initial_weights = {n.label: n.weight for n in mem.graph.nodes}
         assert initial_weights["heavy"] > initial_weights["light"]
@@ -221,11 +221,11 @@ class TestIntegrationFullPipeline:
     def test_state_clustering_after_reasoning(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["r", "a", "b", "c"]:
-            mem.store(label)
-        mem.relate("r", "a", label="rel")
-        mem.relate("r", "b", label="rel")
-        mem.relate("a", "c", label="rel")
-        mem.relate("b", "c", label="rel")
+            mem.add(label)
+        mem.link("r", "a", label="rel")
+        mem.link("r", "b", label="rel")
+        mem.link("a", "c", label="rel")
+        mem.link("b", "c", label="rel")
         mem.add_rules(TransitiveRule(edge_label="rel"))
         mem.reason({"r"}, max_depth=2, max_total_states=20)
 
@@ -239,15 +239,15 @@ class TestIntegrationFullPipeline:
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "test.json")
             mem = HypergraphMemory(evolve_interval=0)
-            mem.store("a")
-            mem.store("b")
-            mem.relate("a", "b", label="connected", weight=5.0)
+            mem.add("a")
+            mem.add("b")
+            mem.link("a", "b", label="connected", weight=5.0)
             mem.save(path)
 
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2.graph.node_count == 2
-            assert mem2.graph.edge_count == 1
+            assert mem2.size[0] == 2
+            assert mem2.size[1] == 1
             labels = {n.label for n in mem2.graph.nodes}
             assert labels == {"a", "b"}
             edge = list(mem2.graph.edges)[0]
@@ -258,7 +258,7 @@ class TestIntegrationFullPipeline:
     def test_all_belief_profiles_work(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["cat", "dog", "bird"]:
-            mem.store(label, tags={"semantic": 0.5, "recency": 1.0, "valence": 0.3})
+            mem.add(label, tags={"semantic": 0.5, "recency": 1.0, "valence": 0.3})
         mem.create_distribution(["cat", "dog", "bird"])
         for profile_name in ["linguistic", "temporal", "emotional", "pragmatic"]:
             qs2 = mem.create_distribution(["cat", "dog", "bird"])
@@ -268,9 +268,9 @@ class TestIntegrationFullPipeline:
 
     def test_correlate_with_label_vs_id(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("pet")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("pet")
         ent = mem.correlate(
             ["cat", "dog"],
             ["pet"],

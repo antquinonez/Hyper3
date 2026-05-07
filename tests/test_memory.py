@@ -17,46 +17,46 @@ from hyper3.rules import InverseRule, TransitiveRule
 class TestHypergraphMemoryStore:
     def test_store_creates_node(self):
         mem = HypergraphMemory()
-        node = mem.store("concept_a", data={"desc": "test"})
+        node = mem.add("concept_a", data={"desc": "test"})
         assert node.label == "concept_a"
         assert node.data == {"desc": "test"}
-        assert mem.graph.node_count == 1
+        assert mem.size[0] == 1
 
     def test_store_caches_and_reuses(self):
         mem = HypergraphMemory()
-        n1 = mem.store("concept_a")
-        n2 = mem.store("concept_a")
+        n1 = mem.add("concept_a")
+        n2 = mem.add("concept_a")
         assert n1.id == n2.id
-        assert mem.graph.node_count == 1
+        assert mem.size[0] == 1
 
     def test_store_with_modalities(self):
         mem = HypergraphMemory()
-        node = mem.store("idea", modalities={Modality.CONCEPTUAL, Modality.TEMPORAL})
+        node = mem.add("idea", modalities={Modality.CONCEPTUAL, Modality.TEMPORAL})
         assert Modality.CONCEPTUAL in node.metadata.modality_tags
         assert Modality.TEMPORAL in node.metadata.modality_tags
 
     def test_store_with_abstraction(self):
         mem = HypergraphMemory()
-        node = mem.store("detail", abstraction=AbstractionLayer.DETAIL)
+        node = mem.add("detail", abstraction=AbstractionLayer.DETAIL)
         assert node.metadata.abstraction_layer == AbstractionLayer.DETAIL
 
     def test_store_with_custom_tags(self):
         mem = HypergraphMemory()
-        node = mem.store("tagged", tags={"importance": "high", "domain": "physics"})
+        node = mem.add("tagged", tags={"importance": "high", "domain": "physics"})
         assert node.metadata.custom["importance"] == "high"
 
     def test_store_reinforces_existing(self):
         mem = HypergraphMemory()
-        n1 = mem.store("concept")
+        n1 = mem.add("concept")
         initial_weight = n1.weight
-        mem.store("concept")
+        mem.add("concept")
         assert n1.weight > initial_weight
 
 
 class TestHypergraphMemoryRecall:
     def test_recall_finds_stored_concept(self):
         mem = HypergraphMemory()
-        mem.store("alpha")
+        mem.add("alpha")
         results = mem.recall("alpha")
         assert len(results) == 1
         assert results[0].label == "alpha"
@@ -67,11 +67,11 @@ class TestHypergraphMemoryRecall:
 
     def test_recall_traverses_neighbors(self):
         mem = HypergraphMemory()
-        mem.store("root")
-        mem.store("child_a")
-        mem.store("child_b")
-        mem.relate("root", "child_a")
-        mem.relate("root", "child_b")
+        mem.add("root")
+        mem.add("child_a")
+        mem.add("child_b")
+        mem.link("root", "child_a")
+        mem.link("root", "child_b")
         results = mem.recall("root")
         labels = {n.label for n in results}
         assert "root" in labels
@@ -80,11 +80,11 @@ class TestHypergraphMemoryRecall:
 
     def test_recall_respects_max_depth(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b")
+        mem.link("b", "c")
         shallow = mem.recall("a", max_depth=1)
         deep = mem.recall("a", max_depth=5)
         assert len(shallow) == 1
@@ -92,8 +92,8 @@ class TestHypergraphMemoryRecall:
 
     def test_recall_finds_by_alias(self):
         mem = HypergraphMemory()
-        n1 = mem.store("alpha")
-        mem.store("beta", data=n1.data)
+        n1 = mem.add("alpha")
+        mem.add("beta", data=n1.data)
         from hyper3.equivalence import EquivalenceEngine
         eq = EquivalenceEngine(mem.graph, threshold=0.8)
         eq.merge_equivalences()
@@ -104,61 +104,61 @@ class TestHypergraphMemoryRecall:
 class TestHypergraphMemoryRelate:
     def test_relate_creates_edge(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        edge = mem.relate("a", "b", label="causes")
+        mem.add("a")
+        mem.add("b")
+        edge = mem.link("a", "b", label="causes")
         assert edge.label == "causes"
-        assert mem.graph.edge_count == 1
+        assert mem.size[1] == 1
 
     def test_relate_bidirectional(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", bidirectional=True)
-        assert mem.graph.edge_count == 2
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", bidirectional=True)
+        assert mem.size[1] == 2
 
     def test_relate_missing_concept_raises(self):
         mem = HypergraphMemory()
-        mem.store("a")
+        mem.add("a")
         with pytest.raises(NodeNotFoundError):
-            mem.relate("a", "missing")
+            mem.link("a", "missing")
 
     def test_relate_with_edge_data(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        edge = mem.relate("a", "b", edge_data={"strength": 0.9})
+        mem.add("a")
+        mem.add("b")
+        edge = mem.link("a", "b", edge_data={"strength": 0.9})
         assert edge.data == {"strength": 0.9}
 
 
 class TestHypergraphMemoryQuery:
     def test_query_bfs(self):
         mem = HypergraphMemory()
-        mem.store("root")
-        mem.store("a")
-        mem.store("b")
-        mem.relate("root", "a")
-        mem.relate("root", "b")
+        mem.add("root")
+        mem.add("a")
+        mem.add("b")
+        mem.link("root", "a")
+        mem.link("root", "b")
         results = mem.query("root", strategy="bfs")
         labels = {n.label for n in results}
         assert labels == {"root", "a", "b"}
 
     def test_query_dfs(self):
         mem = HypergraphMemory()
-        mem.store("root")
-        mem.store("a")
-        mem.store("b")
-        mem.relate("root", "a")
-        mem.relate("a", "b")
+        mem.add("root")
+        mem.add("a")
+        mem.add("b")
+        mem.link("root", "a")
+        mem.link("a", "b")
         results = mem.query("root", strategy="dfs")
         labels = {n.label for n in results}
         assert labels == {"root", "a", "b"}
 
     def test_query_by_modality(self):
         mem = HypergraphMemory()
-        mem.store("concept", modalities={Modality.CONCEPTUAL})
-        mem.store("temporal", modalities={Modality.TEMPORAL})
-        mem.relate("concept", "temporal")
+        mem.add("concept", modalities={Modality.CONCEPTUAL})
+        mem.add("temporal", modalities={Modality.TEMPORAL})
+        mem.link("concept", "temporal")
         results = mem.query("concept", modality=Modality.CONCEPTUAL)
         ids = {n.label for n in results}
         assert "concept" in ids
@@ -172,9 +172,9 @@ class TestHypergraphMemoryQuery:
 class TestHypergraphMemoryEvolution:
     def test_manual_evolve(self):
         mem = HypergraphMemory()
-        mem.store("a", data="x")
-        mem.store("b", data="x")
-        mem.store("c", data="z", tags={"low": True})
+        mem.add("a", data="x")
+        mem.add("b", data="x")
+        mem.add("c", data="z", tags={"low": True})
         mem.graph.get_node(mem.graph.nodes[-1].id).weight = 0.01
         report = mem.evolve()
         assert report["merged"] == 1
@@ -182,17 +182,17 @@ class TestHypergraphMemoryEvolution:
 
     def test_auto_evolve_triggers(self):
         mem = HypergraphMemory(evolve_interval=3)
-        mem.store("a", data="x")
-        mem.store("b", data="y")
-        mem.store("c", data="z")
+        mem.add("a", data="x")
+        mem.add("b", data="y")
+        mem.add("c", data="z")
         assert mem._operation_count == 3
         assert mem.log.size == 4
 
     def test_stats(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         stats = mem.stats()
         assert stats["nodes"] == 2
         assert stats["edges"] == 1
@@ -202,15 +202,15 @@ class TestHypergraphMemoryEvolution:
 class TestHypergraphMemoryEventLog:
     def test_operations_are_logged(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         mem.recall("a")
         assert mem.log.size == 4
 
     def test_log_query_by_type(self):
         mem = HypergraphMemory()
-        mem.store("a")
+        mem.add("a")
         mem.recall("a")
         stores = mem.log.query(event_type="store")
         recalls = mem.log.query(event_type="recall")
@@ -221,11 +221,11 @@ class TestHypergraphMemoryEventLog:
 class TestNormalizeLateralInsights:
     def test_normalize_with_state_clustering_keys(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="causes")
-        mem.relate("b", "c", label="causes")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="causes")
+        mem.link("b", "c", label="causes")
         mem.add_rules(
             TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
         )
@@ -239,11 +239,11 @@ class TestNormalizeLateralInsights:
 
     def test_normalize_directly_with_multiway_keys(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="causes")
-        mem.relate("b", "c", label="causes")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="causes")
+        mem.link("b", "c", label="causes")
         mem.add_rules(
             TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
         )
@@ -262,15 +262,15 @@ class TestNormalizeLateralInsights:
 
     def test_lateral_insights_no_multiway(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         result = mem.lateral_insights("x")
         assert result == []
 
     def test_lateral_insights_missing_node(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         mem.reason({"a"}, max_depth=2)
         result = mem.lateral_insights("nonexistent")
@@ -280,8 +280,8 @@ class TestNormalizeLateralInsights:
 class TestMapBoundaries:
     def test_map_boundaries(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         regions = mem.map_boundaries(["a", "b"])
         assert len(regions) == 2
 
@@ -289,14 +289,14 @@ class TestMapBoundaries:
 class TestProposeMetamorphosisNoneTriggers:
     def test_propose_with_none_triggers_and_low_fitness(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.2
         result = mem.propose_tuning(None)
         assert result is not None
 
     def test_propose_with_none_triggers_and_high_fitness(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.9
         result = mem.propose_tuning(None)
         assert result is None
@@ -308,7 +308,7 @@ class TestImportJsonWithBadEdge:
 
         from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         imported = Hypergraph()
         imported.add_node(Hypernode(id="n1", label="x"))
         edge = Hyperedge(id="e1", source_ids=frozenset({"n1"}), target_ids=frozenset({"missing_node"}), label="x")
@@ -324,8 +324,8 @@ class TestImportJsonWithBadEdge:
 class TestImportEdgelist:
     def test_import_edgelist(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.edgelist")
         x_id = mem.graph.get_node_by_label("x").id
@@ -341,9 +341,9 @@ class TestImportEdgelist:
 class TestExportImportJson:
     def test_export_import_roundtrip(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.json")
         mem.export_json(path)
@@ -358,10 +358,10 @@ class TestExportImportJson:
 class TestSubgraph:
     def test_subgraph(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
         result = mem.subgraph({"a", "b"})
         assert result["node_count"] == 2
 
@@ -369,11 +369,11 @@ class TestSubgraph:
 class TestDegreeBetweennessCentrality:
     def test_degree_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("a", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("a", "c", label="x")
         centrality = mem.degree_centrality()
         assert len(centrality) == 3
         assert centrality["a"] == 1.0
@@ -382,11 +382,11 @@ class TestDegreeBetweennessCentrality:
 
     def test_betweenness_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         centrality = mem.betweenness_centrality()
         assert len(centrality) == 3
         assert centrality["b"] == 0.5
@@ -397,10 +397,10 @@ class TestDegreeBetweennessCentrality:
 class TestConnectedComponents:
     def test_connected_components(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
         components = mem.connected_components()
         assert len(components) == 2
         all_labels = {frozenset(comp) for comp in components}
@@ -411,11 +411,11 @@ class TestConnectedComponents:
 class TestLabelConvenienceMethods:
     def test_find_paths(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         paths = mem.find_paths("a", "c")
         assert len(paths) == 1
         assert paths[0][0] == "a"
@@ -423,58 +423,58 @@ class TestLabelConvenienceMethods:
 
     def test_shortest_path(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         path = mem.shortest_path("a", "c")
         assert path is not None
         assert "a" in path and "c" in path
 
     def test_shortest_path_no_path(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         path = mem.shortest_path("a", "b")
         assert path is None
 
     def test_degree_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("a", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("a", "c", label="x")
         centrality = mem.degree_centrality()
         assert "a" in centrality
         assert centrality["a"] > centrality["b"]
 
     def test_betweenness_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         centrality = mem.betweenness_centrality()
         assert "b" in centrality
 
     def test_connected_components(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
         components = mem.connected_components()
         assert len(components) == 2
 
     def test_detect_cycles(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "a", label="y")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
+        mem.link("b", "a", label="y")
         cycles = mem.detect_cycles()
         assert len(cycles) == 1
 
@@ -482,9 +482,9 @@ class TestLabelConvenienceMethods:
 class TestReasonIterativeConvergence:
     def test_iterative_stops_on_no_new_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason_iterative({"a"}, max_iterations=5)
         assert result["iterations"] == 1
@@ -492,11 +492,11 @@ class TestReasonIterativeConvergence:
 
     def test_iterative_produces_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason_iterative({"a"}, max_iterations=3)
         assert result["iterations"] == 1
@@ -506,14 +506,14 @@ class TestReasonIterativeConvergence:
 class TestExplainMissingEdge:
     def test_explain_no_edge_between_concepts(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         result = mem.explain("a", "b")
         assert result is None
 
     def test_explain_nonexistent_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         result = mem.explain("a", "nonexistent")
         assert result is None
 
@@ -521,7 +521,7 @@ class TestExplainMissingEdge:
 class TestSaveWithoutRules:
     def test_save_without_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.json")
         mem.save(path, include_rules=False)
@@ -531,7 +531,7 @@ class TestSaveWithoutRules:
 
     def test_save_with_empty_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.json")
         mem.save(path, include_rules=True)
@@ -543,7 +543,7 @@ class TestSaveWithoutRules:
 class TestLoadWithoutRules:
     def test_load_plain_json_fallback(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.json")
         payload = {
@@ -569,20 +569,20 @@ class TestLoadWithoutRules:
             json.dump(payload, f)
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
-        assert mem2.graph.node_count == 1
+        assert mem2.size[0] == 1
         os.remove(path)
         os.rmdir(tmpdir)
 
     def test_load_with_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         tmpdir = tempfile.mkdtemp()
         path = os.path.join(tmpdir, "test.json")
         mem.save(path, include_rules=True)
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
-        assert mem2.graph.node_count == 1
+        assert mem2.size[0] == 1
         assert len(mem2._rules) == 1
         os.remove(path)
         os.rmdir(tmpdir)
@@ -596,11 +596,11 @@ class TestAutoCreateInferenceDistributions:
 
     def test_auto_create_with_overlay(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="x")
         mem.add_rules(TransitiveRule(edge_label="x", new_label="y"))
         result = mem.reason({"a"}, max_depth=2, auto_commit=False)
         if "auto_distributions" in result:
@@ -614,14 +614,14 @@ class TestAutoCreateInferenceDistributions:
 class TestFindNodeWithAlias:
     def test_find_node_by_alias(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("original", tags={"aliases": ["alias1", "alias2"]})
+        mem.add("original", tags={"aliases": ["alias1", "alias2"]})
         found = mem.recall("alias1")
         assert len(found) == 1
         assert found[0].label == "original"
 
     def test_find_node_by_alias_not_in_cache(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("original", tags={"aliases": ["my_alias"]})
+        mem.add("original", tags={"aliases": ["my_alias"]})
         mem._cache.clear()
         found = mem._find_node("my_alias")
         assert found.label == "original"
@@ -630,7 +630,7 @@ class TestFindNodeWithAlias:
 class TestMaybeEvolve:
     def test_maybe_evolve_with_interval_one(self):
         mem = HypergraphMemory(evolve_interval=1)
-        mem.store("x")
+        mem.add("x")
         assert mem._operation_count == 1
 
 
@@ -638,11 +638,11 @@ class TestReasonAllNodeExpansion:
     def test_finds_chain_through_nonseed_intermediate(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="causes"))
-        mem.store("smoking")
-        mem.store("asthma")
-        mem.store("pneumonia")
-        mem.relate("smoking", "asthma", label="causes")
-        mem.relate("asthma", "pneumonia", label="causes")
+        mem.add("smoking")
+        mem.add("asthma")
+        mem.add("pneumonia")
+        mem.link("smoking", "asthma", label="causes")
+        mem.link("asthma", "pneumonia", label="causes")
         result = mem.reason({"smoking"})
         assert result.error is None
         assert result.expansion is not None
@@ -660,11 +660,11 @@ class TestReasonAllNodeExpansion:
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="next"))
         for label in ["a", "b", "c", "d", "e"]:
-            mem.store(label)
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
-        mem.relate("c", "d", label="next")
-        mem.relate("d", "e", label="next")
+            mem.add(label)
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.link("c", "d", label="next")
+        mem.link("d", "e", label="next")
         result = mem.reason({"a"})
         assert result.expansion is not None
         assert result.expansion.rules_applied >= 1
@@ -674,13 +674,13 @@ class TestReasonAllNodeExpansion:
     def test_seeds_determine_trigger_not_scope(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="causes"))
-        mem.store("x")
-        mem.store("y")
-        mem.store("z")
-        mem.store("unrelated")
-        mem.relate("x", "y", label="causes")
-        mem.relate("y", "z", label="causes")
-        mem.relate("unrelated", "x", label="causes")
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
+        mem.add("unrelated")
+        mem.link("x", "y", label="causes")
+        mem.link("y", "z", label="causes")
+        mem.link("unrelated", "x", label="causes")
         result = mem.reason({"unrelated"})
         assert result.expansion is not None
         inferred = [e for e in mem.graph.edges if e.label == "inferred"]
@@ -704,10 +704,10 @@ class TestMultiHopChaining:
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="causes", new_label="causes"))
         for label in ["a", "b", "c", "d"]:
-            mem.store(label)
-        mem.relate("a", "b", label="causes")
-        mem.relate("b", "c", label="causes")
-        mem.relate("c", "d", label="causes")
+            mem.add(label)
+        mem.link("a", "b", label="causes")
+        mem.link("b", "c", label="causes")
+        mem.link("c", "d", label="causes")
         result = mem.reason({"a"}, max_depth=3, max_total_states=50)
         assert result.error is None
         causes = [
@@ -728,10 +728,10 @@ class TestMultiHopChaining:
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="causes"))
         for label in ["a", "b", "c", "d"]:
-            mem.store(label)
-        mem.relate("a", "b", label="causes")
-        mem.relate("b", "c", label="causes")
-        mem.relate("c", "d", label="causes")
+            mem.add(label)
+        mem.link("a", "b", label="causes")
+        mem.link("b", "c", label="causes")
+        mem.link("c", "d", label="causes")
         mem.reason({"a"}, max_depth=3, max_total_states=50)
         inferred = [e for e in mem.graph.edges if e.label == "inferred"]
         pairs = set()
@@ -748,10 +748,10 @@ class TestMultiHopChaining:
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="next", new_label="next"))
         for label in ["w", "x", "y", "z"]:
-            mem.store(label)
-        mem.relate("w", "x", label="next")
-        mem.relate("x", "y", label="next")
-        mem.relate("y", "z", label="next")
+            mem.add(label)
+        mem.link("w", "x", label="next")
+        mem.link("x", "y", label="next")
+        mem.link("y", "z", label="next")
         mem.reason({"w"}, max_depth=4, max_total_states=100)
         pairs = set()
         for e in mem.graph.edges:
@@ -844,9 +844,9 @@ class TestEvolveWithFeedback:
 
     def test_memory_facade_evolve_with_feedback(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         mem._feedback.record_evolution_outcome(0.3)
         mem._feedback.record_evolution_outcome(0.2)
         result = mem.evolve_with_feedback()
@@ -899,11 +899,11 @@ class TestRulesConstructorParam:
     def test_rules_at_construction(self):
         rule = TransitiveRule(edge_label="e")
         mem = HypergraphMemory(evolve_interval=0, rules=[rule])
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e")
-        mem.relate("b", "c", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e")
+        mem.link("b", "c", label="e")
         result = mem.reason({"a"})
         assert result.error is None
         assert result.expansion is not None
@@ -911,7 +911,7 @@ class TestRulesConstructorParam:
 
     def test_empty_rules_list(self):
         mem = HypergraphMemory(evolve_interval=0, rules=[])
-        mem.store("a")
+        mem.add("a")
         result = mem.reason({"a"})
         assert result.error == "no rules defined"
 
@@ -924,9 +924,9 @@ class TestRulesConstructorParam:
             ],
         )
         for label in ["a", "b", "c"]:
-            mem.store(label)
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+            mem.add(label)
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         result = mem.reason({"a", "b", "c"})
         assert result.expansion is not None
         assert result.expansion.rules_applied > 0
@@ -936,11 +936,11 @@ class TestReasonOverlayAutoCommit:
     def test_second_reason_auto_commits_first_overlay(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="e"))
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e")
-        mem.relate("b", "c", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e")
+        mem.link("b", "c", label="e")
         mem.reason({"a", "b", "c"}, auto_commit=False)
         assert mem._overlay is not None
         overlay_edge_count_before = len(mem._overlay.overlay_edge_ids)
@@ -954,9 +954,9 @@ class TestReasonIterativeConvergenceFromSweep:
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="e"))
         for label in ["a", "b", "c", "d"]:
-            mem.store(label)
-        mem.relate("a", "b", label="e")
-        mem.relate("b", "c", label="e")
+            mem.add(label)
+        mem.link("a", "b", label="e")
+        mem.link("b", "c", label="e")
         result = mem.reason_iterative(
             {"a", "b", "c"},
             max_iterations=10,
@@ -968,7 +968,7 @@ class TestReasonIterativeConvergenceFromSweep:
     def test_stops_when_no_new_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="e"))
-        mem.store("a")
+        mem.add("a")
         result = mem.reason_iterative(
             {"a"},
             max_iterations=5,
@@ -978,9 +978,9 @@ class TestReasonIterativeConvergenceFromSweep:
     def test_returns_iteration_details(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add_rules(TransitiveRule(edge_label="e"))
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         result = mem.reason_iterative(
             {"a", "b"},
             max_iterations=3,
@@ -990,20 +990,20 @@ class TestReasonIterativeConvergenceFromSweep:
 class TestMemoryPathQueries:
     def test_find_paths_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         paths = mem.find_paths("a", "c", edge_label="next")
         assert len(paths) == 1
         assert len(paths[0]) == 3
 
     def test_pattern_match_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="connects")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="connects")
         matches = mem.pattern_match(edge_label="connects")
         assert len(matches) == 1
         assert matches[0].label == "connects"
@@ -1022,11 +1022,11 @@ class TestMemoryPathQueries:
 class TestAutoDistribution:
     def test_auto_distribution_creates_belief_states(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason({"a", "b", "c"}, auto_commit=False)
         assert result["expansion"]["rules_applied"] > 0
@@ -1041,11 +1041,11 @@ class TestAutoDistribution:
 class TestProvenanceWithOverlay:
     def test_provenance_records_overlay_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason({"a", "b", "c"}, auto_commit=False)
         assert result["expansion"]["rules_applied"] > 0
@@ -1058,17 +1058,17 @@ class TestProvenanceWithOverlay:
 class TestMultiEdgeCount:
     def test_multi_edge_count_zero_without_hyperedges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="pair")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="pair")
         s = mem.stats()
         assert s.multi_edge_count == 0
 
     def test_multi_edge_count_with_hyperedge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        a = mem.store("a")
-        b = mem.store("b")
-        c = mem.store("c")
+        a = mem.add("a")
+        b = mem.add("b")
+        c = mem.add("c")
         mem.graph.add_edge(Hyperedge(
             source_ids=frozenset({a.id, b.id}),
             target_ids=frozenset({c.id}),
@@ -1119,17 +1119,17 @@ class TestTraversalPrefetching:
 class TestHypergraphMemoryPrefetchAPI:
     def test_enable_prefetch(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a", data={"x": 1})
-        mem.store("b", data={"x": 2})
-        mem.relate("a", "b", label="e")
+        mem.add("a", data={"x": 1})
+        mem.add("b", data={"x": 2})
+        mem.link("a", "b", label="e")
         mem.enable_prefetch(True)
         assert mem.cache.prefetch_enabled
 
     def test_record_access_and_predict(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a", data={"x": 1})
-        mem.store("b", data={"x": 2})
-        mem.store("c", data={"x": 3})
+        mem.add("a", data={"x": 1})
+        mem.add("b", data={"x": 2})
+        mem.add("c", data={"x": 3})
         mem.enable_prefetch(True)
         mem.record_access("a")
         mem.record_access("b")
@@ -1139,11 +1139,11 @@ class TestHypergraphMemoryPrefetchAPI:
 
     def test_prefetch_neighbors(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("center", data={"x": 0})
-        mem.store("n1", data={"x": 1})
-        mem.store("n2", data={"x": 2})
-        mem.relate("center", "n1", label="e")
-        mem.relate("center", "n2", label="e")
+        mem.add("center", data={"x": 0})
+        mem.add("n1", data={"x": 1})
+        mem.add("n2", data={"x": 2})
+        mem.link("center", "n1", label="e")
+        mem.link("center", "n2", label="e")
         preloaded = mem.prefetch_neighbors("center")
         assert preloaded == 2
 
@@ -1160,26 +1160,26 @@ class TestHypergraphMemoryPrefetchAPI:
 class TestMemoryAnalyticsFacade:
     def test_subgraph_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e")
         result = mem.subgraph({"a", "b"})
         assert result["node_count"] == 2
         assert result["edge_count"] == 1
 
     def test_has_cycle_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         assert mem.has_cycle() is False
 
     def test_connected_components_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         components = mem.connected_components()
         assert len(components) == 1
 
@@ -1187,11 +1187,11 @@ class TestMemoryAnalyticsFacade:
 class TestDeriveFacade:
     def test_derive_finds_backward_chain(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         results = mem.derive("c")
         assert len(results) > 0
@@ -1206,11 +1206,11 @@ class TestDeriveFacade:
 class TestIterativeReasoning:
     def test_reason_iterative_produces_results(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason_iterative({"a", "b", "c"}, max_iterations=2)
         assert "iterations" in result
@@ -1226,11 +1226,11 @@ class TestIterativeReasoning:
 class TestFrameReasoning:
     def test_reason_with_classical_frame(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason_with_frame({"a", "b", "c"}, frame_name="classical")
         assert "expansion" in result
@@ -1238,9 +1238,9 @@ class TestFrameReasoning:
 
     def test_reason_with_quantum_frame(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         mem.add_rules(TransitiveRule(edge_label="e"))
         result = mem.reason_with_frame({"a", "b"}, frame_name="quantum")
         assert "expansion" in result
@@ -1249,30 +1249,30 @@ class TestFrameReasoning:
 class TestShortestPathFacade:
     def test_shortest_path_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         path = mem.shortest_path("a", "c")
         assert path is not None
         assert len(path) == 3
 
     def test_shortest_path_no_path(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("z")
+        mem.add("a")
+        mem.add("z")
         path = mem.shortest_path("a", "z")
         assert path is None
 
 
 def _setup_memory():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.relate("a", "b", label="next")
-    mem.relate("b", "c", label="next")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.link("a", "b", label="next")
+    mem.link("b", "c", label="next")
     mem.add_rules(TransitiveRule(edge_label="next"))
     return mem
 
@@ -1280,8 +1280,8 @@ def _setup_memory():
 class TestCorrelateNodeNotFound:
     def test_correlate_missing_group_a_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         mem.create_distribution(["x", "y"])
         with pytest.raises(NodeNotFoundError):
             mem.correlate(
@@ -1292,8 +1292,8 @@ class TestCorrelateNodeNotFound:
 
     def test_correlate_missing_group_b_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         mem.create_distribution(["x", "y"])
         with pytest.raises(NodeNotFoundError):
             mem.correlate(
@@ -1306,8 +1306,8 @@ class TestCorrelateNodeNotFound:
 class TestSampleCorrelated:
     def test_sample_correlated_returns_labels(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         qs = mem.create_distribution(["x", "y"])
         mem.correlate(["x"], ["y"], {("x", "y"): 0.9})
         result = mem.sample_correlated(qs, "x")
@@ -1318,7 +1318,7 @@ class TestSampleCorrelated:
 
     def test_sample_correlated_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         qs = mem.create_distribution(["x"])
         result = mem.sample_correlated(qs, "nonexistent")
         assert result == {}
@@ -1327,11 +1327,11 @@ class TestSampleCorrelated:
 class TestLateralInsightsNoClusteringFallback:
     def test_lateral_insights_uses_multiway_fallback(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("p")
-        mem.store("q")
-        mem.store("r")
-        mem.relate("p", "q", label="link")
-        mem.relate("q", "r", label="link")
+        mem.add("p")
+        mem.add("q")
+        mem.add("r")
+        mem.link("p", "q", label="link")
+        mem.link("q", "r", label="link")
         mem.add_rules(TransitiveRule(edge_label="link", new_label="link"))
         mem.reason({"p"}, max_depth=2)
         mem._state_clustering = None
@@ -1345,16 +1345,16 @@ class TestLateralInsightsNoClusteringFallback:
 class TestHasNode:
     def test_has_node_true(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        assert mem.has_node("x") is True
+        mem.add("x")
+        assert mem.has("x") is True
 
     def test_has_node_false(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert mem.has_node("missing") is False
+        assert mem.has("missing") is False
 
     def test_contains(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("y")
+        mem.add("y")
         assert "y" in mem
         assert "z" not in mem
 
@@ -1368,13 +1368,13 @@ class TestEnsure:
 
     def test_ensure_idempotent(self):
         mem = HypergraphMemory(evolve_interval=0)
-        n1 = mem.store("existing")
+        n1 = mem.add("existing")
         n2 = mem.ensure("existing")
         assert n1.id == n2.id
 
     def test_ensure_update_merges_data(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x", data={"a": 1})
+        mem.add("x", data={"a": 1})
         mem.ensure("x", data={"b": 2}, update=True)
         node = mem.graph.get_node(mem.graph.get_node_by_label("x").id)
         assert node.data["a"] == 1
@@ -1382,7 +1382,7 @@ class TestEnsure:
 
     def test_ensure_no_update_preserves_data(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x", data={"a": 1})
+        mem.add("x", data={"a": 1})
         mem.ensure("x", data={"b": 2}, update=False)
         node = mem.graph.get_node(mem.graph.get_node_by_label("x").id)
         assert node.data == {"a": 1}
@@ -1392,29 +1392,29 @@ class TestEnsure:
 class TestNeighbors:
     def test_neighbors_out(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="r")
-        mem.relate("a", "c", label="r")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="r")
+        mem.link("a", "c", label="r")
         nbrs = mem.neighbors("a", direction="out")
         assert set(nbrs) == {"b", "c"}
 
     def test_neighbors_in(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="r")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="r")
         nbrs = mem.neighbors("b", direction="in")
         assert nbrs == ["a"]
 
     def test_neighbors_by_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="causes")
-        mem.relate("a", "c", label="enables")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="causes")
+        mem.link("a", "c", label="enables")
         nbrs = mem.neighbors("a", edge_label="causes", direction="out")
         assert nbrs == ["b"]
 
@@ -1426,10 +1426,10 @@ class TestNeighbors:
 class TestRelateHyperedge:
     def test_creates_nary_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
         edge = mem.relate_hyperedge({"a", "b"}, {"c", "d"}, label="joint")
         assert edge.label == "joint"
         assert len(edge.source_ids) == 2
@@ -1437,13 +1437,13 @@ class TestRelateHyperedge:
 
     def test_missing_source_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("c")
+        mem.add("c")
         with pytest.raises(NodeNotFoundError):
             mem.relate_hyperedge({"missing"}, {"c"}, label="e")
 
     def test_missing_target_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         with pytest.raises(NodeNotFoundError):
             mem.relate_hyperedge({"a"}, {"missing"}, label="e")
 
@@ -1451,11 +1451,11 @@ class TestRelateHyperedge:
 class TestQueryHyperedges:
     def test_filter_by_cardinality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
-        mem.relate("a", "b", label="pair")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
+        mem.link("a", "b", label="pair")
         mem.relate_hyperedge({"a", "b"}, {"c", "d"}, label="nary")
         results = mem.query_hyperedges(min_source_cardinality=2)
         assert len(results) == 1
@@ -1463,21 +1463,21 @@ class TestQueryHyperedges:
 
     def test_filter_by_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("b", "c", label="y")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("b", "c", label="y")
         results = mem.query_hyperedges(label="x")
         assert len(results) == 1
 
     def test_filter_by_containing(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e1")
-        mem.relate("b", "c", label="e2")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e1")
+        mem.link("b", "c", label="e2")
         results = mem.query_hyperedges(containing="a")
         assert len(results) == 1
         assert results[0].label == "e1"
@@ -1490,10 +1490,10 @@ class TestQueryHyperedges:
 class TestHyperedgeNeighbors:
     def test_returns_shared_hyperedges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
         mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
         nbrs = mem.hyperedge_neighbors("a")
         assert "b" in nbrs
@@ -1507,8 +1507,8 @@ class TestHyperedgeNeighbors:
 class TestMaybeEvolveFeedback:
     def test_maybe_evolve_uses_feedback_path(self):
         mem = HypergraphMemory(evolve_interval=2)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         mem._feedback.record_evolution_outcome(0.5)
         result = mem.evolve_with_feedback()
         assert result["decayed"] == 0
@@ -1518,9 +1518,9 @@ class TestMaybeEvolveFeedback:
 class TestSampleDistribution:
     def test_sample_distribution_by_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("bird")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("bird")
         mem.create_distribution(["cat", "dog", "bird"], amplitudes=[0.8, 0.1, 0.1], use_context_field=False)
         result = mem.sample_distribution("cat")
         assert result is not None
@@ -1535,14 +1535,14 @@ class TestSampleDistribution:
 
     def test_sample_distribution_no_distribution(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("lonely")
+        mem.add("lonely")
         result = mem.sample_distribution("lonely")
         assert result is None
 
     def test_list_distributions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         mem.create_distribution(["a", "b"], use_context_field=False)
         dists = mem.list_distributions()
         assert "a" in dists
@@ -1579,11 +1579,11 @@ class TestAllenRelation:
 class TestEdgesLabeled:
     def test_edges_labeled_returns_labels(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="connects")
-        mem.relate("b", "c", label="links")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="connects")
+        mem.link("b", "c", label="links")
         edges = mem.edges_labeled()
         assert len(edges) == 2
         labels = {e.source_labels[0] for e in edges}
@@ -1591,11 +1591,11 @@ class TestEdgesLabeled:
 
     def test_edges_labeled_filter_by_label(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="keep")
-        mem.relate("b", "c", label="drop")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="keep")
+        mem.link("b", "c", label="drop")
         edges = mem.edges_labeled(edge_label="keep")
         assert len(edges) == 1
         assert edges[0].source_labels[0] == "a"
@@ -1603,9 +1603,9 @@ class TestEdgesLabeled:
 
     def test_edges_labeled_hyperedge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.store("z")
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
         mem.relate_hyperedge(sources={"x", "y"}, targets={"z"}, label="joint")
         edges = mem.edges_labeled(min_source_cardinality=2)
         assert len(edges) == 1
@@ -1616,11 +1616,11 @@ class TestEdgesLabeled:
 class TestDegreeMethods:
     def test_degree_returns_raw_counts(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="x")
-        mem.relate("a", "c", label="y")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="x")
+        mem.link("a", "c", label="y")
         deg = mem.degree()
         assert deg["a"] == 2
         assert deg["b"] == 1
@@ -1628,31 +1628,31 @@ class TestDegreeMethods:
 
     def test_degree_weighted(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x", weight=3.0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x", weight=3.0)
         deg = mem.degree(weighted=True)
         assert deg["a"] == 3.0
         assert deg["b"] == 3.0
 
     def test_in_degree(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b")
-        mem.relate("c", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b")
+        mem.link("c", "b")
         ind = mem.in_degree()
         assert ind["b"] == 2
         assert ind["a"] == 0
 
     def test_out_degree(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b")
-        mem.relate("a", "c")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b")
+        mem.link("a", "c")
         outd = mem.out_degree()
         assert outd["a"] == 2
         assert outd["b"] == 0
@@ -1661,45 +1661,45 @@ class TestDegreeMethods:
 class TestNewAnalyticsMethods:
     def test_is_connected(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         assert mem.is_connected()
 
     def test_not_connected(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         assert not mem.is_connected()
 
     def test_density(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         assert mem.density() > 0
 
     def test_unique_edge_sizes(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         assert mem.unique_edge_sizes() == [2]
 
     def test_max_edge_order(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         assert mem.max_edge_order() == 1
 
     def test_clustering_coefficient(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("c", "a")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("c", "a")
         cc = mem.clustering_coefficient("a")
         assert cc == 1.0
 
@@ -1710,19 +1710,19 @@ class TestNewAnalyticsMethods:
     def test_average_clustering(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("c", "a")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("c", "a")
         acc = mem.average_clustering_coefficient()
         assert acc == 1.0
 
     def test_katz_centrality(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         kc = mem.katz_centrality()
         assert len(kc) == 3
         assert kc["b"] > kc["a"]
@@ -1731,29 +1731,29 @@ class TestNewAnalyticsMethods:
     def test_katz_centrality_top_k(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcde":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         kc = mem.katz_centrality(top_k=2)
         assert len(kc) == 2
 
     def test_spectral_clustering(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcdef":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("d", "e")
-        mem.relate("e", "f")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("d", "e")
+        mem.link("e", "f")
         clusters = mem.spectral_clustering(k=2)
         assert len(clusters) == 2
 
     def test_single_source_distances(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         dists = mem.single_source_distances("a", weighted=False)
         assert dists["a"] == 0.0
         assert dists["b"] == 1.0
@@ -1766,8 +1766,8 @@ class TestNewAnalyticsMethods:
     def test_component_of(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
+            mem.add(l)
+        mem.link("a", "b")
         comp = mem.component_of("a")
         assert "a" in comp
         assert "b" in comp
@@ -1780,25 +1780,25 @@ class TestNewAnalyticsMethods:
     def test_largest_connected_component(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
+            mem.add(l)
+        mem.link("a", "b")
         lcc = mem.largest_connected_component()
         assert len(lcc) == 2
 
     def test_shortest_path_lengths(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         all_dists = mem.shortest_path_lengths(weighted=False)
         assert all_dists["a"]["c"] == 2.0
 
     def test_to_dual(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
+            mem.add(l)
+        mem.link("a", "b")
         dual = mem.to_dual()
         assert len(dual) == 1
         assert any(isinstance(v, list) for v in dual.values())
@@ -1806,9 +1806,9 @@ class TestNewAnalyticsMethods:
     def test_to_line_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         lg = mem.to_line_graph()
         assert len(lg) == 1
         assert all(isinstance(t, tuple) for t in lg)
@@ -1817,7 +1817,7 @@ class TestNewAnalyticsMethods:
 class TestMonitoringMixinCoverage:
     def test_check_metamorphosis_low_fitness_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.2
         triggers = mem.check_metamorphosis()
         assert len(triggers) == 1
@@ -1825,14 +1825,14 @@ class TestMonitoringMixinCoverage:
 
     def test_check_metamorphosis_high_fitness_no_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.95
         triggers = mem.check_metamorphosis()
         assert len(triggers) == 0
 
     def test_execute_tuning_validated_auto_wires_differ(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.2
         plan = mem.propose_tuning(None)
         assert plan is not None
@@ -1845,18 +1845,18 @@ class TestMonitoringMixinCoverage:
 
     def test_analyze_in_frame_classical(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("protein")
-        mem.store("enzyme")
-        mem.relate("protein", "enzyme", label="is_a")
+        mem.add("protein")
+        mem.add("enzyme")
+        mem.link("protein", "enzyme", label="is_a")
         result = mem.analyze_in_frame("protein", "classical")
         assert result.frame_name == "classical"
         assert result.complexity == 1.0
 
     def test_validate_comprehensive_returns_reports(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="causes")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="causes")
         reports = mem.validate_comprehensive()
         assert len(reports) == 1
         assert hasattr(reports[0], "agreement")
@@ -1872,17 +1872,17 @@ class TestMonitoringMixinCoverage:
 class TestCognitiveMixinCoverage:
     def test_hebbian_decay_unused_high_threshold_decays_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e", weight=5.0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e", weight=5.0)
         count = mem.hebbian_decay_unused(threshold_access_count=100)
         assert count == 1
 
     def test_hebbian_decay_unused_zero_threshold_preserves(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e", weight=5.0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e", weight=5.0)
         count = mem.hebbian_decay_unused(threshold_access_count=0)
         assert count == 0
 
@@ -1890,7 +1890,7 @@ class TestCognitiveMixinCoverage:
 class TestRetrievalMixinCoverage:
     def test_operation_feedback_records_and_queries(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         fb = mem.operation_feedback
         fb.record_inference_outcome(edge_id="e1", accepted=True)
         assert fb.signal_count >= 1
@@ -1901,15 +1901,15 @@ class TestRetrievalMixinCoverage:
 
     def test_embedding_engine_property_after_set(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         from hyper3.embedding import EmbeddingEngine
         mem._embedding_engine = EmbeddingEngine(mem.graph)
         assert mem.embedding_engine is mem._embedding_engine
 
     def test_predict_next_access_raw_node_id_key(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("target")
+        mem.add("a")
+        mem.add("target")
         target_id = mem._find_node("target").id
         mem.enable_prefetch(True)
         mem._cache.record_access("store:a")
@@ -1919,7 +1919,7 @@ class TestRetrievalMixinCoverage:
 
     def test_predict_next_access_unresolved_store_key(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem.enable_prefetch(True)
         mem._cache.record_access("store:a")
         mem._cache.record_access("store:ghost")
@@ -1937,11 +1937,11 @@ class TestRetrievalMixinCoverage:
 
     def test_spread_hyperedge_linear_produces_activations(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e", weight=5.0)
-        mem.relate("b", "c", label="e", weight=5.0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e", weight=5.0)
+        mem.link("b", "c", label="e", weight=5.0)
         result = mem.spread_hyperedge("a", mode="linear", iterations=2)
         assert len(result) == 3
         activations = {r.node_id: r.activation for r in result}
@@ -1960,27 +1960,27 @@ class TestRetrievalMixinCoverage:
 class TestMemoryCoreCoverage:
     def test_store_update_merges_data(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x", data={"a": 1})
-        node = mem.store("x", data={"b": 2}, update=True)
+        mem.add("x", data={"a": 1})
+        node = mem.add("x", data={"b": 2}, update=True)
         assert node.data["a"] == 1
         assert node.data["b"] == 2
 
     def test_relate_hyperedge_empty_sources_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         with pytest.raises(ValueError, match="sources"):
             mem.relate_hyperedge(sources=set(), targets={"a"}, label="e")
 
     def test_relate_hyperedge_empty_targets_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         with pytest.raises(ValueError, match="targets"):
             mem.relate_hyperedge(sources={"a"}, targets=set(), label="e")
 
     def test_relate_hyperedge_zero_weight_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         with pytest.raises(ValueError, match="positive"):
             mem.relate_hyperedge(sources={"a"}, targets={"b"}, label="e", weight=0)
 
@@ -1989,7 +1989,7 @@ class TestMemoryCoreCoverage:
         from hyper3.exceptions import ConstraintViolationError
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         nav = BoundaryNavigator(constraints=[NoSelfLoopConstraint()])
         mem._boundary_navigator = nav
         with pytest.raises(ConstraintViolationError):
@@ -1997,11 +1997,11 @@ class TestMemoryCoreCoverage:
 
     def test_query_hyperedges_min_target_cardinality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
-        mem.relate("a", "b", label="pairwise")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
+        mem.link("a", "b", label="pairwise")
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="he")
         result = mem.query_hyperedges(min_target_cardinality=2)
         assert len(result) == 1
@@ -2009,9 +2009,9 @@ class TestMemoryCoreCoverage:
 
     def test_relate_missing_source_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("b")
+        mem.add("b")
         with pytest.raises(NodeNotFoundError):
-            mem.relate("missing", "b", label="e")
+            mem.link("missing", "b", label="e")
 
     def test_relate_bidirectional_reverse_boundary_rollback(self):
         from hyper3.constraints import BoundaryNavigator, ConstraintCheck
@@ -2032,22 +2032,22 @@ class TestMemoryCoreCoverage:
                 return self.check(edge, graph) is None
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         nav = BoundaryNavigator(constraints=[RejectBToA()])
         mem._boundary_navigator = nav
         with pytest.raises(ConstraintViolationError):
-            mem.relate("a", "b", label="e", bidirectional=True)
-        assert mem.graph.edge_count == 0
+            mem.link("a", "b", label="e", bidirectional=True)
+        assert mem.size[1] == 0
 
     def test_evolve_with_feedback_and_convergence(self):
         from hyper3.multiway import MultiwayGraph
         from hyper3.multiway_causal import StateConvergenceEngine
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         mem._convergence_engine = StateConvergenceEngine(mem.graph, MultiwayGraph())
         result = mem.evolve_with_feedback()
         assert result.convergence is not None
@@ -2057,29 +2057,29 @@ class TestMemoryCoreCoverage:
 class TestMemoryAnalyticsCoverage:
     def test_shortest_path_missing_source_returns_none(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         assert mem.shortest_path("missing", "a") is None
 
     def test_shortest_path_missing_target_returns_none(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         assert mem.shortest_path("a", "missing") is None
 
     def test_degree_distribution(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         dist = mem.degree_distribution()
         assert dist == {1: 2}
         assert 1 in dist
 
     def test_hyperedge_similarity_with_hyperedges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e1")
         mem.relate_hyperedge(sources={"a", "b"}, targets={"d"}, label="e2")
         result = mem.hyperedge_similarity("a", metric="jaccard")
@@ -2096,21 +2096,21 @@ class TestMemoryAnalyticsCoverage:
 
     def test_hyperedge_similarity_top_k_truncates(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         for letter in "cdef":
-            mem.store(letter)
+            mem.add(letter)
             mem.relate_hyperedge(sources={"a", "b"}, targets={letter}, label=f"e_{letter}")
         result = mem.hyperedge_similarity("a", metric="jaccard", top_k=2)
         assert len(result) == 2
 
     def test_edges_labeled_min_cardinality_filters(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.store("d")
-        mem.relate("a", "b", label="pairwise")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.add("d")
+        mem.link("a", "b", label="pairwise")
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c", "d"}, label="he")
         result = mem.edges_labeled(min_source_cardinality=2)
         assert len(result) == 1
@@ -2121,11 +2121,11 @@ class TestMemoryAnalyticsCoverage:
 
     def test_to_bipartite_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="e1")
-        mem.relate("b", "c", label="e2")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="e1")
+        mem.link("b", "c", label="e2")
         pairs = mem.to_bipartite_graph()
         assert len(pairs) == 4
         node_labels = {p[0] for p in pairs} | {p[1] for p in pairs}
@@ -2135,9 +2135,9 @@ class TestMemoryAnalyticsCoverage:
     def test_eccentricity_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         ecc = mem.eccentricity()
         assert isinstance(ecc, dict)
         assert ecc["b"] == 1
@@ -2148,42 +2148,42 @@ class TestMemoryAnalyticsCoverage:
     def test_diameter_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         assert mem.diameter() == 2
 
     def test_radius_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         assert mem.radius() == 1
 
     def test_periphery_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         p = mem.periphery()
         assert set(p) == {"a", "c"}
 
     def test_center_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         assert mem.center() == ["b"]
 
     def test_degree_assortativity_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         r = mem.degree_assortativity()
         assert isinstance(r, float)
         assert -1.0 <= r <= 1.0
@@ -2191,7 +2191,7 @@ class TestMemoryAnalyticsCoverage:
     def test_h_eigenvector_centrality_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
+            mem.add(l)
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
         hc = mem.h_eigenvector_centrality()
         assert isinstance(hc, dict)
@@ -2200,7 +2200,7 @@ class TestMemoryAnalyticsCoverage:
     def test_z_eigenvector_centrality_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
+            mem.add(l)
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
         zc = mem.z_eigenvector_centrality()
         assert isinstance(zc, dict)
@@ -2209,9 +2209,9 @@ class TestMemoryAnalyticsCoverage:
     def test_c_eigenvector_centrality_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         cc = mem.c_eigenvector_centrality()
         assert isinstance(cc, dict)
         assert len(cc) == 3
@@ -2219,7 +2219,7 @@ class TestMemoryAnalyticsCoverage:
     def test_node_edge_centrality_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
+            mem.add(l)
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
         nc, ec = mem.node_edge_centrality()
         assert isinstance(nc, dict)
@@ -2229,7 +2229,7 @@ class TestMemoryAnalyticsCoverage:
     def test_s_walk_betweenness_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
+            mem.add(l)
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
         bc = mem.s_walk_betweenness(s=1, kind="edges")
         assert isinstance(bc, dict)
@@ -2237,7 +2237,7 @@ class TestMemoryAnalyticsCoverage:
     def test_s_walk_closeness_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
+            mem.add(l)
         mem.relate_hyperedge(sources={"a", "b"}, targets={"c"}, label="e")
         cc = mem.s_walk_closeness(s=1, kind="nodes")
         assert isinstance(cc, dict)
@@ -2247,30 +2247,30 @@ class TestDagTreeFacade:
     def test_is_dag(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("a", "c")
-        mem.relate("b", "d")
-        mem.relate("c", "d")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("a", "c")
+        mem.link("b", "d")
+        mem.link("c", "d")
         assert mem.is_dag() is True
 
     def test_is_dag_with_cycle(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("c", "a")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("c", "a")
         assert mem.is_dag() is False
 
     def test_topological_sort(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("a", "c")
-        mem.relate("b", "d")
-        mem.relate("c", "d")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("a", "c")
+        mem.link("b", "d")
+        mem.link("c", "d")
         order = mem.topological_sort()
         assert order is not None
         assert len(order) == 4
@@ -2280,9 +2280,9 @@ class TestDagTreeFacade:
     def test_transitive_closure(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
         closure = mem.transitive_closure()
         assert ("a", "b") in closure
         assert ("b", "c") in closure
@@ -2291,10 +2291,10 @@ class TestDagTreeFacade:
     def test_transitive_reduction(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("a", "c")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("a", "c")
         red = mem.transitive_reduction()
         assert ("a", "b") in red
         assert ("b", "c") in red
@@ -2303,10 +2303,10 @@ class TestDagTreeFacade:
     def test_dag_longest_path(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("c", "d")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("c", "d")
         path = mem.dag_longest_path()
         assert path[0] == "a"
         assert path[-1] == "d"
@@ -2315,57 +2315,57 @@ class TestDagTreeFacade:
     def test_dag_longest_path_length(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b")
-        mem.relate("b", "c")
-        mem.relate("c", "d")
+            mem.add(l)
+        mem.link("a", "b")
+        mem.link("b", "c")
+        mem.link("c", "d")
         assert mem.dag_longest_path_length() == 3
 
     def test_is_tree(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
-        mem.relate("a", "d", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
+        mem.link("a", "d", bidirectional=True)
         assert mem.is_tree() is True
 
     def test_is_forest(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("c", "d", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("c", "d", bidirectional=True)
         assert mem.is_forest() is True
 
     def test_minimum_spanning_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", weight=5.0, bidirectional=True)
-        mem.relate("b", "c", weight=3.0, bidirectional=True)
-        mem.relate("a", "c", weight=1.0, bidirectional=True)
-        mem.relate("c", "d", weight=2.0, bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", weight=5.0, bidirectional=True)
+        mem.link("b", "c", weight=3.0, bidirectional=True)
+        mem.link("a", "c", weight=1.0, bidirectional=True)
+        mem.link("c", "d", weight=2.0, bidirectional=True)
         mst = mem.minimum_spanning_edges()
         assert len(mst) == 3
 
     def test_spanning_tree_count(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
+            mem.add(l)
         for i, a in enumerate("abcd"):
             for b in "abcd"[i + 1:]:
-                mem.relate(a, b, bidirectional=True)
+                mem.link(a, b, bidirectional=True)
         assert mem.spanning_tree_count() == 16
 
     def test_tree_center(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcde":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("c", "d", bidirectional=True)
-        mem.relate("d", "e", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("c", "d", bidirectional=True)
+        mem.link("d", "e", bidirectional=True)
         center = mem.tree_center()
         assert set(center) == {"c"}
 
@@ -2374,11 +2374,11 @@ class TestFlowMatchingFacade:
     def test_max_flow(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "sabt":
-            mem.store(l)
-        mem.relate("s", "a", weight=10.0)
-        mem.relate("s", "b", weight=5.0)
-        mem.relate("a", "t", weight=10.0)
-        mem.relate("b", "t", weight=10.0)
+            mem.add(l)
+        mem.link("s", "a", weight=10.0)
+        mem.link("s", "b", weight=5.0)
+        mem.link("a", "t", weight=10.0)
+        mem.link("b", "t", weight=10.0)
         flow_val, flow_dict = mem.max_flow("s", "t")
         assert flow_val > 0
         assert isinstance(flow_dict, dict)
@@ -2386,12 +2386,12 @@ class TestFlowMatchingFacade:
     def test_min_cut_global(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", weight=3.0, bidirectional=True)
-        mem.relate("b", "c", weight=1.0, bidirectional=True)
-        mem.relate("c", "d", weight=3.0, bidirectional=True)
-        mem.relate("a", "c", weight=2.0, bidirectional=True)
-        mem.relate("b", "d", weight=2.0, bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", weight=3.0, bidirectional=True)
+        mem.link("b", "c", weight=1.0, bidirectional=True)
+        mem.link("c", "d", weight=3.0, bidirectional=True)
+        mem.link("a", "c", weight=2.0, bidirectional=True)
+        mem.link("b", "d", weight=2.0, bidirectional=True)
         cut_val, (left, right) = mem.min_cut_global()
         assert cut_val == pytest.approx(10.0)
         assert len(left) > 0 and len(right) > 0
@@ -2399,21 +2399,21 @@ class TestFlowMatchingFacade:
     def test_min_cut_st(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "sabt":
-            mem.store(l)
-        mem.relate("s", "a", weight=5.0)
-        mem.relate("a", "t", weight=3.0)
-        mem.relate("s", "b", weight=4.0)
-        mem.relate("b", "t", weight=6.0)
+            mem.add(l)
+        mem.link("s", "a", weight=5.0)
+        mem.link("a", "t", weight=3.0)
+        mem.link("s", "b", weight=4.0)
+        mem.link("b", "t", weight=6.0)
         cut_val, (left, right) = mem.min_cut_st("s", "t")
         assert cut_val == pytest.approx(7.0)
 
     def test_max_weight_matching(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", weight=5.0, bidirectional=True)
-        mem.relate("b", "c", weight=3.0, bidirectional=True)
-        mem.relate("c", "d", weight=4.0, bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", weight=5.0, bidirectional=True)
+        mem.link("b", "c", weight=3.0, bidirectional=True)
+        mem.link("c", "d", weight=4.0, bidirectional=True)
         matching = mem.max_weight_matching()
         assert len(matching) == 2
         for pair in matching:
@@ -2422,20 +2422,20 @@ class TestFlowMatchingFacade:
     def test_bipartite_maximum_matching(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "c")
-        mem.relate("a", "d")
-        mem.relate("b", "c")
+            mem.add(l)
+        mem.link("a", "c")
+        mem.link("a", "d")
+        mem.link("b", "c")
         matching = mem.bipartite_maximum_matching({"a", "b"}, {"c", "d"})
         assert len(matching) == 2
 
     def test_min_edge_cover(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("c", "d", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("c", "d", bidirectional=True)
         cover = mem.min_edge_cover()
         covered = set()
         for pair in cover:
@@ -2445,10 +2445,10 @@ class TestFlowMatchingFacade:
     def test_minimum_cycle_basis(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("c", "a", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("c", "a", bidirectional=True)
         basis = mem.minimum_cycle_basis()
         assert len(basis) == 1
         assert set(basis[0]) == {"a", "b", "c"}
@@ -2458,29 +2458,29 @@ class TestHypergraphStructureFacade:
     def test_encapsulation_dag(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         dag = mem.encapsulation_dag()
         assert isinstance(dag, list)
 
     def test_simpliciality(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         assert isinstance(mem.simpliciality(), float)
 
     def test_face_enumeration(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         result = mem.face_enumeration(frozenset({"a", "b"}))
         assert "faces" in result
         assert "cofaces" in result
@@ -2488,40 +2488,40 @@ class TestHypergraphStructureFacade:
     def test_boundary_operator(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         bd = mem.boundary_operator(1)
         assert isinstance(bd, dict)
 
     def test_hodge_matrix(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         B, rows, cols = mem.hodge_matrix(1)
         assert B.shape[0] >= 0
 
     def test_hodge_laplacian(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         L = mem.hodge_laplacian(0)
         assert L.shape[0] >= 0
 
     def test_betti_curve(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         betti = mem.betti_curve()
         assert len(betti) >= 1
         assert betti[0] == 1
@@ -2529,9 +2529,9 @@ class TestHypergraphStructureFacade:
     def test_persistence_diagram(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True, weight=1.0)
-        mem.relate("b", "c", bidirectional=True, weight=2.0)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True, weight=1.0)
+        mem.link("b", "c", bidirectional=True, weight=2.0)
         pd = mem.persistence_diagram()
         assert isinstance(pd, list)
 
@@ -2540,28 +2540,28 @@ class TestDynamicsFacade:
     def test_detect_motifs(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
-        mem.relate("a", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
+        mem.link("a", "c", bidirectional=True)
         result = mem.detect_motifs(order=3, runs_config_model=3, seed=42)
         assert "motif_2_2_2" in result.observed
 
     def test_simplicial_contagion(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcde":
-            mem.store(l)
+            mem.add(l)
         for _i, (a, b) in enumerate([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")]):
-            mem.relate(a, b, bidirectional=True)
+            mem.link(a, b, bidirectional=True)
         result = mem.simplicial_contagion({"a"}, beta=0.5, timesteps=20, seed=42)
         assert len(result.infected_fraction) == 21
 
     def test_simulate_kuramoto(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abc":
-            mem.store(l)
-        mem.relate("a", "b", bidirectional=True)
-        mem.relate("b", "c", bidirectional=True)
+            mem.add(l)
+        mem.link("a", "b", bidirectional=True)
+        mem.link("b", "c", bidirectional=True)
         result = mem.simulate_kuramoto(k2=1.0, timesteps=100, dt=0.01, seed=42)
         assert result.theta_time.shape[1] == 3
 
@@ -2570,22 +2570,22 @@ class TestCommunityFacade:
     def test_girvan_newman(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(8):
-            mem.store(str(i))
+            mem.add(str(i))
         pairs = [(0,1),(1,2),(2,3),(3,0),(4,5),(5,6),(6,7),(7,4),(3,4)]
         for i, j in pairs:
-            mem.relate(str(i), str(j), bidirectional=True)
+            mem.link(str(i), str(j), bidirectional=True)
         result = mem.detect_communities(method="girvan_newman")
         assert result.community_count == 2
 
     def test_hyperlink_communities(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(str(i))
-        mem.relate("0", "1", bidirectional=True)
-        mem.relate("1", "2", bidirectional=True)
-        mem.relate("2", "3", bidirectional=True)
-        mem.relate("3", "4", bidirectional=True)
-        mem.relate("4", "5", bidirectional=True)
+            mem.add(str(i))
+        mem.link("0", "1", bidirectional=True)
+        mem.link("1", "2", bidirectional=True)
+        mem.link("2", "3", bidirectional=True)
+        mem.link("3", "4", bidirectional=True)
+        mem.link("4", "5", bidirectional=True)
         result = mem.detect_hyperlink_communities()
         assert result.community_count > 0
 

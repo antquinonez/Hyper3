@@ -243,11 +243,11 @@ class TestDiamondGraph:
 class TestIntegrationMemory:
     def test_activate_end_to_end(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("dog")
-        mem.store("cat")
-        mem.store("mammal")
-        mem.relate("mammal", "dog", label="is_a")
-        mem.relate("mammal", "cat", label="is_a")
+        mem.add("dog")
+        mem.add("cat")
+        mem.add("mammal")
+        mem.link("mammal", "dog", label="is_a")
+        mem.link("mammal", "cat", label="is_a")
         result = mem.activate("mammal", top_k=5)
         labels = {r.label for r in result}
         assert "dog" in labels
@@ -256,16 +256,16 @@ class TestIntegrationMemory:
 
     def test_stimulate_and_spread_methods(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y")
         mem.stimulate("x", energy=1.0)
         result = mem.spread_activation()
         assert len(result) == 2
 
     def test_clear_activations(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.stimulate("x", energy=1.0)
         mem.clear_activations()
         result = mem.spread_activation()
@@ -273,9 +273,9 @@ class TestIntegrationMemory:
 
     def test_load_reinitializes_activation(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         path = str(tmp_path / "test.json")
         mem.save(path)
         mem2 = HypergraphMemory(evolve_interval=0)
@@ -293,7 +293,7 @@ class TestStimulateNodeNotFoundError:
 
     def test_stimulate_valid_concept_succeeds(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem.stimulate("a", energy=2.0)
         result = mem.spread_activation()
         assert len(result) == 1

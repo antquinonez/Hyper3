@@ -20,11 +20,11 @@ def tmp_path_fixture():
 
 
 def _populate_memory(mem):
-    a = mem.store("alpha", data={"type": "concept"})
-    b = mem.store("beta", data={"type": "concept"})
-    c = mem.store("gamma", data={"type": "concept"})
-    mem.relate("alpha", "beta", label="connects")
-    mem.relate("beta", "gamma", label="connects")
+    a = mem.add("alpha", data={"type": "concept"})
+    b = mem.add("beta", data={"type": "concept"})
+    c = mem.add("gamma", data={"type": "concept"})
+    mem.link("alpha", "beta", label="connects")
+    mem.link("beta", "gamma", label="connects")
     mem._rules.append(TransitiveRule())
     return a, b, c
 
@@ -219,11 +219,11 @@ class TestSystemSnapshotPartial:
 
     def test_empty_subsystems_round_trip(self, tmp_path_fixture):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("only_node")
+        mem.add("only_node")
         mem.save_state(str(tmp_path_fixture))
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.store("only_node")
+        mem2.add("only_node")
         mem2.load_state(str(tmp_path_fixture))
         assert len(mem2._belief._states) == 0
         assert mem2._provenance.record_count == 0
@@ -353,7 +353,7 @@ class TestSnapshotFeedbackNone:
         from hyper3.snapshot import capture_snapshot
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         snap = capture_snapshot(
             belief=mem._belief,
             multiway_engine=None,

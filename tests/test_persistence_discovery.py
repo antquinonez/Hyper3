@@ -240,9 +240,9 @@ class TestRuleDiscoveryEngine:
 class TestHypergraphMemoryPersistence:
     def test_save_and_load(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha", data={"key": "val"})
-        mem.store("beta")
-        mem.relate("alpha", "beta", label="connects")
+        mem.add("alpha", data={"key": "val"})
+        mem.add("beta")
+        mem.link("alpha", "beta", label="connects")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             path = os.path.join(tmpdir, "mem.json")
@@ -251,18 +251,18 @@ class TestHypergraphMemoryPersistence:
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
 
-            assert mem2.graph.node_count == 2
-            assert mem2.graph.edge_count == 1
+            assert mem2.size[0] == 2
+            assert mem2.size[1] == 1
             node = mem2.graph.get_node(mem2.graph.nodes[0].id)
             assert node.data == {"key": "val"}
 
     def test_discover_and_apply(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d"]:
-            mem.store(label)
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
-        mem.relate("c", "d", label="next")
+            mem.add(label)
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.link("c", "d", label="next")
 
         result = mem.auto_discover_and_apply()
         assert result["new_rules_added"] == 1
@@ -278,9 +278,9 @@ class TestHypergraphMemoryPersistence:
 
     def test_persistence_preserves_event_log(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y", label="link")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="link")
         assert mem.log.size == 3
 
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -305,7 +305,7 @@ class TestBatchIngestion:
         ]
         results = mem.ingest_batch(texts)
         assert len(results) == 3
-        assert mem.graph.node_count == 9
+        assert mem.size[0] == 9
 
     def test_ingest_batch_deduplicates_entities(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -321,7 +321,7 @@ class TestBatchIngestion:
         mem = HypergraphMemory(evolve_interval=0)
         results = mem.ingest_batch(["some text"], extract=False)
         assert len(results) == 1
-        assert mem.graph.node_count == 0
+        assert mem.size[0] == 0
 
 
 
@@ -340,8 +340,8 @@ class TestLoadRecords:
         )
         assert result.nodes == 2
         assert result.edges == 1
-        assert mem.has_node("a")
-        assert mem.has_node("b")
+        assert mem.has("a")
+        assert mem.has("b")
 
     def test_load_records_name_key(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -350,7 +350,7 @@ class TestLoadRecords:
             edges=[],
         )
         assert result.nodes == 1
-        assert mem.has_node("alpha")
+        assert mem.has("alpha")
 
     def test_load_records_skips_no_label(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -362,7 +362,7 @@ class TestLoadRecords:
 
     def test_load_records_updates_existing(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x", data={"old": True})
+        mem.add("x", data={"old": True})
         result = mem.load_records(
             nodes=[{"label": "x", "data": {"new": True}}],
             edges=[],
@@ -373,7 +373,7 @@ class TestLoadRecords:
 
     def test_load_records_updates_weight(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         result = mem.load_records(
             nodes=[{"label": "x", "weight": 5.0}],
             edges=[],
@@ -437,9 +437,9 @@ class TestLoadRecords:
 class TestPersistenceExportImport:
     def test_export_and_import_json(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha", data={"kind": "letter"})
-        mem.store("beta", data={"kind": "letter"})
-        mem.relate("alpha", "beta", label="next")
+        mem.add("alpha", data={"kind": "letter"})
+        mem.add("beta", data={"kind": "letter"})
+        mem.link("alpha", "beta", label="next")
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
         try:
@@ -448,23 +448,23 @@ class TestPersistenceExportImport:
             result = mem2.import_json(path)
             assert result.nodes == 2
             assert result.edges == 1
-            assert mem2.has_node("alpha")
-            assert mem2.has_node("beta")
+            assert mem2.has("alpha")
+            assert mem2.has("beta")
         finally:
             os.unlink(path)
 
     def test_export_and_import_edgelist(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="edge")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="edge")
         with tempfile.NamedTemporaryFile(suffix=".txt", delete=False, mode="w") as f:
             path = f.name
         try:
             mem.export_edgelist(path)
             mem2 = HypergraphMemory(evolve_interval=0)
-            mem2.store("a")
-            mem2.store("b")
+            mem2.add("a")
+            mem2.add("b")
             result = mem2.import_edgelist(path)
             assert result.edges == 1
         finally:
@@ -472,14 +472,14 @@ class TestPersistenceExportImport:
 
     def test_load_fallback_no_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
         try:
             mem.save(path, include_rules=False)
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2.has_node("x")
+            assert mem2.has("x")
             assert len(mem2.rules) == 0
         finally:
             os.unlink(path)
@@ -519,9 +519,9 @@ class TestRulePersistence:
 
     def test_save_load_with_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
@@ -529,7 +529,7 @@ class TestRulePersistence:
             mem.save(path)
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
-            assert mem2.graph.node_count == 2
+            assert mem2.size[0] == 2
             assert len(mem2.rules) == 1
             assert isinstance(mem2.rules[0], TransitiveRule)
         finally:
@@ -539,9 +539,9 @@ class TestRulePersistence:
 class TestStandardFormatIO:
     def test_export_import_json(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y", label="rel")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="rel")
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
         try:
@@ -559,9 +559,9 @@ class TestStandardFormatIO:
 
     def test_export_import_edgelist(self):
         mem = HypergraphMemory(evolve_interval=0)
-        na = mem.store("a")
-        nb = mem.store("b")
-        mem.relate("a", "b", label="edge")
+        na = mem.add("a")
+        nb = mem.add("b")
+        mem.link("a", "b", label="edge")
         with tempfile.NamedTemporaryFile(
             suffix=".tsv", delete=False, mode="w"
         ) as f:
@@ -601,11 +601,11 @@ class TestUnifiedPersistence:
         from hyper3.rules import TransitiveRule
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="connects")
-        mem.relate("b", "c", label="connects")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="connects")
+        mem.link("b", "c", label="connects")
 
         qs = mem.create_distribution(["a"], amplitudes=[1.0])
 
@@ -618,35 +618,35 @@ class TestUnifiedPersistence:
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
 
-        assert mem2.has_node("a")
-        assert mem2.has_node("b")
-        assert mem2.has_node("c")
+        assert mem2.has("a")
+        assert mem2.has("b")
+        assert mem2.has("c")
         assert len(list(mem2.belief_layer.active_distributions)) == 1
 
     def test_save_partial_then_load(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y", label="rel")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="rel")
 
         path = str(tmp_path / "partial.json")
         mem.save(path, include_rules=False)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
-        assert mem2.has_node("x")
-        assert mem2.has_node("y")
+        assert mem2.has("x")
+        assert mem2.has("y")
 
     def test_load_old_bare_snapshot(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha")
+        mem.add("alpha")
         qs = mem.create_distribution(["alpha"], amplitudes=[1.0])
 
         path = str(tmp_path / "bare_snapshot.json")
         mem.save_state(path)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.store("alpha")
+        mem2.add("alpha")
         mem2.load_state(path)
         assert len(list(mem2.belief_layer.active_distributions)) >= 1
 

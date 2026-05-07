@@ -1099,10 +1099,10 @@ class TestNaryEdgeCreation:
 
     def test_relate_hyperedge_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("gene_a")
-        mem.store("gene_b")
-        mem.store("protein_complex")
-        mem.store("pathway")
+        mem.add("gene_a")
+        mem.add("gene_b")
+        mem.add("protein_complex")
+        mem.add("pathway")
         edge = mem.relate_hyperedge(
             {"gene_a", "gene_b"},
             {"protein_complex", "pathway"},
@@ -1116,10 +1116,10 @@ class TestNaryEdgeCreation:
 
     def test_query_hyperedges_by_cardinality(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.store("z")
-        mem.relate("x", "y", label="pair")
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
+        mem.link("x", "y", label="pair")
         mem.relate_hyperedge({"x", "y"}, {"z"}, label="nary")
 
         pairwise = mem.query_hyperedges(min_source_cardinality=1, min_target_cardinality=1)
@@ -1131,11 +1131,11 @@ class TestNaryEdgeCreation:
 
     def test_query_hyperedges_by_containing(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
         mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
-        mem.relate("a", "b", label="ab")
+        mem.link("a", "b", label="ab")
 
         edges_with_a = mem.query_hyperedges(containing="a")
         assert len(edges_with_a) == 2
@@ -1155,9 +1155,9 @@ class TestNaryEdgeCreation:
 
     def test_hyperedge_neighbors_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
         mem.relate_hyperedge({"a", "b"}, {"c"}, label="joint")
         nbrs = mem.hyperedge_neighbors("a")
         assert "b" in nbrs
@@ -1314,11 +1314,11 @@ class TestPageRank:
 
     def test_pagerank_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="rel")
-        mem.relate("B", "C", label="rel")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="rel")
+        mem.link("B", "C", label="rel")
         pr = mem.pagerank()
         assert len(pr) == 3
         total = sum(pr.values())
@@ -1361,9 +1361,9 @@ class TestSPersistence:
 
     def test_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
         mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
         filt = mem.s_persistence()
         assert len(filt.levels) == 1
@@ -1408,11 +1408,11 @@ class TestSpectralEmbedding:
 
     def test_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="r")
-        mem.relate("B", "C", label="r")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="r")
+        mem.link("B", "C", label="r")
         result = mem.spectral_embedding(dimensions=2)
         assert "A" in result
         assert "B" in result
@@ -1423,20 +1423,20 @@ class TestSpectralEmbedding:
 class TestSpreadHyperedge:
     def test_linear_mode(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="r")
-        mem.relate("B", "C", label="r")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="r")
+        mem.link("B", "C", label="r")
         results = mem.spread_hyperedge("A", energy=1.0, mode="linear", iterations=3)
         labels = {r.label for r in results}
         assert "B" in labels
 
     def test_and_mode_requires_all_sources(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
         mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
         results = mem.spread_hyperedge("A", energy=1.0, mode="and", iterations=3)
         labels = {r.label for r in results}
@@ -1444,9 +1444,9 @@ class TestSpreadHyperedge:
 
     def test_and_mode_succeeds_with_all_sources(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
         mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
         if mem._activation is None:
             mem._activation = SpreadingActivation(mem._graph)
@@ -1462,9 +1462,9 @@ class TestSpreadHyperedge:
 
     def test_or_mode(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
         mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
         results = mem.spread_hyperedge("A", energy=1.0, mode="or", iterations=3)
         labels = {r.label for r in results}

@@ -10,11 +10,11 @@ from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 class TestCommunityBasic:
     def test_detect_communities(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="connects")
-        mem.relate("B", "C", label="connects")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="connects")
+        mem.link("B", "C", label="connects")
         result = mem.detect_communities(seed=42)
         assert result.community_count == 1
         assert result.coverage == 1.0
@@ -27,22 +27,22 @@ class TestCommunityBasic:
 
     def test_detect_communities_disconnected(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.store("D")
-        mem.relate("A", "B", label="group1")
-        mem.relate("C", "D", label="group2")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.add("D")
+        mem.link("A", "B", label="group1")
+        mem.link("C", "D", label="group2")
         result = mem.detect_communities(method="connected_components")
         assert result.community_count == 2
 
     def test_weighted_propagation(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        e1 = mem.relate("A", "B", label="strong")
-        e2 = mem.relate("B", "C", label="weak")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        e1 = mem.link("A", "B", label="strong")
+        e2 = mem.link("B", "C", label="weak")
         e1.weight = 10.0
         e2.weight = 0.1
         result = mem.detect_communities(method="weighted_label_propagation", seed=42)
@@ -50,9 +50,9 @@ class TestCommunityBasic:
 
     def test_community_labels(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha")
-        mem.store("beta")
-        mem.relate("alpha", "beta", label="link")
+        mem.add("alpha")
+        mem.add("beta")
+        mem.link("alpha", "beta", label="link")
         result = mem.detect_communities(seed=42)
         assert result.community_count == 1
         assert set(result.communities[0].member_labels) == {"alpha", "beta"}
@@ -60,18 +60,18 @@ class TestCommunityBasic:
     def test_modularity(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
         for i in range(9):
-            mem.relate(f"N{i}", f"N{i+1}", label="link")
+            mem.link(f"N{i}", f"N{i+1}", label="link")
         result = mem.detect_communities(seed=42)
         assert abs(result.modularity - 0.3889) < 0.01
 
     def test_communities_property(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         assert mem.communities is None
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="link")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="link")
         result = mem.detect_communities(seed=42)
         assert mem.communities is not None
         assert result.community_count >= 1
@@ -80,11 +80,11 @@ class TestCommunityBasic:
 class TestCommunityDetector:
     def test_with_edge_label_filter(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="type1")
-        mem.relate("B", "C", label="type2")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="type1")
+        mem.link("B", "C", label="type2")
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(edge_label="type1", seed=42)
         assert result.community_count == 2
@@ -92,9 +92,9 @@ class TestCommunityDetector:
     def test_reproducible_with_seed(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
             if i > 0:
-                mem.relate(f"N{i-1}", f"N{i}", label="link")
+                mem.link(f"N{i-1}", f"N{i}", label="link")
         detector = CommunityDetector(mem.graph)
         r1 = detector.detect_label_propagation(seed=123)
         detector2 = CommunityDetector(mem.graph)
@@ -104,19 +104,19 @@ class TestCommunityDetector:
 
     def test_coverage_is_one_for_connected(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="link")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="link")
         result = mem.detect_communities(seed=42)
         assert result.coverage == 1.0
 
     def test_avg_community_size(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"N{i}")
-        mem.relate("N0", "N1", label="link")
-        mem.relate("N2", "N3", label="link")
-        mem.relate("N4", "N5", label="link")
+            mem.add(f"N{i}")
+        mem.link("N0", "N1", label="link")
+        mem.link("N2", "N3", label="link")
+        mem.link("N4", "N5", label="link")
         result = mem.detect_communities(method="connected_components")
         assert result.avg_community_size == 2.0
         assert result.community_count == 3
@@ -124,9 +124,9 @@ class TestCommunityDetector:
     def test_weighted_fallback_on_negative_modularity(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
         for i in range(9):
-            e = mem.relate(f"N{i}", f"N{i+1}", label="link")
+            e = mem.link(f"N{i}", f"N{i+1}", label="link")
             e.weight = 0.1 + i * 0.5
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(seed=42, weighted_fallback=True)
@@ -136,9 +136,9 @@ class TestCommunityDetector:
     def test_weighted_fallback_disabled(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
         for i in range(9):
-            mem.relate(f"N{i}", f"N{i+1}", label="link")
+            mem.link(f"N{i}", f"N{i+1}", label="link")
         detector = CommunityDetector(mem.graph)
         unweighted = detector.detect_label_propagation(seed=42, weighted_fallback=False)
         with_fallback = detector.detect_label_propagation(seed=42, weighted_fallback=True)
@@ -154,8 +154,8 @@ class TestCommunityEdgeCases:
 
     def test_isolated_nodes_zero_edges(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
-        mem.store("Y")
+        mem.add("X")
+        mem.add("Y")
         detector = CommunityDetector(mem.graph)
         result = detector.detect_label_propagation(seed=42)
         assert result.community_count == 2
@@ -172,11 +172,11 @@ class TestSemanticCommunity:
     def test_communities_are_disjoint(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"N{i}")
-        mem.relate("N0", "N1", label="x")
-        mem.relate("N1", "N2", label="x")
-        mem.relate("N3", "N4", label="x")
-        mem.relate("N4", "N5", label="x")
+            mem.add(f"N{i}")
+        mem.link("N0", "N1", label="x")
+        mem.link("N1", "N2", label="x")
+        mem.link("N3", "N4", label="x")
+        mem.link("N4", "N5", label="x")
         result = mem.detect_communities(seed=42)
         all_members = []
         for c in result.communities:
@@ -187,27 +187,27 @@ class TestSemanticCommunity:
     def test_modularity_bounds(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"N{i}")
-        mem.relate("N0", "N1", label="x")
-        mem.relate("N1", "N2", label="x")
-        mem.relate("N3", "N4", label="x")
-        mem.relate("N4", "N5", label="x")
+            mem.add(f"N{i}")
+        mem.link("N0", "N1", label="x")
+        mem.link("N1", "N2", label="x")
+        mem.link("N3", "N4", label="x")
+        mem.link("N4", "N5", label="x")
         result = mem.detect_communities(seed=42)
         assert result.modularity > 0.0
 
     def test_coverage_less_than_one_with_cross_community_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
         for a in ["N0", "N1", "N2"]:
             for b in ["N0", "N1", "N2"]:
                 if a != b:
-                    mem.relate(a, b, label="x")
+                    mem.link(a, b, label="x")
         for a in ["N3", "N4", "N5"]:
             for b in ["N3", "N4", "N5"]:
                 if a != b:
-                    mem.relate(a, b, label="x")
-        mem.relate("N2", "N3", label="x")
+                    mem.link(a, b, label="x")
+        mem.link("N2", "N3", label="x")
         result = mem.detect_communities(seed=0)
         assert result.community_count >= 2
         assert result.coverage < 1.0
@@ -484,10 +484,10 @@ class TestLouvainExtended:
     def test_louvain_facade(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"n{i}")
+            mem.add(f"n{i}")
         for s, t in [("n0", "n1"), ("n1", "n2"), ("n0", "n2"), ("n3", "n4"), ("n4", "n5"), ("n3", "n5")]:
-            mem.relate(s, t)
-        mem.relate("n2", "n3")
+            mem.link(s, t)
+        mem.link("n2", "n3")
         result = mem.detect_communities(method="louvain", seed=42)
         assert result.community_count == 2
         assert abs(result.modularity - 0.3571) < 0.01

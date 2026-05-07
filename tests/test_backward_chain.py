@@ -64,18 +64,18 @@ class TestBackwardChainBasic:
 
     def test_prove_known_fact(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A", data={"val": 1})
+        mem.add("A", data={"val": 1})
         result = mem.prove("A", known_facts={"A"})
         assert result.achievable
         assert result.confidence == 1.0
 
     def test_prove_with_transitive_chain(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="depends_on")
-        mem.relate("B", "C", label="depends_on")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="depends_on")
+        mem.link("B", "C", label="depends_on")
         mem.add_rules(TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"))
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         result = mem.prove("C", known_facts={"A"}, edge_label="depends_on")
@@ -85,11 +85,11 @@ class TestBackwardChainBasic:
 
     def test_prove_batch_accumulates(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="implies")
-        mem.relate("B", "C", label="implies")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="implies")
+        mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="implies"))
         results = mem.prove_batch(["B", "C"], known_facts={"A"})
         assert len(results) == 2
@@ -104,7 +104,7 @@ class TestBackwardChainBasic:
 class TestBackwardChainEngine:
     def test_direct_match(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
+        mem.add("X")
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("X", known_facts={"X"})
         assert result.achievable
@@ -112,16 +112,16 @@ class TestBackwardChainEngine:
 
     def test_unprovable(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
+        mem.add("X")
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("X", known_facts=set())
         assert not result.achievable
 
     def test_proof_tree_structure(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="implies")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="implies")
         mem.add_rules(InverseRule(edge_label="implies", inverse_label="implied_by"))
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("B", known_facts={"B"})
@@ -133,9 +133,9 @@ class TestBackwardChainEngine:
     def test_max_depth_limit(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
             if i > 0:
-                mem.relate(f"N{i-1}", f"N{i}", label="next")
+                mem.link(f"N{i-1}", f"N{i}", label="next")
         mem.add_rules(TransitiveRule(edge_label="next", new_label="eventually"))
         engine = BackwardChainEngine(mem.graph, mem._rules, max_depth=2)
         result = engine.prove("N9", known_facts={"N0"})
@@ -145,11 +145,11 @@ class TestBackwardChainEngine:
 class TestBackwardChainIntegration:
     def test_with_multiple_rules(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="causes")
-        mem.relate("B", "C", label="causes")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="causes")
+        mem.link("B", "C", label="causes")
         mem.add_rules(
             TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
             InverseRule(edge_label="causes", inverse_label="caused_by"),
@@ -162,11 +162,11 @@ class TestBackwardChainIntegration:
 
     def test_with_abductive_rule(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("symptom_a", data={"type": "symptom"})
-        mem.store("symptom_b", data={"type": "symptom"})
-        mem.store("root_cause", data={"type": "cause"})
-        mem.relate("root_cause", "symptom_a", label="causes")
-        mem.relate("root_cause", "symptom_b", label="causes")
+        mem.add("symptom_a", data={"type": "symptom"})
+        mem.add("symptom_b", data={"type": "symptom"})
+        mem.add("root_cause", data={"type": "cause"})
+        mem.link("root_cause", "symptom_a", label="causes")
+        mem.link("root_cause", "symptom_b", label="causes")
         mem.add_rules(AbductiveRule(effect_label="causes", cause_label="possible_cause"))
         result = mem.prove("root_cause", known_facts={"symptom_a", "symptom_b"})
         assert result is not None
@@ -177,11 +177,11 @@ class TestBackwardChainIntegration:
 class TestBackwardChainProveBatch:
     def test_prove_batch_accumulates_known(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="implies")
-        mem.relate("B", "C", label="implies")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="implies")
+        mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="implies"))
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         results = mem.prove_batch(["B", "C"], known_facts={"A"})
@@ -199,11 +199,11 @@ class TestBackwardChainProveBatch:
 class TestBackwardChainEngineAdvanced:
     def test_missing_premises_reported(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="implies")
-        mem.relate("B", "C", label="implies")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="implies")
+        mem.link("B", "C", label="implies")
         mem.add_rules(TransitiveRule(edge_label="implies", new_label="implies"))
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = BackwardChainEngine(mem.graph, mem._rules)
@@ -214,11 +214,11 @@ class TestBackwardChainEngineAdvanced:
 
     def test_alternative_proofs(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="implies")
-        mem.relate("A", "C", label="implies")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="implies")
+        mem.link("A", "C", label="implies")
         mem.add_rules(InverseRule(edge_label="implies", inverse_label="implied_by"))
         mem.reason(seed_concepts={"A", "B", "C"}, max_depth=3, max_total_states=30)
         engine = BackwardChainEngine(mem.graph, mem._rules, max_alternatives=5)
@@ -229,10 +229,10 @@ class TestBackwardChainEngineAdvanced:
 
     def test_prove_with_edge_label_filter(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="causes")
-        mem.relate("A", "B", label="enables")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="causes")
+        mem.link("A", "B", label="enables")
         mem.add_rules(InverseRule(edge_label="causes", inverse_label="caused_by"))
         engine = BackwardChainEngine(mem.graph, mem._rules)
         result = engine.prove("B", known_facts={"A"}, edge_label="causes")
@@ -250,9 +250,9 @@ class TestBackwardChainEngineAdvanced:
     def test_prove_depth_limit_unachievable(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(6):
-            mem.store(f"N{i}")
+            mem.add(f"N{i}")
             if i > 0:
-                mem.relate(f"N{i-1}", f"N{i}", label="step")
+                mem.link(f"N{i-1}", f"N{i}", label="step")
         mem.add_rules(TransitiveRule(edge_label="step", new_label="step"))
         mem.reason(seed_concepts={f"N{i}" for i in range(6)}, max_depth=5, max_total_states=100)
         engine = BackwardChainEngine(mem.graph, mem._rules, max_depth=1)

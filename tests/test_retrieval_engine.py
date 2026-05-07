@@ -225,11 +225,11 @@ class TestHypergraphMemoryIntegration:
     def test_retrieve(self):
         from hyper3.memory import HypergraphMemory
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.store("z")
-        mem.relate("x", "y", label="rel")
-        mem.relate("x", "z", label="rel")
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
+        mem.link("x", "y", label="rel")
+        mem.link("x", "z", label="rel")
         results = mem.retrieve("x", top_k=5)
         assert len(results) == 2
         assert {r.label for r in results} == {"y", "z"}
@@ -237,11 +237,11 @@ class TestHypergraphMemoryIntegration:
     def test_feedback_round_trip(self):
         from hyper3.memory import HypergraphMemory
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel")
-        mem.relate("a", "c", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel")
+        mem.link("a", "c", label="rel")
 
         results = mem.retrieve("a", top_k=5)
         mem.record_feedback("a", results, {"b"})

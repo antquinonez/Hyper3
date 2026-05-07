@@ -24,11 +24,11 @@ def _make_base_graph():
 
 def _setup_memory():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.relate("a", "b", label="next")
-    mem.relate("b", "c", label="next")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.link("a", "b", label="next")
+    mem.link("b", "c", label="next")
     mem.add_rules(TransitiveRule(edge_label="next"))
     return mem
 
@@ -572,7 +572,7 @@ class TestMemoryOverlayIntegration:
 
     def test_reason_with_overlay_rollback(self):
         mem = _setup_memory()
-        base_edge_count = mem.graph.edge_count
+        base_edge_count = mem.size[1]
         result = mem.reason({"a", "b", "c"}, auto_commit=False)
         assert result["expansion"]["rules_applied"] > 0
         assert mem.overlay is not None
@@ -580,7 +580,7 @@ class TestMemoryOverlayIntegration:
         assert overlay_edge_count > 0
         rollback_result = mem.rollback_inferences()
         assert mem.overlay is None
-        assert mem.graph.edge_count == base_edge_count
+        assert mem.size[1] == base_edge_count
         assert rollback_result["rolled_back_edges"] == overlay_edge_count
 
     def test_reason_without_overlay(self):

@@ -156,17 +156,17 @@ class TestBoundaryNavigatorIntegration:
         from hyper3.constraints import BoundaryNavigator
         from hyper3.exceptions import ConstraintViolationError
         mem._boundary_navigator = BoundaryNavigator()
-        mem.store("a")
+        mem.add("a")
         with pytest.raises(ConstraintViolationError):
-            mem.relate("a", "a")
+            mem.link("a", "a")
 
     def test_relate_allows_valid_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
         from hyper3.constraints import BoundaryNavigator
         mem._boundary_navigator = BoundaryNavigator()
-        mem.store("a")
-        mem.store("b")
-        edge = mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        edge = mem.link("a", "b")
         a_id = mem.graph.get_node_by_label("a").id
         b_id = mem.graph.get_node_by_label("b").id
         assert a_id in edge.source_ids

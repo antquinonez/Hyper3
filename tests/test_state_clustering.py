@@ -699,7 +699,7 @@ class TestStateClusteringDeepCoverage:
 def _setup_mem_0():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d", "e", "f"]:
-        mem.store(label)
+        mem.add(label)
     a = mem.graph.get_node_by_label("a")
     b = mem.graph.get_node_by_label("b")
     c = mem.graph.get_node_by_label("c")
@@ -826,7 +826,7 @@ class TestNearestHighDensityRegion:
 def _setup_mem_1():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d"]:
-        mem.store(label)
+        mem.add(label)
     a = mem.graph.get_node_by_label("a")
     b = mem.graph.get_node_by_label("b")
     c = mem.graph.get_node_by_label("c")
@@ -958,7 +958,7 @@ def _setup_analogy_mem():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["cell", "nucleus", "membrane", "protein",
                    "process", "memory", "interface", "data"]:
-        mem.store(label)
+        mem.add(label)
     c = mem.graph.get_node_by_label("cell")
     n = mem.graph.get_node_by_label("nucleus")
     m = mem.graph.get_node_by_label("membrane")

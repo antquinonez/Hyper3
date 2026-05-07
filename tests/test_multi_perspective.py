@@ -473,11 +473,11 @@ class TestFindNodeAndCountNeighbors:
 def _make_mem_aw():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d", "e"]:
-        mem.store(label)
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
-    mem.relate("c", "d", label="rel")
-    mem.relate("d", "e", label="rel")
+        mem.add(label)
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
+    mem.link("c", "d", label="rel")
+    mem.link("d", "e", label="rel")
     mem._rules = [TransitiveRule()]
     return mem
 
@@ -636,10 +636,10 @@ class TestSelectOptimalFrameLearned:
 
 def _make_mem_fc():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("core")
-    mem.store("mid")
-    mem.store("far_a")
-    mem.store("far_b")
+    mem.add("core")
+    mem.add("mid")
+    mem.add("far_a")
+    mem.add("far_b")
     c = mem.graph.get_node_by_label("core")
     m = mem.graph.get_node_by_label("mid")
     fa = mem.graph.get_node_by_label("far_a")
@@ -758,10 +758,10 @@ class TestResolveDisagreement:
 
 def _make_mem_fi():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("core")
-    mem.store("bridge")
-    mem.store("periphery_a")
-    mem.store("periphery_b")
+    mem.add("core")
+    mem.add("bridge")
+    mem.add("periphery_a")
+    mem.add("periphery_b")
     c = mem.graph.get_node_by_label("core")
     b = mem.graph.get_node_by_label("bridge")
     pa = mem.graph.get_node_by_label("periphery_a")
@@ -864,11 +864,11 @@ class TestReasonWithConsensus:
 
 def _make_mem_fm():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
     mem._rules = [TransitiveRule()]
     return mem
 
@@ -887,7 +887,7 @@ class TestComputeLocalClustering:
 
     def test_single_node(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         x = mem.graph.get_node_by_label("x")
         clustering = mem._perspective.compute_local_clustering([x.id])
         assert clustering == 0.0

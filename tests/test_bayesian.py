@@ -209,9 +209,9 @@ class TestBayesianLayer:
 class TestBayesianMixinFacade:
     def test_facade_set_prior(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         dist = mem.set_prior("x", outcomes=["a", "b"])
         assert len(dist.outcomes) == 2
         belief = mem.get_belief("x")
@@ -226,9 +226,9 @@ class TestBayesianMixinFacade:
 
     def test_facade_update_belief(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("weather")
-        mem.store("sunny")
-        mem.store("rainy")
+        mem.add("weather")
+        mem.add("sunny")
+        mem.add("rainy")
         mem.set_prior("weather", outcomes=["sunny", "rainy"])
         result = mem.update_belief(
             "weather",
@@ -240,14 +240,14 @@ class TestBayesianMixinFacade:
 
     def test_facade_get_belief_none(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         assert mem.get_belief("x") is None
 
     def test_facade_map_estimate(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("color")
-        mem.store("red")
-        mem.store("blue")
+        mem.add("color")
+        mem.add("red")
+        mem.add("blue")
         mem.set_prior("color", outcomes=["red", "blue"])
         mem.update_belief(
             "color",
@@ -259,9 +259,9 @@ class TestBayesianMixinFacade:
 
     def test_facade_bayes_factor(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
-        mem.store("h1")
-        mem.store("h2")
+        mem.add("test")
+        mem.add("h1")
+        mem.add("h2")
         mem.set_prior("test", outcomes=["h1", "h2"])
         mem.update_belief(
             "test",
@@ -273,10 +273,10 @@ class TestBayesianMixinFacade:
 
     def test_facade_credible_set_returns_labels(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("animal")
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("fish")
+        mem.add("animal")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("fish")
         mem.set_prior("animal", outcomes=["cat", "dog", "fish"])
         cs = mem.credible_set("animal", level=0.95)
         assert set(cs) == {"cat", "dog", "fish"}
@@ -297,9 +297,9 @@ class TestBayesianMixinErrors:
 
     def test_set_prior_with_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         dist = mem.set_prior("x", outcomes=["a", "b"], weights=[3, 1])
         values = sorted(dist.outcomes.values())
         assert abs(values[0] - 0.25) < 1e-6
@@ -311,7 +311,7 @@ class TestBayesianMixinErrors:
 
     def test_map_estimate_no_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         assert mem.map_estimate("x") is None
 
     def test_bayes_factor_missing_concept(self):
@@ -329,14 +329,14 @@ class TestBayesianMixinErrors:
 
     def test_get_belief_no_prior_returns_none(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         assert mem.get_belief("x") is None
 
     def test_reset_belief_existing(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         mem.set_prior("x", outcomes=["a", "b"])
         mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.9, "b": 0.1})
         mem.reset_belief("x")
@@ -349,9 +349,9 @@ class TestBayesianMixinErrors:
 
     def test_update_belief_lazy_init(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         mem._bayesian = None
         mem.set_prior("x", outcomes=["a", "b"])
         result = mem.update_belief("x", evidence_name="ev", likelihoods={"a": 0.8, "b": 0.2})
@@ -364,9 +364,9 @@ class TestBayesianMixinErrors:
 
     def test_bayes_factor_with_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
-        mem.store("h1")
-        mem.store("h2")
+        mem.add("test")
+        mem.add("h1")
+        mem.add("h2")
         mem.set_prior("test", outcomes=["h1", "h2"])
         mem.update_belief("test", evidence_name="ev", likelihoods={"h1": 0.9, "h2": 0.1})
         bf = mem.bayes_factor("test", hypothesis_a="h1", hypothesis_b="h2")
@@ -375,9 +375,9 @@ class TestBayesianMixinErrors:
 
     def test_credible_set_with_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("animal")
-        mem.store("cat")
-        mem.store("dog")
+        mem.add("animal")
+        mem.add("cat")
+        mem.add("dog")
         mem.set_prior("animal", outcomes=["cat", "dog"])
         cs = mem.credible_set("animal", level=0.5)
         assert len(cs) == 1
@@ -523,9 +523,9 @@ class TestMemoryBayesianLazyInit:
 
     def test_bayes_factor_lazy_init_no_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
-        mem.store("h1")
-        mem.store("h2")
+        mem.add("test")
+        mem.add("h1")
+        mem.add("h2")
         assert mem._bayesian is None
         bf = mem.bayes_factor("test", hypothesis_a="h1", hypothesis_b="h2")
         assert bf == 1.0
@@ -533,7 +533,7 @@ class TestMemoryBayesianLazyInit:
 
     def test_credible_set_lazy_init_no_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
+        mem.add("test")
         assert mem._bayesian is None
         cs = mem.credible_set("test", level=0.95)
         assert cs == []
@@ -541,16 +541,16 @@ class TestMemoryBayesianLazyInit:
 
     def test_reset_belief_lazy_init_no_prior(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
+        mem.add("test")
         assert mem._bayesian is None
         mem.reset_belief("test")
         assert mem._bayesian is not None
 
     def test_update_belief_lazy_init_no_prior_raises(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         mem.set_prior("x", outcomes=["a", "b"])
         mem._bayesian = None
         with pytest.raises(ValueError, match="No prior"):

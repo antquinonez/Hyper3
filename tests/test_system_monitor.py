@@ -107,10 +107,10 @@ class TestHypergraphMemoryNewFeatures:
     def test_state_clustering_after_reasoning(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["a", "b", "c", "d"]:
-            mem.store(label)
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
-        mem.relate("c", "d", label="next")
+            mem.add(label)
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.link("c", "d", label="next")
         mem.add_rules(__import__("hyper3").TransitiveRule(edge_label="next"))
         mem.reason({"a", "b", "c", "d"})
         assert mem.state_clustering is not None
@@ -122,46 +122,46 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_structural_anomaly_detection(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.relate("cat", "dog", label="chases")
+        mem.add("cat")
+        mem.add("dog")
+        mem.link("cat", "dog", label="chases")
         result = mem.detect_structural_anomalies("cat")
         assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
 
     def test_map_boundaries(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("self-referential paradox")
+        mem.add("cat")
+        mem.add("self-referential paradox")
         regions = mem.map_boundaries(["cat", "self-referential paradox"])
         assert len(regions) == 2
 
     def test_multi_frame_analysis(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("concept")
+        mem.add("concept")
         results = mem.multi_frame_analysis("concept")
         assert len(results) == 4
 
     def test_select_optimal_frame(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("concept")
+        mem.add("concept")
         name, analysis = mem.select_optimal_frame("concept")
         assert name in {"classical", "quantum", "hypergraph", "probabilistic"}
 
     def test_introspect(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha")
-        mem.store("beta")
-        mem.relate("alpha", "beta", label="connects")
+        mem.add("alpha")
+        mem.add("beta")
+        mem.link("alpha", "beta", label="connects")
         result = mem.introspect()
         assert "system_health" in result
         assert "graph_health" in result
 
     def test_belief_correlation(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("pet")
-        mem.store("wild")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("pet")
+        mem.add("wild")
         ent = mem.correlate(
             ["cat", "dog"],
             ["pet", "wild"],
@@ -171,9 +171,9 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_sample_with_profile(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("bird")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("bird")
         qs = mem.create_distribution(["cat", "dog", "bird"])
         result = mem.sample_with_profile(qs, "linguistic")
         assert result is not None
@@ -181,8 +181,8 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_sampling_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
+        mem.add("cat")
+        mem.add("dog")
         qs = mem.create_distribution(["cat", "dog"])
         triggers = mem.detect_sampling_triggers(qs)
         assert isinstance(triggers, list)
@@ -191,15 +191,15 @@ class TestHypergraphMemoryNewFeatures:
 
     def test_interactions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
+        mem.add("cat")
+        mem.add("dog")
         qs = mem.create_distribution(["cat", "dog"])
         patterns = mem.compute_interactions(qs)
         assert isinstance(patterns, list)
 
     def test_stats_includes_rule_analytics_and_meta(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("test")
+        mem.add("test")
         stats = mem.stats()
         assert hasattr(stats, "rule_analytics")
         assert "monitor_stats" in stats
@@ -226,9 +226,9 @@ class TestHypergraphMemoryNewFeatures:
 class TestSystemMonitorAssessState:
     def test_rich_reasoning_mode(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._discovery.discover_all()
         for d in mem._discovery.get_discovered_rules():
             d.rule = TransitiveRule()
@@ -237,9 +237,9 @@ class TestSystemMonitorAssessState:
 
     def test_moderate_reasoning_mode(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._discovery.discover_all()
         discovered = mem._discovery.get_discovered_rules()
         for i, d in enumerate(discovered):
@@ -255,9 +255,9 @@ class TestSystemMonitorAssessState:
 
     def test_rule_analytics_complexity_level(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         mem.reason(seed_concepts={"a", "b"}, max_depth=2, max_total_states=20)
         state = mem._meta.assess_state()
@@ -267,9 +267,9 @@ class TestSystemMonitorAssessState:
 class TestSystemMonitorIntrospectRuleAnalytics:
     def test_introspect_with_rule_analytics(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         mem.reason(seed_concepts={"a", "b"}, max_depth=2, max_total_states=20)
         report = mem._meta.introspect(rules=mem._rules)
@@ -280,7 +280,7 @@ class TestSystemMonitorIntrospectRuleAnalytics:
 class TestSystemMonitorTuning:
     def test_execute_tuning_validated_rollback(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem._meta._differ = GraphDiffer(mem.graph)
         mem._meta._differ.capture()
         mem._meta._state.architectural_fitness = 0.1
@@ -293,7 +293,7 @@ class TestSystemMonitorTuning:
 
     def test_execute_tuning_validated_no_differ(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem._meta._state.architectural_fitness = 0.1
         plan = TuningPlan(
             triggers=[],
@@ -304,7 +304,7 @@ class TestSystemMonitorTuning:
 
     def test_adjust_evolution(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem._meta._state.architectural_fitness = 0.3
         result = mem._meta._adjust_evolution()
         assert "decay_threshold" in result
@@ -313,32 +313,32 @@ class TestSystemMonitorTuning:
 
     def test_run_rule_discovery(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         result = mem._meta._run_rule_discovery()
         assert "discovered_patterns" in result
         assert isinstance(result["discovered_patterns"], int)
 
     def test_increase_connectivity(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("isolated", data={"key": "val"})
-        mem.store("connected", data={"key": "other"})
+        mem.add("isolated", data={"key": "val"})
+        mem.add("connected", data={"key": "other"})
         result = mem._meta._increase_connectivity()
         assert result["isolated_nodes"] >= 1
 
     def test_increase_connectivity_bridges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("iso", data={"type": "a"})
-        mem.store("partner", data={"type": "a"})
+        mem.add("iso", data={"type": "a"})
+        mem.add("partner", data={"type": "a"})
         result = mem._meta._increase_connectivity()
         assert result["bridged"] >= 0
 
     def test_optimize_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         node_a = mem.graph.get_node_by_label("a")
         node_a.access_count = 5
         result = mem._meta._optimize_weights()
@@ -353,9 +353,9 @@ class TestSystemMonitorTuning:
 
     def test_expand_seed_set(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         result = mem._meta._expand_seed_set()
         assert "poorly_connected" in result
@@ -377,10 +377,10 @@ class TestSystemMonitorTuning:
 
     def test_restructure_graph_dimensions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         node_a = mem.graph.get_node_by_label("a")
         node_a.metadata.modality_tags = {Modality.CONCEPTUAL}
-        mem.store("b")
+        mem.add("b")
         node_b = mem.graph.get_node_by_label("b")
         node_b.metadata.modality_tags = set()
         result = mem._meta._restructure_graph_dimensions()
@@ -388,20 +388,20 @@ class TestSystemMonitorTuning:
 
     def test_restructure_graph_dimensions_empty(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         result = mem._meta._restructure_graph_dimensions()
         assert result["dominant_modality"] == "none"
 
     def test_recalibrate_modality_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         node_a = mem.graph.get_node_by_label("a")
         node_a.metadata.modality_tags = {Modality.CONCEPTUAL}
-        mem.store("b")
+        mem.add("b")
         node_b = mem.graph.get_node_by_label("b")
         node_b.metadata.modality_tags = {Modality.TEMPORAL}
-        mem.relate("a", "b", label="rel", weight=10.0)
-        mem.relate("b", "a", label="rel", weight=0.1)
+        mem.link("a", "b", label="rel", weight=10.0)
+        mem.link("b", "a", label="rel", weight=0.1)
         result = mem._meta._recalibrate_modality_weights()
         assert "modalities_found" in result
         assert "adjusted_edges" in result
@@ -409,7 +409,7 @@ class TestSystemMonitorTuning:
 
     def test_auto_tune_low_fitness(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         mem._meta._state.architectural_fitness = 0.1
         result = mem._meta.auto_tune()
         assert result is not None
@@ -438,7 +438,7 @@ class TestComputeFitnessEmptyGraph:
 class TestComputeFitnessWithRecallEvents:
     def test_fitness_with_successful_recall_events(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.recall("x")
         fitness = mem.meta._compute_fitness(
             mem.graph,
@@ -450,7 +450,7 @@ class TestComputeFitnessWithRecallEvents:
 
     def test_fitness_with_failed_recall_events(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.recall("nonexistent")
         fitness = mem.meta._compute_fitness(
             mem.graph,
@@ -464,13 +464,13 @@ class TestComputeFitnessWithRecallEvents:
 class TestAssessStateReasoningModes:
     def test_assess_state_sparse_mode(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         state = mem.meta.assess_state([])
         assert state.reasoning_mode in ("rich", "moderate", "sparse")
 
     def test_assess_state_returns_system_health(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         state = mem.meta.assess_state([])
         assert isinstance(state.architectural_fitness, float)
         assert isinstance(state.reasoning_mode, str)
@@ -480,21 +480,21 @@ class TestAssessStateReasoningModes:
 class TestExecuteMetamorphosisEmptyPlan:
     def test_execute_empty_plan(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         plan = TuningPlan(actions=[])
         result = mem.meta.execute_tuning(plan)
         assert len(result) == 0
 
     def test_execute_plan_with_unknown_action(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         plan = TuningPlan(actions=["unknown_action_type"])
         result = mem.meta.execute_tuning(plan)
         assert result["unknown_action_type"] == "unknown_action"
 
     def test_execute_adjust_evolution_parameters(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.3
         plan = TuningPlan(actions=["adjust_evolution_parameters"])
         result = mem.meta.execute_tuning(plan)
@@ -503,7 +503,7 @@ class TestExecuteMetamorphosisEmptyPlan:
 
     def test_execute_run_rule_discovery(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         plan = TuningPlan(actions=["run_rule_discovery"])
         result = mem.meta.execute_tuning(plan)
         assert isinstance(result["rule_discovery"], dict)
@@ -511,7 +511,7 @@ class TestExecuteMetamorphosisEmptyPlan:
 
     def test_execute_increase_connectivity(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         plan = TuningPlan(actions=["increase_connectivity"])
         result = mem.meta.execute_tuning(plan)
         assert isinstance(result["increase_connectivity"], dict)
@@ -519,9 +519,9 @@ class TestExecuteMetamorphosisEmptyPlan:
 
     def test_execute_optimize_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y", label="rel")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="rel")
         node = mem.graph.get_node_by_label("x")
         node.access_count = 5
         plan = TuningPlan(actions=["optimize_weights"])
@@ -533,16 +533,16 @@ class TestExecuteMetamorphosisEmptyPlan:
 class TestAutoMetamorphosis:
     def test_auto_tune_low_fitness_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.2
         mem.meta.auto_tune()
         assert 0.0 <= mem.meta._state.architectural_fitness <= 1.0
 
     def test_auto_tune_high_fitness_no_action(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
         target = mem.graph.get_node_by_label("b")
         if target:
             target.access_count = 3
@@ -556,7 +556,7 @@ class TestAutoMetamorphosis:
 class TestProposeMetamorphosisMultipleTriggers:
     def test_propose_with_all_trigger_types(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         triggers = [
             TuningTrigger(trigger_type="performance_plateau", description="perf", urgency=0.7),
             TuningTrigger(trigger_type="novel_problem", description="struct", urgency=0.6),
@@ -571,7 +571,7 @@ class TestProposeMetamorphosisMultipleTriggers:
 
     def test_propose_returns_none_with_no_triggers(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         result = mem.meta.propose_tuning([])
         assert result is None
 
@@ -579,7 +579,7 @@ class TestProposeMetamorphosisMultipleTriggers:
 class TestTuningPlanActions:
     def test_performance_plateau_actions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         trigger = TuningTrigger(trigger_type="performance_plateau", description="perf", urgency=0.7)
         plan = mem.meta.propose_tuning([trigger])
         assert "adjust_evolution_parameters" in plan.actions
@@ -587,7 +587,7 @@ class TestTuningPlanActions:
 
     def test_novel_problem_actions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         trigger = TuningTrigger(trigger_type="novel_problem", description="novel", urgency=0.6)
         plan = mem.meta.propose_tuning([trigger])
         assert "run_rule_discovery" in plan.actions
@@ -595,7 +595,7 @@ class TestTuningPlanActions:
 
     def test_meta_insight_actions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         trigger = TuningTrigger(trigger_type="meta_insight", description="insight", urgency=0.5)
         plan = mem.meta.propose_tuning([trigger])
         assert "promote_pattern_to_rule" in plan.actions
@@ -603,7 +603,7 @@ class TestTuningPlanActions:
 
     def test_cross_domain_actions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         trigger = TuningTrigger(trigger_type="cross_domain", description="cross", urgency=0.8)
         plan = mem.meta.propose_tuning([trigger])
         assert "restructure_graph_dimensions" in plan.actions
@@ -613,7 +613,7 @@ class TestTuningPlanActions:
 class TestCheckAllTuningTriggerTypes:
     def test_performance_plateau_trigger(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.architectural_fitness = 0.2
         triggers = mem.meta.check_tuning_triggers()
         trigger_types = [t.trigger_type for t in triggers]
@@ -622,7 +622,7 @@ class TestCheckAllTuningTriggerTypes:
     def test_novel_problem_trigger(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(5):
-            mem.store(f"node_{i}")
+            mem.add(f"node_{i}")
         nodes = [mem.graph.get_node_by_label(f"node_{i}") for i in range(5)]
         for i in range(12):
             n1 = nodes[i % 5]
@@ -640,9 +640,9 @@ class TestCheckAllTuningTriggerTypes:
 
     def test_no_triggers_when_healthy(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="x")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="x")
         mem.meta._state.architectural_fitness = 0.9
         triggers = mem.meta.check_tuning_triggers()
         trigger_types = [t.trigger_type for t in triggers]
@@ -650,7 +650,7 @@ class TestCheckAllTuningTriggerTypes:
 
     def test_cross_domain_trigger_from_anti_patterns(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         for _ in range(4):
             mem.meta._introspection_log.append({
                 "summary": {"anti_patterns": ["low_connectivity", "low_engagement"]}
@@ -671,7 +671,7 @@ class TestMonitorStatsProperties:
 
     def test_analyze(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         analysis = mem.meta.analyze()
         assert "architectural_fitness" in analysis
         assert "reasoning_mode" in analysis
@@ -684,20 +684,20 @@ class TestMonitorStatsProperties:
 
     def test_reasoning_mode_setting(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.meta._state.reasoning_mode = "exploratory"
         assert mem.meta._state.reasoning_mode == "exploratory"
 
     def test_introspection_log_property(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem.introspect()
         log = mem.meta.introspection_log
         assert len(log) == 1
 
     def test_tuning_history_property(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         history = mem.meta.tuning_history
         assert isinstance(history, list)
         assert len(history) == 0
@@ -707,7 +707,7 @@ class TestIntrospectWithRecommendations:
     def test_introspect_produces_recommendations(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(15):
-            mem.store(f"node_{i}")
+            mem.add(f"node_{i}")
         result = mem.introspect()
         assert "system_health" in result
         assert "graph_health" in result
@@ -716,7 +716,7 @@ class TestIntrospectWithRecommendations:
     def test_introspect_detects_anti_patterns(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(150):
-            mem.store(f"node_{i}")
+            mem.add(f"node_{i}")
         result = mem.introspect()
         assert "graph_health" in result
         assert result["graph_health"].nodes == 150
@@ -877,9 +877,9 @@ class TestMonitorStatsDeep:
 def _setup_mem():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d"]:
-        mem.store(label)
-    mem.relate("a", "b", label="rel")
-    mem.relate("b", "c", label="rel")
+        mem.add(label)
+    mem.link("a", "b", label="rel")
+    mem.link("b", "c", label="rel")
     mem._rules = [TransitiveRule()]
     return mem
 
@@ -895,7 +895,7 @@ class TestMetamorphosisActions:
 
     def test_expand_seed_set(self):
         mem = _setup_mem()
-        mem.store("isolated")
+        mem.add("isolated")
         plan = TuningPlan(actions=["expand_seed_set"])
         mem._meta.set_rules(mem._rules)
         result = mem._meta.execute_tuning(plan)
@@ -965,9 +965,9 @@ class TestSystemMonitorModerateReasoningMode:
     def test_moderate_mode_with_partial_rules(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcdef":
-            mem.store(l)
+            mem.add(l)
         for i, (s, t) in enumerate([("a", "b"), ("b", "c"), ("c", "d"), ("d", "e"), ("e", "f")]):
-            mem.relate(s, t, label=f"rel{i}")
+            mem.link(s, t, label=f"rel{i}")
         rules = [
             TransitiveRule(edge_label="rel0"),
             TransitiveRule(edge_label="rel1"),
@@ -983,10 +983,10 @@ class TestSystemMonitorIntrospectWithRuleAnalytics:
     def test_introspect_includes_rule_analytics_when_wired(self):
         mem = HypergraphMemory(evolve_interval=0)
         for l in "abcd":
-            mem.store(l)
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
-        mem.relate("c", "d", label="rel")
+            mem.add(l)
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
+        mem.link("c", "d", label="rel")
         mem._meta.set_rule_analytics(mem._rule_analytics)
         report = mem._meta.introspect([])
         assert report.system_health.fitness >= 0.0
@@ -996,7 +996,7 @@ class TestSystemMonitorAntiPatterns:
     def test_low_engagement_anti_pattern(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(15):
-            mem.store(f"n{i}")
+            mem.add(f"n{i}")
             node = mem.graph.get_node_by_label(f"n{i}")
             node.weight = 0.1
         report = mem._meta.introspect([])
@@ -1008,7 +1008,7 @@ class TestSystemMonitorRollback:
         from hyper3.graph_diff import GraphDiffer
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem._meta._state.architectural_fitness = 0.1
         differ = GraphDiffer(mem.graph)
         mem._meta.set_differ(differ)
@@ -1022,11 +1022,11 @@ class TestSystemMonitorRollback:
 class TestSystemMonitorOptimizeWeights:
     def test_weight_smoothing_with_disparate_weights(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel", weight=1.0)
-        mem.relate("a", "c", label="rel", weight=10.0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel", weight=1.0)
+        mem.link("a", "c", label="rel", weight=10.0)
         node_a = mem.graph.get_node_by_label("a")
         node_a.access_count = 5
         plan = TuningPlan(actions=["optimize_weights"])
@@ -1039,7 +1039,7 @@ class TestSystemMonitorAutoTuneWithDiffer:
         from hyper3.graph_diff import GraphDiffer
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         mem._meta._state.architectural_fitness = 0.1
         differ = GraphDiffer(mem.graph)
         mem._meta.set_differ(differ)

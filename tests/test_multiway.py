@@ -626,16 +626,16 @@ class TestRuleConfidence:
 class TestIncrementalExpansion:
     def test_reason_incremental(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="next")
-        mem.relate("b", "c", label="next")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         result = mem.reason({"a", "b", "c"}, use_overlay=False)
         assert result["expansion"]["rules_applied"] > 0
-        mem.store("d")
-        mem.relate("c", "d", label="next")
+        mem.add("d")
+        mem.link("c", "d", label="next")
         inc_result = mem.reason_incremental({"c", "d"})
         assert "expansion" in inc_result
 
@@ -649,17 +649,17 @@ class TestExhaustiveReasoning:
     def test_exhaustive_explores_more_states(self):
         mem = HypergraphMemory(evolve_interval=0)
         for ch in "abcdefghij":
-            mem.store(ch)
+            mem.add(ch)
         for i in range(9):
-            mem.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+            mem.link(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
         mem.add_rules(TransitiveRule(edge_label="next"))
         bounded = mem.reason({"a", "b", "c", "d"}, max_total_states=2)
         bounded_states = bounded.expansion.states_created if bounded.expansion else 0
         mem2 = HypergraphMemory(evolve_interval=0)
         for ch in "abcdefghij":
-            mem2.store(ch)
+            mem2.add(ch)
         for i in range(9):
-            mem2.relate(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
+            mem2.link(chr(ord("a") + i), chr(ord("a") + i + 1), label="next")
         mem2.add_rules(TransitiveRule(edge_label="next"))
         exhaustive = mem2.reason({"a", "b", "c", "d"}, max_total_states=2, exhaustive=True)
         exhaustive_states = exhaustive.expansion.states_created if exhaustive.expansion else 0
@@ -667,7 +667,7 @@ class TestExhaustiveReasoning:
 
     def test_exhaustive_flag_signature(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
+        mem.add("x")
         result = mem.reason({"x"}, exhaustive=True)
         assert result.error == "no rules defined"
 
@@ -976,11 +976,11 @@ def _make_rule_graph():
 
 def _setup_memory():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("a")
-    mem.store("b")
-    mem.store("c")
-    mem.relate("a", "b", label="next")
-    mem.relate("b", "c", label="next")
+    mem.add("a")
+    mem.add("b")
+    mem.add("c")
+    mem.link("a", "b", label="next")
+    mem.link("b", "c", label="next")
     mem.add_rules(TransitiveRule(edge_label="next"))
     return mem
 

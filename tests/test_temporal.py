@@ -313,7 +313,7 @@ class TestMemoryIntegration:
         assert ev.label == "lunch"
         assert ev.interval.start == 12.0
         assert ev.interval.end == 13.0
-        assert mem.has_node("lunch")
+        assert mem.has("lunch")
 
     def test_temporal_query_overlapping(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -413,9 +413,9 @@ class TestMemoryIntegration:
 class TestTemporalConsistency:
     def test_temporal_consistency_check(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
         mem.add_temporal_event("a", 0.0, 5.0)
         mem.add_temporal_event("b", 3.0, 8.0)
         edge = mem.graph.edges[0]
@@ -441,19 +441,19 @@ class TestAdditionalCoverage:
 
     def test_edge_temporal_consistency_one_edge_missing(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e1")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e1")
         edge_a_id = mem.graph.edges[0].id
         result = mem.temporal_engine.edge_temporal_consistency(edge_a_id, "missing", mem.graph)
         assert result == {"consistent": True, "reason": "edge_not_found"}
 
     def test_edge_temporal_consistency_no_temporal_data(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="e1")
-        mem.relate("b", "a", label="e2")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e1")
+        mem.link("b", "a", label="e2")
         edge_a_id = mem.graph.edges[0].id
         edge_b_id = mem.graph.edges[1].id
         result = mem.temporal_engine.edge_temporal_consistency(edge_a_id, edge_b_id, mem.graph)
@@ -513,7 +513,7 @@ class TestAdditionalCoverage:
 
     def test_get_event_for_node_found(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("my_event")
+        mem.add("my_event")
         node = mem.graph.get_node_by_label("my_event")
         mem.temporal_engine.add_event("ev1", "my_event", 0.0, 5.0)
         result = mem.temporal_engine.get_event_for_node(node.id, mem.graph)
@@ -523,7 +523,7 @@ class TestAdditionalCoverage:
 
     def test_get_event_for_node_no_matching_event(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("something")
+        mem.add("something")
         node = mem.graph.get_node_by_label("something")
         mem.temporal_engine.add_event("ev1", "other", 0.0, 5.0)
         result = mem.temporal_engine.get_event_for_node(node.id, mem.graph)

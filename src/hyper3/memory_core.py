@@ -194,18 +194,16 @@ class CoreMixin(_MemoryBase):
         concept: str,
         *,
         data: Any = None,
+        modalities: set[Modality] | None = None,
+        abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
+        tags: dict[str, Any] | None = None,
         update: bool = False,
         **kwargs: Any,
-    ) -> NodeInfo:
+    ) -> Hypernode:
         if kwargs:
             data = {**(data if isinstance(data, dict) else {} or {}), **kwargs}
-        node = self.store(concept, data=data, update=update)
-        return NodeInfo(
-            label=node.label,
-            data=node.data if isinstance(node.data, dict) else {},
-            weight=node.weight,
-            access_count=node.access_count,
-        )
+        return self.store(concept, data=data, modalities=modalities,
+                          abstraction=abstraction, tags=tags, update=update)
 
     def link(
         self,
@@ -215,20 +213,11 @@ class CoreMixin(_MemoryBase):
         label: str = "",
         weight: float = 1.0,
         bidirectional: bool = False,
-        **edge_data: Any,
-    ) -> EdgeInfo:
-        edge = self.relate(
+        edge_data: dict[str, Any] | None = None,
+    ) -> Hyperedge:
+        return self.relate(
             source, target, label=label, weight=weight,
-            bidirectional=bidirectional, edge_data=edge_data or None,
-        )
-        src_label = self._node_label(list(edge.source_ids)[0])
-        tgt_label = self._node_label(list(edge.target_ids)[0])
-        return EdgeInfo(
-            id=edge.id,
-            label=edge.label,
-            source=src_label,
-            target=tgt_label,
-            weight=edge.weight,
+            bidirectional=bidirectional, edge_data=edge_data,
         )
 
     def link_hyper(
@@ -239,20 +228,10 @@ class CoreMixin(_MemoryBase):
         label: str = "",
         weight: float = 1.0,
         **edge_data: Any,
-    ) -> EdgeInfo:
-        edge = self.relate_hyperedge(
+    ) -> Hyperedge:
+        return self.relate_hyperedge(
             sources, targets, label=label, weight=weight,
             edge_data=edge_data or None,
-        )
-        src_labels = [self._node_label(nid) for nid in edge.source_ids]
-        tgt_labels = [self._node_label(nid) for nid in edge.target_ids]
-        return EdgeInfo(
-            id=edge.id,
-            label=edge.label,
-            source=src_labels,
-            target=tgt_labels,
-            weight=edge.weight,
-            is_hyperedge=True,
         )
 
     def add_all(

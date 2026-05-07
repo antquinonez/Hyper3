@@ -312,8 +312,8 @@ class TestIntegration:
     def test_ingest_stores_entities(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.ingest("Paris is the capital of France")
-        assert mem.has_node("Paris")
-        assert mem.has_node("France")
+        assert mem.has("Paris")
+        assert mem.has("France")
 
     def test_ingest_creates_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -344,7 +344,7 @@ class TestIntegration:
         mem = HypergraphMemory(evolve_interval=0)
         result = mem.ingest("Paris is the capital of France", extract=False)
         assert len(result.entities) == 3
-        assert mem.graph.node_count == 0
+        assert mem.size[0] == 0
 
     def test_ingest_extended_text(self):
         mem = HypergraphMemory(evolve_interval=0)
@@ -357,4 +357,4 @@ class TestIntegration:
         result = mem.ingest(text)
         assert len(result.entities) == 10
         assert len(result.relations) == 6
-        assert mem.graph.node_count == 10
+        assert mem.size[0] == 10

@@ -16,11 +16,11 @@ from hyper3.structural_match import (
 class TestStructuralMatchBasic:
     def test_match_chain(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="next")
-        mem.relate("B", "C", label="next")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="next")
+        mem.link("B", "C", label="next")
         chains = mem.match_chains(edge_label="next", min_length=2)
         assert len(chains) == 1
         assert len(chains[0]) == 3
@@ -33,11 +33,11 @@ class TestStructuralMatchBasic:
 
     def test_match_diamond(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "C", label="feeds")
-        mem.relate("B", "C", label="feeds")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "C", label="feeds")
+        mem.link("B", "C", label="feeds")
         diamonds = mem.match_diamonds()
         assert len(diamonds) == 1
         assert diamonds[0]["converge"] == "C"
@@ -45,10 +45,10 @@ class TestStructuralMatchBasic:
 
     def test_match_fan_out(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("hub")
+        mem.add("hub")
         for i in range(5):
-            mem.store(f"spoke_{i}")
-            mem.relate("hub", f"spoke_{i}", label="connects")
+            mem.add(f"spoke_{i}")
+            mem.link("hub", f"spoke_{i}", label="connects")
         fans = mem.match_fan_out(min_fan=3)
         assert len(fans) == 1
         assert fans[0]["fan_out"] == 5
@@ -56,9 +56,9 @@ class TestStructuralMatchBasic:
 
     def test_match_structural_pattern(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="depends_on")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="depends_on")
         result = mem.match_structural_pattern(
             nodes=[{"role": "source"}, {"role": "target"}],
             edges=[{"source_role": "source", "target_role": "target", "label": "depends_on"}],
@@ -67,9 +67,9 @@ class TestStructuralMatchBasic:
 
     def test_match_structural_pattern_no_match(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="connects")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="connects")
         result = mem.match_structural_pattern(
             edges=[{"source_role": "x", "target_role": "y", "label": "nonexistent"}],
         )
@@ -79,9 +79,9 @@ class TestStructuralMatchBasic:
 class TestStructuralPatternEngine:
     def test_match_pattern_with_weight_filter(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        edge = mem.relate("A", "B", label="strong")
+        mem.add("A")
+        mem.add("B")
+        edge = mem.link("A", "B", label="strong")
         edge.weight = 5.0
         engine = StructuralPatternEngine(mem.graph)
         pattern = PatternTemplate(
@@ -96,9 +96,9 @@ class TestStructuralPatternEngine:
 
     def test_match_pattern_with_data_type_constraint(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A", data={"type": "person"})
-        mem.store("B", data={"type": "place"})
-        mem.relate("A", "B", label="lives_in")
+        mem.add("A", data={"type": "person"})
+        mem.add("B", data={"type": "place"})
+        mem.link("A", "B", label="lives_in")
         engine = StructuralPatternEngine(mem.graph)
         pattern = PatternTemplate(
             name="typed",
@@ -113,9 +113,9 @@ class TestStructuralPatternEngine:
 
     def test_match_pattern_with_label_pattern(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("svc_auth")
-        mem.store("svc_orders")
-        mem.relate("svc_auth", "svc_orders", label="calls")
+        mem.add("svc_auth")
+        mem.add("svc_orders")
+        mem.link("svc_auth", "svc_orders", label="calls")
         engine = StructuralPatternEngine(mem.graph)
         pattern = PatternTemplate(
             name="service_call",
@@ -130,7 +130,7 @@ class TestStructuralPatternEngine:
 
     def test_fan_out_no_results(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
+        mem.add("A")
         engine = StructuralPatternEngine(mem.graph)
         result = engine.match_fan_out(min_fan=10)
         assert result == []
@@ -145,13 +145,13 @@ class TestStructuralPatternEngine:
 class TestStructuralMatchIntegration:
     def test_complex_pattern(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("client")
-        mem.store("gateway")
-        mem.store("service")
-        mem.store("db")
-        mem.relate("client", "gateway", label="calls")
-        mem.relate("gateway", "service", label="routes_to")
-        mem.relate("service", "db", label="queries")
+        mem.add("client")
+        mem.add("gateway")
+        mem.add("service")
+        mem.add("db")
+        mem.link("client", "gateway", label="calls")
+        mem.link("gateway", "service", label="routes_to")
+        mem.link("service", "db", label="queries")
         result = mem.match_structural_pattern(
             pattern_name="three_tier",
             nodes=[{"role": "front"}, {"role": "mid"}, {"role": "back"}],
