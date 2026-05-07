@@ -9,7 +9,7 @@ EXPECTED_NAMESPACES = {
 }
 
 CORE_METHODS = {
-    "add", "link", "link_hyper", "add_all", "ensure",
+    "add", "link", "link_hyper", "add_all", "ensure", "find",
     "get", "set", "has", "info",
     "evolve", "evolve_with_feedback",
     "save", "load",
@@ -202,7 +202,7 @@ class TestRenamedProperties:
 
 class TestDirSurface:
     EXPECTED_SURFACE = {
-        "add", "link", "link_hyper", "add_all", "ensure",
+        "add", "link", "link_hyper", "add_all", "ensure", "find",
         "get", "set", "has", "info", "size",
         "evolve", "evolve_with_feedback",
         "save", "load", "save_state", "load_state",

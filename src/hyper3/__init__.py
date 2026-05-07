@@ -43,6 +43,7 @@ from hyper3.capabilities import (
     detect_capability_level,
     require_capability,
 )
+from hyper3.concept_set import ConceptSet
 from hyper3.community import (
     Community,
     CommunityDetector,

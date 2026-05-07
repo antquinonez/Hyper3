@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
@@ -14,7 +14,10 @@ from hyper3.kernel import (
     Modality,
 )
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import BulkResult, EdgeInfo, EvolveResult, MergeReport, NodeInfo
+from hyper3.results import BulkResult, EvolveResult, MergeReport, NodeInfo
+
+if TYPE_CHECKING:
+    from hyper3.concept_set import ConceptSet
 
 
 class CoreMixin(_MemoryBase):
@@ -287,6 +290,46 @@ class CoreMixin(_MemoryBase):
             nodes_skipped=nodes_skipped,
             edges_skipped=edges_skipped,
         )
+
+    def find(
+        self,
+        concept: str | list[str] | None = None,
+        *,
+        type: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> ConceptSet:
+        """Create a ConceptSet for chainable exploration.
+
+        Seeds a composable result set from one or more concepts, or from
+        a data-attribute query. Returns a ConceptSet that supports
+        chaining operations like ``.similar()``, ``.neighbors()``,
+        ``.top()``, etc.
+
+        Args:
+            concept: A single label, a list of labels, or None (use
+                type/data query instead).
+            type: Shorthand for ``data={"type": value}``.
+            data: Filter nodes by data attributes.
+
+        Returns:
+            ConceptSet ready for chaining.
+
+        Examples::
+
+            mem.find("cancer").neighbors().top(10).labels
+            mem.find(["a", "b"]).similar(top_k=5).scores
+            mem.find(type="disease").activate(energy=1.0).top(5)
+        """
+        from hyper3.concept_set import ConceptSet
+
+        items: list[tuple[str, float]] = []
+        if concept is not None:
+            labels = [concept] if isinstance(concept, str) else list(concept)
+            items.extend((label, 1.0) for label in labels)
+        elif type is not None or data is not None:
+            matched = self.query_nodes(type=type, data=data)
+            items.extend((label, 1.0) for label in matched)
+        return ConceptSet(self, items)
 
     def ensure(
         self,
