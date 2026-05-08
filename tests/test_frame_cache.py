@@ -241,3 +241,42 @@ class TestSerialization:
         assert fc2._default_ttl == 600.0
         assert "classical" in fc2._frames
         assert "quantum" in fc2._frames
+
+
+class TestInvalidateAll:
+    def test_removes_key_from_all_partitions_and_general(self):
+        fc = FrameCache(max_total_size=100, frame_quota=20)
+        fc.put("k1", "v1", frame="classical")
+        fc.put("k1", "v1_gen")
+        fc.put("k2", "v2", frame="quantum")
+        assert fc.invalidate_all("k1") is True
+        assert fc.get("k1", frame="classical") is None
+        assert fc.get("k1") is None
+        assert fc.get("k2", frame="quantum") == "v2"
+
+    def test_missing_key_returns_false(self):
+        fc = FrameCache()
+        assert fc.invalidate_all("missing") is False
+
+
+class TestKeysDedup:
+    def test_keys_deduplicates_across_partitions(self):
+        fc = FrameCache(max_total_size=100, frame_quota=20)
+        fc.put("shared", "v1", frame="classical")
+        fc.put("unique", "v2", frame="quantum")
+        keys = fc.keys()
+        assert keys.count("shared") == 1
+        assert set(keys) == {"shared", "unique"}
+
+
+class TestRebalanceRedistribution:
+    def test_rebalance_gives_more_capacity_to_heavier_frame(self):
+        fc = FrameCache(max_total_size=200, frame_quota=20)
+        for i in range(10):
+            fc.put(f"a_{i}", i, frame="frame_a")
+        for i in range(2):
+            fc.put(f"b_{i}", i, frame="frame_b")
+        fc.rebalance()
+        assert fc._frames["frame_a"]._max_size > fc._frames["frame_b"]._max_size
+        assert fc._frames["frame_a"]._max_size == 136
+        assert fc._frames["frame_b"]._max_size == 43

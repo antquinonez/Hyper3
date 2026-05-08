@@ -6,10 +6,10 @@ from hyper3.kernel import Hypergraph, Hypernode, Metadata, Modality
 from hyper3.rule_analytics import DetectedPattern, HighLevelInsight
 from hyper3.transcendental import (
     InferenceProposal,
-    TransferablePattern,
     TranscendentalInferenceEngine,
     TranscendentalInsight,
     TranscendentalReport,
+    TransferablePattern,
 )
 
 
@@ -340,3 +340,106 @@ class TestSerialization:
         engine2 = TranscendentalInferenceEngine.from_dict(data, g)
         assert engine2._insights == []
         assert engine2._transferables == []
+
+
+class TestWeightAdjustmentProposal:
+    def test_information_theory_produces_weight_adjustment_proposal(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="mutual info", domain="information_theory", evidence=[], confidence=0.9)],
+            [DetectedPattern(pattern_type="mutual_information", description="test", domains={"information_theory"}, occurrence_count=1)],
+        )
+        proposals = engine.generate_proposals()
+        assert len(proposals) >= 1
+        assert proposals[0].action_type == "adjust_weights"
+
+
+class TestRuleTypeInference:
+    def test_inverse_principle(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="inverse relationship found", domain="structural", evidence=[], confidence=0.8)],
+            [DetectedPattern(pattern_type="recurring_relation", description="test", domains={"structural"}, occurrence_count=1)],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["suggested_rule_type"] == "inverse"
+
+    def test_abductive_principle(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="abductive reasoning step", domain="structural", evidence=[], confidence=0.8)],
+            [DetectedPattern(pattern_type="recurring_relation", description="test", domains={"structural"}, occurrence_count=1)],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["suggested_rule_type"] == "abductive"
+
+    def test_generalization_principle(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="generalization across domains", domain="structural", evidence=[], confidence=0.8)],
+            [DetectedPattern(pattern_type="recurring_relation", description="test", domains={"structural"}, occurrence_count=1)],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["suggested_rule_type"] == "generalization"
+
+
+class TestPreferredFrameInference:
+    def test_sparse_prefers_hypergraph(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="sparse data pattern", domain="computational", evidence=[], confidence=0.8)],
+            [],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["preferred_frame"] == "hypergraph"
+
+    def test_complex_prefers_classical(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="complex computation", domain="computational", evidence=[], confidence=0.8)],
+            [],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["preferred_frame"] == "classical"
+
+    def test_probabilistic_prefers_probabilistic(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="probabilistic model", domain="computational", evidence=[], confidence=0.8)],
+            [],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["preferred_frame"] == "probabilistic"
+
+    def test_unknown_defaults_to_quantum(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        engine.ingest_analytics(
+            [HighLevelInsight(principle="unknown frontier", domain="computational", evidence=[], confidence=0.8)],
+            [],
+        )
+        tp = engine._transferables[-1]
+        assert tp.transfer_params["preferred_frame"] == "quantum"
+
+
+class TestStructuralSimilarity:
+    def test_missing_node_returns_default(self):
+        g = _make_graph_with_nodes()
+        engine = TranscendentalInferenceEngine(g)
+        sim = engine._structural_similarity({"density": 0.5}, "nonexistent")
+        assert sim == 0.5
+
+    def test_zero_density_returns_default(self):
+        g = Hypergraph()
+        engine = TranscendentalInferenceEngine(g)
+        n = Hypernode(label="only")
+        g.add_node(n)
+        sim = engine._structural_similarity({"density": 0.5}, n.id)
+        assert sim == 0.5

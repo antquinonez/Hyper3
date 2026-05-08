@@ -349,3 +349,49 @@ class TestResultTypes:
     def test_report_is_simple_result_base(self):
         report = EntanglementReport(total_links=5)
         assert "total_links" in report
+
+
+class TestGroupMerging:
+    def test_linking_separate_groups_merges_into_one(self):
+        engine = EntanglementEngine()
+        engine.register_link("a", "b", "c1", 0.8)
+        engine.register_link("c", "d", "c2", 0.6)
+        assert engine.report().total_groups == 2
+        engine.register_link("b", "c", "c3", 0.7)
+        assert engine.report().total_groups == 1
+        merged = engine.find_group("a")
+        assert merged is not None
+        assert merged.distribution_ids == frozenset({"a", "b", "c", "d"})
+
+    def test_expanding_existing_group(self):
+        engine = EntanglementEngine()
+        engine.register_link("x", "y", "c1", 0.8)
+        gx = engine.find_group("x")
+        assert gx is not None
+        assert gx.distribution_ids == frozenset({"x", "y"})
+        engine.register_link("x", "z", "c2", 0.5)
+        group = engine.find_group("x")
+        assert group is not None
+        assert group.distribution_ids == frozenset({"x", "y", "z"})
+        assert engine.find_group("z") is not None
+
+
+class TestCorrelatedCollapseFallback:
+    def test_unsampled_distribution_gets_empty_label(self):
+        engine = EntanglementEngine()
+        engine.register_link("qs_a", "qs_b", "c1", 0.8)
+        qs_a = _make_qs(["a1"], ["la1"])
+        qs_b = _make_qs(["b1"], ["lb1"])
+        corr = _make_corr(["a1"], ["b1"], {("a1", "b1"): 0.9})
+        states = {"qs_a": qs_a, "qs_b": qs_b}
+
+        def sample_fn(qs_id: str, weights: dict[str, float] | None) -> Outcome | None:
+            if qs_id == "qs_b":
+                return None
+            return states[qs_id].sample(weights)
+
+        result = engine.perform_correlated_collapse(
+            "qs_a", states, {"c1": corr}, sample_fn
+        )
+        assert result is not None
+        assert result.collapsed_distributions.get("qs_b") == ""
