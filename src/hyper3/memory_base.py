@@ -7,6 +7,7 @@ from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
+from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
@@ -98,6 +99,7 @@ class _MemoryBase:
     _community_detector: CommunityDetector | None
     _graph_differ: GraphDiffer | None
     _basis_selector: BasisSelector | None
+    _boundary_reasoning: BoundaryReasoningEngine | None
     _transcendental: TranscendentalInferenceEngine | None
 
     def _invalidate_frame_cache(self) -> None:

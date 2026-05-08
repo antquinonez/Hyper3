@@ -5,6 +5,7 @@ from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
+from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
@@ -208,6 +209,7 @@ class HypergraphMemory(
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None
         self._basis_selector: BasisSelector | None = None
+        self._boundary_reasoning: BoundaryReasoningEngine | None = None
         self._transcendental: TranscendentalInferenceEngine | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None

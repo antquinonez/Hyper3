@@ -42,6 +42,12 @@ from hyper3.belief_revision import (
     RevisionPlan,
     RevisionResult,
 )
+from hyper3.boundary_reasoning import (
+    BoundaryAwareReasonConfig,
+    BoundaryNavigationReport,
+    BoundaryReasoningEngine,
+    DecidabilityAssessment,
+)
 from hyper3.cache import LazyCache
 from hyper3.capabilities import (
     CapabilityLevel,

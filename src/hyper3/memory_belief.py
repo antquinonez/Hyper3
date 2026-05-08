@@ -11,6 +11,10 @@ from hyper3.belief import (
     Outcome,
     SamplingTrigger,
 )
+from hyper3.boundary_reasoning import (
+    BoundaryNavigationReport,
+    DecidabilityAssessment,
+)
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_anomaly import BoundaryRegion
@@ -294,6 +298,24 @@ class BeliefMixin(_MemoryBase):
         result = self._anomaly_detector.map_boundaries(concepts)
         self._log.record("map_boundaries", concepts=concepts, count=len(result) if isinstance(result, list) else 0)
         return result
+
+    def assess_boundary(self, concept: str) -> DecidabilityAssessment | None:
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        if self._boundary_reasoning is None:
+            from hyper3.boundary_reasoning import BoundaryReasoningEngine as _BRE
+            self._boundary_reasoning = _BRE(self._graph)
+        return self._boundary_reasoning.assess(node.id)
+
+    def navigate_boundary(self, concept: str) -> BoundaryNavigationReport | None:
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        if self._boundary_reasoning is None:
+            from hyper3.boundary_reasoning import BoundaryReasoningEngine as _BRE
+            self._boundary_reasoning = _BRE(self._graph)
+        return self._boundary_reasoning.navigate(node.id)
 
     @property
     def belief_layer(self) -> BeliefLayer:

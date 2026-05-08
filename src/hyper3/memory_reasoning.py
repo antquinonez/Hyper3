@@ -308,6 +308,56 @@ class ReasoningMixin(_MemoryBase):
             auto_distributions,
         )
 
+    def reason_boundary_aware(
+        self,
+        seed_concepts: set[str],
+        *,
+        max_depth: int = 3,
+        max_total_states: int = 30,
+        enforce_convergence: bool = True,
+        use_overlay: bool = True,
+        confidence_decay: float = 0.9,
+        auto_commit: bool = True,
+    ) -> ReasonResult:
+        if self._boundary_reasoning is None:
+            from hyper3.boundary_reasoning import BoundaryReasoningEngine as _BRE
+            self._boundary_reasoning = _BRE(self._graph)
+        engine = self._boundary_reasoning
+        seed_ids = self._resolve_seeds(seed_concepts)
+        if not seed_ids:
+            return self.reason(
+                seed_concepts,
+                max_depth=max_depth,
+                max_total_states=max_total_states,
+                enforce_convergence=enforce_convergence,
+                use_overlay=use_overlay,
+                confidence_decay=confidence_decay,
+                auto_commit=auto_commit,
+            )
+        assessments = engine.assess_set(seed_ids)
+        worst = max(assessments, key=lambda a: a.decidability_score)
+        if worst.boundary_zone == "decidable":
+            return self.reason(
+                seed_concepts,
+                max_depth=max_depth,
+                max_total_states=max_total_states,
+                enforce_convergence=enforce_convergence,
+                use_overlay=use_overlay,
+                confidence_decay=confidence_decay,
+                auto_commit=auto_commit,
+            )
+        config = engine.configure_reasoning(worst)
+        effective_max_depth = min(max_depth, config.max_reasoning_depth)
+        return self.reason(
+            seed_concepts,
+            max_depth=effective_max_depth,
+            max_total_states=max_total_states,
+            enforce_convergence=enforce_convergence or config.require_convergence,
+            use_overlay=use_overlay,
+            confidence_decay=confidence_decay,
+            auto_commit=auto_commit,
+        )
+
     def commit_inferences(self) -> CommitResult:
         """Merge the current inference overlay into the base graph.
 
