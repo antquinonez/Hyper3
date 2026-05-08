@@ -1137,3 +1137,143 @@ class TestMultiPerspectiveEffectiveness:
         eff = cr.get_frame_effectiveness()
         assert eff["test_frame"] == 0.0
 
+
+class TestFrameUniqueLowWeightEdge:
+    def test_low_weight_creates_frame_unique(self):
+        g = Hypergraph()
+        seed = Hypernode(id="seed", label="seed")
+        mid = Hypernode(id="mid", label="mid")
+        leaf = Hypernode(id="leaf", label="leaf")
+        for n in [seed, mid, leaf]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({"seed"}), target_ids=frozenset({"mid"}), label="rel", weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({"mid"}), target_ids=frozenset({"leaf"}), label="rel", weight=0.2))
+        cr = MultiPerspectiveAnalyzer(g)
+        detector = RobustReachabilityDetector(cr)
+        inv = detector.find_invariants(["seed"], g)
+        assert len(inv.frame_unique) > 0
+        assert "probabilistic" not in inv.frame_unique
+        for fname in ("classical", "quantum", "hypergraph"):
+            assert fname in inv.frame_unique
+            assert "leaf" in inv.frame_unique[fname]
+
+
+class TestKolmogorovComplexityEmptyLabel:
+    def test_empty_label_returns_finite(self):
+        g = Hypergraph()
+        n = Hypernode(id="empty", label="")
+        g.add_node(n)
+        cr = MultiPerspectiveAnalyzer(g)
+        result = cr._classical_analysis(n, 0, 1, 0)
+        assert math.isfinite(result.complexity)
+        assert result.complexity == 0.0
+
+
+class TestTransitionEntropyZeroWeight:
+    def test_zero_weight_edge_finite_complexity(self):
+        g = Hypergraph()
+        a = Hypernode(id="a", label="a")
+        b = Hypernode(id="b", label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=0.0))
+        cr = MultiPerspectiveAnalyzer(g)
+        result = cr.analyze_in_frame("a", "probabilistic")
+        assert isinstance(result, PresetAnalysis)
+        assert math.isfinite(result.complexity)
+
+
+class TestComputeComplexityNoneNode:
+    def test_none_node_returns_inf(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        result = cr._compute_complexity(None, AnalysisPreset(name="test"))
+        assert result == float("inf")
+
+
+class TestExtractProblemFeaturesModality:
+    def test_modality_diversity_positive(self):
+        g = Hypergraph()
+        seed = Hypernode(label="seed")
+        t1 = Hypernode(label="target1", metadata=Metadata(modality_tags={Modality.CONCEPTUAL}))
+        t2 = Hypernode(label="target2", metadata=Metadata(modality_tags={Modality.TEMPORAL}))
+        g.add_node(seed)
+        g.add_node(t1)
+        g.add_node(t2)
+        g.add_edge(Hyperedge(source_ids=frozenset({seed.id}), target_ids=frozenset({t1.id}), label="rel"))
+        g.add_edge(Hyperedge(source_ids=frozenset({seed.id}), target_ids=frozenset({t2.id}), label="rel"))
+        cr = MultiPerspectiveAnalyzer(g)
+        features = cr.extract_problem_features([seed.id])
+        assert features.modality_diversity > 0.0
+
+
+class TestRecommendFrameZeroNorm:
+    def test_zero_norm_current_returns_none(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        cr.record_problem_outcome(ProblemFeatures(graph_density=0.5), "classical", True)
+        result = cr.recommend_frame([])
+        assert result is None
+
+    def test_zero_norm_history_entry_skipped(self):
+        g = Hypergraph()
+        a = Hypernode(id="a", label="a")
+        b = Hypernode(id="b", label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        cr = MultiPerspectiveAnalyzer(g)
+        cr.record_problem_outcome(ProblemFeatures(), "classical", True)
+        features = cr.extract_problem_features(["a"])
+        cr.record_problem_outcome(features, "quantum", True)
+        result = cr.recommend_frame(["a"])
+        assert result == "quantum"
+
+    def test_all_zero_norm_history_returns_none(self):
+        g = Hypergraph()
+        a = Hypernode(id="a", label="a")
+        b = Hypernode(id="b", label="b")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel", weight=1.0))
+        cr = MultiPerspectiveAnalyzer(g)
+        cr.record_problem_outcome(ProblemFeatures(), "classical", True)
+        cr.record_problem_outcome(ProblemFeatures(), "quantum", True)
+        result = cr.recommend_frame(["a"])
+        assert result is None
+
+
+class TestSelectOptimalFrameLearnedFallback:
+    def test_nonexistent_concept_fallback(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        name, analysis = cr.select_optimal_frame_learned("nonexistent")
+        assert name in cr.frames
+
+
+class TestDisagreementRegionsLowWeight:
+    def test_low_weight_creates_disagreement(self):
+        g = Hypergraph()
+        seed = Hypernode(id="seed", label="seed")
+        mid = Hypernode(id="mid", label="mid")
+        leaf = Hypernode(id="leaf", label="leaf")
+        for n in [seed, mid, leaf]:
+            g.add_node(n)
+        g.add_edge(Hyperedge(source_ids=frozenset({"seed"}), target_ids=frozenset({"mid"}), label="rel", weight=1.0))
+        g.add_edge(Hyperedge(source_ids=frozenset({"mid"}), target_ids=frozenset({"leaf"}), label="rel", weight=0.2))
+        cr = MultiPerspectiveAnalyzer(g)
+        result = cr.compute_consensus(["seed"], strategy="intersection")
+        assert len(result.disagreement_regions) > 0
+        assert result.disagreement_regions[0].center_node == "leaf"
+        assert "probabilistic" in result.disagreement_regions[0].frames_disagreeing
+
+
+class TestResolveWeightedEmpty:
+    def test_empty_seeds_weighted_returns_empty(self):
+        g = Hypergraph()
+        cr = MultiPerspectiveAnalyzer(g)
+        cr.record_frame_outcome("classical", True)
+        cr.record_frame_outcome("quantum", True)
+        result = cr.compute_consensus([], strategy="weighted")
+        assert result.agreed_nodes == set()
+

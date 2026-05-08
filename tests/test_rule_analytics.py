@@ -1,5 +1,6 @@
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -602,4 +603,162 @@ class TestRuleAnalyticsDensityMapAndFrontiers:
 
         frontiers = rs.identify_frontiers(min_density=0.0, max_density=1.0)
         assert len(frontiers) >= 1
+
+
+class TestSpectralEntropyEdgeCases:
+    def test_empty_incidence_matrix_returns_zero(self):
+        g = Hypergraph()
+        g.add_edge(Hyperedge(source_ids=frozenset(), target_ids=frozenset(), label="rel"))
+        rs = RuleAnalytics(g)
+        assert rs._compute_spectral_entropy() == 0.0
+
+    def test_svd_exception_returns_zero(self):
+        g = _build_graph()
+        rs = RuleAnalytics(g)
+        with patch("hyper3.rule_analytics.np.linalg.svd", side_effect=RuntimeError("SVD failed")):
+            assert rs._compute_spectral_entropy() == 0.0
+
+
+class TestMotifDiversityEdgeCases:
+    def test_empty_motif_counts_returns_zero(self):
+        g = Hypergraph()
+        for l in ["a", "b", "c"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset(), target_ids=frozenset(), label="rel"))
+        rs = RuleAnalytics(g)
+        assert rs._compute_motif_diversity() == 0.0
+
+
+class TestExpansionCoordsNoMultiway:
+    def test_no_multiway_returns_empty_coords(self):
+        g = _build_graph()
+        rs = RuleAnalytics(g)
+        pos = rs.update_position()
+        assert pos.expansion_coordinates == []
+
+
+class TestGetRecommendedRulesEmpty:
+    def test_no_effectiveness_returns_empty(self):
+        rs = RuleAnalytics(Hypergraph())
+        assert rs.get_recommended_rules() == []
+
+
+class TestBiasProfileStyles:
+    def test_exploratory_style(self):
+        g = Hypergraph()
+        rs = RuleAnalytics(g)
+        for i in range(6):
+            rs.record_rule_outcome(f"rule_{i}", "applied")
+        profile = rs.compute_bias_profile()
+        assert profile.reasoning_style == "exploratory"
+
+    def test_expanding_trajectory(self):
+        g = Hypergraph()
+        rs = RuleAnalytics(g)
+        rs.record_rule_outcome("rule_a", "useful")
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.1))
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.3))
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.5))
+        profile = rs.compute_bias_profile()
+        assert profile.position_trajectory == "expanding"
+
+    def test_contracting_trajectory(self):
+        g = Hypergraph()
+        rs = RuleAnalytics(g)
+        rs.record_rule_outcome("rule_a", "useful")
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.5))
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.3))
+        rs._position_history.append(RuleSpacePosition(graph_activity_density=0.1))
+        profile = rs.compute_bias_profile()
+        assert profile.position_trajectory == "contracting"
+
+
+class TestExploreNeighborhoodNoMultiway:
+    def test_no_multiway_returns_error(self):
+        g = Hypergraph()
+        rs = RuleAnalytics(g)
+        result = rs.explore_rule_neighborhood([TransitiveRule()])
+        assert result.error == "no multiway engine"
+
+
+class TestMutualInformationPatterns:
+    def test_mi_patterns_found(self):
+        g = Hypergraph()
+        for i in range(6):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n1"}), label="A"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n2"}), target_ids=frozenset({"n3"}), label="A"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n2"}), label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1"}), target_ids=frozenset({"n3"}), label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n4"}), target_ids=frozenset({"n5"}), label="C"))
+
+        rs = RuleAnalytics(g)
+        patterns = rs.find_meta_patterns()
+        mi_patterns = [p for p in patterns if p.pattern_type == "mutual_information"]
+        assert len(mi_patterns) >= 1
+        for p in mi_patterns:
+            assert p.significance > 0.3
+            assert p.occurrence_count >= 2
+
+    def test_mi_patterns_skipped_low_cooccurrence(self):
+        g = Hypergraph()
+        for i in range(5):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n1"}), label="A"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n2"}), target_ids=frozenset({"n3"}), label="B"))
+
+        rs = RuleAnalytics(g)
+        patterns = rs.find_meta_patterns()
+        mi_patterns = [p for p in patterns if p.pattern_type == "mutual_information"]
+        assert len(mi_patterns) == 0
+
+
+class TestStructuralMotifsSmallGraph:
+    def test_small_graph_no_hub_motif(self):
+        g = Hypergraph()
+        for l in ["a", "b"]:
+            g.add_node(Hypernode(id=l, label=l))
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="rel"))
+        rs = RuleAnalytics(g)
+        patterns = rs.find_meta_patterns()
+        hub_patterns = [p for p in patterns if p.pattern_type == "hub_motif"]
+        assert len(hub_patterns) == 0
+
+
+class TestHighLevelInsightsDomains:
+    def test_information_theory_insight(self):
+        g = Hypergraph()
+        for i in range(6):
+            g.add_node(Hypernode(id=f"n{i}", label=f"n{i}"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n1"}), label="A"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n2"}), target_ids=frozenset({"n3"}), label="A"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n0"}), target_ids=frozenset({"n2"}), label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n1"}), target_ids=frozenset({"n3"}), label="B"))
+        g.add_edge(Hyperedge(source_ids=frozenset({"n4"}), target_ids=frozenset({"n5"}), label="C"))
+
+        rs = RuleAnalytics(g)
+        rs.find_meta_patterns()
+        insights = rs.generate_high_level_insights()
+        domains = {i.domain for i in insights}
+        assert "information_theory" in domains
+
+    def test_computational_insight(self):
+        g = Hypergraph()
+        rs = RuleAnalytics(g)
+        rs.record_rule_outcome("test_rule", "useful")
+        rs.find_meta_patterns()
+        rs._position.graph_activity_density = 0.7
+        rs._position.structural_complexity = 0.7
+        insights = rs.generate_high_level_insights()
+        domains = {i.domain for i in insights}
+        assert "computational" in domains
+
+
+class TestDensityMapNoExpansionCoords:
+    def test_no_expansion_coords_returns_zeros(self):
+        g = _build_graph()
+        rs = RuleAnalytics(g)
+        rs.update_position()
+        grid = rs.compute_density_map()
+        assert all(v == 0.0 for row in grid for v in row)
 

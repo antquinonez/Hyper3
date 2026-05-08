@@ -687,3 +687,131 @@ class TestEngineAccessor:
 
     def test_equivalence(self, populated):
         assert populated.engine.equivalence is not None
+
+
+class TestUncoveredNamespaceMethods:
+    def test_belief_resolve_state_found(self, mem):
+        from hyper3.belief import BeliefState
+
+        mem.add("x")
+        mem.add("y")
+        mem.belief.create(["x", "y"])
+        result = mem.belief._resolve_state("x")
+        assert isinstance(result, BeliefState)
+
+    def test_search_prefetch_enable(self, mem):
+        mem.add("a")
+        mem.search.prefetch.enable(True)
+        mem.search.prefetch.enable(False)
+
+    def test_search_prefetch_record_access(self, mem):
+        mem.add("a")
+        mem.search.prefetch.record_access("a")
+
+    def test_search_prefetch_predict(self, mem):
+        mem.add("a")
+        mem.add("b")
+        mem.search.prefetch.record_access("a")
+        mem.search.prefetch.record_access("b")
+        result = mem.search.prefetch.predict("a", top_k=3)
+        assert isinstance(result, list)
+
+    def test_search_prefetch_warm(self, mem):
+        mem.add("a")
+        result = mem.search.prefetch.warm({"a": 1})
+        assert isinstance(result, int)
+
+    def test_search_set_provider(self, mem):
+        import numpy as np
+
+        from hyper3.embedding import EmbeddingProvider
+
+        class DummyProvider(EmbeddingProvider):
+            def embed(self, text, **kw):
+                return np.zeros(10)
+
+            def embed_batch(self, texts, **kw):
+                return [np.zeros(10) for _ in texts]
+
+            def dimension(self):
+                return 10
+
+        mem.add("a")
+        mem.search.set_provider(DummyProvider())
+
+    def test_analyze_eccentricity_single(self, populated):
+        assert populated.analyze.eccentricity("a") == 2
+
+    def test_analyze_eccentricity_all(self, populated):
+        result = populated.analyze.eccentricity()
+        assert result == {"a": 2, "b": 1, "c": 0}
+
+    def test_analyze_diameter(self, populated):
+        assert populated.analyze.diameter() == 2
+
+    def test_analyze_radius(self, populated):
+        assert populated.analyze.radius() == 0
+
+    def test_analyze_centrality_in_degree(self, populated):
+        result = populated.analyze.centrality("in_degree")
+        assert result == {"a": 0.0, "b": 1.0, "c": 1.0}
+
+    def test_analyze_centrality_out_degree(self, populated):
+        result = populated.analyze.centrality("out_degree")
+        assert result == {"a": 1.0, "b": 1.0, "c": 0.0}
+
+    def test_analyze_largest_component(self, populated):
+        result = populated.analyze.largest_component()
+        assert result == {"a", "b", "c"}
+
+    def test_analyze_transitive_closure(self, populated):
+        result = populated.analyze.transitive_closure()
+        assert ("a", "b") in result
+        assert ("a", "c") in result
+        assert ("b", "c") in result
+
+    def test_analyze_transitive_reduction(self, populated):
+        result = populated.analyze.transitive_reduction()
+        assert ("a", "b") in result
+        assert ("b", "c") in result
+
+    def test_analyze_longest_path(self, populated):
+        result = populated.analyze.longest_path()
+        assert result == ["a", "b", "c"]
+
+    def test_analyze_laplacian(self, populated):
+        import numpy as np
+
+        result = populated.analyze.laplacian()
+        assert isinstance(result, np.ndarray)
+        assert result.shape == (3, 3)
+
+    def test_analyze_fiedler_vector(self, populated):
+        result = populated.analyze.fiedler_vector()
+        assert isinstance(result, dict)
+        assert set(result.keys()) == {"a", "b", "c"}
+        assert all(isinstance(v, float) for v in result.values())
+
+    def test_analyze_is_tree(self, populated):
+        assert populated.analyze.is_tree() is True
+
+    def test_analyze_spanning_tree(self, populated):
+        result = populated.analyze.spanning_tree()
+        assert isinstance(result, list)
+        assert all(isinstance(t, tuple) for t in result)
+
+    def test_analyze_max_flow(self, populated):
+        flow_value, flow_dict = populated.analyze.max_flow("a", "c")
+        assert flow_value > 0
+
+    def test_analyze_min_cut_st(self, populated):
+        cut_value, (source_side, sink_side) = populated.analyze.min_cut("a", "c")
+        assert isinstance(cut_value, float)
+        assert isinstance(source_side, set)
+        assert isinstance(sink_side, set)
+
+    def test_analyze_min_cut_global(self, populated):
+        cut_value, (side_a, side_b) = populated.analyze.min_cut()
+        assert isinstance(cut_value, float)
+        assert isinstance(side_a, set)
+        assert isinstance(side_b, set)
