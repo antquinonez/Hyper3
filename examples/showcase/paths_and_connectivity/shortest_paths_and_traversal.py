@@ -128,7 +128,7 @@ def main() -> None:
 
     indirect = [
         (e.label, e.source_labels[0], e.target_labels[0])
-        for e in mem.edges_labeled(edge_label="indirect_train")
+        for e in mem.analyze.edges(label="indirect_train")
         if e.source_labels and e.target_labels
     ]
     print(f"\nindirect train routes inferred: {len(indirect)}")

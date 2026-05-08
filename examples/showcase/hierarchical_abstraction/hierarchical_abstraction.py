@@ -49,7 +49,7 @@ def main() -> None:
     mem.link("dept_engineering", "division_tech", label="reports_to", weight=1.0)
     mem.link("dept_product", "division_tech", label="reports_to", weight=1.0)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
 
     print("\n" + "=" * 70)
@@ -80,13 +80,13 @@ def main() -> None:
     print("SECTION 3: ANALYZE AT TEAM LEVEL")
     print("=" * 70)
 
-    dc = mem.degree_centrality()
+    dc = mem.analyze.centrality("degree")
     print("team-level degree centrality:")
     for label in sorted(teams.keys()):
         if label in dc:
             print(f"  {label}: {dc[label]:.4f}")
 
-    bc = mem.betweenness_centrality()
+    bc = mem.analyze.centrality("betweenness")
     print("\nteam-level betweenness centrality:")
     for label in sorted(teams.keys()):
         if label in bc:
@@ -135,7 +135,7 @@ def main() -> None:
     print("SECTION 6: CROSS-LEVEL CENTRALITY COMPARISON")
     print("=" * 70)
 
-    dc_now = mem.degree_centrality()
+    dc_now = mem.analyze.centrality("degree")
     print("current degree centrality (mixed levels):")
     for label, score in sorted(dc_now.items(), key=lambda x: x[1], reverse=True)[:8]:
         print(f"  {label}: {score:.4f}")

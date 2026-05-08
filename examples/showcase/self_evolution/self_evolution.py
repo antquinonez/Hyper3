@@ -54,7 +54,7 @@ def main() -> None:
     print(f"  reinforced: {result.reinforced}")
 
     print("\nweight changes:")
-    for e in mem.edges_labeled():
+    for e in mem.analyze.edges():
         if e.source_labels and e.target_labels:
             prev = before.get(e.id, 0)
             print(f"  {e.source_labels[0]}->{e.target_labels[0]}: {prev:.2f} -> {e.weight:.4f}")

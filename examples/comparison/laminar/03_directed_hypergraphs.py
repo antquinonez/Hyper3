@@ -75,7 +75,7 @@ def main() -> None:
     print("DH.edges.head_size    -> head cardinality")
     print("DH.edges.tail_size    -> tail cardinality")
 
-    for e in mem.edges_labeled():
+    for e in mem.analyze.edges():
         print(f"  {e.label}: {set(e.source_labels)} -> {set(e.target_labels)}  (tail={e.source_cardinality}, head={e.target_cardinality})")
 
     print("\n" + "=" * 70)
@@ -105,7 +105,7 @@ def main() -> None:
     print(f"  edges produced: {result.expansion.edges_produced}")
     print(f"  rules applied: {result.expansion.rules_applied}")
 
-    new_labeled = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.edges_labeled(edge_label="enables_production") if e.source_labels and e.target_labels]
+    new_labeled = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="enables_production") if e.source_labels and e.target_labels]
     for lbl, src, tgt in new_labeled:
         print(f"  inferred: {src} -[{lbl}]-> {tgt}")
 

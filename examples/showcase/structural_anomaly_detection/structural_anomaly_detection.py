@@ -71,7 +71,7 @@ def main() -> None:
     mem.link("config_svc", "cache_svc", label="calls", weight=1.0)
     mem.link("search_svc", "cache_svc", label="calls", weight=2.0)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
     print(f"edge labels: {desc.edge_labels}")
 
@@ -147,7 +147,7 @@ def main() -> None:
     print("SECTION 6: CROSS-REFERENCE WITH CENTRALITY")
     print("=" * 70)
 
-    bc = mem.betweenness_centrality()
+    bc = mem.analyze.centrality("betweenness")
     sorted_bc = sorted(bc.items(), key=lambda x: x[1], reverse=True)
     print("\ntop-5 betweenness centrality:")
     for label, score in sorted_bc[:5]:

@@ -504,8 +504,8 @@ def main():
     print("SECTION 2: Centrality Analysis - Critical Nodes & Chokepoints")
     print("=" * 70)
 
-    deg = mem.degree_centrality()
-    btw = mem.betweenness_centrality()
+    deg = mem.analyze.centrality("degree")
+    btw = mem.analyze.centrality("betweenness")
 
     print("\n  Top 10 by degree centrality (most connected / highest ripple):")
     for name, score in top_k(deg, k=10):

@@ -483,7 +483,7 @@ def main():
         print(f"    {r.label:35s} activation={r.activation:.3f} depth={r.depth} [{dtype}]")
     print()
 
-    retrieved = mem.retrieve("acct_zenith_holdings", top_k=15, iterations=3)
+    retrieved = mem.search.query("acct_zenith_holdings", top_k=15)
     print("  Retrieval from acct_zenith_holdings (suspicious hub account):")
     for r in retrieved[:10]:
         data = mem.engine.graph.get_node_by_label(r.label)

@@ -425,7 +425,7 @@ def analyze_perspective(
     else:
         reachable = _traverse(mem, seed_labels, max_depth=4)
 
-    centrality = mem.degree_centrality()
+    centrality = mem.analyze.centrality("degree")
 
     reachability_scores: dict[str, float] = {}
     for nid in reachable:

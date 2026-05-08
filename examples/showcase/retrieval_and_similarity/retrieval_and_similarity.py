@@ -93,12 +93,12 @@ def main() -> None:
     similar = mem.search.similar("python", top_k=5)
     print(f"\nmost similar to 'python':")
     for item in similar:
-        print(f"  {item.label:>15}: {item.score:.4f}")
+        print(f"  {item.label:>15}: {item.similarity:.4f}")
 
     similar_rust = mem.search.similar("rust", top_k=5)
     print(f"\nmost similar to 'rust':")
     for item in similar_rust:
-        print(f"  {item.label:>15}: {item.score:.4f}")
+        print(f"  {item.label:>15}: {item.similarity:.4f}")
 
     print("\n" + "=" * 70)
     print("SECTION 4: COMBINED RETRIEVAL (Activation + Similarity)")
@@ -107,7 +107,7 @@ def main() -> None:
     print("\n--- No competitor equivalent ---")
     print("Reciprocal Rank Fusion of activation + embedding signals")
 
-    retrieval = mem.retrieve("python", top_k=8)
+    retrieval = mem.search.query("python", top_k=8)
     print(f"\nretrieval results for 'python':")
     for item in retrieval:
         print(f"  {item.label:>15}: rrf={item.rrf_score:.4f}, "

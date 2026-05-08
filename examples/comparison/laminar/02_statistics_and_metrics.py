@@ -67,7 +67,7 @@ def main() -> None:
 
     mem2.link("w", "x", label="pair")
     mem2.link("x", "y", label="pair")
-    mem2.relate_hyperedge(sources={"w", "x"}, targets={"y", "z"}, label="quad")
+    mem2.link_hyper(sources={"w", "x"}, targets={"y", "z"}, label="quad")
 
     edge_sizes = []
     edge_orders = []

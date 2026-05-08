@@ -491,7 +491,7 @@ def main():
     print("SECTION 4: RRF-Retrieved Concepts for 'ransomware'")
     print("=" * 70)
 
-    rrf_results = mem.retrieve("ransomware", top_k=15, iterations=3)
+    rrf_results = mem.search.query("ransomware", top_k=15)
     print(f"  {'Label':30s} {'RRF':>7s} {'Act':>7s} {'Sim':>7s} {'A#':>4s} {'S#':>4s}")
     print(f"  {'-'*30} {'-'*7} {'-'*7} {'-'*7} {'-'*4} {'-'*4}")
     for r in rrf_results:
@@ -517,7 +517,7 @@ def main():
     n1 = mem.record_feedback("ransomware", rrf_results, relevant_ransomware)
     print(f"  Query 'ransomware': {n1} judgments, {len(relevant_ransomware)} relevant")
 
-    rrf_phishing = mem.retrieve("phishing", top_k=15, iterations=3)
+    rrf_phishing = mem.search.query("phishing", top_k=15)
     relevant_phishing = {
         "mfa", "waf", "ids", "alert_phishing_click", "severity_medium",
         "revoke_credentials", "soc_team", "open_redirect", "burp_suite",
@@ -526,7 +526,7 @@ def main():
     n2 = mem.record_feedback("phishing", rrf_phishing, relevant_phishing)
     print(f"  Query 'phishing':   {n2} judgments, {len(relevant_phishing)} relevant")
 
-    rrf_ddos = mem.retrieve("ddos", top_k=15, iterations=3)
+    rrf_ddos = mem.search.query("ddos", top_k=15)
     relevant_ddos = {
         "ips", "cdn_edge", "load_balancer", "alert_ddos_spike",
         "block_ip", "severity_high", "firewall", "suricata", "snort",
@@ -535,7 +535,7 @@ def main():
     n3 = mem.record_feedback("ddos", rrf_ddos, relevant_ddos)
     print(f"  Query 'ddos':       {n3} judgments, {len(relevant_ddos)} relevant")
 
-    rrf_zero_day = mem.retrieve("zero_day", top_k=15, iterations=3)
+    rrf_zero_day = mem.search.query("zero_day", top_k=15)
     relevant_zero_day = {
         "edr", "xdr", "siem", "mitre_attack", "alert_privilege_escalation",
         "severity_critical", "patch_system", "nmap", "nessus",
@@ -573,8 +573,8 @@ def main():
 
     queries = ["ransomware", "phishing", "ddos", "zero_day"]
     for query in queries:
-        before = mem.retrieve(query, top_k=15, iterations=3, use_ltr=False)
-        after = mem.retrieve(query, top_k=15, iterations=3, use_ltr=True)
+        before = mem.search.query(query, top_k=15, use_ltr=False)
+        after = mem.search.query(query, top_k=15, use_ltr=True)
 
         before_labels = [r.label for r in before]
         after_labels = [r.label for r in after]

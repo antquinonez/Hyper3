@@ -618,7 +618,7 @@ def main():
     print("SECTION 2: Degree Centrality - Most Exposed Assets")
     print("=" * 70)
 
-    degree = mem.degree_centrality()
+    degree = mem.analyze.centrality("degree")
     host_degree = {
         lbl: score for lbl, score in degree.items()
         if lbl in set(hosts)
@@ -641,7 +641,7 @@ def main():
     print("SECTION 3: Betweenness Centrality - Critical Chokepoints")
     print("=" * 70)
 
-    betweenness = mem.betweenness_centrality()
+    betweenness = mem.analyze.centrality("betweenness")
     top_choke = top_k(betweenness, k=10)
     print(f"  {'Node':25s} {'Betweenness':>12s}  {'Kind':10s}")
     print(f"  {'-' * 25} {'-' * 12}  {'-' * 10}")
@@ -861,7 +861,7 @@ def main():
         print(f"    Edges produced: {reason_result.expansion.edges_produced}")
     print()
 
-    indirect_edges = mem.edges_labeled(edge_label="trusts_indirectly")
+    indirect_edges = mem.analyze.edges(label="trusts_indirectly")
     print(f"  Inferred indirect trust edges ({len(indirect_edges)}):")
     for edge in indirect_edges:
         src = ", ".join(edge.source_labels)

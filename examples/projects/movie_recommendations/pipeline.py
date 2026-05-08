@@ -412,7 +412,7 @@ def section6_retrieval(mem: HypergraphMemory, movies: list[MovieData]) -> None:
     act_movies = [a for a in activation_results if a.label in movie_labels and a.label != seed_movie]
     for a in act_movies[:10]:
         print(f"  {a.label:35s}  energy={a.energy:.4f}")
-    retrieval_results = mem.retrieve(seed_movie, top_k=15, iterations=4)
+    retrieval_results = mem.search.query(seed_movie, top_k=15)
     ret_movies = [r for r in retrieval_results if r.label in movie_labels and r.label != seed_movie]
     print(f"\nRRF retrieval (top-10, activation + similarity fused):")
     print(f"  {'Label':35s}  {'RRF':>8s}  {'Act':>8s}  {'Sim':>8s}")

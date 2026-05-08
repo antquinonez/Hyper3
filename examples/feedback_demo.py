@@ -161,10 +161,10 @@ def main() -> None:
     print("# PHASE 1: Baseline RRF retrieval (no feedback)")
     print("#" * 70)
 
-    r1 = mem.retrieve("type 2 diabetes", top_k=10, iterations=3)
+    r1 = mem.search.query("type 2 diabetes", top_k=10)
     print_results("Query: 'type 2 diabetes' (RRF, no feedback)", r1, expected_diabetes)
 
-    r2 = mem.retrieve("depression", top_k=10, iterations=3)
+    r2 = mem.search.query("depression", top_k=10)
     print_results("Query: 'depression' (RRF, no feedback)", r2, expected_depression)
 
     # --- Phase 2: Provide feedback and retrain ---
@@ -179,9 +179,9 @@ def main() -> None:
     mem.record_feedback("depression", r2, relevant_depression)
 
     for _ in range(3):
-        tmp_r1 = mem.retrieve("type 2 diabetes", top_k=10, iterations=3)
+        tmp_r1 = mem.search.query("type 2 diabetes", top_k=10)
         mem.record_feedback("type 2 diabetes", tmp_r1, relevant_diabetes)
-        tmp_r2 = mem.retrieve("depression", top_k=10, iterations=3)
+        tmp_r2 = mem.search.query("depression", top_k=10)
         mem.record_feedback("depression", tmp_r2, relevant_depression)
 
     report = mem.train_retriever()
@@ -192,10 +192,10 @@ def main() -> None:
     print("# PHASE 3: LTR retrieval (trained on feedback)")
     print("#" * 70)
 
-    r3 = mem.retrieve("type 2 diabetes", top_k=10, iterations=3, use_ltr=True)
+    r3 = mem.search.query("type 2 diabetes", top_k=10, use_ltr=True)
     print_results("Query: 'type 2 diabetes' (LTR, post-feedback)", r3, expected_diabetes)
 
-    r4 = mem.retrieve("depression", top_k=10, iterations=3, use_ltr=True)
+    r4 = mem.search.query("depression", top_k=10, use_ltr=True)
     print_results("Query: 'depression' (LTR, post-feedback)", r4, expected_depression)
 
     # --- Comparison ---

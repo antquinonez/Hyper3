@@ -62,7 +62,7 @@ def main() -> None:
     print(f"  rules applied: {result.expansion.rules_applied}")
     print(f"  edges produced: {result.expansion.edges_produced}")
 
-    inferred = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.edges_labeled(edge_label="indirectly_causes") if e.source_labels and e.target_labels]
+    inferred = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="indirectly_causes") if e.source_labels and e.target_labels]
     for lbl, src, tgt in sorted(inferred):
         print(f"  inferred: {src} -[{lbl}]-> {tgt}")
 
@@ -88,7 +88,7 @@ def main() -> None:
 
     print("\n--- No competitor equivalent ---")
 
-    for e in mem.edges_labeled(edge_label="indirectly_causes"):
+    for e in mem.analyze.edges(label="indirectly_causes"):
         if e.source_labels and e.target_labels:
             explanation = mem.explain(e.source_labels[0], e.target_labels[0])
             if explanation:

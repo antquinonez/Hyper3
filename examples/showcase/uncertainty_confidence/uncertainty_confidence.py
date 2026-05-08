@@ -49,7 +49,7 @@ def main() -> None:
     mem.link("widget_alpha", "widget_beta", label="depends_on", weight=2.0)
     mem.link("widget_beta", "widget_gamma", label="depends_on", weight=1.5)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
 
     print("\n" + "=" * 70)
@@ -63,7 +63,7 @@ def main() -> None:
     print(f"edges produced: {result.expansion.edges_produced}")
     print(f"states created: {result.expansion.states_created}")
 
-    inferred = mem.edges_labeled(edge_label="indirect_dependency")
+    inferred = mem.analyze.edges(label="indirect_dependency")
     for e in inferred:
         if e.source_labels and e.target_labels:
             print(f"  inferred: {e.source_labels[0]} -[indirect_dependency]-> {e.target_labels[0]}")

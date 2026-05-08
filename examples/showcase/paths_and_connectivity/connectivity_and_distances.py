@@ -103,13 +103,13 @@ def main() -> None:
     mem3.link("a", "b", label="pair")
     mem3.link("b", "c", label="pair")
 
-    mem3.relate_hyperedge(
+    mem3.link_hyper(
         sources={"a", "b", "c"},
         targets={"d", "e"},
         label="joint",
         weight=3.0,
     )
-    mem3.relate_hyperedge(
+    mem3.link_hyper(
         sources={"x", "y"},
         targets={"z"},
         label="triple",

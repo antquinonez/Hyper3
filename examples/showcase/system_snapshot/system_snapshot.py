@@ -55,9 +55,9 @@ def main() -> None:
     mem.search.activate("quantum_computing", energy=2.0)
     mem.search.activate("machine_learning", energy=1.5)
 
-    retrieve_results = mem.retrieve("machine_learning", top_k=3)
+    retrieve_results = mem.search.query("machine_learning", top_k=3)
     mem.record_feedback("machine_learning", retrieve_results, relevant_labels={"machine_learning"})
-    retrieve_results2 = mem.retrieve("cryptography", top_k=3)
+    retrieve_results2 = mem.search.query("cryptography", top_k=3)
     mem.record_feedback("cryptography", retrieve_results2, relevant_labels={"cryptography"})
 
     print(f"graph: nodes={mem.size[0]}, edges={mem.size[1]}")
@@ -100,7 +100,7 @@ def main() -> None:
     snapshot_path = os.path.join(tmpdir, "snapshot.json")
 
     mem.save(graph_path)
-    mem.save_state(snapshot_path)
+    mem.save(snapshot_path, full=True)
     graph_size = os.path.getsize(graph_path)
     snapshot_size = os.path.getsize(snapshot_path)
     print(f"saved graph to: {graph_path} ({graph_size} bytes)")
@@ -115,7 +115,7 @@ def main() -> None:
     ])
 
     mem2.load(graph_path)
-    mem2.load_state(snapshot_path)
+    mem2.load(snapshot_path)
 
     print(f"restored graph: nodes={mem2.size[0]}, edges={mem2.size[1]}")
     print(f"original graph: nodes={mem.size[0]}, edges={mem.size[1]}")

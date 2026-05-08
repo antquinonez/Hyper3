@@ -48,11 +48,11 @@ def main() -> None:
 
     mem2 = HypergraphMemory(evolve_interval=0)
     for c in ["w", "x", "y", "z"]:
-        mem2.store(c)
+        mem2.add(c)
 
-    mem2.relate("w", "x", label="pair")
-    mem2.relate("x", "y", label="pair")
-    mem2.relate_hyperedge(sources={"w", "x"}, targets={"y", "z"}, label="quad")
+    mem2.link("w", "x", label="pair")
+    mem2.link("x", "y", label="pair")
+    mem2.link_hyper(sources={"w", "x"}, targets={"y", "z"}, label="quad")
 
     edge_sizes = []
     edge_orders = []
@@ -83,8 +83,8 @@ def main() -> None:
     print("SECTION 4: MULTI-STAT COMPARISON")
     print("=" * 70)
 
-    cent = mem.degree_centrality()
-    pr = mem.pagerank()
+    cent = mem.analyze.centrality("degree")
+    pr = mem.analyze.centrality("pagerank")
 
     print(f"\n{'concept':>8} {'degree':>8} {'deg_cent':>10} {'pagerank':>10}")
     print("-" * 42)
@@ -97,12 +97,12 @@ def main() -> None:
 
     mem3 = HypergraphMemory(evolve_interval=0)
     for c in ["p", "q", "r", "s"]:
-        mem3.store(c)
+        mem3.add(c)
 
-    mem3.relate("p", "q", label="strong", weight=10.0)
-    mem3.relate("p", "r", label="medium", weight=5.0)
-    mem3.relate("p", "s", label="weak", weight=1.0)
-    mem3.relate("q", "r", label="medium", weight=5.0)
+    mem3.link("p", "q", label="strong", weight=10.0)
+    mem3.link("p", "r", label="medium", weight=5.0)
+    mem3.link("p", "s", label="weak", weight=1.0)
+    mem3.link("q", "r", label="medium", weight=5.0)
 
     weighted_deg = mem3.degree(weighted=True)
 
@@ -116,15 +116,15 @@ def main() -> None:
 
     mem4 = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d", "e", "f", "g"]:
-        mem4.store(c)
+        mem4.add(c)
 
-    mem4.relate("a", "b", label="core", weight=8.0)
-    mem4.relate("b", "c", label="core", weight=8.0)
-    mem4.relate("c", "d", label="core", weight=8.0)
-    mem4.relate("a", "e", label="peripheral", weight=1.0)
-    mem4.relate("e", "f", label="peripheral", weight=1.0)
-    mem4.relate("f", "g", label="peripheral", weight=1.0)
-    mem4.relate("d", "e", label="bridge", weight=2.0)
+    mem4.link("a", "b", label="core", weight=8.0)
+    mem4.link("b", "c", label="core", weight=8.0)
+    mem4.link("c", "d", label="core", weight=8.0)
+    mem4.link("a", "e", label="peripheral", weight=1.0)
+    mem4.link("e", "f", label="peripheral", weight=1.0)
+    mem4.link("f", "g", label="peripheral", weight=1.0)
+    mem4.link("d", "e", label="bridge", weight=2.0)
 
     before_deg = mem4.degree()
     before_density = mem4.density()
@@ -136,10 +136,9 @@ def main() -> None:
     print(f"  density: {before_density:.4f}")
     print(f"  degrees: {dict(sorted(before_deg.items()))}")
 
-    mem4.stimulate("a", energy=1.0)
-    mem4.stimulate("b", energy=1.0)
-    mem4.stimulate("c", energy=1.0)
-    mem4.spread_activation(iterations=2)
+    mem4.search.activate("a", energy=1.0)
+    mem4.search.activate("b", energy=1.0)
+    mem4.search.activate("c", energy=1.0)
     mem4.hebbian_reinforce()
 
     evolve_result = mem4.evolve()
@@ -161,7 +160,7 @@ def main() -> None:
     print("SECTION 7: COMMUNITY DETECTION")
     print("=" * 70)
 
-    comm_result = mem4.detect_communities(seed=42)
+    comm_result = mem4.analyze.communities(seed=42)
     print(f"\ncommunities detected: {comm_result.community_count}")
     print(f"modularity: {comm_result.modularity:.4f}")
     for i, community in enumerate(comm_result.communities):

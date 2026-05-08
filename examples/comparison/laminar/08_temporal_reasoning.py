@@ -117,7 +117,7 @@ def main() -> None:
     print(f"\nreasoning from 'outbreak_detected':")
     print(f"  edges produced: {result.expansion.edges_produced}")
 
-    indirect = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.edges_labeled(edge_label="indirectly_causes") if e.source_labels and e.target_labels]
+    indirect = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="indirectly_causes") if e.source_labels and e.target_labels]
     print(f"\nindirect causal chains inferred:")
     for lbl, src, tgt in indirect:
         print(f"  {src} -[{lbl}]-> {tgt}")

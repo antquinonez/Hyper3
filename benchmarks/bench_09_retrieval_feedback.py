@@ -164,12 +164,12 @@ def run_similarity_only(mem: HypergraphMemory, query: str, top_k: int = 10) -> l
 
 
 def run_combined(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    results = mem.retrieve(query, top_k=top_k, iterations=3)
+    results = mem.search.query(query, top_k=top_k)
     return [r.label for r in results]
 
 
 def run_ltr(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    results = mem.retrieve(query, top_k=top_k, iterations=3, use_ltr=True)
+    results = mem.search.query(query, top_k=top_k, use_ltr=True)
     return [r.label for r in results]
 
 
@@ -297,7 +297,7 @@ def main() -> None:
     before_avg, before_per = evaluate_strategy(mem, run_combined, QUERIES, k=K)
 
     for q in QUERIES:
-        results = mem.retrieve(q["query"], top_k=10, iterations=3)
+        results = mem.search.query(q["query"], top_k=10)
         mem.record_feedback(q["query"], results, q["relevant"])
 
     train_report = mem.train_retriever()

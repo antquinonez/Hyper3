@@ -58,7 +58,7 @@ def main() -> None:
     mem.link("evidence_preclinical", "drug_olaparib", label="evidence_for", weight=2.0)
     mem.link("breast_cancer", "lung_cancer", label="associated_with", weight=1.0)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
     print(f"edge labels: {sorted(desc.edge_labels)}")
 

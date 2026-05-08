@@ -75,7 +75,7 @@ def main() -> None:
         label="team_assignment",
     )
 
-    hyperedges = mem.edges_labeled(min_source_cardinality=2)
+    hyperedges = mem.analyze.edges(min_source_cardinality=2)
     print(f"\nN-ary hyperedges (source cardinality >= 2): {len(hyperedges)}")
     for he in hyperedges:
         print(f"  {he.label}: {set(he.source_labels)} -> {set(he.target_labels)}")

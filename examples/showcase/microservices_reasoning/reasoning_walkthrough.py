@@ -519,7 +519,7 @@ def main():
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = mem.betweenness_centrality()
+    bc = mem.analyze.centrality("betweenness")
     top_spof = top_k(bc, k=15)
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")

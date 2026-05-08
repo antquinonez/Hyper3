@@ -447,8 +447,8 @@ def main():
     print("SECTION 3: Most Critical Modules (Centrality)")
     print("=" * 70)
 
-    degree = mem.degree_centrality()
-    betweenness = mem.betweenness_centrality()
+    degree = mem.analyze.centrality("degree")
+    betweenness = mem.analyze.centrality("betweenness")
 
     combined = {}
     for label in all_modules:
@@ -660,7 +660,7 @@ def main():
     summaries = mem.list_summaries()
     print(f"  Active summaries: {[s.summary_label for s in summaries]}")
 
-    abstract_degree = mem.degree_centrality()
+    abstract_degree = mem.analyze.centrality("degree")
     print("  Top 5 modules in abstracted graph:")
     for label, score in top_k(abstract_degree, k=5):
         print(f"    {label:<35s} centrality={score:.3f}")
