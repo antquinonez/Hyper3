@@ -205,6 +205,8 @@ from hyper3.results import (
     DerivationInfo,
     DiscoverResult,
     DiscoveryAnalysis,
+    FrameContribution,
+    FusedReasonResult,
     EdgeInfo,
     EvolutionStats,
     EvolveResult,

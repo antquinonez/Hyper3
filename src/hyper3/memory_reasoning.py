@@ -16,6 +16,8 @@ from hyper3.results import (
     DerivationInfo,
     DiscoverResult,
     ExpansionInfo,
+    FrameContribution,
+    FusedReasonResult,
     IterativeReasonResult,
     MergeReport,
     ReasonResult,
@@ -589,6 +591,134 @@ class ReasoningMixin(_MemoryBase):
             "preserved_properties": transformed.preserved_properties,
         }
         return result
+
+    def reason_fused(
+        self,
+        seed_concepts: set[str],
+        *,
+        frames: list[str] | None = None,
+        rules: list[Rule] | None = None,
+        strategy: str = "weighted",
+    ) -> FusedReasonResult:
+        """Run reasoning through multiple frames and fuse results.
+
+        Executes :meth:`reason_with_frame` for each frame sequentially.
+        Because each call commits its overlay to the graph, subsequent
+        frames reason over the accumulated edges from all prior frames
+        (cumulative reasoning).  The agreement and fusion metrics reflect
+        this cumulative structure.
+
+        Args:
+            seed_concepts: Labels of seed nodes.
+            frames: Frame names to run. Defaults to all registered frames.
+            rules: Rules to apply; defaults to ``self._rules``.
+            strategy: One of ``"weighted"`` (confidence *
+                frame-effectiveness), ``"majority"`` (edges appearing in >
+                half the frames), or ``"union"`` (all edges from any frame).
+
+        Returns:
+            FusedReasonResult with per-frame breakdown and fused metrics.
+
+        Raises:
+            ValueError: If *strategy* is not one of the supported values.
+        """
+        valid_strategies = {"weighted", "majority", "union"}
+        if strategy not in valid_strategies:
+            raise ValueError(f"Unknown fusion strategy '{strategy}'; choose from {sorted(valid_strategies)}")
+
+        if frames is None:
+            frames = list(self._perspective.frames.keys())
+
+        per_frame: dict[str, ReasonResult] = {}
+        for frame_name in frames:
+            result = self.reason_with_frame(
+                seed_concepts, frame_name=frame_name, rules=rules
+            )
+            per_frame[frame_name] = result
+
+        frame_edges: dict[str, set[str]] = {}
+        frame_confidence: dict[str, dict[str, float]] = {}
+        for frame_name, result in per_frame.items():
+            if result.confidence:
+                frame_edges[frame_name] = set(result.confidence.keys())
+                frame_confidence[frame_name] = result.confidence
+            else:
+                frame_edges[frame_name] = set()
+                frame_confidence[frame_name] = {}
+
+        effectiveness = self._perspective.get_frame_effectiveness()
+
+        if strategy == "union":
+            fused_set = set.union(*frame_edges.values()) if frame_edges else set()
+        elif strategy == "majority":
+            threshold = len(frames) // 2 + 1
+            counts: dict[str, int] = {}
+            for edges in frame_edges.values():
+                for eid in edges:
+                    counts[eid] = counts.get(eid, 0) + 1
+            fused_set = {eid for eid, c in counts.items() if c >= threshold}
+        else:
+            weighted_counts: dict[str, float] = {}
+            for frame_name, edges in frame_edges.items():
+                weight = effectiveness.get(frame_name, 0.5)
+                for eid in edges:
+                    conf = frame_confidence.get(frame_name, {}).get(eid, 0.5)
+                    weighted_counts[eid] = weighted_counts.get(eid, 0.0) + weight * conf
+            avg_weight = sum(weighted_counts.values()) / len(weighted_counts) if weighted_counts else 0.0
+            fused_set = {eid for eid, s in weighted_counts.items() if s >= avg_weight * 0.5}
+
+        all_edges = set.union(*frame_edges.values()) if frame_edges else set()
+        intersection = set.intersection(*frame_edges.values()) if frame_edges and all(frame_edges.values()) else set()
+        agreement = len(intersection) / max(len(all_edges), 1)
+
+        fused_conf = 0.0
+        if fused_set:
+            total = 0.0
+            for frame_name, edges in frame_edges.items():
+                weight = effectiveness.get(frame_name, 0.5)
+                for eid in fused_set:
+                    if eid in edges:
+                        total += weight * frame_confidence.get(frame_name, {}).get(eid, 0.5)
+            fused_conf = total / max(len(fused_set), 1)
+
+        contributions: list[FrameContribution] = []
+        best_frame = ""
+        best_score = -1.0
+        for frame_name in frames:
+            result = per_frame[frame_name]
+            edges = frame_edges.get(frame_name, set())
+            confs = frame_confidence.get(frame_name, {})
+            avg_c = sum(confs.values()) / max(len(confs), 1) if confs else 0.0
+            other_union: set[str] = set()
+            for fn2, e2 in frame_edges.items():
+                if fn2 != frame_name:
+                    other_union |= e2
+            unique = len(edges - other_union)
+            info_loss = 0.0
+            if result.frame_config:
+                info_loss = result.frame_config.get("information_loss", 0.0)
+            score = avg_c * effectiveness.get(frame_name, 0.5)
+            if score > best_score:
+                best_score = score
+                best_frame = frame_name
+            contributions.append(FrameContribution(
+                frame_name=frame_name,
+                edges_produced=len(edges),
+                avg_confidence=avg_c,
+                information_loss=info_loss,
+                unique_edges=unique,
+            ))
+
+        return FusedReasonResult(
+            frame_count=len(frames),
+            fused_edges=len(fused_set),
+            fused_confidence=fused_conf,
+            agreement_ratio=agreement,
+            frame_contributions=contributions,
+            per_frame_results=per_frame,
+            best_frame=best_frame,
+            fusion_strategy=strategy,
+        )
 
     def derive(self, concept: str, *, rules: list[Rule] | None = None) -> list[DerivationInfo]:
         """Find derivation paths to a concept using inference rules.

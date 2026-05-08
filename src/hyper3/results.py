@@ -86,6 +86,28 @@ class ConsensusReasonResult(_SimpleResultBase):
 
 
 @dataclass
+class FrameContribution(_SimpleResultBase):
+    frame_name: str = ""
+    edges_produced: int = 0
+    avg_confidence: float = 0.0
+    information_loss: float = 0.0
+    unique_edges: int = 0
+
+
+@dataclass
+class FusedReasonResult(_SimpleResultBase):
+    frame_count: int = 0
+    fused_edges: int = 0
+    fused_confidence: float = 0.0
+    agreement_ratio: float = 0.0
+    frame_contributions: list[FrameContribution] = field(default_factory=list)
+    per_frame_results: dict[str, ReasonResult] = field(default_factory=dict)
+    best_frame: str = ""
+    fusion_strategy: str = ""
+    error: str | None = None
+
+
+@dataclass
 class MergeReport(_SimpleResultBase):
     """Report from state convergence: number of merges, states before/after, and total reduction."""
     merges_performed: int = 0
