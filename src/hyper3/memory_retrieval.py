@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from hyper3.cache import LazyCache
-from hyper3.embedding import EmbeddingEngine, EmbeddingProvider, SimilarityResult
+from hyper3.embedding import EmbeddingEngine, EmbeddingProvider
 from hyper3.feedback import OperationFeedback
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import FeedbackSummaryResult, TrainResult
 from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
-from hyper3.retrieval_engine import FeedbackStore, RetrievalEngine, RetrievalResult
+from hyper3.retrieval_engine import FeedbackStore, RetrievalEngine
 
 
 class RetrievalMixin(_MemoryBase):
@@ -33,17 +33,6 @@ class RetrievalMixin(_MemoryBase):
         self._log.record("enable_faiss", success=result)
         return result
 
-    def find_similar(self, concept: str, *, top_k: int = 10, threshold: float | None = None) -> list[SimilarityResult]:
-        """Find concepts semantically similar to a query concept."""
-        if self._embedding_engine is None:
-            self._embedding_engine = EmbeddingEngine(self._graph)
-        node = self._find_node(concept)
-        if not node:
-            return []
-        results = self._embedding_engine.find_similar(node.id, top_k=top_k, threshold=threshold)
-        self._log.record("find_similar", concept=concept, results=len(results))
-        return results
-
     def analogy(self, a: str, b: str, c: str, *, top_k: int = 5) -> list[tuple[str, float]]:
         """Perform vector-arithmetic analogy (a is to b as c is to ?)."""
         if self._embedding_engine is None:
@@ -69,37 +58,15 @@ class RetrievalMixin(_MemoryBase):
         self._log.record("activate", concept=concept, results=len(result))
         return result
 
-    def stimulate(self, concept: str, *, energy: float = 1.0) -> None:
-        """Activate a concept and run one step of spreading activation."""
-        node = self._find_node(concept)
-        if not node:
-            from hyper3.exceptions import NodeNotFoundError
-
-            raise NodeNotFoundError(concept)
-        self._activation.stimulate(node.id, energy)
-
-    def spread_activation(self, *, iterations: int | None = None) -> list[ActivationResult]:
-        """Run spreading activation for the configured number of steps."""
-        self._activation.spread(iterations)
-        return self._activation.get_activated()
-
     def clear_activations(self) -> None:
         """Clear all activation values."""
         self._activation.clear()
 
-    def retrieve(
-        self, concept: str, *, top_k: int = 10, iterations: int = 3, use_ltr: bool = False
-    ) -> list[RetrievalResult]:
-        """Retrieve concepts using combined activation and semantic signals."""
-        if self._embedding_engine is None:
-            self._embedding_engine = EmbeddingEngine(self._graph)
-        self._retrieval._embedding = self._embedding_engine
-        results = self._retrieval.retrieve(concept, top_k=top_k, iterations=iterations, use_ltr=use_ltr)
-        self._log.record("retrieve", concept=concept, results=len(results), method="rrf" if not use_ltr else "ltr")
-        return results
+    def record_feedback(self, query: str, results: list, relevant_labels: set[str]) -> int:
+        """Record relevance feedback for a retrieval result.
 
-    def record_feedback(self, query: str, results: list[RetrievalResult], relevant_labels: set[str]) -> int:
-        """Record relevance feedback for a retrieval result."""
+        Accepts both RetrievalResult and SearchHit objects.
+        """
         count = self._retrieval.record_feedback(query, results, relevant_labels)
         self._log.record("feedback", query=query, relevant=len(relevant_labels), total=count)
         return count

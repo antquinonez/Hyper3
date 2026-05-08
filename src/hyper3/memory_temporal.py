@@ -21,7 +21,7 @@ class TemporalMixin(_MemoryBase):
     def add_temporal_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
         """Add a temporal event with start/end times to the graph."""
         event = self._temporal.add_event(label, label, start, end, **metadata)
-        self.store(label, data={"start": start, "end": end})
+        self.add(label, data={"start": start, "end": end})
         self._log.record("temporal_event", label=label, start=start, end=end)
         return event
 
@@ -84,13 +84,13 @@ class TemporalMixin(_MemoryBase):
         result = self._enricher.extract(text)
         if extract:
             for entity in result.entities:
-                self.store(
+                self.add(
                     entity.label,
                     data={"type": entity.entity_type} if entity.entity_type else None,
                 )
             for rel in result.relations:
                 with contextlib.suppress(Exception):
-                    self.relate(
+                    self.link(
                         rel.source_label,
                         rel.target_label,
                         label=rel.relation_label,
@@ -120,14 +120,14 @@ class TemporalMixin(_MemoryBase):
                 for entity in result.entities:
                     if deduplicate and entity.label in seen_entities:
                         continue
-                    self.store(
+                    self.add(
                         entity.label,
                         data={"type": entity.entity_type} if entity.entity_type else None,
                     )
                     seen_entities.add(entity.label)
                 for rel in result.relations:
                     with contextlib.suppress(Exception):
-                        self.relate(
+                        self.link(
                             rel.source_label,
                             rel.target_label,
                             label=rel.relation_label,

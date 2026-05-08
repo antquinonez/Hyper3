@@ -22,9 +22,6 @@ from hyper3.snapshot import (
     capture_snapshot,
     restore_snapshot,
 )
-from hyper3.snapshot import (
-    save_state as _save_snapshot,
-)
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
@@ -94,7 +91,7 @@ class PersistenceMixin(_MemoryBase):
             tgt_node = self._find_node(str(tgt))
             if not src_node or not tgt_node:
                 continue
-            self.relate(
+            self.link(
                 str(src),
                 str(tgt),
                 label=rec.get("label", rec.get("relation", "")),
@@ -339,41 +336,6 @@ class PersistenceMixin(_MemoryBase):
         self._rule_analytics = rule_analytics
         if rule_analytics is not None:
             self._meta.set_rule_analytics(rule_analytics)
-
-    def save_state(self, path: str) -> None:
-        """Save a full system snapshot including quantum, multiway, and subsystem state.
-
-        Writes a standalone snapshot file (compatible with
-        ``snapshot.load_state()``).  Also available via ``save(path,
-        full=True)`` which embeds the snapshot alongside the graph.
-
-        Args:
-            path: Destination file path.
-        """
-        snapshot = capture_snapshot(
-            belief=self._belief,
-            multiway_engine=self._multiway_engine,
-            state_clustering=self._state_clustering,
-            rule_analytics=self._rule_analytics,
-            provenance=self._provenance,
-            retrieval=self._retrieval,
-            perspective=self._perspective,
-            meta=self._meta,
-            cache=self._cache,
-            feedback=self._feedback,
-        )
-        _save_snapshot(path, snapshot)
-        self._log.record("save_state", path=path)
-
-    def load_state(self, path: str) -> None:
-        """Restore a full system snapshot from disk.
-
-        Equivalent to ``load(path)`` when the file was saved with ``full=True``.
-
-        Args:
-            path: Path to the saved snapshot file.
-        """
-        self.load(path)
 
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""

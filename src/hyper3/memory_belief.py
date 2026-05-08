@@ -12,7 +12,7 @@ from hyper3.belief import (
 )
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
-from hyper3.structural_anomaly import AnomalyDetectionResult, BoundaryRegion
+from hyper3.structural_anomaly import BoundaryRegion
 
 
 class BeliefMixin(_MemoryBase):
@@ -266,24 +266,6 @@ class BeliefMixin(_MemoryBase):
                 raw = self._multiway_engine.get_lateral_insights(state.id)
                 return self._normalize_lateral_insights(raw)
         return []
-
-    def detect_structural_anomalies(
-        self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4
-    ) -> AnomalyDetectionResult:
-        """Detect structural anomalies in the concept's graph neighborhood.
-
-        Analyzes the concept for cycles, high centrality, contradictory
-        labels, and unusual connectivity patterns.
-
-        Args:
-            concept: The concept to analyze.
-            context: Optional context dict supplementing structural analysis.
-            max_level: Maximum analysis depth level.
-
-        Returns:
-            An AnomalyDetectionResult with boundary detection and exploration info.
-        """
-        return self._anomaly_detector.reason_at_level(concept, context, max_level=max_level)
 
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         """Map structural anomaly boundaries (cyclic, high-centrality, contradictory regions) for concepts."""
