@@ -1,10 +1,11 @@
 # Capability Gap Analysis: Inspiration Document vs. Codebase
 
 Analysis date: 2026-05-08
+Revised: 2026-05-08
 
 ## Methodology
 
-Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hypergraph Cognitive Architecture v2-1 -- Antonio Quinonez.md`), all 9 design documents in `designs/`, and the key source files for every engine in `src/hyper3/`. Identified every distinct capability area described in the inspiration document and cross-referenced each against what exists in the codebase.
+Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hypergraph Cognitive Architecture v2-1 -- Antonio Quinonez.md`), all design documents in `designs/`, and the key source files for every engine in `src/hyper3/`. Identified every distinct capability area described in the inspiration document and cross-referenced each against what exists in the codebase.
 
 ---
 
@@ -39,12 +40,13 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 
 ## Section 2: Cross-Reference — What Maps to What
 
-### Already Implemented in Production Code (40+ engines/features)
+### Already Implemented in Production Code (50+ engines/features)
 
 | Inspiration Cap | Existing Implementation | Status |
 |----------------|------------------------|--------|
 | C1 Multiway Expansion | `MultiwayEngine` + `MultiwayGraph` | Full DAG expansion with state tracking |
 | C1 State Equivalence Merging | `StateConvergenceEngine` | Similarity-based merging + `check_graph_isomorphism()` |
+| C1 Causal Path Normalization | `StateConvergenceEngine` + `reason_fused()` + `ProvenanceTracker` | Covers the practical case: equivalent states merged, multi-frame conclusions fused, derivation chains recorded. Provenance-chain comparison is a future refinement, not a missing capability. |
 | C2 Branchial Coordinates | `StateClusteringEngine.assign_coordinates()` | Recursive MDS coordinate assignment |
 | C2 Branchial Distance | `StateClusteringEngine` | 4-metric: structural, conceptual, computational, evolutionary |
 | C2 Branchial Clustering | `StateClusteringEngine` | Ward hierarchical + k-means, macro/meso/micro scales |
@@ -90,7 +92,7 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 | -- Boundary Reasoning | `BoundaryReasoningEngine` | Decidability boundary detection |
 | -- Transcendental Inference | `TranscendentalInferenceEngine` | Cross-domain pattern transfer |
 
-### Designed and Implemented (6 new engines + 1 mixin method, all DONE)
+### Designed and Implemented (8 new engines + 1 mixin method, all DONE)
 
 | Design # | Inspiration Cap | Engine | Commit |
 |----------|----------------|--------|--------|
@@ -99,10 +101,9 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 | 5 | C6 Measurement Basis Selection | `BasisSelector` | `60fef6e` |
 | 6 | C3/C2 Cross-Domain Pattern Transfer | `TranscendentalInferenceEngine` | `d08cc22` |
 | 7 | C4 Frame-Partitioned Caching | `FrameCache` | `cde4a7a` |
-| 8 | C10 Adaptive Observer-Slice Feedback Loop | `AdaptiveSliceEngine` | pending |
+| 8 | C10 Adaptive Observer-Slice | `AdaptiveSliceEngine` | `ddf2633` |
+| 9 | C6 Interference-Based Reasoning | `InterferenceReasoningEngine` | `68b5abf` |
 | -- | C21 Multi-Path Confidence Fusion | `reason_fused()` mixin method | `bbb30ee` |
-| -- | C10 Adaptive Observer-Slice | `AdaptiveSliceEngine` | `ddf2633` |
-| -- | C6 Interference-Based Reasoning | `InterferenceReasoningEngine` | pending |
 
 ### Designed but NOT Implemented (2 designs)
 
@@ -110,6 +111,12 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 |----------|----------------|--------|------------|
 | 1 | C8 Cross-Session Learning | `SessionPortfolio` | `designs/007_cross_session_learning.md` |
 | 2 | C9 Architectural Metamorphosis | `ArchitectEngine` | `designs/008_meta_evolution_feedback.md` |
+
+### Reclassified: Already Substantially Covered
+
+| Inspiration Cap | Why Reclassified |
+|----------------|-----------------|
+| C1 Causal Path Normalization | `StateConvergenceEngine` merges equivalent states via structural similarity and graph isomorphism. `reason_fused()` produces path-independent conclusions via multi-frame consensus. `ProvenanceTracker` records all derivation chains. The remaining gap — comparing provenance chains for equivalence — is a future refinement to `StateConvergenceEngine`, not a new L-complexity engine. |
 
 ### Out of Scope for Core Library (by design, DP-15)
 
@@ -123,105 +130,104 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 
 ---
 
-## Section 3: Unimplemented Capabilities — Prioritized Analysis
+## Section 3: Genuine Gaps — Prioritized for Real User Value
 
-After eliminating everything that is implemented, designed, or out of scope, **8 genuine gaps** remain.
+### 1. Collapse Trigger Detector
 
-### 1. Causal Path Normalization Engine
+**Inspiration**: C6, lines 1664-1676 (Collapse Trigger Detection), 1528-1557 (Measurement and Collapse Dynamics)
 
-**What it does**: Detects when different multiway reasoning paths produce equivalent *causal histories* (not just similar state node sets) and normalizes them to a canonical form. Currently, `StateConvergenceEngine` merges states with similar node/edge overlaps, but two paths can produce identical conclusions via structurally different derivation chains that are NOT recognized as equivalent.
+**What it does**: A unified multi-criteria decision engine for when a belief distribution should collapse. Currently, collapse decisions require manual `is_stale` checks and ad-hoc dominance thresholds. This engine evaluates:
+- Decoherence timeout (`age > coherence_time`)
+- Outcome dominance (one outcome probability exceeds threshold)
+- Context sufficiency (amplitude distribution has converged)
+- Interference peak (constructive interference has maximized — entropy is at local minimum)
 
-**Interacts with**: `StateConvergenceEngine`, `ProvenanceTracker`, `MultiwayEngine`, `EventLog`
+Returns a `CollapseDecision` with recommendation and context weights.
 
-**New engine or extension**: New engine. `StateConvergenceEngine` does structural similarity (Jaccard overlap of node/edge sets). Causal normalization requires comparing *derivation trees* (provenance chains) — a fundamentally different operation.
+**Interacts with**: `BeliefLayer`, `BasisSelector`, `InterferenceReasoningEngine`
 
-**Complexity**: L (~400-500 LoC engine, ~300 LoC tests)
+**Complexity**: S (~100-150 LoC engine, ~80 LoC tests)
 
-**Why it matters**: This is the #1 claim in the inspiration document and the differentiating feature of the architecture. Without it, the system can reach identical conclusions via two paths and treat them as different knowledge. The `ProvenanceTracker` already records everything needed as input.
+**User benefit**: Users with many active distributions no longer write manual staleness loops. One call replaces ad-hoc threshold logic.
 
-### 2. Interference-Based Reasoning Engine
+### 2. Simultaneity Edge Rule
 
-**Status**: DONE. Implemented as `InterferenceReasoningEngine` in `interference_reasoning.py` with cross-distribution interference computation, contradiction/reinforcement detection, interference-to-insight pipeline, and pattern history tracking. Wired into `BeliefMixin` via `analyze_interference()` and `interference_report()`. 24 unit tests in `test_interference_reasoning.py`. Exports in `__init__.py`.
+**Inspiration**: C22, Appendix B, lines 2583-2588 (Simultaneity Detection Rule)
 
-### 3. Adaptive Observer Slice Engine
+**What it does**: A `Rule` subclass that detects when two multiway states are computationally simultaneous (no causal precedence between them, both reachable from a common ancestor) and creates an explicit `"simultaneous"` labeled edge. Currently, simultaneity relationships exist only inside `StateClusteringEngine` and are invisible to the graph API.
 
-**Status**: DONE. Implemented as `AdaptiveSliceEngine` in `adaptive_slice.py` with Thompson sampling over a 100-cell grid (5 depths x 5 nodes x 4 weights). Wired into `CoreMixin` via `recall_adaptive()` and `record_slice_outcome()`. 24 unit tests in `test_adaptive_slice.py`. Exports in `__init__.py`.
+**Interacts with**: `StateClusteringEngine`, `MultiwayEngine`, `Rule` ABC
 
-### 4. Computational Density Mapper
+**Complexity**: S (~80-120 LoC rule, ~60 LoC tests)
 
-**Status**: MOSTLY EXISTS. `RuleAnalytics` already has `compute_density_map()`, `identify_frontiers()`, `explore_rule_neighborhood()`, and position history tracking. No new engine needed.
+**User benefit**: After reasoning, `mem.neighbors("A", edge_label="simultaneous")` shows which concepts were explored in parallel. Branchial structure becomes first-class graph structure visible to all engines.
 
-### 5. Branchial Path Optimizer
+### 3. Computational Invariant Detector
 
-**What it does**: Finds efficient navigation routes through branchial space and dynamically reorganizes coordinates as the multiway graph grows. Currently `StateClusteringEngine.assign_coordinates()` computes coordinates once and never updates.
+**Inspiration**: C20, lines 1170-1199 (Computational Invariants), Appendix C lines 2620-2624
 
-**Interacts with**: `StateClusteringEngine`, `MultiwayEngine`, `LazyCache`
+**What it does**: Beyond `RobustReachabilityDetector` (which finds nodes reachable in all frames), this engine detects properties conserved across frame transformations: invariant centrality role, invariant structural position (always a hub, always a leaf), invariant edge labels. Returns an `InvariantReport` classifying each concept's cross-frame properties.
 
-**New engine or extension**: Extension of `StateClusteringEngine`.
+**Interacts with**: `MultiPerspectiveAnalyzer`, `TraversalEngine`
 
-**Complexity**: M (~200-300 LoC extension, ~150 LoC tests)
+**Complexity**: M (~200-300 LoC engine, ~150 LoC tests)
 
-**Why it matters**: Without path optimization, branchial navigation is undirected. Becomes important for large multiway graphs.
+**User benefit**: After `multi_frame_analysis("cancer")`, ask "which conclusions are robust regardless of computational perspective?" Invariant properties are more trustworthy than frame-dependent ones.
 
-### 6. Multi-Path Confidence Fusion
+### 4. Structural Prefetch Engine
 
-**Status**: DONE. Implemented as `reason_fused()` in `memory_reasoning.py` with `FusedReasonResult` and `FrameContribution` result types. 10 tests in `test_memory.py::TestReasonFused`. Supports weighted, majority, and union fusion strategies. Runs reasoning through multiple frames sequentially (cumulative), collects confidence maps, and fuses edges.
+**Inspiration**: C18, Appendix E, lines 2648-2651 (Causal Prefetching)
 
-### 7. Causal Prefetcher
+**What it does**: Graph-topology-aware prefetching that uses edge structure instead of Markov access patterns. When a node is accessed, the prefetcher pre-populates the cache with its neighbors weighted by edge weight and label. The existing `LazyCache.predict_next()` is frequency-based; this is structure-based.
 
-**What it does**: Predicts which nodes/edges will be needed next based on causal patterns and pre-warms the cache. `LazyCache` has Markov prefetching but doesn't use causal structure.
+**Interacts with**: `LazyCache`, `Hypergraph._neighbor_cache`, `TraversalEngine`
 
-**Interacts with**: `LazyCache`, `RuleAnalytics`, `TraversalEngine`
+**Complexity**: S (~120-180 LoC engine, ~100 LoC tests)
 
-**New engine or extension**: Extension of `LazyCache`.
+**User benefit**: Faster repeated traversals and recall operations on dense graphs. Second-hop neighbors already cached.
 
-**Complexity**: S (~80-100 LoC extension, ~60 LoC tests)
+### 5. Cross-Frame Complexity Comparison Rule
 
-**Why it matters**: Performance optimization only. Worth doing after profiling reveals cache-miss bottlenecks.
+**Inspiration**: C22, Appendix B, lines 2595-2599 (Complexity Relativity Rule)
 
-### 8. Frame Transformation Invariants
+**What it does**: A `Rule` subclass that detects concepts analyzed in multiple frames and creates `"complexity_comparison"` edges recording per-frame complexity assessments. Enriches the graph with cross-frame metadata without recomputation.
 
-**What it does**: Detects properties conserved across frame transformations (analogous to conservation laws in physics). `FrameTransformer` transforms parameters but doesn't identify what is preserved.
+**Interacts with**: `MultiPerspectiveAnalyzer`, `MultiwayEngine`, `Rule` ABC
 
-**Interacts with**: `FrameTransformer`, `MultiPerspectiveAnalyzer`, `FrameCache`
+**Complexity**: S (~80-100 LoC rule, ~60 LoC tests)
 
-**New engine or extension**: Extension of `FrameTransformer`.
-
-**Complexity**: M (~150-200 LoC, ~100 LoC tests)
-
-**Why it matters**: Most theoretical gap. Practical value unclear — existing heuristics work well without explicit invariant tracking.
+**User benefit**: `mem.query_nodes(edge_label="complexity_comparison")` shows all multi-frame-analyzed concepts and which frame was optimal. Useful for understanding which computational perspective works best for each domain.
 
 ---
 
 ## Section 4: Priority Summary
 
-| Rank | Capability | New Engine? | Complexity | Value | Status |
-|------|-----------|-------------|------------|-------|--------|
-| 1 | Causal Path Normalization | Yes | L | Core architecture claim. Path-independent reasoning. | |
-| 2 | Interference-Based Reasoning | Yes | M | Genuinely novel quantum-inspired capability. | DONE (InterferenceReasoningEngine) |
-| 3 | Adaptive Observer Slice | Yes | S-M | Closes usage-to-view feedback loop. | DONE (AdaptiveSliceEngine) |
-| 4 | Computational Density Mapper | Extends RuleAnalytics | S | Completes computational self-location. | DONE (already in RuleAnalytics) |
-| 5 | Multi-Path Confidence Fusion | Mixin wiring | S | Extracts complementary value from all frames. | DONE (reason_fused) |
-| 6 | Branchial Path Optimizer | Extends StateClustering | M | Scales branchial navigation. | |
-| 7 | Causal Prefetcher | Extends LazyCache | S | Performance optimization only. | |
-| 8 | Frame Transformation Invariants | Extends FrameTransformer | M | Theoretical. Practical value unclear. | |
+| Rank | Capability | Type | Complexity | User Benefit | Status |
+|------|-----------|------|------------|-------------|--------|
+| 1 | Collapse Trigger Detector | Engine | S | Simplifies belief management | |
+| 2 | Simultaneity Edge Rule | Rule | S | Branchial structure visible in graph | |
+| 3 | Computational Invariant Detector | Engine | M | Robustness of multi-frame conclusions | |
+| 4 | Structural Prefetch Engine | Engine | S | Faster graph operations | |
+| 5 | Cross-Frame Complexity Rule | Rule | S | Frame comparisons persist in graph | |
+| -- | Branchial Path Optimizer | Extension | M | Scaling concern only, works without it | Deferred |
+| -- | Frame Transformation Invariants | Extension | M | Superseded by #3 (Invariant Detector) | Merged |
+| -- | Causal Path Normalization | -- | -- | Already covered by StateConvergenceEngine + reason_fused | Reclassified |
 
 ### Recommended Implementation Order
 
 ```
-DONE:
-  4. Computational Density Mapper (already in RuleAnalytics)
-  5. Multi-Path Confidence Fusion (reason_fused in memory_reasoning.py)
-  3. Adaptive Observer Slice (AdaptiveSliceEngine in adaptive_slice.py)
-  2. Interference-Based Reasoning (InterferenceReasoningEngine in interference_reasoning.py)
+S-complexity (quick wins, concrete user value):
+  1. Collapse Trigger Detector
+  2. Simultaneity Edge Rule
+  5. Cross-Frame Complexity Rule
+  4. Structural Prefetch Engine
 
-Next — Large commitment:
-  1. Causal Path Normalization
+Medium commitment:
+  3. Computational Invariant Detector
 
-Optimization/Theoretical (defer):
-  6. Branchial Path Optimizer
-  7. Causal Prefetcher
-  8. Frame Transformation Invariants
+Previously Designed (can slot in anytime):
+  SessionPortfolio (cross-session learning)
+  ArchitectEngine (meta-evolution feedback)
 ```
 
 ### Previously Designed (can slot in anytime)
