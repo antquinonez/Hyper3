@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -49,6 +50,12 @@ _UNDECIDABLE_KEYWORDS = {
     "godel", "incompleteness", "undecidable", "uncomputable",
     "russell", "paradox", "liar",
 }
+_UNDECIDABLE_PATTERN = re.compile(
+    r"(?:^|[\s\-_/.])(?:"
+    + "|".join(re.escape(kw) for kw in sorted(_UNDECIDABLE_KEYWORDS, key=len, reverse=True))
+    + r")(?:$|[\s\-_/.])",
+    re.IGNORECASE,
+)
 
 
 class BoundaryReasoningEngine:
@@ -310,10 +317,8 @@ class BoundaryReasoningEngine:
         node = self._graph.get_node(concept_id)
         if node is None:
             return 0.0
-        label_lower = node.label.lower()
-        for kw in _UNDECIDABLE_KEYWORDS:
-            if kw in label_lower:
-                return 0.5
+        if _UNDECIDABLE_PATTERN.search(node.label):
+            return 0.5
         return 0.0
 
     def _strategy_for_zone(self, zone: str) -> str:

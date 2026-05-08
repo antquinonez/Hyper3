@@ -112,9 +112,16 @@ class _MemoryBase:
     _invariant_detector: InvariantDetector | None
     _prefetch: StructuralPrefetchEngine | None
 
-    def _invalidate_frame_cache(self) -> None:
+    def _invalidate_frame_cache(self, *concepts: str) -> None:
         if self._perspective._frame_cache is not None:
-            self._perspective._frame_cache.clear()
+            if concepts:
+                fc = self._perspective._frame_cache
+                suffixes = {f":{c}" for c in concepts}
+                for key in fc:
+                    if any(key.endswith(s) for s in suffixes):
+                        fc.invalidate_all(key)
+            else:
+                self._perspective._frame_cache.clear()
 
     def _find_node(self, label: str) -> Hypernode | None:
         """Look up a node by label, checking cache, label index, and aliases."""

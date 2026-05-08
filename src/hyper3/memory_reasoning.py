@@ -600,13 +600,12 @@ class ReasoningMixin(_MemoryBase):
         rules: list[Rule] | None = None,
         strategy: str = "weighted",
     ) -> FusedReasonResult:
-        """Run reasoning through multiple frames and fuse results.
+        """Run reasoning through multiple frames independently and fuse results.
 
-        Executes :meth:`reason_with_frame` for each frame sequentially.
-        Because each call commits its overlay to the graph, subsequent
-        frames reason over the accumulated edges from all prior frames
-        (cumulative reasoning).  The agreement and fusion metrics reflect
-        this cumulative structure.
+        Each frame reasons over the same starting graph state so that
+        agreement and fusion metrics reflect genuinely independent
+        perspectives.  Only the fused edges are committed to the base
+        graph after all frames complete.
 
         Args:
             seed_concepts: Labels of seed nodes.
@@ -629,11 +628,58 @@ class ReasoningMixin(_MemoryBase):
         if frames is None:
             frames = list(self._perspective.frames.keys())
 
+        seed_ids = self._resolve_seeds(seed_concepts)
+        features = self._perspective.extract_problem_features(list(seed_ids))
+
         per_frame: dict[str, ReasonResult] = {}
+        overlay_data: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+
         for frame_name in frames:
-            result = self.reason_with_frame(
-                seed_concepts, frame_name=frame_name, rules=rules
+            best_transform = None
+            for concept in seed_concepts:
+                transformed = self._perspective.transform_config(concept, "classical", frame_name)
+                if best_transform is None or transformed.information_loss < best_transform.information_loss:
+                    best_transform = transformed
+            if best_transform is None:
+                best_transform = self._perspective.transform_config("", "classical", frame_name)
+            max_depth = best_transform.max_depth
+            max_states = best_transform.max_total_states
+
+            result = self.reason(
+                seed_concepts,
+                rules=rules,
+                max_depth=max_depth,
+                max_total_states=max_states,
+                auto_commit=False,
             )
+
+            success = False
+            if result.overlay is not None:
+                edge_count = result.overlay.get("edge_count", 0)
+                confidence_map = result.confidence or {}
+                high_conf = sum(1 for c in confidence_map.values() if c > 0.5)
+                success = edge_count > 0 and (high_conf > 0 or not confidence_map)
+            elif result.error is None:
+                new_edges = result.expansion.edges_produced if result.expansion else 0
+                success = new_edges > 0
+
+            self._perspective.record_frame_outcome(frame_name, success)
+            self._perspective.record_problem_outcome(features, frame_name, success)
+            result.frame_config = {
+                "algorithm": best_transform.algorithm,
+                "information_loss": best_transform.information_loss,
+                "preserved_properties": best_transform.preserved_properties,
+            }
+
+            if self._overlay:
+                overlay_data[frame_name] = (
+                    dict(self._overlay._overlay_nodes),
+                    dict(self._overlay._overlay_edges),
+                )
+            else:
+                overlay_data[frame_name] = ({}, {})
+
+            self._overlay = None
             per_frame[frame_name] = result
 
         frame_edges: dict[str, set[str]] = {}
@@ -708,6 +754,25 @@ class ReasoningMixin(_MemoryBase):
                 information_loss=info_loss,
                 unique_edges=unique,
             ))
+
+        committed_nodes: set[str] = set()
+        committed_edges: set[str] = set()
+        for frame_name in frames:
+            nodes_dict, edges_dict = overlay_data.get(frame_name, ({}, {}))
+            for eid in fused_set:
+                edge = edges_dict.get(eid)
+                if edge is None:
+                    continue
+                for nid in edge.source_ids | edge.target_ids:
+                    node = nodes_dict.get(nid)
+                    if node and nid not in committed_nodes:
+                        self._graph.add_node(node)
+                        committed_nodes.add(nid)
+                if eid not in committed_edges:
+                    self._graph.add_edge(edge)
+                    committed_edges.add(eid)
+        if committed_edges:
+            self._invalidate_frame_cache()
 
         return FusedReasonResult(
             frame_count=len(frames),

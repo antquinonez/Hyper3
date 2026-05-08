@@ -179,7 +179,7 @@ class CoreMixin(_MemoryBase):
             node.data = {}
         if isinstance(node.data, dict):
             node.data.update(kwargs)
-        self._invalidate_frame_cache()
+        self._invalidate_frame_cache(concept)
 
     def info(self, concept: str) -> NodeInfo | None:
         node = self._find_node(concept)
@@ -230,7 +230,7 @@ class CoreMixin(_MemoryBase):
         self._graph.add_node(node)
         self._cache.put(f"store:{concept}", node.id)
         self._log.record("store", node_id=node.id, concept=concept)
-        self._invalidate_frame_cache()
+        self._invalidate_frame_cache(concept)
         self._maybe_evolve()
         return node
 
@@ -297,7 +297,7 @@ class CoreMixin(_MemoryBase):
                     raise ConstraintViolationError(rev_violations)
             self._graph.add_edge(rev)
 
-        self._invalidate_frame_cache()
+        self._invalidate_frame_cache(source, target)
         self._log.record(
             "relate",
             source=source,
@@ -357,7 +357,7 @@ class CoreMixin(_MemoryBase):
                 raise ConstraintViolationError(violations)
 
         self._graph.add_edge(edge)
-        self._invalidate_frame_cache()
+        self._invalidate_frame_cache(*sources, *targets)
         self._log.record(
             "relate_hyperedge",
             sources=list(sources),
@@ -505,7 +505,7 @@ class CoreMixin(_MemoryBase):
         node = Hypernode(label=concept, data=data, metadata=meta, created_at=time.time())
         node.touch(time.time())
         self._graph.add_node(node)
-        self._invalidate_frame_cache()
+        self._invalidate_frame_cache(concept)
         return node
 
     def neighbors(

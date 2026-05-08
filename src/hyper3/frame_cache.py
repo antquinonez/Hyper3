@@ -98,6 +98,12 @@ class FrameCache:
             total += cache.evict_expired()
         return total
 
+    def invalidate_all(self, key: str) -> bool:
+        found = self._general.invalidate(key)
+        for cache in self._frames.values():
+            found = cache.invalidate(key) or found
+        return found
+
     def clear(self) -> None:
         self._general.clear()
         for cache in self._frames.values():

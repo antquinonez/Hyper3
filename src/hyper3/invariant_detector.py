@@ -40,15 +40,48 @@ class InvariantDetector:
         self._graph = graph
         self._frame_names = frame_names or ["classical", "quantum", "hypergraph", "probabilistic"]
 
+    def _frame_degree(self, node_id: str, frame: str) -> tuple[float, int]:
+        if frame == "classical":
+            deg = len(self._graph.incident_edges(node_id))
+            nbrs = len(self._graph.neighbors(node_id))
+            return float(deg), nbrs
+        if frame == "quantum":
+            edges = [e for e in self._graph.incident_edges(node_id) if e.weight >= 0.5]
+            neighbor_ids: set[str] = set()
+            for e in edges:
+                neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return float(len(edges)), len(neighbor_ids)
+        if frame == "hypergraph":
+            edges = [e for e in self._graph.incident_edges(node_id)
+                     if len(e.source_ids) > 1 or len(e.target_ids) > 1]
+            neighbor_ids: set[str] = set()
+            for e in edges:
+                neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return float(len(edges)), len(neighbor_ids)
+        if frame == "probabilistic":
+            total_weight = sum(e.weight for e in self._graph.incident_edges(node_id))
+            neighbor_ids = set()
+            for e in self._graph.incident_edges(node_id):
+                if e.weight >= 0.3:
+                    neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return total_weight, len(neighbor_ids)
+        deg = len(self._graph.incident_edges(node_id))
+        nbrs = len(self._graph.neighbors(node_id))
+        return float(deg), nbrs
+
     def detect(self, node_id: str) -> InvariantReport:
         node = self._graph.get_node(node_id)
         if node is None:
             return InvariantReport(concept_id=node_id)
 
-        degrees: dict[str, int] = {}
-        for nid in self._graph._nodes:
-            degrees[nid] = len(self._graph.incident_edges(nid))
-        max_deg = max(degrees.values()) if degrees else 1
+        frame_max_deg: dict[str, float] = {}
+        for frame in self._frame_names:
+            max_d = 0.0
+            for nid in self._graph._nodes:
+                d, _ = self._frame_degree(nid, frame)
+                if d > max_d:
+                    max_d = d
+            frame_max_deg[frame] = max_d if max_d > 0 else 1.0
 
         pr = self._graph.pagerank()
         max_pr = max(pr.values()) if pr else 1.0
@@ -57,21 +90,18 @@ class InvariantDetector:
 
         properties: list[PropertyInvariant] = []
 
-        deg_normalized = degrees.get(node_id, 0) / max_deg if max_deg > 0 else 0.0
-        neighbor_count = len(self._graph.neighbors(node_id))
-
         deg_values: dict[str, str] = {}
         hub_values: dict[str, bool] = {}
         leaf_values: dict[str, bool] = {}
         centrality_values: dict[str, str] = {}
 
         for frame in self._frame_names:
-            frame_deg = deg_normalized
-            frame_neighbor = neighbor_count
+            deg, neighbor_count = self._frame_degree(node_id, frame)
+            deg_normalized = deg / frame_max_deg[frame]
 
-            deg_values[frame] = _bucket(frame_deg)
-            hub_values[frame] = _bucket(frame_deg) == "high" and frame_neighbor > 3
-            leaf_values[frame] = _bucket(frame_deg) == "low" and frame_neighbor <= 1
+            deg_values[frame] = _bucket(deg_normalized)
+            hub_values[frame] = _bucket(deg_normalized) == "high" and neighbor_count > 3
+            leaf_values[frame] = _bucket(deg_normalized) == "low" and neighbor_count <= 1
 
             node_pr = pr.get(node_id, 0.0)
             centrality_norm = node_pr / max_pr if max_pr > 0 else 0.0
