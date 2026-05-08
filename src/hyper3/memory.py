@@ -286,3 +286,19 @@ class HypergraphMemory(
 
     def edges(self, **kwargs):
         return self.analyze.edges(**kwargs)
+
+    @property
+    def frame_cache_stats(self):
+        if self._perspective._frame_cache is None:
+            return None
+        return self._perspective._frame_cache.stats()
+
+    def invalidate_frame_cache(self, frame=None):
+        fc = self._perspective._frame_cache
+        if fc is None:
+            return 0
+        if frame is not None:
+            return fc.invalidate_frame(frame)
+        s = fc.stats()
+        fc.clear()
+        return s.total_entries

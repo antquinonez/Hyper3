@@ -96,6 +96,10 @@ class _MemoryBase:
     _community_detector: CommunityDetector | None
     _graph_differ: GraphDiffer | None
 
+    def _invalidate_frame_cache(self) -> None:
+        if self._perspective._frame_cache is not None:
+            self._perspective._frame_cache.clear()
+
     def _find_node(self, label: str) -> Hypernode | None:
         """Look up a node by label, checking cache, label index, and aliases."""
         ...

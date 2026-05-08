@@ -171,6 +171,7 @@ class ReasoningMixin(_MemoryBase):
             if auto_commit:
                 self._overlay.commit()
                 self._overlay = None
+                self._invalidate_frame_cache()
                 self._track_rule_effectiveness()
         if auto_distributions:
             result.auto_distributions = [
@@ -264,6 +265,7 @@ class ReasoningMixin(_MemoryBase):
         if use_overlay:
             if self._overlay is not None:
                 self._overlay.commit()
+                self._invalidate_frame_cache()
             self._overlay = HypergraphOverlay(self._graph)
 
         assert self._multiway_engine is not None
@@ -313,6 +315,7 @@ class ReasoningMixin(_MemoryBase):
         if not self._overlay:
             return CommitResult()
         node_ids, edge_ids = self._overlay.commit()
+        self._invalidate_frame_cache()
         self._track_rule_effectiveness()
         self._log.record("commit_inferences", nodes=len(node_ids), edges=len(edge_ids))
         self._overlay = None

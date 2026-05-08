@@ -285,6 +285,8 @@ class PersistenceMixin(_MemoryBase):
         self._cache.clear()
         for node in self._graph.nodes:
             self._cache.put(f"store:{node.label}", node.id)
+        if self._perspective._frame_cache is not None:
+            self._perspective._frame_cache.clear()
         if snapshot is not None:
             self._restore_snapshot(snapshot)
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)

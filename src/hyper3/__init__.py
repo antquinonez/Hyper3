@@ -97,6 +97,11 @@ from hyper3.feedback import (
     FeedbackSignal,
     OperationFeedback,
 )
+from hyper3.frame_cache import (
+    FrameCache,
+    FrameCacheStats,
+    FramePartitionStats,
+)
 from hyper3.frame_transform import (
     FrameTransformer,
     TransformedConfig,
