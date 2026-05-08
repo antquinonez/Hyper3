@@ -454,6 +454,30 @@ class TestBeliefNamespaceEdgeCases:
         result = mem.belief._resolve_state("nonexistent")
         assert result is None
 
+    def test_sample_adaptive(self, mem):
+        mem.add("x")
+        mem.add("y")
+        mem.add("z")
+        qs = mem.belief.create(["x", "y", "z"])
+        label = mem.belief.sample_adaptive(qs)
+        assert label in ("x", "y", "z")
+
+    def test_sample_blended(self, mem):
+        mem.add("a")
+        mem.add("b")
+        qs = mem.belief.create(["a", "b"])
+        label = mem.belief.sample_blended(qs)
+        assert label in ("a", "b")
+
+    def test_basis_effectiveness(self, mem):
+        mem.add("x")
+        mem.add("y")
+        qs = mem.belief.create(["x", "y"])
+        mem.belief.sample_adaptive(qs)
+        eff = mem.belief.basis_effectiveness()
+        assert isinstance(eff, dict)
+        assert len(eff) > 0
+
 
 class TestSearchFeedbackDelegation:
     def test_record(self, populated):

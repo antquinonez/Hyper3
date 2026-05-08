@@ -10,6 +10,11 @@ from hyper3.backward_chain import (
     ProofStep,
     ProofTree,
 )
+from hyper3.basis_selector import (
+    BasisContext,
+    BasisOutcomeRecord,
+    BasisSelector,
+)
 from hyper3.bayesian import (
     BayesianLayer,
     CategoricalDistribution,

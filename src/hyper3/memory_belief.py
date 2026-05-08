@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hyper3.basis_selector import BasisContext, BasisOutcomeRecord, BasisSelector
 from hyper3.belief import (
     BeliefLayer,
     BeliefState,
@@ -299,3 +300,116 @@ class BeliefMixin(_MemoryBase):
     def all_distributions(self) -> list[BeliefState]:
         """Return all active belief distributions."""
         return list(self._belief._states.values())
+
+    def _get_basis_selector(self) -> BasisSelector:
+        if self._basis_selector is None:
+            self._basis_selector = BasisSelector(self._graph)
+            for name, rate in self._belief.basis_effectiveness.items():
+                selections = 10
+                successes = int(selections * rate)
+                for _ in range(successes):
+                    self._basis_selector._outcome_history.append(
+                        BasisOutcomeRecord(
+                            basis_name=name,
+                            context_vector=BasisContext().to_vector().tolist(),
+                            success=True,
+                            timestamp=0.0,
+                            concept_id="",
+                        )
+                    )
+                for _ in range(selections - successes):
+                    self._basis_selector._outcome_history.append(
+                        BasisOutcomeRecord(
+                            basis_name=name,
+                            context_vector=BasisContext().to_vector().tolist(),
+                            success=False,
+                            timestamp=0.0,
+                            concept_id="",
+                        )
+                    )
+        return self._basis_selector
+
+    def sample_adaptive(
+        self,
+        qs: BeliefState,
+    ) -> Outcome | None:
+        """Sample a belief state using automatically selected measurement basis.
+
+        The selector uses context features from the graph neighborhood and
+        Thompson sampling over past outcomes to choose the most effective
+        sampling profile.
+
+        Args:
+            qs: The belief state to sample.
+
+        Returns:
+            The selected Outcome, or None if sampling fails.
+        """
+        selector = self._get_basis_selector()
+        basis_name = selector.select_basis(qs.id, self._belief.bases)
+        context = selector.extract_context(qs.id)
+        result = self._belief.sample_with_profile(qs.id, basis_name)
+        selector.record_outcome(
+            basis_name=basis_name,
+            concept_id=qs.id,
+            context=context,
+            success=result is not None,
+        )
+        if result:
+            node = self._graph.get_node(result.node_id)
+            label = node.label if node else result.node_id
+            self._log.record("sample_adaptive", state_id=qs.id, selected=label, basis=basis_name)
+        return result
+
+    def sample_blended(
+        self,
+        qs: BeliefState,
+    ) -> Outcome | None:
+        """Sample a belief state using blended weights from multiple bases.
+
+        Computes a composite profile that merges dimensions from all available
+        profiles, weighted by their relevance to the current graph context.
+
+        Args:
+            qs: The belief state to sample.
+
+        Returns:
+            The selected Outcome, or None if sampling fails.
+        """
+        selector = self._get_basis_selector()
+        blended = selector.compute_blended_profile(qs.id, self._belief.bases)
+        if blended is None:
+            return self._belief.sample(qs.id)
+        weights: dict[str, float] = {}
+        for outcome in qs.outcomes:
+            node = self._graph.get_node(outcome.node_id)
+            if node:
+                w = 1.0
+                for dim in blended.dimensions:
+                    val = node.metadata.custom.get(dim, node.weight)
+                    w *= blended.weight_for(dim) * (1.0 + val)
+                weights[outcome.node_id] = max(0.0, w)
+            else:
+                weights[outcome.node_id] = 1.0
+        result = qs.sample(weights)
+        if result:
+            node = self._graph.get_node(result.node_id)
+            label = node.label if node else result.node_id
+            self._log.record("sample_blended", state_id=qs.id, selected=label)
+        return result
+
+    def list_basis_effectiveness(self) -> dict[str, float]:
+        """Return per-basis effectiveness metrics from the selector.
+
+        Returns:
+            Dict mapping basis name to success rate (0.0 to 1.0).
+        """
+        selector = self._get_basis_selector()
+        effectiveness: dict[str, float] = {}
+        for name in self._belief.bases:
+            outcomes = [r for r in selector._outcome_history if r.basis_name == name]
+            if outcomes:
+                effectiveness[name] = sum(1 for r in outcomes if r.success) / len(outcomes)
+            else:
+                effectiveness[name] = 0.0
+        return effectiveness

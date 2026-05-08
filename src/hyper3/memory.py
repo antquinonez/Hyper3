@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.backward_chain import BackwardChainEngine
+from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
 from hyper3.cache import LazyCache
@@ -205,6 +206,7 @@ class HypergraphMemory(
         self._abstraction_nav: AbstractionNavigator | None = None
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None
+        self._basis_selector: BasisSelector | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None
         self._ns_bayes: BayesNamespace | None = None

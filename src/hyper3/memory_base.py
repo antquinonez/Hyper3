@@ -4,6 +4,7 @@ from typing import Any
 
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.backward_chain import BackwardChainEngine
+from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
 from hyper3.cache import LazyCache
@@ -95,6 +96,7 @@ class _MemoryBase:
     _abstraction_nav: AbstractionNavigator | None
     _community_detector: CommunityDetector | None
     _graph_differ: GraphDiffer | None
+    _basis_selector: BasisSelector | None
 
     def _invalidate_frame_cache(self) -> None:
         if self._perspective._frame_cache is not None:

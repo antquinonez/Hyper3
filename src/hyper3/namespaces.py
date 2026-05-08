@@ -415,6 +415,26 @@ class BeliefNamespace:
         state_id = state.id if hasattr(state, "id") else state
         return self._mem.compute_density_matrix(state_id)
 
+    def sample_adaptive(self, state: BeliefState) -> str | None:
+        result = self._mem.sample_adaptive(state)
+        if result is None:
+            return None
+        return self._mem.node_label(result.node_id)
+
+    def sample_blended(self, state: BeliefState) -> str | None:
+        result = self._mem.sample_blended(state)
+        if result is None:
+            return None
+        return self._mem.node_label(result.node_id)
+
+    def basis_effectiveness(self) -> dict[str, float]:
+        """Return per-basis effectiveness metrics.
+
+        Returns:
+            Dict mapping basis name to success rate (0.0 to 1.0).
+        """
+        return self._mem.list_basis_effectiveness()
+
     def _resolve_state(self, concept: str) -> BeliefState | None:
         node_id = self._mem.resolve_id(concept)
         if node_id is None:
