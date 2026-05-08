@@ -160,6 +160,12 @@ from hyper3.hebbian import (
     HebbianResult,
     HebbianUpdate,
 )
+from hyper3.interference_reasoning import (
+    InterferenceInsight,
+    InterferencePattern,
+    InterferenceReasoningEngine,
+    InterferenceReport,
+)
 from hyper3.kernel import (
     AbstractionLayer,
     Hyperedge,

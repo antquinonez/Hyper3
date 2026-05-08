@@ -20,6 +20,7 @@ from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
+from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
@@ -103,6 +104,7 @@ class _MemoryBase:
     _boundary_reasoning: BoundaryReasoningEngine | None
     _transcendental: TranscendentalInferenceEngine | None
     _adaptive_slice: AdaptiveSliceEngine | None
+    _interference_engine: InterferenceReasoningEngine | None
 
     def _invalidate_frame_cache(self) -> None:
         if self._perspective._frame_cache is not None:

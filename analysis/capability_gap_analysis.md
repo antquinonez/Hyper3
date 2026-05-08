@@ -101,6 +101,8 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 | 7 | C4 Frame-Partitioned Caching | `FrameCache` | `cde4a7a` |
 | 8 | C10 Adaptive Observer-Slice Feedback Loop | `AdaptiveSliceEngine` | pending |
 | -- | C21 Multi-Path Confidence Fusion | `reason_fused()` mixin method | `bbb30ee` |
+| -- | C10 Adaptive Observer-Slice | `AdaptiveSliceEngine` | `ddf2633` |
+| -- | C6 Interference-Based Reasoning | `InterferenceReasoningEngine` | pending |
 
 ### Designed but NOT Implemented (2 designs)
 
@@ -139,15 +141,7 @@ After eliminating everything that is implemented, designed, or out of scope, **8
 
 ### 2. Interference-Based Reasoning Engine
 
-**What it does**: Systematically analyzes constructive and destructive interference patterns across the belief layer, uses interference maxima as collapse triggers, and generates insights from interference structure. The `EvidenceInteraction` dataclass already tracks constructive/destructive amplitudes per node, but this data is never used to trigger sampling decisions, detect graph-wide interference patterns, or inform reasoning strategy.
-
-**Interacts with**: `BeliefLayer`, `EntanglementEngine`, `BasisSelector`, `TranscendentalInferenceEngine`
-
-**New engine or extension**: New engine.
-
-**Complexity**: M (~250-350 LoC engine, ~200 LoC tests)
-
-**Why it matters**: This is what makes the quantum cognitive effects genuinely quantum-inspired rather than just fancy probability distributions. The inspiration doc dedicates ~250 lines (1484-1742) to interference patterns. Currently the implementation only uses Born-rule sampling.
+**Status**: DONE. Implemented as `InterferenceReasoningEngine` in `interference_reasoning.py` with cross-distribution interference computation, contradiction/reinforcement detection, interference-to-insight pipeline, and pattern history tracking. Wired into `BeliefMixin` via `analyze_interference()` and `interference_report()`. 24 unit tests in `test_interference_reasoning.py`. Exports in `__init__.py`.
 
 ### 3. Adaptive Observer Slice Engine
 
@@ -204,7 +198,7 @@ After eliminating everything that is implemented, designed, or out of scope, **8
 | Rank | Capability | New Engine? | Complexity | Value | Status |
 |------|-----------|-------------|------------|-------|--------|
 | 1 | Causal Path Normalization | Yes | L | Core architecture claim. Path-independent reasoning. | |
-| 2 | Interference-Based Reasoning | Yes | M | Genuinely novel quantum-inspired capability. | |
+| 2 | Interference-Based Reasoning | Yes | M | Genuinely novel quantum-inspired capability. | DONE (InterferenceReasoningEngine) |
 | 3 | Adaptive Observer Slice | Yes | S-M | Closes usage-to-view feedback loop. | DONE (AdaptiveSliceEngine) |
 | 4 | Computational Density Mapper | Extends RuleAnalytics | S | Completes computational self-location. | DONE (already in RuleAnalytics) |
 | 5 | Multi-Path Confidence Fusion | Mixin wiring | S | Extracts complementary value from all frames. | DONE (reason_fused) |
@@ -219,11 +213,9 @@ DONE:
   4. Computational Density Mapper (already in RuleAnalytics)
   5. Multi-Path Confidence Fusion (reason_fused in memory_reasoning.py)
   3. Adaptive Observer Slice (AdaptiveSliceEngine in adaptive_slice.py)
+  2. Interference-Based Reasoning (InterferenceReasoningEngine in interference_reasoning.py)
 
-Next — Novel engines (new capabilities):
-  2. Interference-Based Reasoning
-
-Large commitment:
+Next — Large commitment:
   1. Causal Path Normalization
 
 Optimization/Theoretical (defer):

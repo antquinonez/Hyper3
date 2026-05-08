@@ -17,6 +17,11 @@ from hyper3.boundary_reasoning import (
 )
 from hyper3.entanglement import CorrelatedCollapseResult
 from hyper3.exceptions import NodeNotFoundError
+from hyper3.interference_reasoning import (
+    InterferenceInsight,
+    InterferenceReasoningEngine,
+    InterferenceReport,
+)
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_anomaly import BoundaryRegion
 from hyper3.transcendental import TranscendentalInferenceEngine
@@ -489,3 +494,45 @@ class BeliefMixin(_MemoryBase):
             else:
                 effectiveness[name] = 0.0
         return effectiveness
+
+    def analyze_interference(self, concepts: list[str]) -> list[InterferenceInsight]:
+        """Analyze cross-distribution interference for the given concepts.
+
+        Finds active belief distributions containing any of the given
+        concept labels and runs interference-based insight generation
+        across them.
+
+        Args:
+            concepts: Concept labels whose distributions to analyze.
+
+        Returns:
+            List of InterferenceInsight objects.
+        """
+        node_ids = set()
+        for c in concepts:
+            nid = self.resolve_id(c)
+            if nid:
+                node_ids.add(nid)
+        active = [qs for qs in self._belief.active_distributions
+                  if any(o.node_id in node_ids for o in qs.outcomes)]
+        if len(active) < 2:
+            return []
+        if self._interference_engine is None:
+            self._interference_engine = InterferenceReasoningEngine(
+                self._graph, self._belief
+            )
+        return self._interference_engine.generate_insights(
+            [qs.id for qs in active]
+        )
+
+    def interference_report(self) -> InterferenceReport:
+        """Return the accumulated interference analysis report.
+
+        Returns:
+            InterferenceReport with pattern history and persistent nodes.
+        """
+        if self._interference_engine is None:
+            self._interference_engine = InterferenceReasoningEngine(
+                self._graph, self._belief
+            )
+        return self._interference_engine.report()

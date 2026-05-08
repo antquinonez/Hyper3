@@ -20,6 +20,7 @@ from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
+from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.kernel import Hypergraph
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
@@ -216,6 +217,7 @@ class HypergraphMemory(
         self._boundary_reasoning: BoundaryReasoningEngine | None = None
         self._transcendental: TranscendentalInferenceEngine | None = None
         self._adaptive_slice: AdaptiveSliceEngine | None = None
+        self._interference_engine: InterferenceReasoningEngine | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None
         self._ns_bayes: BayesNamespace | None = None
