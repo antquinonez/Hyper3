@@ -8,14 +8,17 @@ from hyper3.rules import Rule, RuleMatch
 
 
 class SimultaneityRule(Rule):
+    """Rule that creates simultaneous edges between nodes that co-occur in sibling multiway states."""
     def __init__(self, multiway: MultiwayGraph) -> None:
         self._multiway = multiway
 
     @property
     def name(self) -> str:
+        """Return the rule name "simultaneity"."""
         return "simultaneity"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Find pairs of nodes that appear together in sibling multiway leaves (share a parent state) but lack a simultaneous edge."""
         leaves = self._multiway.get_leaves()
         by_parent: dict[str, list] = {}
         for leaf in leaves:
@@ -46,6 +49,7 @@ class SimultaneityRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Create a "simultaneous" labeled edge between the matched pair of nodes."""
         s = match.bindings["source"]
         t = match.bindings["target"]
         edge = Hyperedge(

@@ -9,6 +9,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class CollapseDecision(_SimpleResultBase):
+    """Result of evaluating a belief state for collapse triggers."""
     state_id: str = ""
     collapse_recommended: bool = False
     confidence: float = 0.0
@@ -20,10 +21,12 @@ class CollapseDecision(_SimpleResultBase):
 
 
 class CollapseTriggerEngine:
+    """Evaluates belief states for conditions that warrant probability collapse (staleness, dominance, convergence, interference peaks)."""
     def __init__(self, belief: BeliefLayer) -> None:
         self._belief = belief
 
     def evaluate(self, qs_id: str) -> CollapseDecision:
+        """Evaluate a single belief state for collapse triggers (staleness, single outcome, dominance, convergence, interference peak) and return a CollapseDecision."""
         qs = self._belief._states.get(qs_id)
         if qs is None:
             return CollapseDecision(state_id=qs_id)
@@ -93,6 +96,7 @@ class CollapseTriggerEngine:
         )
 
     def evaluate_all(self) -> list[CollapseDecision]:
+        """Evaluate all active belief distributions and return decisions sorted by confidence descending."""
         results = sorted(
             (self.evaluate(qs.id) for qs in self._belief.active_distributions),
             key=lambda d: d.confidence,

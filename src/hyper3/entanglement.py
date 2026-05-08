@@ -13,6 +13,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class EntanglementLink(_SimpleResultBase):
+    """A bidirectional entanglement link between two belief distributions."""
     id: str = ""
     distribution_a_id: str = ""
     distribution_b_id: str = ""
@@ -23,6 +24,7 @@ class EntanglementLink(_SimpleResultBase):
 
 @dataclass
 class EntanglementGroup(_SimpleResultBase):
+    """A connected component of entangled distributions, merged via union-find."""
     id: str = ""
     distribution_ids: frozenset[str] = frozenset()
     link_ids: frozenset[str] = frozenset()
@@ -31,6 +33,7 @@ class EntanglementGroup(_SimpleResultBase):
 
 @dataclass
 class CorrelatedCollapseResult(_SimpleResultBase):
+    """Result of cascading a collapse through an entanglement group."""
     collapsed_distributions: dict[str, str] = field(default_factory=dict)
     collapse_order: list[str] = field(default_factory=list)
     entanglement_group_id: str | None = None
@@ -40,6 +43,7 @@ class CorrelatedCollapseResult(_SimpleResultBase):
 
 @dataclass
 class EntanglementReport(_SimpleResultBase):
+    """Summary of current entanglement state: groups, links, and collapse count."""
     total_groups: int = 0
     total_links: int = 0
     total_collapses: int = 0
@@ -48,6 +52,7 @@ class EntanglementReport(_SimpleResultBase):
 
 
 class EntanglementEngine:
+    """Manages entanglement links and groups between belief distributions and performs correlated cascade collapses."""
     def __init__(self) -> None:
         self._links: dict[str, EntanglementLink] = {}
         self._groups: dict[str, EntanglementGroup] = {}
@@ -62,6 +67,7 @@ class EntanglementEngine:
         correlation_id: str,
         strength: float,
     ) -> EntanglementLink:
+        """Register an entanglement link between two distributions, auto-merging or creating entanglement groups as needed."""
         if dist_a_id == dist_b_id:
             return EntanglementLink()
         link = EntanglementLink(
@@ -79,12 +85,14 @@ class EntanglementEngine:
         return link
 
     def find_group(self, distribution_id: str) -> EntanglementGroup | None:
+        """Return the EntanglementGroup containing a distribution, or None if the distribution is not entangled."""
         group_id = self._dist_to_group.get(distribution_id)
         if group_id is None:
             return None
         return self._groups.get(group_id)
 
     def find_entangled(self, distribution_id: str) -> set[str]:
+        """Return the set of distribution IDs entangled with the given distribution, excluding itself."""
         group = self.find_group(distribution_id)
         if group is None:
             return set()
@@ -97,6 +105,7 @@ class EntanglementEngine:
         correlations: dict[str, ConceptCorrelation],
         link: EntanglementLink,
     ) -> dict[str, float]:
+        """Compute outcome sampling weights for a target belief state based on correlation values from an entanglement link."""
         corr = correlations.get(link.correlation_id)
         if corr is None:
             return {}
@@ -120,6 +129,7 @@ class EntanglementEngine:
         correlations: dict[str, ConceptCorrelation],
         sample_fn: Callable[[str, dict[str, float] | None], Outcome | None],
     ) -> CorrelatedCollapseResult | None:
+        """Cascade a collapse from the trigger distribution through its entanglement group, using correlation-weighted sampling at each step."""
         group = self.find_group(trigger_dist_id)
         if group is None:
             return None
@@ -189,6 +199,7 @@ class EntanglementEngine:
         )
 
     def remove_link(self, link_id: str) -> None:
+        """Remove an entanglement link by ID and rebuild all groups."""
         link = self._links.pop(link_id, None)
         if link is None:
             return
@@ -201,6 +212,7 @@ class EntanglementEngine:
         self._rebuild_groups()
 
     def clear(self) -> None:
+        """Remove all links, groups, and reset collapse count."""
         self._links.clear()
         self._groups.clear()
         self._dist_to_links.clear()
@@ -208,6 +220,7 @@ class EntanglementEngine:
         self._collapse_count = 0
 
     def report(self) -> EntanglementReport:
+        """Return an EntanglementReport summarising current groups, links, and collapse history."""
         return EntanglementReport(
             total_groups=len(self._groups),
             total_links=len(self._links),
@@ -217,6 +230,7 @@ class EntanglementEngine:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the engine state (links and collapse count) to a plain dict."""
         return {
             "links": [
                 {
@@ -234,6 +248,7 @@ class EntanglementEngine:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> EntanglementEngine:
+        """Reconstruct an EntanglementEngine from a serialized dict, restoring links and groups."""
         engine = cls()
         for ld in data.get("links", []):
             link = EntanglementLink(

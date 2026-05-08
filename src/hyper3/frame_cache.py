@@ -9,6 +9,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class FramePartitionStats(_SimpleResultBase):
+    """Statistics for a single frame partition within the frame cache."""
     frame: str = ""
     size: int = 0
     max_size: int = 0
@@ -18,6 +19,7 @@ class FramePartitionStats(_SimpleResultBase):
 
 @dataclass
 class FrameCacheStats(_SimpleResultBase):
+    """Aggregate statistics across all frame partitions and the general cache."""
     total_entries: int = 0
     total_capacity: int = 0
     frame_partitions: list[FramePartitionStats] = field(default_factory=list)
@@ -50,6 +52,7 @@ class FrameCache:
         self._frame_sizes: dict[str, int] = {}
 
     def get(self, key: str, *, frame: str | None = None) -> Any | None:
+        """Retrieve a cached value by key, checking the named frame partition first then the general cache."""
         if frame is not None:
             cache = self._frames.get(frame)
             if cache is not None:
@@ -65,6 +68,7 @@ class FrameCache:
         *,
         frame: str | None = None,
     ) -> None:
+        """Store a value under *key*, writing to both the named frame partition and the general cache."""
         if frame is not None:
             if frame not in self._frames:
                 self._ensure_frame(frame)
@@ -74,6 +78,7 @@ class FrameCache:
             self._general.put(key, value)
 
     def invalidate(self, key: str, *, frame: str | None = None) -> bool:
+        """Remove a single key from one frame partition and the general cache. Returns True if the key was found."""
         found = False
         if frame is not None:
             cache = self._frames.get(frame)
@@ -83,6 +88,7 @@ class FrameCache:
         return found
 
     def invalidate_frame(self, frame: str) -> int:
+        """Remove all entries for a specific frame partition and their corresponding keys from the general cache. Returns the count of entries removed."""
         cache = self._frames.get(frame)
         if cache is None:
             return 0
@@ -93,23 +99,27 @@ class FrameCache:
         return count
 
     def evict_expired(self) -> int:
+        """Evict TTL-expired entries from the general cache and every frame partition. Returns total entries evicted."""
         total = self._general.evict_expired()
         for cache in self._frames.values():
             total += cache.evict_expired()
         return total
 
     def invalidate_all(self, key: str) -> bool:
+        """Remove a key from every frame partition and the general cache. Returns True if the key was found anywhere."""
         found = self._general.invalidate(key)
         for cache in self._frames.values():
             found = cache.invalidate(key) or found
         return found
 
     def clear(self) -> None:
+        """Remove all entries from the general cache and every frame partition."""
         self._general.clear()
         for cache in self._frames.values():
             cache.clear()
 
     def stats(self) -> FrameCacheStats:
+        """Return a FrameCacheStats snapshot with per-frame partition sizes and overall utilization."""
         frame_stats: list[FramePartitionStats] = []
         for name, cache in self._frames.items():
             sz = cache.size
@@ -135,11 +145,13 @@ class FrameCache:
         )
 
     def resize_frame(self, frame: str, new_quota: int) -> None:
+        """Change the maximum size quota for an existing frame partition."""
         if frame in self._frames:
             self._frames[frame]._max_size = new_quota
             self._frame_sizes[frame] = new_quota
 
     def rebalance(self) -> None:
+        """Redistribute capacity among active frame partitions proportional to their current usage."""
         active_frames = [
             f for f in self._frames if self._frames[f].size > 0
         ]
@@ -171,6 +183,7 @@ class FrameCache:
         )
 
     def keys(self, *, frame: str | None = None) -> list[str]:
+        """Return all cached keys, optionally filtered to a single frame partition."""
         if frame is not None:
             cache = self._frames.get(frame)
             if cache is not None:
@@ -182,6 +195,7 @@ class FrameCache:
         return all_keys
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the cache configuration (sizes, quotas, TTL) to a plain dict."""
         return {
             "max_total_size": self._max_total_size,
             "frame_quota": self._frame_quota,
@@ -191,6 +205,7 @@ class FrameCache:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> FrameCache:
+        """Reconstruct a FrameCache from a serialized dict, restoring frame partitions and quotas."""
         fc = cls(
             max_total_size=data.get("max_total_size", 2048),
             frame_quota=data.get("frame_quota", 256),

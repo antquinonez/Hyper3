@@ -9,6 +9,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class PrefetchConfig(_SimpleResultBase):
+    """Configuration for the structural prefetch engine."""
     max_neighbors: int = 10
     min_weight: float = 0.3
     lookahead_depth: int = 1
@@ -17,6 +18,7 @@ class PrefetchConfig(_SimpleResultBase):
 
 @dataclass
 class PrefetchStats(_SimpleResultBase):
+    """Running statistics for prefetch operations."""
     prefetches_attempted: int = 0
     prefetches_hit: int = 0
     prefetches_added: int = 0
@@ -24,6 +26,7 @@ class PrefetchStats(_SimpleResultBase):
 
 
 class StructuralPrefetchEngine:
+    """Prefetches neighboring nodes into the cache on access to accelerate subsequent lookups."""
     def __init__(self, graph: Hypergraph, cache: LazyCache, config: PrefetchConfig | None = None) -> None:
         self._graph = graph
         self._cache = cache
@@ -31,6 +34,7 @@ class StructuralPrefetchEngine:
         self._stats = PrefetchStats()
 
     def on_access(self, node_id: str) -> int:
+        """On node access, prefetch its highest-weight neighbors into the cache. Returns the number of new cache entries added."""
         if not self._config.enabled:
             return 0
         node = self._graph.get_node(node_id)
@@ -67,6 +71,7 @@ class StructuralPrefetchEngine:
         return added
 
     def stats(self) -> PrefetchStats:
+        """Return a snapshot of prefetch statistics (attempts, hits, additions, nodes scanned)."""
         return PrefetchStats(
             prefetches_attempted=self._stats.prefetches_attempted,
             prefetches_hit=self._stats.prefetches_hit,
@@ -75,4 +80,5 @@ class StructuralPrefetchEngine:
         )
 
     def reset_stats(self) -> None:
+        """Reset all prefetch counters to zero."""
         self._stats = PrefetchStats()

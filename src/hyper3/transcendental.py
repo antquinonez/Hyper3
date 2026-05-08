@@ -12,6 +12,7 @@ from hyper3.rule_analytics import DetectedPattern, HighLevelInsight
 
 @dataclass
 class TransferablePattern(_SimpleResultBase):
+    """A pattern derived from one domain that can be transferred to another context."""
     source_domain: str = ""
     pattern_description: str = ""
     structural_signature: dict[str, Any] = field(default_factory=dict)
@@ -24,6 +25,7 @@ class TransferablePattern(_SimpleResultBase):
 
 @dataclass
 class TranscendentalInsight(_SimpleResultBase):
+    """A meta-level insight synthesized from rule analytics and clustering results."""
     id: str = ""
     principle: str = ""
     source_insight_ids: list[str] = field(default_factory=list)
@@ -37,6 +39,7 @@ class TranscendentalInsight(_SimpleResultBase):
 
 @dataclass
 class InferenceProposal(_SimpleResultBase):
+    """An actionable proposal generated from a transferable pattern."""
     target_context: str = ""
     action_type: str = ""
     action_params: dict[str, Any] = field(default_factory=dict)
@@ -47,6 +50,7 @@ class InferenceProposal(_SimpleResultBase):
 
 @dataclass
 class TranscendentalReport(_SimpleResultBase):
+    """Summary of transcendental inference state: insights, transferables, and proposals."""
     total_insights: int = 0
     total_transferables: int = 0
     total_proposals: int = 0
@@ -56,6 +60,7 @@ class TranscendentalReport(_SimpleResultBase):
 
 
 class TranscendentalInferenceEngine:
+    """Generates meta-level insights and transferable patterns from rule analytics and state clustering for cross-domain inference."""
     def __init__(self, graph: Hypergraph) -> None:
         self._graph = graph
         self._insights: list[TranscendentalInsight] = []
@@ -68,6 +73,7 @@ class TranscendentalInferenceEngine:
         insights: list[HighLevelInsight],
         patterns: list[DetectedPattern],
     ) -> list[TranscendentalInsight]:
+        """Ingest high-level insights and detected patterns from rule analytics, deriving transferable patterns and transcendental insights."""
         new_insights: list[TranscendentalInsight] = []
         for hli in insights:
             if hli.confidence < 0.3:
@@ -102,6 +108,7 @@ class TranscendentalInferenceEngine:
         self,
         lateral_results: list[dict[str, Any]],
     ) -> list[TransferablePattern]:
+        """Ingest lateral-inference results from state clustering, converting transferable patterns into TransferablePattern objects."""
         new_transferables: list[TransferablePattern] = []
         for lr in lateral_results:
             transferable_labels = lr.get("transferable_patterns", [])
@@ -131,6 +138,7 @@ class TranscendentalInferenceEngine:
         self,
         context: str = "reasoning",
     ) -> list[InferenceProposal]:
+        """Generate actionable InferenceProposals from accumulated transferable patterns, filtered by context (reasoning, frame_selection, lateral)."""
         proposals: list[InferenceProposal] = []
         for tp in self._transferables:
             if context == "reasoning" and tp.transfer_function == "rule_suggestion":
@@ -173,6 +181,7 @@ class TranscendentalInferenceEngine:
         return sorted(proposals, key=lambda p: p.confidence, reverse=True)[:10]
 
     def get_frame_hints(self, concept_id: str) -> dict[str, float]:
+        """Return a dict of frame name to hint score for a concept, based on structural similarity to known transferable patterns."""
         hints: dict[str, float] = {}
         for tp in self._transferables:
             if tp.transfer_function != "frame_hint":
@@ -189,6 +198,7 @@ class TranscendentalInferenceEngine:
         self,
         simultaneity_peers: set[str],
     ) -> list[TransferablePattern]:
+        """Return transferable patterns relevant to the given simultaneity peers for lateral enrichment."""
         relevant: list[TransferablePattern] = []
         for tp in self._transferables:
             if tp.transfer_function != "edge_transfer":
@@ -199,6 +209,7 @@ class TranscendentalInferenceEngine:
         return relevant
 
     def report(self) -> TranscendentalReport:
+        """Return a TranscendentalReport summarising total insights, transferables, proposals, and domain breakdown."""
         domain_counts: dict[str, int] = {}
         for ti in self._insights:
             domain_counts[ti.domain] = domain_counts.get(ti.domain, 0) + 1
@@ -214,6 +225,7 @@ class TranscendentalInferenceEngine:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the engine state (insights and seen principles) to a plain dict."""
         return {
             "insights": [
                 {
@@ -246,6 +258,7 @@ class TranscendentalInferenceEngine:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], graph: Hypergraph) -> TranscendentalInferenceEngine:
+        """Reconstruct a TranscendentalInferenceEngine from a serialized dict, restoring insights, transferables, and seen principles."""
         engine = cls(graph)
         engine._seen_principles = set(data.get("seen_principles", []))
         for ti_data in data.get("insights", []):

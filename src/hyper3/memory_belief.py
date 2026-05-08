@@ -257,6 +257,7 @@ class BeliefMixin(_MemoryBase):
     def sample_entangled(
         self, qs: BeliefState
     ) -> CorrelatedCollapseResult | str | None:
+        """Sample a belief state and cascade the collapse through its entanglement group, returning a CorrelatedCollapseResult, outcome label, or None."""
         result = self._belief.sample_entangled(qs.id)
         if result is None:
             return None
@@ -286,6 +287,7 @@ class BeliefMixin(_MemoryBase):
                     )
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
+        """Generate lateral inference insights by comparing reasoning across nearby multiway states."""
         if not self._multiway_engine:
             return []
         node = self._find_node(seed_concept)
@@ -339,6 +341,7 @@ class BeliefMixin(_MemoryBase):
         return result
 
     def assess_boundary(self, concept: str) -> DecidabilityAssessment | None:
+        """Assess the decidability boundary of a concept by its label. Returns None if the concept does not exist."""
         node = self._find_node(concept)
         if node is None:
             return None
@@ -348,6 +351,7 @@ class BeliefMixin(_MemoryBase):
         return self._boundary_reasoning.assess(node.id)
 
     def navigate_boundary(self, concept: str) -> BoundaryNavigationReport | None:
+        """Navigate the decidability boundary of a concept, returning assessment, reasoning config, and warnings. Returns None if the concept does not exist."""
         node = self._find_node(concept)
         if node is None:
             return None
@@ -558,6 +562,7 @@ class BeliefMixin(_MemoryBase):
         return self._collapse_trigger.evaluate(active[0].id)
 
     def collapse_report(self) -> list[CollapseDecision]:
+        """Evaluate all active belief distributions for collapse triggers, returning decisions sorted by confidence."""
         if self._collapse_trigger is None:
             self._collapse_trigger = CollapseTriggerEngine(self._belief)
         return self._collapse_trigger.evaluate_all()

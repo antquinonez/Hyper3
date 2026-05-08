@@ -10,6 +10,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class DecidabilityAssessment(_SimpleResultBase):
+    """Assessment of a concept's decidability with score, boundary zone, detected patterns, and alternative formulations."""
     concept: str = ""
     concept_id: str = ""
     decidability_score: float = 0.0
@@ -23,6 +24,7 @@ class DecidabilityAssessment(_SimpleResultBase):
 
 @dataclass
 class BoundaryAwareReasonConfig(_SimpleResultBase):
+    """Reasoning parameters adjusted for a concept's boundary zone (depth limit, confidence cap, convergence requirement)."""
     strategy: str = "standard"
     max_reasoning_depth: int = 999
     confidence_cap: float = 1.0
@@ -33,6 +35,7 @@ class BoundaryAwareReasonConfig(_SimpleResultBase):
 
 @dataclass
 class BoundaryNavigationReport(_SimpleResultBase):
+    """Combined report from navigating a concept's decidability boundary: assessment, config, and warnings."""
     concept: str = ""
     assessment: DecidabilityAssessment = field(default_factory=DecidabilityAssessment)
     reasoning_config: BoundaryAwareReasonConfig = field(default_factory=BoundaryAwareReasonConfig)
@@ -59,6 +62,7 @@ _UNDECIDABLE_PATTERN = re.compile(
 
 
 class BoundaryReasoningEngine:
+    """Detects decidability boundaries in the knowledge graph by analyzing self-reference, negation cycles, infinite regress, and undecidability indicators."""
     def __init__(
         self,
         graph: Hypergraph,
@@ -84,6 +88,7 @@ class BoundaryReasoningEngine:
         self._negation_pairs.update(reverse)
 
     def assess(self, concept_id: str) -> DecidabilityAssessment:
+        """Assess the decidability of a concept by running six detection indicators and computing a weighted decidability score."""
         node = self._graph.get_node(concept_id)
         label = node.label if node else ""
 
@@ -137,12 +142,15 @@ class BoundaryReasoningEngine:
         )
 
     def assess_set(self, concept_ids: set[str]) -> list[DecidabilityAssessment]:
+        """Assess decidability for a set of concepts, returning one DecidabilityAssessment per concept."""
         return [self.assess(cid) for cid in concept_ids]
 
     def configure_reasoning(self, assessment: DecidabilityAssessment) -> BoundaryAwareReasonConfig:
+        """Derive a BoundaryAwareReasonConfig with depth and confidence limits appropriate for the assessed boundary zone."""
         return self._config_for_zone(assessment.boundary_zone)
 
     def navigate(self, concept_id: str) -> BoundaryNavigationReport:
+        """Assess a concept and return a BoundaryNavigationReport combining the assessment, derived reasoning config, and any warnings."""
         assessment = self.assess(concept_id)
         config = self.configure_reasoning(assessment)
         warnings: list[str] = []
@@ -162,6 +170,7 @@ class BoundaryReasoningEngine:
     def detect_negation_cycles(
         self, concept_id: str, max_depth: int = 6
     ) -> list[list[str]]:
+        """Find cycles in the graph where consecutive edges follow negation pairs (e.g. causes -> prevents -> causes)."""
         cycles: list[list[str]] = []
 
         def dfs(current: str, path: list[str], path_edges: set[tuple[str, str, str]], current_label: str) -> None:
@@ -187,6 +196,7 @@ class BoundaryReasoningEngine:
     def detect_infinite_regress(
         self, concept_id: str, min_chain_length: int = 4
     ) -> list[list[str]]:
+        """Find chains of same-labeled edges exceeding a minimum length, indicating potential infinite regress."""
         chains: list[list[str]] = []
 
         def dfs(current: str, path: list[str], edge_label: str) -> None:
@@ -209,6 +219,7 @@ class BoundaryReasoningEngine:
     def generate_alternatives(
         self, concept_id: str, assessment: DecidabilityAssessment
     ) -> list[str]:
+        """Generate reformulated versions of the concept based on detected boundary indicators."""
         alternatives: list[str] = []
         node = self._graph.get_node(concept_id)
         if node is None:

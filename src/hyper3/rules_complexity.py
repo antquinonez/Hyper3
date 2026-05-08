@@ -6,15 +6,18 @@ from hyper3.rules import Rule, RuleMatch
 
 
 class ComplexityComparisonRule(Rule):
+    """Rule that runs multi-frame complexity analysis on each concept and stamps the results onto node data."""
     def __init__(self, perspective: MultiPerspectiveAnalyzer, frames: list[str] | None = None) -> None:
         self._perspective = perspective
         self._frames = frames or ["classical", "quantum", "hypergraph", "probabilistic"]
 
     @property
     def name(self) -> str:
+        """Return the rule name "complexity_comparison"."""
         return "complexity_comparison"
 
     def find_matches(self, graph: Hypergraph, active_nodes: frozenset[str]) -> list[RuleMatch]:
+        """Match every active node that has not yet been analysed for complexity comparison."""
         matches: list[RuleMatch] = []
         for nid in active_nodes:
             node = graph.get_node(nid)
@@ -32,6 +35,7 @@ class ComplexityComparisonRule(Rule):
         return matches
 
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
+        """Run multi-frame analysis on the matched concept and stamp the per-frame complexities and optimal frame onto the node data."""
         node_id = match.bindings["concept"]
         node = graph.get_node(node_id)
         if node is None:

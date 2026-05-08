@@ -237,54 +237,63 @@ class HypergraphMemory(
 
     @property
     def reason(self) -> ReasonNamespace:
+        """Lazy-initialized property returning the reasoning namespace."""
         if self._ns_reason is None:
             self._ns_reason = ReasonNamespace(self)
         return self._ns_reason
 
     @property
     def belief(self) -> BeliefNamespace:
+        """Lazy-initialized property returning the belief namespace."""
         if self._ns_belief is None:
             self._ns_belief = BeliefNamespace(self)
         return self._ns_belief
 
     @property
     def bayes(self) -> BayesNamespace:
+        """Lazy-initialized property returning the Bayesian namespace."""
         if self._ns_bayes is None:
             self._ns_bayes = BayesNamespace(self)
         return self._ns_bayes
 
     @property
     def search(self) -> SearchNamespace:
+        """Lazy-initialized property returning the search namespace."""
         if self._ns_search is None:
             self._ns_search = SearchNamespace(self)
         return self._ns_search
 
     @property
     def analyze(self) -> AnalyzeNamespace:
+        """Lazy-initialized property returning the analytics namespace."""
         if self._ns_analyze is None:
             self._ns_analyze = AnalyzeNamespace(self)
         return self._ns_analyze
 
     @property
     def temporal(self) -> TemporalNamespace:
+        """Lazy-initialized property returning the temporal namespace."""
         if self._ns_temporal is None:
             self._ns_temporal = TemporalNamespace(self)
         return self._ns_temporal
 
     @property
     def monitor(self) -> MonitorNamespace:
+        """Lazy-initialized property returning the system monitor namespace."""
         if self._ns_monitor is None:
             self._ns_monitor = MonitorNamespace(self)
         return self._ns_monitor
 
     @property
     def cognitive(self) -> CognitiveNamespace:
+        """Lazy-initialized property returning the cognitive namespace."""
         if self._ns_cognitive is None:
             self._ns_cognitive = CognitiveNamespace(self)
         return self._ns_cognitive
 
     @property
     def engine(self) -> EngineAccessor:
+        """Lazy-initialized property returning the engine accessor."""
         if self._ns_engine is None:
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
@@ -309,11 +318,13 @@ class HypergraphMemory(
 
     @property
     def frame_cache_stats(self) -> Any:
+        """Return frame cache statistics, or None if the cache has not been initialized."""
         if self._perspective._frame_cache is None:
             return None
         return self._perspective._frame_cache.stats()
 
     def invalidate_frame_cache(self, frame=None) -> int:
+        """Invalidate frame cache entries. Pass a frame name for targeted invalidation, or clear everything."""
         fc = self._perspective._frame_cache
         if fc is None:
             return 0

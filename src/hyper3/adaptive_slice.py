@@ -21,6 +21,7 @@ def _l2_distance(a: list[float], b: list[float]) -> float:
 
 @dataclass
 class SliceContext(_SimpleResultBase):
+    """Feature vector describing the local graph context around a concept for slice parameter selection."""
     concept_id: str = ""
     degree_ratio: float = 0.0
     label_diversity: float = 0.0
@@ -30,6 +31,7 @@ class SliceContext(_SimpleResultBase):
     neighbor_count: int = 0
 
     def to_vector(self) -> list[float]:
+        """Convert the context features into a normalised float vector for similarity comparison."""
         return [
             self.degree_ratio,
             self.label_diversity,
@@ -42,6 +44,7 @@ class SliceContext(_SimpleResultBase):
 
 @dataclass
 class SliceOutcomeRecord(_SimpleResultBase):
+    """Record of a past slice configuration outcome used for Thompson sampling."""
     max_depth: int = 3
     max_nodes: int = 50
     min_weight: float = 0.0
@@ -53,6 +56,7 @@ class SliceOutcomeRecord(_SimpleResultBase):
 
 @dataclass
 class RecommendedSlice(_SimpleResultBase):
+    """Recommended slice parameters (depth, node limit, weight threshold) for observer traversal."""
     max_depth: int = 3
     max_nodes: int = 50
     min_weight: float = 0.0
@@ -62,6 +66,7 @@ class RecommendedSlice(_SimpleResultBase):
 
 @dataclass
 class AdaptiveSliceReport(_SimpleResultBase):
+    """Aggregate statistics over adaptive slice outcome history."""
     total_outcomes: int = 0
     successful_outcomes: int = 0
     grid_coverage: float = 0.0
@@ -71,6 +76,7 @@ class AdaptiveSliceReport(_SimpleResultBase):
 
 
 class AdaptiveSliceEngine:
+    """Thompson-sampling engine that recommends observer slice parameters based on historical success."""
     def __init__(
         self,
         graph: Hypergraph,
@@ -85,6 +91,7 @@ class AdaptiveSliceEngine:
         ]
 
     def extract_context(self, concept_id: str) -> SliceContext:
+        """Compute a slice-context feature vector for a concept, capturing degree ratio, label diversity, modality count, weight spread, connectivity, and neighbor count."""
         node = self._graph.get_node(concept_id)
         if node is None:
             return SliceContext(concept_id=concept_id)
@@ -130,6 +137,7 @@ class AdaptiveSliceEngine:
         )
 
     def recommend(self, concept_id: str) -> RecommendedSlice:
+        """Recommend slice parameters for a concept using Thompson sampling over historical outcomes, falling back to heuristics when no history exists."""
         context = self.extract_context(concept_id)
         context_vec = context.to_vector()
         if not self._outcome_history:
@@ -198,6 +206,7 @@ class AdaptiveSliceEngine:
         min_weight: float,
         success: bool,
     ) -> None:
+        """Record the success or failure of a past slice configuration so future recommendations can improve via Thompson sampling."""
         context = self.extract_context(concept_id)
         record = SliceOutcomeRecord(
             max_depth=max_depth,
@@ -213,6 +222,7 @@ class AdaptiveSliceEngine:
             self._outcome_history = self._outcome_history[-self._max_history :]
 
     def report(self) -> AdaptiveSliceReport:
+        """Return aggregate statistics over recorded outcomes: totals, success rate, grid coverage, and most-used parameters."""
         total = len(self._outcome_history)
         if total == 0:
             return AdaptiveSliceReport()
@@ -235,6 +245,7 @@ class AdaptiveSliceEngine:
         )
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the engine state (outcome history and max_history) to a plain dict."""
         return {
             "outcome_history": [
                 {
@@ -253,6 +264,7 @@ class AdaptiveSliceEngine:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], graph: Hypergraph) -> AdaptiveSliceEngine:
+        """Reconstruct an AdaptiveSliceEngine from a serialized dict, restoring outcome history."""
         engine = cls(graph, max_history=data.get("max_history", 500))
         for rd in data.get("outcome_history", []):
             engine._outcome_history.append(SliceOutcomeRecord(**rd))

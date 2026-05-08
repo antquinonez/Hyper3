@@ -10,6 +10,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class PropertyInvariant(_SimpleResultBase):
+    """Result of checking whether a single structural property is invariant across computational frames."""
     property_name: str = ""
     is_invariant: bool = False
     values: dict[str, Any] = field(default_factory=dict)
@@ -18,6 +19,7 @@ class PropertyInvariant(_SimpleResultBase):
 
 @dataclass
 class InvariantReport(_SimpleResultBase):
+    """Report summarising which properties of a concept are invariant across frames, with a robustness score."""
     concept: str = ""
     concept_id: str = ""
     frame_names: list[str] = field(default_factory=list)
@@ -36,6 +38,7 @@ def _bucket(value: float) -> str:
 
 
 class InvariantDetector:
+    """Detects structural properties of a concept that are invariant (robust) across different computational frames."""
     def __init__(self, graph: Hypergraph, frame_names: list[str] | None = None) -> None:
         self._graph = graph
         self._frame_names = frame_names or ["classical", "quantum", "hypergraph", "probabilistic"]
@@ -70,6 +73,7 @@ class InvariantDetector:
         return float(deg), nbrs
 
     def detect(self, node_id: str) -> InvariantReport:
+        """Check whether a node's structural properties (degree rank, hub/leaf status, centrality rank) are invariant across computational frames."""
         node = self._graph.get_node(node_id)
         if node is None:
             return InvariantReport(concept_id=node_id)
@@ -125,6 +129,7 @@ class InvariantDetector:
         )
 
     def detect_batch(self, node_ids: list[str]) -> list[InvariantReport]:
+        """Run detect() for a list of node IDs and return the reports."""
         return [self.detect(nid) for nid in node_ids]
 
     def _check_invariant(self, name: str, values: dict[str, Any]) -> PropertyInvariant:

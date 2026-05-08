@@ -718,6 +718,7 @@ class AnalyticsMixin(_MemoryBase):
         )
 
     def detect_invariants(self, concept: str) -> InvariantReport:
+        """Detect structural properties of a concept that are invariant across computational frames."""
         nid = self.resolve_id(concept)
         if not nid:
             return InvariantReport()

@@ -353,6 +353,7 @@ class BeliefLayer:
 
     @property
     def entanglement(self) -> EntanglementEngine:
+        """Lazy-initialized property returning the EntanglementEngine for this belief layer."""
         from hyper3.entanglement import EntanglementEngine as _EE
         if self._entanglement is None:
             self._entanglement = _EE()
@@ -361,6 +362,7 @@ class BeliefLayer:
     def sample_entangled(
         self, qs_id: str, context_weights: dict[str, float] | None = None
     ) -> CorrelatedCollapseResult | Outcome | None:
+        """Sample a belief state and cascade the collapse through its entanglement group using correlated sampling."""
         if self._entanglement is None:
             return self.sample(qs_id, context_weights)
         group = self._entanglement.find_group(qs_id)

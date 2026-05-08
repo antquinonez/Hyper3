@@ -10,6 +10,7 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class InterferencePattern(_SimpleResultBase):
+    """Constructive or destructive interference detected at a node from cross-distribution amplitude superposition."""
     node_id: str
     constructive: float = 0.0
     destructive: float = 0.0
@@ -18,15 +19,18 @@ class InterferencePattern(_SimpleResultBase):
 
     @property
     def is_constructive(self) -> bool:
+        """True when constructive interference was detected for this node."""
         return self.constructive > 0.0
 
     @property
     def is_destructive(self) -> bool:
+        """True when destructive interference was detected for this node."""
         return self.destructive > 0.0
 
 
 @dataclass
 class InterferenceInsight(_SimpleResultBase):
+    """An actionable insight derived from an interference pattern (contradiction or reinforcement)."""
     insight_type: str = ""
     confidence: float = 0.0
     node_id: str = ""
@@ -37,6 +41,7 @@ class InterferenceInsight(_SimpleResultBase):
 
 @dataclass
 class InterferenceReport(_SimpleResultBase):
+    """Aggregated report of all accumulated interference patterns and chronically affected nodes."""
     total_patterns: int = 0
     constructive_count: int = 0
     destructive_count: int = 0
@@ -47,6 +52,7 @@ class InterferenceReport(_SimpleResultBase):
 
 
 class InterferenceReasoningEngine:
+    """Analyzes cross-distribution interference patterns in belief states, detecting contradictions and reinforcements."""
     def __init__(self, graph: Hypergraph, belief: BeliefLayer) -> None:
         self._graph = graph
         self._belief = belief
@@ -56,6 +62,7 @@ class InterferenceReasoningEngine:
     def compute_cross_interference(
         self, state_ids: list[str]
     ) -> list[InterferencePattern]:
+        """Compute constructive and destructive interference patterns across the given belief states by summing amplitudes per node."""
         states: list[BeliefState] = []
         for sid in state_ids:
             qs = self._belief._states.get(sid)
@@ -104,24 +111,28 @@ class InterferenceReasoningEngine:
     def detect_contradictions(
         self, state_ids: list[str], threshold: float = 0.5
     ) -> list[InterferenceInsight]:
+        """Detect nodes where destructive interference exceeds the threshold, returning insights that flag contradictions."""
         patterns = self.compute_cross_interference(state_ids)
         return self._contradictions_from_patterns(patterns, threshold)
 
     def detect_reinforcements(
         self, state_ids: list[str], threshold: float = 0.5
     ) -> list[InterferenceInsight]:
+        """Detect nodes where constructive interference exceeds the threshold, returning insights that suggest reinforcement or merging."""
         patterns = self.compute_cross_interference(state_ids)
         return self._reinforcements_from_patterns(patterns, threshold)
 
     def generate_insights(
         self, state_ids: list[str]
     ) -> list[InterferenceInsight]:
+        """Run both contradiction and reinforcement detection and return the combined insights."""
         patterns = self.compute_cross_interference(state_ids)
         contradictions = self._contradictions_from_patterns(patterns, 0.5)
         reinforcements = self._reinforcements_from_patterns(patterns, 0.5)
         return contradictions + reinforcements
 
     def analyze(self) -> InterferenceReport:
+        """Aggregate all accumulated interference patterns into an InterferenceReport with counts, strongest patterns, and chronicled contradiction/reinforcement nodes."""
         all_patterns: list[InterferencePattern] = []
         for patterns in self._pattern_history.values():
             all_patterns.extend(patterns)
@@ -155,6 +166,7 @@ class InterferenceReasoningEngine:
         )
 
     def report(self) -> InterferenceReport:
+        """Alias for :meth:."""
         return self.analyze()
 
     def _contradictions_from_patterns(
@@ -206,6 +218,7 @@ class InterferenceReasoningEngine:
         return insights
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the engine state (pattern history and scan count) to a plain dict."""
         history: dict[str, list[dict[str, Any]]] = {}
         for node_id, patterns in self._pattern_history.items():
             history[node_id] = [
@@ -227,6 +240,7 @@ class InterferenceReasoningEngine:
     def from_dict(
         cls, data: dict[str, Any], graph: Hypergraph, belief: BeliefLayer
     ) -> InterferenceReasoningEngine:
+        """Reconstruct an InterferenceReasoningEngine from a serialized dict, restoring pattern history."""
         engine = cls(graph, belief)
         engine._scan_count = data.get("scan_count", 0)
         for node_id, entries in data.get("pattern_history", {}).items():
