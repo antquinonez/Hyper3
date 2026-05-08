@@ -215,29 +215,29 @@ def main() -> None:
 
     all_entities = {**COUNTERPARTIES, **INSTRUMENTS, **RISK_FACTORS, **REGULATORS}
     for name, data in all_entities.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt, label, weight in EXPOSURES:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
     for src, tgt, label in RISK_EXPOSURE_EDGES:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     for src, tgt in RISK_AMPLIFICATION:
-        mem.relate(src, tgt, label="amplifies")
+        mem.link(src, tgt, label="amplifies")
 
     for reg, cp in REGULATORY_EDGES:
-        mem.relate(reg, cp, label="regulates")
+        mem.link(reg, cp, label="regulates")
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
     print("SECTION 2: Community Detection - Risk Clusters")
     print("=" * 70)
 
-    result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities found: {result.community_count}")
     print(f"  Modularity: {result.modularity:.3f}")
     print(f"  Coverage: {result.coverage:.1%}")
@@ -247,7 +247,7 @@ def main() -> None:
     for i, comm in enumerate(result.communities[:6]):
         types: dict[str, int] = {}
         for lbl in comm.member_labels:
-            node = mem.graph.get_node_by_label(lbl)
+            node = mem.engine.graph.get_node_by_label(lbl)
             if node and node.data:
                 cat = node.data.get("category", "unknown")
                 types[cat] = types.get(cat, 0) + 1
@@ -268,14 +268,14 @@ def main() -> None:
     print(f"  Baseline version {v0['version_id']}: {v0['node_count']} nodes, {v0['edge_count']} edges")
     print()
 
-    mem.store("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
-    mem.relate("archegos_capital", "sp500_futures", label="holds")
-    mem.relate("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
-    mem.relate("archegos_capital", "vix_futures", label="holds")
-    mem.relate("archegos_capital", "sec", label="regulated_by")
+    mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
+    mem.link("archegos_capital", "sp500_futures", label="holds")
+    mem.link("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
+    mem.link("archegos_capital", "vix_futures", label="holds")
+    mem.link("archegos_capital", "sec", label="regulated_by")
 
-    if mem.has_node("credit_suisse"):
-        mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
+    if mem.has("credit_suisse"):
+        mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
 
     v1 = mem.capture_version()
     print(f"  After adding Archegos exposure (version {v1['version_id']})")
@@ -313,13 +313,13 @@ def main() -> None:
         print(f"    {s.summary_label}: {', '.join(s.detail_labels)}")
     print()
 
-    us_result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    us_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after abstraction: {us_result.community_count}")
     print()
 
     mem.expand_summary("us_banking_sector")
     print("  Expanded 'us_banking_sector' back to individual banks")
-    expanded_result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    expanded_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after expansion: {expanded_result.community_count}")
     print()
 
@@ -327,12 +327,11 @@ def main() -> None:
     print("SECTION 5: Hebbian Learning - Risk Correlation Strengthening")
     print("=" * 70)
 
-    mem.stimulate("recession_risk", energy=2.0)
-    mem.stimulate("equity_risk", energy=1.5)
-    mem.stimulate("volatility_risk", energy=1.0)
-    mem.spread_activation()
+    mem.search.activate("recession_risk", energy=2.0)
+    mem.search.activate("equity_risk", energy=1.5)
+    mem.search.activate("volatility_risk", energy=1.0)
 
-    hebbian_result = mem.hebbian_reinforce()
+    hebbian_result = mem.cognitive.hebbian_reinforce()
     print(f"  Hebbian reinforcement complete:")
     print(f"    Edges strengthened: {hebbian_result.edges_strengthened}")
     print(f"    Edges weakened:     {hebbian_result.edges_weakened}")
@@ -350,16 +349,16 @@ def main() -> None:
     print("SECTION 6: Probabilistic Default Risk Assessment")
     print("=" * 70)
 
-    qs = mem.create_distribution(
+    qs = mem.belief.create(
         ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
         amplitudes=[0.7, 0.4, 0.15, 0.10],
-        use_context_field=True,
+        use_context=True,
     )
 
     total_prob = sum(abs(o.amplitude) ** 2 for o in qs.outcomes)
     print(f"  Default risk distribution ({qs.outcome_count} outcomes):")
     for o in qs.outcomes:
-        node = mem.graph.get_node(o.node_id)
+        node = mem.engine.graph.get_node(o.node_id)
         lbl = node.label if node else o.node_id
         prob = abs(o.amplitude) ** 2 / total_prob if total_prob > 0 else 0.0
         print(f"    {lbl:<25} P(default) = {prob:.3f}")
@@ -369,22 +368,22 @@ def main() -> None:
     for i in range(10):
         answer = mem.sample(qs)
         if answer:
-            node = mem.graph.get_node(answer.node_id)
+            node = mem.engine.graph.get_node(answer.node_id)
             lbl = node.label if node else answer.node_id
             print(f"    Draw {i + 1:2d}: {lbl}")
         else:
             print(f"    Draw {i + 1:2d}: no result")
     print()
 
-    qs_risk = mem.create_distribution(
+    qs_risk = mem.belief.create(
         ["interest_rate_risk", "credit_spread_risk", "fx_risk", "liquidity_risk"],
         amplitudes=[0.6, 0.5, 0.3, 0.2],
-        use_context_field=True,
+        use_context=True,
     )
     total_risk = sum(abs(o.amplitude) ** 2 for o in qs_risk.outcomes)
     print(f"  Risk factor distribution:")
     for o in qs_risk.outcomes:
-        node = mem.graph.get_node(o.node_id)
+        node = mem.engine.graph.get_node(o.node_id)
         lbl = node.label if node else o.node_id
         prob = abs(o.amplitude) ** 2 / total_risk if total_risk > 0 else 0.0
         print(f"    {lbl:<25} P(dominant) = {prob:.3f}")

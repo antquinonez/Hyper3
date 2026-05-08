@@ -13,24 +13,24 @@ print("=" * 60)
 print("1. BUILDING A KNOWLEDGE GRAPH")
 print("=" * 60)
 
-mem.store("patent law", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
-mem.store("novelty", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
-mem.store("non-obviousness", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
-mem.store("hypergraph", modalities={Modality.CONCEPTUAL, Modality.ABSTRACT}, tags={"domain": "cs"})
-mem.store("computational architecture", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
-mem.store("dynamic instantiation", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
-mem.store("token independence", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
+mem.add("patent law", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
+mem.add("novelty", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
+mem.add("non-obviousness", modalities={Modality.CONCEPTUAL}, tags={"domain": "legal"})
+mem.add("hypergraph", modalities={Modality.CONCEPTUAL, Modality.ABSTRACT}, tags={"domain": "cs"})
+mem.add("computational architecture", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
+mem.add("dynamic instantiation", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
+mem.add("token independence", modalities={Modality.CONCEPTUAL}, tags={"domain": "cs"})
 
-mem.relate("patent law", "novelty", label="requires")
-mem.relate("patent law", "non-obviousness", label="requires")
-mem.relate("hypergraph", "computational architecture", label="enables", bidirectional=True)
-mem.relate("hypergraph", "dynamic instantiation", label="implements")
-mem.relate("hypergraph", "token independence", label="achieves")
-mem.relate("patent law", "hypergraph", label="applies to", bidirectional=True)
+mem.link("patent law", "novelty", label="requires")
+mem.link("patent law", "non-obviousness", label="requires")
+mem.link("hypergraph", "computational architecture", label="enables", bidirectional=True)
+mem.link("hypergraph", "dynamic instantiation", label="implements")
+mem.link("hypergraph", "token independence", label="achieves")
+mem.link("patent law", "hypergraph", label="applies to", bidirectional=True)
 
-print(f"  Nodes: {mem.graph.node_count}, Edges: {mem.graph.edge_count}")
-for node in mem.graph.nodes:
-    neighbor_nodes = [mem.graph.get_node(nid) for nid in mem.graph.neighbors(node.id)]
+print(f"  Nodes: {mem.size[0]}, Edges: {mem.size[1]}")
+for node in mem.engine.graph.nodes:
+    neighbor_nodes = [mem.engine.graph.get_node(nid) for nid in mem.engine.graph.neighbors(node.id)]
     neighbor_labels = [n.label for n in neighbor_nodes if n]
     print(f"  [{node.label}] -> {neighbor_labels}")
 print()
@@ -59,26 +59,26 @@ print("=" * 60)
 # Bypass cache to inject duplicate nodes with matching data
 from hyper3 import Hypernode
 dup1 = Hypernode(label="inventive step", data="requirement for patentability",
-                  metadata=mem.graph.get_node(
-                      [n for n in mem.graph.nodes if n.label == "novelty"][0].id
+                  metadata=mem.engine.graph.get_node(
+                      [n for n in mem.engine.graph.nodes if n.label == "novelty"][0].id
                   ).metadata)
 dup2 = Hypernode(label="inventive step criterion", data="requirement for patentability",
                   metadata=dup1.metadata)
-mem.graph.add_node(dup1)
-mem.graph.add_node(dup2)
-mem.relate("patent law", "inventive step", label="requires")
-mem.relate("patent law", "inventive step criterion", label="requires")
+mem.engine.graph.add_node(dup1)
+mem.engine.graph.add_node(dup2)
+mem.link("patent law", "inventive step", label="requires")
+mem.link("patent law", "inventive step criterion", label="requires")
 
-print(f"\n  Before merge: {mem.graph.node_count} nodes")
-for n in mem.graph.nodes:
+print(f"\n  Before merge: {mem.size[0]} nodes")
+for n in mem.engine.graph.nodes:
     if "novelty" in n.label.lower():
         aliases = n.metadata.custom.get("aliases", [])
         print(f"    '{n.label}' aliases={aliases}")
 
 report = mem.evolve()
 print(f"\n  Evolve report: merged={report['merged']}, pruned={report['pruned']}")
-print(f"  After merge: {mem.graph.node_count} nodes")
-for n in mem.graph.nodes:
+print(f"  After merge: {mem.size[0]} nodes")
+for n in mem.engine.graph.nodes:
     if "novelty" in n.label.lower():
         aliases = n.metadata.custom.get("aliases", [])
         print(f"    '{n.label}' aliases={aliases}")
@@ -89,10 +89,10 @@ print("=" * 60)
 print("4. WEIGHT DECAY: WHAT'S UNUSED FADES")
 print("=" * 60)
 
-mem.store("ephemeral concept A", tags={"temporary": True})
-mem.store("ephemeral concept B", tags={"temporary": True})
+mem.add("ephemeral concept A", tags={"temporary": True})
+mem.add("ephemeral concept B", tags={"temporary": True})
 node_a = None
-for n in mem.graph.nodes:
+for n in mem.engine.graph.nodes:
     if n.label == "ephemeral concept A":
         node_a = n
         break
@@ -100,11 +100,11 @@ for n in mem.graph.nodes:
 print(f"\n  '{node_a.label}' initial weight: {node_a.weight:.4f}")
 
 for _ in range(20):
-    n = mem.graph.get_node(node_a.id)
+    n = mem.engine.graph.get_node(node_a.id)
     if n:
         n.weight *= 0.7
 
-node_a = mem.graph.get_node(node_a.id)
+node_a = mem.engine.graph.get_node(node_a.id)
 if node_a:
     print(f"  After 20 decay cycles: {node_a.weight:.6f}")
 else:
@@ -112,10 +112,10 @@ else:
 
 report = mem.evolve()
 print(f"  Evolve report: pruned={report['pruned']}")
-survived = mem.graph.get_node(node_a.id) if node_a else None
+survived = mem.engine.graph.get_node(node_a.id) if node_a else None
 print(f"  'ephemeral concept A' survived? {survived is not None}")
 ephemeral_b = None
-for n in mem.graph.nodes:
+for n in mem.engine.graph.nodes:
     if n.label == "ephemeral concept B":
         ephemeral_b = n
 if ephemeral_b:
@@ -128,15 +128,15 @@ print("5. REINFORCEMENT: WHAT'S USED GROWS STRONGER")
 print("=" * 60)
 
 hl = None
-for n in mem.graph.nodes:
+for n in mem.engine.graph.nodes:
     if n.label == "hypergraph":
         hl = n
         break
 
 print(f"\n  'hypergraph' initial weight: {hl.weight:.2f}")
 for _ in range(5):
-    mem.store("hypergraph")
-    mem.recall("hypergraph")
+    mem.add("hypergraph")
+    mem.get("hypergraph")
 print(f"  After 5 store+recall cycles: {hl.weight:.2f}")
 
 mem._evolution.reinforce(hl.id, boost=3.0)

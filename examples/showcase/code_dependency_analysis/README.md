@@ -285,7 +285,7 @@ for label, data in third_party.items():
     age = current_year - data["last_updated"]
     if age >= 2:
         deps_count = sum(
-            1 for le in mem.graph.labeled_edges
+            1 for le in mem.engine.graph.labeled_edges
             if le["label"] in ("depends_on", "imports")
             and label in le["target_labels"]
         )
@@ -327,7 +327,7 @@ Build a matrix counting edges between each pair of subsystem categories:
 for src_sub, src_labels in subsystems.items():
     for tgt_sub, tgt_labels in subsystems.items():
         count = 0
-        for e in mem.graph.labeled_edges:
+        for e in mem.engine.graph.labeled_edges:
             if e["label"] not in ("depends_on", "imports", "extends"):
                 continue
             if (e["source_labels"][0] in src_labels

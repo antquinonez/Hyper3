@@ -226,13 +226,13 @@ def main():
     print("=" * 70)
 
     for sys in SYSTEMS:
-        mem.store(sys, data={"type": "system"})
-    mem.store("crm-server-01", data={"type": "system"})
+        mem.add(sys, data={"type": "system"})
+    mem.add("crm-server-01", data={"type": "system"})
 
     related_count = 0
     for event_label, systems in EVENT_SYSTEMS.items():
         for sys in systems:
-            mem.relate(event_label, sys, label="affects")
+            mem.link(event_label, sys, label="affects")
             related_count += 1
 
     system_hit_count: dict[str, int] = {}

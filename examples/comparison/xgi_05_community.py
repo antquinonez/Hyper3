@@ -66,7 +66,7 @@ def main() -> None:
 
     print()
     print("--- Hyper3 equivalent ---")
-    print("mem.graph.node_degree(node_id) or weighted degree via neighbors()")
+    print("mem.engine.graph.node_degree(node_id) or weighted degree via neighbors()")
 
     print()
     print("=" * 70)
@@ -108,7 +108,7 @@ def main() -> None:
 
     print()
     print("--- Hyper3 equivalent ---")
-    print("mem.detect_communities(seed=42)  -> CommunityResult with modularity, coverage")
+    print("mem.analyze.communities(seed=42)  -> CommunityResult with modularity, coverage")
 
     print()
     print("=" * 70)
@@ -122,7 +122,7 @@ Hyper3 community features not available in XGI:
     s-connected components at increasing overlap thresholds
   - hyperedge_neighbors(): co-participation queries showing which
     concepts share n-ary hyperedges
-  - relate_hyperedge(): true n-ary edges with semantic labels that
+  - link_hyper(): true n-ary edges with semantic labels that
     influence community structure beyond pairwise projection
   - Automatic label resolution: works with human-readable concept
     names, not integer node IDs

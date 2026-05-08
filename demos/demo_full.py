@@ -40,7 +40,7 @@ concepts = {
 }
 
 for name, data in concepts.items():
-    mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+    mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
 relations = [
     ("spark", "ignition", "causes"),
@@ -59,9 +59,9 @@ relations = [
 ]
 
 for src, tgt, label in relations:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 
-print(f"   {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+print(f"   {mem.size[0]} nodes, {mem.size[1]} edges")
 
 # --- 2. Rule Discovery + Reasoning ---
 print("\n[2] Discovering rules and reasoning...")
@@ -117,13 +117,13 @@ for ins in insights[:3]:
 # --- 5. Quantum Enhanced ---
 print("\n[5] Quantum cognitive effects...")
 
-qs = mem.create_distribution(["spark", "battery", "fuel_flow"], amplitudes=[0.6, 0.5, 0.4])
+qs = mem.belief.create(["spark", "battery", "fuel_flow"], amplitudes=[0.6, 0.5, 0.4])
 print(f"   Superposition: {qs.outcome_count} interpretations")
 
-triggers = mem.detect_sampling_triggers(qs)
+triggers = mem.belief.triggers(qs)
 print(f"   Collapse triggers: {[t.trigger_type for t in triggers]}")
 
-interference = mem.compute_interactions(qs)
+interference = mem.belief.interactions(qs)
 print(f"   Interference patterns: {len(interference)}")
 for ip in interference:
     kind = "constructive" if ip.is_constructive else "destructive" if ip.is_destructive else "neutral"
@@ -133,15 +133,15 @@ result_basis = mem.sample_with_profile(qs, "pragmatic")
 print(f"   Collapse (pragmatic basis): {result_basis.node_id if result_basis else 'none'}")
 
 # Correlation
-ent = mem.correlate(
+ent = mem.belief.correlate(
     ["spark", "battery"],
     ["electricity", "starter_motor"],
     {("spark", "electricity"): 0.9, ("battery", "starter_motor"): 0.85},
 )
 print(f"   Correlation created: strength={ent.strength:.2f}")
 
-qs2 = mem.create_distribution(["spark", "battery"])
-preds = mem.sample_correlated(qs2, "spark")
+qs2 = mem.belief.create(["spark", "battery"])
+preds = mem.belief.sample_correlated(qs2, "spark")
 print(f"   Correlated predictions from 'spark': {preds}")
 
 # --- 6. Structural Anomaly Detection ---
@@ -154,7 +154,7 @@ test_concepts = [
 ]
 
 for concept in test_concepts:
-    result = mem.detect_structural_anomalies(concept)
+    result = mem.analyze.anomalies(concept)
     print(f"   '{concept}':")
     print(f"     status={result.anomaly_status}, score={result.boundary_score:.3f}, level={result.reasoning_level}")
     if result.boundary_warnings:

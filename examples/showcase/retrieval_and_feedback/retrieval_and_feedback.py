@@ -121,7 +121,7 @@ def _build_kb(mem: HypergraphMemory) -> None:
 
     def _store_group(labels: list[str], type_name: str, category: str, kw: list[str]) -> None:
         for label in labels:
-            mem.store(label, data={"type": type_name, "category": category, "keywords": kw})
+            mem.add(label, data={"type": type_name, "category": category, "keywords": kw})
 
     _store_group(security_threats, "threat", "security", ["attack", "exploit", "adversary"])
     _store_group(security_vulns, "vulnerability", "security", ["cve", "flaw", "weakness"])
@@ -426,7 +426,7 @@ def _build_kb(mem: HypergraphMemory) -> None:
         _add(sev, alert, "subclass_of")
 
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
 
 def main():
@@ -441,11 +441,11 @@ def main():
     print("=" * 70)
 
     _build_kb(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
 
     categories: dict[str, int] = {}
-    for node in mem.graph.nodes:
+    for node in mem.engine.graph.nodes:
         cat = node.data.get("category", "unknown") if isinstance(node.data, dict) else "unknown"
         categories[cat] = categories.get(cat, 0) + 1
     for cat, count in sorted(categories.items()):
@@ -476,11 +476,11 @@ def main():
     print("=" * 70)
     print("  (HashEmbeddingProvider is a deterministic placeholder)")
 
-    similar = mem.find_similar("ransomware", top_k=15, threshold=-1.0)
+    similar = mem.search.similar("ransomware", top_k=15, threshold=-1.0)
     print(f"  {'Label':30s} {'Cosine':>8s} {'Euclid':>8s}")
     print(f"  {'-'*30} {'-'*8} {'-'*8}")
     for s in similar:
-        print(f"  {s.label_b:30s} {s.similarity:8.4f} {s.embedding_distance:8.4f}")
+        print(f"  {s.label:30s} {s.score:8.4f}")
     print()
 
     # =====================================================================
@@ -491,7 +491,7 @@ def main():
     print("SECTION 4: RRF-Retrieved Concepts for 'ransomware'")
     print("=" * 70)
 
-    rrf_results = mem.retrieve("ransomware", top_k=15, iterations=3)
+    rrf_results = mem.search.query("ransomware", top_k=15)
     print(f"  {'Label':30s} {'RRF':>7s} {'Act':>7s} {'Sim':>7s} {'A#':>4s} {'S#':>4s}")
     print(f"  {'-'*30} {'-'*7} {'-'*7} {'-'*7} {'-'*4} {'-'*4}")
     for r in rrf_results:
@@ -517,7 +517,7 @@ def main():
     n1 = mem.record_feedback("ransomware", rrf_results, relevant_ransomware)
     print(f"  Query 'ransomware': {n1} judgments, {len(relevant_ransomware)} relevant")
 
-    rrf_phishing = mem.retrieve("phishing", top_k=15, iterations=3)
+    rrf_phishing = mem.search.query("phishing", top_k=15)
     relevant_phishing = {
         "mfa", "waf", "ids", "alert_phishing_click", "severity_medium",
         "revoke_credentials", "soc_team", "open_redirect", "burp_suite",
@@ -526,7 +526,7 @@ def main():
     n2 = mem.record_feedback("phishing", rrf_phishing, relevant_phishing)
     print(f"  Query 'phishing':   {n2} judgments, {len(relevant_phishing)} relevant")
 
-    rrf_ddos = mem.retrieve("ddos", top_k=15, iterations=3)
+    rrf_ddos = mem.search.query("ddos", top_k=15)
     relevant_ddos = {
         "ips", "cdn_edge", "load_balancer", "alert_ddos_spike",
         "block_ip", "severity_high", "firewall", "suricata", "snort",
@@ -535,7 +535,7 @@ def main():
     n3 = mem.record_feedback("ddos", rrf_ddos, relevant_ddos)
     print(f"  Query 'ddos':       {n3} judgments, {len(relevant_ddos)} relevant")
 
-    rrf_zero_day = mem.retrieve("zero_day", top_k=15, iterations=3)
+    rrf_zero_day = mem.search.query("zero_day", top_k=15)
     relevant_zero_day = {
         "edr", "xdr", "siem", "mitre_attack", "alert_privilege_escalation",
         "severity_critical", "patch_system", "nmap", "nessus",
@@ -573,8 +573,8 @@ def main():
 
     queries = ["ransomware", "phishing", "ddos", "zero_day"]
     for query in queries:
-        before = mem.retrieve(query, top_k=15, iterations=3, use_ltr=False)
-        after = mem.retrieve(query, top_k=15, iterations=3, use_ltr=True)
+        before = mem.search.query(query, top_k=15, use_ltr=False)
+        after = mem.search.query(query, top_k=15, use_ltr=True)
 
         before_labels = [r.label for r in before]
         after_labels = [r.label for r in after]
@@ -612,9 +612,9 @@ def main():
 
     for query, description in comparison_queries:
         act = mem.activate(query, energy=1.0, top_k=5, iterations=3)
-        sim = mem.find_similar(query, top_k=5, threshold=-1.0)
+        sim = mem.search.similar(query, top_k=5, threshold=-1.0)
         act_labels = [r.label for r in act]
-        sim_labels = [s.label_b for s in sim]
+        sim_labels = [s.label for s in sim]
         overlap = set(act_labels) & set(sim_labels)
 
         print(f"  {query} ({description}):")

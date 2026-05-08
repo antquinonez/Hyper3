@@ -49,7 +49,7 @@ def _test_components_as_communities_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_hgx()
 
-    h3_comp = mem.connected_components()
+    h3_comp = mem.analyze.components()
     hgx_comp = H.connected_components()
 
     h3_as_ints = [{label_to_int(n) for n in comp} for comp in h3_comp]
@@ -67,7 +67,7 @@ def _test_components_as_communities_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_xgi()
 
-    h3_comp = mem.connected_components()
+    h3_comp = mem.analyze.components()
     xgi_comp = [set(comp) for comp in xgi.connected_components(H)]
 
     h3_as_ints = [{label_to_int(n) for n in comp} for comp in h3_comp]
@@ -104,7 +104,7 @@ def _test_greedy_modularity_communities(t: EquivRunner) -> None:
     import networkx as nx
 
     mem = build_pairwise_h3()
-    g = mem.graph
+    g = mem.engine.graph
 
     communities = g.greedy_modularity_communities()
 
@@ -127,9 +127,9 @@ def _test_greedy_modularity_communities(t: EquivRunner) -> None:
 
 def _test_core_periphery(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
-    scores = mem.graph.core_periphery()
+    scores = mem.engine.graph.core_periphery()
     t.check("core_periphery/returns_dict", isinstance(scores, dict))
-    t.check("core_periphery/all_nodes_present", len(scores) == mem.graph.node_count)
+    t.check("core_periphery/all_nodes_present", len(scores) == mem.engine.graph.node_count)
     t.check("core_periphery/scores_in_range", all(0 <= v <= 1 for v in scores.values()))
 
 
@@ -142,7 +142,7 @@ def _test_louvain(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    det = CommunityDetector(mem.graph)
+    det =     CommunityDetector(mem.engine.graph)
     h3_result = det.detect_louvain(seed=42)
     nx_comms = louvain_communities(G.to_undirected(), seed=42)
     nx_mod = nx.community.modularity(G.to_undirected(), nx_comms)

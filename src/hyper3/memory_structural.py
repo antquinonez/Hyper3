@@ -4,7 +4,7 @@ from typing import Any
 
 from hyper3.abstraction import AbstractionMapping, AbstractionNavigator, AbstractionSummary, ExpandResult
 from hyper3.belief_revision import Contradiction, ContradictionResolver, RevisionResult
-from hyper3.community import CommunityDetector, CommunityResult, HierarchicalCommunityResult
+from hyper3.community import CommunityDetector, HierarchicalCommunityResult
 from hyper3.graph_diff import GraphDelta, GraphDiffer, GraphHistoryResult
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_match import (
@@ -142,39 +142,6 @@ class StructuralMixin(_MemoryBase):
                 }
             )
         return results
-
-    def detect_communities(
-        self,
-        *,
-        method: str = "label_propagation",
-        edge_label: str | None = None,
-        seed: int = 42,
-    ) -> CommunityResult:
-        """Detect communities using label propagation or connected components."""
-        if self._community_detector is None:
-            self._community_detector = CommunityDetector(self._graph)
-
-        if method == "weighted_label_propagation":
-            return self._community_detector.detect_weighted_label_propagation(
-                seed=seed,
-                edge_label=edge_label,
-            )
-        elif method == "connected_components":
-            return self._community_detector.detect_connected_components()
-        elif method == "louvain":
-            return self._community_detector.detect_louvain(
-                seed=seed,
-                edge_label=edge_label,
-            )
-        elif method == "girvan_newman":
-            return self._community_detector.detect_girvan_newman(
-                edge_label=edge_label,
-            )
-        else:
-            return self._community_detector.detect_label_propagation(
-                seed=seed,
-                edge_label=edge_label,
-            )
 
     def detect_hyperlink_communities(
         self,

@@ -33,22 +33,22 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for node in ["enzyme_a", "enzyme_b", "enzyme_c", "substrate_x", "product_y"]:
-        mem.store(node, data={"type": node.split("_")[0]})
+        mem.add(node, data={"type": node.split("_")[0]})
 
-    mem.relate("enzyme_a", "substrate_x", label="binds", weight=3.0)
-    mem.relate("enzyme_b", "substrate_x", label="binds", weight=2.0)
-    mem.relate("enzyme_c", "substrate_x", label="binds", weight=1.0)
+    mem.link("enzyme_a", "substrate_x", label="binds", weight=3.0)
+    mem.link("enzyme_b", "substrate_x", label="binds", weight=2.0)
+    mem.link("enzyme_c", "substrate_x", label="binds", weight=1.0)
 
-    mem.relate("substrate_x", "product_y", label="catalyzes", weight=5.0)
+    mem.link("substrate_x", "product_y", label="catalyzes", weight=5.0)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"enzyme_a", "enzyme_b", "enzyme_c"},
         targets={"product_y"},
         label="cooperative_catalysis",
         weight=10.0,
     )
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: IN-DEGREE / OUT-DEGREE — XGI pattern")
@@ -58,8 +58,8 @@ def main() -> None:
     print("DH.nodes.in_degree.asdict()")
     print("DH.nodes.out_degree.asdict()")
 
-    in_deg = mem.in_degree()
-    out_deg = mem.out_degree()
+    in_deg = mem.analyze.centrality("in_degree")
+    out_deg = mem.analyze.centrality("out_degree")
 
     print(f"\n{'concept':>14} {'out_deg':>8} {'in_deg':>8} {'total':>8}")
     print("-" * 44)
@@ -75,7 +75,7 @@ def main() -> None:
     print("DH.edges.head_size    -> head cardinality")
     print("DH.edges.tail_size    -> tail cardinality")
 
-    for e in mem.edges_labeled():
+    for e in mem.analyze.edges():
         print(f"  {e.label}: {set(e.source_labels)} -> {set(e.target_labels)}  (tail={e.source_cardinality}, head={e.target_cardinality})")
 
     print("\n" + "=" * 70)
@@ -97,15 +97,15 @@ def main() -> None:
         TransitiveRule(edge_label="catalyzes", new_label="enables_production"),
     )
 
-    mem.store("downstream_product")
-    mem.relate("product_y", "downstream_product", label="catalyzes", weight=3.0)
+    mem.add("downstream_product")
+    mem.link("product_y", "downstream_product", label="catalyzes", weight=3.0)
 
-    result = mem.reason(seed_concepts={"substrate_x"}, max_depth=2)
+    result = mem.reason(seeds={"substrate_x"}, max_depth=2)
     print(f"\nreasoning from 'substrate_x':")
     print(f"  edges produced: {result.expansion.edges_produced}")
     print(f"  rules applied: {result.expansion.rules_applied}")
 
-    new_labeled = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.edges_labeled(edge_label="enables_production") if e.source_labels and e.target_labels]
+    new_labeled = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="enables_production") if e.source_labels and e.target_labels]
     for lbl, src, tgt in new_labeled:
         print(f"  inferred: {src} -[{lbl}]-> {tgt}")
 

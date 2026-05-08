@@ -43,7 +43,7 @@ def _test_components_pairwise(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_comp = mem.connected_components()
+    h3_comp = mem.analyze.components()
     nx_comp = list(nx.connected_components(G.to_undirected()))
 
     t.check_set_membership("components_pairwise", h3_comp, nx_comp)
@@ -57,7 +57,7 @@ def _test_components_hypergraph_hgx(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_hgx()
 
-    h3_comp = mem.connected_components()
+    h3_comp = mem.analyze.components()
     hgx_comp = H.connected_components()
 
     h3_as_ints = [{label_to_int(n) for n in comp} for comp in h3_comp]
@@ -75,7 +75,7 @@ def _test_components_hypergraph_xgi(t: EquivRunner) -> None:
     mem = build_hypergraph_h3()
     H = build_hypergraph_xgi()
 
-    h3_comp = mem.connected_components()
+    h3_comp = mem.analyze.components()
     xgi_comp = [set(comp) for comp in xgi.connected_components(H)]
 
     h3_as_ints = [{label_to_int(n) for n in comp} for comp in h3_comp]
@@ -89,7 +89,7 @@ def _test_is_connected(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    t.check("is_connected/pairwise", mem.is_connected() == nx.is_connected(G.to_undirected()))
+    t.check("is_connected/pairwise", mem.analyze.is_connected() == nx.is_connected(G.to_undirected()))
 
     from hyper3 import HypergraphMemory
 
@@ -117,14 +117,14 @@ def _test_s_components(t: EquivRunner) -> None:
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(6):
         mem.ensure(f"n{i}")
-    mem.relate_hyperedge(sources={"n0", "n1", "n2"}, targets={"n3"}, label="he1")
-    mem.relate_hyperedge(sources={"n3", "n4"}, targets={"n5"}, label="he2")
+    mem.link_hyper(sources={"n0", "n1", "n2"}, targets={"n3"}, label="he1")
+    mem.link_hyper(sources={"n3", "n4"}, targets={"n5"}, label="he2")
 
-    s1 = mem.connected_components()
+    s1 = mem.analyze.components()
     t.check_int("s_components/s1_count", len(s1), 1)
-    t.check("s_components/s1_connected", mem.graph.is_connected())
+    t.check("s_components/s1_connected", mem.engine.graph.is_connected())
 
-    s2 = mem.graph.connected_components(s=2)
+    s2 = mem.engine.graph.connected_components(s=2)
     t.check("s_components/s2_returns_list", isinstance(s2, list))
 
     sp = mem.s_persistence(max_s=3)
@@ -137,10 +137,10 @@ def _test_strongly_connected(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_scc = mem.graph.strongly_connected_components()
+    h3_scc = mem.engine.graph.strongly_connected_components()
     nx_scc = list(nx.strongly_connected_components(G))
 
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_scc_labels = [{label_map[nid] for nid in comp} for comp in h3_scc]
 
     t.check_set_membership("strongly_connected_components", h3_scc_labels, nx_scc)
@@ -152,15 +152,15 @@ def _test_biconnected_components(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_bic = mem.graph.biconnected_components()
+    h3_bic = mem.engine.graph.biconnected_components()
     nx_bic = list(nx.biconnected_components(G.to_undirected()))
 
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_bic_labels = [{label_map[nid] for nid in comp} for comp in h3_bic]
 
     t.check_set_membership("biconnected_components", h3_bic_labels, nx_bic)
 
-    h3_ap = mem.graph.articulation_points()
+    h3_ap = mem.engine.graph.articulation_points()
     nx_ap = list(nx.articulation_points(G.to_undirected()))
 
     h3_ap_labels = {label_map[nid] for nid in h3_ap}
@@ -174,14 +174,14 @@ def _test_s_components_by_size(t: EquivRunner) -> None:
     mem = HypergraphMemory(evolve_interval=0)
     for i in range(6):
         mem.ensure(f"n{i}")
-    mem.relate_hyperedge(sources={"n0", "n1", "n2"}, targets={"n3"}, label="he1")
-    mem.relate_hyperedge(sources={"n3", "n4"}, targets={"n5"}, label="he2")
+    mem.link_hyper(sources={"n0", "n1", "n2"}, targets={"n3"}, label="he1")
+    mem.link_hyper(sources={"n3", "n4"}, targets={"n5"}, label="he2")
 
-    all_comps = mem.graph.s_components_by_size()
+    all_comps = mem.engine.graph.s_components_by_size()
     total_nodes = sum(len(c) for c in all_comps)
     t.check_int("s_components_by_size/all_total_nodes", total_nodes, 6)
 
-    large = mem.graph.s_components_by_size(min_size=4)
+    large = mem.engine.graph.s_components_by_size(min_size=4)
     t.check("s_components_by_size/min4_all_large_enough", all(len(c) >= 4 for c in large))
 
 

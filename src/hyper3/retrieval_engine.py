@@ -341,34 +341,38 @@ class RetrievalEngine:
     def record_feedback(
         self,
         query: str,
-        results: list[RetrievalResult],
+        results: list[RetrievalResult] | list,
         relevant_labels: set[str],
     ) -> int:
         """Record relevance feedback for a set of retrieval results.
 
         Args:
             query: The query that produced the results.
-            results: The results to judge.
+            results: The results to judge (RetrievalResult or SearchHit).
             relevant_labels: Labels that should be considered relevant.
 
         Returns:
             Number of feedback records stored.
         """
-        max_act = max((r.activation for r in results), default=1.0)
-        max_sim = max((r.similarity for r in results), default=1.0)
+        max_act = max((r.activation for r in results if getattr(r, 'activation', None) is not None), default=1.0)
+        max_sim = max((r.similarity for r in results if getattr(r, 'similarity', None) is not None), default=1.0)
         count = 0
         for r in results:
             relevant = r.label in relevant_labels
             seed_node = self._graph.get_node_by_label(query) or self._graph.get_node(query)
-            depth_path = self._graph.shortest_path(seed_node.id, r.node_id) if seed_node else None
+            found = self._graph.get_node_by_label(r.label)
+            node_id = getattr(r, 'node_id', None) or (found.id if found else None)
+            depth_path = self._graph.shortest_path(seed_node.id, node_id) if seed_node and node_id else None
             inverse_depth = 1.0 / max(len(depth_path) - 1, 1) if depth_path else 0.0
+            activation = getattr(r, 'activation', 0.0) or 0.0
+            similarity = getattr(r, 'similarity', 0.0) or 0.0
             features = {
-                "activation": r.activation / max(max_act, 1e-9),
-                "similarity": r.similarity / max(max_sim, 1e-9),
-                "degree": len(self._graph.neighbors(r.node_id)) / max(self._graph.node_count, 1),
+                "activation": activation / max(max_act, 1e-9),
+                "similarity": similarity / max(max_sim, 1e-9),
+                "degree": len(self._graph.neighbors(node_id)) / max(self._graph.node_count, 1) if node_id else 0.0,
                 "inverse_depth": inverse_depth,
             }
-            self._feedback.record(query, r.node_id, r.label, relevant, features)
+            self._feedback.record(query, node_id or r.label, r.label, relevant, features)
             count += 1
         return count
 

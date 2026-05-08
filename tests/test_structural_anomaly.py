@@ -408,10 +408,10 @@ class TestInvalidateBoundaryCache:
 
 def _make_cyclic_mem():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("A")
-    mem.store("B")
-    mem.store("C")
-    mem.store("D")
+    mem.add("A")
+    mem.add("B")
+    mem.add("C")
+    mem.add("D")
     a = mem.graph.get_node_by_label("A")
     b = mem.graph.get_node_by_label("B")
     c = mem.graph.get_node_by_label("C")
@@ -524,7 +524,7 @@ class TestExtendExploration:
 
     def test_assumption_dependent_nodes_tracked(self):
         mem = _make_cyclic_mem()
-        mem.store("E")
+        mem.add("E")
         mem.graph.add_edge(Hyperedge(
             source_ids=frozenset({mem.graph.get_node_by_label("A").id}),
             target_ids=frozenset({mem.graph.get_node_by_label("E").id}),
@@ -571,9 +571,9 @@ class TestSuggestAssumptions:
 
     def test_suggests_bridging_assumptions(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
-        mem.store("Y")
-        mem.store("Z")
+        mem.add("X")
+        mem.add("Y")
+        mem.add("Z")
         x = mem.graph.get_node_by_label("X")
         y = mem.graph.get_node_by_label("Y")
         mem.graph.get_node_by_label("Z")
@@ -587,9 +587,9 @@ class TestSuggestAssumptions:
 
     def test_suggests_top_k(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("root")
+        mem.add("root")
         for i in range(10):
-            mem.store(f"isolated_{i}")
+            mem.add(f"isolated_{i}")
         suggestions = mem._anomaly_detector.suggest_assumptions("root", top_k=3)
         assert len(suggestions) == 3
 

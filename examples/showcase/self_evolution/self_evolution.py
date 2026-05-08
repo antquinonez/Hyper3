@@ -23,17 +23,17 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for node in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]:
-        mem.store(node, data={"type": "concept"})
+        mem.add(node, data={"type": "concept"})
 
-    mem.relate("alpha", "beta", label="related", weight=5.0)
-    mem.relate("beta", "gamma", label="related", weight=5.0)
-    mem.relate("gamma", "delta", label="related", weight=5.0)
-    mem.relate("delta", "epsilon", label="related", weight=1.0)
-    mem.relate("epsilon", "zeta", label="related", weight=1.0)
-    mem.relate("zeta", "eta", label="related", weight=0.5)
-    mem.relate("eta", "theta", label="related", weight=0.3)
+    mem.link("alpha", "beta", label="related", weight=5.0)
+    mem.link("beta", "gamma", label="related", weight=5.0)
+    mem.link("gamma", "delta", label="related", weight=5.0)
+    mem.link("delta", "epsilon", label="related", weight=1.0)
+    mem.link("epsilon", "zeta", label="related", weight=1.0)
+    mem.link("zeta", "eta", label="related", weight=0.5)
+    mem.link("eta", "theta", label="related", weight=0.3)
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
     print("edge weights: 5.0 (core) -> 1.0 (mid) -> 0.3 (peripheral)")
 
     print("\n" + "=" * 70)
@@ -43,9 +43,9 @@ def main() -> None:
     print("\n--- No competitor equivalent ---")
     print("XGI, HNX: static hypergraphs, no weight decay")
 
-    before = {e.id: e.weight for e in mem.graph.edges}
+    before = {e.id: e.weight for e in mem.analyze.edges()}
     result = mem.evolve()
-    after = {e.id: e.weight for e in mem.graph.edges}
+    after = {e.id: e.weight for e in mem.analyze.edges()}
 
     print(f"\nevolve result:")
     print(f"  decays: {result.decayed}")
@@ -54,7 +54,7 @@ def main() -> None:
     print(f"  reinforced: {result.reinforced}")
 
     print("\nweight changes:")
-    for e in mem.edges_labeled():
+    for e in mem.analyze.edges():
         if e.source_labels and e.target_labels:
             prev = before.get(e.id, 0)
             print(f"  {e.source_labels[0]}->{e.target_labels[0]}: {prev:.2f} -> {e.weight:.4f}")
@@ -82,17 +82,16 @@ def main() -> None:
 
     mem2 = HypergraphMemory(evolve_interval=0)
     for node in ["x", "y", "z", "w"]:
-        mem2.store(node)
+        mem2.add(node)
 
-    mem2.relate("x", "y", label="linked", weight=1.0)
-    mem2.relate("y", "z", label="linked", weight=1.0)
-    mem2.relate("z", "w", label="linked", weight=1.0)
+    mem2.link("x", "y", label="linked", weight=1.0)
+    mem2.link("y", "z", label="linked", weight=1.0)
+    mem2.link("z", "w", label="linked", weight=1.0)
 
-    mem2.stimulate("x")
-    mem2.stimulate("y")
-    mem2.spread_activation()
+    mem2.search.activate("x", energy=1.0)
+    mem2.search.activate("y", energy=1.0)
 
-    hebb_result = mem2.hebbian_reinforce()
+    hebb_result = mem2.cognitive.hebbian_reinforce()
     print(f"\nHebbian reinforcement:")
     print(f"  edges strengthened: {hebb_result.edges_strengthened}")
     print(f"  edges weakened: {hebb_result.edges_weakened}")

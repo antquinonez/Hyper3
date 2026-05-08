@@ -33,8 +33,8 @@ def _test_eccentricity(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_ecc = nx.eccentricity(G)
-    h3_ecc_raw = mem.graph.eccentricity()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_ecc_raw = mem.engine.graph.eccentricity()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_ecc = {label_map[nid]: e for nid, e in h3_ecc_raw.items()}
 
     for node_label in nx_ecc:
@@ -48,7 +48,7 @@ def _test_diameter(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_d = nx.diameter(G)
-    h3_d = mem.graph.diameter()
+    h3_d = mem.engine.graph.diameter()
     t.check_int("diameter", h3_d, nx_d)
 
 
@@ -59,7 +59,7 @@ def _test_radius(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_r = nx.radius(G)
-    h3_r = mem.graph.radius()
+    h3_r = mem.engine.graph.radius()
     t.check_int("radius", h3_r, nx_r)
 
 
@@ -70,8 +70,8 @@ def _test_periphery(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_p = set(nx.periphery(G))
-    h3_ids = mem.graph.periphery()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_ids = mem.engine.graph.periphery()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_p = {label_map[nid] for nid in h3_ids}
     t.check_set_equal("periphery", h3_p, nx_p)
 
@@ -83,8 +83,8 @@ def _test_center(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_c = set(nx.center(G))
-    h3_ids = mem.graph.center()
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    h3_ids = mem.engine.graph.center()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     h3_c = {label_map[nid] for nid in h3_ids}
     t.check_set_equal("center", h3_c, nx_c)
 
@@ -96,7 +96,7 @@ def _test_degree_assortativity(t: EquivRunner) -> None:
     G = build_pairwise_nx().to_undirected()
 
     nx_r = nx.degree_assortativity_coefficient(G)
-    h3_r = mem.graph.degree_assortativity()
+    h3_r = mem.engine.graph.degree_assortativity()
     t.check_close("degree_assortativity", h3_r, nx_r, tol=0.01)
 
 
@@ -139,8 +139,8 @@ def _test_average_neighbor_degree(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx().to_undirected()
 
-    label_map = {n.id: n.label for n in mem.graph.nodes}
-    h3_result = mem.graph.average_neighbor_degree()
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
+    h3_result = mem.engine.graph.average_neighbor_degree()
     h3_by_label = {label_map[nid]: v for nid, v in h3_result.items()}
 
     nx_result = nx.average_neighbor_degree(G)
@@ -160,7 +160,7 @@ def _test_average_degree_connectivity(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx().to_undirected()
 
-    h3_result = mem.graph.average_degree_connectivity()
+    h3_result = mem.engine.graph.average_degree_connectivity()
     nx_result = nx.average_degree_connectivity(G)
 
     for k in sorted(set(h3_result) | set(nx_result)):

@@ -192,7 +192,7 @@ Discover that direct dependencies are just the tip of the iceberg:
 
 ```python
 direct_dep_map = defaultdict(list)
-for le in mem.graph.labeled_edges:
+for le in mem.engine.graph.labeled_edges:
     if le["label"] == "depends_on":
         direct_dep_map[le["target_labels"][0]].append(le["source_labels"][0])
 
@@ -250,7 +250,7 @@ For each database and queue, calculate the full blast radius (direct + indirect)
 
 ```python
 indirect_reverse = defaultdict(set)
-for le in mem.graph.labeled_edges:
+for le in mem.engine.graph.labeled_edges:
     if le["label"] == "indirectly_depends_on":
         indirect_reverse[le["target_labels"][0]].add(le["source_labels"][0])
 

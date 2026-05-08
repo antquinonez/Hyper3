@@ -126,7 +126,7 @@ def main() -> None:
     }
 
     for name, data in concepts.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     relations = [
         ("Python", "machine learning", "used_for"),
@@ -148,9 +148,9 @@ def main() -> None:
     ]
 
     for src, tgt, label in relations:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"Stored {mem.graph.node_count} concepts, {mem.graph.edge_count} relations\n")
+    print(f"Stored {mem.size[0]} concepts, {mem.size[1]} relations\n")
 
     # --- Semantic similarity ---
     print("=" * 60)
@@ -160,9 +160,9 @@ def main() -> None:
     probes = ["Python", "deep learning", "web development"]
     for concept in probes:
         print(f"\nMost similar to '{concept}':")
-        similar = mem.find_similar(concept, top_k=5, threshold=0.0)
+        similar = mem.search.similar(concept, top_k=5, threshold=0.0)
         for s in similar[:5]:
-            print(f"  {s.label_b:<35} similarity={s.similarity:.3f}  distance={s.embedding_distance:.3f}")
+            print(f"  {s.label:<35} score={s.score:.3f}")
 
     # --- Analogical reasoning ---
     print("\n" + "=" * 60)
@@ -198,13 +198,10 @@ def main() -> None:
     print("COMBINED: activation + semantic similarity")
     print("=" * 60)
 
-    mem.clear_activations()
-    mem.stimulate("Python")
-    mem.spread_activation(iterations=3)
-    activated = mem.spread_activation()
+    activated = mem.activate("Python")
 
     if activated:
-        python_node = mem.graph.get_node_by_label("Python")
+        python_node = mem.engine.graph.get_node_by_label("Python")
         if python_node:
             print(f"\nActivated concepts near 'Python', ranked by semantic relevance:")
             for r in activated[:8]:

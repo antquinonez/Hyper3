@@ -262,23 +262,23 @@ class TestCustomProvider:
 class TestHypergraphMemoryIntegration:
     def test_find_similar_no_provider(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        results = mem.find_similar("cat", threshold=-1.0)
+        mem.add("cat")
+        mem.add("dog")
+        results = mem.search.similar("cat", threshold=-1.0)
         assert len(results) == 1
-        assert results[0].label_b == "dog"
-        assert -1.0 <= results[0].similarity <= 1.0
+        assert results[0].label == "dog"
+        assert -1.0 <= results[0].score <= 1.0
 
     def test_find_similar_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
-        assert mem.find_similar("nonexistent") == []
+        assert mem.search.similar("nonexistent") == []
 
     def test_analogy_integration(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("king")
-        mem.store("queen")
-        mem.store("man")
-        mem.store("woman")
+        mem.add("king")
+        mem.add("queen")
+        mem.add("man")
+        mem.add("woman")
         results = mem.analogy("king", "queen", "man", top_k=3)
         assert len(results) == 1
         label, score = results[0]
@@ -287,7 +287,7 @@ class TestHypergraphMemoryIntegration:
 
     def test_analogy_missing_concept(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         assert mem.analogy("a", "missing", "also_missing") == []
 
     def test_set_embedding_provider(self):
@@ -299,20 +299,20 @@ class TestHypergraphMemoryIntegration:
                 return 2
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         mem.set_embedding_provider(ConstProvider())
-        results = mem.find_similar("x", threshold=0.5)
+        results = mem.search.similar("x", threshold=0.5)
         assert len(results) == 1
-        assert results[0].similarity == pytest.approx(1.0)
+        assert results[0].score == pytest.approx(1.0)
 
     def test_load_resets_embedding_engine(self):
         import os
         import tempfile
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.find_similar("cat", threshold=-1.0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.search.similar("cat", threshold=-1.0)
         assert mem._embedding_engine is not None
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
             path = f.name
@@ -321,16 +321,16 @@ class TestHypergraphMemoryIntegration:
             mem2 = HypergraphMemory(evolve_interval=0)
             mem2.load(path)
             assert mem2._embedding_engine is None
-            results = mem2.find_similar("cat", threshold=-1.0)
+            results = mem2.search.similar("cat", threshold=-1.0)
             assert len(results) == 1
         finally:
             os.unlink(path)
 
     def test_find_similar_logs_event(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("alpha")
-        mem.store("beta")
-        mem.find_similar("alpha", threshold=-1.0)
+        mem.add("alpha")
+        mem.add("beta")
+        mem.search.similar("alpha", threshold=-1.0)
         events = mem.log.query(event_type="find_similar")
         assert len(events) == 1
         assert events[0]["details"]["concept"] == "alpha"
@@ -484,7 +484,7 @@ class TestFaissIntegration:
     def test_memory_enable_faiss(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(20):
-            mem.store(f"concept_{i}")
+            mem.add(f"concept_{i}")
         result = mem.enable_faiss()
         assert result is True
         events = mem.log.query(event_type="enable_faiss")
@@ -494,17 +494,17 @@ class TestFaissIntegration:
     def test_memory_find_similar_with_faiss(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(15):
-            mem.store(f"item_{i}")
+            mem.add(f"item_{i}")
         mem.enable_faiss()
-        results = mem.find_similar("item_0", threshold=-1.0)
+        results = mem.search.similar("item_0", threshold=-1.0)
         assert len(results) == 10
 
     def test_memory_faiss_persists_across_retrieval(self):
         mem = HypergraphMemory(evolve_interval=0)
         for i in range(10):
-            mem.store(f"node_{i}")
+            mem.add(f"node_{i}")
         mem.enable_faiss()
-        results = mem.retrieve("node_0", top_k=5)
+        results = mem.search.query("node_0", top_k=5)
         assert len(results) == 5
 
     def test_faiss_index_rebuild_after_invalidate(self):

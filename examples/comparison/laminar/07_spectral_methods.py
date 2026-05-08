@@ -28,25 +28,25 @@ def main() -> None:
 
     for i in range(12):
         group = "alpha" if i < 4 else ("beta" if i < 8 else "gamma")
-        mem.store(f"n{i}", data={"group": group})
+        mem.add(f"n{i}", data={"group": group})
 
     for i in range(4):
         for j in range(i + 1, 4):
-            mem.relate(f"n{i}", f"n{j}", label="dense", weight=3.0)
+            mem.link(f"n{i}", f"n{j}", label="dense", weight=3.0)
     for i in range(4, 8):
         for j in range(i + 1, 8):
-            mem.relate(f"n{i}", f"n{j}", label="dense", weight=3.0)
+            mem.link(f"n{i}", f"n{j}", label="dense", weight=3.0)
     for i in range(8, 12):
         for j in range(i + 1, 12):
-            mem.relate(f"n{i}", f"n{j}", label="dense", weight=3.0)
+            mem.link(f"n{i}", f"n{j}", label="dense", weight=3.0)
 
-    mem.relate("n0", "n4", label="bridge", weight=1.0)
-    mem.relate("n4", "n8", label="bridge", weight=1.0)
+    mem.link("n0", "n4", label="bridge", weight=1.0)
+    mem.link("n4", "n8", label="bridge", weight=1.0)
 
-    mem.relate_hyperedge(sources={"n0", "n1"}, targets={"n2", "n3"}, label="cluster_edge", weight=5.0)
-    mem.relate_hyperedge(sources={"n4", "n5"}, targets={"n6", "n7"}, label="cluster_edge", weight=5.0)
+    mem.link_hyper(sources={"n0", "n1"}, targets={"n2", "n3"}, label="cluster_edge", weight=5.0)
+    mem.link_hyper(sources={"n4", "n5"}, targets={"n6", "n7"}, label="cluster_edge", weight=5.0)
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
     print("structure: 3 dense clusters (4 nodes each) with bridge edges")
 
     print("\n" + "=" * 70)
@@ -58,7 +58,7 @@ def main() -> None:
     print("--- HNX equivalent ---")
     print("hnx.incidence_matrix(h)  -> numpy array")
 
-    g = mem.graph
+    g = mem.engine.graph
     inc_data, node_ids, edge_ids = g.incidence_matrix()
     print(f"\nincidence matrix shape: ({inc_data.shape[0]}, {inc_data.shape[1]})")
     print(f"  rows (nodes): {inc_data.shape[0]}, cols (edges): {inc_data.shape[1]}")

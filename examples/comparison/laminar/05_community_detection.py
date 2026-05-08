@@ -29,24 +29,24 @@ def main() -> None:
     cluster_c = ["c1", "c2", "c3", "c4"]
 
     for node in cluster_a + cluster_b + cluster_c:
-        mem.store(node)
+        mem.add(node)
 
     for i in range(len(cluster_a)):
         for j in range(i + 1, len(cluster_a)):
-            mem.relate(cluster_a[i], cluster_a[j], label="interact", weight=5.0)
+            mem.link(cluster_a[i], cluster_a[j], label="interact", weight=5.0)
 
     for i in range(len(cluster_b)):
         for j in range(i + 1, len(cluster_b)):
-            mem.relate(cluster_b[i], cluster_b[j], label="interact", weight=5.0)
+            mem.link(cluster_b[i], cluster_b[j], label="interact", weight=5.0)
 
     for i in range(len(cluster_c)):
         for j in range(i + 1, len(cluster_c)):
-            mem.relate(cluster_c[i], cluster_c[j], label="interact", weight=5.0)
+            mem.link(cluster_c[i], cluster_c[j], label="interact", weight=5.0)
 
-    mem.relate("a1", "b1", label="bridge", weight=1.0)
-    mem.relate("b5", "c1", label="bridge", weight=1.0)
+    mem.link("a1", "b1", label="bridge", weight=1.0)
+    mem.link("b5", "c1", label="bridge", weight=1.0)
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
     print(f"  cluster_a: {cluster_a} (5 nodes, dense)")
     print(f"  cluster_b: {cluster_b} (5 nodes, dense)")
     print(f"  cluster_c: {cluster_c} (4 nodes, dense)")
@@ -61,7 +61,7 @@ def main() -> None:
     print("--- NetworkX equivalent ---")
     print("nx.connected_components(G)")
 
-    comp_result = mem.connected_components()
+    comp_result = mem.analyze.components()
     print(f"connected components: {len(comp_result)}")
     for i, comp in enumerate(comp_result):
         print(f"  component {i}: {sorted(comp)}")
@@ -75,7 +75,7 @@ def main() -> None:
     print("--- HNX equivalent ---")
     print("kumar_clusters(h)  -> Kumar algorithm")
 
-    result = mem.detect_communities(seed=42)
+    result = mem.analyze.communities(seed=42)
     print(f"\ncommunities detected: {result.community_count}")
     print(f"modularity: {result.modularity:.4f}")
     print(f"coverage: {result.coverage:.4f}")
@@ -99,13 +99,13 @@ def main() -> None:
     print("SECTION 5: HYPEREDGE-AWARE COMMUNITIES (Hyper3 advantage)")
     print("=" * 70)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"a1", "a2", "a3"},
         targets={"b1", "b2"},
         label="cross_team_project",
         weight=10.0,
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"b3", "b4"},
         targets={"c1", "c2", "c3"},
         label="cross_team_project",
@@ -117,7 +117,7 @@ def main() -> None:
     for neighbor, edges in h_neighbors.items():
         print(f"  {neighbor}: {len(edges)} shared hyperedge(s)")
 
-    result2 = mem.detect_communities(seed=42)
+    result2 = mem.analyze.communities(seed=42)
     print(f"\npost-hyperedge communities: {result2.community_count}")
     print(f"modularity: {result2.modularity:.4f}")
     for i, community in enumerate(result2.communities):

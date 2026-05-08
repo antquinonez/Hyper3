@@ -8,7 +8,7 @@ class ITTroubleshootingEngine:
     - Goal-directed reasoning: prove/disprove a hypothesis via mem.prove()
     - N-ary condition groups for complex issue relationships
     - Root cause analysis with confidence scoring via mem.compute_confidence()
-    - Causal path discovery via mem.find_paths()
+    - Causal path discovery via mem.analyze.paths()
     - Provenance tracking for explainable proofs
 
     Different from transitive reasoning - this PROVES a hypothesis
@@ -38,7 +38,7 @@ class ITTroubleshootingEngine:
             ("disk_space_full", {"severity": "high", "category": "storage"}),
         ]
         for label, data in symptoms:
-            self.mem.store(label, data=data)
+            self.mem.add(label, data=data)
 
     def _add_root_causes(self):
         causes = [
@@ -51,7 +51,7 @@ class ITTroubleshootingEngine:
             ("memory_leak", {"type": "software", "fix_complexity": "medium"}),
         ]
         for label, data in causes:
-            self.mem.store(label, data=data)
+            self.mem.add(label, data=data)
 
     def _add_causal_relationships(self):
         relationships = [
@@ -66,10 +66,10 @@ class ITTroubleshootingEngine:
             ("memory_leak", "slow_performance", "causes"),
         ]
         for cause, effect, label in relationships:
-            self.mem.relate(cause, effect, label=label, weight=1.0)
+            self.mem.link(cause, effect, label=label, weight=1.0)
 
     def _add_condition_groups(self):
-        self.mem.relate_hyperedge(
+        self.mem.link_hyper(
             sources={"power_failure", "hardware_failure"},
             targets={"server_wont_boot"},
             label="either_condition",
@@ -97,8 +97,8 @@ class ITTroubleshootingEngine:
         observed = {s for s, val in evidence.items() if val}
 
         for symptom in observed:
-            paths = self.mem.find_paths(
-                hypothesis, symptom, edge_label="causes", max_depth=6, max_paths=3
+            paths = self.mem.analyze.paths(
+                hypothesis, symptom, label="causes", max_depth=6, max_paths=3
             )
             if paths:
                 proven = True
@@ -174,7 +174,7 @@ class ITTroubleshootingEngine:
         Returns:
             List of dicts with keys: cause, confidence.
         """
-        if not self.mem.has_node(symptom):
+        if not self.mem.has(symptom):
             return []
 
         causes = []
@@ -196,7 +196,7 @@ class ITTroubleshootingEngine:
         Returns:
             Dict with hypothesis info and all downstream effects.
         """
-        if not self.mem.has_node(hypothesis):
+        if not self.mem.has(hypothesis):
             return {"error": f"Hypothesis '{hypothesis}' not found"}
 
         effects = [
@@ -221,7 +221,7 @@ class ITTroubleshootingEngine:
         Returns:
             Nested dict with issue and children.
         """
-        if not self.mem.has_node(symptom):
+        if not self.mem.has(symptom):
             return {"error": f"Symptom '{symptom}' not found"}
 
         def build_tree(label: str, depth: int) -> list:
@@ -253,5 +253,5 @@ class ITTroubleshootingEngine:
         Returns:
             Dict with issue data, or None if not found.
         """
-        node = self.mem.graph.get_node_by_label(issue)
+        node = self.mem.engine.graph.get_node_by_label(issue)
         return node.data if node else None

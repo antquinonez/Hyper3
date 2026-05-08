@@ -27,25 +27,25 @@ def main() -> None:
     tri = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c"]:
         tri.ensure(c)
-    tri.relate("a", "b", label="e")
-    tri.relate("b", "c", label="e")
-    tri.relate("c", "a", label="e")
+    tri.link("a", "b", label="e")
+    tri.link("b", "c", label="e")
+    tri.link("c", "a", label="e")
 
     print("\n--- Chain graph (low clustering) ---")
     chain = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d", "e"]:
         chain.ensure(c)
-    chain.relate("a", "b", label="e")
-    chain.relate("b", "c", label="e")
-    chain.relate("c", "d", label="e")
-    chain.relate("d", "e", label="e")
+    chain.link("a", "b", label="e")
+    chain.link("b", "c", label="e")
+    chain.link("c", "d", label="e")
+    chain.link("d", "e", label="e")
 
     print("\n--- Star graph (zero clustering) ---")
     star = HypergraphMemory(evolve_interval=0)
     for c in ["hub", "b", "c", "d", "e", "f"]:
         star.ensure(c)
     for leaf in ["b", "c", "d", "e", "f"]:
-        star.relate("hub", leaf, label="e")
+        star.link("hub", leaf, label="e")
 
     print("\n--- Complete graph (maximum clustering) ---")
     comp = HypergraphMemory(evolve_interval=0)
@@ -54,7 +54,7 @@ def main() -> None:
     for src in ["a", "b", "c", "d"]:
         for tgt in ["a", "b", "c", "d"]:
             if src != tgt:
-                comp.relate(src, tgt, label="e")
+                comp.link(src, tgt, label="e")
 
     print("\n" + "=" * 70)
     print("SECTION 2: Per-Node Clustering Coefficients")
@@ -62,7 +62,7 @@ def main() -> None:
 
     for name, mem in [("triangle", tri), ("chain", chain), ("star", star), ("complete", comp)]:
         print(f"\n{name} graph:")
-        for concept in sorted(m.label for m in mem.graph.nodes):
+        for concept in sorted(m.label for m in mem.engine.graph.nodes):
             cc = mem.clustering_coefficient(concept)
             bar = "#" * int(cc * 20)
             print(f"  {concept:>4}: {cc:.4f} {bar}")
@@ -90,20 +90,20 @@ def main() -> None:
     hmem = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d"]:
         hmem.ensure(c)
-    hmem.relate("a", "b", label="e")
-    hmem.relate("b", "c", label="e")
-    hmem.relate("c", "d", label="e")
-    hmem.relate("d", "a", label="e")
-    hmem.relate("a", "c", label="e")
-    hmem.relate_hyperedge(
+    hmem.link("a", "b", label="e")
+    hmem.link("b", "c", label="e")
+    hmem.link("c", "d", label="e")
+    hmem.link("d", "a", label="e")
+    hmem.link("a", "c", label="e")
+    hmem.link_hyper(
         sources={"a", "b"},
         targets={"c", "d"},
         label="quad",
         weight=5.0,
     )
 
-    print(f"\nn-ary hypergraph: nodes={hmem.graph.node_count}, edges={hmem.graph.edge_count}")
-    for concept in sorted(m.label for m in hmem.graph.nodes):
+    print(f"\nn-ary hypergraph: nodes={hmem.size[0]}, edges={hmem.size[1]}")
+    for concept in sorted(m.label for m in mem.engine.graph.nodes):
         cc = hmem.clustering_coefficient(concept)
         print(f"  {concept}: clustering={cc:.4f}")
 
@@ -116,18 +116,18 @@ def main() -> None:
 
     mixed = HypergraphMemory(evolve_interval=0)
     for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-        mixed.store(c, data={})
-    mixed.relate("a", "b", label="e", weight=5.0)
-    mixed.relate("b", "c", label="e", weight=5.0)
-    mixed.relate("c", "a", label="e", weight=5.0)
-    mixed.relate("d", "e", label="e", weight=5.0)
-    mixed.relate("e", "f", label="e", weight=5.0)
-    mixed.relate("f", "d", label="e", weight=5.0)
-    mixed.relate("g", "h", label="e", weight=5.0)
-    mixed.relate("h", "g", label="e", weight=5.0)
-    mixed.relate("c", "d", label="bridge", weight=1.0)
+        mixed.add(c, data={})
+    mixed.link("a", "b", label="e", weight=5.0)
+    mixed.link("b", "c", label="e", weight=5.0)
+    mixed.link("c", "a", label="e", weight=5.0)
+    mixed.link("d", "e", label="e", weight=5.0)
+    mixed.link("e", "f", label="e", weight=5.0)
+    mixed.link("f", "d", label="e", weight=5.0)
+    mixed.link("g", "h", label="e", weight=5.0)
+    mixed.link("h", "g", label="e", weight=5.0)
+    mixed.link("c", "d", label="bridge", weight=1.0)
 
-    cr = mixed.detect_communities(seed=42)
+    cr = mixed.analyze.communities(seed=42)
     print(f"\ncommunity detection on mixed graph:")
     print(f"  communities: {cr.community_count}")
     print(f"  modularity: {cr.modularity:.4f}")
@@ -140,8 +140,6 @@ def main() -> None:
     print("SECTION 6: SPREADING ACTIVATION")
     print("=" * 70)
 
-    mixed.clear_activations()
-
     cc_values = {}
     for c in ["a", "b", "c", "d", "e", "f", "g", "h"]:
         cc_values[c] = mixed.clustering_coefficient(c)
@@ -152,13 +150,12 @@ def main() -> None:
         print(f"  {c}: {cc:.4f}")
     print(f"\nstimulating highest-clustering node: '{high_cc_node}' (cc={cc_values[high_cc_node]:.4f})")
 
-    mixed.stimulate(high_cc_node, energy=1.0)
-    activated = mixed.spread_activation(iterations=3)
+    activated = mixed.search.activate(high_cc_node, energy=1.0)
 
     print(f"\nactivated nodes after spreading from '{high_cc_node}':")
     for act in activated:
         cc = cc_values.get(act.label, 0.0)
-        print(f"  {act.label}: activation={act.activation:.4f}, depth={act.depth}, cc={cc:.4f}")
+        print(f"  {act.label}: energy={act.energy:.4f}, cc={cc:.4f}")
 
     print("\n" + "=" * 70)
     print("DONE")

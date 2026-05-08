@@ -36,7 +36,7 @@ def main() -> None:
         ("herd_immunity", 14.0, 20.0),
     ]
     for name, start, end in events:
-        mem.store(name, data={"type": "event"})
+        mem.add(name, data={"type": "event"})
         mem.add_temporal_event(name, start=start, end=end)
 
     causal_edges = [
@@ -51,9 +51,9 @@ def main() -> None:
         ("second_wave", "recovery_begins", "interrupts"),
     ]
     for src, tgt, label in causal_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"events: {mem.graph.node_count}, causal edges: {mem.graph.edge_count}")
+    print(f"events: {mem.size[0]}, causal edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: ALLEN INTERVAL RELATIONS")
@@ -86,7 +86,7 @@ def main() -> None:
     for i, chain in enumerate(chains):
         chain_labels = []
         for node_id in chain:
-            n = mem.graph.get_node(node_id)
+            n = mem.engine.graph.get_node(node_id)
             chain_labels.append(n.label if n else node_id)
         events_str = " -> ".join(chain_labels)
         print(f"  chain {i+1}: {events_str}")
@@ -113,11 +113,11 @@ def main() -> None:
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     )
 
-    result = mem.reason(seed_concepts={"outbreak_detected"}, max_depth=3)
+    result = mem.reason(seeds={"outbreak_detected"}, max_depth=3)
     print(f"\nreasoning from 'outbreak_detected':")
     print(f"  edges produced: {result.expansion.edges_produced}")
 
-    indirect = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.edges_labeled(edge_label="indirectly_causes") if e.source_labels and e.target_labels]
+    indirect = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="indirectly_causes") if e.source_labels and e.target_labels]
     print(f"\nindirect causal chains inferred:")
     for lbl, src, tgt in indirect:
         print(f"  {src} -[{lbl}]-> {tgt}")

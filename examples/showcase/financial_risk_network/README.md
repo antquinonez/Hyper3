@@ -300,7 +300,7 @@ qs = mem.create_distribution(
 
 for i in range(10):
     answer = mem.sample(qs)
-    node = mem.graph.get_node(answer.node_id)
+    node = mem.engine.graph.get_node(answer.node_id)
     print(node.label if node else answer.node_id)
 ```
 
@@ -516,7 +516,7 @@ qs = mem.create_distribution(
 )
 
 answer = mem.sample(qs)
-node = mem.graph.get_node(answer.node_id)
+node = mem.engine.graph.get_node(answer.node_id)
 print(f"Sampled default: {node.label if node else answer.node_id}")
 ```
 

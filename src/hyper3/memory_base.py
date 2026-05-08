@@ -25,12 +25,15 @@ from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import ProvenanceTracker
 from hyper3.results import (
+    BulkResult,
     CommitResult,
     ConsensusReasonResult,
     DiscoverResult,
+    EdgeInfo,
     EvolveResult,
     IterativeReasonResult,
     MemoryStats,
+    NodeInfo,
     ReasonResult,
     RollbackResult,
     TrainResult,
@@ -101,19 +104,55 @@ class _MemoryBase:
         """Return the human-readable label for a node ID, or a truncated ID fallback."""
         ...
 
+    def node_label(self, node_id: str) -> str:
+        """Public: return the human-readable label for an internal node ID."""
+        ...
+
+    def node_data(self, concept: str) -> dict[str, Any] | None:
+        """Public: return the data dict for a concept label, or None."""
+        ...
+
+    def resolve_id(self, concept: str) -> str | None:
+        """Public: resolve a concept label to its internal node ID, or None."""
+        ...
+
     def _maybe_evolve(self) -> None:
         """Increment the operation counter and trigger evolution if the interval is reached."""
         ...
 
-    def store(self, concept: str, data: Any = None, **kwargs: Any) -> Hypernode:
-        """Store a concept node in the hypergraph."""
+    def has(self, concept: str) -> bool:
+        """Check whether a concept exists."""
         ...
 
-    def relate(self, source: str, target: str, **kwargs: Any) -> Any:
-        """Create a directed edge between two concept nodes.
+    def get(self, concept: str, key: str | None = None, *, default: Any = None) -> Any:
+        """Read node data without graph escapes."""
+        ...
 
-        Raises NodeNotFoundError or ConstraintViolationError on failure.
-        """
+    def set(self, concept: str, **kwargs: Any) -> None:
+        """Update node data in-place."""
+        ...
+
+    def info(self, concept: str) -> NodeInfo | None:
+        """Return typed node info."""
+        ...
+
+    def add(self, concept: str, *, data: Any = None, update: bool = False, **kwargs: Any) -> NodeInfo:
+        """Create a concept node with **kwargs merged into data."""
+        ...
+
+    def link(self, source: str, target: str, *, label: str = "", weight: float = 1.0,
+             bidirectional: bool = False, **edge_data: Any) -> EdgeInfo:
+        """Create a directed edge, returning EdgeInfo with labels."""
+        ...
+
+    def link_hyper(self, sources: set[str], targets: set[str], *, label: str = "",
+                   weight: float = 1.0, **edge_data: Any) -> EdgeInfo:
+        """Create an n-ary hyperedge, returning EdgeInfo with labels."""
+        ...
+
+    def add_all(self, *, nodes: dict[str, dict[str, Any]] | None = None,
+                edges: list[tuple[str, str, str] | dict[str, Any]] | None = None) -> BulkResult:
+        """Bulk construct nodes and edges."""
         ...
 
     def commit_inferences(self) -> CommitResult:

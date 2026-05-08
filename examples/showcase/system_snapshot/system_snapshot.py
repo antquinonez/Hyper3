@@ -32,36 +32,35 @@ def main() -> None:
         "natural_language", "computer_vision", "robotics",
     ]
     for c in concepts:
-        mem.store(c, data={"type": "concept"})
+        mem.add(c, data={"type": "concept"})
 
-    mem.relate("quantum_computing", "machine_learning", label="influences", weight=3.0)
-    mem.relate("quantum_computing", "cryptography", label="influences", weight=4.0)
-    mem.relate("quantum_computing", "optimization", label="influences", weight=3.0)
-    mem.relate("quantum_computing", "simulation", label="influences", weight=2.5)
-    mem.relate("machine_learning", "neural_network", label="influences", weight=3.0)
-    mem.relate("neural_network", "deep_learning", label="influences", weight=2.5)
-    mem.relate("deep_learning", "computer_vision", label="influences", weight=2.0)
-    mem.relate("deep_learning", "natural_language", label="influences", weight=2.0)
-    mem.relate("machine_learning", "reinforcement_learning", label="influences", weight=2.0)
-    mem.relate("reinforcement_learning", "robotics", label="influences", weight=2.0)
-    mem.relate("quantum_computing", "error_correction", label="influences", weight=3.5)
-    mem.relate("error_correction", "cryptography", label="influences", weight=2.0)
+    mem.link("quantum_computing", "machine_learning", label="influences", weight=3.0)
+    mem.link("quantum_computing", "cryptography", label="influences", weight=4.0)
+    mem.link("quantum_computing", "optimization", label="influences", weight=3.0)
+    mem.link("quantum_computing", "simulation", label="influences", weight=2.5)
+    mem.link("machine_learning", "neural_network", label="influences", weight=3.0)
+    mem.link("neural_network", "deep_learning", label="influences", weight=2.5)
+    mem.link("deep_learning", "computer_vision", label="influences", weight=2.0)
+    mem.link("deep_learning", "natural_language", label="influences", weight=2.0)
+    mem.link("machine_learning", "reinforcement_learning", label="influences", weight=2.0)
+    mem.link("reinforcement_learning", "robotics", label="influences", weight=2.0)
+    mem.link("quantum_computing", "error_correction", label="influences", weight=3.5)
+    mem.link("error_correction", "cryptography", label="influences", weight=2.0)
 
-    result = mem.reason(seed_concepts={"quantum_computing", "machine_learning"}, max_depth=3)
+    result = mem.reason(seeds={"quantum_computing", "machine_learning"}, max_depth=3)
     print(f"reasoning: edges_produced={result.expansion.edges_produced}, states_created={result.expansion.states_created}")
 
-    mem.create_distribution(["quantum_computing", "machine_learning", "cryptography"])
+    mem.belief.create(["quantum_computing", "machine_learning", "cryptography"])
 
-    mem.stimulate("quantum_computing", energy=2.0)
-    mem.stimulate("machine_learning", energy=1.5)
-    mem.spread_activation(iterations=2)
+    mem.search.activate("quantum_computing", energy=2.0)
+    mem.search.activate("machine_learning", energy=1.5)
 
-    retrieve_results = mem.retrieve("machine_learning", top_k=3)
+    retrieve_results = mem.search.query("machine_learning", top_k=3)
     mem.record_feedback("machine_learning", retrieve_results, relevant_labels={"machine_learning"})
-    retrieve_results2 = mem.retrieve("cryptography", top_k=3)
+    retrieve_results2 = mem.search.query("cryptography", top_k=3)
     mem.record_feedback("cryptography", retrieve_results2, relevant_labels={"cryptography"})
 
-    print(f"graph: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
+    print(f"graph: nodes={mem.size[0]}, edges={mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: CAPTURE FULL SYSTEM SNAPSHOT")
@@ -101,7 +100,7 @@ def main() -> None:
     snapshot_path = os.path.join(tmpdir, "snapshot.json")
 
     mem.save(graph_path)
-    mem.save_state(snapshot_path)
+    mem.save(snapshot_path, full=True)
     graph_size = os.path.getsize(graph_path)
     snapshot_size = os.path.getsize(snapshot_path)
     print(f"saved graph to: {graph_path} ({graph_size} bytes)")
@@ -116,23 +115,23 @@ def main() -> None:
     ])
 
     mem2.load(graph_path)
-    mem2.load_state(snapshot_path)
+    mem2.load(snapshot_path)
 
-    print(f"restored graph: nodes={mem2.graph.node_count}, edges={mem2.graph.edge_count}")
-    print(f"original graph: nodes={mem.graph.node_count}, edges={mem.graph.edge_count}")
-    print(f"nodes match: {mem2.graph.node_count == mem.graph.node_count}")
-    print(f"edges match: {mem2.graph.edge_count == mem.graph.edge_count}")
+    print(f"restored graph: nodes={mem2.size[0]}, edges={mem2.size[1]}")
+    print(f"original graph: nodes={mem.size[0]}, edges={mem.size[1]}")
+    print(f"nodes match: {mem2.size[0] == mem.size[0]}")
+    print(f"edges match: {mem2.size[1] == mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 5: VERIFY RESTORED STATE")
     print("=" * 70)
 
     for concept in concepts:
-        assert mem2.has_node(concept), f"missing node: {concept}"
+        assert mem2.has(concept), f"missing node: {concept}"
     print(f"all {len(concepts)} concepts restored: True")
 
-    desc1 = mem.describe()
-    desc2 = mem2.describe()
+    desc1 = mem.analyze.describe()
+    desc2 = mem2.analyze.describe()
     print(f"density match: {desc1.density:.4f} vs {desc2.density:.4f}")
 
     score1 = mem.compute_confidence("quantum_computing")

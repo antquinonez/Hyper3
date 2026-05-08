@@ -22,15 +22,15 @@ class RecipeSubstitutionEngine:
         )
 
     def add_ingredient(self, name: str, **properties) -> str:
-        if not self.mem.has_node(name):
-            self.mem.store(name, data=properties)
+        if not self.mem.has(name):
+            self.mem.add(name, data=properties)
         return name
 
     def add_substitution(self, from_ingredient: str, to_ingredient: str,
                          *, confidence: float = 0.8) -> None:
         self.add_ingredient(from_ingredient)
         self.add_ingredient(to_ingredient)
-        self.mem.relate(
+        self.mem.link(
             from_ingredient, to_ingredient,
             label="substitutes_for",
             weight=confidence,
@@ -42,7 +42,7 @@ class RecipeSubstitutionEngine:
             self.add_ingredient(ing)
 
         for a, b in combinations(ingredients, 2):
-            self.mem.relate(a, b, label="substitutes_for", weight=confidence)
+            self.mem.link(a, b, label="substitutes_for", weight=confidence)
 
     def find_substitutes(self, ingredient: str, *, max_depth: int = 3) -> list[dict]:
         """Find all substitutes via mem.neighbors() BFS traversal.
@@ -56,7 +56,7 @@ class RecipeSubstitutionEngine:
         Returns:
             List of dicts with keys: label, confidence, depth, path.
         """
-        if not self.mem.has_node(ingredient):
+        if not self.mem.has(ingredient):
             return []
 
         result = []
@@ -106,7 +106,7 @@ class RecipeSubstitutionEngine:
                     existing.add(node)
 
         result = self.mem.reason(
-            seed_concepts=seeds,
+            seeds=seeds,
             max_depth=3,
             max_total_states=30,
             auto_commit=True,
@@ -130,13 +130,13 @@ class RecipeSubstitutionEngine:
 
     def explain_substitution(self, from_ingredient: str,
                              to_ingredient: str) -> dict | None:
-        from_node = self.mem.graph.get_node_by_label(from_ingredient)
-        to_node = self.mem.graph.get_node_by_label(to_ingredient)
+        from_node = self.mem.engine.graph.get_node_by_label(from_ingredient)
+        to_node = self.mem.engine.graph.get_node_by_label(to_ingredient)
 
         if not from_node or not to_node:
             return None
 
-        edges = self.mem.graph.outgoing_edges(from_node.id)
+        edges = self.mem.engine.graph.outgoing_edges(from_node.id)
         for edge in edges:
             if to_node.id in edge.target_ids and edge.label == "substitutes_for":
                 return {
@@ -175,17 +175,17 @@ class RecipeSubstitutionEngine:
         return self.mem.evolve()
 
     def get_ingredient_info(self, ingredient: str) -> dict | None:
-        node = self.mem.graph.get_node_by_label(ingredient)
+        node = self.mem.engine.graph.get_node_by_label(ingredient)
         return node.data if node else None
 
     def _edge_weight(self, from_label: str, to_label: str, edge_label: str) -> float:
-        from_node = self.mem.graph.get_node_by_label(from_label)
+        from_node = self.mem.engine.graph.get_node_by_label(from_label)
         if not from_node:
             return 1.0
-        to_node = self.mem.graph.get_node_by_label(to_label)
+        to_node = self.mem.engine.graph.get_node_by_label(to_label)
         if not to_node:
             return 1.0
-        for edge in self.mem.graph.outgoing_edges(from_node.id):
+        for edge in self.mem.engine.graph.outgoing_edges(from_node.id):
             if edge.label == edge_label and to_node.id in edge.target_ids:
                 return edge.weight
         return 1.0

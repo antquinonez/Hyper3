@@ -64,7 +64,7 @@ def _test_transitivity(t: EquivRunner) -> None:
     mem = build_pairwise_h3()
     G = build_pairwise_nx()
 
-    h3_trans = mem.graph.transitivity()
+    h3_trans = mem.engine.graph.transitivity()
     nx_trans = nx.transitivity(G.to_undirected())
 
     t.check_close("transitivity", h3_trans, nx_trans, tol=1e-10)
@@ -78,7 +78,7 @@ def _test_square_clustering(t: EquivRunner) -> None:
 
     nx_sq = nx.square_clustering(G.to_undirected())
 
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     for node in G.nodes():
         node_id = None
         for nid, label in label_map.items():
@@ -86,7 +86,7 @@ def _test_square_clustering(t: EquivRunner) -> None:
                 node_id = nid
                 break
         if node_id:
-            h3_sc = mem.graph.square_clustering(node_id)
+            h3_sc = mem.engine.graph.square_clustering(node_id)
             t.check_close(
                 f"square_clustering/{node}",
                 h3_sc,
@@ -103,7 +103,7 @@ def _test_triangles(t: EquivRunner) -> None:
 
     nx_tri = nx.triangles(G.to_undirected())
 
-    label_map = {n.id: n.label for n in mem.graph.nodes}
+    label_map = {n.id: n.label for n in mem.engine.graph.nodes}
     for node in G.nodes():
         node_id = None
         for nid, label in label_map.items():
@@ -111,7 +111,7 @@ def _test_triangles(t: EquivRunner) -> None:
                 node_id = nid
                 break
         if node_id:
-            h3_tri = mem.graph.triangles(node_id)
+            h3_tri = mem.engine.graph.triangles(node_id)
             t.check_int(
                 f"triangles/{node}",
                 h3_tri,

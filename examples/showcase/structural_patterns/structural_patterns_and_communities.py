@@ -228,13 +228,13 @@ def main() -> None:
 
     all_nodes = {**COMPANIES, **PRODUCTS, **TECHNOLOGIES, **PEOPLE, **STANDARDS}
     for name, data in all_nodes.items():
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     for src, tgt, label, weight in EDGES:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -286,7 +286,7 @@ def main() -> None:
     print("SECTION 5: Community Detection - Natural Clusters")
     print("=" * 70)
 
-    result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+    result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities: {result.community_count}")
     print(f"  Modularity:  {result.modularity:.3f}")
     print(f"  Coverage:    {result.coverage:.1%}")
@@ -321,9 +321,9 @@ def main() -> None:
 
     hub_nodes = {lbl for lbl in largest.member_labels}
     cross_community_edges = 0
-    for edge in mem.graph.edges:
-        src_node = mem.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
-        tgt_node = mem.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
+    for edge in mem.engine.graph.edges:
+        src_node = mem.engine.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
+        tgt_node = mem.engine.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
         if src_node and tgt_node:
             s_in = src_node.label in hub_nodes
             t_in = tgt_node.label in hub_nodes
@@ -335,7 +335,7 @@ def main() -> None:
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Graph: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
     print(f"  Patterns: {len(use_chains)} dependency chains, {len(fan_outs)} hubs, {len(diamonds)} diamonds")
     print(f"  Communities: {result.community_count} (modularity={result.modularity:.3f})")
     print()

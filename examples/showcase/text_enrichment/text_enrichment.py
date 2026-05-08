@@ -186,7 +186,7 @@ def main():
     total_relations = sum(len(r.relations) for r in results)
     print(f"  Processed {len(REPORTS)} reports")
     print(f"  Extracted {total_entities} entity mentions ({total_relations} relations)")
-    print(f"  Graph: {mem.graph.node_count} unique nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph: {mem.size[0]} unique nodes, {mem.size[1]} edges")
     print()
 
     print("  Sample extracted relations:")
@@ -274,19 +274,19 @@ def main():
 
         for ip in ip_addrs:
             for domain in domains:
-                mem.relate(ip, domain, label="communicated_with")
+                mem.link(ip, domain, label="communicated_with")
             for cve in cves:
-                mem.relate(ip, cve, label="exploited_via")
+                mem.link(ip, cve, label="exploited_via")
 
         for technique in techniques:
             for cve in cves:
-                mem.relate(technique, cve, label="maps_to")
+                mem.link(technique, cve, label="maps_to")
 
         for h in hashes:
             for fp in indicators.get("file_path_windows", []) + indicators.get("file_path_unix", []):
-                mem.relate(h, fp, label="found_at")
+                mem.link(h, fp, label="found_at")
 
-    print(f"  Graph after manual enrichment: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph after manual enrichment: {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     print("=" * 70)

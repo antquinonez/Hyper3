@@ -229,14 +229,14 @@ def build_graph(movies: list[MovieData]) -> HypergraphMemory:
     for studio in STUDIOS:
         mem.ensure(studio, data={"type": "studio"})
     for m in movies:
-        mem.store(m.title, data={"type": "movie", "year": m.year, "rating": m.rating})
+        mem.add(m.title, data={"type": "movie", "year": m.year, "rating": m.rating})
         for genre in m.genres:
             w = m.rating / 10.0
-            mem.relate(m.title, genre, label="has_genre", weight=w)
-        mem.relate(m.title, m.director, label="directed_by")
+            mem.link(m.title, genre, label="has_genre", weight=w)
+        mem.link(m.title, m.director, label="directed_by")
         for actor in m.actors:
-            mem.relate(actor, m.title, label="acted_in")
-        mem.relate(m.title, m.studio, label="produced_by")
+            mem.link(actor, m.title, label="acted_in")
+        mem.link(m.title, m.studio, label="produced_by")
     actor_movies: dict[str, list[str]] = defaultdict(list)
     for m in movies:
         for actor in m.actors:
@@ -252,7 +252,7 @@ def build_graph(movies: list[MovieData]) -> HypergraphMemory:
                     a_title = shared_movie_list[k]
                     b_title = shared_movie_list[l]
                     if a_title in movie_titles_set and b_title in movie_titles_set:
-                        mem.relate(a_title, b_title, label="similar_taste",
+                        mem.link(a_title, b_title, label="similar_taste",
                                    weight=float(len(shared)), bidirectional=True)
     return mem
 
@@ -261,8 +261,8 @@ def section1_construction(mem: HypergraphMemory, movies: list[MovieData]) -> Non
     print("=" * 70)
     print("SECTION 1: KNOWLEDGE GRAPH CONSTRUCTION")
     print("=" * 70)
-    print(f"\nNodes:  {mem.graph.node_count}")
-    print(f"Edges:  {mem.graph.edge_count}")
+    print(f"\nNodes:  {mem.size[0]}")
+    print(f"Edges:  {mem.size[1]}")
     genre_counts: dict[str, int] = Counter()
     for m in movies:
         for g in m.genres:
@@ -344,7 +344,7 @@ def section4_communities(mem: HypergraphMemory) -> None:
     print("=" * 70)
     print("SECTION 4: COMMUNITY DETECTION FOR TASTE CLUSTERS")
     print("=" * 70)
-    result = mem.detect_communities(seed=42)
+    result = mem.analyze.communities(seed=42)
     movie_labels = set(mem.query_nodes(type="movie"))
     genre_labels = set(mem.query_nodes(type="genre"))
     actor_labels_set = set(mem.query_nodes(type="actor"))
@@ -371,7 +371,7 @@ def section5_bridge_movies(mem: HypergraphMemory, movies: list[MovieData]) -> No
     print("=" * 70)
     print("SECTION 5: BRIDGE MOVIES (BETWEENNESS CENTRALITY)")
     print("=" * 70)
-    bc = mem.betweenness_centrality(top_k=10)
+    bc = mem.analyze.centrality("betweenness", top_k=10)
     movie_labels = set(mem.query_nodes(type="movie"))
     genre_labels = set(mem.query_nodes(type="genre"))
     print(f"\nTop-10 bridge nodes (gateway recommendations):\n")
@@ -405,14 +405,14 @@ def section6_retrieval(mem: HypergraphMemory, movies: list[MovieData]) -> None:
     if seed_data:
         print(f"  Genres: {', '.join(seed_data.genres)}")
         print(f"  Rating: {seed_data.rating}")
-    mem.stimulate(seed_movie, energy=1.0)
-    activation_results = mem.spread_activation(iterations=4)
+    mem.search.activate(seed_movie, energy=1.0)
+    activation_results = mem.search.activate(seed_movie, energy=1.0)
     print(f"\nPure activation (top-10):")
     movie_labels = set(mem.query_nodes(type="movie"))
     act_movies = [a for a in activation_results if a.label in movie_labels and a.label != seed_movie]
     for a in act_movies[:10]:
-        print(f"  {a.label:35s}  activation={a.activation:.4f}  depth={a.depth}")
-    retrieval_results = mem.retrieve(seed_movie, top_k=15, iterations=4)
+        print(f"  {a.label:35s}  energy={a.energy:.4f}")
+    retrieval_results = mem.search.query(seed_movie, top_k=15)
     ret_movies = [r for r in retrieval_results if r.label in movie_labels and r.label != seed_movie]
     print(f"\nRRF retrieval (top-10, activation + similarity fused):")
     print(f"  {'Label':35s}  {'RRF':>8s}  {'Act':>8s}  {'Sim':>8s}")

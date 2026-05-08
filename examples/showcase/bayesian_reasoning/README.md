@@ -262,8 +262,8 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | `mem.store(concept, data=...)` | Create a node with typed data |
 | `mem.relate(source, target, label=..., weight=...)` | Create a directed edge with semantic label and weight |
 | `mem.neighbors(concept, edge_label=..., direction=...)` | Query neighbors filtered by edge label and direction |
-| `mem.graph.node_count` | Total number of nodes in the graph |
-| `mem.graph.edge_count` | Total number of edges in the graph |
+| `mem.engine.graph.node_count` | Total number of nodes in the graph |
+| `mem.engine.graph.edge_count` | Total number of edges in the graph |
 
 ### Related Examples
 

@@ -37,18 +37,18 @@ def main() -> None:
         ("g", "hub", "link"),
     ]
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label, weight=3.0)
+        mem.link(src, tgt, label=label, weight=3.0)
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: Compute All Centralities")
     print("=" * 70)
 
-    deg = mem.degree_centrality()
-    betw = mem.betweenness_centrality()
-    pr = mem.pagerank(alpha=0.85)
-    katz = mem.katz_centrality(alpha=0.1)
+    deg = mem.analyze.centrality("degree")
+    betw = mem.analyze.centrality("betweenness")
+    pr = mem.analyze.centrality("pagerank", alpha=0.85)
+    katz = mem.analyze.centrality("katz", alpha=0.1)
 
     print("\n" + "=" * 70)
     print("SECTION 3: Rank Nodes by Each Measure")
@@ -99,7 +99,7 @@ def main() -> None:
     print("=" * 70)
 
     for concept in ["hub", "d", "a"]:
-        anomaly = mem.detect_structural_anomalies(concept)
+        anomaly = mem.analyze.anomalies(concept)
         print(f"\n{concept}:")
         print(f"  anomaly status: {anomaly.anomaly_status}")
         print(f"  boundary score: {anomaly.boundary_score:.4f}")
@@ -108,7 +108,7 @@ def main() -> None:
     print("SECTION 6: COMMUNITY DETECTION")
     print("=" * 70)
 
-    comm_result = mem.detect_communities(seed=42)
+    comm_result = mem.analyze.communities(seed=42)
     print(f"\ncommunities detected: {comm_result.community_count}")
     print(f"modularity: {comm_result.modularity:.4f}")
     for i, community in enumerate(comm_result.communities):

@@ -28,28 +28,28 @@ def main() -> None:
     events = ["trade_embargo", "supply_shortage", "labor_strike"]
 
     for s in suppliers:
-        mem.store(s, data={"type": "supplier", "reliability": "verified"})
+        mem.add(s, data={"type": "supplier", "reliability": "verified"})
     for p in products:
-        mem.store(p, data={"type": "product", "reliability": "supplier_report"})
+        mem.add(p, data={"type": "product", "reliability": "supplier_report"})
     for r in risks:
-        mem.store(r, data={"type": "risk_factor", "reliability": "market_estimate"})
+        mem.add(r, data={"type": "risk_factor", "reliability": "market_estimate"})
     for e in events:
-        mem.store(e, data={"type": "market_event", "reliability": "unverified"})
+        mem.add(e, data={"type": "market_event", "reliability": "unverified"})
 
-    mem.relate("widget_alpha", "supplier_acme", label="depends_on", weight=3.0)
-    mem.relate("widget_beta", "supplier_globex", label="depends_on", weight=2.5)
-    mem.relate("widget_gamma", "supplier_hooli", label="depends_on", weight=2.0)
-    mem.relate("widget_delta", "supplier_stark", label="depends_on", weight=1.5)
-    mem.relate("regulatory_risk", "supplier_umbrella", label="affects", weight=2.0)
-    mem.relate("geopolitical_risk", "supplier_globex", label="affects", weight=3.0)
-    mem.relate("currency_risk", "supplier_acme", label="affects", weight=1.5)
-    mem.relate("trade_embargo", "geopolitical_risk", label="causes", weight=4.0)
-    mem.relate("supply_shortage", "currency_risk", label="causes", weight=2.0)
-    mem.relate("labor_strike", "regulatory_risk", label="causes", weight=1.0)
-    mem.relate("widget_alpha", "widget_beta", label="depends_on", weight=2.0)
-    mem.relate("widget_beta", "widget_gamma", label="depends_on", weight=1.5)
+    mem.link("widget_alpha", "supplier_acme", label="depends_on", weight=3.0)
+    mem.link("widget_beta", "supplier_globex", label="depends_on", weight=2.5)
+    mem.link("widget_gamma", "supplier_hooli", label="depends_on", weight=2.0)
+    mem.link("widget_delta", "supplier_stark", label="depends_on", weight=1.5)
+    mem.link("regulatory_risk", "supplier_umbrella", label="affects", weight=2.0)
+    mem.link("geopolitical_risk", "supplier_globex", label="affects", weight=3.0)
+    mem.link("currency_risk", "supplier_acme", label="affects", weight=1.5)
+    mem.link("trade_embargo", "geopolitical_risk", label="causes", weight=4.0)
+    mem.link("supply_shortage", "currency_risk", label="causes", weight=2.0)
+    mem.link("labor_strike", "regulatory_risk", label="causes", weight=1.0)
+    mem.link("widget_alpha", "widget_beta", label="depends_on", weight=2.0)
+    mem.link("widget_beta", "widget_gamma", label="depends_on", weight=1.5)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
 
     print("\n" + "=" * 70)
@@ -57,13 +57,13 @@ def main() -> None:
     print("=" * 70)
 
     result = mem.reason(
-        seed_concepts={"supplier_acme", "supplier_globex", "widget_alpha"},
+        seeds={"supplier_acme", "supplier_globex", "widget_alpha"},
         max_depth=3,
     )
     print(f"edges produced: {result.expansion.edges_produced}")
     print(f"states created: {result.expansion.states_created}")
 
-    inferred = mem.edges_labeled(edge_label="indirect_dependency")
+    inferred = mem.analyze.edges(label="indirect_dependency")
     for e in inferred:
         if e.source_labels and e.target_labels:
             print(f"  inferred: {e.source_labels[0]} -[indirect_dependency]-> {e.target_labels[0]}")

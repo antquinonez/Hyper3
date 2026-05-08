@@ -417,8 +417,8 @@ def build_graph_from_offline(
     edge_count = 0
     for source, targets in concepts_data.items():
         for target in targets:
-            if mem.has_node(source) and mem.has_node(target):
-                mem.relate(source, target, label="links_to")
+            if mem.has(source) and mem.has(target):
+                mem.link(source, target, label="links_to")
                 edge_count += 1
 
     s = mem.stats()
@@ -440,8 +440,8 @@ def build_graph(link_map: dict[str, list[str]]) -> HypergraphMemory:
     edge_count = 0
     for source, targets in link_map.items():
         for target in targets:
-            if mem.has_node(source) and mem.has_node(target):
-                mem.relate(source, target, label="links_to")
+            if mem.has(source) and mem.has(target):
+                mem.link(source, target, label="links_to")
                 edge_count += 1
 
     s = mem.stats()
@@ -455,12 +455,12 @@ def build_graph(link_map: dict[str, list[str]]) -> HypergraphMemory:
 @task
 def analyze_anomalies(mem: HypergraphMemory, top_n: int = 10) -> list[dict[str, Any]]:
     logger = logging.getLogger(__name__)
-    centrality = mem.degree_centrality()
+    centrality = mem.analyze.centrality("degree")
     top_concepts = [c for c, _ in top_k(centrality, k=top_n)]
 
     results: list[dict[str, Any]] = []
     for concept in top_concepts:
-        anomaly = mem.detect_structural_anomalies(concept)
+        anomaly = mem.analyze.anomalies(concept)
         results.append({
             "concept": concept,
             "centrality": centrality.get(concept, 0.0),
@@ -536,15 +536,12 @@ def analyze_spreading_activation(mem: HypergraphMemory, seeds: list[str] | None 
         logger.warning("No seed concepts found in graph, skipping activation analysis")
         return []
 
-    mem.clear_activations()
     for seed in present_seeds:
-        mem.stimulate(seed, energy=1.0)
-
-    activated = mem.spread_activation(iterations=3)
+        activated = mem.activate(seed, energy=1.0)
 
     results: list[dict[str, Any]] = []
     for a in activated[:25]:
-        node = mem.graph.get_node(a.node_id)
+        node = mem.engine.graph.get_node(a.node_id)
         label = node.label if node else a.node_id
         results.append({"concept": label, "activation": a.activation})
 
@@ -558,7 +555,7 @@ def analyze_spreading_activation(mem: HypergraphMemory, seeds: list[str] | None 
 @task
 def analyze_centrality(mem: HypergraphMemory, top_n: int = 20) -> dict[str, float]:
     logger = logging.getLogger(__name__)
-    centrality = mem.degree_centrality(top_k=top_n)
+    centrality = mem.analyze.centrality("degree", top_k=top_n)
     ranked = list(centrality.items())
 
     logger.info("Degree centrality ranking (top %d):", top_n)
@@ -571,7 +568,7 @@ def analyze_centrality(mem: HypergraphMemory, top_n: int = 20) -> dict[str, floa
 @task
 def analyze_communities(mem: HypergraphMemory, min_size: int = 3) -> list[dict[str, Any]]:
     logger = logging.getLogger(__name__)
-    result = mem.detect_communities(method="label_propagation", seed=42)
+    result = mem.analyze.communities(method="label_propagation", seed=42)
 
     communities: list[dict[str, Any]] = []
     for comm in result.communities:
@@ -607,17 +604,17 @@ def analyze_communities(mem: HypergraphMemory, min_size: int = 3) -> list[dict[s
 @task
 def analyze_bridge_concepts(mem: HypergraphMemory, top_n: int = 15) -> list[dict[str, Any]]:
     logger = logging.getLogger(__name__)
-    betweenness = mem.betweenness_centrality(top_k=top_n)
+    betweenness = mem.analyze.centrality("betweenness", top_k=top_n)
     ranked = sorted(betweenness.items(), key=lambda x: x[1], reverse=True)
 
     bridges: list[dict[str, Any]] = []
     for concept, score in ranked:
-        node_obj = mem.graph.get_node_by_label(concept)
+        node_obj = mem.engine.graph.get_node_by_label(concept)
         neighbors = []
         if node_obj:
-            neighbor_ids = mem.graph.neighbors(node_obj.id)
+            neighbor_ids = mem.engine.graph.neighbors(node_obj.id)
             for nid in neighbor_ids:
-                n = mem.graph.get_node(nid)
+                n = mem.engine.graph.get_node(nid)
                 if n:
                     neighbors.append(n.label)
         bridges.append({
@@ -775,7 +772,7 @@ def wiki_concept_graph(
         return {"status": "error", "message": "No page links fetched"}
 
     mem = build_graph(link_map)
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     logger.info("Node types: %s", desc.node_types)
     stats = mem.stats()
 
@@ -803,7 +800,7 @@ def wiki_concept_graph(
 def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
     build_graph_from_offline(mem, OFFLINE_CONCEPTS)
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\n  Node types: {desc.node_types}")
     stats = mem.stats()
 

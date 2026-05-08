@@ -6,7 +6,7 @@ class JobSkillMatchingEngine:
 
     Uses Hyper3's hypergraph to store skills and job requirements,
     then applies graph traversal and rule-based reasoning to discover
-    skill substitution chains via mem.find_paths(), mem.neighbors(),
+    skill substitution chains via mem.analyze.paths(), mem.neighbors(),
     and mem.reason() with TransitiveRule.
     """
 
@@ -17,8 +17,8 @@ class JobSkillMatchingEngine:
         )
 
     def add_skill(self, name: str, **properties) -> str:
-        if not self.mem.has_node(name):
-            self.mem.store(name, data=properties)
+        if not self.mem.has(name):
+            self.mem.add(name, data=properties)
         return name
 
     def add_job(self, title: str, skills: list[str], **properties) -> str:
@@ -32,13 +32,13 @@ class JobSkillMatchingEngine:
         Returns:
             Job title label.
         """
-        if not self.mem.has_node(title):
-            self.mem.store(title, data={"type": "job", **properties})
+        if not self.mem.has(title):
+            self.mem.add(title, data={"type": "job", **properties})
 
         for skill in skills:
             self.add_skill(skill)
 
-        self.mem.relate_hyperedge(
+        self.mem.link_hyper(
             sources={title},
             targets=set(skills),
             label="requires",
@@ -50,7 +50,7 @@ class JobSkillMatchingEngine:
                                 confidence: float = 0.8) -> None:
         self.add_skill(from_skill)
         self.add_skill(to_skill)
-        self.mem.relate(
+        self.mem.link(
             from_skill, to_skill,
             label="substitutes_for",
             weight=confidence,
@@ -68,7 +68,7 @@ class JobSkillMatchingEngine:
         Returns:
             List of dicts with keys: label, confidence, depth, path.
         """
-        if not self.mem.has_node(skill):
+        if not self.mem.has(skill):
             return []
 
         result = []
@@ -107,12 +107,12 @@ class JobSkillMatchingEngine:
         seeds = set(seed_skills)
         existing = set()
         for s in seeds:
-            for path in self.mem.find_paths(s, s, edge_label="substitutes_for", max_depth=3, max_paths=20):
+            for path in self.mem.analyze.paths(s, s, label="substitutes_for", max_depth=3, max_paths=20):
                 for node in path:
                     existing.add(node)
 
         result = self.mem.reason(
-            seed_concepts=seeds,
+            seeds=seeds,
             max_depth=3,
             max_total_states=30,
             auto_commit=True,
@@ -120,7 +120,7 @@ class JobSkillMatchingEngine:
 
         new_chains = []
         for s in seeds:
-            for path in self.mem.find_paths(s, s, edge_label="substitutes_for", max_depth=3, max_paths=20):
+            for path in self.mem.analyze.paths(s, s, label="substitutes_for", max_depth=3, max_paths=20):
                 new_in_path = [n for n in path if n not in existing]
                 if new_in_path:
                     new_chains.append({"path": path, "new_nodes": new_in_path})
@@ -160,7 +160,7 @@ class JobSkillMatchingEngine:
             match_ratio = len(matched) / len(required_set)
 
             if match_ratio >= min_match:
-                node = self.mem.graph.get_node_by_label(title)
+                node = self.mem.engine.graph.get_node_by_label(title)
                 missing = required_set - candidate_set
                 results.append({
                     "title": title,
@@ -175,13 +175,13 @@ class JobSkillMatchingEngine:
 
     def explain_skill_substitution(self, from_skill: str,
                                     to_skill: str) -> dict | None:
-        from_node = self.mem.graph.get_node_by_label(from_skill)
-        to_node = self.mem.graph.get_node_by_label(to_skill)
+        from_node = self.mem.engine.graph.get_node_by_label(from_skill)
+        to_node = self.mem.engine.graph.get_node_by_label(to_skill)
 
         if not from_node or not to_node:
             return None
 
-        edges = self.mem.graph.outgoing_edges(from_node.id)
+        edges = self.mem.engine.graph.outgoing_edges(from_node.id)
         for edge in edges:
             if to_node.id in edge.target_ids and edge.label == "substitutes_for":
                 return {
@@ -191,7 +191,7 @@ class JobSkillMatchingEngine:
                     "direct": True,
                 }
 
-        paths = self.mem.find_paths(
+        paths = self.mem.analyze.paths(
             from_skill, to_skill,
             edge_label="substitutes_for",
             max_depth=4,
@@ -219,17 +219,17 @@ class JobSkillMatchingEngine:
         return self.mem.evolve()
 
     def get_skill_info(self, skill: str) -> dict | None:
-        node = self.mem.graph.get_node_by_label(skill)
+        node = self.mem.engine.graph.get_node_by_label(skill)
         return node.data if node else None
 
     def _edge_weight(self, from_label: str, to_label: str, edge_label: str) -> float:
-        from_node = self.mem.graph.get_node_by_label(from_label)
+        from_node = self.mem.engine.graph.get_node_by_label(from_label)
         if not from_node:
             return 1.0
-        to_node = self.mem.graph.get_node_by_label(to_label)
+        to_node = self.mem.engine.graph.get_node_by_label(to_label)
         if not to_node:
             return 1.0
-        for edge in self.mem.graph.outgoing_edges(from_node.id):
+        for edge in self.mem.engine.graph.outgoing_edges(from_node.id):
             if edge.label == edge_label and to_node.id in edge.target_ids:
                 return edge.weight
         return 1.0

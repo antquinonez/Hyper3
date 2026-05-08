@@ -38,16 +38,16 @@ def main() -> None:
         ("c", "t", "road", 8.0),
     ]
     for src, tgt, label, weight in edges:
-        mem.relate(src, tgt, label=label, weight=weight)
+        mem.link(src, tgt, label=label, weight=weight)
 
-    print(f"\nnodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"\nnodes: {mem.size[0]}, edges: {mem.size[1]}")
 
-    path_weighted = mem.shortest_path("s", "t", weighted=True)
-    path_unweighted = mem.shortest_path("s", "t", weighted=False)
+    path_weighted = mem.analyze.shortest_path("s", "t", weighted=True)
+    path_unweighted = mem.analyze.shortest_path("s", "t", weighted=False)
     print(f"\nshortest path (weighted):   {path_weighted}")
     print(f"shortest path (unweighted): {path_unweighted}")
 
-    all_paths = mem.find_paths("s", "t", max_paths=5)
+    all_paths = mem.analyze.paths("s", "t", max_paths=5)
     print(f"\nall paths s -> t:")
     for i, p in enumerate(all_paths):
         print(f"  path {i}: {' -> '.join(p)}")
@@ -99,7 +99,7 @@ def main() -> None:
 
     for c in ["x", "y"]:
         mem.ensure(c)
-    mem.relate("x", "y", label="island", weight=5.0)
+    mem.link("x", "y", label="island", weight=5.0)
 
     dist_s_x = mem.single_source_distances("s", weighted=True)
     print(f"\nfrom s: reachable={len(dist_s_x)} nodes")
@@ -116,8 +116,8 @@ def main() -> None:
     version_info = mem.capture_version()
     print(f"\ncaptured version: {version_info}")
 
-    mem.relate("s", "c", label="new_road", weight=1.5)
-    mem.relate("b", "t", label="new_highway", weight=1.0)
+    mem.link("s", "c", label="new_road", weight=1.5)
+    mem.link("b", "t", label="new_highway", weight=1.0)
 
     delta = mem.diff_from_version(version_info["version_id"])
     if delta:
@@ -131,7 +131,7 @@ def main() -> None:
     else:
         print("  no delta computed")
 
-    path_after = mem.shortest_path("s", "t", weighted=True)
+    path_after = mem.analyze.shortest_path("s", "t", weighted=True)
     print(f"\nshortest path (weighted) after new edges: {path_after}")
 
     print("\n" + "=" * 70)

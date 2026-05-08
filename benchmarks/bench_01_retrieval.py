@@ -72,13 +72,13 @@ def main() -> None:
     timings: dict[str, float] = {"Hyper3 RRF": 0.0, "BFS expand": 0.0, "PPR": 0.0, "RWR": 0.0}
 
     for query, relevant in CS_RETRIEVAL_GROUND_TRUTH.items():
-        seed_node = mem.graph.get_node_by_label(query)
+        seed_node = mem.engine.graph.get_node_by_label(query)
         if not seed_node:
             print(f"  WARNING: seed '{query}' not found in graph, skipping")
             continue
 
         with Timer() as t:
-            h3_results = mem.retrieve(query, top_k=10, iterations=3)
+            h3_results = mem.search.query(query, top_k=10)
         timings["Hyper3 RRF"] += t.elapsed
         h3_labels = [r.label for r in h3_results]
 
@@ -133,10 +133,10 @@ def main() -> None:
     print_header("Per-Query Breakdown (P@10)")
     for query in sorted(CS_RETRIEVAL_GROUND_TRUTH.keys()):
         relevant = CS_RETRIEVAL_GROUND_TRUTH[query]
-        seed_node = mem.graph.get_node_by_label(query)
+        seed_node = mem.engine.graph.get_node_by_label(query)
         if not seed_node:
             continue
-        h3 = mem.retrieve(query, top_k=10, iterations=3)
+        h3 = mem.search.query(query, top_k=10)
         h3_labels = [r.label for r in h3]
         bfs_labels = baselines["BFS expand"].retrieve(query, max_depth=3, top_k=10)
         ppr_labels = baselines["PPR"].retrieve(query, top_k=10)

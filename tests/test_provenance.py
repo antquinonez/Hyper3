@@ -250,11 +250,11 @@ class TestProvenanceTrackerProperties:
 class TestIntegrationHypergraphMemory:
     def test_explain_with_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="related")
-        mem.relate("B", "C", label="related")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="related")
+        mem.link("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         exp = mem.explain("A", "C")
@@ -265,17 +265,17 @@ class TestIntegrationHypergraphMemory:
 
     def test_explain_given_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="related")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="related")
         exp = mem.explain("A", "B")
         assert exp is not None
         assert exp.rule_name == "given"
 
     def test_explain_nonexistent_edge(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
+        mem.add("A")
+        mem.add("B")
         assert mem.explain("A", "B") is None
 
     def test_explain_missing_node(self):
@@ -284,11 +284,11 @@ class TestIntegrationHypergraphMemory:
 
     def test_retract_inference(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="related")
-        mem.relate("B", "C", label="related")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="related")
+        mem.link("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         assert mem.explain("A", "C") is not None
@@ -298,8 +298,8 @@ class TestIntegrationHypergraphMemory:
 
     def test_retract_nonexistent(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
+        mem.add("A")
+        mem.add("B")
         assert mem.retract_inference("A", "B") == []
 
     def test_provenance_property(self):
@@ -310,20 +310,20 @@ class TestIntegrationHypergraphMemory:
 
     def test_provenance_records_after_reason(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="related")
-        mem.relate("B", "C", label="related")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="related")
+        mem.link("B", "C", label="related")
         rule = TransitiveRule(edge_label="related")
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         assert mem.provenance.record_count == 1
 
     def test_load_resets_provenance(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B")
         path = str(tmp_path / "test.json")
         mem.save(path)
         mem.load(path)
@@ -333,16 +333,16 @@ class TestIntegrationHypergraphMemory:
 class TestCascadeRetraction:
     def test_multi_level_cascade_retraction(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.store("D")
-        mem.relate("A", "B", label="rel")
-        mem.relate("B", "C", label="rel")
-        mem.relate("C", "D", label="rel")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.add("D")
+        mem.link("A", "B", label="rel")
+        mem.link("B", "C", label="rel")
+        mem.link("C", "D", label="rel")
         rule = TransitiveRule(edge_label="rel")
         mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
-        initial_edges = mem.graph.edge_count
+        initial_edges = mem.size[1]
         assert initial_edges == 5
 
         tracker = mem.provenance
@@ -354,15 +354,15 @@ class TestCascadeRetraction:
                     mem.graph.remove_edge(eid)
                     retracted.append(eid)
         assert len(retracted) == 2
-        assert mem.graph.edge_count == 3
+        assert mem.size[1] == 3
 
     def test_cascade_does_not_remove_given_edges(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        e_ab = mem.relate("A", "B", label="rel")
-        e_bc = mem.relate("B", "C", label="rel")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        e_ab = mem.link("A", "B", label="rel")
+        e_bc = mem.link("B", "C", label="rel")
         rule = TransitiveRule(edge_label="rel")
         mem.reason({"A", "B", "C"}, rules=[rule], max_depth=1)
         mem.retract_inference("A", "C")
@@ -371,13 +371,13 @@ class TestCascadeRetraction:
 
     def test_full_chain_cascade(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.store("D")
-        mem.relate("A", "B", label="rel")
-        mem.relate("B", "C", label="rel")
-        mem.relate("C", "D", label="rel")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.add("D")
+        mem.link("A", "B", label="rel")
+        mem.link("B", "C", label="rel")
+        mem.link("C", "D", label="rel")
         rule = TransitiveRule(edge_label="rel")
         mem.reason({"A", "B", "C", "D"}, rules=[rule], max_depth=3, max_total_states=50)
         provenance_count_before = mem.provenance.record_count

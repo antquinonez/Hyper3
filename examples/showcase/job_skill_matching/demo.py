@@ -72,8 +72,8 @@ def main():
         engine.add_skill_substitution(from_skill, to_skill, confidence=conf)
     print(f"  Added {len(substitutions)} skill substitutions")
 
-    print(f"\n  Total skills in graph: {engine.mem.graph.node_count}")
-    print(f"  Total edges in graph: {engine.mem.graph.edge_count}")
+    print(f"\n  Total skills in graph: {engine.mem.size[0]}")
+    print(f"  Total edges in graph: {engine.mem.size[1]}")
 
     print("\nSECTION 2: Finding substitutes for 'python'...")
     print("  (Using mem.neighbors() for direct + mem.find_paths() for transitive)")
@@ -143,7 +143,7 @@ def main():
     print("\nSECTION 9: Triggering self-evolution...")
     engine.add_skill("cobol_legacy", category="programming", trending=False)
     engine.add_skill("flash_legacy", category="web", trending=False)
-    print(f"  Graph before evolution: {engine.mem.graph.node_count} nodes, {engine.mem.graph.edge_count} edges")
+    print(f"  Graph before evolution: {engine.mem.size[0]} nodes, {engine.mem.size[1]} edges")
 
     print("  Running evolution (decay, prune, merge, reinforce)...")
     result = engine.evolve_skills()
@@ -151,7 +151,7 @@ def main():
     print(f"  Pruned: {result.pruned}")
     print(f"  Reinforced: {result.reinforced}")
     print(f"  Merged: {result.merged}")
-    print(f"  Graph after evolution: {engine.mem.graph.node_count} nodes, {engine.mem.graph.edge_count} edges")
+    print(f"  Graph after evolution: {engine.mem.size[0]} nodes, {engine.mem.size[1]} edges")
 
     print("\n" + "=" * 70)
     print("DEMO COMPLETE")

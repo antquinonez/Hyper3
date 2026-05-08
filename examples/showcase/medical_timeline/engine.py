@@ -43,11 +43,11 @@ class MedicalTimelineTracker:
         Returns:
             Symptom label.
         """
-        if not self.mem.has_node(name):
+        if not self.mem.has(name):
             start_ts = self._iso_to_timestamp(start)
             end_ts = self._iso_to_timestamp(end)
             data = {"start": start, "end": end, **properties}
-            self.mem.store(name, data=data)
+            self.mem.add(name, data=data)
             self.mem.add_temporal_event(name, start=start_ts, end=end_ts, **properties)
         return name
 
@@ -62,14 +62,14 @@ class MedicalTimelineTracker:
         Returns:
             Visit ID.
         """
-        if not self.mem.has_node(visit_id):
-            self.mem.store(visit_id, data=properties)
+        if not self.mem.has(visit_id):
+            self.mem.add(visit_id, data=properties)
 
         for symptom in symptoms:
-            if not self.mem.has_node(symptom):
-                self.mem.store(symptom)
+            if not self.mem.has(symptom):
+                self.mem.add(symptom)
 
-        self.mem.relate_hyperedge(
+        self.mem.link_hyper(
             sources={visit_id},
             targets=set(symptoms),
             label="observes",
@@ -145,8 +145,8 @@ class MedicalTimelineTracker:
         if not relation:
             return None
 
-        node_a = self.mem.graph.get_node_by_label(symptom_a)
-        node_b = self.mem.graph.get_node_by_label(symptom_b)
+        node_a = self.mem.engine.graph.get_node_by_label(symptom_a)
+        node_b = self.mem.engine.graph.get_node_by_label(symptom_b)
         if not node_a or not node_b:
             return None
 
@@ -180,7 +180,7 @@ class MedicalTimelineTracker:
         }
 
     def get_symptom_info(self, symptom: str) -> dict | None:
-        node = self.mem.graph.get_node_by_label(symptom)
+        node = self.mem.engine.graph.get_node_by_label(symptom)
         return node.data if node else None
 
     def find_all_temporal_relations(self) -> list[dict]:
@@ -217,18 +217,18 @@ class MedicalTimelineTracker:
             Dict mapping symptom to list of symptoms that co-occur in visits.
         """
         cooccurrence = {}
-        symptoms = [n.label for n in self.mem.graph.nodes if "start" in n.data]
+        symptoms = [n.label for n in self.mem.engine.graph.nodes if "start" in n.data]
 
         for symptom in symptoms:
             cooccurring = []
-            for node in self.mem.graph.nodes:
+            for node in self.mem.engine.graph.nodes:
                 if node.label.startswith("visit_"):
-                    edges = self.mem.graph.incident_edges(node.id)
+                    edges = self.mem.engine.graph.incident_edges(node.id)
                     for edge in edges:
                         if edge.label == "observes":
                             observed = []
                             for tid in edge.target_ids:
-                                n = self.mem.graph.get_node(tid)
+                                n = self.mem.engine.graph.get_node(tid)
                                 if n:
                                     observed.append(n.label)
                             if symptom in observed and len(observed) > 1:

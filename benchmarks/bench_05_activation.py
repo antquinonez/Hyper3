@@ -67,7 +67,7 @@ def main() -> None:
     bfs = BFSRetrievalBaseline(nx_graph)
 
     for query, relevant in CS_RETRIEVAL_GROUND_TRUTH.items():
-        seed_node = mem.graph.get_node_by_label(query)
+        seed_node = mem.engine.graph.get_node_by_label(query)
         if not seed_node:
             continue
 
@@ -130,7 +130,7 @@ def main() -> None:
     print_header("Activation Iteration Sensitivity")
     seed = "transformer"
     relevant = CS_RETRIEVAL_GROUND_TRUTH.get(seed, set())
-    seed_node = mem.graph.get_node_by_label(seed)
+    seed_node = mem.engine.graph.get_node_by_label(seed)
     if seed_node:
         it_headers = ["Iterations", "P@5", "P@10", "R@10", "NDCG@10", "Activated"]
         it_rows = []
@@ -155,7 +155,7 @@ def main() -> None:
         dec_headers = ["Decay", "P@5", "P@10", "Activated"]
         dec_rows = []
         for decay in [0.5, 0.7, 0.85, 0.95]:
-            sa = SpreadingActivation(mem.graph, config=ActivationConfig(decay_factor=decay))
+            sa = SpreadingActivation(mem.engine.graph, config=ActivationConfig(decay_factor=decay))
             sa.stimulate(seed_node.id, 1.0)
             sa.spread(3)
             act = sa.get_activated(top_k=10)

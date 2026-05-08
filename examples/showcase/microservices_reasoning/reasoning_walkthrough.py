@@ -147,19 +147,19 @@ def main():
 
     for domain_services in domains.values():
         for name, data in domain_services:
-            mem.store(name, data={**data, "type": "microservice"}, modalities={Modality.CONCEPTUAL})
+            mem.add(name, data={**data, "type": "microservice"}, modalities={Modality.CONCEPTUAL})
 
     for name, data in infrastructure.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     for name, data in external.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     svc_count = sum(len(v) for v in domains.values())
     print(f"  Microservices:      {svc_count}")
     print(f"  Infrastructure:     {len(infrastructure)}")
     print(f"  External services:  {len(external)}")
-    print(f"  Total nodes:        {mem.graph.node_count}")
+    print(f"  Total nodes:        {mem.size[0]}")
     print()
 
     print("=" * 70)
@@ -434,9 +434,9 @@ def main():
         + caching + publishes + subscribes + routes + ext_deps
     )
     for src, tgt, label in all_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"  Total edges created: {mem.graph.edge_count}")
+    print(f"  Total edges created: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -447,7 +447,7 @@ def main():
     queue_labels = mem.query_nodes(data={"type": "queue"})
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] == "depends_on" and le["source_labels"] and le["target_labels"]:
             direct_dep_map[le["target_labels"][0]].append(le["source_labels"][0])
 
@@ -474,10 +474,10 @@ def main():
     print("SECTION 5: Running Reasoning on Critical Infrastructure")
     print("=" * 70)
 
-    all_labels = {n.label for n in mem.graph.nodes}
+    all_labels = {n.label for n in mem.engine.graph.nodes}
 
     result = mem.reason(
-        seed_concepts=all_labels,
+        seeds=all_labels,
         max_depth=4,
         max_total_states=300,
     )
@@ -487,7 +487,7 @@ def main():
     print(f"  States explored:   {exp.states_created}")
     print(f"  Rules applied:     {exp.rules_applied}")
     print(f"  Edges inferred:    {exp.edges_produced}")
-    print(f"  Graph:             {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Graph:             {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     print("=" * 70)
@@ -495,7 +495,7 @@ def main():
     print("=" * 70)
 
     indirect_reverse: dict[str, set[str]] = defaultdict(set)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] == "indirectly_depends_on" and le["source_labels"] and le["target_labels"]:
             indirect_reverse[le["target_labels"][0]].add(le["source_labels"][0])
 
@@ -519,7 +519,7 @@ def main():
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = mem.betweenness_centrality()
+    bc = mem.analyze.centrality("betweenness")
     top_spof = top_k(bc, k=15)
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")
@@ -537,7 +537,7 @@ def main():
     edge_labels_of_interest = {"depends_on", "indirectly_depends_on"}
 
     deps_forward: dict[str, list[str]] = defaultdict(list)
-    for le in mem.graph.labeled_edges:
+    for le in mem.engine.graph.labeled_edges:
         if le["label"] in edge_labels_of_interest and le["source_labels"] and le["target_labels"]:
             deps_forward[le["source_labels"][0]].append(le["target_labels"][0])
 
@@ -586,7 +586,7 @@ def main():
         total = direct | transitive
 
         svc_data_map: dict[str, dict] = {}
-        for n in mem.graph.nodes:
+        for n in mem.engine.graph.nodes:
             if n.label in total:
                 svc_data_map[n.label] = n.data
 

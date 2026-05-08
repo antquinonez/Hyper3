@@ -148,7 +148,7 @@ def main():
         all_modules.update(group)
 
     for label, data in all_modules.items():
-        mem.store(label, data=data)
+        mem.add(label, data=data)
 
     print(f"  Stored {len(all_modules)} modules")
     print()
@@ -434,9 +434,9 @@ def main():
             unique_edges.append((src, tgt, label))
 
     for src, tgt, label in unique_edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"  {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
     # =====================================================================
@@ -447,8 +447,8 @@ def main():
     print("SECTION 3: Most Critical Modules (Centrality)")
     print("=" * 70)
 
-    degree = mem.degree_centrality()
-    betweenness = mem.betweenness_centrality()
+    degree = mem.analyze.centrality("degree")
+    betweenness = mem.analyze.centrality("betweenness")
 
     combined = {}
     for label in all_modules:
@@ -516,11 +516,11 @@ def main():
                    "core.config_base", "core.logging_base",
                    "core.auth_base", "core.crypto"}
     result = mem.reason(
-        seed_concepts=chain_seeds,
+        seeds=chain_seeds,
         max_depth=3,
         max_total_states=50,
     )
-    new_count = sum(1 for e in mem.graph.edges if e.label == "indirectly_depends_on")
+    new_count = sum(1 for e in mem.engine.graph.edges if e.label == "indirectly_depends_on")
     print(f"  TransitiveRule applied: {new_count} indirect dependencies discovered")
     expansion = result.expansion
     if expansion:
@@ -550,7 +550,7 @@ def main():
         if age >= 2:
             outdated.append((label, data))
             deps_count = sum(
-                1 for le in mem.graph.labeled_edges
+                1 for le in mem.engine.graph.labeled_edges
                 if le["label"] in ("depends_on", "imports")
                 and label in le["target_labels"]
             )
@@ -617,7 +617,7 @@ def main():
             if tgt_sub == "test":
                 continue
             count = 0
-            for e in mem.graph.labeled_edges:
+            for e in mem.engine.graph.labeled_edges:
                 if e["label"] not in ("depends_on", "imports", "extends"):
                     continue
                 if (e["source_labels"] and e["target_labels"]
@@ -660,7 +660,7 @@ def main():
     summaries = mem.list_summaries()
     print(f"  Active summaries: {[s.summary_label for s in summaries]}")
 
-    abstract_degree = mem.degree_centrality()
+    abstract_degree = mem.analyze.centrality("degree")
     print("  Top 5 modules in abstracted graph:")
     for label, score in top_k(abstract_degree, k=5):
         print(f"    {label:<35s} centrality={score:.3f}")
@@ -682,17 +682,17 @@ def main():
     print(f"  Baseline: version_id={baseline['version_id']}, "
           f"nodes={baseline['node_count']}, edges={baseline['edge_count']}")
 
-    mem.store("svc.graphql", data={
+    mem.add("svc.graphql", data={
         "category": "service",
         "api_version": "v1",
         "team": "platform",
         "endpoint_count": 6,
         "latency_p95": 55,
     })
-    mem.relate("svc.graphql", "core.engine", label="depends_on")
-    mem.relate("svc.graphql", "core.pipeline", label="depends_on")
-    mem.relate("svc.graphql", "svc.auth", label="depends_on")
-    mem.relate("svc.graphql", "util.tracing", label="imports")
+    mem.link("svc.graphql", "core.engine", label="depends_on")
+    mem.link("svc.graphql", "core.pipeline", label="depends_on")
+    mem.link("svc.graphql", "svc.auth", label="depends_on")
+    mem.link("svc.graphql", "util.tracing", label="imports")
 
     updated = mem.capture_version()
     print(f"  After adding svc.graphql: version_id={updated['version_id']}, "

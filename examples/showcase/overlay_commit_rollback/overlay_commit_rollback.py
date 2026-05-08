@@ -331,7 +331,7 @@ def build_infrastructure(mem: HypergraphMemory) -> None:
     all_nodes.update(INFRASTRUCTURE)
 
     for label, data in all_nodes.items():
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
 
     edge_groups: list[tuple[list[tuple[str, str]], str]] = [
         (DEPENDS_ON, "depends_on"),
@@ -344,7 +344,7 @@ def build_infrastructure(mem: HypergraphMemory) -> None:
     ]
     for edges, label in edge_groups:
         for src, tgt in edges:
-            mem.relate(src, tgt, label=label)
+            mem.link(src, tgt, label=label)
 
 
 def analyze_hypothesis(
@@ -353,7 +353,7 @@ def analyze_hypothesis(
     symptom_ids: set[str],
 ) -> dict:
     result = mem.reason(
-        seed_concepts=seeds,
+        seeds=seeds,
         max_depth=3,
         max_total_states=30,
         auto_commit=False,
@@ -369,8 +369,8 @@ def analyze_hypothesis(
             edge = overlay.get_edge(eid)
             if not edge:
                 continue
-            _src = mem.graph.get_node(next(iter(edge.source_ids)))
-            _tgt = mem.graph.get_node(next(iter(edge.target_ids)))
+            _src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
+            _tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
             src_label = _src.label if _src else ""
             tgt_label = _tgt.label if _tgt else ""
             conf = overlay.get_confidence(eid)
@@ -382,7 +382,7 @@ def analyze_hypothesis(
             })
             for nid in edge.source_ids | edge.target_ids:
                 if nid in symptom_ids:
-                    node = mem.graph.get_node(nid)
+                    node = mem.engine.graph.get_node(nid)
                     if node:
                         blast_radius.add(node.label)
 
@@ -471,7 +471,7 @@ def main() -> None:
     print(f"  Infrastructure: {infra_count:>3}")
     print(f"  -------------------")
     print(f"  Total nodes:    {total_nodes:>3}")
-    print(f"  Total edges:    {mem.graph.edge_count:>3}")
+    print(f"  Total edges:    {mem.size[1]:>3}")
     print()
 
     print("  Edge types:")
@@ -496,13 +496,13 @@ def main() -> None:
 
     symptom_ids: set[str] = set()
     for label, _ in SYMPTOMS:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             symptom_ids.add(node.id)
     print(f"  {len(symptom_ids)} symptom services require explanation")
     print()
 
-    base_edge_count = mem.graph.edge_count
+    base_edge_count = mem.size[1]
 
     mem.add_rules(
         TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"),
@@ -523,7 +523,7 @@ def main() -> None:
     print("  Action: Rollback for now, will re-test and commit after comparing")
     rb = mem.rollback_inferences()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {mem.size[1]} edges (unchanged)")
     print()
 
     print("=" * 70)
@@ -540,7 +540,7 @@ def main() -> None:
     print("  Action: Rollback - hypothesis does not explain observed failures")
     rb = mem.rollback_inferences()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {mem.size[1]} edges (unchanged)")
     print()
 
     print("=" * 70)
@@ -558,7 +558,7 @@ def main() -> None:
     print("  Action: Rollback - incomplete explanation for auth/payment failures")
     rb = mem.rollback_inferences()
     print(f"  Rolled back: {rb['rolled_back_edges']} edges")
-    print(f"  Base graph intact: {mem.graph.edge_count} edges (unchanged)")
+    print(f"  Base graph intact: {mem.size[1]} edges (unchanged)")
     print()
 
     print("=" * 70)
@@ -612,8 +612,8 @@ def main() -> None:
     print("=" * 70)
 
     print(f"  Base graph edges before: {base_edge_count}")
-    print(f"  Base graph edges after:  {mem.graph.edge_count}")
-    print(f"  Inference edges added:   {mem.graph.edge_count - base_edge_count}")
+    print(f"  Base graph edges after:  {mem.size[1]}")
+    print(f"  Inference edges added:   {mem.size[1] - base_edge_count}")
     print()
     print(f"  Overlay active: {mem.overlay is not None}")
     print()

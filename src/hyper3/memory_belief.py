@@ -12,7 +12,7 @@ from hyper3.belief import (
 )
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
-from hyper3.structural_anomaly import AnomalyDetectionResult, BoundaryRegion
+from hyper3.structural_anomaly import BoundaryRegion
 
 
 class BeliefMixin(_MemoryBase):
@@ -267,24 +267,6 @@ class BeliefMixin(_MemoryBase):
                 return self._normalize_lateral_insights(raw)
         return []
 
-    def detect_structural_anomalies(
-        self, concept: str, *, context: dict[str, Any] | None = None, max_level: int = 4
-    ) -> AnomalyDetectionResult:
-        """Detect structural anomalies in the concept's graph neighborhood.
-
-        Analyzes the concept for cycles, high centrality, contradictory
-        labels, and unusual connectivity patterns.
-
-        Args:
-            concept: The concept to analyze.
-            context: Optional context dict supplementing structural analysis.
-            max_level: Maximum analysis depth level.
-
-        Returns:
-            An AnomalyDetectionResult with boundary detection and exploration info.
-        """
-        return self._anomaly_detector.reason_at_level(concept, context, max_level=max_level)
-
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         """Map structural anomaly boundaries (cyclic, high-centrality, contradictory regions) for concepts."""
         result = self._anomaly_detector.map_boundaries(concepts)
@@ -292,7 +274,7 @@ class BeliefMixin(_MemoryBase):
         return result
 
     @property
-    def belief(self) -> BeliefLayer:
+    def belief_layer(self) -> BeliefLayer:
         """The belief layer for distribution and resolution."""
         return self._belief
 
@@ -309,3 +291,11 @@ class BeliefMixin(_MemoryBase):
             n.setdefault("transferable_patterns", [])
             normalized.append(n)
         return normalized
+
+    def compute_density_matrix(self, state_id: str):
+        """Compute the density matrix for a belief state by ID."""
+        return self._belief.compute_density_matrix(state_id)
+
+    def all_distributions(self) -> list[BeliefState]:
+        """Return all active belief distributions."""
+        return list(self._belief._states.values())

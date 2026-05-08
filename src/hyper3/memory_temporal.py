@@ -21,7 +21,7 @@ class TemporalMixin(_MemoryBase):
     def add_temporal_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
         """Add a temporal event with start/end times to the graph."""
         event = self._temporal.add_event(label, label, start, end, **metadata)
-        self.store(label, data={"start": start, "end": end})
+        self.add(label, data={"start": start, "end": end})
         self._log.record("temporal_event", label=label, start=start, end=end)
         return event
 
@@ -71,7 +71,7 @@ class TemporalMixin(_MemoryBase):
         return ea.interval.relate_to(eb.interval)
 
     @property
-    def temporal(self) -> TemporalReasoner:
+    def temporal_engine(self) -> TemporalReasoner:
         """Lazily initialize and return the temporal reasoner."""
         return self._temporal
 
@@ -84,13 +84,13 @@ class TemporalMixin(_MemoryBase):
         result = self._enricher.extract(text)
         if extract:
             for entity in result.entities:
-                self.store(
+                self.add(
                     entity.label,
                     data={"type": entity.entity_type} if entity.entity_type else None,
                 )
             for rel in result.relations:
                 with contextlib.suppress(Exception):
-                    self.relate(
+                    self.link(
                         rel.source_label,
                         rel.target_label,
                         label=rel.relation_label,
@@ -120,14 +120,14 @@ class TemporalMixin(_MemoryBase):
                 for entity in result.entities:
                     if deduplicate and entity.label in seen_entities:
                         continue
-                    self.store(
+                    self.add(
                         entity.label,
                         data={"type": entity.entity_type} if entity.entity_type else None,
                     )
                     seen_entities.add(entity.label)
                 for rel in result.relations:
                     with contextlib.suppress(Exception):
-                        self.relate(
+                        self.link(
                             rel.source_label,
                             rel.target_label,
                             label=rel.relation_label,
@@ -146,3 +146,25 @@ class TemporalMixin(_MemoryBase):
     def enricher(self) -> LLMEnricher:
         """Lazily initialize and return the text enricher."""
         return self._enricher
+
+    def list_temporal_events(self) -> list[TemporalEvent]:
+        """Return all registered temporal events."""
+        return list(self._temporal._events.values())
+
+    def get_temporal_event(self, event_id: str) -> TemporalEvent | None:
+        return self._temporal.get_event(event_id)
+
+    def detect_temporal_causal_chains(self, *, min_chain_length: int = 3,
+                                       max_chains: int = 1000) -> list[list[str]]:
+        return self._temporal.detect_causal_chains(
+            min_chain_length=min_chain_length, max_chains=max_chains)
+
+    def infer_temporal_constraints(self):
+        return self._temporal.infer_constraints()
+
+    def check_temporal_constraint_consistency(self) -> list[dict[str, Any]]:
+        return self._temporal.check_constraint_consistency()
+
+    def add_temporal_constraint(self, event_a: str, event_b: str, relation: AllenRelation,
+                                 confidence: float = 1.0):
+        return self._temporal.add_constraint(event_a, event_b, relation, confidence=confidence)

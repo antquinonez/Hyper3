@@ -306,7 +306,7 @@ for community in comm_result.communities:
 | `mem.pagerank()` | `dict[str, float]` | Iterative weight propagation |
 | `mem.query_nodes(data=...)` | `list[str]` | Exact data-attribute match |
 | `mem.ensure(concept, data=..., update=True)` | — | Idempotent node creation with data merge |
-| `mem.graph.edges` | iterable of `Hyperedge` | Access `node_ids`, `weight` |
+| `mem.engine.graph.edges` | iterable of `Hyperedge` | Access `node_ids`, `weight` |
 | `mem.relate_hyperedge(sources, targets, label)` | `Hyperedge` | Create n-ary edge |
 | `mem.stimulate(concept, energy=...)` | — | Inject activation energy into a node |
 | `mem.spread_activation(iterations=...)` | — | Propagate activation across edges |

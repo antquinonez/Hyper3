@@ -30,35 +30,35 @@ def main() -> None:
     evidence = ["evidence_clinical", "evidence_preclinical"]
 
     for g in genes:
-        mem.store(g, data={"type": "gene"})
+        mem.add(g, data={"type": "gene"})
     for p in proteins:
-        mem.store(p, data={"type": "protein"})
+        mem.add(p, data={"type": "protein"})
     for d in diseases:
-        mem.store(d, data={"type": "disease"})
+        mem.add(d, data={"type": "disease"})
     for dr in drugs:
-        mem.store(dr, data={"type": "drug"})
+        mem.add(dr, data={"type": "drug"})
     for pw in pathways:
-        mem.store(pw, data={"type": "pathway"})
+        mem.add(pw, data={"type": "pathway"})
     for ev in evidence:
-        mem.store(ev, data={"type": "evidence"})
+        mem.add(ev, data={"type": "evidence"})
 
-    mem.relate("gene_brca1", "gene_tp53", label="regulates", weight=3.0)
-    mem.relate("gene_tp53", "protein_p53", label="regulates", weight=3.0)
-    mem.relate("protein_p53", "pathway_apoptosis", label="activates", weight=2.5)
-    mem.relate("pathway_apoptosis", "breast_cancer", label="associated_with", weight=3.0)
-    mem.relate("gene_egfr", "protein_egfr", label="regulates", weight=3.0)
-    mem.relate("protein_egfr", "pathway_cell_cycle", label="activates", weight=2.0)
-    mem.relate("pathway_cell_cycle", "lung_cancer", label="associated_with", weight=3.0)
-    mem.relate("gene_kras", "protein_kras", label="regulates", weight=2.5)
-    mem.relate("protein_kras", "pancreatic_cancer", label="associated_with", weight=3.0)
-    mem.relate("drug_cisplatin", "protein_p53", label="inhibits", weight=2.0)
-    mem.relate("drug_erlotinib", "protein_egfr", label="inhibits", weight=2.5)
-    mem.relate("drug_olaparib", "gene_brca1", label="targets", weight=3.0)
-    mem.relate("evidence_clinical", "drug_cisplatin", label="evidence_for", weight=3.0)
-    mem.relate("evidence_preclinical", "drug_olaparib", label="evidence_for", weight=2.0)
-    mem.relate("breast_cancer", "lung_cancer", label="associated_with", weight=1.0)
+    mem.link("gene_brca1", "gene_tp53", label="regulates", weight=3.0)
+    mem.link("gene_tp53", "protein_p53", label="regulates", weight=3.0)
+    mem.link("protein_p53", "pathway_apoptosis", label="activates", weight=2.5)
+    mem.link("pathway_apoptosis", "breast_cancer", label="associated_with", weight=3.0)
+    mem.link("gene_egfr", "protein_egfr", label="regulates", weight=3.0)
+    mem.link("protein_egfr", "pathway_cell_cycle", label="activates", weight=2.0)
+    mem.link("pathway_cell_cycle", "lung_cancer", label="associated_with", weight=3.0)
+    mem.link("gene_kras", "protein_kras", label="regulates", weight=2.5)
+    mem.link("protein_kras", "pancreatic_cancer", label="associated_with", weight=3.0)
+    mem.link("drug_cisplatin", "protein_p53", label="inhibits", weight=2.0)
+    mem.link("drug_erlotinib", "protein_egfr", label="inhibits", weight=2.5)
+    mem.link("drug_olaparib", "gene_brca1", label="targets", weight=3.0)
+    mem.link("evidence_clinical", "drug_cisplatin", label="evidence_for", weight=3.0)
+    mem.link("evidence_preclinical", "drug_olaparib", label="evidence_for", weight=2.0)
+    mem.link("breast_cancer", "lung_cancer", label="associated_with", weight=1.0)
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
     print(f"edge labels: {sorted(desc.edge_labels)}")
 

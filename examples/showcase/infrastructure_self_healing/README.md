@@ -373,7 +373,7 @@ for src, tgt, label in DEPENDENCIES:
 **Recording operation feedback:**
 
 ```python
-node_id = mem.graph.get_node_by_label("auth-svc-01").id
+node_id = mem.engine.graph.get_node_by_label("auth-svc-01").id
 mem.operation_feedback.record_collapse_outcome("qs_auth", node_id, correct=True)
 mem.operation_feedback.record_retrieval_outcome("database", {node_id}, set())
 mem.operation_feedback.record_inference_outcome("inf_call_chain_1", accepted=True)

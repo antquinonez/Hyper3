@@ -156,8 +156,8 @@ from hyper3 import TransitiveRule
 mem.add_rules(TransitiveRule(edge_label="relates_to", new_label="indirect"))
 result = mem.reason(seed_concepts={"concept_a"}, max_depth=3)
 
-inferred = [e for e in mem.graph.edges if e.label == "indirect"]
-valid, rejected = nav.validate_and_filter(inferred, mem.graph)
+inferred = [e for e in mem.engine.graph.edges if e.label == "indirect"]
+valid, rejected = nav.validate_and_filter(inferred, mem.engine.graph)
 ```
 
 ## 8. Real-World Gap

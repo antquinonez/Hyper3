@@ -73,20 +73,20 @@ def run_h3_reasoning(
     with Timer() as t:
         mem = HypergraphMemory(evolve_interval=0)
         for lbl, data in nodes:
-            mem.store(lbl, data=data, modalities={Modality.CONCEPTUAL})
+            mem.add(lbl, data=data, modalities={Modality.CONCEPTUAL})
         for src, tgt, lbl in edges:
-            mem.relate(src, tgt, label=lbl)
+            mem.link(src, tgt, label=lbl)
 
         mem.add_rules(*rules)
-        all_labels = {n.label for n in mem.graph.nodes}
+        all_labels = {n.label for n in mem.engine.graph.nodes}
         mem.reason(all_labels, max_depth=3, max_total_states=500)
 
     transitive_set: set[tuple[str, str]] = set()
     all_inferred: set[tuple[str, str]] = set()
-    for edge in mem.graph.edges:
+    for edge in mem.engine.graph.edges:
         if edge.metadata.custom.get("inferred"):
-            src = mem.graph.get_node(next(iter(edge.source_ids)))
-            tgt = mem.graph.get_node(next(iter(edge.target_ids)))
+            src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
+            tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
             if src and tgt:
                 all_inferred.add((src.label, tgt.label))
                 if label in edge.label or "indirectly_depends" in edge.label:

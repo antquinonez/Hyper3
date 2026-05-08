@@ -375,7 +375,7 @@ suspects = ["APT28", "APT29", "Lazarus", "Volt_Typhoon"]
 qs = mem.create_distribution(suspects, amplitudes=[0.7, 0.5, 0.4, 0.3])
 
 answer = mem.sample(qs, context={"APT28": 3.0, "Lazarus": 0.5})
-node = mem.graph.get_node(answer.node_id)
+node = mem.engine.graph.get_node(answer.node_id)
 print(f"Attribution: {node.label}")
 ```
 

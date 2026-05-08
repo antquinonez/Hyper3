@@ -21,34 +21,34 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     for name in ["alice", "bob", "carol", "dave", "eve", "frank", "grace", "henry"]:
-        mem.store(name, data={})
+        mem.add(name, data={})
 
-    mem.relate("alice", "bob", label="collaborates")
-    mem.relate("bob", "carol", label="collaborates")
-    mem.relate("carol", "dave", label="reports_to")
-    mem.relate("dave", "eve", label="collaborates")
-    mem.relate("dave", "frank", label="collaborates")
-    mem.relate("dave", "grace", label="collaborates")
-    mem.relate("grace", "henry", label="mentors")
+    mem.link("alice", "bob", label="collaborates")
+    mem.link("bob", "carol", label="collaborates")
+    mem.link("carol", "dave", label="reports_to")
+    mem.link("dave", "eve", label="collaborates")
+    mem.link("dave", "frank", label="collaborates")
+    mem.link("dave", "grace", label="collaborates")
+    mem.link("grace", "henry", label="mentors")
 
-    print(f"nodes: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: N-ARY HYPEREDGES")
     print("=" * 70)
 
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"alice", "bob", "carol"},
         targets={"dave"},
         label="joint_project",
     )
-    mem.relate_hyperedge(
+    mem.link_hyper(
         sources={"dave"},
         targets={"eve", "frank", "grace", "henry"},
         label="team_assignment",
     )
 
-    hyperedges = mem.edges_labeled(min_source_cardinality=2)
+    hyperedges = mem.analyze.edges(min_source_cardinality=2)
     print(f"\nN-ary hyperedges (source cardinality >= 2): {len(hyperedges)}")
     for he in hyperedges:
         print(f"  {he.label}: {set(he.source_labels)} -> {set(he.target_labels)}")
@@ -57,10 +57,10 @@ def main() -> None:
     print("SECTION 3: BASIC QUERIES")
     print("=" * 70)
 
-    all_labels = [n.label for n in mem.graph.nodes]
+    all_labels = [n.label for n in mem.engine.graph.nodes]
     print(f"all nodes: {all_labels}")
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\ngraph description:")
     print(f"  nodes: {desc.node_count}")
     print(f"  edges: {desc.edge_count}")
@@ -107,14 +107,14 @@ def main() -> None:
         TransitiveRule(edge_label="collaborates", new_label="indirect_collaboration"),
     )
 
-    result = mem.reason(seed_concepts={"alice"}, max_depth=3)
+    result = mem.reason(seeds={"alice"}, max_depth=3)
     print(f"\nreasoning from 'alice':")
     print(f"  edges produced: {result.expansion.edges_produced}")
     print(f"  states created: {result.expansion.states_created}")
 
     indirect = [
         (e.label, e.source_labels[0], e.target_labels[0])
-        for e in mem.edges_labeled(edge_label="indirect_collaboration")
+        for e in mem.analyze.edges(label="indirect_collaboration")
         if e.source_labels and e.target_labels
     ]
     if indirect:
@@ -128,23 +128,21 @@ def main() -> None:
     print("SECTION 7: SELF-EVOLUTION (Hyper3 advantage)")
     print("=" * 70)
 
-    before_nodes = mem.graph.node_count
-    before_edges = mem.graph.edge_count
+    before_nodes = mem.size[0]
+    before_edges = mem.size[1]
 
-    for _ in range(3):
-        mem.stimulate("dave", energy=1.0)
-    mem.spread_activation(iterations=2)
-    mem.hebbian_reinforce()
+    mem.search.activate("dave", energy=1.0)
+    mem.cognitive.hebbian_reinforce()
 
     evolve_result = mem.evolve()
     print(f"\nevolution cycle:")
-    print(f"  nodes before/after: {before_nodes}/{mem.graph.node_count}")
-    print(f"  edges before/after: {before_edges}/{mem.graph.edge_count}")
+    print(f"  nodes before/after: {before_nodes}/{mem.size[0]}")
+    print(f"  edges before/after: {before_edges}/{mem.size[1]}")
     print(f"  edges decayed: {evolve_result.decayed}")
     print(f"  nodes pruned: {evolve_result.pruned}")
     print(f"  nodes merged: {evolve_result.merged}")
 
-    desc_after = mem.describe()
+    desc_after = mem.analyze.describe()
     print(f"\npost-evolution description:")
     print(f"  density: {desc_after.density:.4f}")
     print(f"  components: {desc_after.components}")

@@ -20,7 +20,7 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     def _id(label: str) -> str:
-        n = mem.graph.get_node_by_label(label)
+        n = mem.engine.graph.get_node_by_label(label)
         return n.id if n else label
 
     print("=" * 70)
@@ -28,11 +28,11 @@ def main() -> None:
     print("=" * 70)
 
     for concept in ["alpha", "beta", "gamma", "delta", "epsilon"]:
-        mem.store(concept)
-    mem.relate("alpha", "beta", label="connects")
-    mem.relate("beta", "gamma", label="connects")
-    mem.relate("gamma", "delta", label="connects")
-    mem.relate("delta", "epsilon", label="connects")
+        mem.add(concept)
+    mem.link("alpha", "beta", label="connects")
+    mem.link("beta", "gamma", label="connects")
+    mem.link("gamma", "delta", label="connects")
+    mem.link("delta", "epsilon", label="connects")
 
     mem.operation_feedback.record_evolution_outcome(0.8)
     mem.operation_feedback.record_evolution_outcome(0.7)
@@ -47,10 +47,10 @@ def main() -> None:
     print()
     print("  Adding more concepts and recording positive feedback:")
     for concept in ["zeta", "eta", "theta"]:
-        mem.store(concept)
-    mem.relate("epsilon", "zeta", label="connects")
+        mem.add(concept)
+    mem.link("epsilon", "zeta", label="connects")
 
-    _sample_edges = list(mem.graph.edges)[:3]
+    _sample_edges = list(mem.engine.graph.edges)[:3]
     mem.operation_feedback.record_inference_outcome(_sample_edges[0].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[1].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[2].id, accepted=False)
@@ -83,7 +83,7 @@ def main() -> None:
     if correlated:
         print(f"  Nodes appearing across multiple operations: {len(correlated)}")
         for nid, info in list(correlated.items())[:3]:
-            n = mem.graph.get_node(nid)
+            n = mem.engine.graph.get_node(nid)
             label = n.label if n else nid[:8]
             print(f"    {label}: positive_rate={info['positive_rate']:.2f}, "
                   f"types={info['signal_types']}")
@@ -94,11 +94,11 @@ def main() -> None:
     print("=" * 70)
 
     for concept in ["a", "b", "c", "d", "e", "f", "g", "h"]:
-        mem.store(concept)
-    mem.relate("a", "b", label="causes")
-    mem.relate("b", "c", label="causes")
-    mem.relate("d", "e", label="prevents")
-    mem.relate("e", "f", label="prevents")
+        mem.add(concept)
+    mem.link("a", "b", label="causes")
+    mem.link("b", "c", label="causes")
+    mem.link("d", "e", label="prevents")
+    mem.link("e", "f", label="prevents")
 
     mem.add_rules(TransitiveRule(edge_label="causes"))
     mem.add_rules(InverseRule(edge_label="prevents", inverse_label="prevented_by"))
@@ -141,11 +141,11 @@ def main() -> None:
     print("SECTION 4: Computational Bias Profile")
     print("=" * 70)
 
-    mem.store("x")
-    mem.store("y")
-    mem.store("z")
-    mem.relate("x", "y", label="link")
-    mem.relate("y", "z", label="link")
+    mem.add("x")
+    mem.add("y")
+    mem.add("z")
+    mem.link("x", "y", label="link")
+    mem.link("y", "z", label="link")
     mem.reason({"x", "y", "z"}, max_depth=3, max_total_states=10)
 
     mem.add_rules(InverseRule(edge_label="causes", inverse_label="caused_by"))
@@ -169,7 +169,7 @@ def main() -> None:
 
     from hyper3 import MultiwayEngine, MultiwayGraph, StateConvergenceEngine, MultiwayState
 
-    graph = mem.graph
+    graph = mem.engine.graph
     mw_graph = MultiwayGraph()
     causal = StateConvergenceEngine(graph, mw_graph, threshold=0.5)
 

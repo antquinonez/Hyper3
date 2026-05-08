@@ -520,7 +520,7 @@ qs = mem.create_distribution(
     amplitudes=[0.70, 0.35, 0.30],
 )
 outcome = mem.sample(qs)
-node = mem.graph.get_node(outcome.node_id)
+node = mem.engine.graph.get_node(outcome.node_id)
 print(f"Sampled diagnosis: {node.label}")
 ```
 

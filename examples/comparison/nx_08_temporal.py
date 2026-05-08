@@ -142,7 +142,7 @@ def main() -> None:
 
     print()
     print("--- Hyper3 equivalent ---")
-    print("mem.relate(src, tgt, label='causes') with temporal events already stored")
+    print("mem.link(src, tgt, label='causes') with temporal events already stored")
 
     print()
     print("=" * 70)

@@ -22,48 +22,48 @@ def main() -> None:
 
     mem = HypergraphMemory(evolve_interval=0)
 
-    mem.store("patient", data={"type": "entity"})
-    mem.store("healthy", data={"type": "state"})
-    mem.store("disease_a", data={"type": "state"})
-    mem.store("disease_b", data={"type": "state"})
+    mem.add("patient", data={"type": "entity"})
+    mem.add("healthy", data={"type": "state"})
+    mem.add("disease_a", data={"type": "state"})
+    mem.add("disease_b", data={"type": "state"})
 
     print("\n--- No competitor equivalent ---")
     print("Set prior and update with evidence")
 
-    mem.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
+    mem.bayes.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
                   weights=[0.7, 0.2, 0.1])
 
-    prior = mem.get_belief("patient")
+    prior = mem.bayes.get("patient")
     print(f"\nprior: {prior}")
 
-    mem.update_belief("patient", evidence_name="fever", likelihoods={"healthy": 0.1, "disease_a": 0.8, "disease_b": 0.3})
-    posterior = mem.get_belief("patient")
+    mem.bayes.update("patient", evidence="fever", likelihoods={"healthy": 0.1, "disease_a": 0.8, "disease_b": 0.3})
+    posterior = mem.bayes.get("patient")
     print(f"posterior (after fever evidence): {posterior}")
 
-    estimate = mem.map_estimate("patient")
+    estimate = mem.bayes.map("patient")
     print(f"MAP estimate: {estimate}")
 
-    mem.update_belief("patient", evidence_name="lab_results", likelihoods={"healthy": 0.05, "disease_a": 0.9, "disease_b": 0.4})
-    posterior2 = mem.get_belief("patient")
+    mem.bayes.update("patient", evidence="lab_results", likelihoods={"healthy": 0.05, "disease_a": 0.9, "disease_b": 0.4})
+    posterior2 = mem.bayes.get("patient")
     print(f"posterior (after lab results): {posterior2}")
-    print(f"updated MAP estimate: {mem.map_estimate('patient')}")
+    print(f"updated MAP estimate: {mem.bayes.map('patient')}")
 
-    bf = mem.bayes_factor("patient", hypothesis_a="disease_a", hypothesis_b="disease_b")
+    bf = mem.bayes.factor("patient", hyp_a="disease_a", hyp_b="disease_b")
     print(f"Bayes factor (disease_a vs disease_b): {bf:.2f}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS")
     print("=" * 70)
 
-    mem.store("bank", data={"type": "ambiguous"})
-    mem.store("financial", data={"type": "sense"})
-    mem.store("river_edge", data={"type": "sense"})
-    mem.store("billiards", data={"type": "sense"})
-    mem.store("drinking", data={"type": "sense"})
-    mem.store("river", data={"type": "sense"})
-    mem.store("ocean", data={"type": "sense"})
+    mem.add("bank", data={"type": "ambiguous"})
+    mem.add("financial", data={"type": "sense"})
+    mem.add("river_edge", data={"type": "sense"})
+    mem.add("billiards", data={"type": "sense"})
+    mem.add("drinking", data={"type": "sense"})
+    mem.add("river", data={"type": "sense"})
+    mem.add("ocean", data={"type": "sense"})
 
-    mem.create_distribution(
+    mem.belief.create(
         ["financial", "river_edge", "billiards"],
         amplitudes=[0.6, 0.7, 0.3],
     )
@@ -74,9 +74,9 @@ def main() -> None:
     counts = {"financial": 0, "river_edge": 0, "billiards": 0}
     n_samples = 100
     for _ in range(n_samples):
-        sample = mem.sample_distribution("financial")
-        if sample and sample.label in counts:
-            counts[sample.label] += 1
+        sample = mem.belief.sample("financial")
+        if sample and sample in counts:
+            counts[sample] += 1
 
     total = sum(counts.values())
     print(f"\nsampling distribution ({n_samples} trials):")
@@ -91,19 +91,19 @@ def main() -> None:
 
     print("\n--- No competitor equivalent ---")
 
-    mem.store("water", data={"type": "concept"})
-    mem.store("fish", data={"type": "concept"})
+    mem.add("water", data={"type": "concept"})
+    mem.add("fish", data={"type": "concept"})
 
-    mem.create_distribution(
+    mem.belief.create(
         ["financial", "river_edge", "billiards"],
         amplitudes=[0.6, 0.7, 0.3],
     )
-    mem.create_distribution(
+    mem.belief.create(
         ["drinking", "river", "ocean"],
         amplitudes=[0.3, 0.8, 0.4],
     )
 
-    mem.correlate(
+    mem.belief.correlate(
         ["financial", "river_edge", "billiards"],
         ["drinking", "river", "ocean"],
         correlations={
@@ -119,9 +119,9 @@ def main() -> None:
         },
     )
 
-    sample_result = mem.sample_distribution("financial")
+    sample_result = mem.belief.sample("financial")
     if sample_result:
-        print(f"\nsampled from distribution -> {sample_result.label}")
+        print(f"\nsampled from distribution -> {sample_result}")
         print("  (correlated outcome is biased by this observation)")
     else:
         print("\nno belief state available for sampling")
@@ -130,11 +130,11 @@ def main() -> None:
     print("SECTION 4: CREDIBLE SET")
     print("=" * 70)
 
-    cs = mem.credible_set("patient", level=0.9)
+    cs = mem.bayes.credible("patient", level=0.9)
     print(f"\n90% credible set for patient diagnosis: {cs}")
 
-    mem.reset_belief("patient")
-    prior_after = mem.get_belief("patient")
+    mem.bayes.reset("patient")
+    prior_after = mem.bayes.get("patient")
     print(f"prior after reset: {prior_after}")
 
     print("\n" + "=" * 70)

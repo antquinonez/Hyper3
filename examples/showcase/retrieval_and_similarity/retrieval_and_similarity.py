@@ -41,7 +41,7 @@ def main() -> None:
         ("postgres", {"type": "database"}),
     ]
     for name, data in concepts:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
     edges = [
         ("python", "ml", "used_for"),
@@ -64,9 +64,9 @@ def main() -> None:
         ("data_science", "postgres", "uses"),
     ]
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
-    print(f"concepts: {mem.graph.node_count}, edges: {mem.graph.edge_count}")
+    print(f"concepts: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
     print("SECTION 2: SPREADING ACTIVATION RETRIEVAL")
@@ -75,13 +75,13 @@ def main() -> None:
     print("\n--- No direct competitor equivalent ---")
     print("XGI/HNX: no associative recall mechanism")
 
-    mem.stimulate("python")
-    activation_results = mem.spread_activation()
+    mem.search.activate("python")
+    activation_results = mem.search.activate("python")
     print(f"\nspreading activation from 'python':")
-    sorted_results = sorted(activation_results, key=lambda r: r.activation, reverse=True)
+    sorted_results = sorted(activation_results, key=lambda r: r.energy, reverse=True)
     for item in sorted_results[:10]:
-        bar = "#" * int(item.activation * 20)
-        print(f"  {item.label:>15}: {item.activation:.4f} {bar}")
+        bar = "#" * int(item.energy * 20)
+        print(f"  {item.label:>15}: {item.energy:.4f} {bar}")
 
     print("\n" + "=" * 70)
     print("SECTION 3: SEMANTIC SIMILARITY")
@@ -90,15 +90,15 @@ def main() -> None:
     print("\n--- NetworkX equivalent ---")
     print("nx.similarity.simulate_graph(G)  -> basic structural similarity")
 
-    similar = mem.find_similar("python", top_k=5)
+    similar = mem.search.similar("python", top_k=5)
     print(f"\nmost similar to 'python':")
     for item in similar:
-        print(f"  {item.concept:>15}: {item.similarity:.4f}")
+        print(f"  {item.label:>15}: {item.similarity:.4f}")
 
-    similar_rust = mem.find_similar("rust", top_k=5)
+    similar_rust = mem.search.similar("rust", top_k=5)
     print(f"\nmost similar to 'rust':")
     for item in similar_rust:
-        print(f"  {item.concept:>15}: {item.similarity:.4f}")
+        print(f"  {item.label:>15}: {item.similarity:.4f}")
 
     print("\n" + "=" * 70)
     print("SECTION 4: COMBINED RETRIEVAL (Activation + Similarity)")
@@ -107,7 +107,7 @@ def main() -> None:
     print("\n--- No competitor equivalent ---")
     print("Reciprocal Rank Fusion of activation + embedding signals")
 
-    retrieval = mem.retrieve("python", top_k=8)
+    retrieval = mem.search.query("python", top_k=8)
     print(f"\nretrieval results for 'python':")
     for item in retrieval:
         print(f"  {item.label:>15}: rrf={item.rrf_score:.4f}, "

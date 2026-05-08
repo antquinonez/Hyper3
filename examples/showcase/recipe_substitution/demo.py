@@ -71,8 +71,8 @@ def main():
         confidence=0.85,
     )
 
-    print(f"\n  Total ingredients in graph: {engine.mem.graph.node_count}")
-    print(f"  Total edges in graph: {engine.mem.graph.edge_count}")
+    print(f"\n  Total ingredients in graph: {engine.mem.size[0]}")
+    print(f"  Total edges in graph: {engine.mem.size[1]}")
 
     print("\nSECTION 2: Finding substitutes for 'butter'...")
     print("  (Using mem.neighbors() for direct + mem.find_paths() for transitive)")
@@ -131,7 +131,7 @@ def main():
     print("\nSECTION 8: Triggering self-evolution...")
     engine.add_ingredient("stale_ingredient_1", category="old", vegan=False)
     engine.add_ingredient("stale_ingredient_2", category="unused", vegan=True)
-    print(f"  Graph before evolution: {engine.mem.graph.node_count} nodes, {engine.mem.graph.edge_count} edges")
+    print(f"  Graph before evolution: {engine.mem.size[0]} nodes, {engine.mem.size[1]} edges")
 
     print("  Running evolution (decay, prune, merge, reinforce)...")
     result = engine.evolve_knowledge()
@@ -139,7 +139,7 @@ def main():
     print(f"  Pruned: {result.pruned}")
     print(f"  Reinforced: {result.reinforced}")
     print(f"  Merged: {result.merged}")
-    print(f"  Graph after evolution: {engine.mem.graph.node_count} nodes, {engine.mem.graph.edge_count} edges")
+    print(f"  Graph after evolution: {engine.mem.size[0]} nodes, {engine.mem.size[1]} edges")
 
     print("\n" + "=" * 70)
     print("DEMO COMPLETE")

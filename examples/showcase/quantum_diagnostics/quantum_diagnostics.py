@@ -68,7 +68,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         },
     }
     for name, data in root_causes.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     symptoms = {
         "error_rate_spike": {"type": "symptom", "metric": "errors/sec", "observed": True},
@@ -82,7 +82,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "partial_outage": {"type": "symptom", "metric": "availability_pct", "observed": True},
     }
     for name, data in symptoms.items():
-        mem.store(name, data=data, modalities={Modality.SENSORY})
+        mem.add(name, data=data, modalities={Modality.SENSORY})
 
     evidence = {
         "log_connection_refused": {"source": "app_logs", "timestamp": "T+0m", "confidence": 0.85},
@@ -101,7 +101,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "evidence_no_dns_issues_other_services": {"source": "monitoring", "timestamp": "T+5m", "confidence": 0.80},
     }
     for name, data in evidence.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     services = {
         "auth_service": {"tier": "critical", "stack": "java", "team": "platform"},
@@ -112,7 +112,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "config_service": {"tier": "infrastructure", "stack": "go", "team": "platform"},
     }
     for name, data in services.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     infra = {
         "postgres_primary": {"type": "database", "engine": "postgresql"},
@@ -123,7 +123,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "vault_secrets": {"type": "secrets", "engine": "vault"},
     }
     for name, data in infra.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     cause_symptom_links = [
         ("db_connection_pool_exhaustion", ["connection_timeouts", "error_rate_spike", "partial_outage", "queue_backlog"]),
@@ -135,7 +135,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
     ]
     for cause, symptoms_list in cause_symptom_links:
         for sym in symptoms_list:
-            mem.relate(cause, sym, label="causes_symptom")
+            mem.link(cause, sym, label="causes_symptom")
 
     evidence_cause_links = [
         ("log_connection_refused", ["db_connection_pool_exhaustion", "certificate_expiry"]),
@@ -155,7 +155,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
     ]
     for ev, causes in evidence_cause_links:
         for cause in causes:
-            mem.relate(ev, cause, label="supports")
+            mem.link(ev, cause, label="supports")
 
     service_deps = [
         ("auth_service", "postgres_primary"),
@@ -172,7 +172,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("config_service", "vault_secrets"),
     ]
     for svc, dep in service_deps:
-        mem.relate(svc, dep, label="depends_on")
+        mem.link(svc, dep, label="depends_on")
 
     cause_infra_links = [
         ("db_connection_pool_exhaustion", "postgres_primary"),
@@ -185,7 +185,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("deploy_bad_config", "config_service"),
     ]
     for cause, infra_node in cause_infra_links:
-        mem.relate(cause, infra_node, label="affects")
+        mem.link(cause, infra_node, label="affects")
 
     correlated_causes = [
         ("db_connection_pool_exhaustion", "memory_leak_api"),
@@ -194,7 +194,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("memory_leak_api", "deploy_bad_config"),
     ]
     for a, b in correlated_causes:
-        mem.relate(a, b, label="correlated_with")
+        mem.link(a, b, label="correlated_with")
 
     responders = {
         "oncall_platform": {"role": "responder", "team": "platform"},
@@ -208,7 +208,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "runbook_kafka_rebalance": {"type": "runbook", "cause": "kafka_partition_rebalance"},
     }
     for name, data in responders.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     timeline = {
         "t0_alert_triggered": {"offset_min": 0, "event": "PagerDuty alert fired"},
@@ -221,7 +221,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "t7_resolved": {"offset_min": 35, "event": "Incident resolved"},
     }
     for name, data in timeline.items():
-        mem.store(name, data=data, modalities={Modality.TEMPORAL})
+        mem.add(name, data=data, modalities={Modality.TEMPORAL})
 
     responder_links = [
         ("oncall_platform", "memory_leak_api"),
@@ -239,7 +239,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("runbook_kafka_rebalance", "kafka_partition_rebalance"),
     ]
     for src, tgt in responder_links:
-        mem.relate(src, tgt, label="assigned_to")
+        mem.link(src, tgt, label="assigned_to")
 
     timeline_links = [
         ("t0_alert_triggered", "alert_circuit_breaker_open"),
@@ -257,7 +257,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("t2_investigation_starts", "oncall_platform"),
     ]
     for src, tgt in timeline_links:
-        mem.relate(src, tgt, label="timeline_link")
+        mem.link(src, tgt, label="timeline_link")
 
     impact_nodes = {
         "customer_facing_errors": {"type": "impact", "severity": "high"},
@@ -266,7 +266,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         "reputation_risk": {"type": "impact", "severity": "low"},
     }
     for name, data in impact_nodes.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     impact_links = [
         ("partial_outage", "customer_facing_errors"),
@@ -279,7 +279,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("ssl_handshake_failures", "customer_facing_errors"),
     ]
     for src, tgt in impact_links:
-        mem.relate(src, tgt, label="causes_impact")
+        mem.link(src, tgt, label="causes_impact")
 
     service_outage_links = [
         ("partial_outage", "auth_service"),
@@ -289,7 +289,7 @@ def build_incident_graph(mem: HypergraphMemory) -> None:
         ("partial_outage", "search_service"),
     ]
     for src, tgt in service_outage_links:
-        mem.relate(src, tgt, label="affects_service")
+        mem.link(src, tgt, label="affects_service")
 
 
 def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
@@ -297,8 +297,8 @@ def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
     print("SECTION 1: Building the Incident Knowledge Graph")
     print("=" * 70)
     build_incident_graph(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
     hypotheses = [
         "db_connection_pool_exhaustion",
         "dns_resolution_failure",
@@ -306,7 +306,7 @@ def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
         "memory_leak_api",
         "kafka_partition_rebalance",
     ]
-    evidence_count = len([n for n in mem.graph.nodes if n.data.get("source")])
+    evidence_count = len([n for n in mem.engine.graph.nodes if n.data.get("source")])
     print(f"  Root cause hypotheses: {len(hypotheses)}")
     print(f"  Evidence nodes: {evidence_count}")
     print()
@@ -324,7 +324,7 @@ def section_2_distribution(mem: HypergraphMemory, hypotheses: list[str]) -> None
     print("  Spreading activation may shift weights based on graph connectivity.")
     print()
 
-    qs = mem.create_distribution(concepts=hypotheses)
+    qs = mem.belief.create(outcomes=hypotheses)
     print(f"  Distribution of {qs.outcome_count} hypotheses:")
     for interp in qs.outcomes:
         print(f"    {interp.label:40s} amp={interp.amplitude:.4f}  prob={interp.probability:.4f}")
@@ -367,10 +367,10 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     counts: dict[str, int] = {h: 0 for h in hypotheses}
     n_trials = 1000
     for _ in range(n_trials):
-        qs_trial = mem.create_distribution(concepts=hypotheses, amplitudes=None, use_context_field=False)
+        qs_trial = mem.belief.create(outcomes=hypotheses, amplitudes=None, use_context=False)
         answer = mem.sample(qs_trial, context=context_weights)
         if answer:
-            node = mem.graph.get_node(answer.node_id)
+            node = mem.engine.graph.get_node(answer.node_id)
             label = node.label if node else answer.node_id
             counts[label] = counts.get(label, 0) + 1
 
@@ -400,9 +400,9 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print("  table -- a classical correlation matrix, not quantum entanglement.")
     print()
 
-    qs = mem.create_distribution(concepts=hypotheses, use_context_field=False)
+    qs = mem.belief.create(outcomes=hypotheses, use_context=False)
 
-    ent = mem.correlate(
+    ent = mem.belief.correlate(
         group_a=["certificate_expiry", "dns_resolution_failure"],
         group_b=["memory_leak_api", "db_connection_pool_exhaustion"],
         correlations={
@@ -421,11 +421,11 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
     print(f"    dns_failure  <-> memory_leak:        +0.15 (weak)")
 
-    cascaded = mem.sample_correlated(qs, "certificate_expiry")
+    cascaded = mem.belief.sample_correlated(qs, "certificate_expiry")
     print(f"\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
-            node = mem.graph.get_node(partner_id)
+            node = mem.engine.graph.get_node(partner_id)
             label = node.label if node else partner_id[:12]
             print(f"    {label}: prediction={prediction}")
     else:
@@ -444,30 +444,30 @@ def section_5_interference(mem: HypergraphMemory) -> None:
     print("  It compares |sum(amps)|^2 vs sum(|amp|^2) -- standard wave math.")
     print()
 
-    qs_constructive = mem.create_distribution(
-        concepts=["certificate_expiry", "certificate_expiry"],
+    qs_constructive = mem.belief.create(
+        outcomes=["certificate_expiry", "certificate_expiry"],
         amplitudes=[0.7, 0.5],
-        use_context_field=False,
+        use_context=False,
     )
     print("  Constructive case: two evidence sources both support certificate_expiry")
     print("    amplitudes: [+0.70, +0.50]")
-    patterns_c = mem.compute_interactions(qs_constructive)
+    patterns_c = mem.belief.interactions(qs_constructive)
     for p in patterns_c:
-        node = mem.graph.get_node(p.node_id)
+        node = mem.engine.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
 
-    qs_destructive = mem.create_distribution(
-        concepts=["dns_resolution_failure", "dns_resolution_failure"],
+    qs_destructive = mem.belief.create(
+        outcomes=["dns_resolution_failure", "dns_resolution_failure"],
         amplitudes=[0.7, -0.5],
-        use_context_field=False,
+        use_context=False,
     )
     print("\n  Destructive case: one source supports DNS failure, another contradicts")
     print("    amplitudes: [+0.70, -0.50]")
-    patterns_d = mem.compute_interactions(qs_destructive)
+    patterns_d = mem.belief.interactions(qs_destructive)
     for p in patterns_d:
-        node = mem.graph.get_node(p.node_id)
+        node = mem.engine.graph.get_node(p.node_id)
         label = node.label if node else p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
@@ -524,12 +524,12 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"    Entropy: {entropy_max:.6f} bits = log2(4) = {np.log2(4):.6f}")
 
     print("\n  Quick check: pure state entropy (should be 0)")
-    qs_pure = mem.create_distribution(
-        concepts=hypotheses[:3],
+    qs_pure = mem.belief.create(
+        outcomes=hypotheses[:3],
         amplitudes=[0.6, 0.3, 0.1],
-        use_context_field=False,
+        use_context=False,
     )
-    rho_pure = mem.belief.compute_density_matrix(qs_pure.id)
+    rho_pure = mem.belief.density_matrix(qs_pure.id)
     if rho_pure is not None:
         entropy_pure = mem.belief.von_neumann_entropy(rho_pure)
         print(f"    Pure state entropy: {entropy_pure:.10f} bits (effectively 0)")

@@ -234,31 +234,31 @@ def main():
     section(1, "Building the Threat Intelligence Knowledge Graph")
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        mem.add(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        mem.add(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        mem.add(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
     for ioc in STALE_IOC:
-        mem.store(ioc["label"], data=ioc["data"], modalities={Modality.SENSORY})
-        n = mem.graph.get_node_by_label(ioc["label"])
+        mem.add(ioc["label"], data=ioc["data"], modalities={Modality.SENSORY})
+        n = mem.engine.graph.get_node_by_label(ioc["label"])
         if n:
             n.weight = 0.05
 
     edge_count = 0
     for rel_label, pairs in RELATIONSHIPS.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
+            mem.link(src, tgt, label=rel_label)
             edge_count += 1
 
-    print(f"  Nodes:  {mem.graph.node_count}")
-    print(f"  Edges:  {mem.graph.edge_count}")
+    print(f"  Nodes:  {mem.size[0]}")
+    print(f"  Edges:  {mem.size[1]}")
     actor_set = {a["label"] for a in THREAT_ACTORS}
     cve_set = {c["label"] for c in CVES}
     mw_set = {m["label"] for m in MALWARE}
@@ -271,7 +271,7 @@ def main():
     print("  AbductiveRule: if APT targets sector S, hypothesize about causation.")
     print()
 
-    pre_edges = mem.graph.edge_count
+    pre_edges = mem.size[1]
 
     mem.add_rules(
         InverseRule(edge_label="exploits", inverse_label="exploited_by"),
@@ -282,13 +282,13 @@ def main():
     )
 
     result = mem.reason(
-        seed_concepts={"APT28", "APT29", "Lazarus", "Volt_Typhoon", "FIN7",
+        seeds={"APT28", "APT29", "Lazarus", "Volt_Typhoon", "FIN7",
                         "CVE-2023-44228", "Cobalt_Strike", "GOV", "FIN"},
         max_depth=3,
         auto_commit=True,
     )
 
-    new_edges = mem.graph.edge_count - pre_edges
+    new_edges = mem.size[1] - pre_edges
 
     print(f"  States explored:    {result.expansion.states_created}")
     print(f"  Rules applied:      {result.expansion.rules_applied}")
@@ -300,11 +300,11 @@ def main():
     inferred_count = 0
     exploited_by_examples: list[str] = []
     suspected_examples: list[str] = []
-    for edge in mem.graph.edges:
+    for edge in mem.engine.graph.edges:
         if edge.label in inferred_labels:
             inferred_count += 1
-            src_node = mem.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
-            tgt_node = mem.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
+            src_node = mem.engine.graph.get_node(list(edge.source_ids)[0]) if edge.source_ids else None
+            tgt_node = mem.engine.graph.get_node(list(edge.target_ids)[0]) if edge.target_ids else None
             src_lbl = src_node.label if src_node else "?"
             tgt_lbl = tgt_node.label if tgt_node else "?"
             if edge.label == "exploited_by" and len(exploited_by_examples) < 5:
@@ -328,8 +328,8 @@ def main():
     print("  exploited in the wild. Which threat actors and sectors light up?")
     print()
 
-    mem.stimulate("CVE-2023-44228", energy=1.0)
-    activated = mem.spread_activation(iterations=4)
+    mem.search.activate("CVE-2023-44228", energy=1.0)
+    activated = mem.activate("CVE-2023-44228", energy=1.0, iterations=4)
 
     activated_actors = [r for r in activated if r.label in actor_set and r.label != "CVE-2023-44228"]
     activated_sectors = [r for r in activated if r.label in {i["label"] for i in INDUSTRIES}]
@@ -359,10 +359,10 @@ def main():
     suspects = ["APT28", "APT29", "Lazarus", "Volt_Typhoon"]
     prior_amplitudes = [0.7, 0.5, 0.4, 0.3]
 
-    qs = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
+    qs = mem.belief.create(suspects, amplitudes=prior_amplitudes)
     print(f"  Prior distribution (raw Born rule, use_context_field=False):")
     for interp in qs.outcomes:
-        node = mem.graph.get_node(interp.node_id)
+        node = mem.engine.graph.get_node(interp.node_id)
         label = node.label if node else interp.node_id
         print(f"    {label:22s}  probability={interp.probability:.4f}")
 
@@ -370,10 +370,10 @@ def main():
     print("  Running 1000 sample trials to verify distribution...")
     counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_trial = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
+        qs_trial = mem.belief.create(suspects, amplitudes=prior_amplitudes)
         ans = mem.sample(qs_trial)
         if ans:
-            node = mem.graph.get_node(ans.node_id)
+            node = mem.engine.graph.get_node(ans.node_id)
             if node:
                 counts[node.label] += 1
 
@@ -389,10 +389,10 @@ def main():
     print(f"  Context-weighted sample (evidence favors APT28: {ctx_weights}):")
     ctx_counts: Counter[str] = Counter()
     for _ in range(1000):
-        qs_ctx = mem.create_distribution(suspects, amplitudes=prior_amplitudes)
+        qs_ctx = mem.belief.create(suspects, amplitudes=prior_amplitudes)
         ans_ctx = mem.sample(qs_ctx, context=ctx_weights)
         if ans_ctx:
-            node = mem.graph.get_node(ans_ctx.node_id)
+            node = mem.engine.graph.get_node(ans_ctx.node_id)
             if node:
                 ctx_counts[node.label] += 1
 
@@ -413,13 +413,13 @@ def main():
         mem.recall("Lazarus", max_depth=2, max_nodes=20)
         mem.recall("CVE-2023-44228", max_depth=2, max_nodes=20)
 
-    pre_nodes = mem.graph.node_count
-    pre_edges_evolve = mem.graph.edge_count
+    pre_nodes = mem.size[0]
+    pre_edges_evolve = mem.size[1]
     stale_labels = {ioc["label"] for ioc in STALE_IOC}
 
     stale_labels = {ioc["label"] for ioc in STALE_IOC}
     for label in stale_labels:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             node.access_count = 0
 
@@ -438,7 +438,7 @@ def main():
 
     surviving_stale = []
     for label in sorted(stale_labels):
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             surviving_stale.append(f"{label} (weight={node.weight:.3f})")
     if surviving_stale:
@@ -453,7 +453,7 @@ def main():
     print("  how many attack paths pass through it.")
     print()
 
-    centrality = mem.degree_centrality()
+    centrality = mem.analyze.centrality("degree")
     top_actors = top_k({k: v for k, v in centrality.items() if k in actor_set}, k=5)
 
     print("  Top 5 most connected threat actors:")
@@ -468,7 +468,7 @@ def main():
     print()
     print("  Top 5 most connected CVEs:")
     for rank, (cve_label, score) in enumerate(top_cves, 1):
-        node = mem.graph.get_node_by_label(cve_label)
+        node = mem.engine.graph.get_node_by_label(cve_label)
         product = node.data.get("product", "?") if node and isinstance(node.data, dict) else "?"
         cvss = node.data.get("cvss", "?") if node and isinstance(node.data, dict) else "?"
         print(f"    {rank}. {cve_label:22s} centrality={score:.4f}  "

@@ -1,19 +1,13 @@
 from __future__ import annotations
 
-from statistics import median
 from typing import Any
 
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
-    GraphDescription,
-    LabeledEdge,
     PatternMatchInfo,
     SubgraphEdge,
     SubgraphNode,
     SubgraphResult,
-)
-from hyper3.results import (
-    top_k as _top_k,
 )
 
 
@@ -136,77 +130,6 @@ class AnalyticsMixin(_MemoryBase):
             edge_count=sg.edge_count,
         )
 
-    def degree_centrality(self, *, top_k: int | None = None) -> dict[str, float]:
-        """Compute degree centrality for all nodes, keyed by node label.
-
-        Args:
-            top_k: If set, return only the top-k highest-scoring nodes.
-
-        Returns:
-            Dict of concept labels to centrality scores.
-        """
-        scores = {self._node_label(nid): score for nid, score in self._graph.degree_centrality().items()}
-        if top_k is not None:
-            return dict(_top_k(scores, top_k))
-        return scores
-
-    def betweenness_centrality(self, *, top_k: int | None = None) -> dict[str, float]:
-        """Compute betweenness centrality for all nodes, keyed by node label.
-
-        Args:
-            top_k: If set, return only the top-k highest-scoring nodes.
-
-        Returns:
-            Dict of concept labels to centrality scores.
-        """
-        scores = {self._node_label(nid): score for nid, score in self._graph.betweenness_centrality().items()}
-        if top_k is not None:
-            return dict(_top_k(scores, top_k))
-        return scores
-
-    def pagerank(
-        self,
-        *,
-        alpha: float = 0.85,
-        max_iter: int = 100,
-        tol: float = 1e-06,
-        weighted: bool = True,
-        top_k: int | None = None,
-    ) -> dict[str, float]:
-        """Compute PageRank for all nodes using the hypergraph transition matrix.
-
-        Delegates to :meth:`Hypergraph.pagerank` which uses the
-        incidence-based transition matrix and degrades to standard
-        PageRank when all edges are pairwise.
-
-        Args:
-            alpha: Damping factor (default 0.85).
-            max_iter: Maximum number of iterations.
-            tol: Convergence tolerance.
-            weighted: If True, use edge weights as transition probabilities.
-            top_k: If set, return only the top-k highest-scoring nodes.
-
-        Returns:
-            Dict of concept labels to PageRank scores.
-        """
-        if not weighted:
-            saved_weights = {e.id: e.weight for e in self._graph.edges}
-            for edge in self._graph.edges:
-                edge.weight = 1.0
-            try:
-                pr = self._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
-            finally:
-                for edge in self._graph.edges:
-                    old_w = saved_weights.get(edge.id)
-                    if old_w is not None:
-                        edge.weight = old_w
-        else:
-            pr = self._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
-        scores = {self._node_label(nid): score for nid, score in pr.items()}
-        if top_k is not None:
-            return dict(_top_k(scores, top_k))
-        return scores
-
     def query_nodes(
         self,
         *,
@@ -248,53 +171,6 @@ class AnalyticsMixin(_MemoryBase):
             if limit is not None and len(results) >= limit:
                 break
         return results
-
-    def describe(self) -> GraphDescription:
-        """Compute a structural summary of the graph.
-
-        Returns:
-            GraphDescription with node/edge counts, type distributions,
-            degree statistics, component count, and density.
-        """
-        node_types: dict[str, int] = {}
-        for node in self._graph.nodes:
-            if isinstance(node.data, dict):
-                t = node.data.get("type") or node.data.get("kind") or "(untyped)"
-            else:
-                t = "(untyped)"
-            node_types[t] = node_types.get(t, 0) + 1
-
-        edge_labels: dict[str, int] = {}
-        for edge in self._graph.edges:
-            lbl = edge.label or "(unlabeled)"
-            edge_labels[lbl] = edge_labels.get(lbl, 0) + 1
-
-        degrees = [len(self._graph.incident_edges(nid)) for nid in self._graph._nodes]
-        nc = self._graph.node_count
-        ec = self._graph.edge_count
-
-        deg_min = min(degrees) if degrees else 0
-        deg_max = max(degrees) if degrees else 0
-        deg_mean = sum(degrees) / len(degrees) if degrees else 0.0
-        deg_median = float(median(degrees)) if degrees else 0.0
-        isolated = sum(1 for d in degrees if d == 0)
-
-        components = len(self._graph.connected_components())
-        density = ec / (nc * (nc - 1)) if nc > 1 else 0.0
-
-        return GraphDescription(
-            node_count=nc,
-            edge_count=ec,
-            node_types=node_types,
-            edge_labels=edge_labels,
-            degree_min=deg_min,
-            degree_max=deg_max,
-            degree_mean=deg_mean,
-            degree_median=deg_median,
-            isolated_nodes=isolated,
-            components=components,
-            density=density,
-        )
 
     def connected_components(self) -> list[set[str]]:
         """Find all connected components, returned as sets of node labels."""
@@ -408,49 +284,10 @@ class AnalyticsMixin(_MemoryBase):
                 result[node.label] = se_result.embeddings[i].tolist()
         return result
 
-    def edges_labeled(
-        self,
-        *,
-        edge_label: str | None = None,
-        min_source_cardinality: int = 1,
-        min_target_cardinality: int = 1,
-    ) -> list[LabeledEdge]:
-        """Return edges with source/target IDs resolved to human-readable labels.
-
-        Args:
-            edge_label: Filter to edges with this label. None = all.
-            min_source_cardinality: Minimum number of source nodes.
-            min_target_cardinality: Minimum number of target nodes.
-
-        Returns:
-            List of LabeledEdge objects with resolved labels.
-        """
-        results: list[LabeledEdge] = []
-        for edge in self._graph.edges:
-            if edge_label is not None and edge.label != edge_label:
-                continue
-            if len(edge.source_ids) < min_source_cardinality:
-                continue
-            if len(edge.target_ids) < min_target_cardinality:
-                continue
-            results.append(
-                LabeledEdge(
-                    id=edge.id,
-                    label=edge.label,
-                    source_labels=[n.label for sid in edge.source_ids if (n := self._graph.get_node(sid))],
-                    target_labels=[n.label for tid in edge.target_ids if (n := self._graph.get_node(tid))],
-                    weight=edge.weight,
-                    source_cardinality=len(edge.source_ids),
-                    target_cardinality=len(edge.target_ids),
-                )
-            )
-        return results
-
     def degree(self, *, weighted: bool = False) -> dict[str, int | float]:
         """Compute raw degree counts for all nodes, keyed by label.
 
-        Unlike :meth:`degree_centrality` which returns normalized scores,
-        this returns the raw number of incident edges (or total weight
+        Returns the raw number of incident edges (or total weight
         if ``weighted=True``).
 
         Args:
@@ -590,43 +427,6 @@ class AnalyticsMixin(_MemoryBase):
     def average_clustering_coefficient(self) -> float:
         """Compute the average clustering coefficient across all nodes."""
         return self._graph.average_clustering_coefficient()
-
-    def katz_centrality(
-        self,
-        *,
-        alpha: float = 0.1,
-        beta: float = 1.0,
-        top_k: int | None = None,
-    ) -> dict[str, float]:
-        """Compute Katz centrality for all nodes.
-
-        Args:
-            alpha: Attenuation factor.
-            beta: Weight constant.
-            top_k: If set, return only the top-k highest-scoring nodes.
-
-        Returns:
-            Dict of concept labels to centrality scores.
-        """
-        scores = {
-            self._node_label(nid): score
-            for nid, score in self._graph.katz_centrality(alpha=alpha, beta=beta).items()
-        }
-        if top_k is not None:
-            return dict(_top_k(scores, top_k))
-        return scores
-
-    def h_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
-        """Compute H-eigenvector centrality (Benson 2018) keyed by label."""
-        return {self._node_label(nid): s for nid, s in self._graph.h_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
-
-    def z_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
-        """Compute Z-eigenvector centrality (Benson 2018) keyed by label."""
-        return {self._node_label(nid): s for nid, s in self._graph.z_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
-
-    def c_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
-        """Compute C-eigenvector centrality (clique motif eigenvector) keyed by label."""
-        return {self._node_label(nid): s for nid, s in self._graph.c_eigenvector_centrality(max_iter=max_iter, tol=tol).items()}
 
     def node_edge_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> tuple[dict[str, float], dict[str, float]]:
         """Compute joint node-edge centrality (Tudisco & Higham 2021)."""

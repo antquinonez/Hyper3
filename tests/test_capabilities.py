@@ -32,17 +32,17 @@ class TestDetectCapabilityLevel:
 
     def test_minimal_no_multiway(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         mem._rules = [TransitiveRule(edge_label="rel")]
         level = detect_capability_level(mem)
         assert level == CapabilityLevel.MINIMAL
 
     def test_standard_with_populated_multiway(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
@@ -51,9 +51,9 @@ class TestDetectCapabilityLevel:
 
     def test_enhanced_with_active_belief(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
-        mem.relate("x", "y", label="r")
+        mem.add("x")
+        mem.add("y")
+        mem.link("x", "y", label="r")
         mem._rules = [TransitiveRule()]
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"x"}, mem._rules, max_depth=1)
@@ -68,7 +68,7 @@ class TestDetectCapabilityLevel:
 
     def test_scores_computed(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         scores = _compute_capability_score(mem)
         assert "graph" in scores
         assert scores["graph"] == 1.0
@@ -90,7 +90,7 @@ class TestRequireCapability:
             return "ok"
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         result = do_thing(mem)
         assert result == "ok"
 
@@ -104,8 +104,8 @@ class TestDetectCapabilityMethod:
 
     def test_memory_with_rules_and_data(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         mem._rules = [TransitiveRule(edge_label="rel")]
         level = mem.detect_capability()
         assert level == CapabilityLevel.MINIMAL
@@ -130,11 +130,11 @@ class TestProbeFunctions:
 
     def test_probe_rules_with_matches(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         assert _probe_rules(mem) is True
 
@@ -151,9 +151,9 @@ class TestProbeFunctions:
 
     def test_probe_provenance_with_records(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem._provenance.record_inference("edge_id_1", "test_rule", input_node_ids=["a"], depth=1)
         assert _probe_provenance(mem) is True
 
@@ -163,8 +163,8 @@ class TestProbeFunctions:
 
     def test_probe_belief_with_states(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
+        mem.add("x")
+        mem.add("a")
         mem.create_distribution(["x", "a"])
         assert _probe_belief(mem) is True
 
@@ -186,7 +186,7 @@ class TestProbeFunctions:
 
     def test_probe_retrieval_with_feedback(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
+        mem.add("a")
         node = mem.graph.get_node_by_label("a")
         mem._retrieval._feedback.record("q1", node.id, "relevant", True)
         assert _probe_retrieval(mem) is True
@@ -207,9 +207,9 @@ class TestProbeFunctions:
 
     def test_compute_score_with_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         scores = _compute_capability_score(mem)
         assert scores["graph"] == 1.0
         assert scores["graph_density"] == 1.0
@@ -221,9 +221,9 @@ class TestProbeFunctions:
 
     def test_compute_score_belief_active_ratio(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("a")
-        mem.store("b")
+        mem.add("x")
+        mem.add("a")
+        mem.add("b")
         mem.create_distribution(["x", "a"])
         scores = _compute_capability_score(mem)
         assert scores["belief_active_ratio"] == 1.0
@@ -497,11 +497,11 @@ class TestComputeCapabilityScoreExceptions:
 class TestDetectFullLevel:
     def test_enhanced_when_full_below_threshold(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)
@@ -519,11 +519,11 @@ class TestDetectFullLevel:
 
     def test_full_capability_level(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
         mem._rules = [TransitiveRule(edge_label="rel")]
         mem._multiway_engine = MultiwayEngine(mem._graph)
         mem._multiway_engine.expand({"a"}, mem._rules, max_depth=1)

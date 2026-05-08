@@ -30,9 +30,9 @@ from hyper3.multiway import MultiwayGraph, MultiwayState
 
 def _make_mem():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("x")
-    mem.store("y")
-    mem.store("z")
+    mem.add("x")
+    mem.add("y")
+    mem.add("z")
     return mem
 
 
@@ -804,9 +804,9 @@ class TestComplexAmplitudeInterference:
 
 def _make_mem_ctx():
     mem = HypergraphMemory(evolve_interval=0)
-    mem.store("high", data={"importance": 0.9})
-    mem.store("medium", data={"importance": 0.5})
-    mem.store("low", data={"importance": 0.1})
+    mem.add("high", data={"importance": 0.9})
+    mem.add("medium", data={"importance": 0.5})
+    mem.add("low", data={"importance": 0.1})
     h = mem.graph.get_node_by_label("high")
     m = mem.graph.get_node_by_label("medium")
     l = mem.graph.get_node_by_label("low")
@@ -937,11 +937,11 @@ class TestUseContextField:
     def test_context_field_biases_collapse(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["hub", "spoke1", "spoke2", "spoke3"]:
-            mem.store(label)
-        mem.relate("hub", "spoke1", label="connects")
-        mem.relate("hub", "spoke2", label="connects")
-        mem.relate("hub", "spoke3", label="connects")
-        mem.relate("spoke1", "spoke2", label="connects")
+            mem.add(label)
+        mem.link("hub", "spoke1", label="connects")
+        mem.link("hub", "spoke2", label="connects")
+        mem.link("hub", "spoke3", label="connects")
+        mem.link("spoke1", "spoke2", label="connects")
         qs = mem.create_distribution(
             ["hub", "spoke1", "spoke2", "spoke3"],
             use_context_field=True,
@@ -951,8 +951,8 @@ class TestUseContextField:
     def test_context_field_changes_probabilities(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["connected", "isolated_a", "isolated_b"]:
-            mem.store(label)
-        mem.relate("connected", "isolated_a", label="e")
+            mem.add(label)
+        mem.link("connected", "isolated_a", label="e")
         qs_no_ctx = mem.create_distribution(
             ["connected", "isolated_a", "isolated_b"],
             use_context_field=False,
@@ -971,7 +971,7 @@ class TestUseContextField:
 
     def test_single_concept_context_field_no_effect(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("only")
+        mem.add("only")
         qs = mem.create_distribution(["only"], use_context_field=True)
         assert qs.outcome_count == 1
 
@@ -979,17 +979,17 @@ class TestUseContextField:
 class TestSampleContextLabelRemapping:
     def test_context_with_labels(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("cat")
-        mem.store("dog")
-        mem.store("bird")
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("bird")
         qs = mem.create_distribution(["cat", "dog", "bird"])
         result = mem.sample(qs, context={"dog": 10.0})
         assert result.label in {"cat", "dog", "bird"}
 
     def test_context_with_mixed_labels_and_ids(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("x")
-        mem.store("y")
+        mem.add("x")
+        mem.add("y")
         qs = mem.create_distribution(["x", "y"])
         x_node = mem.graph.get_node_by_label("x")
         assert x_node is not None
@@ -998,8 +998,8 @@ class TestSampleContextLabelRemapping:
 
     def test_context_with_nonexistent_label_passes_through(self):
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("a")
-        mem.store("b")
+        mem.add("a")
+        mem.add("b")
         qs = mem.create_distribution(["a", "b"])
         result = mem.sample(qs, context={"nonexistent_key": 5.0})
         assert result.label in {"a", "b"}

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
@@ -14,7 +14,10 @@ from hyper3.kernel import (
     Modality,
 )
 from hyper3.memory_base import _MemoryBase
-from hyper3.results import EvolveResult, MergeReport
+from hyper3.results import BulkResult, EvolveResult, MergeReport, NodeInfo
+
+if TYPE_CHECKING:
+    from hyper3.concept_set import ConceptSet
 
 
 class CoreMixin(_MemoryBase):
@@ -35,58 +38,6 @@ class CoreMixin(_MemoryBase):
     def log(self) -> EventLog:
         """The timestamped event log for all memory operations."""
         return self._log
-
-    def store(
-        self,
-        concept: str,
-        *,
-        data: Any = None,
-        modalities: set[Modality] | None = None,
-        abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
-        tags: dict[str, Any] | None = None,
-        update: bool = False,
-    ) -> Hypernode:
-        """Store a concept as a hypernode in the graph.
-
-        If a node with the same label already exists, it is reinforced
-        and returned instead of creating a duplicate.
-
-        Args:
-            concept: Human-readable label for the node.
-            data: Arbitrary payload to attach to the node.
-            modalities: Set of modality tags for the node metadata.
-            abstraction: Abstraction layer classification.
-            tags: Additional custom metadata key-value pairs.
-            update: If True and the node exists, merge *data* into the
-                existing node's data dict. If False, existing data is
-                left unchanged.
-
-        Returns:
-            The existing or newly created Hypernode.
-        """
-        cached = self._cache.get(f"store:{concept}")
-        if cached:
-            existing = self._graph.get_node(cached)
-            if existing:
-                existing.touch(time.time())
-                self._evolution.reinforce(existing.id)
-                if update and data and isinstance(data, dict) and isinstance(existing.data, dict):
-                    existing.data.update(data)
-                self._log.record("store_cache_hit", node_id=existing.id, concept=concept)
-                return existing
-
-        meta = Metadata(
-            modality_tags=modalities or set(),
-            abstraction_layer=abstraction,
-            custom=tags or {},
-        )
-        node = Hypernode(label=concept, data=data, metadata=meta, created_at=time.time())
-        node.touch(time.time())
-        self._graph.add_node(node)
-        self._cache.put(f"store:{concept}", node.id)
-        self._log.record("store", node_id=node.id, concept=concept)
-        self._maybe_evolve()
-        return node
 
     def recall(
         self,
@@ -138,16 +89,309 @@ class CoreMixin(_MemoryBase):
         self._log.record("recall", concept=concept, result_count=len(result))
         return result
 
-    def has_node(self, concept: str) -> bool:
-        """Check whether a node with the given label exists.
+    def has(self, concept: str) -> bool:
+        return self._find_node(concept) is not None
+
+    def get(self, concept: str, key: str | None = None, *, default: Any = None) -> Any:
+        node = self._find_node(concept)
+        if node is None:
+            return default
+        if key is None:
+            result = {"label": node.label}
+            if isinstance(node.data, dict):
+                result.update(node.data)
+            return result
+        if isinstance(node.data, dict):
+            return node.data.get(key, default)
+        return default
+
+    def set(self, concept: str, **kwargs: Any) -> None:
+        node = self._find_node(concept)
+        if node is None:
+            raise NodeNotFoundError(concept)
+        if node.data is None:
+            node.data = {}
+        if isinstance(node.data, dict):
+            node.data.update(kwargs)
+
+    def info(self, concept: str) -> NodeInfo | None:
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        return NodeInfo(
+            label=node.label,
+            data=node.data if isinstance(node.data, dict) else {},
+            weight=node.weight,
+            access_count=node.access_count,
+        )
+
+    @property
+    def size(self) -> tuple[int, int]:
+        return (self._graph.node_count, self._graph.edge_count)
+
+    def add(
+        self,
+        concept: str,
+        *,
+        data: Any = None,
+        modalities: set[Modality] | None = None,
+        abstraction: AbstractionLayer = AbstractionLayer.INTERMEDIATE,
+        tags: dict[str, Any] | None = None,
+        update: bool = False,
+        **kwargs: Any,
+    ) -> Hypernode:
+        if kwargs:
+            data = {**(data if isinstance(data, dict) else {} or {}), **kwargs}
+        cached = self._cache.get(f"store:{concept}")
+        if cached:
+            existing = self._graph.get_node(cached)
+            if existing:
+                existing.touch(time.time())
+                self._evolution.reinforce(existing.id)
+                if update and data and isinstance(data, dict) and isinstance(existing.data, dict):
+                    existing.data.update(data)
+                self._log.record("store_cache_hit", node_id=existing.id, concept=concept)
+                return existing
+
+        meta = Metadata(
+            modality_tags=modalities or set(),
+            abstraction_layer=abstraction,
+            custom=tags or {},
+        )
+        node = Hypernode(label=concept, data=data, metadata=meta, created_at=time.time())
+        node.touch(time.time())
+        self._graph.add_node(node)
+        self._cache.put(f"store:{concept}", node.id)
+        self._log.record("store", node_id=node.id, concept=concept)
+        self._maybe_evolve()
+        return node
+
+    def link(
+        self,
+        source: str,
+        target: str,
+        *,
+        label: str = "",
+        weight: float = 1.0,
+        bidirectional: bool = False,
+        edge_data: dict[str, Any] | None = None,
+    ) -> Hyperedge:
+        if weight <= 0:
+            raise ValueError(f"Edge weight must be positive, got {weight}")
+        src_node = self._find_node(source)
+        tgt_node = self._find_node(target)
+        if not src_node:
+            raise NodeNotFoundError(source)
+        if not tgt_node:
+            raise NodeNotFoundError(target)
+
+        edge = Hyperedge(
+            source_ids=frozenset({src_node.id}),
+            target_ids=frozenset({tgt_node.id}),
+            label=label,
+            data=edge_data,
+            weight=weight,
+        )
+
+        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+            violations = self._boundary_navigator.validate_edge(edge, self._graph)
+            if violations:
+                self._log.record(
+                    "relate_rejected",
+                    source=source,
+                    target=target,
+                    label=label,
+                    violations=violations,
+                )
+                raise ConstraintViolationError(violations)
+
+        self._graph.add_edge(edge)
+
+        if bidirectional:
+            rev = Hyperedge(
+                source_ids=frozenset({tgt_node.id}),
+                target_ids=frozenset({src_node.id}),
+                label=label,
+                data=edge_data,
+                weight=weight,
+            )
+            if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+                rev_violations = self._boundary_navigator.validate_edge(rev, self._graph)
+                if rev_violations:
+                    self._graph.remove_edge(edge.id)
+                    self._log.record(
+                        "relate_rejected",
+                        source=target,
+                        target=source,
+                        label=label,
+                        violations=rev_violations,
+                    )
+                    raise ConstraintViolationError(rev_violations)
+            self._graph.add_edge(rev)
+
+        self._log.record(
+            "relate",
+            source=source,
+            target=target,
+            label=label,
+            bidirectional=bidirectional,
+        )
+        return edge
+
+    def link_hyper(
+        self,
+        sources: set[str],
+        targets: set[str],
+        *,
+        label: str = "",
+        weight: float = 1.0,
+        **edge_data: Any,
+    ) -> Hyperedge:
+        if not sources:
+            raise ValueError("sources must not be empty")
+        if not targets:
+            raise ValueError("targets must not be empty")
+        if weight <= 0:
+            raise ValueError(f"Edge weight must be positive, got {weight}")
+        src_ids: set[str] = set()
+        for s in sources:
+            node = self._find_node(s)
+            if not node:
+                raise NodeNotFoundError(s)
+            src_ids.add(node.id)
+
+        tgt_ids: set[str] = set()
+        for t in targets:
+            node = self._find_node(t)
+            if not node:
+                raise NodeNotFoundError(t)
+            tgt_ids.add(node.id)
+
+        edge = Hyperedge(
+            source_ids=frozenset(src_ids),
+            target_ids=frozenset(tgt_ids),
+            label=label,
+            data=edge_data or None,
+            weight=weight,
+        )
+
+        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
+            violations = self._boundary_navigator.validate_edge(edge, self._graph)
+            if violations:
+                self._log.record(
+                    "relate_hyperedge_rejected",
+                    sources=list(sources),
+                    targets=list(targets),
+                    label=label,
+                    violations=violations,
+                )
+                raise ConstraintViolationError(violations)
+
+        self._graph.add_edge(edge)
+        self._log.record(
+            "relate_hyperedge",
+            sources=list(sources),
+            targets=list(targets),
+            label=label,
+            source_cardinality=len(src_ids),
+            target_cardinality=len(tgt_ids),
+        )
+        self._maybe_evolve()
+        return edge
+
+    def add_all(
+        self,
+        *,
+        nodes: dict[str, dict[str, Any]] | None = None,
+        edges: list[tuple[str, str, str] | dict[str, Any]] | None = None,
+    ) -> BulkResult:
+        nodes_added = 0
+        nodes_skipped = 0
+        edges_added = 0
+        edges_skipped = 0
+
+        self._graph.begin_batch()
+        try:
+            if nodes:
+                for label, data in nodes.items():
+                    existing = self._find_node(label)
+                    if existing:
+                        if isinstance(data, dict) and isinstance(existing.data, dict):
+                            existing.data.update(data)
+                        nodes_skipped += 1
+                    else:
+                        self.add(label, data=data)
+                        nodes_added += 1
+
+            if edges:
+                for spec in edges:
+                    try:
+                        if isinstance(spec, dict):
+                            src = spec.get("source", "")
+                            tgt = spec.get("target", "")
+                            lbl = spec.get("label", "")
+                            w = spec.get("weight", 1.0)
+                        else:
+                            if len(spec) >= 3:
+                                src, tgt, lbl = spec[0], spec[1], spec[2]
+                                w = spec[3] if len(spec) > 3 else 1.0
+                            else:
+                                src, tgt = spec[0], spec[1]
+                                lbl = ""
+                                w = 1.0
+                        self.link(src, tgt, label=lbl, weight=w)
+                        edges_added += 1
+                    except (NodeNotFoundError, ValueError):
+                        edges_skipped += 1
+        finally:
+            self._graph.end_batch()
+
+        return BulkResult(
+            nodes_added=nodes_added,
+            edges_added=edges_added,
+            nodes_skipped=nodes_skipped,
+            edges_skipped=edges_skipped,
+        )
+
+    def find(
+        self,
+        concept: str | list[str] | None = None,
+        *,
+        type: str | None = None,
+        data: dict[str, Any] | None = None,
+    ) -> ConceptSet:
+        """Create a ConceptSet for chainable exploration.
+
+        Seeds a composable result set from one or more concepts, or from
+        a data-attribute query. Returns a ConceptSet that supports
+        chaining operations like ``.similar()``, ``.neighbors()``,
+        ``.top()``, etc.
 
         Args:
-            concept: Label to check.
+            concept: A single label, a list of labels, or None (use
+                type/data query instead).
+            type: Shorthand for ``data={"type": value}``.
+            data: Filter nodes by data attributes.
 
         Returns:
-            True if a matching node exists, False otherwise.
+            ConceptSet ready for chaining.
+
+        Examples::
+
+            mem.find("cancer").neighbors().top(10).labels
+            mem.find(["a", "b"]).similar(top_k=5).scores
+            mem.find(type="disease").activate(energy=1.0).top(5)
         """
-        return self._find_node(concept) is not None
+        from hyper3.concept_set import ConceptSet
+
+        items: list[tuple[str, float]] = []
+        if concept is not None:
+            labels = [concept] if isinstance(concept, str) else list(concept)
+            items.extend((label, 1.0) for label in labels)
+        elif type is not None or data is not None:
+            matched = self.query_nodes(type=type, data=data)
+            items.extend((label, 1.0) for label in matched)
+        return ConceptSet(self, items)
 
     def ensure(
         self,
@@ -232,87 +476,6 @@ class CoreMixin(_MemoryBase):
         nbr_ids.discard(node.id)
         return [self._node_label(nid) for nid in nbr_ids]
 
-    def relate_hyperedge(
-        self,
-        sources: set[str],
-        targets: set[str],
-        *,
-        label: str = "",
-        edge_data: Any = None,
-        weight: float = 1.0,
-    ) -> Hyperedge:
-        """Create a true n-ary hyperedge connecting multiple sources to multiple targets.
-
-        All source and target concepts must already exist as nodes.
-        This is the n-ary counterpart to :meth:`relate` which only
-        creates pairwise (1:1) edges.
-
-        Args:
-            sources: Set of source concept labels.
-            targets: Set of target concept labels.
-            label: Edge label describing the relationship.
-            edge_data: Arbitrary payload to attach to the edge.
-            weight: Edge importance weight (higher = more important).
-
-        Returns:
-            The created Hyperedge.
-
-        Raises:
-            NodeNotFoundError: If any source or target concept is not found.
-            ValueError: If sources or targets are empty, or weight is not positive.
-        """
-        if not sources:
-            raise ValueError("sources must not be empty")
-        if not targets:
-            raise ValueError("targets must not be empty")
-        if weight <= 0:
-            raise ValueError(f"Edge weight must be positive, got {weight}")
-        src_ids: set[str] = set()
-        for s in sources:
-            node = self._find_node(s)
-            if not node:
-                raise NodeNotFoundError(s)
-            src_ids.add(node.id)
-
-        tgt_ids: set[str] = set()
-        for t in targets:
-            node = self._find_node(t)
-            if not node:
-                raise NodeNotFoundError(t)
-            tgt_ids.add(node.id)
-
-        edge = Hyperedge(
-            source_ids=frozenset(src_ids),
-            target_ids=frozenset(tgt_ids),
-            label=label,
-            data=edge_data,
-            weight=weight,
-        )
-
-        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
-            violations = self._boundary_navigator.validate_edge(edge, self._graph)
-            if violations:
-                self._log.record(
-                    "relate_hyperedge_rejected",
-                    sources=list(sources),
-                    targets=list(targets),
-                    label=label,
-                    violations=violations,
-                )
-                raise ConstraintViolationError(violations)
-
-        self._graph.add_edge(edge)
-        self._log.record(
-            "relate_hyperedge",
-            sources=list(sources),
-            targets=list(targets),
-            label=label,
-            source_cardinality=len(src_ids),
-            target_cardinality=len(tgt_ids),
-        )
-        self._maybe_evolve()
-        return edge
-
     def query_hyperedges(
         self,
         *,
@@ -370,96 +533,6 @@ class CoreMixin(_MemoryBase):
             return {}
         raw = self._graph.hyperedge_neighbors(node.id)
         return {self._node_label(nid): edges for nid, edges in raw.items()}
-
-    def relate(
-        self,
-        source: str,
-        target: str,
-        *,
-        label: str = "",
-        bidirectional: bool = False,
-        edge_data: Any = None,
-        weight: float = 1.0,
-    ) -> Hyperedge:
-        """Create a directed edge between two concept nodes.
-
-        Args:
-            source: Label of the source node.
-            target: Label of the target node.
-            label: Edge label describing the relationship.
-            bidirectional: If True, also create the reverse edge.
-            edge_data: Arbitrary payload to attach to the edge.
-            weight: Edge importance weight (higher = more important).
-
-        Returns:
-            The created Hyperedge.
-
-        Raises:
-            NodeNotFoundError: If either node is not found.
-            ValueError: If weight is not positive.
-            ConstraintViolationError: If a boundary constraint rejects the edge.
-        """
-        if weight <= 0:
-            raise ValueError(f"Edge weight must be positive, got {weight}")
-        src_node = self._find_node(source)
-        tgt_node = self._find_node(target)
-        if not src_node:
-            raise NodeNotFoundError(source)
-        if not tgt_node:
-            raise NodeNotFoundError(target)
-
-        edge = Hyperedge(
-            source_ids=frozenset({src_node.id}),
-            target_ids=frozenset({tgt_node.id}),
-            label=label,
-            data=edge_data,
-            weight=weight,
-        )
-
-        if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
-            violations = self._boundary_navigator.validate_edge(edge, self._graph)
-            if violations:
-                self._log.record(
-                    "relate_rejected",
-                    source=source,
-                    target=target,
-                    label=label,
-                    violations=violations,
-                )
-                raise ConstraintViolationError(violations)
-
-        self._graph.add_edge(edge)
-
-        if bidirectional:
-            rev = Hyperedge(
-                source_ids=frozenset({tgt_node.id}),
-                target_ids=frozenset({src_node.id}),
-                label=label,
-                data=edge_data,
-                weight=weight,
-            )
-            if hasattr(self, "_boundary_navigator") and self._boundary_navigator:
-                rev_violations = self._boundary_navigator.validate_edge(rev, self._graph)
-                if rev_violations:
-                    self._graph.remove_edge(edge.id)
-                    self._log.record(
-                        "relate_rejected",
-                        source=target,
-                        target=source,
-                        label=label,
-                        violations=rev_violations,
-                    )
-                    raise ConstraintViolationError(rev_violations)
-            self._graph.add_edge(rev)
-
-        self._log.record(
-            "relate",
-            source=source,
-            target=target,
-            label=label,
-            bidirectional=bidirectional,
-        )
-        return edge
 
     def query(
         self,
@@ -598,3 +671,21 @@ class CoreMixin(_MemoryBase):
         """Return the human-readable label for a node ID, or a truncated ID fallback."""
         node = self._graph.get_node(node_id)
         return node.label if node else node_id[:8]
+
+    def node_label(self, node_id: str) -> str:
+        """Return the human-readable label for an internal node ID."""
+        return self._node_label(node_id)
+
+    def node_data(self, concept: str) -> dict[str, Any] | None:
+        """Return the data dict for a concept label, or None if not found."""
+        node = self._find_node(concept)
+        if node is None:
+            return None
+        if isinstance(node.data, dict):
+            return dict(node.data)
+        return {}
+
+    def resolve_id(self, concept: str) -> str | None:
+        """Resolve a concept label to its internal node ID, or None."""
+        node = self._find_node(concept)
+        return node.id if node else None

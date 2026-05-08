@@ -211,11 +211,11 @@ class TestBeliefLayer:
 class TestHypergraphMemoryIntegration:
     def test_reason_with_rules(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.store("c")
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
         mem.add_rules(TransitiveRule(edge_label="rel"))
         result = mem.reason({"a", "b", "c"})
         assert "expansion" in result
@@ -223,7 +223,7 @@ class TestHypergraphMemoryIntegration:
 
     def test_reason_no_rules(self):
         mem = HypergraphMemory()
-        mem.store("a")
+        mem.add("a")
         result = mem.reason({"a"})
         assert "error" in result
 
@@ -235,9 +235,9 @@ class TestHypergraphMemoryIntegration:
 
     def test_create_distribution_and_sample(self):
         mem = HypergraphMemory()
-        mem.store("cat")
-        mem.store("bank_river")
-        mem.store("bank_finance")
+        mem.add("cat")
+        mem.add("bank_river")
+        mem.add("bank_finance")
         qs = mem.create_distribution(["cat", "bank_river", "bank_finance"])
         assert qs.outcome_count == 3
         result = mem.sample(qs, context={"bank_finance": 5.0})
@@ -253,9 +253,9 @@ class TestHypergraphMemoryIntegration:
     def test_lateral_insights(self):
         mem = HypergraphMemory()
         for label in ["a", "b", "c"]:
-            mem.store(label)
-        mem.relate("a", "b", label="rel")
-        mem.relate("b", "c", label="rel")
+            mem.add(label)
+        mem.link("a", "b", label="rel")
+        mem.link("b", "c", label="rel")
         mem.add_rules(TransitiveRule(edge_label="rel"), InverseRule(edge_label="rel", inverse_label="inv"))
         mem.reason({"a", "b", "c"}, max_depth=2)
         insights = mem.lateral_insights("a")
@@ -274,9 +274,9 @@ class TestHypergraphMemoryIntegration:
 
     def test_stats_includes_new_fields(self):
         mem = HypergraphMemory()
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b")
         stats = mem.stats()
         assert isinstance(stats["multiway_states"], int)
         assert stats["multiway_states"] == 0
@@ -288,9 +288,9 @@ class TestHypergraphMemoryIntegration:
     def test_multiway_property(self):
         mem = HypergraphMemory()
         assert mem.multiway is None
-        mem.store("a")
-        mem.store("b")
-        mem.relate("a", "b", label="rel")
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="rel")
         mem.add_rules(TransitiveRule(edge_label="rel"))
         mem.reason({"a", "b"})
         assert mem.multiway is not None
@@ -298,16 +298,16 @@ class TestHypergraphMemoryIntegration:
 
     def test_belief_property(self):
         mem = HypergraphMemory()
-        assert isinstance(mem.belief, BeliefLayer)
+        assert isinstance(mem.belief_layer, BeliefLayer)
 
     def test_full_pipeline(self):
         mem = HypergraphMemory(evolve_interval=0)
         for label in ["rain", "clouds", "wet_ground", "flooding", "umbrella"]:
-            mem.store(label, modalities={Modality.CONCEPTUAL})
-        mem.relate("rain", "wet_ground", label="causes")
-        mem.relate("wet_ground", "flooding", label="causes")
-        mem.relate("clouds", "rain", label="leads_to")
-        mem.relate("umbrella", "rain", label="protects_from")
+            mem.add(label, modalities={Modality.CONCEPTUAL})
+        mem.link("rain", "wet_ground", label="causes")
+        mem.link("wet_ground", "flooding", label="causes")
+        mem.link("clouds", "rain", label="leads_to")
+        mem.link("umbrella", "rain", label="protects_from")
         mem.add_rules(
             TransitiveRule(edge_label="causes"),
             InverseRule(edge_label="causes", inverse_label="caused_by"),

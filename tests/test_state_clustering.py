@@ -699,7 +699,7 @@ class TestStateClusteringDeepCoverage:
 def _setup_mem_0():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d", "e", "f"]:
-        mem.store(label)
+        mem.add(label)
     a = mem.graph.get_node_by_label("a")
     b = mem.graph.get_node_by_label("b")
     c = mem.graph.get_node_by_label("c")
@@ -826,7 +826,7 @@ class TestNearestHighDensityRegion:
 def _setup_mem_1():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["a", "b", "c", "d"]:
-        mem.store(label)
+        mem.add(label)
     a = mem.graph.get_node_by_label("a")
     b = mem.graph.get_node_by_label("b")
     c = mem.graph.get_node_by_label("c")
@@ -958,7 +958,7 @@ def _setup_analogy_mem():
     mem = HypergraphMemory(evolve_interval=0)
     for label in ["cell", "nucleus", "membrane", "protein",
                    "process", "memory", "interface", "data"]:
-        mem.store(label)
+        mem.add(label)
     c = mem.graph.get_node_by_label("cell")
     n = mem.graph.get_node_by_label("nucleus")
     m = mem.graph.get_node_by_label("membrane")
@@ -1698,4 +1698,317 @@ class TestAnalyzeDeep:
         bs.assign_coordinates()
         analysis = bs.analyze()
         assert analysis.states_mapped > 0
+
+
+class TestEmbeddingCosineDistanceNoneFallback:
+    def test_missing_nodes_returns_none(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="real", label="real"))
+        mw = MultiwayGraph()
+        s1 = MultiwayState(active_node_ids=frozenset({"ghost_a"}))
+        s2 = MultiwayState(parent_id=s1.id, active_node_ids=frozenset({"ghost_b"}), depth=1)
+        mw.add_state(s1)
+        mw.add_state(s2)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        bs = StateClusteringEngine(g, mw, embedding_engine=emb)
+        assert bs._get_state_embedding(s1.id) is None
+        assert bs._get_state_embedding(s2.id) is None
+        result = bs._embedding_cosine_distance(s1.id, s2.id)
+        assert result is None
+
+    def test_zero_norm_returns_none(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="a", label="a"))
+        g.add_node(Hypernode(id="b", label="b"))
+        mw = MultiwayGraph()
+        s1 = MultiwayState(active_node_ids=frozenset({"a"}))
+        s2 = MultiwayState(parent_id=s1.id, active_node_ids=frozenset({"b"}), depth=1)
+        mw.add_state(s1)
+        mw.add_state(s2)
+        from hyper3.embedding import EmbeddingEngine
+        import numpy as np
+        emb = EmbeddingEngine(g)
+        bs = StateClusteringEngine(g, mw, embedding_engine=emb)
+        bs._state_embeddings[s1.id] = np.zeros(5)
+        bs._state_embeddings[s2.id] = np.zeros(5)
+        result = bs._embedding_cosine_distance(s1.id, s2.id)
+        assert result is None
+
+
+class TestComputationalDistanceFallback:
+    def test_fallback_05(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="x", label="x"))
+        mw = MultiwayGraph()
+        s1 = MultiwayState(
+            id="s1",
+            active_node_ids=frozenset(),
+            rule_applied="rule_a",
+        )
+        s1.produced_edge_ids = []
+        s2 = MultiwayState(
+            id="s2",
+            parent_id=s1.id,
+            active_node_ids=frozenset({"x"}),
+            rule_applied="rule_b",
+            depth=1,
+        )
+        s2.produced_edge_ids = []
+        mw.add_state(s1)
+        mw.add_state(s2)
+        bs = StateClusteringEngine(g, mw)
+        assert bs._computational_distance("s1", "s2") == 0.5
+
+
+class TestDetectCorrelationsBelowThreshold:
+    def test_high_min_correlation_skips_weak(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c", "d", "e", "f"]:
+            g.add_node(Hypernode(id=label, label=label))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b", "c"}))
+        leaf1 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"a", "b", "c", "d"}),
+            depth=1,
+        )
+        leaf2 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"a", "e", "f"}),
+            depth=1,
+        )
+        mw.add_state(root)
+        mw.add_state(leaf1)
+        mw.add_state(leaf2)
+        bs = StateClusteringEngine(g, mw)
+        assert bs.detect_correlations(min_correlation=0.9) == []
+
+
+class TestBuildCorrelationConstraintMapMissingNode:
+    def test_ghost_node_skipped_in_constraint_map(self):
+        g = Hypergraph()
+        for label in ["a", "b", "real", "t1", "t2"]:
+            g.add_node(Hypernode(id=label, label=label))
+        e1 = Hyperedge(source_ids=frozenset({"a", "real"}), target_ids=frozenset({"t1"}), label="rel")
+        e2 = Hyperedge(source_ids=frozenset({"b", "real"}), target_ids=frozenset({"t2"}), label="rel")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a", "b"}))
+        leaf1 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"a", "ghost", "real"}),
+            depth=1,
+        )
+        leaf1.produced_edge_ids = [e1.id]
+        leaf2 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"b", "ghost", "real"}),
+            depth=1,
+        )
+        leaf2.produced_edge_ids = [e2.id]
+        mw.add_state(root)
+        mw.add_state(leaf1)
+        mw.add_state(leaf2)
+        bs = StateClusteringEngine(g, mw)
+        correlations = bs.detect_correlations(min_correlation=0.1)
+        assert len(correlations) > 0
+        corr = correlations[0]
+        assert "ghost" in corr.shared_concept_ids
+        assert "real" in corr.shared_concept_ids
+        assert len(corr.constraint_map) > 0
+        for key in corr.constraint_map:
+            assert not key.startswith("state_a:ghost")
+            assert not key.startswith("state_b:ghost")
+
+
+class TestRankNovelBySimilarityEdgeCases:
+    def test_all_reference_absent_returns_empty(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        from hyper3.embedding import EmbeddingEngine
+        emb = EmbeddingEngine(g)
+        bs = StateClusteringEngine(g, mw, embedding_engine=emb)
+        scores = bs._rank_novel_by_similarity(
+            frozenset({"b"}),
+            frozenset({"ghost_1", "ghost_2"}),
+        )
+        assert scores == {}
+
+    def test_zero_mean_reference_returns_empty(self):
+        g = Hypergraph()
+        g.add_node(Hypernode(id="r1", label="r1"))
+        g.add_node(Hypernode(id="r2", label="r2"))
+        g.add_node(Hypernode(id="nov", label="nov"))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"r1"}))
+        mw.add_state(root)
+        from hyper3.embedding import EmbeddingEngine
+        import numpy as np
+        emb = EmbeddingEngine(g)
+        emb._embedding_cache["r1"] = np.array([1.0, 0.0])
+        emb._embedding_cache["r2"] = np.array([-1.0, 0.0])
+        bs = StateClusteringEngine(g, mw, embedding_engine=emb)
+        scores = bs._rank_novel_by_similarity(
+            frozenset({"nov"}),
+            frozenset({"r1", "r2"}),
+        )
+        assert scores == {}
+
+
+class TestSigOverlapOneEmpty:
+    def test_one_empty_signature(self):
+        g = Hypergraph()
+        mw = MultiwayGraph()
+        bs = StateClusteringEngine(g, mw)
+        assert bs._sig_overlap(frozenset({"rel"}), frozenset()) == 0.0
+
+
+class TestFindAllAnalogiesLoopBody:
+    def test_proposals_returned_within_distance(self):
+        g = Hypergraph()
+        for label in ["a", "b", "c", "d", "e"]:
+            g.add_node(Hypernode(id=label, label=label))
+        e1 = Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="flow")
+        e2 = Hyperedge(source_ids=frozenset({"c"}), target_ids=frozenset({"d"}), label="flow")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"a", "b"}),
+            depth=1,
+            rule_applied="r1",
+        )
+        c1.produced_edge_ids = [e1.id]
+        c2 = MultiwayState(
+            parent_id=root.id,
+            active_node_ids=frozenset({"c", "d"}),
+            depth=1,
+            rule_applied="r2",
+        )
+        c2.produced_edge_ids = [e2.id]
+        mw.add_state(root)
+        mw.add_state(c1)
+        mw.add_state(c2)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        bs._coordinates[c1.id] = StateCoordinates(state_id=c1.id, position=[0.0, 0.0], depth=1)
+        bs._coordinates[c2.id] = StateCoordinates(state_id=c2.id, position=[0.0, 0.5], depth=1)
+        proposals = bs.find_all_analogies(c1.id)
+        assert len(proposals) >= 1
+        for p in proposals:
+            assert isinstance(p, AnalogyProposal)
+            assert p.confidence > 0.0
+
+
+class TestPlanPathClosedSetDuplicate:
+    def test_diamond_path_found(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        c1 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"b"}), depth=1)
+        c2 = MultiwayState(parent_id=root.id, active_node_ids=frozenset({"c"}), depth=1)
+        gc1 = MultiwayState(parent_id=c1.id, active_node_ids=frozenset({"d"}), depth=2)
+        gc2 = MultiwayState(parent_id=c2.id, active_node_ids=frozenset({"e"}), depth=2)
+        mw.add_state(root)
+        mw.add_state(c1)
+        mw.add_state(c2)
+        mw.add_state(gc1)
+        mw.add_state(gc2)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        path = bs.plan_path(gc1.id, gc2.id)
+        assert len(path) >= 2
+        assert path[0] == gc1.id
+        assert path[-1] == gc2.id
+        assert c1.id in path
+        assert c2.id in path
+
+
+class TestPlanPathOpenSetExhaustion:
+    def test_disconnected_orphan(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        orphan = MultiwayState(active_node_ids=frozenset({"b"}))
+        mw.add_state(root)
+        mw.add_state(orphan)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        bs._coordinates[orphan.id] = StateCoordinates(
+            state_id=orphan.id, position=[100.0], depth=0,
+        )
+        path = bs.plan_path(root.id, orphan.id)
+        assert path == []
+
+
+class TestNearestHighDensityEmptyCluster:
+    def test_empty_cluster_returns_none(self):
+        g = _build_chain_graph()
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset({"a"}))
+        mw.add_state(root)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        bs._clusters = [StateCluster(state_ids=set())]
+        result = bs.nearest_high_density_region(root.id)
+        assert result is None
+
+
+class TestBuildCoordinateMatrixEmptyPositions:
+    def test_all_empty_positions_no_crash(self):
+        g = Hypergraph()
+        for i in range(8):
+            g.add_node(Hypernode(label=f"n{i}"))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset(n.id for n in g.nodes[:4]))
+        mw.add_state(root)
+        for i in range(4):
+            child = MultiwayState(
+                parent_id=root.id,
+                active_node_ids=frozenset(n.id for n in g.nodes[i : i + 2]),
+                depth=1,
+                rule_applied=f"rule_{i}",
+            )
+            mw.add_state(child)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        for sid in list(bs._coordinates.keys()):
+            bs._coordinates[sid] = StateCoordinates(state_id=sid, position=[], depth=0)
+        result = bs.multi_scale_analysis()
+        assert isinstance(result, MultiScaleAnalysis)
+
+
+class TestBuildScaleLevelImbalanced:
+    def test_imbalanced_insight_in_multi_scale(self):
+        g = Hypergraph()
+        for i in range(8):
+            g.add_node(Hypernode(label=f"n{i}"))
+        mw = MultiwayGraph()
+        root = MultiwayState(active_node_ids=frozenset(n.id for n in g.nodes[:4]))
+        mw.add_state(root)
+        for i in range(7):
+            child = MultiwayState(
+                parent_id=root.id,
+                active_node_ids=frozenset(n.id for n in g.nodes[:1]),
+                depth=1,
+                rule_applied=f"rule_{i}",
+            )
+            mw.add_state(child)
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        sids = list(bs._coordinates.keys())
+        for sid in sids[1:-1]:
+            bs._coordinates[sid] = StateCoordinates(state_id=sid, position=[0.0, 0.0], depth=1)
+        bs._coordinates[sids[-1]] = StateCoordinates(
+            state_id=sids[-1], position=[100.0, 100.0], depth=1,
+        )
+        result = bs.multi_scale_analysis()
+        all_insights = result.macro.insights + result.meso.insights
+        assert any("Imbalanced" in ins for ins in all_insights)
 

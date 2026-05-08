@@ -381,36 +381,36 @@ def main():
     print("=" * 70)
 
     for actor in THREAT_ACTORS:
-        mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+        mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
 
     for cve in CVES:
-        mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+        mem.add(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
 
     for mw in MALWARE:
-        mem.store(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(mw["label"], data=mw["data"], modalities={Modality.CONCEPTUAL})
 
     for ttp in TTPS:
-        mem.store(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
+        mem.add(ttp["label"], data=ttp["data"], modalities={Modality.CONCEPTUAL})
 
     for infra in INFRASTRUCTURE:
-        mem.store(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
+        mem.add(infra["label"], data=infra["data"], modalities={Modality.SENSORY})
 
     for ind in INDUSTRIES:
-        mem.store(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
+        mem.add(ind["label"], data=ind["data"], modalities={Modality.ABSTRACT})
 
-    print(f"  Stored {mem.graph.node_count} nodes")
+    print(f"  Stored {mem.size[0]} nodes")
 
     edge_count = 0
     for rel_label, pairs in RELATIONSHIP_MAP.items():
         for src, tgt in pairs:
-            mem.relate(src, tgt, label=rel_label)
+            mem.link(src, tgt, label=rel_label)
             edge_count += 1
 
     for src, tgt in ACTOR_TO_TTP:
-        mem.relate(src, tgt, label="uses_tactic")
+        mem.link(src, tgt, label="uses_tactic")
         edge_count += 1
 
-    print(f"  Created {mem.graph.edge_count} edges ({edge_count} requested)")
+    print(f"  Created {mem.size[1]} edges ({edge_count} requested)")
     print()
 
     print("=" * 70)
@@ -470,7 +470,7 @@ def main():
     print("SECTION 4: Top 5 Most Connected CVEs (Highest Degree)")
     print("=" * 70)
 
-    centrality = mem.degree_centrality()
+    centrality = mem.analyze.centrality("degree")
     cve_set = {c["label"] for c in CVES}
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
     top_cves = top_k(cve_centrality, k=5)
@@ -478,7 +478,7 @@ def main():
     print("  Rank  CVE                  Centality  CVSS   Product")
     print("  " + "-" * 60)
     for rank, (cve_label, score) in enumerate(top_cves, 1):
-        node = mem.graph.get_node_by_label(cve_label)
+        node = mem.engine.graph.get_node_by_label(cve_label)
         cvss = node.data["cvss"] if node and isinstance(node.data, dict) else "?"
         product = node.data["product"] if node and isinstance(node.data, dict) else "?"
         print(f"  {rank}.    {cve_label:22s} {score:.4f}   {cvss:<5}  {product}")
@@ -523,7 +523,7 @@ def main():
     print("SECTION 6: Attack Paths - Lazarus to Financial Sector")
     print("=" * 70)
 
-    paths = mem.find_paths("Lazarus", "FIN", max_depth=4, max_paths=10)
+    paths = mem.analyze.paths("Lazarus", "FIN", max_depth=4, max_paths=10)
     if paths:
         print(f"  Found {len(paths)} path(s) from Lazarus to Financial sector:")
         for i, path in enumerate(paths, 1):
@@ -531,7 +531,7 @@ def main():
     else:
         print("  No direct paths found from Lazarus to Financial sector")
 
-    paths2 = mem.find_paths("Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
+    paths2 = mem.analyze.paths("Volt_Typhoon", "ENERGY", max_depth=4, max_paths=10)
     if paths2:
         print(f"\n  Found {len(paths2)} path(s) from Volt Typhoon to Energy sector:")
         for i, path in enumerate(paths2, 1):
@@ -544,9 +544,9 @@ def main():
     print("SECTION 7: Isolated Indicators Needing Enrichment")
     print("=" * 70)
 
-    all_labels = {n.label for n in mem.graph.nodes}
+    all_labels = {n.label for n in mem.engine.graph.nodes}
     connected_labels: set[str] = set()
-    for edge in mem.graph.labeled_edges:
+    for edge in mem.analyze.edges():
         connected_labels.update(edge["source_labels"])
         connected_labels.update(edge["target_labels"])
 
@@ -554,7 +554,7 @@ def main():
     if isolated:
         print(f"  {len(isolated)} nodes with NO edges (need enrichment):")
         for label in sorted(isolated):
-            node = mem.graph.get_node_by_label(label)
+            node = mem.engine.graph.get_node_by_label(label)
             if node and isinstance(node.data, dict):
                 detail = node.data.get("tactic", node.data.get("type", node.data.get("sector", "")))
                 print(f"    {label} [{detail}]")
@@ -568,7 +568,7 @@ def main():
     print("SECTION 8: Connected Components - Threat Ecosystems")
     print("=" * 70)
 
-    components = mem.connected_components()
+    components = mem.analyze.components()
     components_sorted = sorted(components, key=len, reverse=True)
     print(f"  Total connected components: {len(components_sorted)}")
     for i, comp in enumerate(components_sorted, 1):
@@ -636,7 +636,7 @@ def main():
         InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
     )
 
-    reason_result = mem.reason(seed_concepts={"APT28", "Lazarus", "Conti"}, max_depth=3)
+    reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, max_depth=3)
 
     if reason_result.expansion:
         print(f"  Inferred edges produced: {reason_result.expansion.edges_produced}")
@@ -672,7 +672,7 @@ def main():
     print("SECTION 11: Threat Ecosystem Communities")
     print("=" * 70)
 
-    comm_result = mem.detect_communities(seed=42)
+    comm_result = mem.analyze.communities(seed=42)
     print(f"  Communities detected: {comm_result.community_count}")
     print(f"  Modularity: {comm_result.modularity:.4f}")
     print(f"  Coverage: {comm_result.coverage:.4f}")
@@ -710,7 +710,7 @@ def main():
 
     anomaly_actors = ["APT28", "Lazarus", "Conti", "Sandworm", "Volt_Typhoon"]
     for actor in anomaly_actors:
-        result = mem.detect_structural_anomalies(actor)
+        result = mem.analyze.anomalies(actor)
         print(f"\n  {actor}:")
         print(f"    Status:  {result.anomaly_status}")
         print(f"    Score:   {result.boundary_score:.4f}")

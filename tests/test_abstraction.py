@@ -8,11 +8,11 @@ from hyper3 import HypergraphMemory
 class TestAbstractionBasic:
     def test_collapse_subgraph(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="connects")
-        mem.relate("B", "C", label="connects")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="connects")
+        mem.link("B", "C", label="connects")
         result = mem.collapse_subgraph({"B", "C"}, summary_label="BC")
         assert result is not None
         assert result.summary_node.label == "BC"
@@ -25,20 +25,20 @@ class TestAbstractionBasic:
 
     def test_collapse_with_external_connections(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
-        mem.store("A")
-        mem.store("B")
-        mem.relate("X", "A", label="feeds")
-        mem.relate("A", "B", label="internal")
+        mem.add("X")
+        mem.add("A")
+        mem.add("B")
+        mem.link("X", "A", label="feeds")
+        mem.link("A", "B", label="internal")
         result = mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         assert result is not None
         assert result.external_connections == 1
 
     def test_expand_summary(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="connects")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="connects")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         result = mem.expand_summary("AB")
         assert result is not None
@@ -51,10 +51,10 @@ class TestAbstractionBasic:
 
     def test_list_summaries(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.relate("A", "B", label="x")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.link("A", "B", label="x")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         summaries = mem.list_summaries()
         assert len(summaries) == 1
@@ -69,13 +69,13 @@ class TestAbstractionBasic:
 class TestAbstractionNavigator:
     def test_collapse_preserves_external_edges(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("ext_in")
-        mem.store("A")
-        mem.store("B")
-        mem.store("ext_out")
-        mem.relate("ext_in", "A", label="feeds")
-        mem.relate("A", "B", label="internal")
-        mem.relate("B", "ext_out", label="outputs")
+        mem.add("ext_in")
+        mem.add("A")
+        mem.add("B")
+        mem.add("ext_out")
+        mem.link("ext_in", "A", label="feeds")
+        mem.link("A", "B", label="internal")
+        mem.link("B", "ext_out", label="outputs")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         summary = mem.graph.get_node_by_label("AB")
         assert summary is not None
@@ -86,9 +86,9 @@ class TestAbstractionNavigator:
 
     def test_collapse_removes_internal_edges(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.relate("A", "B", label="internal")
+        mem.add("A")
+        mem.add("B")
+        mem.link("A", "B", label="internal")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         summary = mem.graph.get_node_by_label("AB")
         assert summary is not None
@@ -100,11 +100,11 @@ class TestAbstractionNavigator:
 
     def test_expand_restores_external_connections(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
-        mem.store("A")
-        mem.store("B")
-        mem.relate("X", "A", label="feeds")
-        mem.relate("A", "B", label="internal")
+        mem.add("X")
+        mem.add("A")
+        mem.add("B")
+        mem.link("X", "A", label="feeds")
+        mem.link("A", "B", label="internal")
         mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         mem.expand_summary("AB")
         a_edges = mem.graph.incident_edges(mem.graph.get_node_by_label("A").id)
@@ -114,7 +114,7 @@ class TestAbstractionNavigator:
         from hyper3.abstraction import AbstractionNavigator
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("X")
+        mem.add("X")
         assert mem.abstraction is None
         mem.collapse_subgraph({"X"}, summary_label="SX")
         assert isinstance(mem.abstraction, AbstractionNavigator)
@@ -124,7 +124,7 @@ class TestAbstractionNavigator:
         from hyper3.kernel import AbstractionLayer, Hypernode, Metadata
 
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("detail_node", abstraction=AbstractionLayer.DETAIL)
+        mem.add("detail_node", abstraction=AbstractionLayer.DETAIL)
         nav = AbstractionNavigator(mem.graph)
         result = nav.nodes_at_layer(AbstractionLayer.DETAIL)
         assert isinstance(result, list)
@@ -133,12 +133,12 @@ class TestAbstractionNavigator:
 
     def test_multiple_collapses(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        mem.store("A")
-        mem.store("B")
-        mem.store("C")
-        mem.store("D")
-        mem.relate("A", "B", label="x")
-        mem.relate("C", "D", label="y")
+        mem.add("A")
+        mem.add("B")
+        mem.add("C")
+        mem.add("D")
+        mem.link("A", "B", label="x")
+        mem.link("C", "D", label="y")
         r1 = mem.collapse_subgraph({"A", "B"}, summary_label="AB")
         r2 = mem.collapse_subgraph({"C", "D"}, summary_label="CD")
         assert r1 is not None

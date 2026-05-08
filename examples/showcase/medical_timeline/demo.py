@@ -54,8 +54,8 @@ def main():
         tracker.add_visit(visit_id, symptoms_list, **props)
     print(f"  Added {len(visits)} doctor visits")
 
-    print(f"\n  Total symptoms: {tracker.mem.graph.node_count}")
-    print(f"  Total edges: {tracker.mem.graph.edge_count}")
+    print(f"\n  Total symptoms: {tracker.mem.size[0]}")
+    print(f"  Total edges: {tracker.mem.size[1]}")
 
     print("\nSECTION 2: Checking temporal relations (Allen Algebra)...")
     print("  (Using mem.allen_relation() for each pair)")

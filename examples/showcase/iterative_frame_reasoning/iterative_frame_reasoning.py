@@ -129,7 +129,7 @@ def build_infrastructure(mem: HypergraphMemory) -> set[str]:
         all_entities.update(group)
 
     for name, data in all_entities.items():
-        mem.store(name, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
     relations = [
         ("seg_public", "cdn_edge", "contains"),
@@ -330,7 +330,7 @@ def build_infrastructure(mem: HypergraphMemory) -> set[str]:
     ]
 
     for src, tgt, label in relations:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
     return set(all_entities.keys())
 
@@ -346,7 +346,7 @@ def _traverse(
 ) -> set[str]:
     seed_ids = set()
     for label in seed_labels:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             seed_ids.add(node.id)
 
@@ -357,7 +357,7 @@ def _traverse(
     for _ in range(max_depth):
         next_frontier = []
         for nid in frontier:
-            for edge in mem.graph.incident_edges(nid):
+            for edge in mem.engine.graph.incident_edges(nid):
                 if edge.weight < weight_threshold:
                     continue
                 if edge_filter and edge.label not in edge_filter:
@@ -376,7 +376,7 @@ def _traverse(
 
 
 def _is_sensitive_node(mem: HypergraphMemory, nid: str) -> bool:
-    node = mem.graph.get_node(nid)
+    node = mem.engine.graph.get_node(nid)
     if not node or not isinstance(node.data, dict):
         return True
     classification = node.data.get("data_classification", "internal")
@@ -425,11 +425,11 @@ def analyze_perspective(
     else:
         reachable = _traverse(mem, seed_labels, max_depth=4)
 
-    centrality = mem.degree_centrality()
+    centrality = mem.analyze.centrality("degree")
 
     reachability_scores: dict[str, float] = {}
     for nid in reachable:
-        node = mem.graph.get_node(nid)
+        node = mem.engine.graph.get_node(nid)
         if node and node.label in centrality:
             data = node.data if isinstance(node.data, dict) else {}
             crit = data.get("criticality", 5)
@@ -439,14 +439,14 @@ def analyze_perspective(
 
     reachable_labels = set()
     for nid in reachable:
-        node = mem.graph.get_node(nid)
+        node = mem.engine.graph.get_node(nid)
         if node:
             reachable_labels.add(node.label)
 
     print(f"    Reachable nodes: {len(reachable_labels)}")
     print(f"    Top critical assets from this perspective:")
     for label, score in sorted_assets[:6]:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         dtype = node.data.get("type", "?") if isinstance(node.data, dict) else "?"
         print(f"      {label:25s}  score={score:.3f}  type={dtype}")
 
@@ -467,16 +467,16 @@ def find_invariants_and_disagreements(
 
     seed_ids = set()
     for label in seed_labels:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node:
             seed_ids.add(node.id)
 
     detector = RobustReachabilityDetector(mem.perspective)
-    inv = detector.find_invariants(list(seed_ids), mem.graph)
+    inv = detector.find_invariants(list(seed_ids), mem.engine.graph)
 
     inv_labels = set()
     for nid in inv.invariant_nodes:
-        node = mem.graph.get_node(nid)
+        node = mem.engine.graph.get_node(nid)
         if node:
             inv_labels.add(node.label)
 
@@ -487,7 +487,7 @@ def find_invariants_and_disagreements(
         for fname, unique_ids in inv.frame_unique.items():
             unique_labels = set()
             for uid in unique_ids:
-                n = mem.graph.get_node(uid)
+                n = mem.engine.graph.get_node(uid)
                 if n:
                     unique_labels.add(n.label)
             print(f"      {fname:15s}: {len(unique_labels)} unique")
@@ -496,7 +496,7 @@ def find_invariants_and_disagreements(
 
     invariant_assets = []
     for label in inv_labels:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if node and isinstance(node.data, dict):
             crit = node.data.get("criticality", 0)
             dtype = node.data.get("type", "?")
@@ -531,7 +531,7 @@ def find_invariants_and_disagreements(
     print(f"    Nodes seen by ALL perspectives: {len(intersection_all)}")
     print(f"    Nodes where perspectives disagree: {len(disagreements)}")
     for label, agreeing, disagreeing_frames in disagreements[:12]:
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         dtype = node.data.get("type", "?") if node and isinstance(node.data, dict) else "?"
         print(f"      {label:25s}  type={dtype}  "
               f"seen_by={agreeing}  missed_by={disagreeing_frames}")
@@ -553,7 +553,7 @@ def generate_recommendations(
 
     print(f"    Critical in 3+ perspectives ({len(universal_critical)} assets):")
     for label in sorted(universal_critical):
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         data = node.data if node and isinstance(node.data, dict) else {}
         print(f"      - Prioritize hardening: {label} "
               f"(criticality={data.get('criticality', '?')}, "
@@ -563,7 +563,7 @@ def generate_recommendations(
     if secondary:
         print(f"\n    Critical in 2 perspectives ({len(secondary)} assets):")
         for label in sorted(secondary):
-            node = mem.graph.get_node_by_label(label)
+            node = mem.engine.graph.get_node_by_label(label)
             data = node.data if node and isinstance(node.data, dict) else {}
             print(f"      - Add monitoring: {label} "
                   f"(criticality={data.get('criticality', '?')}, "
@@ -580,7 +580,7 @@ def generate_recommendations(
 
     high_crit = []
     for label in mem.query_nodes(type="service"):
-        node = mem.graph.get_node_by_label(label)
+        node = mem.engine.graph.get_node_by_label(label)
         if not node or not isinstance(node.data, dict):
             continue
         crit = node.data.get("criticality", 0)
@@ -609,8 +609,8 @@ def main():
     print("=" * 70)
 
     all_labels = build_infrastructure(mem)
-    print(f"  Nodes: {mem.graph.node_count}")
-    print(f"  Edges: {mem.graph.edge_count}")
+    print(f"  Nodes: {mem.size[0]}")
+    print(f"  Edges: {mem.size[1]}")
 
     mem.add_rules(
         TransitiveRule(edge_label="depends_on", new_label="indirect_depends_on"),
@@ -674,7 +674,7 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Infrastructure: {mem.graph.node_count} nodes, {mem.graph.edge_count} edges")
+    print(f"  Infrastructure: {mem.size[0]} nodes, {mem.size[1]} edges")
     total_new = sum(
         r["expansion"].get("edges_produced", 0)
         for r in perspective_results.values()

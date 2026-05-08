@@ -35,15 +35,15 @@ def main() -> None:
 
     concepts = ["a", "b", "c", "d", "e"]
     for c in concepts:
-        mem.store(c)
+        mem.add(c)
 
-    mem.relate("a", "b", label="connected")
-    mem.relate("a", "c", label="connected")
-    mem.relate("b", "c", label="connected")
-    mem.relate("b", "d", label="connected")
-    mem.relate("c", "d", label="connected")
-    mem.relate("c", "e", label="connected")
-    mem.relate("d", "e", label="connected")
+    mem.link("a", "b", label="connected")
+    mem.link("a", "c", label="connected")
+    mem.link("b", "c", label="connected")
+    mem.link("b", "d", label="connected")
+    mem.link("c", "d", label="connected")
+    mem.link("c", "e", label="connected")
+    mem.link("d", "e", label="connected")
 
     degree_dict = mem.degree()
 
@@ -63,15 +63,15 @@ def main() -> None:
 
     mem2 = HypergraphMemory(evolve_interval=0)
     for c in ["w", "x", "y", "z"]:
-        mem2.store(c)
+        mem2.add(c)
 
-    mem2.relate("w", "x", label="pair")
-    mem2.relate("x", "y", label="pair")
-    mem2.relate_hyperedge(sources={"w", "x"}, targets={"y", "z"}, label="quad")
+    mem2.link("w", "x", label="pair")
+    mem2.link("x", "y", label="pair")
+    mem2.link_hyper(sources={"w", "x"}, targets={"y", "z"}, label="quad")
 
     edge_sizes = []
     edge_orders = []
-    for e in mem2.graph.edges:
+    for e in mem2.engine.graph.edges:
         size = len(e.node_ids)
         edge_sizes.append(size)
         edge_orders.append(size - 1)
@@ -91,9 +91,9 @@ def main() -> None:
     high_degree = [label for label, deg in degree_dict.items() if deg >= 3]
     print(f"nodes with degree >= 3: {high_degree}")
 
-    mem.store("a", data={"type": "hub", "priority": "high"})
-    mem.store("c", data={"type": "hub", "priority": "high"})
-    mem.store("e", data={"type": "leaf", "priority": "low"})
+    mem.add("a", data={"type": "hub", "priority": "high"})
+    mem.add("c", data={"type": "hub", "priority": "high"})
+    mem.add("e", data={"type": "leaf", "priority": "low"})
 
     hubs = mem.query_nodes(data={"type": "hub"})
     print(f"hub-type nodes: {hubs}")
@@ -105,8 +105,8 @@ def main() -> None:
     print("\n--- XGI equivalent ---")
     print("H.nodes.multi(['degree', 'clustering_coefficient']).aspandas()")
 
-    cent = mem.degree_centrality()
-    pr = mem.pagerank()
+    cent = mem.analyze.centrality("degree")
+    pr = mem.analyze.centrality("pagerank")
 
     print(f"\n{'concept':>8} {'degree':>8} {'deg_cent':>10} {'pagerank':>10}")
     print("-" * 42)
@@ -119,12 +119,12 @@ def main() -> None:
 
     mem3 = HypergraphMemory(evolve_interval=0)
     for c in ["p", "q", "r", "s"]:
-        mem3.store(c)
+        mem3.add(c)
 
-    mem3.relate("p", "q", label="strong", weight=10.0)
-    mem3.relate("p", "r", label="medium", weight=5.0)
-    mem3.relate("p", "s", label="weak", weight=1.0)
-    mem3.relate("q", "r", label="medium", weight=5.0)
+    mem3.link("p", "q", label="strong", weight=10.0)
+    mem3.link("p", "r", label="medium", weight=5.0)
+    mem3.link("p", "s", label="weak", weight=1.0)
+    mem3.link("q", "r", label="medium", weight=5.0)
 
     weighted_deg = mem3.degree(weighted=True)
 

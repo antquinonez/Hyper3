@@ -62,7 +62,7 @@ def build_graph(mem: HypergraphMemory) -> None:
         "Pooling": {"category": "operation"},
     }
     for label, data in nodes.items():
-        mem.store(label, data=data)
+        mem.add(label, data=data)
 
     edges = [
         ("ML", "AI", "is_a"),
@@ -111,7 +111,7 @@ def build_graph(mem: HypergraphMemory) -> None:
         ("Optimization", "Deep Learning", "related_to"),
     ]
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 
 
 QUERIES = [
@@ -154,23 +154,22 @@ def reciprocal_rank(retrieved_labels: list[str], relevant: set[str]) -> float:
 
 
 def run_activation_only(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    mem.clear_activations()
     results = mem.activate(query, top_k=top_k, iterations=3)
     return [r.label for r in results]
 
 
 def run_similarity_only(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    results = mem.find_similar(query, top_k=top_k, threshold=-1.0)
-    return [r.label_b for r in results]
+    results = mem.search.similar(query, top_k=top_k, threshold=-1.0)
+    return [r.label for r in results]
 
 
 def run_combined(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    results = mem.retrieve(query, top_k=top_k, iterations=3)
+    results = mem.search.query(query, top_k=top_k)
     return [r.label for r in results]
 
 
 def run_ltr(mem: HypergraphMemory, query: str, top_k: int = 10) -> list[str]:
-    results = mem.retrieve(query, top_k=top_k, iterations=3, use_ltr=True)
+    results = mem.search.query(query, top_k=top_k, use_ltr=True)
     return [r.label for r in results]
 
 
@@ -298,7 +297,7 @@ def main() -> None:
     before_avg, before_per = evaluate_strategy(mem, run_combined, QUERIES, k=K)
 
     for q in QUERIES:
-        results = mem.retrieve(q["query"], top_k=10, iterations=3)
+        results = mem.search.query(q["query"], top_k=10)
         mem.record_feedback(q["query"], results, q["relevant"])
 
     train_report = mem.train_retriever()

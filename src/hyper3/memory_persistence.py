@@ -9,7 +9,7 @@ from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.feedback import OperationFeedback
-from hyper3.kernel import Hypernode, Metadata
+from hyper3.kernel import Hypergraph, Hypernode, Metadata
 from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.provenance import ProvenanceTracker
@@ -18,14 +18,9 @@ from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.snapshot import (
+    SystemSnapshot,
     capture_snapshot,
     restore_snapshot,
-)
-from hyper3.snapshot import (
-    load_state as _load_snapshot,
-)
-from hyper3.snapshot import (
-    save_state as _save_snapshot,
 )
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.system_monitor import SystemMonitor
@@ -96,7 +91,7 @@ class PersistenceMixin(_MemoryBase):
             tgt_node = self._find_node(str(tgt))
             if not src_node or not tgt_node:
                 continue
-            self.relate(
+            self.link(
                 str(src),
                 str(tgt),
                 label=rec.get("label", rec.get("relation", "")),
@@ -169,37 +164,94 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("import_edgelist", path=path, edges=imported.edge_count)
         return ImportResult(edges=imported.edge_count)
 
-    def save(self, path: str, *, include_rules: bool = True) -> None:
-        """Save the graph, event log, and optionally rules to a file.
+    def save(self, path: str, *, include_rules: bool = True, full: bool = False) -> None:
+        """Save graph, event log, rules, and optionally all subsystem state.
+
+        When ``full=True``, captures belief distributions, multiway engine,
+        state clustering, rule analytics, provenance, retrieval feedback,
+        perspective frame outcomes, system monitor, cache, and operation
+        feedback into the same file.  ``full=False`` saves only the graph,
+        event log, and rules (the legacy behaviour).
 
         Args:
             path: Destination file path.
             include_rules: If True, serialize the active rule set as well.
+            full: If True, capture all subsystem state alongside the graph.
         """
-        if include_rules and self._rules:
+        if full:
+            self._save_full(path, include_rules=include_rules)
+        elif include_rules and self._rules:
             self._serializer.save_with_rules(self._graph, self._log, self._rules, path)
         else:
             self._serializer.save(self._graph, self._log, path)
         self._log.record("save", path=path, rules_saved=include_rules and len(self._rules) > 0)
 
-    def load(self, path: str) -> None:
-        """Load graph and event log from a file, rebuilding all subsystems.
+    def _save_full(self, path: str, *, include_rules: bool) -> None:
+        import json
+        from pathlib import Path
 
-        Constructor-level thresholds (merge, decay) are preserved; only
-        the graph and log are restored from the file.  The multiway engine,
-        overlay, and cached state are reset.
+        payload: dict[str, Any] = {
+            "graph": self._serializer.serialize_graph(self._graph),
+            "event_log": self._serializer.serialize_event_log(self._log),
+        }
+        if include_rules and self._rules:
+            payload["rules"] = self._serializer.serialize_rules(self._rules)
+        snapshot = capture_snapshot(
+            belief=self._belief,
+            multiway_engine=self._multiway_engine,
+            state_clustering=self._state_clustering,
+            rule_analytics=self._rule_analytics,
+            provenance=self._provenance,
+            retrieval=self._retrieval,
+            perspective=self._perspective,
+            meta=self._meta,
+            cache=self._cache,
+            feedback=self._feedback,
+        )
+        payload["snapshot"] = snapshot.to_dict()
+        p = Path(path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(payload, indent=2, default=_json_fallback))
+
+    def load(self, path: str) -> None:
+        """Load graph, event log, rules, and any embedded subsystem state.
+
+        Accepts three file formats:
+
+        1. ``save(full=True)`` — graph + log + rules + snapshot envelope
+        2. ``save(full=False)`` — graph + log + rules (legacy)
+        3. ``save_state()`` — bare snapshot (legacy, graph must be loaded
+           separately beforehand)
+
+        Constructor-level thresholds (merge, decay) are preserved from the
+        current instance.  When a snapshot is present, subsystems (belief,
+        multiway, state clustering, rule analytics, provenance, retrieval,
+        perspective, monitor, cache, feedback) are restored from it.
 
         Args:
             path: Path to the saved file.
         """
+        snapshot = None
         try:
-            graph, log, loaded_rules = self._serializer.load_with_rules(path)
+            graph, log, loaded_rules, snapshot = self._load_full(path)
             self._rules = loaded_rules
         except (KeyError, TypeError):
-            graph, log = self._serializer.load(path)
-            self._rules = []
+            bare_snapshot = self._try_load_bare_snapshot(path)
+            if bare_snapshot is not None:
+                snapshot = bare_snapshot
+                graph = self._graph
+                log = self._log
+            else:
+                try:
+                    graph, log, loaded_rules = self._serializer.load_with_rules(path)
+                except (KeyError, TypeError):
+                    graph, log = self._serializer.load(path)
+                    loaded_rules = []
+                self._rules = loaded_rules
         self._graph = graph
         self._log = log
+        if snapshot is None:
+            self._rules = loaded_rules
         self._traversal = TraversalEngine(self._graph)
         self._observer = ObserverSlice(self._graph)
         self._evolution = GraphMaintenanceEngine(
@@ -233,36 +285,40 @@ class PersistenceMixin(_MemoryBase):
         self._cache.clear()
         for node in self._graph.nodes:
             self._cache.put(f"store:{node.label}", node.id)
+        if snapshot is not None:
+            self._restore_snapshot(snapshot)
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)
 
-    def save_state(self, path: str) -> None:
-        """Save a full system snapshot including quantum, multiway, and subsystem state.
+    def _load_full(self, path: str) -> tuple[Hypergraph, Any, list, SystemSnapshot | None]:
+        import json
+        from pathlib import Path
 
-        Args:
-            path: Destination file path.
-        """
-        snapshot = capture_snapshot(
-            belief=self._belief,
-            multiway_engine=self._multiway_engine,
-            state_clustering=self._state_clustering,
-            rule_analytics=self._rule_analytics,
-            provenance=self._provenance,
-            retrieval=self._retrieval,
-            perspective=self._perspective,
-            meta=self._meta,
-            cache=self._cache,
-            feedback=self._feedback,
-        )
-        _save_snapshot(path, snapshot)
-        self._log.record("save_state", path=path)
+        p = Path(path)
+        data = json.loads(p.read_text())
+        graph = self._serializer.deserialize_graph(data["graph"])
+        log = self._serializer.deserialize_event_log(data.get("event_log", []))
+        rules = self._serializer.deserialize_rules(data.get("rules", []))
+        snapshot = None
+        if "snapshot" in data:
+            snapshot = SystemSnapshot.from_dict(data["snapshot"])
+        return graph, log, rules, snapshot
 
-    def load_state(self, path: str) -> None:
-        """Restore a full system snapshot from disk.
+    def _try_load_bare_snapshot(self, path: str) -> SystemSnapshot | None:
+        import json
+        from pathlib import Path
 
-        Args:
-            path: Path to the saved snapshot file.
-        """
-        snapshot = _load_snapshot(path)
+        try:
+            p = Path(path)
+            data = json.loads(p.read_text())
+        except (json.JSONDecodeError, OSError):
+            return None
+        if "graph" in data:
+            return None
+        if "version" not in data and "saved_at" not in data:
+            return None
+        return SystemSnapshot.from_dict(data)
+
+    def _restore_snapshot(self, snapshot: SystemSnapshot) -> None:
         multiway_engine, state_clustering, rule_analytics = restore_snapshot(
             snapshot=snapshot,
             graph=self._graph,
@@ -280,7 +336,6 @@ class PersistenceMixin(_MemoryBase):
         self._rule_analytics = rule_analytics
         if rule_analytics is not None:
             self._meta.set_rule_analytics(rule_analytics)
-        self._log.record("load_state", path=path)
 
     def stats(self) -> MemoryStats:
         """Return a typed summary of graph, cache, quantum, evolution, and subsystem metrics."""
@@ -310,3 +365,11 @@ class PersistenceMixin(_MemoryBase):
             monitor_stats=meta_stats,
             multi_edge_count=multi_edge_count,
         )
+
+
+def _json_fallback(obj: Any) -> Any:
+    if isinstance(obj, (set, frozenset)):
+        return sorted(obj)
+    if isinstance(obj, tuple):
+        return list(obj)
+    return str(obj)

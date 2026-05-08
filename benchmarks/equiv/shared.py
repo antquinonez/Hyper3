@@ -277,7 +277,7 @@ def build_pairwise_h3():
         mem.ensure(f"n{i}")
     for src, tgt in EDGE_LIST_UNDIRECTED:
         w = EDGE_WEIGHTS.get((src, tgt), 1.0)
-        mem.relate(f"n{src}", f"n{tgt}", label="connected", weight=w, bidirectional=True)
+        mem.link(f"n{src}", f"n{tgt}", label="connected", weight=w, bidirectional=True)
     return mem
 
 
@@ -289,7 +289,7 @@ def build_hypergraph_h3():
         mem.ensure(f"n{i}")
     for hyperedge in HYPEREDGES:
         members = [f"n{j}" for j in hyperedge]
-        mem.relate_hyperedge(
+        mem.link_hyper(
             sources={members[0]},
             targets=set(members[1:]),
             label="hyperedge",
@@ -324,7 +324,7 @@ def build_directed_h3():
     for sources, targets in DIRECTED_HYPEREDGES:
         src_set = {f"n{j}" for j in sources}
         tgt_set = {f"n{j}" for j in targets}
-        mem.relate_hyperedge(sources=src_set, targets=tgt_set, label="directed", weight=1.0)
+        mem.link_hyper(sources=src_set, targets=tgt_set, label="directed", weight=1.0)
     return mem
 
 

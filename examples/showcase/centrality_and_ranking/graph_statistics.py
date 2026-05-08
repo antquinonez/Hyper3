@@ -29,28 +29,28 @@ def main() -> None:
         ("python", {"type": "language"}),
         ("project_x", {"type": "project"}),
     ]:
-        mem.store(name, data=data)
+        mem.add(name, data=data)
 
-    mem.relate("alice", "bob", label="collaborates", weight=5.0)
-    mem.relate("alice", "carol", label="collaborates", weight=3.0)
-    mem.relate("bob", "dave", label="reports_to", weight=4.0)
-    mem.relate("carol", "eve", label="collaborates", weight=2.0)
-    mem.relate("alice", "python", label="uses", weight=5.0)
-    mem.relate("bob", "python", label="uses", weight=4.0)
-    mem.relate("eve", "python", label="uses", weight=3.0)
-    mem.relate("alice", "project_x", label="leads", weight=5.0)
-    mem.relate("bob", "project_x", label="works_on", weight=4.0)
-    mem.relate("carol", "project_x", label="works_on", weight=3.0)
-    mem.relate("dave", "project_x", label="works_on", weight=2.0)
-    mem.relate("eve", "project_x", label="works_on", weight=2.0)
-    mem.relate_hyperedge(
+    mem.link("alice", "bob", label="collaborates", weight=5.0)
+    mem.link("alice", "carol", label="collaborates", weight=3.0)
+    mem.link("bob", "dave", label="reports_to", weight=4.0)
+    mem.link("carol", "eve", label="collaborates", weight=2.0)
+    mem.link("alice", "python", label="uses", weight=5.0)
+    mem.link("bob", "python", label="uses", weight=4.0)
+    mem.link("eve", "python", label="uses", weight=3.0)
+    mem.link("alice", "project_x", label="leads", weight=5.0)
+    mem.link("bob", "project_x", label="works_on", weight=4.0)
+    mem.link("carol", "project_x", label="works_on", weight=3.0)
+    mem.link("dave", "project_x", label="works_on", weight=2.0)
+    mem.link("eve", "project_x", label="works_on", weight=2.0)
+    mem.link_hyper(
         sources={"alice", "bob"},
         targets={"project_x"},
         label="team_of",
         weight=8.0,
     )
 
-    desc = mem.describe()
+    desc = mem.analyze.describe()
     print(f"\nnodes: {desc.node_count}")
     print(f"edges: {desc.edge_count}")
     print(f"node types: {desc.node_types}")
@@ -74,8 +74,8 @@ def main() -> None:
     for label in sorted(deg_w):
         print(f"  {label:>10}: {deg_w[label]:.1f}")
 
-    in_deg = mem.in_degree()
-    out_deg = mem.out_degree()
+    in_deg = mem.analyze.centrality("in_degree")
+    out_deg = mem.analyze.centrality("out_degree")
     print(f"\nin-degree / out-degree:")
     print(f"{'node':>10} {'in':>5} {'out':>5}")
     print("-" * 24)
@@ -86,7 +86,7 @@ def main() -> None:
     print("SECTION 3: Edge Statistics")
     print("=" * 70)
 
-    print(f"\ndensity: {mem.density():.4f}")
+    print(f"\ndensity: {mem.analyze.describe().density:.4f}")
     print(f"unique edge sizes: {mem.unique_edge_sizes()}")
     print(f"max edge order: {mem.max_edge_order()}")
 
@@ -100,20 +100,19 @@ def main() -> None:
     print("SECTION 4: EVOLUTION IMPACT ON STATISTICS")
     print("=" * 70)
 
-    before_nodes = mem.graph.node_count
-    before_edges = mem.graph.edge_count
-    before_density = mem.density()
+    before_nodes = mem.size[0]
+    before_edges = mem.size[1]
+    before_density = mem.analyze.describe().density
 
-    mem.stimulate("alice", energy=1.0)
-    mem.stimulate("bob", energy=1.0)
-    mem.stimulate("project_x", energy=1.0)
-    mem.spread_activation(iterations=2)
-    mem.hebbian_reinforce()
+    mem.search.activate("alice", energy=1.0)
+    mem.search.activate("bob", energy=1.0)
+    mem.search.activate("project_x", energy=1.0)
+    mem.cognitive.hebbian_reinforce()
 
     evolve_result = mem.evolve()
 
-    after_density = mem.density()
-    after_desc = mem.describe()
+    after_density = mem.analyze.describe().density
+    after_desc = mem.analyze.describe()
 
     print(f"\nbefore evolution:")
     print(f"  nodes: {before_nodes}, edges: {before_edges}, density: {before_density:.4f}")
@@ -136,16 +135,16 @@ def main() -> None:
         ("dave", {"type": "person", "dept": "eng"}),
         ("project_x", {"type": "project"}),
     ]:
-        mem2.store(name, data=data)
+        mem2.add(name, data=data)
 
-    mem2.relate("alice", "bob", label="collaborates", weight=5.0)
-    mem2.relate("bob", "dave", label="reports_to", weight=4.0)
-    mem2.relate("alice", "project_x", label="leads", weight=5.0)
-    mem2.relate("bob", "project_x", label="works_on", weight=4.0)
-    mem2.relate("carol", "project_x", label="works_on", weight=3.0)
-    mem2.relate("dave", "project_x", label="works_on", weight=2.0)
+    mem2.link("alice", "bob", label="collaborates", weight=5.0)
+    mem2.link("bob", "dave", label="reports_to", weight=4.0)
+    mem2.link("alice", "project_x", label="leads", weight=5.0)
+    mem2.link("bob", "project_x", label="works_on", weight=4.0)
+    mem2.link("carol", "project_x", label="works_on", weight=3.0)
+    mem2.link("dave", "project_x", label="works_on", weight=2.0)
 
-    before_desc2 = mem2.describe()
+    before_desc2 = mem2.analyze.describe()
     print(f"\nbefore collapse:")
     print(f"  nodes: {before_desc2.node_count}, edges: {before_desc2.edge_count}")
     print(f"  density: {before_desc2.density:.4f}")
@@ -162,7 +161,7 @@ def main() -> None:
         print(f"  edges collapsed: {summary.edges_collapsed}")
         print(f"  external connections: {summary.external_connections}")
 
-        after_desc2 = mem2.describe()
+        after_desc2 = mem2.analyze.describe()
         print(f"\nafter collapse:")
         print(f"  nodes: {after_desc2.node_count}, edges: {after_desc2.edge_count}")
         print(f"  density: {after_desc2.density:.4f}")

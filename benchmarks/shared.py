@@ -584,9 +584,9 @@ def build_hyper3_memory(
 
     mem = HypergraphMemory(evolve_interval=0)
     for label, data in nodes:
-        mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+        mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
     for src, tgt, label in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
     return mem
 
 
