@@ -230,7 +230,7 @@ class TestHypergraphMemoryIntegration:
         mem.add("z")
         mem.link("x", "y", label="rel")
         mem.link("x", "z", label="rel")
-        results = mem.retrieve("x", top_k=5)
+        results = mem.search.query("x", top_k=5)
         assert len(results) == 2
         assert {r.label for r in results} == {"y", "z"}
 
@@ -243,7 +243,7 @@ class TestHypergraphMemoryIntegration:
         mem.link("a", "b", label="rel")
         mem.link("a", "c", label="rel")
 
-        results = mem.retrieve("a", top_k=5)
+        results = mem.engine.retrieval.retrieve("a", top_k=5)
         mem.record_feedback("a", results, {"b"})
         assert mem.feedback.size == 2
 

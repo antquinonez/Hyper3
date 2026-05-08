@@ -15,13 +15,13 @@ class TestCommunityBasic:
         mem.add("C")
         mem.link("A", "B", label="connects")
         mem.link("B", "C", label="connects")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         assert result.community_count == 1
         assert result.coverage == 1.0
 
     def test_detect_communities_empty_graph(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        result = mem.detect_communities()
+        result = mem.analyze.communities()
         assert result.community_count == 0
         assert result.modularity == 0.0
 
@@ -33,7 +33,7 @@ class TestCommunityBasic:
         mem.add("D")
         mem.link("A", "B", label="group1")
         mem.link("C", "D", label="group2")
-        result = mem.detect_communities(method="connected_components")
+        result = mem.analyze.communities(method="connected_components")
         assert result.community_count == 2
 
     def test_weighted_propagation(self) -> None:
@@ -45,7 +45,7 @@ class TestCommunityBasic:
         e2 = mem.link("B", "C", label="weak")
         e1.weight = 10.0
         e2.weight = 0.1
-        result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+        result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
         assert result.community_count == 1
 
     def test_community_labels(self) -> None:
@@ -53,7 +53,7 @@ class TestCommunityBasic:
         mem.add("alpha")
         mem.add("beta")
         mem.link("alpha", "beta", label="link")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         assert result.community_count == 1
         assert set(result.communities[0].member_labels) == {"alpha", "beta"}
 
@@ -63,17 +63,17 @@ class TestCommunityBasic:
             mem.add(f"N{i}")
         for i in range(9):
             mem.link(f"N{i}", f"N{i+1}", label="link")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         assert abs(result.modularity - 0.3889) < 0.01
 
     def test_communities_property(self) -> None:
         mem = HypergraphMemory(evolve_interval=0)
-        assert mem.communities is None
+        assert mem.engine.community is None
         mem.add("A")
         mem.add("B")
         mem.link("A", "B", label="link")
-        result = mem.detect_communities(seed=42)
-        assert mem.communities is not None
+        result = mem.analyze.communities(seed=42)
+        assert mem.engine.community is not None
         assert result.community_count >= 1
 
 
@@ -107,7 +107,7 @@ class TestCommunityDetector:
         mem.add("A")
         mem.add("B")
         mem.link("A", "B", label="link")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         assert result.coverage == 1.0
 
     def test_avg_community_size(self) -> None:
@@ -117,7 +117,7 @@ class TestCommunityDetector:
         mem.link("N0", "N1", label="link")
         mem.link("N2", "N3", label="link")
         mem.link("N4", "N5", label="link")
-        result = mem.detect_communities(method="connected_components")
+        result = mem.analyze.communities(method="connected_components")
         assert result.avg_community_size == 2.0
         assert result.community_count == 3
 
@@ -177,7 +177,7 @@ class TestSemanticCommunity:
         mem.link("N1", "N2", label="x")
         mem.link("N3", "N4", label="x")
         mem.link("N4", "N5", label="x")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         all_members = []
         for c in result.communities:
             all_members.extend(c.member_ids)
@@ -192,7 +192,7 @@ class TestSemanticCommunity:
         mem.link("N1", "N2", label="x")
         mem.link("N3", "N4", label="x")
         mem.link("N4", "N5", label="x")
-        result = mem.detect_communities(seed=42)
+        result = mem.analyze.communities(seed=42)
         assert result.modularity > 0.0
 
     def test_coverage_less_than_one_with_cross_community_edges(self):
@@ -208,7 +208,7 @@ class TestSemanticCommunity:
                 if a != b:
                     mem.link(a, b, label="x")
         mem.link("N2", "N3", label="x")
-        result = mem.detect_communities(seed=0)
+        result = mem.analyze.communities(seed=0)
         assert result.community_count >= 2
         assert result.coverage < 1.0
 
@@ -488,7 +488,7 @@ class TestLouvainExtended:
         for s, t in [("n0", "n1"), ("n1", "n2"), ("n0", "n2"), ("n3", "n4"), ("n4", "n5"), ("n3", "n5")]:
             mem.link(s, t)
         mem.link("n2", "n3")
-        result = mem.detect_communities(method="louvain", seed=42)
+        result = mem.analyze.communities(method="louvain", seed=42)
         assert result.community_count == 2
         assert abs(result.modularity - 0.3571) < 0.01
 

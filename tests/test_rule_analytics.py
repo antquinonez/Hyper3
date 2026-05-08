@@ -205,7 +205,7 @@ class TestRuleEffectivenessTracking:
 
         with tempfile.TemporaryDirectory() as td:
             path = str(Path(td) / "test.json")
-            mem.save_state(path)
+            mem.save(path, full=True)
 
             mem2 = HypergraphMemory(evolve_interval=0)
             for node in mem._graph.nodes:
@@ -213,7 +213,7 @@ class TestRuleEffectivenessTracking:
             for edge in mem._graph.edges:
                 mem2._graph.add_edge(edge)
             mem2._rules = [TransitiveRule()]
-            mem2.load_state(path)
+            mem2.load(path)
 
             assert mem2._rule_analytics is not None
             eff = mem2._rule_analytics.get_rule_effectiveness()

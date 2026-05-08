@@ -1,3 +1,4 @@
+import json
 import tempfile
 from pathlib import Path
 
@@ -32,21 +33,21 @@ def _populate_memory(mem):
 class TestSystemSnapshotRoundTrip:
 
     def test_empty_memory_round_trip(self, mem, tmp_path_fixture):
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
         assert mem2._graph.node_count == 0
         assert mem2._graph.edge_count == 0
 
     def test_graph_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
             mem2._graph.add_node(node)
         for edge in mem._graph.edges:
             mem2._graph.add_edge(edge)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
         assert mem2._graph.node_count == 3
         assert mem2._graph.edge_count == 2
 
@@ -54,12 +55,12 @@ class TestSystemSnapshotRoundTrip:
         _populate_memory(mem)
         qs = mem.create_distribution(["alpha", "beta", "gamma"])
         assert not qs.resolved
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
             mem2._graph.add_node(node)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert len(mem2._belief._states) == 1
         restored_qs = list(mem2._belief._states.values())[0]
@@ -71,12 +72,12 @@ class TestSystemSnapshotRoundTrip:
         qs = mem.create_distribution(["alpha", "beta"])
         qs.sample()
         assert qs.resolved
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
             mem2._graph.add_node(node)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         restored_qs = list(mem2._belief._states.values())[0]
         assert restored_qs.resolved
@@ -86,10 +87,10 @@ class TestSystemSnapshotRoundTrip:
         _populate_memory(mem)
         mem._provenance.record_inference("edge_1", "test_rule", input_edge_ids=["edge_0"])
         mem._provenance.record_inference("edge_2", "test_rule", input_edge_ids=["edge_1"])
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._provenance.record_count == 2
         dependents = mem2._provenance.get_dependents("edge_0")
@@ -99,10 +100,10 @@ class TestSystemSnapshotRoundTrip:
         _populate_memory(mem)
         mem._retrieval._feedback.record("alpha", "node_1", "alpha", True, {"activation": 0.8})
         mem._retrieval._feedback.record("alpha", "node_2", "beta", False, {"activation": 0.3})
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._retrieval._feedback.size == 2
         assert mem2._retrieval._feedback.relevant_labels_for("alpha") == {"alpha"}
@@ -111,10 +112,10 @@ class TestSystemSnapshotRoundTrip:
         _populate_memory(mem)
         mem._perspective._frame_outcomes["classical"] = {"successes": 5, "failures": 2}
         mem._perspective._frame_outcomes["quantum"] = {"successes": 3, "failures": 1}
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._perspective._frame_outcomes["classical"]["successes"] == 5
         assert mem2._perspective._frame_outcomes["quantum"]["failures"] == 1
@@ -124,10 +125,10 @@ class TestSystemSnapshotRoundTrip:
         mem._meta._state.architectural_fitness = 0.75
         mem._meta._state.rule_analytics_insight_count = 12
         mem._meta._state.reasoning_mode = "rich"
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._meta._state.architectural_fitness == 0.75
         assert mem2._meta._state.rule_analytics_insight_count == 12
@@ -136,10 +137,10 @@ class TestSystemSnapshotRoundTrip:
     def test_cache_preserved(self, mem, tmp_path_fixture):
         _populate_memory(mem)
         mem._cache.put("test_key", "test_value")
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._cache.get("test_key") == "test_value"
 
@@ -148,10 +149,10 @@ class TestSystemSnapshotRoundTrip:
         mem._feedback.record_collapse_outcome("qs_1", "node_1", True)
         mem._feedback.record_retrieval_outcome("query_1", {"n1"}, {"n2"})
         mem._feedback.record_evolution_outcome(0.85)
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._feedback.signal_count == 4
         assert mem2._feedback.collapse_accuracy() == 1.0
@@ -162,10 +163,10 @@ class TestSystemSnapshotRoundTrip:
         mem._belief.record_basis_outcome("linguistic", True)
         mem._belief.record_basis_outcome("linguistic", True)
         mem._belief.record_basis_outcome("linguistic", False)
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._belief._basis_stats["linguistic"]["successes"] == 2
         assert mem2._belief._basis_stats["linguistic"]["selections"] == 3
@@ -177,12 +178,12 @@ class TestSystemSnapshotRoundTrip:
             [a.id], [b.id, c.id],
             {(a.id, b.id): 0.8, (a.id, c.id): -0.3},
         )
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
             mem2._graph.add_node(node)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         ents = mem2._belief.correlations
         assert len(ents) == 1
@@ -193,18 +194,18 @@ class TestSystemSnapshotVersion:
 
     def test_version_field(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
-        from hyper3.snapshot import load_state
-        snap = load_state(str(tmp_path_fixture))
+        data = json.loads(tmp_path_fixture.read_text())
+        snap = SystemSnapshot.from_dict(data["snapshot"])
         assert snap.version == 1
 
     def test_saved_at_timestamp(self, mem, tmp_path_fixture):
         _populate_memory(mem)
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
-        from hyper3.snapshot import load_state
-        snap = load_state(str(tmp_path_fixture))
+        data = json.loads(tmp_path_fixture.read_text())
+        snap = SystemSnapshot.from_dict(data["snapshot"])
         assert snap.saved_at > 0
 
 
@@ -220,11 +221,11 @@ class TestSystemSnapshotPartial:
     def test_empty_subsystems_round_trip(self, tmp_path_fixture):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("only_node")
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.add("only_node")
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
         assert len(mem2._belief._states) == 0
         assert mem2._provenance.record_count == 0
         assert mem2._feedback.signal_count == 0
@@ -240,7 +241,7 @@ class TestSystemSnapshotWithReasoning:
         pre_belief_count = len(mem._belief._states)
         pre_provenance = mem._provenance.record_count
 
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
@@ -248,7 +249,7 @@ class TestSystemSnapshotWithReasoning:
         for edge in mem._graph.edges:
             mem2._graph.add_edge(edge)
         mem2._rules = [TransitiveRule()]
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert len(mem2._belief._states) == pre_belief_count
         assert mem2._provenance.record_count == pre_provenance
@@ -262,7 +263,7 @@ class TestSystemSnapshotWithReasoning:
         mem._rule_analytics.update_position()
         pre_density = mem._rule_analytics._position.graph_activity_density
 
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
@@ -270,7 +271,7 @@ class TestSystemSnapshotWithReasoning:
         for edge in mem._graph.edges:
             mem2._graph.add_edge(edge)
         mem2._rules = [TransitiveRule()]
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         assert mem2._rule_analytics is not None
         assert abs(mem2._rule_analytics._position.graph_activity_density - pre_density) < 1e-10
@@ -288,12 +289,12 @@ class TestSystemSnapshotComplexAmplitudes:
         pre_amps = [i.amplitude for i in qs.outcomes]
         assert any(isinstance(a, complex) for a in pre_amps)
 
-        mem.save_state(str(tmp_path_fixture))
+        mem.save(str(tmp_path_fixture), full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         for node in mem._graph.nodes:
             mem2._graph.add_node(node)
-        mem2.load_state(str(tmp_path_fixture))
+        mem2.load(str(tmp_path_fixture))
 
         restored_qs = list(mem2._belief._states.values())[0]
         for orig, restored in zip(pre_amps, restored_qs.outcomes, strict=False):

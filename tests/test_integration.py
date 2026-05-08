@@ -112,7 +112,7 @@ class TestIntegrationFullPipeline:
         statuses = {r.status for r in regions}
         assert statuses == {"low_risk"}
 
-        result = mem.detect_structural_anomalies("simple_concept")
+        result = mem.analyze.anomalies("simple_concept")
         assert result.anomaly_status == "low_risk"
         assert result.boundary_score == pytest.approx(0.05, abs=0.01)
 

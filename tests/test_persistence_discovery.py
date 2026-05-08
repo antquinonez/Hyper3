@@ -643,11 +643,11 @@ class TestUnifiedPersistence:
         mem.create_distribution(["alpha"], amplitudes=[1.0])
 
         path = str(tmp_path / "bare_snapshot.json")
-        mem.save_state(path)
+        mem.save(path, full=True)
 
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.add("alpha")
-        mem2.load_state(path)
+        mem2.load(path)
         assert len(list(mem2.belief_layer.active_distributions)) >= 1
 
 

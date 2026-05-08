@@ -224,7 +224,7 @@ class TestDescribe:
         mem.add("a")
         mem.add("b")
         mem.link("a", "b", label="knows")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.node_count == 2
         assert desc.edge_count == 1
 
@@ -233,19 +233,19 @@ class TestDescribe:
         mem.add("m1", data={"type": "movie"})
         mem.add("m2", data={"type": "movie"})
         mem.add("g", data={"type": "genre"})
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.node_types == {"movie": 2, "genre": 1}
 
     def test_node_types_kind_fallback(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("p", data={"kind": "paper"})
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.node_types == {"paper": 1}
 
     def test_untyped_nodes(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("bare")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.node_types == {"(untyped)": 1}
 
     def test_edge_labels(self):
@@ -256,7 +256,7 @@ class TestDescribe:
         mem.link("a", "b", label="friend")
         mem.link("b", "c", label="friend")
         mem.link("a", "c", label="enemy")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.edge_labels == {"friend": 2, "enemy": 1}
 
     def test_unlabeled_edges(self):
@@ -264,7 +264,7 @@ class TestDescribe:
         mem.add("a")
         mem.add("b")
         mem.link("a", "b")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.edge_labels == {"(unlabeled)": 1}
 
     def test_degree_stats(self):
@@ -274,13 +274,13 @@ class TestDescribe:
         mem.add("c")
         mem.link("a", "b", label="x")
         mem.link("a", "c", label="x")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.degree_min == 1
         assert desc.degree_max == 2
 
     def test_empty_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.node_count == 0
         assert desc.edge_count == 0
         assert desc.node_types == {}
@@ -293,12 +293,12 @@ class TestDescribe:
         mem.add("b")
         mem.add("c")
         mem.link("a", "b", label="x")
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert desc.isolated_nodes == 1
 
     def test_is_dataclass(self):
         mem = HypergraphMemory(evolve_interval=0)
-        desc = mem.describe()
+        desc = mem.analyze.describe()
         assert isinstance(desc, GraphDescription)
         assert "node_count" in desc
         assert desc["node_count"] == 0
@@ -313,7 +313,7 @@ class TestPageRank:
         mem.link("hub", "a", label="x")
         mem.link("hub", "b", label="x")
         mem.link("a", "hub", label="y")
-        pr = mem.pagerank()
+        pr = mem.analyze.centrality("pagerank")
         assert len(pr) == 3
         assert all(0 <= v <= 1 for v in pr.values())
         assert pr["hub"] > pr["b"]
@@ -325,18 +325,18 @@ class TestPageRank:
             mem.add(f"n{i}")
         for i in range(1, 10):
             mem.link("n0", f"n{i}", label="x")
-        pr = mem.pagerank(top_k=3)
+        pr = mem.analyze.centrality("pagerank", top_k=3)
         assert len(pr) == 3
 
     def test_single_node(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("solo")
-        pr = mem.pagerank()
+        pr = mem.analyze.centrality("pagerank")
         assert pr["solo"] == pytest.approx(1.0)
 
     def test_empty_graph(self):
         mem = HypergraphMemory(evolve_interval=0)
-        pr = mem.pagerank()
+        pr = mem.analyze.centrality("pagerank")
         assert pr == {}
 
     def test_unweighted(self):
@@ -346,8 +346,8 @@ class TestPageRank:
         mem.add("c")
         mem.link("a", "b", label="x", weight=5.0)
         mem.link("a", "c", label="x", weight=1.0)
-        pr_w = mem.pagerank(weighted=True)
-        pr_u = mem.pagerank(weighted=False)
+        pr_w = mem.analyze.centrality("pagerank", weighted=True)
+        pr_u = mem.analyze.centrality("pagerank", weighted=False)
         assert pr_w != pr_u
         assert len(pr_w) == 3
 
@@ -379,7 +379,7 @@ class TestCentralityTopK:
             mem.add(f"n{i}")
         mem.link("n0", "n1", label="x")
         mem.link("n1", "n2", label="x")
-        bc = mem.betweenness_centrality(top_k=2)
+        bc = mem.analyze.centrality("betweenness", top_k=2)
         assert len(bc) == 2
         assert max(bc, key=bc.get) == "n1"
 
@@ -389,7 +389,7 @@ class TestCentralityTopK:
             mem.add(f"n{i}")
         for i in range(1, 10):
             mem.link("n0", f"n{i}", label="x")
-        dc = mem.degree_centrality(top_k=3)
+        dc = mem.analyze.centrality("degree", top_k=3)
         assert len(dc) == 3
         assert "n0" in dc
 
@@ -398,7 +398,7 @@ class TestCentralityTopK:
         mem.add("a")
         mem.add("b")
         mem.link("a", "b", label="x")
-        bc = mem.betweenness_centrality(top_k=None)
+        bc = mem.analyze.centrality("betweenness", top_k=None)
         assert len(bc) == 2
 
 
@@ -616,10 +616,11 @@ class TestLoadBareSnapshot:
         mem.add("beta")
         mem.link("alpha", "beta", label="knows")
         path = str(tmp_path / "state.json")
-        mem.save_state(path)
+        mem.save(path, full=True)
         mem2 = HypergraphMemory(evolve_interval=0)
         mem2.load(path)
-        assert mem2.stats().nodes == 0
+        assert mem2.stats().nodes == 2
+        assert mem2.stats().edges == 1
 
 
 class TestLoadFallbackPaths:

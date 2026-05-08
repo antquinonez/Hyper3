@@ -20,8 +20,7 @@ class TestHebbianBasic:
         mem.add("A")
         mem.add("B")
         mem.link("A", "B", label="connected")
-        mem.stimulate("A", energy=1.0)
-        mem.spread_activation()
+        mem.search.activate("A", energy=1.0)
         result = mem.hebbian_reinforce()
         assert result.edges_strengthened == 1
         assert result.edges_weakened == 0
@@ -145,8 +144,12 @@ class TestHebbianLearner:
         mem.add("A")
         mem.add("B")
         mem.link("A", "B", label="link")
-        mem.stimulate("A", energy=0.2)
-        mem.stimulate("B", energy=0.2)
+        a = mem.graph.get_node_by_label("A")
+        b = mem.graph.get_node_by_label("B")
+        assert a is not None
+        assert b is not None
+        mem._activation.stimulate(a.id, 0.2)
+        mem._activation.stimulate(b.id, 0.2)
         config = HebbianConfig(activation_threshold=0.3)
         learner = HebbianLearner(mem.graph, mem._activation, config=config)
         result = learner.reinforce_from_activation()
@@ -162,8 +165,12 @@ class TestHebbianLearner:
         mem.add("C")
         mem.link("A", "B", label="activated")
         mem.link("A", "C", label="dormant")
-        mem.stimulate("A", energy=1.0)
-        mem.stimulate("B", energy=1.0)
+        a = mem.graph.get_node_by_label("A")
+        b = mem.graph.get_node_by_label("B")
+        assert a is not None
+        assert b is not None
+        mem._activation.stimulate(a.id, 1.0)
+        mem._activation.stimulate(b.id, 1.0)
         result = mem.hebbian_reinforce()
         assert result.edges_strengthened == 1
         assert result.avg_weight_change > 0.0

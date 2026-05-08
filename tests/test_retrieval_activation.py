@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import pytest
 
-from hyper3.exceptions import NodeNotFoundError
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.memory import HypergraphMemory
 from hyper3.retrieval_activation import ActivationConfig, ActivationResult, SpreadingActivation
@@ -259,17 +258,16 @@ class TestIntegrationMemory:
         mem.add("x")
         mem.add("y")
         mem.link("x", "y")
-        mem.stimulate("x", energy=1.0)
-        result = mem.spread_activation()
-        assert len(result) == 2
+        result = mem.search.activate("x", energy=1.0)
+        assert len(result) == 1
+        assert result[0].label == "y"
 
     def test_clear_activations(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("x")
-        mem.stimulate("x", energy=1.0)
+        mem.search.activate("x", energy=1.0)
         mem.clear_activations()
-        result = mem.spread_activation()
-        assert len(result) == 0
+        assert len(mem._activation.activations) == 0
 
     def test_load_reinitializes_activation(self, tmp_path):
         mem = HypergraphMemory(evolve_interval=0)
@@ -286,18 +284,20 @@ class TestIntegrationMemory:
 
 
 class TestStimulateNodeNotFoundError:
-    def test_stimulate_missing_concept_raises(self):
+    def test_activate_missing_concept_returns_empty(self):
         mem = HypergraphMemory(evolve_interval=0)
-        with pytest.raises(NodeNotFoundError):
-            mem.stimulate("nonexistent")
+        result = mem.search.activate("nonexistent")
+        assert result == []
 
     def test_stimulate_valid_concept_succeeds(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("a")
-        mem.stimulate("a", energy=2.0)
-        result = mem.spread_activation()
+        mem.add("b")
+        mem.link("a", "b")
+        result = mem.search.activate("a", energy=2.0)
         assert len(result) == 1
-        assert result[0].activation == pytest.approx(2.0)
+        assert result[0].label == "b"
+        assert result[0].energy > 0
 
 
 class TestStimulateLabel:

@@ -1097,13 +1097,13 @@ class TestNaryEdgeCreation:
         assert joint.source_ids == frozenset({a.id, b.id})
         assert joint.target_ids == frozenset({c.id, d.id})
 
-    def test_relate_hyperedge_via_memory(self):
+    def test_link_hyper_via_memory(self):
         mem = HypergraphMemory(evolve_interval=0)
         mem.add("gene_a")
         mem.add("gene_b")
         mem.add("protein_complex")
         mem.add("pathway")
-        edge = mem.relate_hyperedge(
+        edge = mem.link_hyper(
             {"gene_a", "gene_b"},
             {"protein_complex", "pathway"},
             label="jointly_encodes",
@@ -1120,7 +1120,7 @@ class TestNaryEdgeCreation:
         mem.add("y")
         mem.add("z")
         mem.link("x", "y", label="pair")
-        mem.relate_hyperedge({"x", "y"}, {"z"}, label="nary")
+        mem.link_hyper({"x", "y"}, {"z"}, label="nary")
 
         pairwise = mem.query_hyperedges(min_source_cardinality=1, min_target_cardinality=1)
         assert len(pairwise) == 2
@@ -1134,7 +1134,7 @@ class TestNaryEdgeCreation:
         mem.add("a")
         mem.add("b")
         mem.add("c")
-        mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
+        mem.link_hyper({"a", "b"}, {"c"}, label="abc")
         mem.link("a", "b", label="ab")
 
         edges_with_a = mem.query_hyperedges(containing="a")
@@ -1158,7 +1158,7 @@ class TestNaryEdgeCreation:
         mem.add("a")
         mem.add("b")
         mem.add("c")
-        mem.relate_hyperedge({"a", "b"}, {"c"}, label="joint")
+        mem.link_hyper({"a", "b"}, {"c"}, label="joint")
         nbrs = mem.hyperedge_neighbors("a")
         assert "b" in nbrs
         assert "c" in nbrs
@@ -1319,7 +1319,7 @@ class TestPageRank:
         mem.add("C")
         mem.link("A", "B", label="rel")
         mem.link("B", "C", label="rel")
-        pr = mem.pagerank()
+        pr = mem.analyze.centrality("pagerank")
         assert len(pr) == 3
         total = sum(pr.values())
         assert abs(total - 1.0) < 0.01
@@ -1364,7 +1364,7 @@ class TestSPersistence:
         mem.add("a")
         mem.add("b")
         mem.add("c")
-        mem.relate_hyperedge({"a", "b"}, {"c"}, label="abc")
+        mem.link_hyper({"a", "b"}, {"c"}, label="abc")
         filt = mem.s_persistence()
         assert len(filt.levels) == 1
         assert filt.levels[0].num_components == 1
@@ -1437,7 +1437,7 @@ class TestSpreadHyperedge:
         mem.add("A")
         mem.add("B")
         mem.add("C")
-        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        mem.link_hyper({"A", "B"}, {"C"}, label="joint")
         results = mem.spread_hyperedge("A", energy=1.0, mode="and", iterations=3)
         labels = {r.label for r in results}
         assert "C" not in labels
@@ -1447,7 +1447,7 @@ class TestSpreadHyperedge:
         mem.add("A")
         mem.add("B")
         mem.add("C")
-        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        mem.link_hyper({"A", "B"}, {"C"}, label="joint")
         if mem._activation is None:
             mem._activation = SpreadingActivation(mem._graph)
         mem._activation.clear()
@@ -1465,7 +1465,7 @@ class TestSpreadHyperedge:
         mem.add("A")
         mem.add("B")
         mem.add("C")
-        mem.relate_hyperedge({"A", "B"}, {"C"}, label="joint")
+        mem.link_hyper({"A", "B"}, {"C"}, label="joint")
         results = mem.spread_hyperedge("A", energy=1.0, mode="or", iterations=3)
         labels = {r.label for r in results}
         assert "C" in labels

@@ -125,7 +125,7 @@ class TestHypergraphMemoryNewFeatures:
         mem.add("cat")
         mem.add("dog")
         mem.link("cat", "dog", label="chases")
-        result = mem.detect_structural_anomalies("cat")
+        result = mem.analyze.anomalies("cat")
         assert result.anomaly_status in {"low_risk", "boundary", "anomalous"}
 
     def test_map_boundaries(self):

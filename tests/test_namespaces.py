@@ -673,8 +673,8 @@ class TestEngineAccessor:
     def test_enricher(self, populated):
         assert populated.engine.enricher is not None
 
-    def test_meta(self, populated):
-        assert populated.engine.meta is not None
+    def test_monitor(self, populated):
+        assert populated.engine.monitor is not None
 
     def test_perspective(self, populated):
         assert populated.engine.perspective is not None

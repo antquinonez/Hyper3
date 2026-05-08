@@ -11,7 +11,7 @@ EXPECTED_NAMESPACES = {
 CORE_METHODS = {
     "add", "link", "link_hyper", "add_all", "ensure", "find",
     "get", "set", "has", "info",
-    "evolve", "evolve_with_feedback",
+    "evolve",
     "save", "load",
     "export_json", "import_json", "export_edgelist", "import_edgelist",
     "load_records",
@@ -182,7 +182,14 @@ class TestCognitiveNamespaceMethods:
 
 
 class TestEngineAccessorProperties:
-    EXPECTED = {"graph", "belief", "retrieval", "cache", "evolution", "equivalence"}
+    EXPECTED = {
+        "graph", "belief", "retrieval", "cache", "evolution", "equivalence",
+        "log", "feedback", "provenance", "temporal", "enricher", "monitor",
+        "perspective", "discovery", "anomaly",
+        "bayesian", "activation", "hebbian", "multiway", "convergence",
+        "clustering", "uncertainty", "community", "differ", "abstraction",
+        "structural", "revision", "overlay",
+    }
 
     def test_all_properties_exist(self):
         mem = HypergraphMemory()
@@ -204,8 +211,10 @@ class TestDirSurface:
     EXPECTED_SURFACE = {
         "add", "link", "link_hyper", "add_all", "ensure", "find",
         "get", "set", "has", "info", "size",
-        "evolve", "evolve_with_feedback",
-        "save", "load", "save_state", "load_state",
+        "centrality", "paths", "communities", "anomalies",
+        "similar", "edges",
+        "evolve",
+        "save", "load",
         "export_json", "import_json", "export_edgelist", "import_edgelist",
         "load_records",
         "ingest", "ingest_batch", "set_llm_provider",
@@ -257,17 +266,10 @@ class TestDirSurface:
     def test_hidden_methods_still_callable(self):
         mem = HypergraphMemory()
         mem.add("x")
-        assert mem.store is not None
-        assert mem.relate is not None
-        assert mem.has_node is not None
         assert mem.recall is not None
         assert mem.create_distribution is not None
-        assert mem.find_similar is not None
-        assert mem.detect_communities is not None
-        assert mem.describe is not None
         assert mem.stats is not None
         assert mem.introspect is not None
         assert mem.shortest_path is not None
-        assert mem.pagerank is not None
         assert mem.belief_layer is not None
         assert mem.temporal_engine is not None
