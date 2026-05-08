@@ -226,6 +226,7 @@ class TestDirSurface:
         "temporal", "monitor", "cognitive", "engine",
         "graph", "log", "cache", "rules",
         "recall_adaptive", "record_slice_outcome",
+        "should_collapse", "collapse_report", "detect_invariants",
     }
 
     def test_dir_exactly_matches_expected_surface(self):

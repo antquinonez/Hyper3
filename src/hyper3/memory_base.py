@@ -10,6 +10,7 @@ from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
 from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
+from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
@@ -21,6 +22,7 @@ from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
+from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
@@ -50,6 +52,7 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
+from hyper3.structural_prefetch import StructuralPrefetchEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
 from hyper3.transcendental import TranscendentalInferenceEngine
@@ -105,6 +108,9 @@ class _MemoryBase:
     _transcendental: TranscendentalInferenceEngine | None
     _adaptive_slice: AdaptiveSliceEngine | None
     _interference_engine: InterferenceReasoningEngine | None
+    _collapse_trigger: CollapseTriggerEngine | None
+    _invariant_detector: InvariantDetector | None
+    _prefetch: StructuralPrefetchEngine | None
 
     def _invalidate_frame_cache(self) -> None:
         if self._perspective._frame_cache is not None:

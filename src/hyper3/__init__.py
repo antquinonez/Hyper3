@@ -61,6 +61,7 @@ from hyper3.capabilities import (
     detect_capability_level,
     require_capability,
 )
+from hyper3.collapse_trigger import CollapseDecision, CollapseTriggerEngine
 from hyper3.community import (
     Community,
     CommunityDetector,
@@ -165,6 +166,11 @@ from hyper3.interference_reasoning import (
     InterferencePattern,
     InterferenceReasoningEngine,
     InterferenceReport,
+)
+from hyper3.invariant_detector import (
+    InvariantDetector,
+    InvariantReport,
+    PropertyInvariant,
 )
 from hyper3.kernel import (
     AbstractionLayer,
@@ -289,7 +295,9 @@ from hyper3.rules import (
     StructuralProjectionRule,
     TransitiveRule,
 )
+from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
+from hyper3.rules_simultaneity import SimultaneityRule
 from hyper3.snapshot import SystemSnapshot
 from hyper3.state_clustering import (
     AnalogyProposal,
@@ -318,6 +326,11 @@ from hyper3.structural_match import (
     StructuralMatch,
     StructuralMatchResult,
     StructuralPatternEngine,
+)
+from hyper3.structural_prefetch import (
+    PrefetchConfig,
+    PrefetchStats,
+    StructuralPrefetchEngine,
 )
 from hyper3.system_monitor import (
     SystemHealthModel,

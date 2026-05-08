@@ -81,6 +81,8 @@ class CoreMixin(_MemoryBase):
             return []
 
         start = max(candidates, key=lambda n: n.weight)
+        if self._prefetch is not None:
+            self._prefetch.on_access(start.id)
         self._observer.configure(
             max_depth=max_depth,
             max_nodes=max_nodes,

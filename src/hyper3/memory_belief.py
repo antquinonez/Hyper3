@@ -15,6 +15,7 @@ from hyper3.boundary_reasoning import (
     BoundaryNavigationReport,
     DecidabilityAssessment,
 )
+from hyper3.collapse_trigger import CollapseDecision, CollapseTriggerEngine
 from hyper3.entanglement import CorrelatedCollapseResult
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.interference_reasoning import (
@@ -536,3 +537,27 @@ class BeliefMixin(_MemoryBase):
                 self._graph, self._belief
             )
         return self._interference_engine.report()
+
+    def should_collapse(self, concept: str) -> CollapseDecision:
+        """Evaluate whether the belief distribution for a concept should collapse.
+
+        Returns the collapse decision for the first active distribution
+        containing this concept as an outcome. Concepts are typically in at
+        most one distribution; if multiple exist, use ``collapse_report()``
+        for the full picture.
+        """
+        if self._collapse_trigger is None:
+            self._collapse_trigger = CollapseTriggerEngine(self._belief)
+        nid = self.resolve_id(concept)
+        if not nid:
+            return CollapseDecision()
+        active = [qs for qs in self._belief.active_distributions
+                  if any(o.node_id == nid for o in qs.outcomes)]
+        if not active:
+            return CollapseDecision()
+        return self._collapse_trigger.evaluate(active[0].id)
+
+    def collapse_report(self) -> list[CollapseDecision]:
+        if self._collapse_trigger is None:
+            self._collapse_trigger = CollapseTriggerEngine(self._belief)
+        return self._collapse_trigger.evaluate_all()

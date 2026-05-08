@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hyper3.invariant_detector import InvariantDetector, InvariantReport
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     PatternMatchInfo,
@@ -715,3 +716,11 @@ class AnalyticsMixin(_MemoryBase):
             integration_time=integration_time, integration_step=integration_step,
             seed=seed,
         )
+
+    def detect_invariants(self, concept: str) -> InvariantReport:
+        nid = self.resolve_id(concept)
+        if not nid:
+            return InvariantReport()
+        if self._invariant_detector is None:
+            self._invariant_detector = InvariantDetector(self._graph)
+        return self._invariant_detector.detect(nid)
