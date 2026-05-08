@@ -540,6 +540,11 @@ class SearchHit(_SimpleResultBase):
     label: str = ""
     score: float = 0.0
     data: dict[str, Any] = field(default_factory=dict)
+    activation: float | None = None
+    similarity: float | None = None
+    rrf_score: float | None = None
+    activation_rank: int | None = None
+    similarity_rank: int | None = None
 
 
 @dataclass

@@ -105,8 +105,10 @@ class HypergraphMemory(
     _PUBLIC_API = frozenset({
         "add", "link", "link_hyper", "add_all", "ensure", "find",
         "get", "set", "has", "info", "size",
-        "evolve", "evolve_with_feedback",
-        "save", "load", "save_state", "load_state",
+        "centrality", "paths", "communities", "anomalies",
+        "similar", "edges",
+        "evolve",
+        "save", "load",
         "export_json", "import_json", "export_edgelist", "import_edgelist",
         "load_records",
         "ingest", "ingest_batch", "set_llm_provider",
@@ -126,7 +128,7 @@ class HypergraphMemory(
         """Check whether a concept label exists in the graph (``"x" in mem``)."""
         if not isinstance(concept, str):
             return False
-        return self.has_node(concept)
+        return self.has(concept)
 
     def __init__(
         self,
@@ -266,3 +268,21 @@ class HypergraphMemory(
         if self._ns_engine is None:
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
+
+    def centrality(self, method, *, top_k=None, **kwargs):
+        return self.analyze.centrality(method, top_k=top_k, **kwargs)
+
+    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10):
+        return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
+
+    def communities(self, **kwargs):
+        return self.analyze.communities(**kwargs)
+
+    def anomalies(self, concept, **kwargs):
+        return self.analyze.anomalies(concept, **kwargs)
+
+    def similar(self, concept, **kwargs):
+        return self.search.similar(concept, **kwargs)
+
+    def edges(self, **kwargs):
+        return self.analyze.edges(**kwargs)

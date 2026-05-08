@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+from statistics import median
 from typing import TYPE_CHECKING, Any
 
 from hyper3.bayesian import CategoricalDistribution, UpdateResult
@@ -12,7 +13,8 @@ from hyper3.belief import (
     SamplingTrigger,
 )
 from hyper3.capabilities import CapabilityLevel
-from hyper3.community import CommunityResult, HierarchicalCommunityResult
+from hyper3.community import CommunityDetector, CommunityResult, HierarchicalCommunityResult
+from hyper3.embedding import EmbeddingEngine
 from hyper3.enrichment import ExtractionResult, LLMProvider
 from hyper3.graph_diff import GraphDelta, GraphHistoryResult
 from hyper3.memory_reasoning import ReasoningMixin
@@ -25,7 +27,9 @@ from hyper3.results import (
     DerivationInfo,
     DiscoverResult,
     FeedbackSummaryResult,
+    GraphDescription,
     IterativeReasonResult,
+    LabeledEdge,
     ReasonResult,
     RollbackResult,
     SearchHit,
@@ -556,6 +560,57 @@ class SearchFeedbackSubNamespace:
         return self._mem.feedback_summary()
 
 
+class SearchPrefetchSubNamespace:
+    """Markov-model prefetch for cache warming.
+
+    Access via ``mem.search.prefetch``.
+    """
+
+    def __init__(self, mem: HypergraphMemory) -> None:
+        self._mem = mem
+
+    def enable(self, enabled: bool = True) -> None:
+        """Enable or disable Markov-model prefetching.
+
+        When enabled, every cache access trains the transition model.
+
+        Args:
+            enabled: Whether to enable prefetch training.
+        """
+        self._mem.cache.enable_prefetch(enabled)
+
+    def record_access(self, concept: str) -> None:
+        """Record a concept access for Markov model training.
+
+        Args:
+            concept: The concept label that was accessed.
+        """
+        self._mem.cache.record_access(concept)
+
+    def predict(self, concept: str, *, top_k: int = 3) -> list[str]:
+        """Predict likely next accesses based on the Markov model.
+
+        Args:
+            concept: Current concept label.
+            top_k: Maximum number of predictions.
+
+        Returns:
+            List of predicted concept labels, ordered by likelihood.
+        """
+        return self._mem.cache.predict_next(concept, top_k=top_k)
+
+    def warm(self, entries: dict[str, Any]) -> int:
+        """Pre-populate the cache with key-value pairs.
+
+        Args:
+            entries: Dict mapping concept labels to cache values.
+
+        Returns:
+            Number of newly added entries.
+        """
+        return self._mem.cache.prefetch_neighbors("", entries)
+
+
 class SearchNamespace:
     """Concept search, similarity, analogy, and spreading activation.
 
@@ -566,8 +621,10 @@ class SearchNamespace:
     def __init__(self, mem: HypergraphMemory) -> None:
         self._mem = mem
         self.feedback = SearchFeedbackSubNamespace(mem)
+        self.prefetch = SearchPrefetchSubNamespace(mem)
 
-    def query(self, concept: str, *, top_k: int = 10, use_ltr: bool = False) -> list[SearchHit]:
+    def query(self, concept: str, *, top_k: int = 10, iterations: int = 3,
+              use_ltr: bool = False) -> list[SearchHit]:
         """Retrieve concepts related to a query concept.
 
         Uses graph-based retrieval (BFS, PPR, RWR) with optional
@@ -576,16 +633,26 @@ class SearchNamespace:
         Args:
             concept: Label of the query concept.
             top_k: Maximum number of results.
+            iterations: Number of spreading activation iterations.
             use_ltr: Apply learned relevance scoring.
 
         Returns:
             List of SearchHit objects sorted by relevance.
         """
-        raw = self._mem.retrieve(concept, top_k=top_k, use_ltr=use_ltr)
+        if self._mem._embedding_engine is None:
+            self._mem._embedding_engine = EmbeddingEngine(self._mem._graph)
+        self._mem._retrieval._embedding = self._mem._embedding_engine
+        raw = self._mem._retrieval.retrieve(concept, top_k=top_k, iterations=iterations, use_ltr=use_ltr)
+        self._mem._log.record("retrieve", concept=concept, results=len(raw), method="rrf" if not use_ltr else "ltr")
         hits: list[SearchHit] = []
         for r in raw:
             data = self._mem.node_data(r.label) or {}
-            hits.append(SearchHit(label=r.label, score=r.rrf_score, data=data))
+            hits.append(SearchHit(
+                label=r.label, score=r.rrf_score, data=data,
+                activation=r.activation, similarity=r.similarity,
+                rrf_score=r.rrf_score, activation_rank=r.activation_rank,
+                similarity_rank=r.similarity_rank,
+            ))
         return hits
 
     def similar(self, concept: str, *, top_k: int = 10,
@@ -601,11 +668,18 @@ class SearchNamespace:
         Returns:
             List of SearchHit objects sorted by similarity.
         """
-        raw = self._mem.find_similar(concept, top_k=top_k, threshold=threshold)
+        if self._mem._embedding_engine is None:
+            self._mem._embedding_engine = EmbeddingEngine(self._mem._graph)
+        node = self._mem._find_node(concept)
+        if not node:
+            return []
+        raw = self._mem._embedding_engine.find_similar(node.id, top_k=top_k, threshold=threshold)
+        self._mem._log.record("find_similar", concept=concept, results=len(raw))
         return [
             SearchHit(
                 label=r.label_b if r.label_a == concept else r.label_a,
                 score=r.similarity,
+                similarity=r.similarity,
             )
             for r in raw
         ]
@@ -735,6 +809,26 @@ class AnalyzeNamespace:
         """
         return self._mem.single_source_distances(source, weighted=weighted)
 
+    def eccentricity(self, concept: str | None = None) -> int | dict[str, int]:
+        """Compute graph eccentricity.
+
+        Args:
+            concept: If given, returns eccentricity for that node.
+                If None, returns dict of all eccentricities.
+
+        Returns:
+            Single eccentricity value or dict mapping labels to values.
+        """
+        return self._mem.eccentricity(concept)
+
+    def diameter(self) -> int:
+        """Compute the graph diameter (maximum eccentricity)."""
+        return self._mem.diameter()
+
+    def radius(self) -> int:
+        """Compute the graph radius (minimum eccentricity)."""
+        return self._mem.radius()
+
     def centrality(self, method: CentralityMethod | list[CentralityMethod], *, top_k: int | None = None,
                     **kwargs: Any) -> dict[str, float] | dict[str, dict[str, float]]:
         """Compute centrality scores for all concepts.
@@ -755,23 +849,53 @@ class AnalyzeNamespace:
             return {m: self._single_centrality(m, top_k=top_k, **kwargs) for m in method}
         return self._single_centrality(method, top_k=top_k, **kwargs)
 
+    def _label_map(self, raw: dict[str, float]) -> dict[str, float]:
+        return {self._mem._node_label(nid): s for nid, s in raw.items()}
+
     def _single_centrality(self, method: str, *, top_k: int | None = None,
                            **kwargs: Any) -> dict[str, float]:
-        dispatch: dict[str, Any] = {
-            "degree": self._mem.degree_centrality,
-            "in_degree": lambda **kw: {k: float(v) for k, v in self._mem.in_degree().items()},
-            "out_degree": lambda **kw: {k: float(v) for k, v in self._mem.out_degree().items()},
-            "betweenness": self._mem.betweenness_centrality,
-            "pagerank": self._mem.pagerank,
-            "katz": self._mem.katz_centrality,
-            "h_eigenvector": self._mem.h_eigenvector_centrality,
-            "z_eigenvector": self._mem.z_eigenvector_centrality,
-            "c_eigenvector": self._mem.c_eigenvector_centrality,
-        }
-        fn = dispatch.get(method)
-        if fn is None:
+        _lm = self._label_map
+        if method == "degree":
+            result = _lm(self._mem._graph.degree_centrality())
+        elif method == "in_degree":
+            result = {k: float(v) for k, v in self._mem.in_degree().items()}
+        elif method == "out_degree":
+            result = {k: float(v) for k, v in self._mem.out_degree().items()}
+        elif method == "betweenness":
+            result = _lm(self._mem._graph.betweenness_centrality())
+        elif method == "pagerank":
+            alpha = kwargs.get("alpha", 0.85)
+            max_iter = kwargs.get("max_iter", 100)
+            tol = kwargs.get("tol", 1e-6)
+            weighted = kwargs.get("weighted", True)
+            if not weighted:
+                saved_weights = {e.id: e.weight for e in self._mem._graph.edges}
+                for edge in self._mem._graph.edges:
+                    edge.weight = 1.0
+                try:
+                    pr = self._mem._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
+                finally:
+                    for edge in self._mem._graph.edges:
+                        old_w = saved_weights.get(edge.id)
+                        if old_w is not None:
+                            edge.weight = old_w
+            else:
+                pr = self._mem._graph.pagerank(alpha=alpha, max_iterations=max_iter, tol=tol)
+            result = _lm(pr)
+        elif method == "katz":
+            result = _lm(self._mem._graph.katz_centrality(
+                alpha=kwargs.get("alpha", 0.1), beta=kwargs.get("beta", 1.0)))
+        elif method == "h_eigenvector":
+            result = _lm(self._mem._graph.h_eigenvector_centrality(
+                max_iter=kwargs.get("max_iter", 100), tol=kwargs.get("tol", 1e-6)))
+        elif method == "z_eigenvector":
+            result = _lm(self._mem._graph.z_eigenvector_centrality(
+                max_iter=kwargs.get("max_iter", 100), tol=kwargs.get("tol", 1e-6)))
+        elif method == "c_eigenvector":
+            result = _lm(self._mem._graph.c_eigenvector_centrality(
+                max_iter=kwargs.get("max_iter", 100), tol=kwargs.get("tol", 1e-6)))
+        else:
             raise ValueError(f"Unknown centrality method: {method!r}")
-        result = fn(**kwargs)
         if top_k is not None and isinstance(result, dict):
             return dict(sorted(result.items(), key=lambda x: -x[1])[:top_k])
         return result
@@ -799,6 +923,14 @@ class AnalyzeNamespace:
         """
         return self._mem.component_of(concept)
 
+    def largest_component(self) -> set[str]:
+        """Find the largest connected component.
+
+        Returns:
+            Set of concept labels in the largest component.
+        """
+        return self._mem.largest_connected_component()
+
     def cycles(self, *, max_cycles: int = 10) -> list[list[str]]:
         """Detect cycles in the graph.
 
@@ -814,6 +946,31 @@ class AnalyzeNamespace:
         """Check whether the graph contains any cycle."""
         return self._mem.has_cycle()
 
+    def transitive_closure(self) -> set[tuple[str, str]]:
+        """Compute the transitive closure of the directed graph.
+
+        Returns:
+            Set of (source_label, target_label) pairs for all reachable pairs.
+        """
+        return self._mem.transitive_closure()
+
+    def transitive_reduction(self) -> set[tuple[str, str]]:
+        """Compute the transitive reduction of the directed graph.
+
+        Returns:
+            Set of (source_label, target_label) pairs in the reduced graph.
+        """
+        return self._mem.transitive_reduction()
+
+    def longest_path(self) -> list[str]:
+        """Find the longest path in the graph (requires DAG).
+
+        Returns:
+            List of concept labels forming the longest path, or empty list
+            if the graph is not a DAG.
+        """
+        return self._mem.dag_longest_path()
+
     def communities(self, *, method: str = "label_propagation",
                     edge_label: str | None = None, seed: int = 42) -> CommunityResult:
         """Detect communities in the graph.
@@ -828,7 +985,19 @@ class AnalyzeNamespace:
         Returns:
             CommunityResult with community assignments.
         """
-        return self._mem.detect_communities(method=method, edge_label=edge_label, seed=seed)
+        if self._mem._community_detector is None:
+            self._mem._community_detector = CommunityDetector(self._mem._graph)
+        cd = self._mem._community_detector
+        if method == "weighted_label_propagation":
+            return cd.detect_weighted_label_propagation(seed=seed, edge_label=edge_label)
+        elif method == "connected_components":
+            return cd.detect_connected_components()
+        elif method == "louvain":
+            return cd.detect_louvain(seed=seed, edge_label=edge_label)
+        elif method == "girvan_newman":
+            return cd.detect_girvan_newman(edge_label=edge_label)
+        else:
+            return cd.detect_label_propagation(seed=seed, edge_label=edge_label)
 
     def hyperlink_communities(self, *, cut_height: float | None = None,
                                n_communities: int | None = None) -> HierarchicalCommunityResult:
@@ -864,6 +1033,24 @@ class AnalyzeNamespace:
             List of sets, each containing concept labels in one cluster.
         """
         return self._mem.spectral_clustering(k=k)
+
+    def laplacian(self):
+        """Compute the hypergraph Laplacian matrix.
+
+        Returns:
+            The Laplacian as a numpy array (node x node).
+        """
+        return self._mem.graph.hypergraph_laplacian()
+
+    def fiedler_vector(self) -> dict[str, float]:
+        """Compute the Fiedler vector (algebraic connectivity).
+
+        Returns:
+            Dict mapping concept labels to Fiedler vector components.
+        """
+        node_ids, values = self._mem.graph.fiedler_vector()
+        label_map = {nid: self._mem.node_label(nid) for nid in node_ids}
+        return {label_map.get(nid, nid): v for nid, v in zip(node_ids, values, strict=True)}
 
     def spersistence(self, *, max_s: int | None = None):
         """Compute s-persistence (hypergraph homology) levels.
@@ -956,18 +1143,70 @@ class AnalyzeNamespace:
         Returns:
             GraphDescription with summary statistics and narrative.
         """
-        return self._mem.describe()
+        g = self._mem._graph
+        node_types: dict[str, int] = {}
+        for node in g.nodes:
+            if isinstance(node.data, dict):
+                t = node.data.get("type") or node.data.get("kind") or "(untyped)"
+            else:
+                t = "(untyped)"
+            node_types[t] = node_types.get(t, 0) + 1
+        edge_labels: dict[str, int] = {}
+        for edge in g.edges:
+            lbl = edge.label or "(unlabeled)"
+            edge_labels[lbl] = edge_labels.get(lbl, 0) + 1
+        degrees = [len(g.incident_edges(nid)) for nid in g._nodes]
+        nc = g.node_count
+        ec = g.edge_count
+        deg_min = min(degrees) if degrees else 0
+        deg_max = max(degrees) if degrees else 0
+        deg_mean = sum(degrees) / len(degrees) if degrees else 0.0
+        deg_median = float(median(degrees)) if degrees else 0.0
+        isolated = sum(1 for d in degrees if d == 0)
+        components = len(g.connected_components())
+        density = ec / (nc * (nc - 1)) if nc > 1 else 0.0
+        return GraphDescription(
+            node_count=nc, edge_count=ec,
+            node_types=node_types, edge_labels=edge_labels,
+            degree_min=deg_min, degree_max=deg_max,
+            degree_mean=deg_mean, degree_median=deg_median,
+            isolated_nodes=isolated, components=components,
+            density=density,
+        )
 
-    def edges(self, *, label: str | None = None):
+    def edges(self, *, label: str | None = None,
+              min_source_cardinality: int = 1,
+              min_target_cardinality: int = 1):
         """List edges, optionally filtered by label.
 
         Args:
             label: Filter by edge label. If None, return all edges.
+            min_source_cardinality: Minimum number of source nodes.
+            min_target_cardinality: Minimum number of target nodes.
 
         Returns:
             List of LabeledEdge objects.
         """
-        return self._mem.edges_labeled(edge_label=label)
+        results: list[LabeledEdge] = []
+        for edge in self._mem._graph.edges:
+            if label is not None and edge.label != label:
+                continue
+            if len(edge.source_ids) < min_source_cardinality:
+                continue
+            if len(edge.target_ids) < min_target_cardinality:
+                continue
+            results.append(
+                LabeledEdge(
+                    id=edge.id,
+                    label=edge.label,
+                    source_labels=[n.label for sid in edge.source_ids if (n := self._mem._graph.get_node(sid))],
+                    target_labels=[n.label for tid in edge.target_ids if (n := self._mem._graph.get_node(tid))],
+                    weight=edge.weight,
+                    source_cardinality=len(edge.source_ids),
+                    target_cardinality=len(edge.target_ids),
+                )
+            )
+        return results
 
     def to_dual(self) -> dict[str, list[str]]:
         """Compute the dual hypergraph (nodes become edges, edges become nodes).
@@ -992,6 +1231,49 @@ class AnalyzeNamespace:
             List of (node_label, edge_label) pairs.
         """
         return self._mem.to_bipartite_graph()
+
+    def is_tree(self) -> bool:
+        """Check whether the graph is a tree."""
+        return self._mem.is_tree()
+
+    def spanning_tree(self) -> list[tuple[str, str]]:
+        """Compute a minimum spanning tree (Kruskal's algorithm).
+
+        Returns:
+            List of (source_label, target_label) edges in the spanning tree.
+        """
+        return self._mem.minimum_spanning_tree()
+
+    def max_flow(self, source: str, target: str) -> tuple[float, dict[tuple[str, str], float]]:
+        """Compute maximum flow between two concepts (Edmonds-Karp).
+
+        Args:
+            source: Source concept label.
+            target: Sink concept label.
+
+        Returns:
+            Tuple of (flow_value, flow_dict) where flow_dict maps
+            (source_label, target_label) pairs to flow amounts.
+        """
+        return self._mem.max_flow(source, target)
+
+    def min_cut(self, source: str | None = None, target: str | None = None) -> tuple[float, tuple[set[str], set[str]]]:
+        """Compute minimum cut.
+
+        If both source and target are given, computes the s-t min cut.
+        Otherwise computes the global minimum cut (Stoer-Wagner).
+
+        Args:
+            source: Source concept label (for s-t cut).
+            target: Target concept label (for s-t cut).
+
+        Returns:
+            Tuple of (cut_value, (source_side, sink_side)) where each
+            side is a set of concept labels.
+        """
+        if source is not None and target is not None:
+            return self._mem.min_cut_st(source, target)
+        return self._mem.min_cut_global()
 
     def capture_version(self) -> dict[str, int]:
         """Capture a snapshot of the graph as a version for later diffing.
@@ -1086,7 +1368,7 @@ class AnalyzeNamespace:
         Returns:
             AnomalyDetectionResult with status and scores.
         """
-        return self._mem.detect_structural_anomalies(concept, context=context, max_level=max_level)
+        return self._mem._anomaly_detector.reason_at_level(concept, context, max_level=max_level)
 
     def revise(self, *, strategy: str = "higher_confidence"):
         """Detect and resolve contradictory beliefs.
@@ -1383,6 +1665,18 @@ class MonitorNamespace:
         """
         return self._mem.validate_reasoning(seeds, rules=rules)
 
+    def evolve_with_feedback(self):
+        """Run an evolution cycle adapted by operational feedback.
+
+        Delegates to the facade's evolve_with_feedback method, which uses
+        OperationFeedback fitness trend, reinforced nodes, and suppressed
+        nodes to adjust evolution behavior.
+
+        Returns:
+            EvolveResult with the evolution summary.
+        """
+        return self._mem.evolve_with_feedback()
+
     def capability(self) -> CapabilityLevel:
         """Detect the system's current capability level.
 
@@ -1583,9 +1877,74 @@ class EngineAccessor:
         return self._mem.enricher
 
     @property
-    def meta(self):
+    def monitor(self):
         """The SystemMonitor (health and tuning)."""
         return self._mem.meta
+
+    @property
+    def bayesian(self):
+        """The BayesianLayer (classical Bayesian updating)."""
+        return self._mem._bayesian
+
+    @property
+    def activation(self):
+        """The SpreadingActivation engine."""
+        return self._mem._activation
+
+    @property
+    def hebbian(self):
+        """The HebbianLearner (association strengthening)."""
+        return self._mem.hebbian
+
+    @property
+    def multiway(self):
+        """The MultiwayEngine (multiway expansion), or None."""
+        return self._mem._multiway_engine
+
+    @property
+    def convergence(self):
+        """The StateConvergenceEngine (state merging), or None."""
+        return self._mem._convergence_engine
+
+    @property
+    def clustering(self):
+        """The StateClusteringEngine (coordinate mapping), or None."""
+        return self._mem._state_clustering
+
+    @property
+    def uncertainty(self):
+        """The UncertaintyEngine (confidence scores), or None."""
+        return self._mem.uncertainty
+
+    @property
+    def community(self):
+        """The CommunityDetector, or None."""
+        return self._mem._community_detector
+
+    @property
+    def differ(self):
+        """The GraphDiffer (version comparison), or None."""
+        return self._mem._graph_differ
+
+    @property
+    def abstraction(self):
+        """The AbstractionNavigator (collapse/expand), or None."""
+        return self._mem._abstraction_nav
+
+    @property
+    def structural(self):
+        """The StructuralPatternEngine (pattern matching), or None."""
+        return self._mem.structural_matcher
+
+    @property
+    def revision(self):
+        """The ContradictionResolver (belief revision), or None."""
+        return self._mem._belief_revision
+
+    @property
+    def overlay(self):
+        """The HypergraphOverlay (commit/rollback), or None."""
+        return self._mem.overlay
 
     @property
     def perspective(self):
