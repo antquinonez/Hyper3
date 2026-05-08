@@ -225,6 +225,7 @@ class TestDirSurface:
         "reason", "belief", "bayes", "search", "analyze",
         "temporal", "monitor", "cognitive", "engine",
         "graph", "log", "cache", "rules",
+        "recall_adaptive", "record_slice_outcome",
     }
 
     def test_dir_exactly_matches_expected_surface(self):

@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from hyper3.abstraction import AbstractionNavigator
+from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
@@ -101,6 +102,7 @@ class _MemoryBase:
     _basis_selector: BasisSelector | None
     _boundary_reasoning: BoundaryReasoningEngine | None
     _transcendental: TranscendentalInferenceEngine | None
+    _adaptive_slice: AdaptiveSliceEngine | None
 
     def _invalidate_frame_cache(self) -> None:
         if self._perspective._frame_cache is not None:

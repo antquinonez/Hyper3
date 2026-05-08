@@ -4,6 +4,13 @@ from hyper3.abstraction import (
     AbstractionNavigator,
     AbstractionSummary,
 )
+from hyper3.adaptive_slice import (
+    AdaptiveSliceEngine,
+    AdaptiveSliceReport,
+    RecommendedSlice,
+    SliceContext,
+    SliceOutcomeRecord,
+)
 from hyper3.backward_chain import (
     BackwardChainEngine,
     BackwardChainResult,
@@ -205,13 +212,13 @@ from hyper3.results import (
     DerivationInfo,
     DiscoverResult,
     DiscoveryAnalysis,
-    FrameContribution,
-    FusedReasonResult,
     EdgeInfo,
     EvolutionStats,
     EvolveResult,
     ExpansionInfo,
     FeedbackSummaryResult,
+    FrameContribution,
+    FusedReasonResult,
     GraphDescription,
     HealthReport,
     HyperedgeSimilarityResult,

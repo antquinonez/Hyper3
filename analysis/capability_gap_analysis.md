@@ -90,7 +90,7 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 | -- Boundary Reasoning | `BoundaryReasoningEngine` | Decidability boundary detection |
 | -- Transcendental Inference | `TranscendentalInferenceEngine` | Cross-domain pattern transfer |
 
-### Designed and Implemented (5 new engines, all DONE)
+### Designed and Implemented (6 new engines + 1 mixin method, all DONE)
 
 | Design # | Inspiration Cap | Engine | Commit |
 |----------|----------------|--------|--------|
@@ -99,6 +99,8 @@ Read the full 2854-line inspiration document (`inspiration/Rulial-Enhanced Hyper
 | 5 | C6 Measurement Basis Selection | `BasisSelector` | `60fef6e` |
 | 6 | C3/C2 Cross-Domain Pattern Transfer | `TranscendentalInferenceEngine` | `d08cc22` |
 | 7 | C4 Frame-Partitioned Caching | `FrameCache` | `cde4a7a` |
+| 8 | C10 Adaptive Observer-Slice Feedback Loop | `AdaptiveSliceEngine` | pending |
+| -- | C21 Multi-Path Confidence Fusion | `reason_fused()` mixin method | `bbb30ee` |
 
 ### Designed but NOT Implemented (2 designs)
 
@@ -149,15 +151,7 @@ After eliminating everything that is implemented, designed, or out of scope, **8
 
 ### 3. Adaptive Observer Slice Engine
 
-**What it does**: Learns effective `SliceConfig` parameters from usage patterns and dynamically refines observer perspectives based on feedback signals. Currently, observer slicing is static — users manually specify `SliceConfig`.
-
-**Interacts with**: `TraversalEngine`, `OperationFeedback`, `MultiPerspectiveAnalyzer`
-
-**New engine or extension**: New engine. The existing `TraversalEngine` is a pure query engine with no learning.
-
-**Complexity**: S-M (~200 LoC engine, ~150 LoC tests)
-
-**Why it matters**: Closes feedback loop between usage and view configuration. Reduces manual tuning burden.
+**Status**: DONE. Implemented as `AdaptiveSliceEngine` in `adaptive_slice.py` with Thompson sampling over a 100-cell grid (5 depths x 5 nodes x 4 weights). Wired into `CoreMixin` via `recall_adaptive()` and `record_slice_outcome()`. 24 unit tests in `test_adaptive_slice.py`. Exports in `__init__.py`.
 
 ### 4. Computational Density Mapper
 
@@ -211,7 +205,7 @@ After eliminating everything that is implemented, designed, or out of scope, **8
 |------|-----------|-------------|------------|-------|--------|
 | 1 | Causal Path Normalization | Yes | L | Core architecture claim. Path-independent reasoning. | |
 | 2 | Interference-Based Reasoning | Yes | M | Genuinely novel quantum-inspired capability. | |
-| 3 | Adaptive Observer Slice | Yes | S-M | Closes usage-to-view feedback loop. | |
+| 3 | Adaptive Observer Slice | Yes | S-M | Closes usage-to-view feedback loop. | DONE (AdaptiveSliceEngine) |
 | 4 | Computational Density Mapper | Extends RuleAnalytics | S | Completes computational self-location. | DONE (already in RuleAnalytics) |
 | 5 | Multi-Path Confidence Fusion | Mixin wiring | S | Extracts complementary value from all frames. | DONE (reason_fused) |
 | 6 | Branchial Path Optimizer | Extends StateClustering | M | Scales branchial navigation. | |
@@ -224,9 +218,9 @@ After eliminating everything that is implemented, designed, or out of scope, **8
 DONE:
   4. Computational Density Mapper (already in RuleAnalytics)
   5. Multi-Path Confidence Fusion (reason_fused in memory_reasoning.py)
+  3. Adaptive Observer Slice (AdaptiveSliceEngine in adaptive_slice.py)
 
 Next — Novel engines (new capabilities):
-  3. Adaptive Observer Slice
   2. Interference-Based Reasoning
 
 Large commitment:

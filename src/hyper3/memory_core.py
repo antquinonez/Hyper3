@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
+from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.kernel import (
@@ -88,6 +89,69 @@ class CoreMixin(_MemoryBase):
         result = self._observer.apply(start.id)
         self._log.record("recall", concept=concept, result_count=len(result))
         return result
+
+    def recall_adaptive(self, concept: str) -> list[Hypernode]:
+        """Recall with automatically selected slice parameters.
+
+        The adaptive slice engine recommends ``max_depth``, ``max_nodes``,
+        and ``min_weight`` based on the concept's local graph context and
+        past retrieval outcomes.  After retrieval, the outcome is recorded
+        for future adaptation.
+
+        Args:
+            concept: Label of the concept to recall.
+
+        Returns:
+            Filtered list of hypernodes from the adaptive slice.
+        """
+        node = self._find_node(concept)
+        if node is None:
+            return []
+        if self._adaptive_slice is None:
+            self._adaptive_slice = AdaptiveSliceEngine(self._graph)
+        recommended = self._adaptive_slice.recommend(node.id)
+        self._observer.configure(
+            max_depth=recommended.max_depth,
+            max_nodes=recommended.max_nodes,
+            min_weight=recommended.min_weight,
+        )
+        results = self._observer.apply(node.id)
+        self._log.record("recall_adaptive", concept=concept, result_count=len(results))
+        success = self._evaluate_slice_outcome(results, recommended.max_depth)
+        self._adaptive_slice.record_outcome(
+            node.id,
+            recommended.max_depth,
+            recommended.max_nodes,
+            recommended.min_weight,
+            success,
+        )
+        return results
+
+    def record_slice_outcome(
+        self,
+        concept: str,
+        max_depth: int,
+        max_nodes: int,
+        min_weight: float,
+        success: bool,
+    ) -> None:
+        """Record explicit feedback about a slice configuration's effectiveness."""
+        node = self._find_node(concept)
+        if node is None:
+            return
+        if self._adaptive_slice is None:
+            self._adaptive_slice = AdaptiveSliceEngine(self._graph)
+        self._adaptive_slice.record_outcome(
+            node.id, max_depth, max_nodes, min_weight, success
+        )
+
+    def _evaluate_slice_outcome(
+        self, results: list[Hypernode], max_depth: int,
+    ) -> bool:
+        n = len(results)
+        if n == 0:
+            return False
+        return not (n < 3 and max_depth < 7)
 
     def has(self, concept: str) -> bool:
         return self._find_node(concept) is not None

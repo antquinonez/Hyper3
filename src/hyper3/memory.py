@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from hyper3.abstraction import AbstractionNavigator
+from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
@@ -122,6 +123,7 @@ class HypergraphMemory(
         "reason", "belief", "bayes", "search", "analyze",
         "temporal", "monitor", "cognitive", "engine",
         "graph", "log", "cache", "rules",
+        "recall_adaptive", "record_slice_outcome",
     })
 
     def __dir__(self) -> list[str]:
@@ -211,6 +213,7 @@ class HypergraphMemory(
         self._basis_selector: BasisSelector | None = None
         self._boundary_reasoning: BoundaryReasoningEngine | None = None
         self._transcendental: TranscendentalInferenceEngine | None = None
+        self._adaptive_slice: AdaptiveSliceEngine | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None
         self._ns_bayes: BayesNamespace | None = None
