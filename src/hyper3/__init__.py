@@ -304,6 +304,13 @@ from hyper3.temporal import (
     TemporalReasoner,
     TimeInterval,
 )
+from hyper3.transcendental import (
+    InferenceProposal,
+    TranscendentalInferenceEngine,
+    TranscendentalInsight,
+    TranscendentalReport,
+    TransferablePattern,
+)
 from hyper3.traversal import ObserverSlice, SliceConfig, TraversalEngine
 from hyper3.types_api import (
     CentralityMethod,

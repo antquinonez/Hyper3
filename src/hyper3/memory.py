@@ -56,6 +56,7 @@ from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
+from hyper3.transcendental import TranscendentalInferenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
 from hyper3.uncertainty import UncertaintyEngine
 
@@ -207,6 +208,7 @@ class HypergraphMemory(
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None
         self._basis_selector: BasisSelector | None = None
+        self._transcendental: TranscendentalInferenceEngine | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None
         self._ns_bayes: BayesNamespace | None = None

@@ -126,6 +126,8 @@ class ReasoningMixin(_MemoryBase):
             self._rule_analytics.update_position()
             rule_analytics_report = self._rule_analytics.analyze()
 
+        self._post_reasoning_transcendental()
+
         return convergence_report, clustering_report, rule_analytics_report
 
     def _build_reason_result(
@@ -658,3 +660,15 @@ class ReasoningMixin(_MemoryBase):
     def compute_bias_profile(self) -> BiasProfileResult:
         """Analyze the system's computational biases from rule effectiveness data."""
         return self.rule_analytics.compute_bias_profile()
+
+    def _post_reasoning_transcendental(self) -> None:
+        if self._transcendental is None:
+            from hyper3.transcendental import TranscendentalInferenceEngine
+            self._transcendental = TranscendentalInferenceEngine(self._graph)
+        engine = self._transcendental
+        if self._rule_analytics is None:
+            return
+        insights = self._rule_analytics.insights
+        patterns = self._rule_analytics.meta_patterns
+        engine.ingest_analytics(insights, patterns)
+        engine.generate_proposals(context="reasoning")

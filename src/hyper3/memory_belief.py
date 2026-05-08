@@ -14,6 +14,7 @@ from hyper3.belief import (
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_anomaly import BoundaryRegion
+from hyper3.transcendental import TranscendentalInferenceEngine
 
 
 class BeliefMixin(_MemoryBase):
@@ -242,31 +243,51 @@ class BeliefMixin(_MemoryBase):
         return labeled
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
-        """Retrieve lateral insights from the clustering engine or multiway space for a concept.
-
-        Args:
-            seed_concept: Label of the seed node.
-
-        Returns:
-            List of normalized insight dicts with keys like
-            ``state_distance``, ``complementary_nodes``, and
-            ``transferable_patterns``.
-        """
         if not self._multiway_engine:
             return []
         node = self._find_node(seed_concept)
         if not node:
             return []
-        if self._state_clustering:
-            for state in self._multiway_engine.multiway.states:
-                if node.id in state.active_node_ids and state.is_leaf:
-                    raw = self._state_clustering.lateral_inference(state.id)
-                    return self._normalize_lateral_insights(raw)
+        leaf_state = None
         for state in self._multiway_engine.multiway.states:
             if node.id in state.active_node_ids and state.is_leaf:
-                raw = self._multiway_engine.get_lateral_insights(state.id)
-                return self._normalize_lateral_insights(raw)
-        return []
+                leaf_state = state
+                break
+        if leaf_state is None:
+            return []
+        results: list[dict[str, Any]] = []
+        if self._state_clustering:
+            raw = self._state_clustering.lateral_inference(leaf_state.id)
+            results = self._normalize_lateral_insights(raw)
+        if not results:
+            raw = self._multiway_engine.get_lateral_insights(leaf_state.id)
+            return self._normalize_lateral_insights(raw)
+        if self._transcendental is None:
+            self._transcendental = TranscendentalInferenceEngine(self._graph)
+        engine = self._transcendental
+        if self._state_clustering is not None:
+            peer_states: set[str] = set()
+            groups = self._state_clustering.build_simultaneity_groups()
+            for g in groups:
+                if leaf_state.id in g.state_ids:
+                    peer_states.update(g.state_ids)
+                    peer_states.discard(leaf_state.id)
+                    break
+            if peer_states:
+                enrichment = engine.get_lateral_enrichment(peer_states)
+                for pattern in enrichment:
+                    results.append({
+                        "source_state": "transcendental",
+                        "lateral_state": pattern.source_domain,
+                        "transfer_function": pattern.transfer_function,
+                        "transfer_params": pattern.transfer_params,
+                        "confidence": pattern.confidence,
+                        "novel_in_lateral": pattern.supporting_evidence,
+                        "complementary_nodes": [],
+                        "transferable_patterns": [],
+                        "state_distance": 0.0,
+                    })
+        return results
 
     def map_boundaries(self, concepts: list[str]) -> list[BoundaryRegion]:
         """Map structural anomaly boundaries (cyclic, high-centrality, contradictory regions) for concepts."""

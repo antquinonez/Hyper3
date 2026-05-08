@@ -49,6 +49,7 @@ from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
+from hyper3.transcendental import TranscendentalInferenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
 from hyper3.uncertainty import UncertaintyEngine
 
@@ -97,6 +98,7 @@ class _MemoryBase:
     _community_detector: CommunityDetector | None
     _graph_differ: GraphDiffer | None
     _basis_selector: BasisSelector | None
+    _transcendental: TranscendentalInferenceEngine | None
 
     def _invalidate_frame_cache(self) -> None:
         if self._perspective._frame_cache is not None:
