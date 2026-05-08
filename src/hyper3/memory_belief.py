@@ -15,6 +15,7 @@ from hyper3.boundary_reasoning import (
     BoundaryNavigationReport,
     DecidabilityAssessment,
 )
+from hyper3.entanglement import CorrelatedCollapseResult
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_anomaly import BoundaryRegion
@@ -222,6 +223,7 @@ class BeliefMixin(_MemoryBase):
             id_b = label_to_id.get(key_b, key_b)
             id_correlations[(id_a, id_b)] = corr
         result = self._belief.create_correlation(node_ids_a, node_ids_b, id_correlations)
+        self._register_entanglement_for_correlation(result)
         self._log.record("correlate", group_a=group_a, group_b=group_b, correlation_id=result.id)
         return result
 
@@ -245,6 +247,37 @@ class BeliefMixin(_MemoryBase):
             pred_label = self._node_label(predicted_id)
             labeled[label] = pred_label
         return labeled
+
+    def sample_entangled(
+        self, qs: BeliefState
+    ) -> CorrelatedCollapseResult | str | None:
+        result = self._belief.sample_entangled(qs.id)
+        if result is None:
+            return None
+        if isinstance(result, CorrelatedCollapseResult):
+            return result
+        if isinstance(result, Outcome):
+            return result.label
+        return None
+
+    def _register_entanglement_for_correlation(self, corr: ConceptCorrelation) -> None:
+        group_a_dists: list[str] = []
+        group_b_dists: list[str] = []
+        for qs in self._belief._states.values():
+            if qs.resolved:
+                continue
+            has_a = any(o.node_id in corr.group_a_node_ids for o in qs.outcomes)
+            has_b = any(o.node_id in corr.group_b_node_ids for o in qs.outcomes)
+            if has_a:
+                group_a_dists.append(qs.id)
+            if has_b:
+                group_b_dists.append(qs.id)
+        for a_id in group_a_dists:
+            for b_id in group_b_dists:
+                if a_id != b_id:
+                    self._belief.entanglement.register_link(
+                        a_id, b_id, corr.id, corr.strength
+                    )
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
         if not self._multiway_engine:

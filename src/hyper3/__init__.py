@@ -87,6 +87,13 @@ from hyper3.enrichment import (
     LLMProvider,
     RegexExtractor,
 )
+from hyper3.entanglement import (
+    CorrelatedCollapseResult,
+    EntanglementEngine,
+    EntanglementGroup,
+    EntanglementLink,
+    EntanglementReport,
+)
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
