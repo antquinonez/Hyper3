@@ -653,7 +653,7 @@ class StructuralAnomalyDetector:
         insights.append(f"Boundary score {indicator.boundary_score:.2f} indicates structural anomaly")
         return insights
 
-    def _find_concept_node(self, concept: str):
+    def _find_concept_node(self, concept: str) -> Any:
         """Look up a graph node by its label."""
         return self._graph.get_node_by_label(concept)
 

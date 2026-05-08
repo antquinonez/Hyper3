@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.backward_chain import BackwardChainEngine
@@ -278,31 +280,31 @@ class HypergraphMemory(
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
 
-    def centrality(self, method, *, top_k=None, **kwargs):
+    def centrality(self, method, *, top_k=None, **kwargs) -> Any:
         return self.analyze.centrality(method, top_k=top_k, **kwargs)
 
-    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10):
+    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[str] | None:
         return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
 
-    def communities(self, **kwargs):
+    def communities(self, **kwargs) -> Any:
         return self.analyze.communities(**kwargs)
 
-    def anomalies(self, concept, **kwargs):
+    def anomalies(self, concept, **kwargs) -> Any:
         return self.analyze.anomalies(concept, **kwargs)
 
-    def similar(self, concept, **kwargs):
+    def similar(self, concept, **kwargs) -> Any:
         return self.search.similar(concept, **kwargs)
 
-    def edges(self, **kwargs):
+    def edges(self, **kwargs) -> Any:
         return self.analyze.edges(**kwargs)
 
     @property
-    def frame_cache_stats(self):
+    def frame_cache_stats(self) -> Any:
         if self._perspective._frame_cache is None:
             return None
         return self._perspective._frame_cache.stats()
 
-    def invalidate_frame_cache(self, frame=None):
+    def invalidate_frame_cache(self, frame=None) -> int:
         fc = self._perspective._frame_cache
         if fc is None:
             return 0

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from typing import Any
 
 from hyper3.kernel_base import _GraphBase
 
@@ -539,7 +540,7 @@ class CentralityMixin(_GraphBase):
         edge_cent = {eid: float(y[j]) for j, eid in enumerate(edge_list)}
         return node_cent, edge_cent
 
-    def _s_line_graph(self, s: int):
+    def _s_line_graph(self, s: int) -> Any:
         import networkx as nx
 
         lg = nx.Graph()
@@ -558,7 +559,7 @@ class CentralityMixin(_GraphBase):
                         lg.add_edge(e1.id, e2.id)
         return lg
 
-    def _bipartite_projection(self):
+    def _bipartite_projection(self) -> Any:
         import networkx as nx
 
         bp = nx.Graph()

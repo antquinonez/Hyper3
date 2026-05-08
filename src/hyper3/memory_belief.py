@@ -369,7 +369,7 @@ class BeliefMixin(_MemoryBase):
             normalized.append(n)
         return normalized
 
-    def compute_density_matrix(self, state_id: str):
+    def compute_density_matrix(self, state_id: str) -> Any:
         """Compute the density matrix for a belief state by ID."""
         return self._belief.compute_density_matrix(state_id)
 
