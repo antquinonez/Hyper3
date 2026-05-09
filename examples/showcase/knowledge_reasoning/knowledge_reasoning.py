@@ -137,6 +137,9 @@ def main() -> None:
         print(f"\n  inverse edges (caused_by):")
         for lbl, src, tgt in sorted(inverse_edges):
             print(f"    {src} -[{lbl}]-> {tgt}")
+        print()
+        print("  Inverse edges enable backward causal queries like")
+        print("  'what caused death?' -> lung_cancer, heart_disease")
 
     prevented_by_edges = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="prevented_by") if e.source_labels and e.target_labels]
     if prevented_by_edges:
@@ -172,6 +175,11 @@ def main() -> None:
     else:
         print(f"\n  No low-confidence concepts found.")
 
+    if low:
+        print()
+        print("  Low-confidence concepts indicate where additional evidence")
+        print("  or relationships would strengthen the knowledge graph.")
+
     print(f"\n  Confidence chains (highest-confidence paths):")
     chains_to_check = [
         ("smoking", "death"),
@@ -184,6 +192,16 @@ def main() -> None:
             print(f"    {src} -> {tgt}: confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
 
     print("\n" + "=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print()
+    print("  1. Transitive inference discovers hidden causal chains")
+    print("  2. Backward chaining proves goals from known facts")
+    print("  3. Provenance makes every inference auditable")
+    print("  4. Belief revision detects and resolves contradictions")
+    print("  5. Inverse rules enable bidirectional causal queries")
+    print("  6. Confidence scoring identifies knowledge gaps")
+    print()
     print("DONE")
 
 

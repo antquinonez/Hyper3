@@ -106,6 +106,8 @@ def main():
         print("  Transitive rules confirmed existing chains")
 
     print("\nSECTION 5: Explaining substitution: butter -> applesauce...")
+    print("  (Note: the transitive chain was materialized as a direct edge")
+    print("  by reason() in Section 4, so explain_substitution reports it as direct)")
     explanation = engine.explain_substitution("butter", "applesauce")
     if explanation:
         direct = explanation.get("direct", True)

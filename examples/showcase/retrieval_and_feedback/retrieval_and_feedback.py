@@ -623,19 +623,6 @@ def main():
         print(f"    Overlap: {len(overlap)}/5  {sorted(overlap) if overlap else '(none)'}")
         print()
 
-    # =====================================================================
-    # SUMMARY
-    # =====================================================================
-
-    print("=" * 70)
-    print("SUMMARY")
-    print("=" * 70)
-    stats = mem.stats()
-    print(f"  Graph:     {stats.nodes} nodes, {stats.edges} edges")
-    print(f"  Events:    {stats.log_size}")
-    print(f"  Feedback:  {mem.feedback.size} judgments across {len(queries)} queries")
-    print(f"  LTR model: trained with {report.get('samples', 0)} samples")
-
     print()
     print("=" * 70)
     print("SECTION 9: Threat Chain Discovery via Reasoning")
@@ -671,6 +658,10 @@ def main():
     print("SECTION 10: Threat Cluster Identification")
     print("=" * 70)
     print()
+    print("  Community detection groups related threats with their mitigations")
+    print("  and detection tools, enabling rapid identification of defense")
+    print("  coverage gaps and attack surface clustering.")
+    print()
 
     comm_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities detected: {comm_result.community_count}")
@@ -686,7 +677,7 @@ def main():
     print("=" * 70)
     print()
 
-    threats = ["zero_day", "apt29", "supply_chain_attack", "ransomware", "insider_threat"]
+    threats = ["zero_day", "apt", "supply_chain_attack", "ransomware", "insider_threat"]
     for threat in threats:
         if mem.has(threat):
             anomaly = mem.analyze.anomalies(threat)
@@ -694,6 +685,15 @@ def main():
             score = anomaly.boundary_score if anomaly else 0.0
             print(f"    {threat:25s} status={status:12s} boundary_score={score:.4f}")
 
+    print()
+    print("=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    stats = mem.stats()
+    print(f"  Graph:     {stats.nodes} nodes, {stats.edges} edges")
+    print(f"  Events:    {stats.log_size}")
+    print(f"  Feedback:  {mem.feedback.size} judgments across {len(queries)} queries")
+    print(f"  LTR model: trained with {report.get('samples', 0)} samples")
     print()
     print(f"  Key takeaway: RRF fuses graph topology (activation) with")
     print(f"  embedding similarity. Relevance feedback teaches the system")

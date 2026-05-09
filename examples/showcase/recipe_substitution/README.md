@@ -20,6 +20,8 @@ Traditional substitution tables store pairwise relationships in flat lists or re
 - **Transitive discovery**: If butter substitutes for coconut_oil, and coconut_oil substitutes for applesauce, a flat table will not find that butter can substitute for applesauce without an explicit entry. Hyper3's `mem.neighbors()` BFS traversal discovers these chains automatically — the demo finds applesauce via a 2-hop path even though no direct butter → applesauce edge exists. For deeper inference, `mem.reason()` with `TransitiveRule` materializes transitive edges so they become first-class relationships.
 - **N-ary groups**: A substitution group like {butter, margarine, coconut_oil} represents a shared property ("fat for baking"). Storing this as a single hyperedge preserves the group semantics rather than decomposing into pairwise links that lose context.
 - **Self-maintenance**: Real substitution databases accumulate stale entries. The graph maintenance engine decays unused edges, prunes irrelevant ingredients, and reinforces popular substitutions without manual curation. In the demo, evolution merges 1 duplicate node pair and reduces the graph from 14 to 13 nodes.
+- **Dietary context**: The same ingredient produces different best substitutes depending on dietary constraints. A vegan cook needs different substitutions than a low-fat baker. Belief distributions with context-dependent sampling model this naturally.
+- **Personalization**: Bayesian updating learns from individual ratings, so the system improves its recommendations over time based on each user's preferences.
 
 ## Usage
 
@@ -100,6 +102,8 @@ SECTION 4: Transitive chain discovery via mem.reason()...
   Transitive rules confirmed existing chains
 
 SECTION 5: Explaining substitution: butter → applesauce...
+  (Note: the transitive chain was materialized as a direct edge
+  by reason() in Section 4, so explain_substitution reports it as direct)
   Direct edge: True
   Confidence: 1.00
 
@@ -118,6 +122,19 @@ SECTION 8: Triggering self-evolution...
   Reinforced: 0
   Merged: 1
   Graph after evolution: 13 nodes, 13 edges
+
+SECTION 9: Context-dependent substitution...
+  Vegan context -> flax_eggs (prob=0.2500)
+  Low-fat context -> coconut_oil (prob=0.2500)
+  Baking context -> margarine (prob=0.2500)
+
+SECTION 10: Learning from user ratings...
+  After 5 ratings, MAP estimate for butter: coconut_oil
+  Posterior distribution:
+    coconut_oil          0.5391
+    margarine            0.3206
+    applesauce           0.0798
+    flax_eggs            0.0605
 
 ======================================================================
 DEMO COMPLETE

@@ -365,14 +365,23 @@ def main() -> None:
     print()
 
     print(f"  Stochastic default sampling (10 draws):")
+    draw_counts: dict[str, int] = {}
     for i in range(10):
         answer = mem.sample(qs)
         if answer:
             node = mem.engine.graph.get_node(answer.node_id)
             lbl = node.label if node else answer.node_id
+            draw_counts[lbl] = draw_counts.get(lbl, 0) + 1
             print(f"    Draw {i + 1:2d}: {lbl}")
         else:
             print(f"    Draw {i + 1:2d}: no result")
+    if draw_counts:
+        dominant = max(draw_counts, key=draw_counts.get)
+        dominant_prob = sum(abs(o.amplitude) ** 2 for o in qs.outcomes
+                           if (mem.engine.graph.get_node(o.node_id).label if mem.engine.graph.get_node(o.node_id) else "") == dominant)
+        dominant_prob_norm = dominant_prob / total_prob if total_prob > 0 else 0
+        print(f"\n  {dominant} drawn {draw_counts[dominant]}/10 times, consistent with")
+        print(f"  its dominant probability of {dominant_prob_norm:.3f}.")
     print()
 
     qs_risk = mem.belief.create(
@@ -449,7 +458,8 @@ def main() -> None:
         print(f"    {' -> '.join(path)}")
 
     print()
-    print("  Running feedback-driven evolution...")
+    print("  Running feedback-driven evolution to adjust edge weights")
+    print("  based on which risk paths were activated during analysis:")
     ev_result = mem.evolve_with_feedback()
     print(f"    Reinforced: {ev_result.reinforced}")
     print(f"    Suppressed: {ev_result.suppressed}")

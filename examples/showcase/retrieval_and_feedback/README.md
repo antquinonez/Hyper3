@@ -30,7 +30,7 @@ Run the showcase to build a 177-node cybersecurity knowledge base and demonstrat
 
 ### What You'll See
 
-The example builds a cybersecurity/IT operations graph and runs 8 analysis sections:
+The example builds a cybersecurity/IT operations graph and runs 11 analysis sections:
 
 ```
 ======================================================================
@@ -241,6 +241,52 @@ Comparing the top-5 results from activation and embedding for 5 different query 
 
 Zero overlap across all query types. The hash embedding produces completely disjoint results from graph activation. This confirms the two signals capture orthogonal information — which is what RRF fusion exploits — but also confirms the hash embedding is not capturing semantic relationships a real embedding provider would.
 
+### Section 9: Threat Chain Discovery via Reasoning
+
+Transitive rules discover multi-hop attack chains that retrieval alone cannot find. A `TransitiveRule` on the `enables` label chains vulnerability-to-threat edges:
+
+```python
+mem.add_rules(TransitiveRule(edge_label="enables", new_label="enables_chain"))
+result = mem.reason(seeds={"sql_injection", "phishing"}, max_depth=3, auto_commit=True)
+```
+
+In the 177-node graph, the `enables` edges form a star topology (vulnerabilities enabling individual threats) without two-hop chains, so the rule confirms existing relationships rather than discovering new ones. In denser threat graphs where vulnerabilities chain through shared CWEs or products, transitive reasoning uncovers attack paths invisible to single-hop retrieval.
+
+**Why this matters:** Retrieval finds nodes connected to the query. Reasoning finds nodes connected to nodes connected to the query. For threat intelligence, this distinction separates "what is directly related" from "what is reachable through an attack chain."
+
+### Section 10: Threat Cluster Identification
+
+Community detection groups related threats with their mitigations and detection tools, enabling rapid identification of defense coverage gaps and attack surface clustering:
+
+```
+Communities detected: 25
+Modularity: 0.6827
+Coverage: 0.8008
+  Cluster (36 nodes): buffer_overflow, rootkit, keylogger, zero_day, apt, supply_chain_attack
+  Cluster (23 nodes): ransomware, insider_threat, data_exfiltration, misconfig_s3_bucket, dlp, encryption_at_rest
+  Cluster (16 nodes): ddos, brute_force, credential_stuffing, cve_2023_44487, weak_tls, default_credentials
+```
+
+The largest cluster (36 nodes) groups advanced persistent threats with their detection tools. The second largest (23 nodes) clusters data-related threats with their defensive controls (DLP, encryption). These clusters reveal whether the knowledge base has adequate detection and mitigation coverage for each threat family.
+
+**Why this matters:** A threat without mitigation or detection tools in its cluster represents a defense gap. Community detection surfaces these gaps by showing which threats are isolated from their controls.
+
+### Section 11: Anomalous Threat Pattern Detection
+
+Structural anomaly detection flags threats with unusual connectivity patterns:
+
+```
+zero_day              status=low_risk     boundary_score=0.0009
+apt                   status=low_risk     boundary_score=0.1217
+supply_chain_attack   status=low_risk     boundary_score=0.1217
+ransomware            status=low_risk     boundary_score=0.1234
+insider_threat        status=low_risk     boundary_score=0.1217
+```
+
+All threats classify as low_risk because the knowledge base models them with typical threat-control-response patterns. An anomalous threat would have unusual connectivity (e.g., connected to infrastructure but not to any controls or detection tools), indicating either a novel attack vector or a modeling gap.
+
+**Why this matters:** In a real threat intelligence graph, anomalous threats warrant deeper investigation — they may represent emerging attack techniques that haven't been mapped to existing defenses.
+
 ## 6. Understanding Output
 
 ### Activation Score Interpretation
@@ -294,6 +340,12 @@ Zero overlap across all query types. The hash embedding produces completely disj
 | LTR weight: similarity | +0.0717 |
 | Activation/embedding overlap (5 queries) | 0/5 for all |
 | Event log entries | 457 |
+| Threat reasoning: states created | 1 |
+| Threat reasoning: edges inferred | 0 |
+| Threat communities detected | 25 |
+| Threat community modularity | 0.6827 |
+| Threat community coverage | 0.8008 |
+| Anomaly detection: all threats | low_risk |
 
 ## 8. What Makes This Different
 

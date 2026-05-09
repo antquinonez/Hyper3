@@ -387,6 +387,11 @@ def main() -> None:
     print("=" * 70)
     print("SECTION 8: Multiway Reasoning with Merge Insights")
     print("=" * 70)
+    print()
+    print("  Now we use the multiway engine directly to explore how different")
+    print("  reasoning branches converge on the same conclusions. This shows")
+    print("  whether multiple rule applications lead to equivalent states.")
+    print()
 
     from hyper3 import MultiwayEngine, StateConvergenceEngine
 
@@ -418,6 +423,9 @@ def main() -> None:
                   f"unique_edges={len(insight.unique_edges)}")
     if len(invariants) > 5:
         print(f"    ... and {len(invariants) - 5} more merges")
+    if not invariants:
+        print("  No convergent states found -- after cleanup, the graph has")
+        print("  too few same-label chains for the rules to produce merges.")
     print()
 
     print("=" * 70)

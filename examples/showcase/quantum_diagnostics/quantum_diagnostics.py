@@ -428,6 +428,9 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
             node = mem.engine.graph.get_node(partner_id)
             label = node.label if node else partner_id[:12]
             print(f"    {label}: prediction={prediction}")
+        print()
+        print("  Positive predictions mean the correlated outcome is expected")
+        print("  to activate; negative means the anti-correlated outcome is expected.")
     else:
         print("    (no correlated predictions -- state not linked to correlation)")
     print()
@@ -731,7 +734,7 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
 
 def section_9_bayesian_comparison() -> None:
     print("=" * 70)
-    print("SECTION 7: Honest Comparison with Bayesian Inference")
+    print("SECTION 9: Honest Comparison with Bayesian Inference")
     print("=" * 70)
     print()
     print("  The quantum formalism in Hyper3 is mathematically equivalent to")

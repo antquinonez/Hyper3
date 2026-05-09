@@ -302,14 +302,14 @@ print("━" * 72)
 print("""
 Forward reasoning (Step 3) discovers what COULD be true.
 Backward chaining proves what MUST be true given observed symptoms.
-For car diagnostics: given these symptoms, can we prove this failure?
+For car diagnostics: given the battery, can we prove the crankshaft turns?
 """)
 
 proof = mem.prove(
-    "engine_overheating",
-    known_facts={"high_temperature", "coolant_leak", "low_coolant"},
+    "crankshaft",
+    known_facts={"battery"},
 )
-print(f"Prove engine_overheating from symptoms:")
+print(f"Prove crankshaft turns (from battery):")
 print(f"  Achievable: {proof.achievable}")
 print(f"  Goal: {proof.goal_label}")
 print(f"  Confidence: {proof.confidence:.4f}")
@@ -317,20 +317,22 @@ if proof.proof_tree:
     print(f"  Proof tree depth: {proof.proof_tree.depth}")
     for step in proof.proof_tree.steps:
         print(f"    step: {step.goal_label} (rule: {step.rule_name})")
+else:
+    print("  No proof tree -- goal not reachable from known facts")
 print()
 
-candidates = ["dead_battery", "alternator_failure", "fuel_system_failure"]
-print("Batch proving multiple candidate root causes:")
+candidates = ["starter_motor", "spark_plug", "combustion_chamber"]
+print("Batch proving multiple component chains from battery:")
 results = mem.prove_batch(
     candidates,
-    known_facts={"engine_wont_start", "clicking_sound", "dim_headlights"},
+    known_facts={"battery"},
 )
 for r in results:
     status = "PROVABLE" if r.achievable else "not provable"
     print(f"  {r.goal_label:25s} {status}")
 
 print()
-print("Confidence assessment across the knowledge graph:")
+print("Confidence assessment after reasoning and proof:")
 all_conf = mem.compute_all_confidences()
 print(f"  Average confidence: {all_conf.avg_confidence:.4f}")
 low = mem.flag_low_confidence(threshold=0.5)

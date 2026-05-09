@@ -75,6 +75,17 @@ SECTION 5: BELIEF REVISION (CONTRADICTION DETECTION)
 contradictions detected: 2
 revision: 1 edges removed, 1 kept
   total revised: 1
+
+======================================================================
+SUMMARY
+======================================================================
+
+  1. Transitive inference discovers hidden causal chains
+  2. Backward chaining proves goals from known facts
+  3. Provenance makes every inference auditable
+  4. Belief revision detects and resolves contradictions
+  5. Inverse rules enable bidirectional causal queries
+  6. Confidence scoring identifies knowledge gaps
 ```
 
 ## 4. The Scenario
@@ -183,6 +194,10 @@ After all reasoning and revision, the confidence subsystem evaluates the quality
 - `trace_confidence_chain(source, target)` finds the highest-confidence path between two concepts
 
 **Why this matters**: After revision removes contradictory edges, the confidence assessment reveals whether the remaining graph is trustworthy. Low-confidence concepts indicate knowledge gaps where additional evidence or relationships are needed.
+
+### Summary
+
+The final summary connects all six demonstrated capabilities back to the knowledge reasoning use case: transitive inference discovers hidden chains, backward chaining proves conclusions, provenance makes inferences auditable, belief revision maintains consistency, inverse rules enable bidirectional queries, and confidence scoring identifies where the knowledge graph needs strengthening.
 
 ## 6. Key Metrics
 

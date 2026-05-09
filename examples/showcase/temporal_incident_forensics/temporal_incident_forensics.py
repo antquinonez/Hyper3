@@ -134,6 +134,10 @@ def main() -> None:
             print(f"    Chain {i + 1}: {' -> '.join(chain)}")
     else:
         print("  No causal chains detected (requires edges between temporal events)")
+        print("  Temporal events are registered independently from the infrastructure")
+        print("  graph. To detect causal chains, we need graph edges connecting them,")
+        print("  representing the 'this event caused that event' relationship.")
+        print()
         print("  Registering timeline links to enable chain detection...")
 
         timeline_links = [
@@ -170,6 +174,7 @@ def main() -> None:
             print(f"    {issue}")
     else:
         print("  No consistency issues found -- timeline is internally consistent")
+        print(f"  ({len(constraints)} Allen relations inferred from {len(events)} events)")
     print()
 
     print("=" * 70)
@@ -188,8 +193,13 @@ def main() -> None:
 
     centrality = mem.analyze.centrality("betweenness", top_k=5)
     print(f"\n  Betweenness centrality (infrastructure bottlenecks):")
+    top_centrality = list(centrality.items())[:1]
     for label, score in list(centrality.items())[:5]:
         print(f"    {label:25s} {score:.4f}")
+    if top_centrality:
+        print(f"\n  {top_centrality[0][0]} has the highest betweenness centrality,")
+        print(f"  confirming it is the primary bottleneck -- any issue routing")
+        print(f"  through this node affects all downstream services.")
     print()
 
     print("=" * 70)
