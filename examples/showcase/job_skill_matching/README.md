@@ -176,7 +176,9 @@ After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges
 ## 9. Usage
 
 ```python
-from job_skill_matching.engine import JobSkillMatchingEngine
+# The demo uses sys.path manipulation; for library use:
+# from job_skill_matching.engine import JobSkillMatchingEngine
+from engine import JobSkillMatchingEngine
 
 # Initialize engine (registers TransitiveRule for chain discovery)
 engine = JobSkillMatchingEngine(evolve_interval=0)

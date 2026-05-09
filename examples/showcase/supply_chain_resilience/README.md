@@ -310,9 +310,9 @@ suppliers = {
                                 "single_source": True, "material": "semiconductor"},
 }
 for name, data in suppliers.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
-mem.relate("sup_t2_china_silicon", "sup_t1_germany_semicon", label="supplies_to")
+mem.link("sup_t2_china_silicon", "sup_t1_germany_semicon", label="supplies_to")
 ```
 
 ### Identifying Single Points of Failure
@@ -333,7 +333,7 @@ mem.add_rules(
 )
 
 result = mem.reason(
-    seed_concepts=cascade_seeds,
+    seeds=cascade_seeds,
     max_depth=3,
     max_total_states=50,
 )
@@ -368,15 +368,15 @@ for path in paths:
 | Method | Purpose |
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
-| `mem.store(name, data=...)` | Add a typed node with attributes |
-| `mem.relate(src, tgt, label=...)` | Create a directed edge between nodes |
-| `mem.degree_centrality()` | Compute normalized degree for all nodes |
-| `mem.betweenness_centrality()` | Compute normalized betweenness for all nodes |
+| `mem.add(name, data=...)` | Add a typed node with attributes |
+| `mem.link(src, tgt, label=...)` | Create a directed edge between nodes |
+| `mem.analyze.centrality("degree")` | Compute normalized degree for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute normalized betweenness for all nodes |
 | `mem.add_rules(...)` | Register inference rules |
-| `mem.reason(seed_concepts=..., max_depth=..., max_total_states=...)` | Run multiway reasoning |
+| `mem.reason(seeds=..., max_depth=..., max_total_states=...)` | Run multiway reasoning |
 | `mem.pattern_match(edge_label=...)` | Find edges matching a label |
 | `mem.find_paths(src, tgt, max_depth=..., max_paths=...)` | Trace paths between nodes |
-| `mem.connected_components()` | Find connected subgraphs |
+| `mem.analyze.components()` | Find connected subgraphs |
 | `mem.engine.graph.get_node_by_label(name)` | Look up a node by its label |
 | `top_k(scores, k=N)` | Get top N items from a centrality dict |
 

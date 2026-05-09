@@ -202,10 +202,10 @@ Store 129 module nodes with category, team, language, test coverage, and other m
 
 ```python
 for label, data in all_modules.items():
-    mem.store(label, data=data)
+    mem.add(label, data=data)
 
 for src, tgt, label in unique_edges:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 ```
 
 **Result:** 129 nodes, 343 edges. The graph is the single representation; every subsequent section queries it differently.
@@ -215,8 +215,8 @@ for src, tgt, label in unique_edges:
 Combine degree centrality (how many direct connections) and betweenness centrality (how many shortest paths pass through) to rank modules by criticality:
 
 ```python
-degree = mem.degree_centrality()
-betweenness = mem.betweenness_centrality()
+degree = mem.analyze.centrality("degree")
+betweenness = mem.analyze.centrality("betweenness")
 
 combined = {}
 for label in all_modules:
@@ -266,8 +266,8 @@ Apply `TransitiveRule` to find indirect dependency chains:
 mem.add_rules(TransitiveRule(edge_label="depends_on",
                               new_label="indirectly_depends_on"))
 result = mem.reason(
-    seed_concepts=chain_seeds,
-    max_depth=3,
+    seeds=chain_seeds,
+    depth=3,
     max_total_states=50,
 )
 ```
@@ -374,11 +374,11 @@ Capture a version snapshot of the graph, make changes, then compute the diff:
 ```python
 baseline = mem.capture_version()
 
-mem.store("svc.graphql", data={...})
-mem.relate("svc.graphql", "core.engine", label="depends_on")
-mem.relate("svc.graphql", "core.pipeline", label="depends_on")
-mem.relate("svc.graphql", "svc.auth", label="depends_on")
-mem.relate("svc.graphql", "util.tracing", label="imports")
+mem.add("svc.graphql", data={...})
+mem.link("svc.graphql", "core.engine", label="depends_on")
+mem.link("svc.graphql", "core.pipeline", label="depends_on")
+mem.link("svc.graphql", "svc.auth", label="depends_on")
+mem.link("svc.graphql", "util.tracing", label="imports")
 
 delta = mem.diff_from_version(baseline["version_id"])
 ```
@@ -600,17 +600,17 @@ for i, name in enumerate(["core.engine", "core.runtime", ...], start=1):
 
 ```python
 for label, data in all_modules.items():
-    mem.store(label, data=data)
+    mem.add(label, data=data)
 
 for src, tgt, label in unique_edges:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 ```
 
 **3. Centrality and criticality ranking**
 
 ```python
-degree = mem.degree_centrality()
-betweenness = mem.betweenness_centrality()
+degree = mem.analyze.centrality("degree")
+betweenness = mem.analyze.centrality("betweenness")
 
 combined = {}
 for label in all_modules:
@@ -638,7 +638,7 @@ print(f"blast radius = {len(affected)} modules")
 ```python
 mem.add_rules(TransitiveRule(edge_label="depends_on",
                               new_label="indirectly_depends_on"))
-result = mem.reason(seed_concepts=chain_seeds, max_depth=3,
+result = mem.reason(seeds=chain_seeds, depth=3,
                      max_total_states=50)
 new_edges = mem.pattern_match(edge_label="indirectly_depends_on")
 ```
@@ -668,7 +668,7 @@ pkg_core = mem.collapse_subgraph(
 print(f"collapsed {pkg_core.edges_collapsed} edges, "
       f"{pkg_core.external_connections} external connections")
 
-abstract_centrality = mem.degree_centrality()
+abstract_centrality = mem.analyze.centrality("degree")
 for label, score in top_k(abstract_centrality, k=5):
     print(f"  {label}: centrality={score:.3f}")
 
@@ -680,8 +680,8 @@ expand_result = mem.expand_summary("pkg_core")
 ```python
 baseline = mem.capture_version()
 
-mem.store("svc.graphql", data={...})
-mem.relate("svc.graphql", "core.engine", label="depends_on")
+mem.add("svc.graphql", data={...})
+mem.link("svc.graphql", "core.engine", label="depends_on")
 
 delta = mem.diff_from_version(baseline["version_id"])
 print(f"Nodes added: {len(delta.nodes_added)}")
@@ -713,14 +713,14 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a module node with metadata |
-| `mem.relate(source, target, label)` | Create a labeled dependency edge |
-| `mem.degree_centrality()` | Compute degree centrality for all nodes |
-| `mem.betweenness_centrality()` | Compute betweenness centrality |
+| `mem.add(label, data)` | Create a module node with metadata |
+| `mem.link(source, target, label)` | Create a labeled dependency edge |
+| `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute betweenness centrality |
 | `mem.detect_cycles(max_cycles)` | Find circular dependency chains |
 | `mem.query(label, strategy, max_depth)` | BFS/DFS traversal for blast radius |
 | `mem.add_rules(TransitiveRule(...))` | Register transitive inference rule |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules via multiway expansion |
+| `mem.reason(seeds, depth)` | Apply rules via multiway expansion |
 | `mem.pattern_match(edge_label)` | Find edges by label |
 | `mem.stats()` | Graph statistics (nodes, edges, components) |
 | `mem.collapse_subgraph(labels, summary_label, summary_data)` | Replace a node group with a summary node |

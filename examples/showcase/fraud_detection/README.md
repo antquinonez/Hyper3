@@ -173,10 +173,10 @@ Build the graph from seven entity dictionaries and nine edge groups:
 mem = HypergraphMemory(evolve_interval=0)
 
 for label, data in all_nodes.items():
-    mem.store(label, data=data)
+    mem.add(label, data=data)
 
 for src, tgt in transferred_to_edges:
-    mem.relate(src, tgt, label="transferred_to")
+    mem.link(src, tgt, label="transferred_to")
 ```
 
 **Result:** 119 nodes, 237 edges. The graph contains the full fraud network: persons, accounts, transactions, shell companies, patterns, IP/device traces, and alerts.
@@ -207,8 +207,8 @@ mem.add_rules(
 )
 
 reason_result = mem.reason(
-    seed_concepts={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
-    max_depth=3,
+    seeds={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
+    depth=3,
     max_total_states=50,
 )
 ```
@@ -260,7 +260,7 @@ for label, data in persons.items():
     if data.get("risk_score", 0) >= 0.60:
         flagged_node_labels.add(label)
 
-components = mem.connected_components()
+components = mem.analyze.components()
 for comp in components:
     overlap = comp & flagged_node_labels
     if len(overlap) >= 3:
@@ -274,7 +274,7 @@ for comp in components:
 Rank suspects by betweenness centrality to identify who brokers between clusters:
 
 ```python
-betweenness = mem.betweenness_centrality()
+betweenness = mem.analyze.centrality("betweenness")
 ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
 ```
 
@@ -289,7 +289,7 @@ Assign probabilistic fraud scores to suspects using belief distributions with co
 ```python
 suspects = ["viktor_kingpin", "lena_lieutenant", "katya_recruiter",
             "pavel_tech", "irina_accountant"]
-qs = mem.create_distribution(suspects)
+qs = mem.belief.create(suspects)
 
 for outcome in qs.outcomes:
     prob = abs(outcome.amplitude) ** 2
@@ -315,7 +315,7 @@ anomaly_targets = [
 ]
 
 for concept in anomaly_targets:
-    result = mem.detect_structural_anomalies(concept)
+    result = mem.analyze.anomalies(concept)
 ```
 
 **Why this matters:** Accounts involved in circular money flows have a distinctive structural signature: they sit on cycles and receive edges with contradictory labels (both sending and receiving money through the same networks). Anomaly detection surfaces these structural red flags automatically. Without it, an analyst would need to trace each account's position in every detected cycle -- a manual process that becomes impractical as the number of cycles grows.
@@ -495,7 +495,7 @@ all_nodes.update(accounts)
 all_nodes.update(transactions)
 
 for label, data in all_nodes.items():
-    mem.store(label, data=data)
+    mem.add(label, data=data)
 ```
 
 **3. Create Typed Relationships**
@@ -509,7 +509,7 @@ edge_groups = {
 
 for label, pairs in edge_groups.items():
     for src, tgt in pairs:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 ```
 
 **4. Triage Alerts with Activation**
@@ -527,8 +527,8 @@ mem.add_rules(
     TransitiveRule(edge_label="transferred_to", new_label="transfers_indirectly"),
 )
 reason_result = mem.reason(
-    seed_concepts={"acct_zenith_holdings"},
-    max_depth=3,
+    seeds={"acct_zenith_holdings"},
+    depth=3,
 )
 indirect = mem.pattern_match(edge_label="transfers_indirectly")
 ```
@@ -546,14 +546,14 @@ transferred = mem.pattern_match(edge_label="transferred_to")
 **7. Rank Suspects by Betweenness**
 
 ```python
-betweenness = mem.betweenness_centrality()
+betweenness = mem.analyze.centrality("betweenness")
 ranked = sorted(suspects.items(), key=lambda x: -betweenness.get(x[0], 0))
 ```
 
 **8. Probabilistic Fraud Scoring**
 
 ```python
-qs = mem.create_distribution(["viktor_kingpin", "katya_recruiter", ...])
+qs = mem.belief.create(["viktor_kingpin", "katya_recruiter", ...])
 for outcome in qs.outcomes:
     prob = abs(outcome.amplitude) ** 2
 
@@ -565,7 +565,7 @@ label = node.label if node else answer.node_id
 **9. Structural Anomaly Detection**
 
 ```python
-result = mem.detect_structural_anomalies("acct_zenith_holdings")
+result = mem.analyze.anomalies("acct_zenith_holdings")
 print(f"status={result.anomaly_status}  boundary_score={result.boundary_score:.4f}")
 for insight in result.structural_insights:
     print(f"  insight: {insight}")
@@ -624,22 +624,22 @@ Hyper3 provides graph construction, traversal, reasoning, and analysis. The foll
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a node with metadata |
-| `mem.relate(source, target, label)` | Create a typed edge between nodes |
+| `mem.add(label, data)` | Create a node with metadata |
+| `mem.link(source, target, label)` | Create a typed edge between nodes |
 | `mem.activate(concept, energy, top_k)` | Spreading activation from a node |
-| `mem.retrieve(concept, top_k, iterations)` | Retrieve related entities |
+| `mem.search.query(concept, top_k, iterations)` | Retrieve related entities |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules to discover new edges |
+| `mem.reason(seeds, depth)` | Apply rules to discover new edges |
 | `mem.pattern_match(edge_label)` | Find all edges with a given label |
 | `mem.detect_cycles(max_cycles)` | Find circular paths |
-| `mem.degree_centrality()` | Compute degree centrality for all nodes |
-| `mem.betweenness_centrality()` | Compute betweenness centrality for all nodes |
-| `mem.connected_components()` | Identify connected clusters |
+| `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
+| `mem.analyze.components()` | Identify connected clusters |
 | `mem.subgraph(labels)` | Extract a subgraph around specific nodes |
-| `mem.find_similar(concept, top_k)` | Find structurally similar nodes |
-| `mem.create_distribution(concepts)` | Create a belief distribution over concepts |
+| `mem.search.similar(concept, top_k)` | Find structurally similar nodes |
+| `mem.belief.create(concepts)` | Create a belief distribution over concepts |
 | `mem.sample(distribution)` | Born-rule sample from a belief distribution |
-| `mem.detect_structural_anomalies(concept)` | Detect structural anomalies around a node |
+| `mem.analyze.anomalies(concept)` | Detect structural anomalies around a node |
 | `mem.prove(target, known_facts)` | Trace evidence chain from known facts to target |
 | `mem.stats()` | Get graph statistics |
 
