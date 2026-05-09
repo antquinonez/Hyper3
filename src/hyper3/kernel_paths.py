@@ -511,7 +511,7 @@ class PathMixin(_GraphBase):
         """Compute minimum spanning edges via Kruskal algorithm. Operates on the pairwise projection. Note: a k-node hyperedge generates k*(k-1)/2 candidate edges, each with the hyperedge weight."""
         if not self._nodes:
             return []
-        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight, reverse=True)
+        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight)
         parent: dict[str, str] = {nid: nid for nid in self._nodes}
         rank: dict[str, int] = {nid: 0 for nid in self._nodes}
 

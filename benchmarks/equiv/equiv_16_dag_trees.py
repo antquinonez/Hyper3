@@ -214,11 +214,7 @@ def _test_minimum_spanning_tree(t: EquivRunner) -> None:
             edge = nx_g.get_edge_data(u, v) or nx_g.get_edge_data(v, u)
             if edge:
                 h3_total += edge["weight"]
-        if abs(h3_total - nx_weight) < 0.01:
-            t.check("minimum_spanning_tree/weight", True)
-        else:
-            t.skip("minimum_spanning_tree/weight",
-                   f"known divergence: H3={h3_total:.1f} vs NX={nx_weight:.1f}")
+        t.check_close("minimum_spanning_tree/weight", h3_total, nx_weight, tol=0.01)
 
 
 def _test_minimum_spanning_edges(t: EquivRunner) -> None:
