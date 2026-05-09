@@ -131,6 +131,7 @@ class TransformMixin(_GraphBase):
         return G
 
     def to_directed_line_graph(self) -> nx.DiGraph:
+        """Compute the directed line graph where hyperedge A connects to hyperedge B if A targets overlap with B sources."""
         G = nx.DiGraph()
         edge_list = list(self._edges.values())
         for edge in edge_list:
@@ -244,3 +245,22 @@ class TransformMixin(_GraphBase):
                 if intersection > 0 and union > 0:
                     result[(top_list[i], top_list[j])] = intersection / union
         return result
+
+    def is_isomorphic(self, other: Hypergraph) -> bool:
+        """Test graph isomorphism against another Hypergraph via pairwise projection."""
+        G1 = self._pairwise_undirected_nx()
+        G2 = other._pairwise_undirected_nx()
+        return nx.is_isomorphic(G1, G2)
+
+    def could_be_isomorphic(self, other: Hypergraph) -> bool:
+        """Fast pre-check for possible graph isomorphism. Returns False if definitely not isomorphic, True if possibly isomorphic. Delegates to networkx via pairwise projection."""
+        G1 = self._pairwise_undirected_nx()
+        G2 = other._pairwise_undirected_nx()
+        return nx.could_be_isomorphic(G1, G2)
+
+    def graph_edit_distance(self, other: Hypergraph, *, timeout: float | None = None) -> float | None:
+        """Compute the graph edit distance to another Hypergraph. Returns None if the computation times out. Delegates to networkx via pairwise projection."""
+        G1 = self._pairwise_undirected_nx()
+        G2 = other._pairwise_undirected_nx()
+        result = nx.graph_edit_distance(G1, G2, timeout=timeout)
+        return float(result) if result is not None else None

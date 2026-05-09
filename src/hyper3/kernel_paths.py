@@ -303,6 +303,7 @@ class PathMixin(_GraphBase):
         return succ
 
     def is_dag(self) -> bool:
+        """Check whether the graph is a directed acyclic graph. Operates on the pairwise projection of hyperedge source-to-target pairs."""
         if not self._nodes:
             return True
         succ = self._projected_successors()
@@ -323,6 +324,7 @@ class PathMixin(_GraphBase):
         return visited == len(self._nodes)
 
     def topological_sort(self) -> list[str] | None:
+        """Return a topological ordering of nodes via Kahn algorithm. Returns None if the graph contains a cycle. Operates on the pairwise projection of hyperedge source-to-target pairs."""
         if not self._nodes:
             return []
         succ = self._projected_successors()
@@ -345,6 +347,7 @@ class PathMixin(_GraphBase):
         return order
 
     def transitive_closure(self) -> set[tuple[str, str]]:
+        """Compute the transitive closure as a set of (source, target) pairs via BFS from every node. Operates on the pairwise projection."""
         if not self._nodes:
             return set()
         succ = self._projected_successors()
@@ -367,6 +370,7 @@ class PathMixin(_GraphBase):
         return closure
 
     def transitive_reduction(self) -> set[tuple[str, str]]:
+        """Remove redundant edges from the transitive closure. Operates on the pairwise projection."""
         closure = self.transitive_closure()
         if not closure:
             return set()
@@ -385,6 +389,7 @@ class PathMixin(_GraphBase):
         return reduction
 
     def dag_longest_path(self) -> list[str]:
+        """Return the longest path in a DAG by node count. Operates on the pairwise projection."""
         order = self.topological_sort()
         if order is None:
             return []
@@ -410,6 +415,7 @@ class PathMixin(_GraphBase):
         return path
 
     def dag_longest_path_length(self) -> int:
+        """Return the length (in edges) of the longest path in a DAG. Returns -1 if the graph is not a DAG. Operates on the pairwise projection."""
         order = self.topological_sort()
         if order is None:
             return -1
@@ -443,6 +449,7 @@ class PathMixin(_GraphBase):
         return len(seen)
 
     def is_tree(self) -> bool:
+        """Check whether the graph is a tree. Note: a single k-node hyperedge (k >= 3) produces a k-clique in the pairwise projection, making this return False. This is a known semantic limitation of pairwise projection for tree/forest queries."""
         if not self._nodes:
             return False
         n = len(self._nodes)
@@ -461,6 +468,7 @@ class PathMixin(_GraphBase):
         return len(visited) == n
 
     def is_forest(self) -> bool:
+        """Check whether the graph is a forest (collection of trees). Same pairwise-projection caveat as is_tree."""
         if not self._nodes:
             return True
         n = len(self._nodes)
@@ -496,6 +504,7 @@ class PathMixin(_GraphBase):
         return True
 
     def minimum_spanning_edges(self) -> list[str]:
+        """Compute minimum spanning edges via Kruskal algorithm. Operates on the pairwise projection. Note: a k-node hyperedge generates k*(k-1)/2 candidate edges, each with the hyperedge weight."""
         if not self._nodes:
             return []
         edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight, reverse=True)
@@ -533,6 +542,7 @@ class PathMixin(_GraphBase):
         return result
 
     def minimum_spanning_tree(self) -> list[tuple[str, str]]:
+        """Return the minimum spanning tree as a list of (node, node) pairs. Note: only the first two members of each selected hyperedge are returned; additional members are dropped. Operates on the pairwise projection."""
         edge_ids = self.minimum_spanning_edges()
         result: list[tuple[str, str]] = []
         for eid in edge_ids:
@@ -544,6 +554,7 @@ class PathMixin(_GraphBase):
         return result
 
     def spanning_tree_count(self) -> int:
+        """Count spanning trees via Kirchhoff cofactor determinant on the pairwise Laplacian. Note: counts trees in the clique-expanded graph, which overcounts for hypergraphs."""
         if not self._nodes:
             return 0
         n = len(self._nodes)
@@ -566,6 +577,7 @@ class PathMixin(_GraphBase):
         return max(det, 0)
 
     def tree_center(self) -> list[str]:
+        """Find the center node(s) of a tree via iterative leaf stripping. Returns empty list if the graph is not a tree."""
         if not self._nodes:
             return []
         if not self.is_tree():
@@ -607,6 +619,7 @@ class PathMixin(_GraphBase):
         return adj
 
     def max_flow(self, source_id: str, target_id: str) -> tuple[float, dict[tuple[str, str], float]]:
+        """Compute maximum flow between source and target using Edmonds-Karp (BFS augmenting paths). Operates on the pairwise projection with capacities summed across all (source, target) pairs from each hyperedge."""
         if source_id not in self._nodes or target_id not in self._nodes:
             return 0.0, {}
         if source_id == target_id:
@@ -659,6 +672,7 @@ class PathMixin(_GraphBase):
         return total_flow, result_flow
 
     def min_cut_st(self, source_id: str, target_id: str) -> tuple[float, tuple[set[str], set[str]]]:
+        """Compute the minimum s-t cut from the residual graph of max_flow. Operates on the pairwise projection."""
         flow_value, flow_dict = self.max_flow(source_id, target_id)
         cap = self._build_capacity_map()
         residual: dict[tuple[str, str], float] = dict(cap)
@@ -682,6 +696,7 @@ class PathMixin(_GraphBase):
         return flow_value, (source_side, sink_side)
 
     def min_cut_global(self) -> tuple[float, tuple[set[str], set[str]]]:
+        """Compute the global minimum cut using Stoer-Wagner algorithm. Operates on the pairwise projection."""
         if len(self._nodes) < 2:
             return 0.0, (set(self._nodes.keys()), set())
         node_list = list(self._nodes.keys())
@@ -763,6 +778,7 @@ class PathMixin(_GraphBase):
         return [(u, v, weight_map[pair]) for pair, (u, v) in pair_order.items()]
 
     def max_weight_matching(self) -> set[frozenset[str]]:
+        """Compute a greedy maximum weight matching on the pairwise projection. Note: a k-node hyperedge with weight w generates k*(k-1)/2 matching candidates, each with weight w."""
         edges = self._undirected_weighted_edges()
         edges.sort(key=lambda e: e[2], reverse=True)
         matched: set[str] = set()
@@ -775,6 +791,7 @@ class PathMixin(_GraphBase):
         return result
 
     def bipartite_maximum_matching(self, left_set: set[str], right_set: set[str]) -> set[frozenset[str]]:
+        """Compute maximum bipartite matching using Hopcroft-Karp algorithm on the directed pairwise projection."""
         adj: dict[str, list[str]] = {u: [] for u in left_set}
         for edge in self._edges.values():
             for s in edge.source_ids:
@@ -829,6 +846,7 @@ class PathMixin(_GraphBase):
         return result
 
     def bipartite_max_weight_matching(self, left_set: set[str], right_set: set[str]) -> set[frozenset[str]]:
+        """Compute greedy maximum weight bipartite matching on the pairwise projection."""
         edges = self._undirected_weighted_edges()
         edges.sort(key=lambda e: e[2], reverse=True)
         matched: set[str] = set()
@@ -842,6 +860,7 @@ class PathMixin(_GraphBase):
         return result
 
     def min_edge_cover(self) -> set[frozenset[str]]:
+        """Compute a minimum edge cover from the matching plus uncovered-node edges. Operates on the pairwise projection."""
         if not self._nodes:
             return set()
         matching = self.max_weight_matching()
@@ -860,6 +879,7 @@ class PathMixin(_GraphBase):
         return result
 
     def minimum_cycle_basis(self) -> list[list[str]]:
+        """Compute a minimum cycle basis using Horton cycles and GF(2) Gaussian elimination. Note: every k-node hyperedge (k >= 3) produces a spurious cycle in the pairwise projection. A single hyperedge on {A,B,C} appears as triangle A-B-C, which is not a cycle in the hypergraph."""
         if not self._nodes:
             return []
         nbrs = self._projected_undirected_neighbors()
@@ -957,6 +977,7 @@ class PathMixin(_GraphBase):
         return lg
 
     def s_walk_shortest_path(self, source_edge: str, target_edge: str, *, s: int = 1) -> list[str] | None:
+        """Find the shortest s-walk between two edges in the s-line graph. Delegates to networkx."""
         lg = self._build_s_line_graph(s)
         if source_edge not in lg or target_edge not in lg:
             return None
@@ -966,6 +987,7 @@ class PathMixin(_GraphBase):
             return None
 
     def s_walk_shortest_path_length(self, source_edge: str, target_edge: str, *, s: int = 1) -> float:
+        """Return the s-walk shortest path length between two edges. Returns inf if no path. Delegates to networkx."""
         lg = self._build_s_line_graph(s)
         if source_edge not in lg or target_edge not in lg:
             return float("inf")
@@ -975,9 +997,25 @@ class PathMixin(_GraphBase):
             return float("inf")
 
     def s_walk_distance_matrix(self, *, s: int = 1) -> dict[str, dict[str, float]]:
+        """Compute all-pairs shortest s-walk distances between edges. Delegates to networkx."""
         lg = self._build_s_line_graph(s)
         lengths = dict(nx.all_pairs_shortest_path_length(lg))
         result: dict[str, dict[str, float]] = {}
         for src, targets in lengths.items():
             result[src] = {tgt: float(d) for tgt, d in targets.items()}
         return result
+
+    def is_eulerian(self) -> bool:
+        """Check whether the graph has an Eulerian circuit. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return nx.is_eulerian(G)
+
+    def eulerian_circuit(self) -> list[tuple[str, str]]:
+        """Return the edges of an Eulerian circuit as a list of (u, v) pairs. Raises networkx.NetworkXError if the graph is not Eulerian. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return [(u, v) for u, v in nx.eulerian_circuit(G)]
+
+    def has_eulerian_path(self) -> bool:
+        """Check whether the graph has an Eulerian path. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return nx.has_eulerian_path(G)

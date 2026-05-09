@@ -7,11 +7,13 @@ from hyper3.kernel_coloring import ColoringMixin
 from hyper3.kernel_components import ComponentMixin
 from hyper3.kernel_cycles import CycleMixin
 from hyper3.kernel_dynamics import DynamicsMixin
+from hyper3.kernel_link_prediction import LinkPredictionMixin
 from hyper3.kernel_paths import PathMixin
 from hyper3.kernel_pattern import PatternMixin
 from hyper3.kernel_query import QueryMixin
 from hyper3.kernel_similarity import SimilarityMixin
 from hyper3.kernel_spectral import SpectralMixin
+from hyper3.kernel_structural import StructuralMixin
 from hyper3.kernel_transforms import TransformMixin
 from hyper3.kernel_types import AbstractionLayer as AbstractionLayer
 from hyper3.kernel_types import Hyperedge as Hyperedge
@@ -34,5 +36,7 @@ class Hypergraph(
     SimilarityMixin,
     DynamicsMixin,
     ColoringMixin,
+    LinkPredictionMixin,
+    StructuralMixin,
 ):
     """Directed hypergraph with n-ary edges, label/dimension indexes, lazy neighbor caching, batch mutation support, and native algorithms for paths, centrality, PageRank, spectral embedding, and s-persistence."""

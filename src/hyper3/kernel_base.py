@@ -29,6 +29,7 @@ class _GraphBase:
     def subgraph(self, node_ids: set[str]) -> Any: ...
     def _bfs_all_distances(self, source: str) -> dict[str, float]: ...
     def _pairwise_undirected_nx(self) -> Any: ...
+    def _node_data_attr(self, attribute: str) -> dict[str, Any]: ...
 
 
 class CoreMixin(_GraphBase):
@@ -240,3 +241,11 @@ class CoreMixin(_GraphBase):
         if self._cache_invalidated_in_batch:
             self._neighbor_cache = None
             self._cache_invalidated_in_batch = False
+
+    def _node_data_attr(self, attribute: str) -> dict[str, Any]:
+        """Extract a named attribute from all nodes that have it in their data dict. Returns a node-id to value mapping."""
+        return {
+            nid: node.data[attribute]
+            for nid, node in self._nodes.items()
+            if node.data and attribute in node.data
+        }

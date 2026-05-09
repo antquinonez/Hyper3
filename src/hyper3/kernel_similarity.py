@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import networkx as nx
+
 from hyper3.kernel_base import _GraphBase
 from hyper3.results import HyperedgeSimilarityResult
 
@@ -69,3 +71,18 @@ class SimilarityMixin(_GraphBase):
                 score = intersection / len(query_nodes | edge_nodes)
             scores.append((eid, score))
         return scores
+
+    def simrank_similarity(self, *, source: str | None = None, importance_factor: float = 0.9, max_iterations: int = 100) -> dict[str, dict[str, float]] | dict[str, float]:
+        """Compute SimRank node similarity. When source is given, returns a flat dict; otherwise returns a nested dict. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result: dict[str, dict[str, float]] = nx.simrank_similarity(G, source=source, importance_factor=importance_factor, max_iterations=max_iterations)  # type: ignore[assignment]
+        if source is not None:
+            flat: dict[str, float] = nx_result  # type: ignore[assignment]
+            return {nid: float(v) for nid, v in flat.items() if nid in self._nodes}
+        return {k: {nid: float(v) for nid, v in inner.items() if nid in self._nodes} for k, inner in nx_result.items() if k in self._nodes}
+
+    def panther_similarity(self, source: str, *, k: int = 5, path_length: int = 5, seed: int | None = None) -> dict[str, float]:
+        """Compute approximate top-k node similarity to a source node using the PANTER algorithm. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.panther_similarity(G, source, k=k, path_length=path_length, seed=seed)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}

@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections import deque
 from typing import Any
 
+import networkx as nx
+
 from hyper3.kernel_base import _GraphBase
 
 
@@ -404,6 +406,7 @@ class CentralityMixin(_GraphBase):
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
 
     def h_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute hypergraph h-eigenvector centrality using tensor power iteration on the hyperedge incidence structure."""
         import numpy as np
 
         if not self._nodes:
@@ -447,6 +450,7 @@ class CentralityMixin(_GraphBase):
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
 
     def z_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Compute hypergraph z-eigenvector centrality using normalized tensor power iteration."""
         import numpy as np
 
         if not self._nodes:
@@ -483,9 +487,11 @@ class CentralityMixin(_GraphBase):
         return {nid: float(x[i]) for i, nid in enumerate(node_list)}
 
     def c_eigenvector_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> dict[str, float]:
+        """Alias for eigenvector_centrality (standard co-occurrence matrix eigenvector centrality)."""
         return self.eigenvector_centrality(max_iter=max_iter, tol=tol)
 
     def node_edge_centrality(self, *, max_iter: int = 100, tol: float = 1e-6) -> tuple[dict[str, float], dict[str, float]]:
+        """Compute joint node-edge centrality using the bipartite incidence structure. Returns (node_centrality, edge_centrality) dicts."""
         import numpy as np
 
         if not self._nodes:
@@ -541,8 +547,7 @@ class CentralityMixin(_GraphBase):
         return node_cent, edge_cent
 
     def _s_line_graph(self, s: int) -> Any:
-        import networkx as nx
-
+        """Build an s-line graph where each hyperedge becomes a node and edges connect hyperedges sharing at least s vertices. Delegates to networkx."""
         lg = nx.Graph()
         edge_ids = list(self._edges.keys())
         for eid in edge_ids:
@@ -560,8 +565,7 @@ class CentralityMixin(_GraphBase):
         return lg
 
     def _bipartite_projection(self) -> Any:
-        import networkx as nx
-
+        """Build a bipartite graph with N:-prefixed real nodes and E:-prefixed edge nodes. Delegates to networkx."""
         bp = nx.Graph()
         node_prefix = "N:"
         edge_prefix = "E:"
@@ -575,8 +579,7 @@ class CentralityMixin(_GraphBase):
         return bp, node_prefix, edge_prefix
 
     def s_walk_betweenness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
-        import networkx as nx
-
+        """Compute s-walk betweenness centrality. When kind="edges", operates on the s-line graph (edges as nodes). When kind="nodes", operates on the bipartite projection (N:/E: prefixed). Note: the node variant computes centrality on a bipartite graph where edge-entities inflate path lengths, so results differ from standard node betweenness. Delegates to networkx."""
         if kind == "edges":
             lg = self._s_line_graph(s)
             if lg.number_of_nodes() == 0:
@@ -591,8 +594,7 @@ class CentralityMixin(_GraphBase):
             return {k[len(npre):]: v for k, v in bc.items() if k.startswith(npre)}
 
     def s_walk_closeness(self, *, s: int = 1, kind: str = "edges") -> dict[str, float]:
-        import networkx as nx
-
+        """Compute s-walk closeness centrality. Same kind parameter and bipartite-projection caveat as s_walk_betweenness. Delegates to networkx."""
         if kind == "edges":
             lg = self._s_line_graph(s)
             if lg.number_of_nodes() == 0:
@@ -605,3 +607,53 @@ class CentralityMixin(_GraphBase):
                 return {}
             cc = nx.closeness_centrality(bp)
             return {k[len(npre):]: v for k, v in cc.items() if k.startswith(npre)}
+
+    def harmonic_centrality(self, *, source: str | None = None) -> dict[str, float]:
+        """Compute harmonic centrality for all or a subset of nodes. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.harmonic_centrality(G, nbunch=source)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def information_centrality(self) -> dict[str, float]:
+        """Compute information centrality for all nodes. Requires a connected graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.information_centrality(G)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def load_centrality(self) -> dict[str, float]:
+        """Compute load centrality (normalized) for all nodes. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.load_centrality(G, normalized=True)
+        if not isinstance(nx_result, dict):
+            return {}
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def current_flow_betweenness_centrality(self, *, weight: str | None = None) -> dict[str, float]:
+        """Compute current-flow betweenness centrality. Requires a connected graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.current_flow_betweenness_centrality(G, weight=weight)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def current_flow_closeness_centrality(self) -> dict[str, float]:
+        """Compute current-flow closeness centrality. Requires a connected graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.current_flow_closeness_centrality(G)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def approximate_current_flow_betweenness_centrality(self, *, seed: int | None = None) -> dict[str, float]:
+        """Compute approximate current-flow betweenness centrality. Requires a connected graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx_result = nx.approximate_current_flow_betweenness_centrality(G, seed=seed)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def percolation_centrality(self, percolation_attribute: str) -> dict[str, float]:
+        """Compute percolation centrality using a node data attribute as the percolation state. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        nx.set_node_attributes(G, self._node_data_attr(percolation_attribute), percolation_attribute)
+        nx_result = nx.percolation_centrality(G, percolation_attribute)
+        return {nid: float(v) for nid, v in nx_result.items() if nid in self._nodes}
+
+    def voterank(self, *, number_of_nodes: int | None = None) -> list[str]:
+        """Return a ranked list of influential nodes using VoteRank. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return [nid for nid in nx.voterank(G, number_of_nodes=number_of_nodes) if nid in self._nodes]

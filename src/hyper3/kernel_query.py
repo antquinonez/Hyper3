@@ -381,6 +381,7 @@ class QueryMixin(_GraphBase):
         return float(corr) if not np.isnan(corr) else 0.0
 
     def subhypergraph_by_order(self, orders: set[int]) -> Hypergraph:
+        """Return a new Hypergraph containing only edges of the specified orders (order = |node_ids| - 1). All nodes are preserved."""
         from hyper3.kernel import Hypergraph
 
         result = Hypergraph()
@@ -393,12 +394,9 @@ class QueryMixin(_GraphBase):
         return result
 
     def attribute_assortativity(self, attribute: str) -> float:
+        """Compute assortativity coefficient for a node data attribute. Only nodes with the attribute participate. Delegates to networkx via pairwise clique projection."""
         G = self._pairwise_undirected_nx()
-        node_attrs = {}
-        for nid, node in self._nodes.items():
-            val = node.data.get(attribute) if node.data else None
-            if val is not None:
-                node_attrs[nid] = val
+        node_attrs = self._node_data_attr(attribute)
         nx.set_node_attributes(G, node_attrs, attribute)
         nodes_with_attr = {n for n in G.nodes if n in node_attrs}
         if len(nodes_with_attr) < 2:
@@ -407,6 +405,7 @@ class QueryMixin(_GraphBase):
         return float(nx.attribute_assortativity_coefficient(subG, attribute))
 
     def _pairwise_undirected_nx(self) -> nx.Graph:
+        """Build an undirected networkx Graph from the hypergraph via clique expansion (each hyperedge becomes a complete pairwise subgraph). No weights or labels are preserved."""
         G = nx.Graph()
         for nid in self._nodes:
             G.add_node(nid)
@@ -418,10 +417,42 @@ class QueryMixin(_GraphBase):
         return G
 
     def average_neighbor_degree(self, nodes: set[str] | None = None) -> dict[str, float]:
+        """Compute the average degree of each node neighbors. Delegates to networkx via pairwise clique projection. Note: degrees are inflated for nodes in large hyperedges due to clique expansion."""
         G = self._pairwise_undirected_nx()
         nx_result = nx.average_neighbor_degree(G, nodes=nodes)
         return {nid: v for nid, v in nx_result.items() if nid in self._nodes}
 
     def average_degree_connectivity(self) -> dict[int, float]:
+        """Compute the average degree connectivity (average neighbor degree for each degree value). Delegates to networkx via pairwise clique projection. Note: degrees are inflated for nodes in large hyperedges due to clique expansion."""
         G = self._pairwise_undirected_nx()
         return {int(k): float(v) for k, v in nx.average_degree_connectivity(G).items()}
+
+    def rich_club_coefficient(self) -> dict[int, float]:
+        """Compute the rich-club coefficient for each degree. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return {int(k): float(v) for k, v in nx.rich_club_coefficient(G).items()}
+
+    def onion_layers(self) -> dict[str, int]:
+        """Compute onion decomposition layers for each node. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return {nid: int(v) for nid, v in nx.onion_layers(G).items() if nid in self._nodes}
+
+    def wiener_index(self) -> float:
+        """Compute the Wiener index (sum of all shortest-path lengths). Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return float(nx.wiener_index(G))
+
+    def s_metric(self) -> float:
+        """Compute the s-metric (sum of deg(u)*deg(v) over edges). Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return float(nx.s_metric(G))
+
+    def node_connectivity(self) -> int:
+        """Compute the minimum number of nodes whose removal disconnects the graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return int(nx.node_connectivity(G))
+
+    def edge_connectivity(self) -> int:
+        """Compute the minimum number of edges whose removal disconnects the graph. Delegates to networkx via pairwise projection."""
+        G = self._pairwise_undirected_nx()
+        return int(nx.edge_connectivity(G))
