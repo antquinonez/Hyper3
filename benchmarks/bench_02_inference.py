@@ -77,20 +77,21 @@ def run_h3_reasoning(
         for src, tgt, lbl in edges:
             mem.link(src, tgt, label=lbl)
 
+        pre_edges = {(e.source_labels[0], e.target_labels[0]) for e in mem.edges() if len(e.source_labels) == 1 and len(e.target_labels) == 1}
+
         mem.add_rules(*rules)
-        all_labels = {n.label for n in mem.engine.graph.nodes}
+        all_labels = {lbl for e in mem.edges() for lbl in e.source_labels + e.target_labels}
         mem.reason(all_labels, max_depth=3, max_total_states=500)
+
+        post_edges = {(e.source_labels[0], e.target_labels[0]): e.label for e in mem.edges() if len(e.source_labels) == 1 and len(e.target_labels) == 1}
 
     transitive_set: set[tuple[str, str]] = set()
     all_inferred: set[tuple[str, str]] = set()
-    for edge in mem.engine.graph.edges:
-        if edge.metadata.custom.get("inferred"):
-            src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
-            tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
-            if src and tgt:
-                all_inferred.add((src.label, tgt.label))
-                if label in edge.label or "indirectly_depends" in edge.label:
-                    transitive_set.add((src.label, tgt.label))
+    for pair, edge_label in post_edges.items():
+        if pair not in pre_edges:
+            all_inferred.add(pair)
+            if label in edge_label or "indirectly_depends" in edge_label:
+                transitive_set.add(pair)
 
     return transitive_set, all_inferred, t.elapsed
 

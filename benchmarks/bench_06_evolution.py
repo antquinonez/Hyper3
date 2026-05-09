@@ -69,8 +69,7 @@ def add_noise_nodes(mem: HypergraphMemory, count: int) -> list[str]:
 def query_important_nodes(mem: HypergraphMemory, important: set[str]) -> dict[str, bool]:
     found = {}
     for label in important:
-        node = mem.engine.graph.get_node_by_label(label)
-        found[label] = node is not None
+        found[label] = mem.has(label)
     return found
 
 
@@ -215,14 +214,15 @@ def main() -> None:
     for src, tgt, lbl in edges:
         mem.link(src, tgt, label=lbl)
 
-    initial_weights = {e.id: e.weight for e in mem.engine.graph.edges}
+    initial_weights = {e.id: e.weight for e in mem.edges()}
     decay_headers = ["Decay Factor", "Mean Weight", "Min Weight", "Edges < 0.5", "Edges < 0.1"]
     decay_rows = []
     for decay in [0.99, 0.95, 0.9, 0.8, 0.5]:
         for e in mem.engine.graph.edges:
             e.weight = initial_weights.get(e.id, 1.0)
         mem._evolution.decay_weights(decay)
-        weights = [e.weight for e in mem.engine.graph.edges]
+        edges_after = mem.edges()
+        weights = [e.weight for e in edges_after]
         mean_w = sum(weights) / len(weights) if weights else 0
         min_w = min(weights) if weights else 0
         below_half = sum(1 for w in weights if w < 0.5)

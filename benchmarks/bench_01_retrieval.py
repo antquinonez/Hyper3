@@ -72,8 +72,7 @@ def main() -> None:
     timings: dict[str, float] = {"Hyper3 RRF": 0.0, "BFS expand": 0.0, "PPR": 0.0, "RWR": 0.0}
 
     for query, relevant in CS_RETRIEVAL_GROUND_TRUTH.items():
-        seed_node = mem.engine.graph.get_node_by_label(query)
-        if not seed_node:
+        if not mem.has(query):
             print(f"  WARNING: seed '{query}' not found in graph, skipping")
             continue
 
@@ -133,8 +132,7 @@ def main() -> None:
     print_header("Per-Query Breakdown (P@10)")
     for query in sorted(CS_RETRIEVAL_GROUND_TRUTH.keys()):
         relevant = CS_RETRIEVAL_GROUND_TRUTH[query]
-        seed_node = mem.engine.graph.get_node_by_label(query)
-        if not seed_node:
+        if not mem.has(query):
             continue
         h3 = mem.search.query(query, top_k=10)
         h3_labels = [r.label for r in h3]
