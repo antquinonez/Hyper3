@@ -134,6 +134,7 @@ class HypergraphMemory(
     })
 
     def __dir__(self) -> list[str]:
+        """Return sorted list of public API attribute names."""
         return sorted(self._PUBLIC_API)
 
     def __contains__(self, concept: object) -> bool:
@@ -299,21 +300,27 @@ class HypergraphMemory(
         return self._ns_engine
 
     def centrality(self, method, *, top_k=None, **kwargs) -> Any:
+        """Shortcut delegate to analyze.centrality()."""
         return self.analyze.centrality(method, top_k=top_k, **kwargs)
 
     def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[str] | None:
+        """Shortcut delegate to analyze.paths()."""
         return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
 
     def communities(self, **kwargs) -> Any:
+        """Shortcut delegate to analyze.communities()."""
         return self.analyze.communities(**kwargs)
 
     def anomalies(self, concept, **kwargs) -> Any:
+        """Shortcut delegate to analyze.anomalies()."""
         return self.analyze.anomalies(concept, **kwargs)
 
     def similar(self, concept, **kwargs) -> Any:
+        """Shortcut delegate to search.similar()."""
         return self.search.similar(concept, **kwargs)
 
     def edges(self, **kwargs) -> Any:
+        """Shortcut delegate to analyze.edges()."""
         return self.analyze.edges(**kwargs)
 
     @property

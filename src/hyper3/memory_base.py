@@ -113,6 +113,7 @@ class _MemoryBase:
     _prefetch: StructuralPrefetchEngine | None
 
     def _invalidate_frame_cache(self, *concepts: str) -> None:
+        """Invalidate frame cache entries for specific concepts, or clear all if none given."""
         if self._perspective._frame_cache is not None:
             if concepts:
                 fc = self._perspective._frame_cache
