@@ -59,7 +59,7 @@ Both modes follow the same pattern:
 
 1. Collect all article titles (seed articles + their link targets)
 2. `mem.ensure(title)` for each -- idempotent, no reinforcement
-3. `mem.relate(source, target, label="links_to")` for each directed link where both endpoints exist
+3. `mem.link(source, target, label="links_to")` for each directed link where both endpoints exist
 
 In offline mode, `build_graph_from_offline()` reads from `OFFLINE_CONCEPTS`. In online mode, `build_graph()` reads from the link map returned by the Wikipedia API tasks. Both produce the same edge structure.
 
@@ -67,7 +67,7 @@ In offline mode, `build_graph_from_offline()` reads from `OFFLINE_CONCEPTS`. In 
 
 ### Anomaly Detection
 
-`analyze_anomalies()` computes degree centrality, selects the top-10 concepts, and runs `detect_structural_anomalies()` on each. This identifies structurally unusual articles -- concepts whose connectivity pattern deviates from the norm.
+`analyze_anomalies()` computes degree centrality, selects the top-10 concepts, and runs `analyze.anomalies()` on each. This identifies structurally unusual articles -- concepts whose connectivity pattern deviates from the norm.
 
 Offline results:
 
@@ -92,13 +92,13 @@ Offline results -- top hubs by incoming links:
 
 ### Spreading Activation
 
-`analyze_spreading_activation()` stimulates 5 seed concepts (`Artificial intelligence`, `Neural network`, `Deep learning`, `Supervised learning`, `Reinforcement learning`) with energy 1.0, then runs `spread_activation(iterations=3)`. This discovers concept clusters by propagating activation energy through the graph.
+`analyze_spreading_activation()` runs `mem.activate(seed, energy=1.0)` for each of 5 seed concepts (`Artificial intelligence`, `Neural network`, `Deep learning`, `Supervised learning`, `Reinforcement learning`), accumulating results across all seeds. Activation spreads through the graph, discovering concept clusters by propagating energy along edges.
 
-Only concepts present in the graph are stimulated (checked via `concept in mem`). Activation decays with distance, revealing which concepts are structurally close to the seeds.
+Only concepts present in the graph are activated (checked via `concept in mem`). Activation decays with distance, revealing which concepts are structurally close to the seeds.
 
 ### Degree Centrality
 
-`analyze_centrality()` calls `degree_centrality(top_k=20)` to rank concepts by total connectivity (in + out edges, normalized by graph size).
+`analyze_centrality()` calls `analyze.centrality("degree", top_k=20)` to rank concepts by total connectivity (in + out edges, normalized by graph size).
 
 Offline top-4:
 
@@ -111,7 +111,7 @@ Offline top-4:
 
 ### Community Detection
 
-`analyze_communities()` calls `detect_communities(method="label_propagation", seed=42)` to partition the graph into sub-topics. Communities with fewer than 3 members are filtered out.
+`analyze_communities()` calls `analyze.communities(method="label_propagation", seed=42)` to partition the graph into sub-topics. Communities with fewer than 3 members are filtered out.
 
 Offline results: 9 communities (modularity=0.548, coverage=0.738)
 
@@ -129,7 +129,7 @@ Offline results: 9 communities (modularity=0.548, coverage=0.738)
 
 ### Bridge Concepts
 
-`analyze_bridge_concepts()` calls `betweenness_centrality(top_k=15)` to identify concepts that sit on the shortest paths between otherwise disconnected parts of the graph.
+`analyze_bridge_concepts()` calls `analyze.centrality("betweenness", top_k=15)` to identify concepts that sit on the shortest paths between otherwise disconnected parts of the graph.
 
 Offline results:
 

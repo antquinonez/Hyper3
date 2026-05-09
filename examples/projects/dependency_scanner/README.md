@@ -33,10 +33,10 @@ flowchart TD
 
     subgraph Analyze
         E["analyze_transitive_chains()<br/>mem.reason(max_depth=3)"]
-        F["analyze_blast_radius()<br/>stimulate + spread_activation"]
-        G["analyze_chokepoints()<br/>betweenness_centrality(top_k=15)"]
+        F["analyze_blast_radius()<br/>mem.search.activate()"]
+        G["analyze_chokepoints()<br/>mem.analyze.centrality('betweenness', top_k=15)"]
         H["analyze_advisory_patterns()<br/>query_nodes + neighbors"]
-        I["analyze_ecosystem_communities()<br/>detect_communities(label_propagation)"]
+        I["analyze_ecosystem_communities()<br/>mem.analyze.communities(label_propagation)"]
     end
 
     A --> C
@@ -141,13 +141,13 @@ DEPENDENCY SECURITY SCANNER — RESULTS
 
 | Type | Label pattern | Data fields | Created by |
 |------|--------------|-------------|------------|
-| Advisory | `GHSA-xxxx-xxxx-xxxx` | `type`, `cve_id`, `severity`, `summary`, `patched_versions` | `mem.store()` |
-| CVE | `CVE-YYYY-NNNNN` | `type` | `mem.store()` |
-| Package | package name (e.g., `requests`) | `type`, `version`, `ecosystem` | `mem.store()` |
-| Fixed version | `package==1.2.3` | `type`, `package`, `version` | `mem.store()` |
+| Advisory | `GHSA-xxxx-xxxx-xxxx` | `type`, `cve_id`, `severity`, `summary`, `patched_versions` | `mem.add()` |
+| CVE | `CVE-YYYY-NNNNN` | `type` | `mem.add()` |
+| Package | package name (e.g., `requests`) | `type`, `version`, `ecosystem` | `mem.add()` |
+| Fixed version | `package==1.2.3` | `type`, `package`, `version` | `mem.add()` |
 | Dependency | normalized dep name | `type`, `extras`, `ecosystem` | `mem.ensure()` |
 
-Dependencies extracted from PyPI `requires_dist` are normalized (lowercased, hyphens to underscores) and created with `mem.ensure()` to avoid duplicate nodes when the same dependency appears across multiple packages.
+Dependencies extracted from PyPI `requires_dist` are normalized (lowercased, hyphens to underscores) and created with `mem.ensure()` to avoid duplicate nodes when the same dependency appears across multiple packages. `mem.add()` is used for all other node types, which reinforces the node and triggers evolution if configured.
 
 ### Edge types
 
@@ -190,16 +190,15 @@ Reasoning runs with `max_depth=3` and `exhaustive=True`, exploring all possible 
 
 For each of the top 5 critical (HIGH or CRITICAL) advisories, the pipeline:
 
-1. Stimulates the advisory node with energy 1.0
-2. Spreads activation across 5 iterations
-3. Collects up to 20 reachable node labels
-4. Clears activations before the next advisory
+1. Calls `mem.search.activate()` on the advisory node with energy 1.0
+2. Collects up to 20 reachable node labels from the activation result
+3. Clears activations before the next advisory
 
 The blast radius reveals how far a vulnerability's influence extends through the dependency graph. An advisory that reaches 15 packages is more dangerous than one that reaches 2, even if both are CRITICAL severity.
 
 ### Dependency Chokepoints
 
-Computes `betweenness_centrality(top_k=15)` on the full graph. Packages with high betweenness sit on many shortest paths between other nodes. A vulnerability in a high-betweenness package fragments the dependency network more than one in a peripheral package.
+Computes `mem.analyze.centrality("betweenness", top_k=15)` on the full graph. Packages with high betweenness sit on many shortest paths between other nodes. A vulnerability in a high-betweenness package fragments the dependency network more than one in a peripheral package.
 
 Only nodes with betweenness > 0 are reported, filtering out leaf nodes that no paths pass through.
 
@@ -211,7 +210,7 @@ Packages with the most advisories may indicate poor security hygiene, complex at
 
 ### Ecosystem Communities
 
-Runs `detect_communities(method="label_propagation", seed=42)` on the graph. Each community is summarized by:
+Runs `mem.analyze.communities(method="label_propagation", seed=42)` on the graph. Each community is summarized by:
 
 - Size (number of member nodes)
 - Ecosystem breakdown (count of nodes per ecosystem: pip, npm, etc.)
@@ -257,7 +256,7 @@ GitHub's unauthenticated API returns 403 when the hourly rate limit is exceeded.
 
 ### Blast radius
 
-The blast radius for an advisory is the set of nodes reachable via spreading activation over 5 iterations, capped at 20 nodes. Higher counts indicate broader vulnerability propagation through the dependency graph.
+The blast radius for an advisory is the set of nodes reachable via `mem.search.activate()`, capped at 20 nodes. Higher counts indicate broader vulnerability propagation through the dependency graph.
 
 ### Betweenness centrality
 

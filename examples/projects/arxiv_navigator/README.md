@@ -134,13 +134,13 @@ The `build_graph()` task creates three node types and four edge types:
 
 | Kind | Created via | Why |
 |------|-------------|-----|
-| `paper` | `mem.store()` | Core entities with title, abstract snippet, year, categories |
+| `paper` | `mem.add()` | Core entities with title, abstract snippet, year, categories |
 | `author` | `mem.ensure()` | Idempotent creation — authors referenced by multiple papers are not reinforced |
 | `category` | `mem.ensure()` | Idempotent creation — categories are shared across papers |
 
-### Why `store()` vs `ensure()`
+### Why `add()` vs `ensure()`
 
-Papers use `store()` because each paper is unique and should be reinforced (weight increases on repeated access). Authors and categories use `ensure()` because they are shared entities that appear in multiple papers' metadata. Using `store()` for authors would cause spurious reinforcement every time a co-authored paper is processed. `ensure()` creates the node once and skips it on subsequent references.
+Papers use `add()` because each paper is unique and should be reinforced (weight increases on repeated access). Authors and categories use `ensure()` because they are shared entities that appear in multiple papers' metadata. Using `add()` for authors would cause spurious reinforcement every time a co-authored paper is processed. `ensure()` creates the node once and skips it on subsequent references.
 
 ### Edge types
 
@@ -162,32 +162,31 @@ With ~50 papers, ~150 unique authors, and ~10-15 categories, the graph typically
 ### 1. Structural Anomaly Detection
 
 ```python
-det = mem.detect_structural_anomalies(
+det = mem.analyze.anomalies(
     paper.arxiv_id,
     context={"high_centrality": True, "structural_anomaly": True},
     max_level=2,
 )
 ```
 
-Runs `detect_structural_anomalies()` on each paper node with context flags for high centrality and structural anomaly detection at 2 levels of neighborhood expansion. Papers classified as `boundary` or `anomalous` have unusual connectivity patterns — they may bridge research areas, have unusually many co-authors, or sit at structural intersections.
+Runs `analyze.anomalies()` on each paper node with context flags for high centrality and structural anomaly detection at 2 levels of neighborhood expansion. Papers classified as `boundary` or `anomalous` have unusual connectivity patterns — they may bridge research areas, have unusually many co-authors, or sit at structural intersections.
 
 Only papers with non-`normal` status are included in the report. The `boundary_score` indicates how close a paper is to the anomaly threshold (higher = more structurally unusual). Structural insights explain why the paper was flagged.
 
 ### 2. Spreading Activation (Related Work)
 
 ```python
-mem.stimulate(trending.arxiv_id, energy=2.0)
-activated = mem.spread_activation(iterations=3)
+activated = mem.activate(trending.arxiv_id, energy=2.0, iterations=3)
 ```
 
-Stimulates the most recently published paper with energy 2.0 and spreads activation across 3 iterations through the graph. Papers that receive activation energy are related to the seed through shared authors, categories, or co-authorship chains. The `activation` value indicates how much energy reached each paper; `depth` indicates the hop distance.
+Activates the most recently published paper with energy 2.0 and spreads activation across 3 iterations through the graph. Papers that receive activation energy are related to the seed through shared authors, categories, or co-authorship chains. The `activation` value indicates how much energy reached each paper; `depth` indicates the hop distance.
 
 This is useful for finding related work: given a trending paper, which other papers in the corpus are structurally close? The result set is filtered to paper nodes only (excluding authors and categories that also receive activation).
 
 ### 3. Betweenness Centrality (Bridge Papers)
 
 ```python
-bc = mem.betweenness_centrality(top_k=15)
+bc = mem.analyze.centrality("betweenness", top_k=15)
 ```
 
 Computes betweenness centrality for the top 15 nodes, then filters to paper nodes. Papers with high betweenness sit on the shortest paths between many other papers — they connect otherwise separate research clusters. These "bridge papers" often represent interdisciplinary work or methodological contributions that multiple research communities cite.
@@ -197,7 +196,7 @@ The centrality values are normalized (range [0, 1]). In a graph of ~200 nodes, b
 ### 4. Community Detection (Research Clusters)
 
 ```python
-result = mem.detect_communities(method="label_propagation", seed=42)
+result = mem.analyze.communities(method="label_propagation", seed=42)
 ```
 
 Runs label propagation community detection on the full graph. Communities that contain at least one paper node are reported with their size, paper count, and modularity contribution. Modularity measures how much more intra-community edge weight exists than expected by chance — higher values indicate clearer community structure.

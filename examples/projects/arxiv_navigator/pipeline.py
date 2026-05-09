@@ -1,7 +1,5 @@
 """
 ArXiv Research Navigator — Prefect 2.x Pipeline
-import os
-os.environ.setdefault("PREFECT_LOGGING_TO_API_WHEN_MISSING_FLOW", "ignore")
 =================================================
 Ingests recent arXiv papers in cs.AI + cs.LG, builds a Hyper3 knowledge
 graph of papers, authors, and categories, then runs structural anomaly

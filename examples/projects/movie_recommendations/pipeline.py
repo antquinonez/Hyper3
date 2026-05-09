@@ -405,7 +405,6 @@ def section6_retrieval(mem: HypergraphMemory, movies: list[MovieData]) -> None:
     if seed_data:
         print(f"  Genres: {', '.join(seed_data.genres)}")
         print(f"  Rating: {seed_data.rating}")
-    mem.search.activate(seed_movie, energy=1.0)
     activation_results = mem.search.activate(seed_movie, energy=1.0)
     print(f"\nPure activation (top-10):")
     movie_labels = set(mem.query_nodes(type="movie"))
