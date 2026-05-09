@@ -291,6 +291,20 @@ The expansion produced minimal results because the feedback-driven recovery in R
 
 Why this result is expected: multiway expansion is sensitive to graph structure. After aggressive cleanup removes stale nodes and their edges, the remaining graph has fewer multi-hop chains matching the registered rules. The 89 edges in the final graph (up from 66 at construction, due to inference edges added during reasoning) are distributed across heterogeneous labels, reducing the density of same-label chains needed for transitive rules.
 
+### Section 9: Temporal Incident Timeline
+
+The temporal subsystem models the degradation incident as a sequence of temporal events with start/end times. Eight events are registered covering the full incident lifecycle: healthy baseline, stale config push, DB pool growth, API latency spike, customer timeouts, pager alert, feedback recovery, and service restoration.
+
+Allen interval relations reveal the temporal structure:
+- `stale_config_pushed` -> `db_pool_growth_begins`: **before** (config error precedes pool growth)
+- `db_pool_growth_begins` -> `api_latency_spike`: **overlaps** (pool growth overlaps with latency impact)
+- `api_latency_spike` -> `customer_timeouts`: **overlaps** (latency and timeouts co-occur)
+- `healthy_baseline` -> `stale_config_pushed`: **meets** (baseline ends exactly when degradation begins)
+
+Auto-detected causal chains connect events across the timeline, including a 4-event chain: `healthy_baseline -> stale_config_pushed -> pager_alert_fired -> service_restored`. The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
+
+Why this matters: infrastructure incidents are temporal phenomena. The graph structure models *what* is connected, but temporal reasoning adds *when* things happen and *in what order*. Allen relations provide a precise vocabulary for event ordering that goes beyond simple timestamps, and causal chain detection automatically reconstructs the incident narrative from temporal data.
+
 ## 6. Key Metrics
 
 | Metric | Value |
@@ -338,6 +352,10 @@ Why this result is expected: multiway expansion is sensitive to graph structure.
 | Multiway states created | 1 |
 | Multiway edges produced | 0 |
 | Causal invariant merges | 0 |
+| Temporal events | 8 |
+| Allen relations computed | 6 pairs |
+| Inferred temporal constraints | 28 |
+| Auto-detected causal chains | 5 |
 
 ## 7. What Makes This Different
 

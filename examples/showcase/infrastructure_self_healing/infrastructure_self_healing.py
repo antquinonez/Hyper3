@@ -421,6 +421,73 @@ def main() -> None:
     print()
 
     print("=" * 70)
+    print("SECTION 9: Temporal Incident Timeline")
+    print("=" * 70)
+
+    print()
+    print("  Modeling the degradation incident as temporal events with")
+    print("  Allen interval relations and causal chain detection.")
+    print()
+
+    temporal_events = [
+        ("healthy_baseline", 0.0, 10.0, {"phase": "normal"}),
+        ("stale_config_pushed", 10.0, 10.5, {"phase": "degradation", "component": "config-svc-01"}),
+        ("db_pool_growth_begins", 11.0, 14.0, {"phase": "degradation", "component": "db-pg-primary"}),
+        ("api_latency_spike", 12.0, 16.0, {"phase": "impact", "component": "api-gw-01"}),
+        ("customer_timeouts", 13.0, 17.0, {"phase": "impact", "component": "api-gw-01"}),
+        ("pager_alert_fired", 14.0, 14.2, {"phase": "detection"}),
+        ("feedback_recovery", 16.0, 20.0, {"phase": "recovery"}),
+        ("service_restored", 19.0, 25.0, {"phase": "normal"}),
+    ]
+
+    for name, start, end, meta in temporal_events:
+        mem.add_temporal_event(name, start=start, end=end, **meta)
+
+    events = mem.list_temporal_events()
+    print(f"  Temporal events registered: {len(events)}")
+    for ev in events:
+        dur = ev.interval.end - ev.interval.start
+        print(f"    {ev.label:30s} [{ev.interval.start:5.1f} - {ev.interval.end:5.1f}] ({dur:4.1f}m) {ev.metadata.get('phase', '')}")
+
+    print()
+    print("  Allen interval relations between key event pairs:")
+    pairs = [
+        ("stale_config_pushed", "db_pool_growth_begins"),
+        ("db_pool_growth_begins", "api_latency_spike"),
+        ("api_latency_spike", "customer_timeouts"),
+        ("feedback_recovery", "service_restored"),
+        ("healthy_baseline", "stale_config_pushed"),
+        ("pager_alert_fired", "feedback_recovery"),
+    ]
+    for src, tgt in pairs:
+        relation = mem.allen_relation(src, tgt)
+        if relation:
+            print(f"    {src:30s} -> {tgt:30s} : {relation.value}")
+
+    print()
+    print("  Auto-detected causal chains:")
+    chains = mem.detect_temporal_causal_chains(min_chain_length=3)
+    if chains:
+        for i, chain in enumerate(chains[:5]):
+            print(f"    Chain {i+1}: {' -> '.join(chain)}")
+    else:
+        print("    No causal chains detected (requires graph edges between temporal events)")
+
+    print()
+    print("  Temporal constraint consistency:")
+    constraints = mem.infer_temporal_constraints()
+    print(f"    Inferred constraints: {len(constraints)}")
+    issues = mem.check_temporal_constraint_consistency()
+    if issues:
+        print(f"    Consistency issues: {len(issues)}")
+        for issue in issues[:3]:
+            print(f"      {issue}")
+    else:
+        print("    No consistency issues found")
+
+    print()
+
+    print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
     final_stats = mem.stats()
@@ -431,6 +498,8 @@ def main() -> None:
     print(f"  Cross-operation correlations: {len(correlated)} nodes tracked")
     print(f"  Multiway states explored: {mw_result.states_created}")
     print(f"  Causal merges: {len(invariants)}")
+    print(f"  Temporal events: {len(events)}")
+    print(f"  Allen relations computed: {len(pairs)} pairs")
     print()
     print("  Key insight: The feedback loop automatically identifies and removes")
     print("  degraded infrastructure while preserving healthy nodes. Reinforced")
