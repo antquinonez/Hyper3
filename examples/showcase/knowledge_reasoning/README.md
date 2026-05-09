@@ -12,6 +12,8 @@ This showcase builds a 9-node causal graph and demonstrates four reasoning capab
 - **Backward chaining**: Starting from a conclusion (death) and asking "what evidence supports this?"
 - **Provenance**: Explaining where each inferred edge came from — which rule, which inputs.
 - **Belief revision**: Detecting contradictions (causes vs. prevents on the same concept pair) and resolving them.
+- **Multi-rule reasoning**: Using inverse rules to derive backward relationships (caused_by, prevented_by) from forward edges.
+- **Confidence assessment**: Evaluating knowledge graph reliability after revision and identifying weak areas.
 
 These capabilities exist because storing facts is insufficient. Real knowledge work requires deriving consequences, justifying conclusions, and maintaining consistency as beliefs change.
 
@@ -160,6 +162,28 @@ The `revise_beliefs()` method resolves this by removing 1 edge and keeping 1, re
 
 **Why this matters**: Real knowledge bases accumulate contradictions as new information arrives. Without automated detection, contradictory beliefs coexist silently. Belief revision surfaces the conflict and resolves it, keeping the graph internally consistent.
 
+### Section 6: Multi-Rule Reasoning (Inverse Rules)
+
+After transitive inference and belief revision, the script adds two `InverseRule` instances to derive backward relationships:
+
+- `InverseRule(edge_label="causes", inverse_label="caused_by")` -- for every A causes B, infer B caused_by A
+- `InverseRule(edge_label="prevents", inverse_label="prevented_by")` -- for every A prevents B, infer B prevented_by A
+
+A second reasoning pass with these rules produces 6 new inverse edges: 5 `caused_by` edges (e.g., death caused_by heart_disease, lung_cancer caused_by smoking) and 1 `prevented_by` edge (heart_disease prevented_by exercise). These inverse edges enable backward traversal of causal chains.
+
+**Why this matters**: Real knowledge graphs are queried from multiple directions. A forward query asks "what does smoking cause?" while a backward query asks "what caused death?" Inverse rules make both directions traversable without duplicating knowledge.
+
+### Section 7: Post-Revision Confidence Assessment
+
+After all reasoning and revision, the confidence subsystem evaluates the quality of the knowledge graph:
+
+- `compute_all_confidences()` returns aggregate statistics (average, high/low confidence counts)
+- `compute_confidence(concept)` scores each concept based on provenance depth and edge weights
+- `flag_low_confidence(threshold)` identifies concepts that lack supporting evidence
+- `trace_confidence_chain(source, target)` finds the highest-confidence path between two concepts
+
+**Why this matters**: After revision removes contradictory edges, the confidence assessment reveals whether the remaining graph is trustworthy. Low-confidence concepts indicate knowledge gaps where additional evidence or relationships are needed.
+
 ## 6. Key Metrics
 
 | Metric | Value |
@@ -167,9 +191,10 @@ The `revise_beliefs()` method resolves this by removing 1 edge and keeping 1, re
 | Concept nodes | 9 |
 | Factual edges | 8 |
 | Edge labels used | 3 (`causes`, `prevents`, `enables`) |
-| Multiway states created | 4 |
-| Rules applied | 3 |
-| Inferred edges produced | 3 |
+| Transitive reasoning: states created | 4 |
+| Transitive reasoning: edges produced | 3 |
+| Multi-rule reasoning: states created | 7 |
+| Multi-rule reasoning: edges produced | 6 (5 caused_by + 1 prevented_by) |
 | Unique inferred conclusions | 2 (asbestos->death, smoking->death) |
 | Contradictions detected | 2 |
 | Edges removed by revision | 1 |
@@ -262,6 +287,11 @@ print(f"removed: {revision.edges_removed_count}, kept: {revision.edges_kept_coun
 | `mem.detect_contradictions()` | Find opposing-label edge pairs |
 | `mem.revise_beliefs()` | Resolve detected contradictions |
 | `mem.edges_labeled(edge_label=)` | Query edges by label |
+| `InverseRule(edge_label, inverse_label)` | Derive backward edges from forward edges |
+| `mem.compute_all_confidences()` | Score every concept in the graph |
+| `mem.compute_confidence(concept)` | Score a single concept |
+| `mem.flag_low_confidence(threshold)` | Find concepts below confidence threshold |
+| `mem.trace_confidence_chain(src, tgt)` | Find highest-confidence path |
 
 ### Related Examples
 
