@@ -174,6 +174,83 @@ class RecipeSubstitutionEngine:
     def evolve_knowledge(self) -> EvolveResult:
         return self.mem.evolve()
 
+    def contextual_substitute(
+        self, ingredient: str, dietary_context: dict[str, float]
+    ) -> dict | None:
+        """Sample the best substitute given a dietary context.
+
+        Creates a belief distribution over known substitutes and collapses
+        to a single outcome using context-dependent Born-rule sampling.
+
+        Args:
+            ingredient: The ingredient to substitute.
+            dietary_context: Dict mapping substitute labels to context weights.
+                Higher weight = more appropriate under this dietary profile.
+
+        Returns:
+            Dict with sampled substitute and probability, or None.
+        """
+        subs = self.find_substitutes(ingredient)
+        if not subs:
+            return None
+
+        outcome_labels = [s["label"] for s in subs]
+        qs = self.mem.belief.create(outcomes=outcome_labels, use_context=False)
+        answer = self.mem.sample(qs, context=dietary_context)
+        if answer:
+            node = self.mem.engine.graph.get_node(answer.node_id)
+            label = node.label if node else answer.node_id[:12]
+            prob = answer.probability if hasattr(answer, "probability") else 0.0
+            return {"substitute": label, "probability": prob}
+        return None
+
+    def learn_from_rating(
+        self, ingredient: str, substitute: str, rating: float
+    ) -> None:
+        """Update substitution belief based on a user rating.
+
+        Uses Bayesian updating to shift the posterior towards highly-rated
+        substitutes and away from poorly-rated ones.
+
+        Args:
+            ingredient: The original ingredient.
+            substitute: The substitute that was rated.
+            rating: Rating between 0.0 (terrible) and 1.0 (perfect).
+        """
+        subs = self.find_substitutes(ingredient)
+        if not subs:
+            return
+
+        outcome_labels = [s["label"] for s in subs]
+
+        if not self.mem.has(f"{ingredient}_sub_analysis"):
+            self.mem.add(f"{ingredient}_sub_analysis", data={"type": "bayesian_sub"})
+
+        prior = self.mem.get_belief(f"{ingredient}_sub_analysis")
+        if not prior:
+            self.mem.set_prior(
+                f"{ingredient}_sub_analysis", outcomes=outcome_labels
+            )
+
+        likelihoods = {}
+        for sub in outcome_labels:
+            if sub == substitute:
+                likelihoods[sub] = 0.3 + 0.7 * rating
+            else:
+                likelihoods[sub] = 0.3 + 0.7 * (1.0 - rating) / max(len(outcome_labels) - 1, 1)
+
+        self.mem.update_belief(
+            f"{ingredient}_sub_analysis",
+            evidence_name=f"rating_{substitute}_{rating:.1f}",
+            likelihoods=likelihoods,
+        )
+
+    def best_substitute(self, ingredient: str) -> str | None:
+        """Return the MAP estimate (most probable substitute) after learning."""
+        if not self.mem.has(f"{ingredient}_sub_analysis"):
+            return None
+        return self.mem.map_estimate(f"{ingredient}_sub_analysis")
+
     def get_ingredient_info(self, ingredient: str) -> dict | None:
         node = self.mem.engine.graph.get_node_by_label(ingredient)
         return node.data if node else None

@@ -9,6 +9,8 @@
 - **Rule-based reasoning**: `mem.reason()` with `TransitiveRule` discovers and materializes hidden substitution chains automatically.
 - **Self-evolution**: Automatically prune stale ingredients, reinforce frequent substitutions, and merge duplicate entries.
 - **Explainable results**: Get provenance for each substitution, including transitive paths discovered via `mem.find_paths()`.
+- **Context-dependent substitution**: Belief distributions with Born-rule sampling produce different recommendations under different dietary profiles (vegan, low-fat, baking).
+- **Bayesian learning from ratings**: User feedback updates substitution posteriors via Bayes' rule, personalizing recommendations over time.
 - **Local-first**: No API keys, no network calls, runs entirely locally with zero external dependencies.
 
 ## Why This Approach?

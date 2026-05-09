@@ -141,6 +141,52 @@ def main():
     print(f"  Merged: {result.merged}")
     print(f"  Graph after evolution: {engine.mem.size[0]} nodes, {engine.mem.size[1]} edges")
 
+    print("\nSECTION 9: Context-dependent substitution...")
+    print("  The same ingredient produces different recommendations under different diets.")
+
+    vegan_context = {"margarine": 3.0, "coconut_oil": 2.5, "applesauce": 2.0, "flax_eggs": 3.0}
+    result_vegan = engine.contextual_substitute("butter", vegan_context)
+    if result_vegan:
+        print(f"  Vegan context -> {result_vegan['substitute']} (prob={result_vegan['probability']:.4f})")
+
+    lowfat_context = {"applesauce": 3.0, "coconut_oil": 1.5, "margarine": 1.0, "flax_eggs": 1.0}
+    result_lowfat = engine.contextual_substitute("butter", lowfat_context)
+    if result_lowfat:
+        print(f"  Low-fat context -> {result_lowfat['substitute']} (prob={result_lowfat['probability']:.4f})")
+
+    baking_context = {"margarine": 3.5, "coconut_oil": 2.0, "applesauce": 1.0, "flax_eggs": 0.5}
+    result_baking = engine.contextual_substitute("butter", baking_context)
+    if result_baking:
+        print(f"  Baking context -> {result_baking['substitute']} (prob={result_baking['probability']:.4f})")
+
+    print("\nSECTION 10: Learning from user ratings...")
+    print("  Bayesian updating shifts the MAP estimate based on feedback.")
+
+    ratings = [
+        ("butter", "coconut_oil", 0.9),
+        ("butter", "margarine", 0.8),
+        ("butter", "applesauce", 0.4),
+        ("butter", "coconut_oil", 0.95),
+        ("butter", "margarine", 0.7),
+    ]
+    for ingredient, substitute, rating in ratings:
+        engine.learn_from_rating(ingredient, substitute, rating)
+
+    best = engine.best_substitute("butter")
+    print(f"  After {len(ratings)} ratings, MAP estimate for butter: {best}")
+
+    belief = engine.mem.get_belief("butter_sub_analysis")
+    if belief:
+        label_map = {}
+        for s in engine.find_substitutes("butter"):
+            nid = engine.mem.resolve_id(s["label"])
+            if nid:
+                label_map[nid] = s["label"]
+        print("  Posterior distribution:")
+        for outcome_id, prob in sorted(belief.outcomes.items(), key=lambda x: -x[1]):
+            label = label_map.get(outcome_id, outcome_id[:12])
+            print(f"    {label:20s} {prob:.4f}")
+
     print("\n" + "=" * 70)
     print("DEMO COMPLETE")
     print("=" * 70)
@@ -149,6 +195,8 @@ def main():
     print("  - mem.neighbors() for direct substitution lookup")
     print("  - mem.find_paths() for transitive chain discovery")
     print("  - mem.reason() with TransitiveRule for rule-based chain inference")
+    print("  - Belief distributions for context-dependent substitution")
+    print("  - Bayesian updating for personalized substitution learning")
     print("  - Self-evolution maintains a healthy, relevant knowledge base")
     print("  - All processing is LOCAL - no APIs, no network calls")
 
