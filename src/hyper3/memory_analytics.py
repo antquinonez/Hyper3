@@ -507,36 +507,45 @@ class AnalyticsMixin(_MemoryBase):
         return results
 
     def is_dag(self) -> bool:
+        """Check whether the graph is a directed acyclic graph (delegates to kernel)."""
         return self._graph.is_dag()
 
     def topological_sort(self) -> list[str] | None:
+        """Return a topological ordering of concept labels, or None if the graph has a cycle."""
         order = self._graph.topological_sort()
         if order is None:
             return None
         return [self._node_label(nid) for nid in order]
 
     def transitive_closure(self) -> set[tuple[str, str]]:
+        """Compute the transitive closure as a set of (source_label, target_label) pairs."""
         raw = self._graph.transitive_closure()
         return {(self._node_label(u), self._node_label(v)) for u, v in raw}
 
     def transitive_reduction(self) -> set[tuple[str, str]]:
+        """Remove redundant edges from the transitive closure, returning the minimal set."""
         raw = self._graph.transitive_reduction()
         return {(self._node_label(u), self._node_label(v)) for u, v in raw}
 
     def dag_longest_path(self) -> list[str]:
+        """Return the longest path in the DAG as a list of concept labels."""
         ids = self._graph.dag_longest_path()
         return [self._node_label(nid) for nid in ids]
 
     def dag_longest_path_length(self) -> int:
+        """Return the length (in edges) of the longest path in the DAG."""
         return self._graph.dag_longest_path_length()
 
     def is_tree(self) -> bool:
+        """Check whether the graph is a tree."""
         return self._graph.is_tree()
 
     def is_forest(self) -> bool:
+        """Check whether the graph is a forest (collection of trees)."""
         return self._graph.is_forest()
 
     def minimum_spanning_edges(self) -> list[tuple[str, str]]:
+        """Compute minimum spanning edges as (label, label) pairs."""
         edge_ids = self._graph.minimum_spanning_edges()
         result: list[tuple[str, str]] = []
         for eid in edge_ids:
@@ -548,16 +557,20 @@ class AnalyticsMixin(_MemoryBase):
         return result
 
     def minimum_spanning_tree(self) -> list[tuple[str, str]]:
+        """Alias for minimum_spanning_edges, returning the MST as label pairs."""
         return self.minimum_spanning_edges()
 
     def spanning_tree_count(self) -> int:
+        """Count spanning trees via Kirchhoff cofactor determinant."""
         return self._graph.spanning_tree_count()
 
     def tree_center(self) -> list[str]:
+        """Find the center node label(s) of a tree."""
         ids = self._graph.tree_center()
         return [self._node_label(nid) for nid in ids]
 
     def max_flow(self, source: str, target: str) -> tuple[float, dict[tuple[str, str], float]]:
+        """Compute maximum flow between two concepts, returning (flow_value, flow_dict) with labels."""
         src = self._find_node(source)
         tgt = self._find_node(target)
         if not src or not tgt:
@@ -569,10 +582,12 @@ class AnalyticsMixin(_MemoryBase):
         return flow_val, labeled_flow
 
     def min_cut_global(self) -> tuple[float, tuple[set[str], set[str]]]:
+        """Compute the global minimum cut, returning (cut_value, (left_labels, right_labels))."""
         cut_val, (left, right) = self._graph.min_cut_global()
         return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
 
     def min_cut_st(self, source: str, target: str) -> tuple[float, tuple[set[str], set[str]]]:
+        """Compute the minimum s-t cut between two concepts."""
         src = self._find_node(source)
         tgt = self._find_node(target)
         if not src or not tgt:
@@ -581,10 +596,12 @@ class AnalyticsMixin(_MemoryBase):
         return cut_val, ({self._node_label(n) for n in left}, {self._node_label(n) for n in right})
 
     def max_weight_matching(self) -> set[frozenset[str]]:
+        """Compute a greedy maximum weight matching, returning label pairs."""
         raw = self._graph.max_weight_matching()
         return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
 
     def bipartite_maximum_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        """Compute maximum bipartite matching between left and right label sets."""
         left_ids = set()
         right_ids = set()
         for label in left:
@@ -599,6 +616,7 @@ class AnalyticsMixin(_MemoryBase):
         return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
 
     def bipartite_max_weight_matching(self, left: set[str], right: set[str]) -> set[frozenset[str]]:
+        """Compute greedy maximum weight bipartite matching between left and right label sets."""
         left_ids = set()
         right_ids = set()
         for label in left:
@@ -613,14 +631,17 @@ class AnalyticsMixin(_MemoryBase):
         return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
 
     def min_edge_cover(self) -> set[frozenset[str]]:
+        """Compute a minimum edge cover, returning label pairs."""
         raw = self._graph.min_edge_cover()
         return {frozenset({self._node_label(n) for n in pair}) for pair in raw}
 
     def minimum_cycle_basis(self) -> list[list[str]]:
+        """Compute a minimum cycle basis as lists of concept labels."""
         raw = self._graph.minimum_cycle_basis()
         return [[self._node_label(nid) for nid in cycle] for cycle in raw]
 
     def encapsulation_dag(self) -> list[tuple[str, str]]:
+        """Return the encapsulation DAG as (child_edge_label, parent_edge_label) pairs."""
         raw = self._graph.encapsulation_dag()
         edge_labels = {}
         for edge in self._graph._edges.values():
@@ -629,15 +650,19 @@ class AnalyticsMixin(_MemoryBase):
         return [(edge_labels.get(c, c[:8]), edge_labels.get(p, p[:8])) for c, p in raw]
 
     def hodge_matrix(self, k: int) -> tuple[Any, list[frozenset[str]], list[frozenset[str]]]:
+        """Compute the k-th boundary matrix B_k (delegates to kernel)."""
         return self._graph.hodge_matrix(k)
 
     def hodge_laplacian(self, k: int) -> Any:
+        """Compute the k-th Hodge Laplacian (delegates to kernel)."""
         return self._graph.hodge_laplacian(k)
 
     def simpliciality(self) -> float:
+        """Compute the simpliciality fraction (delegates to kernel)."""
         return self._graph.simpliciality()
 
     def face_enumeration(self, simplex: frozenset[str]) -> dict[str, list[frozenset[str]]]:
+        """Enumerate faces and cofaces of a simplex using concept labels."""
         id_to_label = {n.id: n.label for n in self._graph._nodes.values()}
         label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
         id_simplex = frozenset({label_to_id.get(l, l) for l in simplex})
@@ -648,12 +673,15 @@ class AnalyticsMixin(_MemoryBase):
         }
 
     def boundary_operator(self, k: int) -> dict[frozenset[str], list[tuple[frozenset[str], int]]]:
+        """Compute the k-th boundary operator (delegates to kernel)."""
         return self._graph.boundary_operator(k)
 
     def betti_curve(self, max_dim: int | None = None) -> list[int]:
+        """Compute Betti numbers for dimensions 0 through max_dim."""
         return self._graph.betti_curve(max_dim=max_dim)
 
     def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
+        """Compute persistence diagram from edge-weight filtration."""
         return self._graph.persistence_diagram()
 
     def detect_motifs(
@@ -662,6 +690,7 @@ class AnalyticsMixin(_MemoryBase):
         runs_config_model: int = 10,
         seed: int | None = None,
     ) -> Any:
+        """Detect undirected motifs by comparing observed counts against a configuration model."""
         return self._graph.detect_motifs(order=order, runs_config_model=runs_config_model, seed=seed)
 
     def simplicial_contagion(
@@ -674,6 +703,7 @@ class AnalyticsMixin(_MemoryBase):
         timesteps: int = 100,
         seed: int | None = None,
     ) -> Any:
+        """Simulate simplicial SIS contagion from a set of infected concept labels."""
         label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
         id_infected = {label_to_id[l] for l in infected if l in label_to_id}
         return self._graph.simplicial_contagion(
@@ -692,6 +722,7 @@ class AnalyticsMixin(_MemoryBase):
         dt: float = 0.002,
         seed: int | None = None,
     ) -> Any:
+        """Simulate Kuramoto oscillator synchronization on the graph."""
         return self._graph.simulate_kuramoto(
             k2=k2, k3=k3, omega=omega, theta0=theta0,
             timesteps=timesteps, dt=dt, seed=seed,
@@ -710,6 +741,7 @@ class AnalyticsMixin(_MemoryBase):
         integration_step: float = 0.01,
         seed: int | None = None,
     ) -> Any:
+        """Compute the master stability function for synchronization analysis."""
         return self._graph.master_stability_function(
             dynamics_func, dynamics_jacobian, coupling_func, params,
             sigmas=sigmas, interval=interval,
