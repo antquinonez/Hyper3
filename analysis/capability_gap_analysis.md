@@ -204,11 +204,11 @@ Returns a `CollapseDecision` with recommendation and context weights.
 
 | Rank | Capability | Type | Complexity | User Benefit | Status |
 |------|-----------|------|------------|-------------|--------|
-| 1 | Collapse Trigger Detector | Engine | S | Simplifies belief management | |
-| 2 | Simultaneity Edge Rule | Rule | S | Branchial structure visible in graph | |
-| 3 | Computational Invariant Detector | Engine | M | Robustness of multi-frame conclusions | |
-| 4 | Structural Prefetch Engine | Engine | S | Faster graph operations | |
-| 5 | Cross-Frame Complexity Rule | Rule | S | Frame comparisons persist in graph | |
+| 1 | Collapse Trigger Detector | Engine | S | Simplifies belief management | DONE |
+| 2 | Simultaneity Edge Rule | Rule | S | Branchial structure visible in graph | DONE |
+| 3 | Computational Invariant Detector | Engine | M | Robustness of multi-frame conclusions | DONE |
+| 4 | Structural Prefetch Engine | Engine | S | Faster graph operations | DONE |
+| 5 | Cross-Frame Complexity Rule | Rule | S | Frame comparisons persist in graph | DONE |
 | -- | Branchial Path Optimizer | Extension | M | Scaling concern only, works without it | Deferred |
 | -- | Frame Transformation Invariants | Extension | M | Superseded by #3 (Invariant Detector) | Merged |
 | -- | Causal Path Normalization | -- | -- | Already covered by StateConvergenceEngine + reason_fused | Reclassified |
@@ -216,18 +216,16 @@ Returns a `CollapseDecision` with recommendation and context weights.
 ### Recommended Implementation Order
 
 ```
-S-complexity (quick wins, concrete user value):
-  1. Collapse Trigger Detector
-  2. Simultaneity Edge Rule
-  5. Cross-Frame Complexity Rule
-  4. Structural Prefetch Engine
-
-Medium commitment:
-  3. Computational Invariant Detector
+All S-complexity and M-complexity items are COMPLETE:
+   1. Collapse Trigger Detector        — DONE
+   2. Simultaneity Edge Rule            — DONE
+   3. Computational Invariant Detector  — DONE
+   4. Structural Prefetch Engine        — DONE
+   5. Cross-Frame Complexity Rule       — DONE
 
 Previously Designed (can slot in anytime):
-  SessionPortfolio (cross-session learning)
-  ArchitectEngine (meta-evolution feedback)
+   SessionPortfolio (cross-session learning) — DEFERRED
+   ArchitectEngine (meta-evolution feedback) — DEFERRED
 ```
 
 ### Previously Designed (can slot in anytime)

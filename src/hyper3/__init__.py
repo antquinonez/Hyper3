@@ -295,6 +295,7 @@ from hyper3.rules import (
     StructuralProjectionRule,
     TransitiveRule,
 )
+from hyper3.rules_causal_sequence import CausalSequenceRule
 from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
 from hyper3.rules_simultaneity import SimultaneityRule
