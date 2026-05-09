@@ -23,12 +23,17 @@ src/hyper3/
   Belief & Bayesian
     belief.py              BeliefLayer, BeliefState, Outcome (Born-rule sampling, complex amplitudes)
     bayesian.py            BayesianLayer, CategoricalDistribution, Evidence
+    entanglement.py        EntanglementEngine (distribution entanglement, group tracking)
+    collapse_trigger.py    CollapseTriggerEngine (automatic collapse condition detection)
 
   Rules & Reasoning
     rules.py               Rule ABC + TransitiveRule, InverseRule, GeneralizationRule,
                             AbductiveRule, PropertyPropagationRule, StructuralProjectionRule,
                             HubInferenceRule, ContextualSubstitutionRule
     rules_discovery.py     RuleDiscoveryEngine (automatic pattern detection)
+    rules_complexity.py    ComplexityComparisonRule (cross-frame complexity comparison)
+    rules_causal_sequence.py CausalSequenceRule (temporal gap-weighted causal chains)
+    rules_simultaneity.py  SimultaneityRule (multiway co-occurrence detection)
 
   Multiway Subsystem
     multiway.py            MultiwayEngine, MultiwayGraph, MultiwayState
@@ -51,17 +56,53 @@ src/hyper3/
     multi_perspective.py   MultiPerspectiveAnalyzer (multi-frame analysis, Thompson sampling)
     system_monitor.py      SystemMonitor (introspection, metamorphosis triggers)
     feedback.py            OperationFeedback (cross-operation outcome tracking)
+    invariant_detector.py  InvariantDetector (cross-frame property invariants)
+    boundary_reasoning.py  BoundaryReasoningEngine (decidability zone classification)
+    transcendental.py      TranscendentalInferenceEngine (cross-domain insight transfer)
+    interference_reasoning.py InterferenceReasoningEngine (constructive/destructive belief interference)
 
-  Memory Facade (7-mixin composition)
+  Namespaces (fluent sub-APIs)
+    namespaces.py          ReasonNamespace, BeliefNamespace, BayesNamespace,
+                           SearchNamespace, AnalyzeNamespace, TemporalNamespace,
+                           MonitorNamespace, CognitiveNamespace, EngineAccessor
+    concept_set.py         ConceptSet (chainable find().neighbors().top().labels)
+    adaptive_slice.py      AdaptiveSliceEngine (Thompson-sampling slice parameter selection)
+    basis_selector.py      BasisSelector (adaptive sampling basis selection)
+
+  Kernel Mixins (Hypergraph decomposition)
+    kernel.py              Hypergraph (assembles all kernel mixins)
+    kernel_base.py         _GraphBase + CoreMixin (nodes, edges, indexes, batch mode)
+    kernel_centrality.py   CentralityMixin (degree, betweenness, PageRank, Katz, eigenvector)
+    kernel_paths.py        PathMixin (shortest path, BFS, Dijkstra, DAG ops, flows, cuts)
+    kernel_components.py   ComponentMixin (SCC, biconnected, articulation, union-find)
+    kernel_spectral.py     SpectralMixin (Laplacian, adjacency, transition matrix, clustering)
+    kernel_dynamics.py     DynamicsMixin (motif detection, contagion, Kuramoto, MSF)
+    kernel_clustering.py   ClusteringMixin (spectral, Markov, modularity clustering)
+    kernel_query.py        QueryMixin (node/edge filtering, edge cardinality)
+    kernel_similarity.py   SimilarityMixin (Jaccard, overlap, Adamic-Adar)
+    kernel_transforms.py   TransformMixin (bipartite, s-line graph, dual)
+    kernel_pattern.py      PatternMixin (chains, diamonds, fan-out detection)
+    kernel_cycles.py       CycleMixin (cycle detection, minimum cycle basis)
+    kernel_coloring.py     ColoringMixin (greedy graph coloring)
+    kernel_structural.py   StructuralMixin (density, assortativity, reciprocity)
+    kernel_link_prediction.py LinkPredictionMixin (common neighbors, preferential attachment)
+    kernel_types.py        Hypernode, Hyperedge, Metadata, Modality, AbstractionLayer
+
+  Memory Facade (mixin composition)
     memory.py              HypergraphMemory (unified facade)
     memory_base.py         _MemoryBase (shared state declarations)
-    memory_core.py         CoreMixin: store, recall, relate, query, evolve
+    memory_core.py         CoreMixin: store, recall, relate, query, evolve, find
     memory_reasoning.py    ReasoningMixin: reason, derive, commit/rollback
     memory_belief.py       BeliefMixin: create_distribution, sample, correlate
     memory_bayesian.py     BayesianMixin: set_prior, update_belief, get_belief
-    memory_analytics.py    AnalyticsMixin: paths, centrality, cycles, pattern matching
+    memory_analytics.py    AnalyticsMixin: paths, centrality, cycles, DAG, flows, spectral
     memory_persistence.py  PersistenceMixin: save/load, import/export
-    memory_subsystems.py   SubsystemMixin: temporal, enrichment, provenance, retrieval, ...
+    memory_structural.py   StructuralMixin: community detection, structural analysis
+    memory_temporal.py     TemporalMixin: temporal events, Allen relations, causal chains
+    memory_retrieval.py    RetrievalMixin: activation, retrieval, similarity
+    memory_provenance.py   ProvenanceMixin: explain, retract
+    memory_cognitive.py    CognitiveMixin: backward chaining, Hebbian, uncertainty
+    memory_monitoring.py   MonitoringMixin: introspect, metamorphosis, validation
 
   Infrastructure
     persistence.py         Serializer (JSON save/load)
@@ -69,15 +110,19 @@ src/hyper3/
     embedding_graph.py     RandomWalkEmbeddingProvider, NeighborhoodFingerprintProvider, CompositeEmbeddingProvider
     retrieval_activation.py SpreadingActivation (energy propagation, associative recall)
     retrieval_engine.py    RetrievalEngine (RRF, relevance feedback, learning-to-rank)
+    structural_prefetch.py StructuralPrefetchEngine (Markov-model cache prefetch)
     temporal.py            TemporalReasoner (Allen interval algebra, causal chains)
     provenance.py          ProvenanceTracker (recursive explain, cascade retract)
     overlay.py             HypergraphOverlay (commit/rollback inference layer)
     enrichment.py          LLMEnricher, RegexExtractor, LLMProvider
     snapshot.py            SystemSnapshot (cross-session continuity)
+    frame_cache.py         FrameCache (per-frame partitioned LRU cache)
     frame_transform.py     FrameTransformer (12 pairwise frame transforms)
     validation.py          ValidationEngine (A/B reasoning comparison)
     capabilities.py        CapabilityLevel, detect_capability_level, require_capability
     constraints.py         BoundaryNavigator, ConstraintCheck ABC
+    generators.py          Hypergraph generators (random, scale-free, Watts-Strogatz, SBM, etc.)
+    types_api.py           CentralityMethod, type aliases for public API
     visualization.py       Optional matplotlib plotting (requires [viz] extra)
 ```
 
@@ -460,7 +505,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-3490 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+3490 tests, 98% coverage across 90 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
@@ -470,7 +515,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12       # Specific suites
 ```
 
-10 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 14 equivalence test suites (245 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, and clustering. 116 documented gaps serve as a prioritized feature backlog.
+10 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 19 equivalence test suites (784 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, clustering, DAG/tree algorithms, flow/matching, coloring, and basic metrics. 54 documented gaps serve as a prioritized feature backlog.
 
 ## Performance
 
