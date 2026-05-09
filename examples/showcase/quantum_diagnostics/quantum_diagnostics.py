@@ -543,7 +543,193 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print()
 
 
-def section_7_bayesian_comparison() -> None:
+def section_7_bayesian_reasoning(mem: HypergraphMemory, hypotheses: list[str]) -> None:
+    print("=" * 70)
+    print("SECTION 7: Bayesian Posterior Updating")
+    print("=" * 70)
+    print()
+    print("  Where the belief layer represents uncertainty, the Bayesian")
+    print("  subsystem reduces it. Each piece of evidence updates the posterior")
+    print("  via Bayes' rule: P(cause|evidence) ~ P(evidence|cause) * P(cause).")
+    print()
+
+    mem.add("root_cause_investigation", data={"type": "bayesian_analysis"})
+    mem.set_prior(
+        "root_cause_investigation",
+        outcomes=hypotheses,
+        weights=[1.0, 1.0, 1.0, 1.0, 1.0],
+    )
+    prior = mem.get_belief("root_cause_investigation")
+    if prior:
+        print("  Prior (uniform):")
+        label_map = {}
+        for h in hypotheses:
+            nid = mem.resolve_id(h)
+            if nid:
+                label_map[nid] = h
+        for outcome_id, prob in sorted(prior.outcomes.items(), key=lambda x: -x[1]):
+            label = label_map.get(outcome_id, outcome_id[:12])
+            print(f"    {label:40s} {prob:.4f}")
+
+    print()
+    print("  Applying evidence sequentially...")
+
+    evidence_sequence = [
+        (
+            "ssl_alert_and_cert_logs",
+            {
+                "certificate_expiry": 0.85,
+                "dns_resolution_failure": 0.15,
+                "db_connection_pool_exhaustion": 0.10,
+                "memory_leak_api": 0.05,
+                "kafka_partition_rebalance": 0.02,
+            },
+        ),
+        (
+            "no_dns_issues_other_services",
+            {
+                "certificate_expiry": 0.70,
+                "dns_resolution_failure": 0.10,
+                "db_connection_pool_exhaustion": 0.30,
+                "memory_leak_api": 0.20,
+                "kafka_partition_rebalance": 0.10,
+            },
+        ),
+        (
+            "db_pool_metrics_moderate",
+            {
+                "certificate_expiry": 0.50,
+                "dns_resolution_failure": 0.20,
+                "db_connection_pool_exhaustion": 0.60,
+                "memory_leak_api": 0.40,
+                "kafka_partition_rebalance": 0.15,
+            },
+        ),
+    ]
+
+    label_map = {}
+    for h in hypotheses:
+        nid = mem.resolve_id(h)
+        if nid:
+            label_map[nid] = h
+
+    for ev_name, likelihoods in evidence_sequence:
+        result = mem.update_belief(
+            "root_cause_investigation",
+            evidence_name=ev_name,
+            likelihoods=likelihoods,
+        )
+        if result.posterior:
+            print(f"\n  After '{ev_name}':")
+            for outcome_id, prob in sorted(
+                result.posterior.outcomes.items(), key=lambda x: -x[1]
+            ):
+                label = label_map.get(outcome_id, outcome_id[:12])
+                print(f"    {label:40s} {prob:.4f}")
+            if result.kl_divergence > 0:
+                print(f"    KL divergence from prior: {result.kl_divergence:.4f} bits")
+
+    print()
+    map_est = mem.map_estimate("root_cause_investigation")
+    print(f"  MAP estimate (most probable cause): {map_est}")
+
+    credible = mem.credible_set("root_cause_investigation", level=0.95)
+    print(f"  95% credible set: {credible}")
+
+    bf = mem.bayes_factor(
+        "root_cause_investigation",
+        hypothesis_a="certificate_expiry",
+        hypothesis_b="dns_resolution_failure",
+    )
+    if bf is not None:
+        print(f"  Bayes factor (cert_expiry vs dns_failure): {bf:.2f}")
+        if bf > 10:
+            print("    -> Strong evidence favoring certificate_expiry")
+        elif bf > 3:
+            print("    -> Moderate evidence favoring certificate_expiry")
+        else:
+            print("    -> Weak evidence, not yet decisive")
+
+    print()
+
+
+def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
+    print("=" * 70)
+    print("SECTION 8: Confidence Assessment and Knowledge Gaps")
+    print("=" * 70)
+    print()
+    print("  After Bayesian analysis points to certificate_expiry, how confident")
+    print("  are we in each part of the knowledge graph? The confidence subsystem")
+    print("  scores concepts based on provenance depth, edge weights, and graph")
+    print("  structure, then flags areas that need more information.")
+    print()
+
+    all_conf = mem.compute_all_confidences()
+    print(f"  Overall graph confidence:")
+    print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
+    print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
+    print(f"    Low confidence (<0.3): {all_conf.low_confidence_count}")
+    print()
+
+    root_causes = [
+        "certificate_expiry",
+        "dns_resolution_failure",
+        "db_connection_pool_exhaustion",
+        "memory_leak_api",
+        "kafka_partition_rebalance",
+        "deploy_bad_config",
+    ]
+    print("  Confidence scores for root cause hypotheses:")
+    for cause in root_causes:
+        score = mem.compute_confidence(cause)
+        if score:
+            bar = "#" * int(score.confidence * 30)
+            print(f"    {cause:40s} {score.confidence:.4f} {bar} (depth={score.depth}, source={score.source})")
+
+    print()
+    print("  Confidence for key evidence nodes:")
+    evidence_nodes = [
+        "log_ssl_cert_invalid",
+        "alert_ssl_expiry_0_days",
+        "log_connection_refused",
+        "metric_db_pool_active_95pct",
+        "metric_dns_timeout_5s",
+    ]
+    for ev in evidence_nodes:
+        score = mem.compute_confidence(ev)
+        if score:
+            print(f"    {ev:40s} {score.confidence:.4f} (depth={score.depth})")
+
+    print()
+    print("  Confidence chains (highest-confidence paths):")
+    chains_to_check = [
+        ("certificate_expiry", "customer_facing_errors"),
+        ("certificate_expiry", "revenue_at_risk"),
+        ("db_connection_pool_exhaustion", "sla_breach_risk"),
+    ]
+    for src, tgt in chains_to_check:
+        chain = mem.trace_confidence_chain(src, tgt)
+        if chain:
+            print(f"    {src} -> {tgt}:")
+            print(f"      chain_confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
+
+    print()
+    print("  Flagging low-confidence areas (knowledge gaps):")
+    low = mem.flag_low_confidence(threshold=0.5)
+    if low:
+        print(f"    {len(low)} concepts below threshold 0.5:")
+        for item in low[:8]:
+            print(f"      {item.node_label:40s} confidence={item.confidence:.4f} (depth={item.depth}, source={item.source})")
+        print()
+        print("    These knowledge gaps indicate areas where additional")
+        print("    relationships or evidence would improve diagnostic confidence.")
+    else:
+        print("    All concepts above threshold 0.5.")
+
+    print()
+
+
+def section_9_bayesian_comparison() -> None:
     print("=" * 70)
     print("SECTION 7: Honest Comparison with Bayesian Inference")
     print("=" * 70)
@@ -584,7 +770,9 @@ def main():
     section_4_correlation(mem, hypotheses)
     section_5_interference(mem)
     section_6_entropy(mem, hypotheses)
-    section_7_bayesian_comparison()
+    section_7_bayesian_reasoning(mem, hypotheses)
+    section_8_confidence_assessment(mem)
+    section_9_bayesian_comparison()
 
     print("=" * 70)
     print("SUMMARY")
@@ -594,8 +782,10 @@ def main():
     print("  3. Correlation = pairwise correlation lookup between hypothesis groups")
     print("  4. Interference = detects agreeing vs conflicting evidence sources")
     print("  5. Entropy = meaningful for mixed states; 0 for pure states (a caveat)")
-    print("  6. For this use case, belief layer ~= Bayesian inference with APIs")
-    print("  7. Be honest about what it is: classical probability with quantum-inspired notation")
+    print("  6. Bayesian updating = sequential evidence accumulation via Bayes' rule")
+    print("  7. Confidence scoring = quantifying knowledge graph reliability")
+    print("  8. For this use case, belief layer ~= Bayesian inference with APIs")
+    print("  9. Be honest about what it is: classical probability with quantum-inspired notation")
     print()
 
 
