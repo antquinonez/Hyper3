@@ -295,9 +295,56 @@ for ins in insights:
     print(f"  ({ins.confidence:.0%}) {ins.principle}")
 print()
 
-# ─── STEP 9: Meta-cognitive introspection ────────────────────────────
+# ─── STEP 9: Backward chaining for diagnostic proof ───────────────────
 print("━" * 72)
-print("STEP 9: The system analyzes its own health")
+print("STEP 9: Backward chaining — proving the root cause")
+print("━" * 72)
+print("""
+Forward reasoning (Step 3) discovers what COULD be true.
+Backward chaining proves what MUST be true given observed symptoms.
+For car diagnostics: given these symptoms, can we prove this failure?
+""")
+
+proof = mem.prove(
+    "engine_overheating",
+    known_facts={"high_temperature", "coolant_leak", "low_coolant"},
+)
+print(f"Prove engine_overheating from symptoms:")
+print(f"  Achievable: {proof.achievable}")
+print(f"  Goal: {proof.goal_label}")
+print(f"  Confidence: {proof.confidence:.4f}")
+if proof.proof_tree:
+    print(f"  Proof tree depth: {proof.proof_tree.depth}")
+    for step in proof.proof_tree.steps:
+        print(f"    step: {step.goal_label} (rule: {step.rule_name})")
+print()
+
+candidates = ["dead_battery", "alternator_failure", "fuel_system_failure"]
+print("Batch proving multiple candidate root causes:")
+results = mem.prove_batch(
+    candidates,
+    known_facts={"engine_wont_start", "clicking_sound", "dim_headlights"},
+)
+for r in results:
+    status = "PROVABLE" if r.achievable else "not provable"
+    print(f"  {r.goal_label:25s} {status}")
+
+print()
+print("Confidence assessment across the knowledge graph:")
+all_conf = mem.compute_all_confidences()
+print(f"  Average confidence: {all_conf.avg_confidence:.4f}")
+low = mem.flag_low_confidence(threshold=0.5)
+if low:
+    print(f"  Low-confidence concepts ({len(low)}):")
+    for item in low[:3]:
+        print(f"    {item.node_label} (confidence={item.confidence:.4f})")
+else:
+    print("  All concepts have sufficient confidence")
+print()
+
+# ─── STEP 10: Meta-cognitive introspection ────────────────────────────
+print("━" * 72)
+print("STEP 10: The system analyzes its own health")
 print("━" * 72)
 print("""
 The system monitors its own fitness:
@@ -330,9 +377,9 @@ else:
     print("System is healthy — no restructuring needed")
 print()
 
-# ─── STEP 10: Persistence ────────────────────────────────────────────
+# ─── STEP 11: Persistence ────────────────────────────────────────────
 print("━" * 72)
-print("STEP 10: Save knowledge for next session")
+print("STEP 11: Save knowledge for next session")
 print("━" * 72)
 import tempfile, os
 tmpdir = tempfile.mkdtemp()
@@ -362,8 +409,8 @@ print("""
 5. CORRELATION         → Battery failure constrained related components
 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive)
 7. BOUNDARY DETECTION   → It knew which questions were answerable vs anomalous
-8. MULTI-FRAME ANALYSIS → It analyzed the same problem from 4 different perspectives
-9. RULE ANALYTICS      → It tracked its own position in computational space
+8. RULE ANALYTICS       → It tracked its own position in computational space
+9. BACKWARD CHAINING    → It proved root causes from observed symptoms via backward chaining
 10. META-COGNITION      → It evaluated its own health and recommended improvements
 11. PERSISTENCE         → It saved everything for the next diagnostic session
 """)
