@@ -39,6 +39,7 @@ class ComponentMixin(_GraphBase):
         return components
 
     def _kosaraju_dfs_forward(self, node: str, visited: set[str], finish_order: list[str]) -> None:
+        """Forward DFS for Kosaraju algorithm, recording finish order."""
         stack = [(node, False)]
         while stack:
             current, processed = stack.pop()
@@ -55,6 +56,7 @@ class ComponentMixin(_GraphBase):
                         stack.append((tgt, False))  # noqa: PERF401
 
     def _kosaraju_dfs_reverse(self, node: str, visited: set[str], reverse_map: dict[str, list[str]], comp: set[str]) -> None:
+        """Reverse DFS for Kosaraju algorithm, collecting one strongly connected component."""
         stack = [node]
         while stack:
             current = stack.pop()
@@ -67,6 +69,7 @@ class ComponentMixin(_GraphBase):
                     stack.append(pred)  # noqa: PERF401
 
     def _build_reverse_adjacency(self) -> dict[str, list[str]]:
+        """Build a reverse adjacency map (target -> sources) from all edges."""
         reverse: dict[str, list[str]] = {}
         for edge in self._edges.values():
             for src in edge.source_ids:
@@ -122,6 +125,7 @@ class ComponentMixin(_GraphBase):
         edge_stack: list[tuple[str, str]],
         components: list[set[str]],
     ) -> None:
+        """DFS helper for Hopcroft-Tarjan biconnected component detection."""
         visited.add(u)
         disc[u] = low[u] = timer[0]
         timer[0] += 1
@@ -188,6 +192,7 @@ class ComponentMixin(_GraphBase):
         ap: set[str],
         timer: list[int],
     ) -> None:
+        """DFS helper for finding articulation points (cut vertices)."""
         visited.add(u)
         disc[u] = low[u] = timer[0]
         timer[0] += 1
