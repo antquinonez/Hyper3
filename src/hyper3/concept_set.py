@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from hyper3.community import CommunityResult
 from hyper3.results import ActivationHit, SearchHit
+from hyper3.types_api import CentralityMethod
 
 if TYPE_CHECKING:
     from hyper3.memory import HypergraphMemory
@@ -267,7 +268,7 @@ class ConceptSet:
 
     # -- Analysis methods ---------------------------------------------------
 
-    def centrality(self, method: str, **kwargs: Any) -> ConceptSet:
+    def centrality(self, method: CentralityMethod, **kwargs: Any) -> ConceptSet:
         """Compute centrality scores for concepts in the set.
 
         Delegates to ``mem.analyze.centrality()``.
@@ -279,7 +280,7 @@ class ConceptSet:
         Returns:
             New ConceptSet scored by centrality.
         """
-        full = self._mem.analyze.centrality(method, **kwargs)
+        full: dict[str, float] = self._mem.analyze.centrality(method, **kwargs)  # type: ignore[assignment]
         if not isinstance(full, dict):
             full = {}
         items = [(l, s) for l, s in full.items() if l in self.labels]

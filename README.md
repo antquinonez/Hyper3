@@ -460,7 +460,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-2426 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
+3490 tests, 98% coverage across 53 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 

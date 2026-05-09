@@ -422,9 +422,9 @@ class EmbeddingEngine:
         else:
             quantizer = faiss.IndexFlatIP(dim)
             index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
-            index.train(mat)
+            index.train(mat)  # type: ignore[arg-type]
             index.nprobe = self._faiss_nprobe
-        index.add(mat)
+        index.add(mat)  # type: ignore[arg-type]
         self._faiss_index = index
         self._faiss_id_map: dict[int, str] = {i: nid for i, nid in enumerate(ids)}
 

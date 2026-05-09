@@ -195,6 +195,9 @@ class FrameCache:
             all_keys.extend(k for k in cache._cache if k not in self._general._cache)
         return all_keys
 
+    def __iter__(self):
+        return iter(self.keys())
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize the cache configuration (sizes, quotas, TTL) to a plain dict."""
         return {

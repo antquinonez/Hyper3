@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.event_log import EventLog
@@ -19,6 +19,7 @@ from hyper3.results import BulkResult, EvolveResult, MergeReport, NodeInfo
 
 if TYPE_CHECKING:
     from hyper3.concept_set import ConceptSet
+    from hyper3.memory import HypergraphMemory
 
 
 class CoreMixin(_MemoryBase):
@@ -469,9 +470,9 @@ class CoreMixin(_MemoryBase):
             labels = [concept] if isinstance(concept, str) else list(concept)
             items.extend((label, 1.0) for label in labels)
         elif type is not None or data is not None:
-            matched = self.query_nodes(type=type, data=data)
+            matched = cast("HypergraphMemory", self).query_nodes(type=type, data=data)
             items.extend((label, 1.0) for label in matched)
-        return ConceptSet(self, items)
+        return ConceptSet(cast("HypergraphMemory", self), items)
 
     def ensure(
         self,

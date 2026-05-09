@@ -168,7 +168,4 @@ class CausalSequenceRule(Rule):
 
     def _edge_exists(self, graph: Hypergraph, source: str, target: str) -> bool:
         """Check whether a matching edge already exists from source to target."""
-        for e in graph.outgoing_edges(source):
-            if e.label == self._edge_label and target in e.target_ids:
-                return True
-        return False
+        return any(e.label == self._edge_label and target in e.target_ids for e in graph.outgoing_edges(source))

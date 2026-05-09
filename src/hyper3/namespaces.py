@@ -1387,7 +1387,7 @@ class AnalyzeNamespace:
         Returns:
             List of summary node labels.
         """
-        return self._mem.list_summaries()
+        return [m.summary_label for m in self._mem.list_summaries()]
 
     def contradictions(self) -> list[Any]:
         """Detect contradictory edges in the graph.

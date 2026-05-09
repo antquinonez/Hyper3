@@ -303,7 +303,7 @@ class HypergraphMemory(
         """Shortcut delegate to analyze.centrality()."""
         return self.analyze.centrality(method, top_k=top_k, **kwargs)
 
-    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[str] | None:
+    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[list[str]]:
         """Shortcut delegate to analyze.paths()."""
         return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
 
