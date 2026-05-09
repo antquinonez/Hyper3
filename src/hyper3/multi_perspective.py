@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from hyper3.frame_cache import FrameCache
 from hyper3.frame_transform import FrameTransformer
 from hyper3.kernel import Hypergraph, Hypernode, Modality
 from hyper3.results import PerspectiveAnalysis
@@ -299,6 +300,7 @@ class MultiPerspectiveAnalyzer:
         self._frame_outcomes: dict[str, dict[str, int]] = {}
         self._problem_history: list[tuple[np.ndarray, str, bool]] = []
         self._transformer = FrameTransformer()
+        self._frame_cache: FrameCache | None = None
 
     def add_frame(self, frame: AnalysisPreset) -> None:
         """Register a custom computational frame.
@@ -307,6 +309,8 @@ class MultiPerspectiveAnalyzer:
             frame: The frame to add or replace.
         """
         self._frames[frame.name] = frame
+        if self._frame_cache is not None:
+            self._frame_cache.clear()
 
     def get_frame(self, name: str) -> AnalysisPreset | None:
         """Look up a frame by name.
@@ -318,6 +322,12 @@ class MultiPerspectiveAnalyzer:
             The matching :class:`AnalysisPreset`, or ``None`` if not found.
         """
         return self._frames.get(name)
+
+    @property
+    def frame_cache(self) -> FrameCache:
+        if self._frame_cache is None:
+            self._frame_cache = FrameCache(max_total_size=2048, frame_quota=256)
+        return self._frame_cache
 
     def analyze_in_frame(self, concept: str, frame_name: str) -> PresetAnalysis:
         """Analyse a concept from the perspective of a single computational frame.
@@ -339,34 +349,42 @@ class MultiPerspectiveAnalyzer:
         if not node:
             return PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="node_not_found")
 
+        cache_key = f"analysis:{frame_name}:{concept}"
+        cached = self.frame_cache.get(cache_key, frame=frame_name)
+        if cached is not None:
+            return cached
+
         edges = self._graph.incident_edges(node.id)
         neighbor_count = len(set(nid for e in edges for nid in e.target_ids if nid != node.id))
         total_nodes = self._graph.node_count
         total_edges = self._graph.edge_count
 
         if frame_name == "classical":
-            return self._classical_analysis(node, neighbor_count, total_nodes, total_edges)
+            result = self._classical_analysis(node, neighbor_count, total_nodes, total_edges)
         elif frame_name == "quantum":
-            return self._quantum_analysis(node, neighbor_count, total_nodes, total_edges)
+            result = self._quantum_analysis(node, neighbor_count, total_nodes, total_edges)
         elif frame_name == "hypergraph":
-            return self._hypergraph_analysis(node, neighbor_count, total_nodes, total_edges)
+            result = self._hypergraph_analysis(node, neighbor_count, total_nodes, total_edges)
         elif frame_name == "probabilistic":
-            return self._probabilistic_analysis(node, neighbor_count, total_nodes, total_edges)
+            result = self._probabilistic_analysis(node, neighbor_count, total_nodes, total_edges)
+        else:
+            frame = self._frames.get(frame_name)
+            if frame:
+                complexity = self._compute_complexity(node, frame)
+                approach = self._derive_approach(frame, complexity)
+                strengths, weaknesses = self._assess_custom_frame(frame, complexity)
+                result = PresetAnalysis(
+                    frame_name=frame_name,
+                    complexity=complexity,
+                    solution_approach=approach,
+                    strengths=strengths,
+                    weaknesses=weaknesses,
+                )
+            else:
+                result = PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="unknown_frame")
 
-        frame = self._frames.get(frame_name)
-        if frame:
-            complexity = self._compute_complexity(node, frame)
-            approach = self._derive_approach(frame, complexity)
-            strengths, weaknesses = self._assess_custom_frame(frame, complexity)
-            return PresetAnalysis(
-                frame_name=frame_name,
-                complexity=complexity,
-                solution_approach=approach,
-                strengths=strengths,
-                weaknesses=weaknesses,
-            )
-
-        return PresetAnalysis(frame_name=frame_name, complexity=float("inf"), solution_approach="unknown_frame")
+        self.frame_cache.put(cache_key, result, frame=frame_name)
+        return result
 
     def multi_frame_analysis(
         self,

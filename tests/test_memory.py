@@ -2589,3 +2589,126 @@ class TestCommunityFacade:
         result = mem.detect_hyperlink_communities()
         assert result.community_count > 0
 
+
+class TestReasonFused:
+    def test_fused_returns_fused_result_type(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused({"a", "b", "c"}, frames=["classical", "quantum"])
+        assert result.frame_count == 2
+        assert result.fusion_strategy == "weighted"
+        assert "classical" in result.per_frame_results
+        assert "quantum" in result.per_frame_results
+        assert len(result.frame_contributions) == 2
+        assert result.best_frame != ""
+
+    def test_fused_default_frames(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
+        mem.add_rules(TransitiveRule(edge_label="e"))
+        result = mem.reason_fused({"a", "b"})
+        assert result.frame_count > 0
+
+    def test_fused_majority_strategy(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused(
+            {"a", "b", "c"}, frames=["classical", "quantum"], strategy="majority"
+        )
+        assert result.fusion_strategy == "majority"
+
+    def test_fused_union_strategy(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused(
+            {"a", "b", "c"}, frames=["classical", "quantum"], strategy="union"
+        )
+        assert result.fusion_strategy == "union"
+        assert result.fused_edges >= 0
+
+    def test_fused_agreement_ratio(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused({"a", "b", "c"}, frames=["classical", "quantum"])
+        assert 0.0 <= result.agreement_ratio <= 1.0
+
+    def test_fused_confidence_nonnegative(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
+        mem.add_rules(TransitiveRule(edge_label="e"))
+        result = mem.reason_fused({"a", "b"}, frames=["classical", "quantum"])
+        assert result.fused_confidence >= 0.0
+
+    def test_fused_result_is_simple_result_base(self):
+        from hyper3.results import _SimpleResultBase
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
+        mem.add_rules(TransitiveRule(edge_label="e"))
+        result = mem.reason_fused({"a", "b"}, frames=["classical"])
+        assert isinstance(result, _SimpleResultBase)
+        assert "frame_count" in result
+        assert result["frame_count"] == 1
+
+    def test_fused_frame_contribution_fields(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused({"a", "b", "c"}, frames=["classical"])
+        assert len(result.frame_contributions) == 1
+        contrib = result.frame_contributions[0]
+        assert contrib.frame_name == "classical"
+        assert contrib.edges_produced >= 0
+        assert 0.0 <= contrib.avg_confidence <= 1.0
+        assert contrib.information_loss >= 0.0
+
+    def test_fused_invalid_strategy_raises(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.link("a", "b", label="e")
+        mem.add_rules(TransitiveRule(edge_label="e"))
+        with pytest.raises(ValueError, match="Unknown fusion strategy"):
+            mem.reason_fused({"a", "b"}, frames=["classical"], strategy="bogus")
+
+    def test_fused_unique_edges_count(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("a")
+        mem.add("b")
+        mem.add("c")
+        mem.link("a", "b", label="next")
+        mem.link("b", "c", label="next")
+        mem.add_rules(TransitiveRule(edge_label="next"))
+        result = mem.reason_fused({"a", "b", "c"}, frames=["classical", "quantum"])
+        for contrib in result.frame_contributions:
+            assert contrib.unique_edges <= contrib.edges_produced
+

@@ -155,6 +155,7 @@ class CommunityDetector:
         seed: int | None = None,
         edge_label: str | None = None,
     ) -> CommunityResult:
+        """Detect communities using the Louvain modularity maximization algorithm, returning community assignments and modularity score."""
         rng = random.Random(seed)
 
         node_ids = [n.id for n in self._graph.nodes]
@@ -332,6 +333,7 @@ class CommunityDetector:
         n_communities: int = 2,
         edge_label: str | None = None,
     ) -> CommunityResult:
+        """Detect communities using the Girvan-Newman edge-betweenness algorithm with optional level selection."""
         neighbor_map = self._build_neighbor_map(edge_label)
         adj: dict[str, dict[str, float]] = {}
         for nid, neighbors in neighbor_map.items():
@@ -444,6 +446,7 @@ class CommunityDetector:
         cut_height: float | None = None,
         n_communities: int | None = None,
     ) -> HierarchicalCommunityResult:
+        """Detect communities based on hyperlink (shared-edge) co-membership, grouping nodes that participate in the same hyperedges."""
         import numpy as np
 
         edges_list = list(self._graph.edges)

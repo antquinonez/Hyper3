@@ -45,7 +45,18 @@ from hyper3.types_api import CentralityMethod, TemporalRelation
 from hyper3.validation import ValidationReport
 
 if TYPE_CHECKING:
+    from hyper3.abstraction import AbstractionNavigator
+    from hyper3.graph_diff import GraphDiffer
+    from hyper3.hebbian import HebbianLearner
     from hyper3.memory import HypergraphMemory
+    from hyper3.multiway import MultiwayEngine
+    from hyper3.multiway_causal import StateConvergenceEngine
+    from hyper3.overlay import HypergraphOverlay
+    from hyper3.provenance import ProvenanceTracker
+    from hyper3.retrieval_activation import SpreadingActivation
+    from hyper3.state_clustering import StateClusteringEngine
+    from hyper3.structural_anomaly import StructuralAnomalyDetector
+    from hyper3.uncertainty import UncertaintyEngine
 
 
 class ReasonNamespace:
@@ -403,7 +414,7 @@ class BeliefNamespace:
         """
         return BeliefLayer.von_neumann_entropy(rho)
 
-    def density_matrix(self, state):
+    def density_matrix(self, state) -> Any:
         """Compute the density matrix for a belief state.
 
         Args:
@@ -414,6 +425,26 @@ class BeliefNamespace:
         """
         state_id = state.id if hasattr(state, "id") else state
         return self._mem.compute_density_matrix(state_id)
+
+    def sample_adaptive(self, state: BeliefState) -> str | None:
+        result = self._mem.sample_adaptive(state)
+        if result is None:
+            return None
+        return self._mem.node_label(result.node_id)
+
+    def sample_blended(self, state: BeliefState) -> str | None:
+        result = self._mem.sample_blended(state)
+        if result is None:
+            return None
+        return self._mem.node_label(result.node_id)
+
+    def basis_effectiveness(self) -> dict[str, float]:
+        """Return per-basis effectiveness metrics.
+
+        Returns:
+            Dict mapping basis name to success rate (0.0 to 1.0).
+        """
+        return self._mem.list_basis_effectiveness()
 
     def _resolve_state(self, concept: str) -> BeliefState | None:
         node_id = self._mem.resolve_id(concept)
@@ -1034,7 +1065,7 @@ class AnalyzeNamespace:
         """
         return self._mem.spectral_clustering(k=k)
 
-    def laplacian(self):
+    def laplacian(self) -> Any:
         """Compute the hypergraph Laplacian matrix.
 
         Returns:
@@ -1052,7 +1083,7 @@ class AnalyzeNamespace:
         label_map = {nid: self._mem.node_label(nid) for nid in node_ids}
         return {label_map.get(nid, nid): v for nid, v in zip(node_ids, values, strict=True)}
 
-    def spersistence(self, *, max_s: int | None = None):
+    def spersistence(self, *, max_s: int | None = None) -> Any:
         """Compute s-persistence (hypergraph homology) levels.
 
         Args:
@@ -1078,7 +1109,7 @@ class AnalyzeNamespace:
         return self._mem.hyperedge_similarity(concept, metric=metric, top_k=top_k)
 
     def pattern(self, *, label: str | None = None, source: str | None = None,
-                target: str | None = None):
+                target: str | None = None) -> Any:
         """Match structural edge patterns in the graph.
 
         Args:
@@ -1126,7 +1157,7 @@ class AnalyzeNamespace:
         """
         return self._mem.match_fan_out(edge_label=label, min_fan=min_fan)
 
-    def subgraph(self, concepts: set[str]):
+    def subgraph(self, concepts: set[str]) -> Any:
         """Extract the induced subgraph for a set of concepts.
 
         Args:
@@ -1137,7 +1168,7 @@ class AnalyzeNamespace:
         """
         return self._mem.subgraph(concepts)
 
-    def describe(self):
+    def describe(self) -> GraphDescription:
         """Generate a natural-language description of the graph structure.
 
         Returns:
@@ -1176,7 +1207,7 @@ class AnalyzeNamespace:
 
     def edges(self, *, label: str | None = None,
               min_source_cardinality: int = 1,
-              min_target_cardinality: int = 1):
+              min_target_cardinality: int = 1) -> list[LabeledEdge]:
         """List edges, optionally filtered by label.
 
         Args:
@@ -1314,7 +1345,7 @@ class AnalyzeNamespace:
         """
         return self._mem.version_history()
 
-    def collapse(self, concepts: set[str], *, label: str | None = None, data: Any = None):
+    def collapse(self, concepts: set[str], *, label: str | None = None, data: Any = None) -> Any:
         """Collapse a set of concepts into a single summary node.
 
         Args:
@@ -1327,7 +1358,7 @@ class AnalyzeNamespace:
         """
         return self._mem.collapse_subgraph(concepts, summary_label=label, summary_data=data)
 
-    def expand_summary(self, summary_label: str):
+    def expand_summary(self, summary_label: str) -> Any:
         """Expand a previously collapsed summary back into its components.
 
         Args:
@@ -1338,7 +1369,7 @@ class AnalyzeNamespace:
         """
         return self._mem.expand_summary(summary_label)
 
-    def summaries(self):
+    def summaries(self) -> list[str]:
         """List all collapsed summary nodes.
 
         Returns:
@@ -1346,7 +1377,7 @@ class AnalyzeNamespace:
         """
         return self._mem.list_summaries()
 
-    def contradictions(self):
+    def contradictions(self) -> list[Any]:
         """Detect contradictory edges in the graph.
 
         Returns:
@@ -1355,7 +1386,7 @@ class AnalyzeNamespace:
         return self._mem.detect_contradictions()
 
     def anomalies(self, concept: str, *, context: dict[str, Any] | None = None,
-                  max_level: int = 4):
+                  max_level: int = 4) -> Any:
         """Detect structural anomalies around a concept.
 
         Classifies concepts along a low_risk / boundary / anomalous spectrum.
@@ -1370,7 +1401,7 @@ class AnalyzeNamespace:
         """
         return self._mem._anomaly_detector.reason_at_level(concept, context, max_level=max_level)
 
-    def revise(self, *, strategy: str = "higher_confidence"):
+    def revise(self, *, strategy: str = "higher_confidence") -> Any:
         """Detect and resolve contradictory beliefs.
 
         Args:
@@ -1394,7 +1425,7 @@ class AnalyzeNamespace:
         """
         return self._mem.topological_sort()
 
-    def motifs(self, *, order: int = 3):
+    def motifs(self, *, order: int = 3) -> Any:
         """Detect graph motifs (recurring subgraph patterns).
 
         Args:
@@ -1535,7 +1566,7 @@ class TemporalNamespace:
         return self._mem.detect_temporal_causal_chains(
             min_chain_length=min_chain_length, max_chains=max_chains)
 
-    def infer_constraints(self):
+    def infer_constraints(self) -> list[Any]:
         """Infer temporal constraints from observed event orderings.
 
         Returns:
@@ -1552,7 +1583,7 @@ class TemporalNamespace:
         return self._mem.check_temporal_constraint_consistency()
 
     def add_constraint(self, event_a: str, event_b: str, relation: AllenRelation,
-                        confidence: float = 1.0):
+                        confidence: float = 1.0) -> Any:
         """Add a temporal constraint between two events.
 
         Args:
@@ -1574,7 +1605,7 @@ class MonitorNamespace:
     def __init__(self, mem: HypergraphMemory) -> None:
         self._mem = mem
 
-    def health(self):
+    def health(self) -> Any:
         """Generate a comprehensive health report for the system.
 
         Returns:
@@ -1601,7 +1632,7 @@ class MonitorNamespace:
         """
         return self._mem.propose_tuning(triggers)
 
-    def execute_tuning(self, plan: TuningPlan, *, tolerance: float = 0.0):
+    def execute_tuning(self, plan: TuningPlan, *, tolerance: float = 0.0) -> Any:
         """Execute a tuning plan with fitness validation.
 
         Args:
@@ -1665,7 +1696,7 @@ class MonitorNamespace:
         """
         return self._mem.validate_reasoning(seeds, rules=rules)
 
-    def evolve_with_feedback(self):
+    def evolve_with_feedback(self) -> Any:
         """Run an evolution cycle adapted by operational feedback.
 
         Delegates to the facade's evolve_with_feedback method, which uses
@@ -1696,7 +1727,7 @@ class CognitiveNamespace:
     def __init__(self, mem: HypergraphMemory) -> None:
         self._mem = mem
 
-    def prove(self, concept: str, *, facts: set[str] | None = None, depth: int = 5):
+    def prove(self, concept: str, *, facts: set[str] | None = None, depth: int = 5) -> Any:
         """Attempt to prove a concept via backward chaining.
 
         Starts from the concept and searches for supporting evidence
@@ -1713,7 +1744,7 @@ class CognitiveNamespace:
         """
         return self._mem.prove(concept, known_facts=facts, max_depth=depth)
 
-    def prove_batch(self, concepts: list[str], *, facts: set[str] | None = None):
+    def prove_batch(self, concepts: list[str], *, facts: set[str] | None = None) -> list[Any]:
         """Prove multiple concepts in batch, accumulating known facts.
 
         Each successful proof adds its conclusion to the known facts
@@ -1729,7 +1760,7 @@ class CognitiveNamespace:
         """
         return self._mem.prove_batch(concepts, known_facts=facts)
 
-    def hebbian_reinforce(self):
+    def hebbian_reinforce(self) -> Any:
         """Reinforce edges between co-activated concepts (Hebbian learning).
 
         Strengthens edges whose endpoints were both recently activated.
@@ -1739,7 +1770,7 @@ class CognitiveNamespace:
         """
         return self._mem.hebbian_reinforce()
 
-    def hebbian_reinforce_pair(self, source: str, target: str, *, strength: float = 1.0):
+    def hebbian_reinforce_pair(self, source: str, target: str, *, strength: float = 1.0) -> Any:
         """Manually reinforce the edge between two concepts.
 
         Args:
@@ -1776,7 +1807,7 @@ class CognitiveNamespace:
         """
         return self._mem.strongest_associations(concept, top_k=top_k)
 
-    def confidence(self, concept: str):
+    def confidence(self, concept: str) -> Any:
         """Compute the confidence score for a concept.
 
         Based on the reliability of inference chains leading to it.
@@ -1789,7 +1820,7 @@ class CognitiveNamespace:
         """
         return self._mem.compute_confidence(concept)
 
-    def all_confidences(self):
+    def all_confidences(self) -> Any:
         """Compute confidence scores for all inferred concepts.
 
         Returns:
@@ -1797,7 +1828,7 @@ class CognitiveNamespace:
         """
         return self._mem.compute_all_confidences()
 
-    def low_confidence(self, *, threshold: float = 0.3):
+    def low_confidence(self, *, threshold: float = 0.3) -> list[Any]:
         """Flag concepts with confidence below a threshold.
 
         Args:
@@ -1808,7 +1839,7 @@ class CognitiveNamespace:
         """
         return self._mem.flag_low_confidence(threshold=threshold)
 
-    def trace_confidence(self, source: str, target: str):
+    def trace_confidence(self, source: str, target: str) -> Any:
         """Trace the confidence propagation chain between two concepts.
 
         Args:
@@ -1832,141 +1863,141 @@ class EngineAccessor:
         self._mem = mem
 
     @property
-    def graph(self):
+    def graph(self) -> Any:
         """The underlying Hypergraph data structure."""
         return self._mem.graph
 
     @property
-    def belief(self):
+    def belief(self) -> BeliefLayer:
         """The BeliefLayer engine (Born-rule distributions)."""
         return self._mem.belief_layer
 
     @property
-    def retrieval(self):
+    def retrieval(self) -> Any:
         """The RetrievalEngine (graph-based search)."""
         return self._mem.retrieval
 
     @property
-    def log(self):
+    def log(self) -> Any:
         """The EventLog (timestamped operation history)."""
         return self._mem.log
 
     @property
-    def cache(self):
+    def cache(self) -> Any:
         """The LazyCache (LRU with TTL)."""
         return self._mem.cache
 
     @property
-    def feedback(self):
+    def feedback(self) -> Any:
         """The OperationFeedback engine."""
         return self._mem.operation_feedback
 
     @property
-    def provenance(self):
+    def provenance(self) -> ProvenanceTracker:
         """The ProvenanceTracker (inference lineage)."""
         return self._mem.provenance
 
     @property
-    def temporal(self):
+    def temporal(self) -> Any:
         """The TemporalReasoner engine."""
         return self._mem.temporal_engine
 
     @property
-    def enricher(self):
+    def enricher(self) -> Any:
         """The LLMEnricher (text extraction)."""
         return self._mem.enricher
 
     @property
-    def monitor(self):
+    def monitor(self) -> Any:
         """The SystemMonitor (health and tuning)."""
         return self._mem.meta
 
     @property
-    def bayesian(self):
+    def bayesian(self) -> Any:
         """The BayesianLayer (classical Bayesian updating)."""
         return self._mem._bayesian
 
     @property
-    def activation(self):
+    def activation(self) -> SpreadingActivation:
         """The SpreadingActivation engine."""
         return self._mem._activation
 
     @property
-    def hebbian(self):
+    def hebbian(self) -> HebbianLearner | None:
         """The HebbianLearner (association strengthening)."""
         return self._mem.hebbian
 
     @property
-    def multiway(self):
+    def multiway(self) -> MultiwayEngine | None:
         """The MultiwayEngine (multiway expansion), or None."""
         return self._mem._multiway_engine
 
     @property
-    def convergence(self):
+    def convergence(self) -> StateConvergenceEngine | None:
         """The StateConvergenceEngine (state merging), or None."""
         return self._mem._convergence_engine
 
     @property
-    def clustering(self):
+    def clustering(self) -> StateClusteringEngine | None:
         """The StateClusteringEngine (coordinate mapping), or None."""
         return self._mem._state_clustering
 
     @property
-    def uncertainty(self):
+    def uncertainty(self) -> UncertaintyEngine | None:
         """The UncertaintyEngine (confidence scores), or None."""
         return self._mem.uncertainty
 
     @property
-    def community(self):
+    def community(self) -> CommunityDetector | None:
         """The CommunityDetector, or None."""
         return self._mem._community_detector
 
     @property
-    def differ(self):
+    def differ(self) -> GraphDiffer | None:
         """The GraphDiffer (version comparison), or None."""
         return self._mem._graph_differ
 
     @property
-    def abstraction(self):
+    def abstraction(self) -> AbstractionNavigator | None:
         """The AbstractionNavigator (collapse/expand), or None."""
         return self._mem._abstraction_nav
 
     @property
-    def structural(self):
+    def structural(self) -> Any:
         """The StructuralPatternEngine (pattern matching), or None."""
         return self._mem.structural_matcher
 
     @property
-    def revision(self):
+    def revision(self) -> Any:
         """The ContradictionResolver (belief revision), or None."""
         return self._mem._belief_revision
 
     @property
-    def overlay(self):
+    def overlay(self) -> HypergraphOverlay | None:
         """The HypergraphOverlay (commit/rollback), or None."""
         return self._mem.overlay
 
     @property
-    def perspective(self):
+    def perspective(self) -> Any:
         """The MultiPerspectiveAnalyzer (frame analysis)."""
         return self._mem.perspective
 
     @property
-    def discovery(self):
+    def discovery(self) -> Any:
         """The RuleDiscoveryEngine (pattern mining)."""
         return self._mem.discovery
 
     @property
-    def anomaly(self):
+    def anomaly(self) -> StructuralAnomalyDetector:
         """The StructuralAnomalyDetector."""
         return self._mem.structural_anomaly
 
     @property
-    def evolution(self):
+    def evolution(self) -> Any:
         """The GraphMaintenanceEngine (decay/prune/merge/reinforce)."""
         return self._mem._evolution
 
     @property
-    def equivalence(self):
+    def equivalence(self) -> Any:
         """The EquivalenceEngine (node similarity)."""
         return self._mem._equivalence

@@ -4,11 +4,14 @@ import math
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 from hyper3.kernel import Hypergraph
+
+if TYPE_CHECKING:
+    from hyper3.entanglement import CorrelatedCollapseResult, EntanglementEngine
 
 
 @dataclass
@@ -289,6 +292,7 @@ class BeliefLayer:
         self._correlations: dict[str, ConceptCorrelation] = {}
         self._bases: dict[str, SamplingProfile] = dict(BUILTIN_PROFILES)
         self._basis_stats: dict[str, dict[str, int]] = {}
+        self._entanglement: EntanglementEngine | None = None
 
     def create_distribution(self, node_ids: list[str], amplitudes: list[float] | None = None) -> BeliefState:
         """Create a normalized probability distribution over the given nodes.
@@ -346,6 +350,31 @@ class BeliefLayer:
         if not qs:
             return None
         return qs.sample(context_weights)
+
+    @property
+    def entanglement(self) -> EntanglementEngine:
+        """Lazy-initialized property returning the EntanglementEngine for this belief layer."""
+        from hyper3.entanglement import EntanglementEngine as _EE
+        if self._entanglement is None:
+            self._entanglement = _EE()
+        return self._entanglement
+
+    def sample_entangled(
+        self, qs_id: str, context_weights: dict[str, float] | None = None
+    ) -> CorrelatedCollapseResult | Outcome | None:
+        """Sample a belief state and cascade the collapse through its entanglement group using correlated sampling."""
+        if self._entanglement is None:
+            return self.sample(qs_id, context_weights)
+        group = self._entanglement.find_group(qs_id)
+        if group is None:
+            return self.sample(qs_id, context_weights)
+        result = self._entanglement.perform_correlated_collapse(
+            qs_id, self._states, self._correlations,
+            lambda qid, w: self.sample(qid, w),
+        )
+        if result is None:
+            return self.sample(qs_id, context_weights)
+        return result
 
     def sample_with_profile(self, qs_id: str, basis_name: str) -> Outcome | None:
         """Sample from a belief state using a named sampling profile.

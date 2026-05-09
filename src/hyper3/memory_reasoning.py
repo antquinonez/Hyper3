@@ -16,6 +16,8 @@ from hyper3.results import (
     DerivationInfo,
     DiscoverResult,
     ExpansionInfo,
+    FrameContribution,
+    FusedReasonResult,
     IterativeReasonResult,
     MergeReport,
     ReasonResult,
@@ -126,6 +128,8 @@ class ReasoningMixin(_MemoryBase):
             self._rule_analytics.update_position()
             rule_analytics_report = self._rule_analytics.analyze()
 
+        self._post_reasoning_transcendental()
+
         return convergence_report, clustering_report, rule_analytics_report
 
     def _build_reason_result(
@@ -171,6 +175,7 @@ class ReasoningMixin(_MemoryBase):
             if auto_commit:
                 self._overlay.commit()
                 self._overlay = None
+                self._invalidate_frame_cache()
                 self._track_rule_effectiveness()
         if auto_distributions:
             result.auto_distributions = [
@@ -264,6 +269,7 @@ class ReasoningMixin(_MemoryBase):
         if use_overlay:
             if self._overlay is not None:
                 self._overlay.commit()
+                self._invalidate_frame_cache()
             self._overlay = HypergraphOverlay(self._graph)
 
         assert self._multiway_engine is not None
@@ -304,6 +310,56 @@ class ReasoningMixin(_MemoryBase):
             auto_distributions,
         )
 
+    def reason_boundary_aware(
+        self,
+        seed_concepts: set[str],
+        *,
+        max_depth: int = 3,
+        max_total_states: int = 30,
+        enforce_convergence: bool = True,
+        use_overlay: bool = True,
+        confidence_decay: float = 0.9,
+        auto_commit: bool = True,
+    ) -> ReasonResult:
+        if self._boundary_reasoning is None:
+            from hyper3.boundary_reasoning import BoundaryReasoningEngine as _BRE
+            self._boundary_reasoning = _BRE(self._graph)
+        engine = self._boundary_reasoning
+        seed_ids = self._resolve_seeds(seed_concepts)
+        if not seed_ids:
+            return self.reason(
+                seed_concepts,
+                max_depth=max_depth,
+                max_total_states=max_total_states,
+                enforce_convergence=enforce_convergence,
+                use_overlay=use_overlay,
+                confidence_decay=confidence_decay,
+                auto_commit=auto_commit,
+            )
+        assessments = engine.assess_set(seed_ids)
+        worst = max(assessments, key=lambda a: a.decidability_score)
+        if worst.boundary_zone == "decidable":
+            return self.reason(
+                seed_concepts,
+                max_depth=max_depth,
+                max_total_states=max_total_states,
+                enforce_convergence=enforce_convergence,
+                use_overlay=use_overlay,
+                confidence_decay=confidence_decay,
+                auto_commit=auto_commit,
+            )
+        config = engine.configure_reasoning(worst)
+        effective_max_depth = min(max_depth, config.max_reasoning_depth)
+        return self.reason(
+            seed_concepts,
+            max_depth=effective_max_depth,
+            max_total_states=max_total_states,
+            enforce_convergence=enforce_convergence or config.require_convergence,
+            use_overlay=use_overlay,
+            confidence_decay=confidence_decay,
+            auto_commit=auto_commit,
+        )
+
     def commit_inferences(self) -> CommitResult:
         """Merge the current inference overlay into the base graph.
 
@@ -313,6 +369,7 @@ class ReasoningMixin(_MemoryBase):
         if not self._overlay:
             return CommitResult()
         node_ids, edge_ids = self._overlay.commit()
+        self._invalidate_frame_cache()
         self._track_rule_effectiveness()
         self._log.record("commit_inferences", nodes=len(node_ids), edges=len(edge_ids))
         self._overlay = None
@@ -535,6 +592,199 @@ class ReasoningMixin(_MemoryBase):
         }
         return result
 
+    def reason_fused(
+        self,
+        seed_concepts: set[str],
+        *,
+        frames: list[str] | None = None,
+        rules: list[Rule] | None = None,
+        strategy: str = "weighted",
+    ) -> FusedReasonResult:
+        """Run reasoning through multiple frames independently and fuse results.
+
+        Each frame reasons over the same starting graph state so that
+        agreement and fusion metrics reflect genuinely independent
+        perspectives.  Only the fused edges are committed to the base
+        graph after all frames complete.
+
+        Args:
+            seed_concepts: Labels of seed nodes.
+            frames: Frame names to run. Defaults to all registered frames.
+            rules: Rules to apply; defaults to ``self._rules``.
+            strategy: One of ``"weighted"`` (confidence *
+                frame-effectiveness), ``"majority"`` (edges appearing in >
+                half the frames), or ``"union"`` (all edges from any frame).
+
+        Returns:
+            FusedReasonResult with per-frame breakdown and fused metrics.
+
+        Raises:
+            ValueError: If *strategy* is not one of the supported values.
+        """
+        valid_strategies = {"weighted", "majority", "union"}
+        if strategy not in valid_strategies:
+            raise ValueError(f"Unknown fusion strategy '{strategy}'; choose from {sorted(valid_strategies)}")
+
+        if frames is None:
+            frames = list(self._perspective.frames.keys())
+
+        seed_ids = self._resolve_seeds(seed_concepts)
+        features = self._perspective.extract_problem_features(list(seed_ids))
+
+        per_frame: dict[str, ReasonResult] = {}
+        overlay_data: dict[str, tuple[dict[str, Any], dict[str, Any]]] = {}
+
+        for frame_name in frames:
+            best_transform = None
+            for concept in seed_concepts:
+                transformed = self._perspective.transform_config(concept, "classical", frame_name)
+                if best_transform is None or transformed.information_loss < best_transform.information_loss:
+                    best_transform = transformed
+            if best_transform is None:
+                best_transform = self._perspective.transform_config("", "classical", frame_name)
+            max_depth = best_transform.max_depth
+            max_states = best_transform.max_total_states
+
+            result = self.reason(
+                seed_concepts,
+                rules=rules,
+                max_depth=max_depth,
+                max_total_states=max_states,
+                auto_commit=False,
+            )
+
+            success = False
+            if result.overlay is not None:
+                edge_count = result.overlay.get("edge_count", 0)
+                confidence_map = result.confidence or {}
+                high_conf = sum(1 for c in confidence_map.values() if c > 0.5)
+                success = edge_count > 0 and (high_conf > 0 or not confidence_map)
+            elif result.error is None:
+                new_edges = result.expansion.edges_produced if result.expansion else 0
+                success = new_edges > 0
+
+            self._perspective.record_frame_outcome(frame_name, success)
+            self._perspective.record_problem_outcome(features, frame_name, success)
+            result.frame_config = {
+                "algorithm": best_transform.algorithm,
+                "information_loss": best_transform.information_loss,
+                "preserved_properties": best_transform.preserved_properties,
+            }
+
+            if self._overlay:
+                overlay_data[frame_name] = (
+                    dict(self._overlay._overlay_nodes),
+                    dict(self._overlay._overlay_edges),
+                )
+            else:
+                overlay_data[frame_name] = ({}, {})
+
+            self._overlay = None
+            per_frame[frame_name] = result
+
+        frame_edges: dict[str, set[str]] = {}
+        frame_confidence: dict[str, dict[str, float]] = {}
+        for frame_name, result in per_frame.items():
+            if result.confidence:
+                frame_edges[frame_name] = set(result.confidence.keys())
+                frame_confidence[frame_name] = result.confidence
+            else:
+                frame_edges[frame_name] = set()
+                frame_confidence[frame_name] = {}
+
+        effectiveness = self._perspective.get_frame_effectiveness()
+
+        if strategy == "union":
+            fused_set = set.union(*frame_edges.values()) if frame_edges else set()
+        elif strategy == "majority":
+            threshold = len(frames) // 2 + 1
+            counts: dict[str, int] = {}
+            for edges in frame_edges.values():
+                for eid in edges:
+                    counts[eid] = counts.get(eid, 0) + 1
+            fused_set = {eid for eid, c in counts.items() if c >= threshold}
+        else:
+            weighted_counts: dict[str, float] = {}
+            for frame_name, edges in frame_edges.items():
+                weight = effectiveness.get(frame_name, 0.5)
+                for eid in edges:
+                    conf = frame_confidence.get(frame_name, {}).get(eid, 0.5)
+                    weighted_counts[eid] = weighted_counts.get(eid, 0.0) + weight * conf
+            avg_weight = sum(weighted_counts.values()) / len(weighted_counts) if weighted_counts else 0.0
+            fused_set = {eid for eid, s in weighted_counts.items() if s >= avg_weight * 0.5}
+
+        all_edges = set.union(*frame_edges.values()) if frame_edges else set()
+        intersection = set.intersection(*frame_edges.values()) if frame_edges and all(frame_edges.values()) else set()
+        agreement = len(intersection) / max(len(all_edges), 1)
+
+        fused_conf = 0.0
+        if fused_set:
+            total = 0.0
+            for frame_name, edges in frame_edges.items():
+                weight = effectiveness.get(frame_name, 0.5)
+                for eid in fused_set:
+                    if eid in edges:
+                        total += weight * frame_confidence.get(frame_name, {}).get(eid, 0.5)
+            fused_conf = total / max(len(fused_set), 1)
+
+        contributions: list[FrameContribution] = []
+        best_frame = ""
+        best_score = -1.0
+        for frame_name in frames:
+            result = per_frame[frame_name]
+            edges = frame_edges.get(frame_name, set())
+            confs = frame_confidence.get(frame_name, {})
+            avg_c = sum(confs.values()) / max(len(confs), 1) if confs else 0.0
+            other_union: set[str] = set()
+            for fn2, e2 in frame_edges.items():
+                if fn2 != frame_name:
+                    other_union |= e2
+            unique = len(edges - other_union)
+            info_loss = 0.0
+            if result.frame_config:
+                info_loss = result.frame_config.get("information_loss", 0.0)
+            score = avg_c * effectiveness.get(frame_name, 0.5)
+            if score > best_score:
+                best_score = score
+                best_frame = frame_name
+            contributions.append(FrameContribution(
+                frame_name=frame_name,
+                edges_produced=len(edges),
+                avg_confidence=avg_c,
+                information_loss=info_loss,
+                unique_edges=unique,
+            ))
+
+        committed_nodes: set[str] = set()
+        committed_edges: set[str] = set()
+        for frame_name in frames:
+            nodes_dict, edges_dict = overlay_data.get(frame_name, ({}, {}))
+            for eid in fused_set:
+                edge = edges_dict.get(eid)
+                if edge is None:
+                    continue
+                for nid in edge.source_ids | edge.target_ids:
+                    node = nodes_dict.get(nid)
+                    if node and nid not in committed_nodes:
+                        self._graph.add_node(node)
+                        committed_nodes.add(nid)
+                if eid not in committed_edges:
+                    self._graph.add_edge(edge)
+                    committed_edges.add(eid)
+        if committed_edges:
+            self._invalidate_frame_cache()
+
+        return FusedReasonResult(
+            frame_count=len(frames),
+            fused_edges=len(fused_set),
+            fused_confidence=fused_conf,
+            agreement_ratio=agreement,
+            frame_contributions=contributions,
+            per_frame_results=per_frame,
+            best_frame=best_frame,
+            fusion_strategy=strategy,
+        )
+
     def derive(self, concept: str, *, rules: list[Rule] | None = None) -> list[DerivationInfo]:
         """Find derivation paths to a concept using inference rules.
 
@@ -655,3 +905,15 @@ class ReasoningMixin(_MemoryBase):
     def compute_bias_profile(self) -> BiasProfileResult:
         """Analyze the system's computational biases from rule effectiveness data."""
         return self.rule_analytics.compute_bias_profile()
+
+    def _post_reasoning_transcendental(self) -> None:
+        if self._transcendental is None:
+            from hyper3.transcendental import TranscendentalInferenceEngine
+            self._transcendental = TranscendentalInferenceEngine(self._graph)
+        engine = self._transcendental
+        if self._rule_analytics is None:
+            return
+        insights = self._rule_analytics.insights
+        patterns = self._rule_analytics.meta_patterns
+        engine.ingest_analytics(insights, patterns)
+        engine.generate_proposals(context="reasoning")

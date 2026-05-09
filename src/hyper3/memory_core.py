@@ -3,6 +3,7 @@ from __future__ import annotations
 import time
 from typing import TYPE_CHECKING, Any
 
+from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.event_log import EventLog
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.kernel import (
@@ -80,6 +81,8 @@ class CoreMixin(_MemoryBase):
             return []
 
         start = max(candidates, key=lambda n: n.weight)
+        if self._prefetch is not None:
+            self._prefetch.on_access(start.id)
         self._observer.configure(
             max_depth=max_depth,
             max_nodes=max_nodes,
@@ -88,6 +91,69 @@ class CoreMixin(_MemoryBase):
         result = self._observer.apply(start.id)
         self._log.record("recall", concept=concept, result_count=len(result))
         return result
+
+    def recall_adaptive(self, concept: str) -> list[Hypernode]:
+        """Recall with automatically selected slice parameters.
+
+        The adaptive slice engine recommends ``max_depth``, ``max_nodes``,
+        and ``min_weight`` based on the concept's local graph context and
+        past retrieval outcomes.  After retrieval, the outcome is recorded
+        for future adaptation.
+
+        Args:
+            concept: Label of the concept to recall.
+
+        Returns:
+            Filtered list of hypernodes from the adaptive slice.
+        """
+        node = self._find_node(concept)
+        if node is None:
+            return []
+        if self._adaptive_slice is None:
+            self._adaptive_slice = AdaptiveSliceEngine(self._graph)
+        recommended = self._adaptive_slice.recommend(node.id)
+        self._observer.configure(
+            max_depth=recommended.max_depth,
+            max_nodes=recommended.max_nodes,
+            min_weight=recommended.min_weight,
+        )
+        results = self._observer.apply(node.id)
+        self._log.record("recall_adaptive", concept=concept, result_count=len(results))
+        success = self._evaluate_slice_outcome(results, recommended.max_depth)
+        self._adaptive_slice.record_outcome(
+            node.id,
+            recommended.max_depth,
+            recommended.max_nodes,
+            recommended.min_weight,
+            success,
+        )
+        return results
+
+    def record_slice_outcome(
+        self,
+        concept: str,
+        max_depth: int,
+        max_nodes: int,
+        min_weight: float,
+        success: bool,
+    ) -> None:
+        """Record explicit feedback about a slice configuration's effectiveness."""
+        node = self._find_node(concept)
+        if node is None:
+            return
+        if self._adaptive_slice is None:
+            self._adaptive_slice = AdaptiveSliceEngine(self._graph)
+        self._adaptive_slice.record_outcome(
+            node.id, max_depth, max_nodes, min_weight, success
+        )
+
+    def _evaluate_slice_outcome(
+        self, results: list[Hypernode], max_depth: int,
+    ) -> bool:
+        n = len(results)
+        if n == 0:
+            return False
+        return not (n < 3 and max_depth < 7)
 
     def has(self, concept: str) -> bool:
         return self._find_node(concept) is not None
@@ -113,6 +179,7 @@ class CoreMixin(_MemoryBase):
             node.data = {}
         if isinstance(node.data, dict):
             node.data.update(kwargs)
+        self._invalidate_frame_cache(concept)
 
     def info(self, concept: str) -> NodeInfo | None:
         node = self._find_node(concept)
@@ -163,6 +230,7 @@ class CoreMixin(_MemoryBase):
         self._graph.add_node(node)
         self._cache.put(f"store:{concept}", node.id)
         self._log.record("store", node_id=node.id, concept=concept)
+        self._invalidate_frame_cache(concept)
         self._maybe_evolve()
         return node
 
@@ -229,6 +297,7 @@ class CoreMixin(_MemoryBase):
                     raise ConstraintViolationError(rev_violations)
             self._graph.add_edge(rev)
 
+        self._invalidate_frame_cache(source, target)
         self._log.record(
             "relate",
             source=source,
@@ -288,6 +357,7 @@ class CoreMixin(_MemoryBase):
                 raise ConstraintViolationError(violations)
 
         self._graph.add_edge(edge)
+        self._invalidate_frame_cache(*sources, *targets)
         self._log.record(
             "relate_hyperedge",
             sources=list(sources),
@@ -435,6 +505,7 @@ class CoreMixin(_MemoryBase):
         node = Hypernode(label=concept, data=data, metadata=meta, created_at=time.time())
         node.touch(time.time())
         self._graph.add_node(node)
+        self._invalidate_frame_cache(concept)
         return node
 
     def neighbors(
@@ -575,6 +646,7 @@ class CoreMixin(_MemoryBase):
         """
         report = self._evolution.evolve()
         self._cache.evict_expired()
+        self._invalidate_frame_cache()
         convergence_report: MergeReport | None = None
         if hasattr(self, "_convergence_engine") and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()
@@ -618,6 +690,7 @@ class CoreMixin(_MemoryBase):
             suppressed_nodes=suppressed if suppressed else None,
         )
         self._cache.evict_expired()
+        self._invalidate_frame_cache()
         convergence_report: MergeReport | None = None
         if hasattr(self, "_convergence_engine") and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()

@@ -86,6 +86,30 @@ class ConsensusReasonResult(_SimpleResultBase):
 
 
 @dataclass
+class FrameContribution(_SimpleResultBase):
+    """Per-frame contribution metrics in fused multi-frame reasoning."""
+    frame_name: str = ""
+    edges_produced: int = 0
+    avg_confidence: float = 0.0
+    information_loss: float = 0.0
+    unique_edges: int = 0
+
+
+@dataclass
+class FusedReasonResult(_SimpleResultBase):
+    """Result of multi-frame fused reasoning with per-frame breakdown, agreement ratio, and fusion strategy."""
+    frame_count: int = 0
+    fused_edges: int = 0
+    fused_confidence: float = 0.0
+    agreement_ratio: float = 0.0
+    frame_contributions: list[FrameContribution] = field(default_factory=list)
+    per_frame_results: dict[str, ReasonResult] = field(default_factory=dict)
+    best_frame: str = ""
+    fusion_strategy: str = ""
+    error: str | None = None
+
+
+@dataclass
 class MergeReport(_SimpleResultBase):
     """Report from state convergence: number of merges, states before/after, and total reduction."""
     merges_performed: int = 0
@@ -518,6 +542,7 @@ class LabeledEdge(_SimpleResultBase):
 
 @dataclass
 class NodeInfo(_SimpleResultBase):
+    """Typed snapshot of a node's label, data, weight, and access count."""
     label: str = ""
     data: dict[str, Any] = field(default_factory=dict)
     weight: float = 1.0
@@ -526,6 +551,7 @@ class NodeInfo(_SimpleResultBase):
 
 @dataclass
 class EdgeInfo(_SimpleResultBase):
+    """Typed snapshot of an edge's label, source/target labels, weight, and data."""
     id: str = ""
     label: str = ""
     source: str | list[str] = ""
@@ -537,6 +563,7 @@ class EdgeInfo(_SimpleResultBase):
 
 @dataclass
 class SearchHit(_SimpleResultBase):
+    """A search result hit with concept label, score, and optional data."""
     label: str = ""
     score: float = 0.0
     data: dict[str, Any] = field(default_factory=dict)
@@ -549,12 +576,14 @@ class SearchHit(_SimpleResultBase):
 
 @dataclass
 class ActivationHit(_SimpleResultBase):
+    """An activation-spreading hit with concept label and activation score."""
     label: str = ""
     energy: float = 0.0
 
 
 @dataclass
 class BulkResult(_SimpleResultBase):
+    """Result of bulk node/edge construction via :meth:`add_all`."""
     nodes_added: int = 0
     edges_added: int = 0
     nodes_skipped: int = 0
@@ -563,6 +592,7 @@ class BulkResult(_SimpleResultBase):
 
 @dataclass
 class AnomalyReport(_SimpleResultBase):
+    """Structural anomaly detection report for a concept."""
     concept: str = ""
     status: str = "low_risk"
     score: float = 0.0

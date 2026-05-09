@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from hyper3.state_clustering import StateClusteringEngine
 
 
-def _import_pyplot():
+def _import_pyplot() -> Any:
     """Import and return matplotlib.pyplot, raising an informative error if missing."""
     from matplotlib import pyplot as plt
 
@@ -93,7 +93,7 @@ def plot_hypergraph(
     return fig
 
 
-def _build_nx_digraph(graph: Hypergraph):
+def _build_nx_digraph(graph: Hypergraph) -> Any:
     import networkx as nx
 
     G = nx.DiGraph()
@@ -111,7 +111,7 @@ def _build_nx_digraph(graph: Hypergraph):
     return G
 
 
-def _compute_graph_layout(G, layout: str):
+def _compute_graph_layout(G: Any, layout: str) -> Any:
     import networkx as nx
 
     if layout == "spring":

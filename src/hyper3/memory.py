@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 from hyper3.abstraction import AbstractionNavigator
+from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.backward_chain import BackwardChainEngine
+from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
+from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
+from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
@@ -15,6 +21,8 @@ from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
+from hyper3.interference_reasoning import InterferenceReasoningEngine
+from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
@@ -53,8 +61,10 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
+from hyper3.structural_prefetch import StructuralPrefetchEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
+from hyper3.transcendental import TranscendentalInferenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
 from hyper3.uncertainty import UncertaintyEngine
 
@@ -119,6 +129,8 @@ class HypergraphMemory(
         "reason", "belief", "bayes", "search", "analyze",
         "temporal", "monitor", "cognitive", "engine",
         "graph", "log", "cache", "rules",
+        "recall_adaptive", "record_slice_outcome",
+        "should_collapse", "collapse_report", "detect_invariants",
     })
 
     def __dir__(self) -> list[str]:
@@ -205,6 +217,14 @@ class HypergraphMemory(
         self._abstraction_nav: AbstractionNavigator | None = None
         self._community_detector: CommunityDetector | None = None
         self._graph_differ: GraphDiffer | None = None
+        self._basis_selector: BasisSelector | None = None
+        self._boundary_reasoning: BoundaryReasoningEngine | None = None
+        self._transcendental: TranscendentalInferenceEngine | None = None
+        self._adaptive_slice: AdaptiveSliceEngine | None = None
+        self._interference_engine: InterferenceReasoningEngine | None = None
+        self._collapse_trigger: CollapseTriggerEngine | None = None
+        self._invariant_detector: InvariantDetector | None = None
+        self._prefetch: StructuralPrefetchEngine | None = None
         self._ns_reason: ReasonNamespace | None = None
         self._ns_belief: BeliefNamespace | None = None
         self._ns_bayes: BayesNamespace | None = None
@@ -217,72 +237,99 @@ class HypergraphMemory(
 
     @property
     def reason(self) -> ReasonNamespace:
+        """Lazy-initialized property returning the reasoning namespace."""
         if self._ns_reason is None:
             self._ns_reason = ReasonNamespace(self)
         return self._ns_reason
 
     @property
     def belief(self) -> BeliefNamespace:
+        """Lazy-initialized property returning the belief namespace."""
         if self._ns_belief is None:
             self._ns_belief = BeliefNamespace(self)
         return self._ns_belief
 
     @property
     def bayes(self) -> BayesNamespace:
+        """Lazy-initialized property returning the Bayesian namespace."""
         if self._ns_bayes is None:
             self._ns_bayes = BayesNamespace(self)
         return self._ns_bayes
 
     @property
     def search(self) -> SearchNamespace:
+        """Lazy-initialized property returning the search namespace."""
         if self._ns_search is None:
             self._ns_search = SearchNamespace(self)
         return self._ns_search
 
     @property
     def analyze(self) -> AnalyzeNamespace:
+        """Lazy-initialized property returning the analytics namespace."""
         if self._ns_analyze is None:
             self._ns_analyze = AnalyzeNamespace(self)
         return self._ns_analyze
 
     @property
     def temporal(self) -> TemporalNamespace:
+        """Lazy-initialized property returning the temporal namespace."""
         if self._ns_temporal is None:
             self._ns_temporal = TemporalNamespace(self)
         return self._ns_temporal
 
     @property
     def monitor(self) -> MonitorNamespace:
+        """Lazy-initialized property returning the system monitor namespace."""
         if self._ns_monitor is None:
             self._ns_monitor = MonitorNamespace(self)
         return self._ns_monitor
 
     @property
     def cognitive(self) -> CognitiveNamespace:
+        """Lazy-initialized property returning the cognitive namespace."""
         if self._ns_cognitive is None:
             self._ns_cognitive = CognitiveNamespace(self)
         return self._ns_cognitive
 
     @property
     def engine(self) -> EngineAccessor:
+        """Lazy-initialized property returning the engine accessor."""
         if self._ns_engine is None:
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
 
-    def centrality(self, method, *, top_k=None, **kwargs):
+    def centrality(self, method, *, top_k=None, **kwargs) -> Any:
         return self.analyze.centrality(method, top_k=top_k, **kwargs)
 
-    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10):
+    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[str] | None:
         return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
 
-    def communities(self, **kwargs):
+    def communities(self, **kwargs) -> Any:
         return self.analyze.communities(**kwargs)
 
-    def anomalies(self, concept, **kwargs):
+    def anomalies(self, concept, **kwargs) -> Any:
         return self.analyze.anomalies(concept, **kwargs)
 
-    def similar(self, concept, **kwargs):
+    def similar(self, concept, **kwargs) -> Any:
         return self.search.similar(concept, **kwargs)
 
-    def edges(self, **kwargs):
+    def edges(self, **kwargs) -> Any:
         return self.analyze.edges(**kwargs)
+
+    @property
+    def frame_cache_stats(self) -> Any:
+        """Return frame cache statistics, or None if the cache has not been initialized."""
+        if self._perspective._frame_cache is None:
+            return None
+        return self._perspective._frame_cache.stats()
+
+    def invalidate_frame_cache(self, frame=None) -> int:
+        """Invalidate frame cache entries. Pass a frame name for targeted invalidation, or clear everything."""
+        fc = self._perspective._frame_cache
+        if fc is None:
+            return 0
+        if frame is not None:
+            return fc.invalidate_frame(frame)
+        s = fc.stats()
+        fc.clear()
+        return s.total_entries

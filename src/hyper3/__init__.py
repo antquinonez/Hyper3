@@ -4,11 +4,23 @@ from hyper3.abstraction import (
     AbstractionNavigator,
     AbstractionSummary,
 )
+from hyper3.adaptive_slice import (
+    AdaptiveSliceEngine,
+    AdaptiveSliceReport,
+    RecommendedSlice,
+    SliceContext,
+    SliceOutcomeRecord,
+)
 from hyper3.backward_chain import (
     BackwardChainEngine,
     BackwardChainResult,
     ProofStep,
     ProofTree,
+)
+from hyper3.basis_selector import (
+    BasisContext,
+    BasisOutcomeRecord,
+    BasisSelector,
 )
 from hyper3.bayesian import (
     BayesianLayer,
@@ -37,12 +49,19 @@ from hyper3.belief_revision import (
     RevisionPlan,
     RevisionResult,
 )
+from hyper3.boundary_reasoning import (
+    BoundaryAwareReasonConfig,
+    BoundaryNavigationReport,
+    BoundaryReasoningEngine,
+    DecidabilityAssessment,
+)
 from hyper3.cache import LazyCache
 from hyper3.capabilities import (
     CapabilityLevel,
     detect_capability_level,
     require_capability,
 )
+from hyper3.collapse_trigger import CollapseDecision, CollapseTriggerEngine
 from hyper3.community import (
     Community,
     CommunityDetector,
@@ -76,6 +95,13 @@ from hyper3.enrichment import (
     LLMProvider,
     RegexExtractor,
 )
+from hyper3.entanglement import (
+    CorrelatedCollapseResult,
+    EntanglementEngine,
+    EntanglementGroup,
+    EntanglementLink,
+    EntanglementReport,
+)
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
@@ -96,6 +122,11 @@ from hyper3.exceptions import (
 from hyper3.feedback import (
     FeedbackSignal,
     OperationFeedback,
+)
+from hyper3.frame_cache import (
+    FrameCache,
+    FrameCacheStats,
+    FramePartitionStats,
 )
 from hyper3.frame_transform import (
     FrameTransformer,
@@ -129,6 +160,17 @@ from hyper3.hebbian import (
     HebbianLearner,
     HebbianResult,
     HebbianUpdate,
+)
+from hyper3.interference_reasoning import (
+    InterferenceInsight,
+    InterferencePattern,
+    InterferenceReasoningEngine,
+    InterferenceReport,
+)
+from hyper3.invariant_detector import (
+    InvariantDetector,
+    InvariantReport,
+    PropertyInvariant,
 )
 from hyper3.kernel import (
     AbstractionLayer,
@@ -187,6 +229,8 @@ from hyper3.results import (
     EvolveResult,
     ExpansionInfo,
     FeedbackSummaryResult,
+    FrameContribution,
+    FusedReasonResult,
     GraphDescription,
     HealthReport,
     HyperedgeSimilarityResult,
@@ -251,7 +295,9 @@ from hyper3.rules import (
     StructuralProjectionRule,
     TransitiveRule,
 )
+from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
+from hyper3.rules_simultaneity import SimultaneityRule
 from hyper3.snapshot import SystemSnapshot
 from hyper3.state_clustering import (
     AnalogyProposal,
@@ -281,6 +327,11 @@ from hyper3.structural_match import (
     StructuralMatchResult,
     StructuralPatternEngine,
 )
+from hyper3.structural_prefetch import (
+    PrefetchConfig,
+    PrefetchStats,
+    StructuralPrefetchEngine,
+)
 from hyper3.system_monitor import (
     SystemHealthModel,
     SystemMonitor,
@@ -293,6 +344,13 @@ from hyper3.temporal import (
     TemporalEvent,
     TemporalReasoner,
     TimeInterval,
+)
+from hyper3.transcendental import (
+    InferenceProposal,
+    TranscendentalInferenceEngine,
+    TranscendentalInsight,
+    TranscendentalReport,
+    TransferablePattern,
 )
 from hyper3.traversal import ObserverSlice, SliceConfig, TraversalEngine
 from hyper3.types_api import (

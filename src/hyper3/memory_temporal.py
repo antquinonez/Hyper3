@@ -159,12 +159,12 @@ class TemporalMixin(_MemoryBase):
         return self._temporal.detect_causal_chains(
             min_chain_length=min_chain_length, max_chains=max_chains)
 
-    def infer_temporal_constraints(self):
+    def infer_temporal_constraints(self) -> list[Any]:
         return self._temporal.infer_constraints()
 
     def check_temporal_constraint_consistency(self) -> list[dict[str, Any]]:
         return self._temporal.check_constraint_consistency()
 
     def add_temporal_constraint(self, event_a: str, event_b: str, relation: AllenRelation,
-                                 confidence: float = 1.0):
+                                 confidence: float = 1.0) -> Any:
         return self._temporal.add_constraint(event_a, event_b, relation, confidence=confidence)

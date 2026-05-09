@@ -1,0 +1,150 @@
+from __future__ import annotations
+
+from collections import Counter
+from dataclasses import dataclass, field
+from typing import Any
+
+from hyper3.kernel import Hypergraph
+from hyper3.results import _SimpleResultBase
+
+
+@dataclass
+class PropertyInvariant(_SimpleResultBase):
+    """Result of checking whether a single structural property is invariant across computational frames."""
+    property_name: str = ""
+    is_invariant: bool = False
+    values: dict[str, Any] = field(default_factory=dict)
+    variance: float = 0.0
+
+
+@dataclass
+class InvariantReport(_SimpleResultBase):
+    """Report summarising which properties of a concept are invariant across frames, with a robustness score."""
+    concept: str = ""
+    concept_id: str = ""
+    frame_names: list[str] = field(default_factory=list)
+    property_invariants: list[PropertyInvariant] = field(default_factory=list)
+    invariant_count: int = 0
+    total_properties: int = 0
+    robustness_score: float = 0.0
+
+
+def _bucket(value: float) -> str:
+    if value > 0.7:
+        return "high"
+    if value >= 0.3:
+        return "medium"
+    return "low"
+
+
+class InvariantDetector:
+    """Detects structural properties of a concept that are invariant (robust) across different computational frames."""
+    def __init__(self, graph: Hypergraph, frame_names: list[str] | None = None) -> None:
+        self._graph = graph
+        self._frame_names = frame_names or ["classical", "quantum", "hypergraph", "probabilistic"]
+
+    def _frame_degree(self, node_id: str, frame: str) -> tuple[float, int]:
+        if frame == "classical":
+            deg = len(self._graph.incident_edges(node_id))
+            nbrs = len(self._graph.neighbors(node_id))
+            return float(deg), nbrs
+        if frame == "quantum":
+            edges = [e for e in self._graph.incident_edges(node_id) if e.weight >= 0.5]
+            neighbor_ids: set[str] = set()
+            for e in edges:
+                neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return float(len(edges)), len(neighbor_ids)
+        if frame == "hypergraph":
+            edges = [e for e in self._graph.incident_edges(node_id)
+                     if len(e.source_ids) > 1 or len(e.target_ids) > 1]
+            neighbor_ids: set[str] = set()
+            for e in edges:
+                neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return float(len(edges)), len(neighbor_ids)
+        if frame == "probabilistic":
+            total_weight = sum(e.weight for e in self._graph.incident_edges(node_id))
+            neighbor_ids = set()
+            for e in self._graph.incident_edges(node_id):
+                if e.weight >= 0.3:
+                    neighbor_ids |= (e.source_ids | e.target_ids) - {node_id}
+            return total_weight, len(neighbor_ids)
+        deg = len(self._graph.incident_edges(node_id))
+        nbrs = len(self._graph.neighbors(node_id))
+        return float(deg), nbrs
+
+    def detect(self, node_id: str) -> InvariantReport:
+        """Check whether a node's structural properties (degree rank, hub/leaf status, centrality rank) are invariant across computational frames."""
+        node = self._graph.get_node(node_id)
+        if node is None:
+            return InvariantReport(concept_id=node_id)
+
+        frame_max_deg: dict[str, float] = {}
+        for frame in self._frame_names:
+            max_d = 0.0
+            for nid in self._graph._nodes:
+                d, _ = self._frame_degree(nid, frame)
+                if d > max_d:
+                    max_d = d
+            frame_max_deg[frame] = max_d if max_d > 0 else 1.0
+
+        pr = self._graph.pagerank()
+        max_pr = max(pr.values()) if pr else 1.0
+        if max_pr == 0:
+            max_pr = 1.0
+
+        properties: list[PropertyInvariant] = []
+
+        deg_values: dict[str, str] = {}
+        hub_values: dict[str, bool] = {}
+        leaf_values: dict[str, bool] = {}
+        centrality_values: dict[str, str] = {}
+
+        for frame in self._frame_names:
+            deg, neighbor_count = self._frame_degree(node_id, frame)
+            deg_normalized = deg / frame_max_deg[frame]
+
+            deg_values[frame] = _bucket(deg_normalized)
+            hub_values[frame] = _bucket(deg_normalized) == "high" and neighbor_count > 3
+            leaf_values[frame] = _bucket(deg_normalized) == "low" and neighbor_count <= 1
+
+            node_pr = pr.get(node_id, 0.0)
+            centrality_norm = node_pr / max_pr if max_pr > 0 else 0.0
+            centrality_values[frame] = _bucket(centrality_norm)
+
+        properties.append(self._check_invariant("degree_rank", deg_values))
+        properties.append(self._check_invariant("is_hub", hub_values))
+        properties.append(self._check_invariant("is_leaf", leaf_values))
+        properties.append(self._check_invariant("centrality_rank", centrality_values))
+
+        inv_count = sum(1 for p in properties if p.is_invariant)
+        total = len(properties)
+        return InvariantReport(
+            concept=node.label,
+            concept_id=node_id,
+            frame_names=list(self._frame_names),
+            property_invariants=properties,
+            invariant_count=inv_count,
+            total_properties=total,
+            robustness_score=inv_count / total if total > 0 else 0.0,
+        )
+
+    def detect_batch(self, node_ids: list[str]) -> list[InvariantReport]:
+        """Run detect() for a list of node IDs and return the reports."""
+        return [self.detect(nid) for nid in node_ids]
+
+    def _check_invariant(self, name: str, values: dict[str, Any]) -> PropertyInvariant:
+        vals = list(values.values())
+        first = vals[0]
+        is_inv = all(v == first for v in vals)
+        if not is_inv:
+            counts = Counter(str(v) for v in vals)
+            majority = counts.most_common(1)[0][1]
+            variance = 1.0 - majority / len(vals)
+        else:
+            variance = 0.0
+        return PropertyInvariant(
+            property_name=name,
+            is_invariant=is_inv,
+            values=values,
+            variance=variance,
+        )

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from hyper3.invariant_detector import InvariantDetector, InvariantReport
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import (
     PatternMatchInfo,
@@ -216,7 +217,7 @@ class AnalyticsMixin(_MemoryBase):
         """Return a histogram of node degrees across the graph."""
         return self._graph.degree_distribution()
 
-    def s_persistence(self, *, max_s: int | None = None):
+    def s_persistence(self, *, max_s: int | None = None) -> Any:
         """Compute the s-persistence filtration of s-connected components.
 
         Returns multi-resolution structure: components split as the
@@ -660,7 +661,7 @@ class AnalyticsMixin(_MemoryBase):
         order: int = 3,
         runs_config_model: int = 10,
         seed: int | None = None,
-    ):
+    ) -> Any:
         return self._graph.detect_motifs(order=order, runs_config_model=runs_config_model, seed=seed)
 
     def simplicial_contagion(
@@ -672,7 +673,7 @@ class AnalyticsMixin(_MemoryBase):
         mu: float = 0.1,
         timesteps: int = 100,
         seed: int | None = None,
-    ):
+    ) -> Any:
         label_to_id = {n.label: n.id for n in self._graph._nodes.values()}
         id_infected = {label_to_id[l] for l in infected if l in label_to_id}
         return self._graph.simplicial_contagion(
@@ -690,7 +691,7 @@ class AnalyticsMixin(_MemoryBase):
         timesteps: int = 10000,
         dt: float = 0.002,
         seed: int | None = None,
-    ):
+    ) -> Any:
         return self._graph.simulate_kuramoto(
             k2=k2, k3=k3, omega=omega, theta0=theta0,
             timesteps=timesteps, dt=dt, seed=seed,
@@ -708,10 +709,19 @@ class AnalyticsMixin(_MemoryBase):
         integration_time: float = 200.0,
         integration_step: float = 0.01,
         seed: int | None = None,
-    ):
+    ) -> Any:
         return self._graph.master_stability_function(
             dynamics_func, dynamics_jacobian, coupling_func, params,
             sigmas=sigmas, interval=interval,
             integration_time=integration_time, integration_step=integration_step,
             seed=seed,
         )
+
+    def detect_invariants(self, concept: str) -> InvariantReport:
+        """Detect structural properties of a concept that are invariant across computational frames."""
+        nid = self.resolve_id(concept)
+        if not nid:
+            return InvariantReport()
+        if self._invariant_detector is None:
+            self._invariant_detector = InvariantDetector(self._graph)
+        return self._invariant_detector.detect(nid)

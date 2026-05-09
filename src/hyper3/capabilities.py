@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from enum import Enum
+from typing import Any
 
 
 class CapabilityLevel(Enum):
@@ -218,7 +220,7 @@ def detect_capability_level(memory: object) -> CapabilityLevel:
     return CapabilityLevel.FULL
 
 
-def require_capability(level: CapabilityLevel):
+def require_capability(level: CapabilityLevel) -> Callable[..., Any]:
     """Decorator that gates a method on a minimum capability level.
 
     Calls :func:`detect_capability_level` on ``self`` at runtime and
@@ -228,11 +230,11 @@ def require_capability(level: CapabilityLevel):
     """
     import functools
 
-    def decorator(func):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         """Wrap *func* so the capability check runs before each call."""
 
         @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
+        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:
             """Invoke the decorated method after verifying capability level."""
             current = detect_capability_level(self)
             levels = list(CapabilityLevel)
