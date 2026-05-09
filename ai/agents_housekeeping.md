@@ -48,7 +48,7 @@ Run this sequence after substantive changes. All gates must pass:
 
 # 4. All examples (must complete without error)
 for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
-for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/projects/*/pipeline.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 5. All demos (must complete without error)
 for f in demos/demo*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
@@ -97,5 +97,5 @@ Current project metrics (update after changes):
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
-- **Examples**: 110 (47 Hyper3: 3 basic, 22 intermediate, 11 advanced, 11 domain, 5 project pipelines; 47 comparison + 8 laminar)
-- **Equiv battery**: 788 pass / 0 fail / 54 gap (14 suites, HGX + XGI + NX)
+- **Examples**: 111 (49 Hyper3 showcase + 5 project pipelines; 41 comparison + 12 laminar; 3 standalone)
+- **Equiv battery**: 784 pass / 0 fail / 54 gap (14 suites, HGX + XGI + NX)
