@@ -66,6 +66,7 @@ class ReasonNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating reasoning operations."""
         self._mem = mem
 
     def __call__(self, seeds: set[str] | None = None, *, rules: list[Rule] | None = None,
@@ -255,6 +256,7 @@ class BeliefNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating belief operations."""
         self._mem = mem
 
     def create(self, outcomes: list[str], *, amplitudes: list[float] | None = None,
@@ -427,12 +429,14 @@ class BeliefNamespace:
         return self._mem.compute_density_matrix(state_id)
 
     def sample_adaptive(self, state: BeliefState) -> str | None:
+        """Sample an outcome using the adaptive basis strategy (selects the historically most effective basis)."""
         result = self._mem.sample_adaptive(state)
         if result is None:
             return None
         return self._mem.node_label(result.node_id)
 
     def sample_blended(self, state: BeliefState) -> str | None:
+        """Sample an outcome using a blended strategy that combines multiple sampling bases."""
         result = self._mem.sample_blended(state)
         if result is None:
             return None
@@ -447,6 +451,7 @@ class BeliefNamespace:
         return self._mem.list_basis_effectiveness()
 
     def _resolve_state(self, concept: str) -> BeliefState | None:
+        """Look up the BeliefState containing a concept label as one of its outcomes."""
         node_id = self._mem.resolve_id(concept)
         if node_id is None:
             return None
@@ -464,6 +469,7 @@ class BayesNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating Bayesian operations."""
         self._mem = mem
 
     def set_prior(self, concept: str, *, outcomes: list[str],
@@ -558,6 +564,7 @@ class SearchFeedbackSubNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for feedback and learning-to-rank operations."""
         self._mem = mem
 
     def record(self, query: str, results: list[RetrievalResult],
@@ -598,6 +605,7 @@ class SearchPrefetchSubNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for prefetch and cache-warming operations."""
         self._mem = mem
 
     def enable(self, enabled: bool = True) -> None:
@@ -650,6 +658,7 @@ class SearchNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory and construct feedback and prefetch sub-namespaces."""
         self._mem = mem
         self.feedback = SearchFeedbackSubNamespace(mem)
         self.prefetch = SearchPrefetchSubNamespace(mem)
@@ -795,6 +804,7 @@ class AnalyzeNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating analytics operations."""
         self._mem = mem
 
     def paths(self, source: str, target: str, *, label: str | None = None,
@@ -881,10 +891,12 @@ class AnalyzeNamespace:
         return self._single_centrality(method, top_k=top_k, **kwargs)
 
     def _label_map(self, raw: dict[str, float]) -> dict[str, float]:
+        """Convert a node-ID-keyed dict to a label-keyed dict."""
         return {self._mem._node_label(nid): s for nid, s in raw.items()}
 
     def _single_centrality(self, method: str, *, top_k: int | None = None,
                            **kwargs: Any) -> dict[str, float]:
+        """Dispatch to the appropriate centrality algorithm, translate IDs to labels, and optionally truncate to top-k."""
         _lm = self._label_map
         if method == "degree":
             result = _lm(self._mem._graph.degree_centrality())
@@ -1445,6 +1457,7 @@ class TemporalNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating temporal operations."""
         self._mem = mem
 
     def add_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
@@ -1603,6 +1616,7 @@ class MonitorNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating monitoring operations."""
         self._mem = mem
 
     def health(self) -> Any:
@@ -1725,6 +1739,7 @@ class CognitiveNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating cognitive operations."""
         self._mem = mem
 
     def prove(self, concept: str, *, facts: set[str] | None = None, depth: int = 5) -> Any:
@@ -1860,6 +1875,7 @@ class EngineAccessor:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for exposing raw engine objects."""
         self._mem = mem
 
     @property
