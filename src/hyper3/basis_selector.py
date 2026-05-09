@@ -24,6 +24,7 @@ class BasisContext(_SimpleResultBase):
     data_richness: float = 0.0
 
     def to_vector(self) -> np.ndarray:
+        """Convert the context features into a fixed-length numpy feature vector."""
         return np.array([
             self.degree_ratio,
             self.label_diversity,
@@ -52,12 +53,14 @@ class BasisSelector:
         max_history: int = 500,
         adaptation_rate: float = 0.1,
     ) -> None:
+        """Initialize the selector with a graph and history parameters."""
         self._graph = graph
         self._max_history = max_history
         self._adaptation_rate = adaptation_rate
         self._outcome_history: list[BasisOutcomeRecord] = []
 
     def extract_context(self, concept_id: str) -> BasisContext:
+        """Compute a BasisContext feature vector for a concept from its local graph neighborhood."""
         node = self._graph.get_node(concept_id)
         if node is None:
             return BasisContext(concept_id=concept_id)
@@ -140,6 +143,7 @@ class BasisSelector:
         concept_id: str,
         available_profiles: dict[str, SamplingProfile],
     ) -> str:
+        """Select the best sampling basis for a concept using Thompson sampling over historical outcomes."""
         if not available_profiles:
             return "linguistic"
 
@@ -186,6 +190,7 @@ class BasisSelector:
         context: BasisContext,
         success: bool,
     ) -> None:
+        """Record whether a basis selection was successful for later Thompson sampling."""
         self._outcome_history.append(
             BasisOutcomeRecord(
                 basis_name=basis_name,
@@ -203,6 +208,7 @@ class BasisSelector:
         concept_id: str,
         available_profiles: dict[str, SamplingProfile],
     ) -> SamplingProfile | None:
+        """Blend all available profiles into a single weighted SamplingProfile based on context relevance."""
         if not available_profiles:
             return None
 
@@ -240,6 +246,7 @@ class BasisSelector:
         profile_name: str,
         available_profiles: dict[str, SamplingProfile],
     ) -> SamplingProfile | None:
+        """Create an adapted version of a profile using successful vs failed outcome history."""
         original = available_profiles.get(profile_name)
         if original is None:
             return None
@@ -291,6 +298,7 @@ class BasisSelector:
         )
 
     def suggest_new_basis(self) -> str | None:
+        """Suggest an alternative basis name if an existing one has a success rate below 30 percent."""
         basis_success: dict[str, list[bool]] = {}
         for r in self._outcome_history:
             if r.basis_name not in basis_success:
@@ -306,6 +314,7 @@ class BasisSelector:
         return None
 
     def to_dict(self) -> dict[str, Any]:
+        """Serialize the selector state to a dict for persistence."""
         return {
             "max_history": self._max_history,
             "adaptation_rate": self._adaptation_rate,
@@ -323,6 +332,7 @@ class BasisSelector:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], graph: Hypergraph) -> BasisSelector:
+        """Reconstruct a BasisSelector from a serialized dict and graph."""
         sel = cls(
             graph,
             max_history=data.get("max_history", 500),
@@ -345,6 +355,7 @@ class BasisSelector:
         concept_id: str,
         available_profiles: dict[str, SamplingProfile],
     ) -> str:
+        """Select a basis using fixed heuristic rules when no outcome history is available."""
         context = self.extract_context(concept_id)
 
         scores: dict[str, float] = {}
@@ -374,6 +385,7 @@ class BasisSelector:
         context: BasisContext,
         profile: SamplingProfile,
     ) -> float:
+        """Compute a heuristic relevance score between a context and a sampling profile."""
         relevance = 0.0
         if profile.name == "temporal":
             relevance += context.temporal_density * 2.0

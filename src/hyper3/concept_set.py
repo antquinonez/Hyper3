@@ -31,6 +31,7 @@ class ConceptSet:
         mem: HypergraphMemory,
         items: list[tuple[str, float]] | None = None,
     ) -> None:
+        """Initialize with a HypergraphMemory reference and optional scored items."""
         self._mem = mem
         self._items: list[tuple[str, float]] = items or []
 
@@ -62,17 +63,21 @@ class ConceptSet:
         return list(self._items)
 
     def __len__(self) -> int:
+        """Return the number of unique concept labels."""
         return len(self.labels)
 
     def __iter__(self) -> Iterator[str]:
+        """Iterate over unique concept labels in score order."""
         return iter(self.labels)
 
     def __contains__(self, label: object) -> bool:
+        """Check whether a label is present in the set."""
         if not isinstance(label, str):
             return False
         return any(l == label for l, _ in self._items)
 
     def __repr__(self) -> str:
+        """Return a concise string representation with concept count and preview."""
         n = len(self)
         preview = self.labels[:5]
         return f"ConceptSet({n} concepts{f': {preview}...' if n > 5 else ''})"
