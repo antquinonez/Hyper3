@@ -246,16 +246,16 @@ facts = [
     ("immunity", "infection", "prevents"),
 ]
 for src, tgt, label in facts:
-    mem.store(src, data={"type": "concept"})
-    mem.store(tgt, data={"type": "concept"})
-    mem.relate(src, tgt, label=label, weight=3.0)
+    mem.add(src, data={"type": "concept"})
+    mem.add(tgt, data={"type": "concept"})
+    mem.link(src, tgt, label=label, weight=3.0)
 ```
 
 ### Transitive inference
 
 ```python
 mem.add_rules(TransitiveRule(edge_label="causes", new_label="indirectly_causes"))
-result = mem.reason(seed_concepts={"smoking"}, max_depth=3)
+result = mem.reason(seeds={"smoking"}, depth=3)
 print(f"edges produced: {result.expansion.edges_produced}")
 
 for e in mem.edges_labeled(edge_label="indirectly_causes"):
@@ -294,9 +294,9 @@ print(f"removed: {revision.edges_removed_count}, kept: {revision.edges_kept_coun
 
 | Method | Purpose |
 |--------|---------|
-| `mem.relate(src, tgt, label=, weight=)` | Create a labeled, weighted directed edge |
+| `mem.link(src, tgt, label=, weight=)` | Create a labeled, weighted directed edge |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seed_concepts=, max_depth=)` | Run multiway expansion from seed concepts |
+| `mem.reason(seeds=, depth=)` | Run multiway expansion from seed concepts |
 | `mem.prove(goal, known_facts=)` | Backward-chain from goal to evidence |
 | `mem.explain(src, tgt)` | Get provenance explanation for an edge |
 | `mem.detect_contradictions()` | Find opposing-label edge pairs |

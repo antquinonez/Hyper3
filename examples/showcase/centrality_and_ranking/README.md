@@ -217,19 +217,19 @@ Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 projec
 from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
-mem.store("alice", data={"role": "lead"})
-mem.relate("alice", "bob", label="manages", weight=5.0)
+mem.add("alice", data={"role": "lead"})
+mem.link("alice", "bob", label="manages", weight=5.0)
 
-deg = mem.degree_centrality()
-betw = mem.betweenness_centrality()
+deg = mem.analyze.centrality("degree", )
+betw = mem.analyze.centrality("betweenness", )
 pr = mem.pagerank(alpha=0.85, weighted=True, top_k=3)
 ```
 
 **Four-way centrality comparison:**
 
 ```python
-deg = mem.degree_centrality()
-betw = mem.betweenness_centrality()
+deg = mem.analyze.centrality("degree", )
+betw = mem.analyze.centrality("betweenness", )
 pr = mem.pagerank(alpha=0.85)
 katz = mem.katz_centrality(alpha=0.1)
 ```
@@ -237,14 +237,14 @@ katz = mem.katz_centrality(alpha=0.1)
 **Structural anomaly detection:**
 
 ```python
-anomaly = mem.detect_structural_anomalies("alice")
+anomaly = mem.analyze.anomalies("alice")
 print(f"status: {anomaly.anomaly_status}, score: {anomaly.boundary_score:.4f}")
 ```
 
 **Community detection:**
 
 ```python
-comm = mem.detect_communities(seed=42)
+comm = mem.analyze.communities(seed=42)
 print(f"communities: {comm.community_count}, modularity: {comm.modularity:.4f}")
 for community in comm.communities:
     print(f"  {sorted(community.member_labels)} ({community.size} nodes)")
@@ -268,8 +268,8 @@ print(f"max edge order: {mem.max_edge_order()}")
 **Evolution:**
 
 ```python
-mem.stimulate("alice", energy=1.0)
-mem.spread_activation(iterations=2)
+mem.activate("alice", energy=1.0)
+mem.activate(iterations=2)
 mem.hebbian_reinforce()
 result = mem.evolve()
 print(f"decayed: {result.decayed}, pruned: {result.pruned}, merged: {result.merged}")
@@ -303,8 +303,8 @@ for s in mem.list_summaries():
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `mem.degree_centrality()` | `dict[str, float]` | Normalized degree (degree / n-1) for each node |
-| `mem.betweenness_centrality()` | `dict[str, float]` | Normalized betweenness centrality |
+| `mem.analyze.centrality("degree", )` | `dict[str, float]` | Normalized degree (degree / n-1) for each node |
+| `mem.analyze.centrality("betweenness", )` | `dict[str, float]` | Normalized betweenness centrality |
 | `mem.pagerank(alpha, weighted, top_k)` | `dict[str, float]` | Hypergraph PageRank with damping factor |
 | `mem.katz_centrality(alpha)` | `dict[str, float]` | Katz centrality with attenuation parameter |
 | `mem.describe()` | `DescribeResult` | Structural summary (nodes, edges, density, degrees, types) |
@@ -315,11 +315,11 @@ for s in mem.list_summaries():
 | `mem.unique_edge_sizes()` | `list[int]` | Distinct edge cardinalities present |
 | `mem.max_edge_order()` | `int` | Largest edge order (size - 1) |
 | `mem.degree_distribution()` | `dict[int, int]` | Histogram: degree value to node count |
-| `mem.detect_structural_anomalies(concept)` | `ExplorationReport` | Anomaly status, boundary score, structural insights |
-| `mem.detect_communities(seed)` | `CommunityResult` | Communities, modularity, coverage, member labels |
+| `mem.analyze.anomalies(concept)` | `ExplorationReport` | Anomaly status, boundary score, structural insights |
+| `mem.analyze.communities(seed)` | `CommunityResult` | Communities, modularity, coverage, member labels |
 | `mem.evolve()` | `EvolveResult` | Decayed edges, pruned nodes, merged nodes |
-| `mem.stimulate(concept, energy)` | `None` | Injects activation energy into a node |
-| `mem.spread_activation(iterations)` | `None` | Propagates activation across edges |
+| `mem.activate(concept, energy)` | `None` | Injects activation energy into a node |
+| `mem.activate(iterations)` | `None` | Propagates activation across edges |
 | `mem.hebbian_reinforce()` | `None` | Strengthens edges between co-activated nodes |
 | `mem.collapse_subgraph(nodes, summary_label, summary_data)` | `CollapseResult` | Replaces nodes with summary, returns mapping and edge changes |
 | `mem.list_summaries()` | `list[SummaryMapping]` | Active summary-to-detail mappings |

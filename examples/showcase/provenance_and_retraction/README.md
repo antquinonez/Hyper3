@@ -242,9 +242,9 @@ from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("drug_olaparib", data={"type": "drug", "class": "PARP_inhibitor"})
-mem.store("study_alpha", data={"type": "clinical_trial", "year": 2023})
-mem.relate("study_alpha", "drug_olaparib", label="investigated")
+mem.add("drug_olaparib", data={"type": "drug", "class": "PARP_inhibitor"})
+mem.add("study_alpha", data={"type": "clinical_trial", "year": 2023})
+mem.link("study_alpha", "drug_olaparib", label="investigated")
 
 mem.add_rules(
     InverseRule(edge_label="investigated", inverse_label="was_investigated_by"),
@@ -289,7 +289,7 @@ print(f"Removed {len(retracted_ids)} edges")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.reason(concepts, max_depth, max_total_states)` | Run inference, creating provenance records |
+| `mem.reason(seeds, depth, max_total_states)` | Run inference, creating provenance records |
 | `mem.provenance.explain(edge_id, graph)` | Get derivation chain for an inferred edge |
 | `mem.explain(source_label, target_label)` | High-level explain between two concepts |
 | `mem.retract_inference(source, target, edge_label)` | Retract inference and all dependents |

@@ -410,10 +410,10 @@ import numpy as np
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("certificate_expiry", data={"category": "security", "severity": "critical"})
-mem.store("dns_resolution_failure", data={"category": "network", "severity": "critical"})
-mem.relate("log_ssl_cert_invalid", "certificate_expiry", label="supports")
-mem.relate("alert_ssl_expiry_0_days", "certificate_expiry", label="supports")
+mem.add("certificate_expiry", data={"category": "security", "severity": "critical"})
+mem.add("dns_resolution_failure", data={"category": "network", "severity": "critical"})
+mem.link("log_ssl_cert_invalid", "certificate_expiry", label="supports")
+mem.link("alert_ssl_expiry_0_days", "certificate_expiry", label="supports")
 
 hypotheses = [
     "certificate_expiry", "dns_resolution_failure",
@@ -421,7 +421,7 @@ hypotheses = [
     "kafka_partition_rebalance",
 ]
 
-qs = mem.create_distribution(concepts=hypotheses)
+qs = mem.belief.create(concepts=hypotheses)
 for outcome in qs.outcomes:
     print(f"{outcome.label}: probability={outcome.probability:.4f}")
 
@@ -443,7 +443,7 @@ ent = mem.correlate(
     },
 )
 
-qs_agg = mem.create_distribution(
+qs_agg = mem.belief.create(
     concepts=["certificate_expiry", "certificate_expiry"],
     amplitudes=[0.7, 0.5],
     use_context_field=False,
@@ -473,7 +473,7 @@ print(f"Max entropy for 3 outcomes: {entropy:.6f} bits")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.create_distribution(concepts, amplitudes, use_context_field)` | Creates a belief state over the given concepts. Without amplitudes, uses spreading activation from graph connectivity. |
+| `mem.belief.create(concepts, amplitudes, use_context_field)` | Creates a belief state over the given concepts. Without amplitudes, uses spreading activation from graph connectivity. |
 | `mem.sample(qs, context)` | Samples one outcome proportional to `|amplitude|^2 * context_weight`. Returns the selected node. |
 | `mem.correlate(group_a, group_b, correlations)` | Creates a correlation matrix between two hypothesis groups. |
 | `mem.sample_correlated(qs, observed_label)` | Samples correlated outcomes given an observation. |

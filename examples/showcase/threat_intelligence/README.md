@@ -179,11 +179,11 @@ Bulk-create 140 nodes across 6 entity types, then wire them together with 293 se
 mem = HypergraphMemory(evolve_interval=0)
 
 for actor in THREAT_ACTORS:
-    mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+    mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
 
 for rel_label, pairs in RELATIONSHIP_MAP.items():
     for src, tgt in pairs:
-        mem.relate(src, tgt, label=rel_label)
+        mem.link(src, tgt, label=rel_label)
 ```
 
 **Result:** 140 nodes, 293 edges representing a complete threat intel ecosystem.
@@ -193,7 +193,7 @@ for rel_label, pairs in RELATIONSHIP_MAP.items():
 Explore what's connected to Lazarus in 2 hops:
 
 ```python
-lazarus_neighborhood = mem.recall("Lazarus", max_depth=2, max_nodes=30)
+lazarus_neighborhood = mem.recall("Lazarus", depth=2, max_nodes=30)
 ```
 
 Figure 3: Recall from Lazarus reveals 10 nodes connected through malware, CVEs, and target sectors.
@@ -232,7 +232,7 @@ targets_edges = mem.pattern_match(edge_label="targets")    # 62 edges
 Use degree centrality to find the highest-impact vulnerabilities:
 
 ```python
-centrality = mem.degree_centrality()
+centrality = mem.analyze.centrality("degree", )
 cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
 top_cves = top_k(cve_centrality, k=5)
 ```
@@ -299,7 +299,7 @@ graph TD
 Find paths from threat actors to target industries:
 
 ```python
-paths = mem.find_paths("Lazarus", "FIN", max_depth=4, max_paths=10)
+paths = mem.find_paths("Lazarus", "FIN", depth=4, max_paths=10)
 ```
 
 Figure 5: Attack paths from Lazarus to Financial sector.
@@ -335,7 +335,7 @@ isolated = all_labels - connected_labels
 Identify threat ecosystems -- clusters of actors, malware, and infrastructure that operate together:
 
 ```python
-components = mem.connected_components()
+components = mem.analyze.components()
 components_sorted = sorted(components, key=len, reverse=True)
 ```
 
@@ -367,9 +367,9 @@ graph TD
 Query the same node through different modalities to see different slices:
 
 ```python
-causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, max_depth=2)
-sensory_nodes = mem.query("CVE-2023-44228", modality=Modality.SENSORY, max_depth=2)
-conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max_depth=2)
+causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, depth=2)
+sensory_nodes = mem.query("CVE-2023-44228", modality=Modality.SENSORY, depth=2)
+conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, depth=2)
 ```
 
 | Modality | Returns | Purpose |
@@ -390,7 +390,7 @@ mem.add_rules(
     InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
 )
 
-reason_result = mem.reason(seed_concepts={"APT28", "Lazarus", "Conti"}, max_depth=3)
+reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, depth=3)
 ```
 
 **Result:** 16 inferred edges produced across 17 states with 16 rule applications.
@@ -406,7 +406,7 @@ The TransitiveRules for `exploits` and `uses` found 0 same-label two-hop chains.
 Detect communities using label propagation to identify operational clusters beyond what connected components reveal:
 
 ```python
-comm_result = mem.detect_communities(seed=42)
+comm_result = mem.analyze.communities(seed=42)
 ```
 
 **Note:** Community detection uses label propagation, which is non-deterministic. The number of communities, modularity, and community assignments vary across runs. The structural patterns described below are representative.
@@ -429,7 +429,7 @@ Without community detection, all 126 nodes in the main component appear as one u
 Analyze threat actors for structural anomalies that indicate unusual connectivity patterns:
 
 ```python
-result = mem.detect_structural_anomalies("APT28")
+result = mem.analyze.anomalies("APT28")
 ```
 
 | Actor | Status | Score | Key Insight |
@@ -565,10 +565,10 @@ CVES = [
 
 ```python
 for actor in THREAT_ACTORS:
-    mem.store(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
+    mem.add(actor["label"], data=actor["data"], modalities={Modality.CAUSAL})
 
 for cve in CVES:
-    mem.store(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
+    mem.add(cve["label"], data=cve["data"], modalities={Modality.SENSORY})
 ```
 
 **3. Create Semantic Relationships**
@@ -582,16 +582,16 @@ RELATIONSHIP_MAP = {
 
 for rel_label, pairs in RELATIONSHIP_MAP.items():
     for src, tgt in pairs:
-        mem.relate(src, tgt, label=rel_label)
+        mem.link(src, tgt, label=rel_label)
 ```
 
 **4. Query and Analyze**
 
 ```python
 exploits = mem.pattern_match(edge_label="exploits")
-centrality = mem.degree_centrality()
+centrality = mem.analyze.centrality("degree", )
 top_cves = top_k(centrality, k=5)
-paths = mem.find_paths("Lazarus", "FIN", max_depth=4)
+paths = mem.find_paths("Lazarus", "FIN", depth=4)
 profile_subgraph = mem.subgraph(apt28_labels)
 ```
 
@@ -602,16 +602,16 @@ mem.add_rules(
     TransitiveRule(edge_label="exploits", new_label="exploits_indirectly"),
     InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
 )
-reason_result = mem.reason(seed_concepts={"APT28", "Lazarus", "Conti"}, max_depth=3)
+reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, depth=3)
 ```
 
 **6. Detect Communities and Anomalies**
 
 ```python
-comm_result = mem.detect_communities(seed=42)
+comm_result = mem.analyze.communities(seed=42)
 print(f"Communities: {comm_result.community_count}, Modularity: {comm_result.modularity:.4f}")
 
-anomaly_result = mem.detect_structural_anomalies("APT28")
+anomaly_result = mem.analyze.anomalies("APT28")
 print(f"Status: {anomaly_result.anomaly_status}, Score: {anomaly_result.boundary_score:.4f}")
 ```
 
@@ -682,20 +682,20 @@ Hyper3 provides the **knowledge graph engine**; the data engineering pipeline th
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data, modalities)` | Create a node with metadata and modalities |
-| `mem.relate(source, target, label)` | Create a semantic edge between nodes |
+| `mem.add(label, data, modalities)` | Create a node with metadata and modalities |
+| `mem.link(source, target, label)` | Create a semantic edge between nodes |
 | `mem.recall(concept, max_depth)` | BFS traversal from a node |
 | `mem.query(concept, modality, strategy)` | Modality-filtered traversal |
 | `mem.pattern_match(edge_label, source_label)` | Find edges matching criteria |
-| `mem.degree_centrality()` | Compute centrality scores for all nodes |
+| `mem.analyze.centrality("degree", )` | Compute centrality scores for all nodes |
 | `mem.subgraph(labels)` | Extract a subgraph around specific nodes |
 | `mem.find_paths(source, target, max_depth)` | Find attack paths between nodes |
-| `mem.connected_components()` | Identify threat ecosystems (clusters) |
+| `mem.analyze.components()` | Identify threat ecosystems (clusters) |
 | `mem.stats()` | Get graph statistics |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules to infer new edges |
-| `mem.detect_communities(seed)` | Detect communities via label propagation |
-| `mem.detect_structural_anomalies(concept)` | Analyze structural anomaly status |
+| `mem.reason(seeds, depth)` | Apply rules to infer new edges |
+| `mem.analyze.communities(seed)` | Detect communities via label propagation |
+| `mem.analyze.anomalies(concept)` | Analyze structural anomaly status |
 
 ### Related Examples
 

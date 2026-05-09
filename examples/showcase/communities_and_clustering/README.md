@@ -225,7 +225,7 @@ Label propagation community detection:
 from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
-result = mem.detect_communities(seed=42)
+result = mem.analyze.communities(seed=42)
 print(f"communities: {result.community_count}")
 print(f"modularity: {result.modularity:.4f}")
 for community in result.communities:
@@ -252,9 +252,9 @@ mem = HypergraphMemory(evolve_interval=0)
 mem.ensure("a")
 mem.ensure("b")
 mem.ensure("c")
-mem.relate("a", "b", label="e")
-mem.relate("b", "c", label="e")
-mem.relate("c", "a", label="e")
+mem.link("a", "b", label="e")
+mem.link("b", "c", label="e")
+mem.link("c", "a", label="e")
 
 cc = mem.clustering_coefficient("a")     # 1.0
 avg = mem.average_clustering_coefficient() # 1.0
@@ -266,14 +266,14 @@ Community detection with per-community clustering:
 from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
-mem.store("a")
-mem.store("b")
-mem.store("c")
-mem.relate("a", "b", label="e", weight=5.0)
-mem.relate("b", "c", label="e", weight=5.0)
-mem.relate("c", "a", label="e", weight=5.0)
+mem.add("a")
+mem.add("b")
+mem.add("c")
+mem.link("a", "b", label="e", weight=5.0)
+mem.link("b", "c", label="e", weight=5.0)
+mem.link("c", "a", label="e", weight=5.0)
 
-result = mem.detect_communities(seed=42)
+result = mem.analyze.communities(seed=42)
 for comm in result.communities:
     avg_cc = sum(mem.clustering_coefficient(l) for l in comm.member_labels) / comm.size
     print(f"  community {comm.community_id}: avg_cc={avg_cc:.4f}")
@@ -289,8 +289,8 @@ mem = HypergraphMemory(evolve_interval=0)
 cc_values = {c: mem.clustering_coefficient(c) for c in ["a", "b", "c"]}
 seed_node = max(cc_values, key=cc_values.get)
 
-mem.stimulate(seed_node, energy=1.0)
-activated = mem.spread_activation(iterations=3)
+mem.activate(seed_node, energy=1.0)
+activated = mem.activate(iterations=3)
 for act in activated:
     print(f"  {act.label}: activation={act.activation:.4f}, depth={act.depth}")
 ```
@@ -317,7 +317,7 @@ for act in activated:
 | `spread_activation(iterations=)` | `HypergraphMemory` | `list[ActivationResult]` | Propagate activation and return activated nodes with activation levels and depths |
 | `clear_activations()` | `HypergraphMemory` | `None` | Reset all node activations to zero |
 | `CommunityDetector(graph)` | module-level | detector | Standalone detector for direct use on `Hypergraph` |
-| `detect_label_propagation(seed=)` | `CommunityDetector` | `CommunityResult` | Same algorithm as `mem.detect_communities()` |
+| `detect_label_propagation(seed=)` | `CommunityDetector` | `CommunityResult` | Same algorithm as `mem.analyze.communities()` |
 
 ### Real-World Gap
 

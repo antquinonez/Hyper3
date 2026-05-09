@@ -169,15 +169,15 @@ teams = {
 
 for team_name, members in teams.items():
     for member in members:
-        mem.store(member, data={"team": team_name})
+        mem.add(member, data={"team": team_name})
 
-mem.store("dept_engineering", data={"type": "department"})
-mem.store("dept_product", data={"type": "department"})
-mem.store("division_tech", data={"type": "division"})
+mem.add("dept_engineering", data={"type": "department"})
+mem.add("dept_product", data={"type": "department"})
+mem.add("division_tech", data={"type": "division"})
 
 for members in teams.values():
     for i in range(0, len(members) - 1, 2):
-        mem.relate(members[i], members[i + 1], label="collaborates_with")
+        mem.link(members[i], members[i + 1], label="collaborates_with")
 ```
 
 **2. Collapse teams into summary nodes:**
@@ -196,7 +196,7 @@ for team_name, members in teams.items():
 **3. Analyze at team level:**
 
 ```python
-centrality = mem.degree_centrality()
+centrality = mem.analyze.centrality("degree", )
 for team_name in teams:
     print(f"{team_name}: {centrality.get(team_name, 0.0):.4f}")
 ```
@@ -225,7 +225,7 @@ print(f"expanded edges: {result.expanded_edges}")
 **6. Cross-level centrality comparison:**
 
 ```python
-centrality = mem.degree_centrality()
+centrality = mem.analyze.centrality("degree", )
 for node, score in sorted(centrality.items(), key=lambda x: -x[1])[:8]:
     print(f"  {node}: {score:.4f}")
 ```
@@ -247,10 +247,10 @@ This showcase demonstrates hierarchical abstraction on a small organizational gr
 |--------|---------|
 | `mem.collapse_subgraph(summary_name, detail_nodes)` | Replace detail nodes with a summary node, rewiring external edges |
 | `mem.expand_summary(summary_name)` | Restore detail nodes from a summary, recreating external edges |
-| `mem.degree_centrality()` | Compute degree centrality for all nodes |
-| `mem.betweenness_centrality()` | Compute betweenness centrality for all nodes |
-| `mem.store(concept, data)` | Create a node with optional data dict |
-| `mem.relate(source, target, label, weight)` | Add a pairwise directed edge |
+| `mem.analyze.centrality("degree", )` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.add(concept, data)` | Create a node with optional data dict |
+| `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.describe()` | Return graph statistics (nodes, edges, density, components) |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 

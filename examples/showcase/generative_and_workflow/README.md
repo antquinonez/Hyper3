@@ -279,9 +279,9 @@ g = random_sbm(24, 3, [8, 8, 8], p_in=0.6, p_out=0.05, seed=42)
 
 ```python
 mem = HypergraphMemory(evolve_interval=0)
-mem.store("outbreak", data={"type": "event"})
+mem.add("outbreak", data={"type": "event"})
 mem.add_temporal_event("outbreak", start=0.0, end=1.0)
-mem.store("quarantine", data={"type": "event"})
+mem.add("quarantine", data={"type": "event"})
 mem.add_temporal_event("quarantine", start=1.0, end=3.0)
 
 relation = mem.allen_relation("outbreak", "quarantine")
@@ -291,20 +291,20 @@ relation = mem.allen_relation("outbreak", "quarantine")
 
 ```python
 mem = HypergraphMemory(evolve_interval=0)
-mem.store("option_a")
-mem.store("option_b")
-mem.store("option_c")
+mem.add("option_a")
+mem.add("option_b")
+mem.add("option_c")
 
-qs = mem.create_distribution(["option_a", "option_b", "option_c"], use_context_field=False)
+qs = mem.belief.create(["option_a", "option_b", "option_c"], use_context_field=False)
 sampled = mem.sample(qs)
 ```
 
 **Run spreading activation from seed nodes:**
 
 ```python
-mem.stimulate("outbreak_detected", energy=1.0)
-mem.stimulate("vaccine_development", energy=1.0)
-activated = mem.spread_activation(iterations=3)
+mem.activate("outbreak_detected", energy=1.0)
+mem.activate("vaccine_development", energy=1.0)
+activated = mem.activate(iterations=3)
 for act in activated:
     print(f"  {act.label}: activation={act.activation:.4f}")
 ```
@@ -351,10 +351,10 @@ Spreading activation parameters (energy, iterations, decay) require manual tunin
 | `mem.allen_relation(a, b)` | `AllenRelation` | temporal_reasoning |
 | `mem.temporal.detect_causal_chains()` | `list[list[str]]` | temporal_reasoning |
 | `mem.temporal.check_constraint_consistency()` | `list` | temporal_reasoning |
-| `mem.create_distribution(concepts, ...)` | `QuantumState` | temporal_reasoning |
+| `mem.belief.create(concepts, ...)` | `QuantumState` | temporal_reasoning |
 | `mem.sample(qs)` | `Outcome` | temporal_reasoning |
-| `mem.stimulate(concept, energy)` | `None` | temporal_reasoning |
-| `mem.spread_activation(iterations)` | `list[ActivationResult]` | temporal_reasoning |
+| `mem.activate(concept, energy)` | `None` | temporal_reasoning |
+| `mem.activate(iterations)` | `list[ActivationResult]` | temporal_reasoning |
 | `g.density()` | `float` | generative_models, complete_workflow |
 | `g.degree_distribution()` | `dict[int, int]` | generative_models, complete_workflow |
 | `g.pagerank(alpha)` | `dict[str, float]` | complete_workflow |

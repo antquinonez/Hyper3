@@ -353,7 +353,7 @@ mem.add_rules(
 
 result = mem.reason(
     seeds={"APT28", "CVE-2023-44228", "GOV"},
-    max_depth=3,
+    depth=3,
     auto_commit=True,
 )
 ```
@@ -421,7 +421,7 @@ for label, score in top_actors:
 | `mem.add(label, data=..., modalities=...)` | Create a hypernode with typed data |
 | `mem.link(source, target, label=..., weight=...)` | Create a labeled directed hyperedge |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seeds=..., max_depth=..., auto_commit=True)` | Run multiway reasoning |
+| `mem.reason(seeds=..., depth=..., auto_commit=True)` | Run multiway reasoning |
 | `mem.activate(concept, energy=..., iterations=...)` | Inject activation energy and propagate along edges |
 | `mem.belief.create(outcomes, amplitudes=...)` | Create a belief state |
 | `mem.sample(distribution, context=...)` | Sample an outcome via Born rule |
@@ -429,7 +429,7 @@ for label, score in top_actors:
 | `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
 | `mem.pattern_match(source_label=..., edge_label=...)` | Find edges matching a pattern |
 | `mem.subgraph(node_labels)` | Extract a subgraph |
-| `mem.recall(concept, max_depth=..., max_nodes=...)` | Retrieve neighborhood (accesses nodes, affecting evolution) |
+| `mem.recall(concept, depth=..., max_nodes=...)` | Retrieve neighborhood (accesses nodes, affecting evolution) |
 | `top_k(scores, k=5)` | Return top-k items from a score dict |
 
 ### Inference rules used

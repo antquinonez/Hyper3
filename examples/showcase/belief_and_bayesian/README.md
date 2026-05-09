@@ -139,10 +139,10 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("patient", data={"type": "entity"})
-mem.store("healthy", data={"type": "state"})
-mem.store("disease_a", data={"type": "state"})
-mem.store("disease_b", data={"type": "state"})
+mem.add("patient", data={"type": "entity"})
+mem.add("healthy", data={"type": "state"})
+mem.add("disease_a", data={"type": "state"})
+mem.add("disease_b", data={"type": "state"})
 
 mem.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
               weights=[0.7, 0.2, 0.1])
@@ -156,8 +156,8 @@ cs = mem.credible_set("patient", level=0.9)
 ```
 
 ```python
-mem.store("bank", data={"type": "ambiguous"})
-mem.create_distribution(
+mem.add("bank", data={"type": "ambiguous"})
+mem.belief.create(
     ["financial", "river_edge", "billiards"],
     amplitudes=[0.6, 0.7, 0.3],
 )
@@ -190,7 +190,7 @@ This showcase uses hand-specified likelihoods, priors, and correlation coefficie
 | Method | Purpose |
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
-| `mem.store(concept, data=...)` | Create a node with typed data |
+| `mem.add(concept, data=...)` | Create a node with typed data |
 | `mem.set_prior(concept, outcomes, weights)` | Set initial probability distribution over outcomes |
 | `mem.update_belief(concept, evidence_name, likelihoods)` | Apply Bayesian update with evidence likelihoods |
 | `mem.get_belief(concept)` | Retrieve current belief distribution |
@@ -198,7 +198,7 @@ This showcase uses hand-specified likelihoods, priors, and correlation coefficie
 | `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Compute evidence ratio between two hypotheses |
 | `mem.credible_set(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
 | `mem.reset_belief(concept)` | Reset distribution to uniform |
-| `mem.create_distribution(outcomes, amplitudes)` | Create Born-rule distribution with complex amplitudes |
+| `mem.belief.create(outcomes, amplitudes)` | Create Born-rule distribution with complex amplitudes |
 | `mem.sample_distribution(concept)` | Sample an outcome via the Born rule |
 | `mem.correlate(outcomes_a, outcomes_b, correlations)` | Link two distributions with pairwise correlations |
 

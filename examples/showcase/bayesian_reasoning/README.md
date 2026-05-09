@@ -223,9 +223,9 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("database_overload", data={"type": "root_cause", "prior": 0.30})
-mem.store("high_cpu", data={"type": "evidence"})
-mem.relate("high_cpu", "database_overload", label="indicates", weight=8.5)
+mem.add("database_overload", data={"type": "root_cause", "prior": 0.30})
+mem.add("high_cpu", data={"type": "evidence"})
+mem.link("high_cpu", "database_overload", label="indicates", weight=8.5)
 
 def bayesian_update(prior, evidence_name, likelihoods):
     unnormalized = {
@@ -259,8 +259,8 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | Method | Purpose |
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
-| `mem.store(concept, data=...)` | Create a node with typed data |
-| `mem.relate(source, target, label=..., weight=...)` | Create a directed edge with semantic label and weight |
+| `mem.add(concept, data=...)` | Create a node with typed data |
+| `mem.link(source, target, label=..., weight=...)` | Create a directed edge with semantic label and weight |
 | `mem.neighbors(concept, edge_label=..., direction=...)` | Query neighbors filtered by edge label and direction |
 | `mem.engine.graph.node_count` | Total number of nodes in the graph |
 | `mem.engine.graph.edge_count` | Total number of edges in the graph |

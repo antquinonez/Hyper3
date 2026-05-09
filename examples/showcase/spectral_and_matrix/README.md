@@ -263,14 +263,14 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 for i in range(12):
-    mem.store(f"n{i}")
+    mem.add(f"n{i}")
 
 embeddings = mem.spectral_embedding(dimensions=3)
 sp = mem.s_persistence(max_s=3)
 for entry in sp.levels:
     print(f"s={entry['s']}: {entry['num_components']} components")
 
-cr = mem.detect_communities(seed=42)
+cr = mem.analyze.communities(seed=42)
 print(f"communities: {cr.community_count}, modularity: {cr.modularity:.4f}")
 ```
 

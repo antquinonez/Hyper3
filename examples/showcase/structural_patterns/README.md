@@ -181,10 +181,10 @@ The script creates 76 nodes (companies, products, technologies, people, standard
 mem = HypergraphMemory(evolve_interval=0)
 
 for name, data in all_nodes.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label, weight in EDGES:
-    mem.relate(src, tgt, label=label, weight=weight)
+    mem.link(src, tgt, label=label, weight=weight)
 ```
 
 **Result:** 76 nodes, 109 edges.
@@ -256,7 +256,7 @@ diamonds = mem.match_diamonds(edge_label="uses", max_matches=10)
 Weighted label propagation finds natural clusters in the graph:
 
 ```python
-result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 ```
 
 **Result:** 14 communities, modularity 0.534, coverage 62.4%.
@@ -370,10 +370,10 @@ Standard graph analysis operates on untyped edges: "A is connected to B." Struct
 mem = HypergraphMemory(evolve_interval=0)
 
 for name, data in all_nodes.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label, weight in EDGES:
-    mem.relate(src, tgt, label=label, weight=weight)
+    mem.link(src, tgt, label=label, weight=weight)
 ```
 
 **2. Detect Chains**
@@ -399,7 +399,7 @@ diamonds = mem.match_diamonds(edge_label="uses", max_matches=10)
 **5. Run Community Detection**
 
 ```python
-result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 print(f"Communities: {result.community_count}")
 print(f"Modularity:  {result.modularity:.3f}")
 print(f"Coverage:    {result.coverage:.1%}")
@@ -466,12 +466,12 @@ Hyper3 provides the graph construction and structural analysis. The data extract
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a node with typed metadata |
-| `mem.relate(source, target, label, weight)` | Create a weighted semantic edge |
+| `mem.add(label, data)` | Create a node with typed metadata |
+| `mem.link(source, target, label, weight)` | Create a weighted semantic edge |
 | `mem.match_chains(edge_label, min_length, max_length, max_chains)` | Find linear dependency chains |
 | `mem.match_fan_out(edge_label, min_fan, max_results)` | Find nodes with high outgoing edge count |
 | `mem.match_diamonds(edge_label, max_matches)` | Find convergence patterns (shared targets) |
-| `mem.detect_communities(method, seed)` | Detect natural clusters via label propagation |
+| `mem.analyze.communities(method, seed)` | Detect natural clusters via label propagation |
 | `mem.query_nodes(data)` | Filter nodes by data attributes |
 | `mem.neighbors(concept, edge_label, direction)` | Get neighboring node labels |
 

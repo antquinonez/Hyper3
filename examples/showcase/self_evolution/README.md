@@ -138,10 +138,10 @@ from hyper3 import HypergraphMemory
 mem = HypergraphMemory(evolve_interval=0)
 
 for node in ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]:
-    mem.store(node, data={"type": "concept"})
+    mem.add(node, data={"type": "concept"})
 
-mem.relate("alpha", "beta", label="related", weight=5.0)
-mem.relate("beta", "gamma", label="related", weight=5.0)
+mem.link("alpha", "beta", label="related", weight=5.0)
+mem.link("beta", "gamma", label="related", weight=5.0)
 
 result = mem.evolve()
 print(f"decays: {result.decayed}, merges: {result.merged}")
@@ -192,8 +192,8 @@ print(f"overall health: {summary.overall_health}")
 | `mem.evolve()` | Run decay, prune, merge, reinforce cycle |
 | `mem.evolve_with_feedback()` | Run evolution using operation history |
 | `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
-| `mem.stimulate(concept)` | Inject activation into a node |
-| `mem.spread_activation()` | Propagate activation through the graph |
+| `mem.activate(concept)` | Inject activation into a node |
+| `mem.activate()` | Propagate activation through the graph |
 | `mem.feedback_summary()` | Report feedback-driven evolution state |
 | `mem.recall(concept, max_depth=N)` | Retrieve related concepts (triggers usage tracking) |
 

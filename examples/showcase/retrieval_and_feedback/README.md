@@ -247,7 +247,7 @@ Transitive rules discover multi-hop attack chains that retrieval alone cannot fi
 
 ```python
 mem.add_rules(TransitiveRule(edge_label="enables", new_label="enables_chain"))
-result = mem.reason(seeds={"sql_injection", "phishing"}, max_depth=3, auto_commit=True)
+result = mem.reason(seeds={"sql_injection", "phishing"}, depth=3, auto_commit=True)
 ```
 
 In the 177-node graph, the `enables` edges form a star topology (vulnerabilities enabling individual threats) without two-hop chains, so the rule confirms existing relationships rather than discovering new ones. In denser threat graphs where vulnerabilities chain through shared CWEs or products, transitive reasoning uncovers attack paths invisible to single-hop retrieval.
@@ -371,10 +371,10 @@ Building a retrieval system with relevance feedback in Hyper3 requires five step
 mem = HypergraphMemory(evolve_interval=0)
 
 for label in security_threats:
-    mem.store(label, data={"type": "threat", "category": "security"})
+    mem.add(label, data={"type": "threat", "category": "security"})
 
-mem.relate("ransomware", "encryption_at_rest", label="mitigated_by")
-mem.relate("ransomware", "dlp", label="mitigated_by")
+mem.link("ransomware", "encryption_at_rest", label="mitigated_by")
+mem.link("ransomware", "dlp", label="mitigated_by")
 ```
 
 **2. Retrieve with Spreading Activation**
@@ -388,7 +388,7 @@ for r in activated:
 **3. Find Similar Concepts**
 
 ```python
-similar = mem.find_similar("ransomware", top_k=15, threshold=-1.0)
+similar = mem.search.similar("ransomware", top_k=15, threshold=-1.0)
 for s in similar:
     print(f"{s.label_b}: similarity={s.similarity:.4f}")
 ```
@@ -396,7 +396,7 @@ for s in similar:
 **4. Retrieve with RRF Fusion**
 
 ```python
-rrf_results = mem.retrieve("ransomware", top_k=15, iterations=3)
+rrf_results = mem.search.query("ransomware", top_k=15, iterations=3)
 for r in rrf_results:
     print(f"{r.label}: rrf={r.rrf_score:.4f}, act={r.activation:.4f}, sim={r.similarity:.4f}")
 ```
@@ -410,7 +410,7 @@ mem.record_feedback("ransomware", rrf_results, relevant)
 report = mem.train_retriever()
 print(report["weights"])
 
-results_after = mem.retrieve("ransomware", top_k=15, iterations=3, use_ltr=True)
+results_after = mem.search.query("ransomware", top_k=15, iterations=3, use_ltr=True)
 ```
 
 ## 10. Real-World Gap
@@ -431,14 +431,14 @@ Production deployment would require:
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a node with metadata |
-| `mem.relate(source, target, label)` | Create a semantic edge |
+| `mem.add(label, data)` | Create a node with metadata |
+| `mem.link(source, target, label)` | Create a semantic edge |
 | `mem.activate(seed, energy, top_k, iterations)` | Spreading activation retrieval |
-| `mem.find_similar(seed, top_k, threshold)` | Embedding-based similarity retrieval |
-| `mem.retrieve(seed, top_k, iterations)` | RRF fusion of activation and similarity |
+| `mem.search.similar(seed, top_k, threshold)` | Embedding-based similarity retrieval |
+| `mem.search.query(seed, top_k, iterations)` | RRF fusion of activation and similarity |
 | `mem.record_feedback(query, results, relevant_set)` | Record relevance judgments |
 | `mem.train_retriever()` | Train LTR model from feedback |
-| `mem.retrieve(seed, top_k, iterations, use_ltr=True)` | Retrieve using trained LTR model |
+| `mem.search.query(seed, top_k, iterations, use_ltr=True)` | Retrieve using trained LTR model |
 | `mem.stats()` | Get graph statistics |
 | `mem.set_embedding_provider(provider)` | Replace the default embedding provider |
 

@@ -192,7 +192,7 @@ mem.add_rules(
     TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     InverseRule(edge_label="causes", inverse_label="caused_by"),
 )
-mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), max_depth=3, max_total_states=80)
+mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), depth=3, max_total_states=80)
 
 patient_findings = {"fever", "cough", "productive_cough", "dyspnea", "pleuritic_chest_pain", "tachycardia"}
 ddx = ["pneumonia", "pulmonary_embolism", "bronchitis", "pleural_effusion", "copd_exacerbation"]
@@ -490,7 +490,7 @@ mem.add_rules(
     TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     InverseRule(edge_label="causes", inverse_label="caused_by"),
 )
-mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), max_depth=3)
+mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), depth=3)
 ```
 
 **4. Backward Chaining for Diagnosis**
@@ -581,7 +581,7 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | `mem.add(label, data)` | Create a clinical entity node |
 | `mem.link(source, target, label)` | Create a semantic clinical edge |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules to generate inferred edges |
+| `mem.reason(seeds, depth)` | Apply rules to generate inferred edges |
 | `mem.prove(concept, known_facts)` | Backward-chain from diagnosis to evidence |
 | `mem.detect_contradictions()` | Find opposing evidence edges |
 | `mem.revise_beliefs(strategy)` | Resolve contradictions by edge weight |

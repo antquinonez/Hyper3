@@ -382,10 +382,10 @@ mem.add_rules(TransitiveRule(edge_label="blocks"))
 mem.add_rules(InverseRule(edge_label="blocks", inverse_label="blocked_by"))
 
 for name, data in SERVERS.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label in DEPENDENCIES:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 ```
 
 **Recording operation feedback:**
@@ -427,7 +427,7 @@ if triggers:
 **Computational bias profile:**
 
 ```python
-mem.reason({"api-gw-01", "order-svc-01"}, max_depth=3, max_total_states=15)
+mem.reason({"api-gw-01", "order-svc-01"}, depth=3, max_total_states=15)
 profile = mem.compute_bias_profile()
 print(f"reasoning style: {profile['reasoning_style']}")
 print(f"dominant rules: {profile['dominant_rules']}")
@@ -448,8 +448,8 @@ print(f"dominant rules: {profile['dominant_rules']}")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a node with typed metadata |
-| `mem.relate(source, target, label)` | Create a labeled directed edge |
+| `mem.add(label, data)` | Create a node with typed metadata |
+| `mem.link(source, target, label)` | Create a labeled directed edge |
 | `mem.find_paths(source, target, max_depth)` | Find all paths between two nodes |
 | `mem.evolve()` | Run decay, prune, merge, reinforce cycle |
 | `mem.evolve_with_feedback()` | Run evolution using accumulated operation history |
@@ -466,7 +466,7 @@ print(f"dominant rules: {profile['dominant_rules']}")
 | `mem.propose_tuning(triggers)` | Generate a tuning plan from metamorphosis triggers |
 | `mem.execute_tuning_validated(plan)` | Apply tuning with rollback on fitness decrease |
 | `mem.diff_from_version(version_id)` | Compare current graph to a captured version |
-| `mem.reason(concepts, max_depth, max_total_states)` | Run multiway rule-based reasoning |
+| `mem.reason(seeds, depth, max_total_states)` | Run multiway rule-based reasoning |
 | `mem.stats()` | Get graph statistics (node count, edge count) |
 
 ### Related Examples
