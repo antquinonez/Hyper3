@@ -98,4 +98,5 @@ Current project metrics (update after changes):
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
 - **Examples**: 111 (49 Hyper3 showcase + 5 project pipelines; 41 comparison + 12 laminar; 3 standalone)
-- **Equiv battery**: 784 pass / 0 fail / 54 gap (14 suites, HGX + XGI + NX)
+- **Equiv battery**: 788 pass / 0 fail / 54 gap / 1 skip (22 suites, HGX + XGI + NX)
+- **Benchmarks**: 15 (10 original + 5 new: bayesian, backward_chain, community, belief_distributions, multi_frame)
