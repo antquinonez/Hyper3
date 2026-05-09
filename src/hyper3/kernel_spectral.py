@@ -675,6 +675,7 @@ class SpectralMixin(_GraphBase):
         return node_list, pi.tolist()
 
     def encapsulation_dag(self) -> list[tuple[str, str]]:
+        """Return the encapsulation DAG as a list of (child_edge_id, parent_edge_id) pairs where one edge nodes are a strict subset of the other."""
         edge_list = list(self._edges.values())
         result: list[tuple[str, str]] = []
         for i in range(len(edge_list)):
@@ -688,6 +689,7 @@ class SpectralMixin(_GraphBase):
         return result
 
     def simpliciality(self) -> float:
+        """Compute the fraction of edge-containment pairs that are satisfied (returns 1.0 if no containment pairs exist)."""
         edge_sets = [e.node_ids for e in self._edges.values()]
         if len(edge_sets) < 2:
             return 1.0
@@ -705,6 +707,7 @@ class SpectralMixin(_GraphBase):
         return containment_satisfied / containment_total
 
     def _build_simplex_index(self) -> dict[int, list[frozenset[str]]]:
+        """Build a dimension-indexed dict of all simplices from nodes and hyperedge members."""
         simplices: dict[int, set[frozenset[str]]] = {}
         for node_id in self._nodes:
             s = frozenset({node_id})
@@ -719,6 +722,7 @@ class SpectralMixin(_GraphBase):
         return {dim: sorted(simplex_set, key=lambda s: sorted(s)) for dim, simplex_set in sorted(simplices.items())}
 
     def face_enumeration(self, simplex: frozenset[str]) -> dict[str, list[frozenset[str]]]:
+        """Enumerate faces (subsets) and cofaces (supersets) of a given simplex."""
         all_simplices: set[frozenset[str]] = set()
         for node_id in self._nodes:
             all_simplices.add(frozenset({node_id}))
@@ -738,6 +742,7 @@ class SpectralMixin(_GraphBase):
         return {"faces": sorted(faces, key=lambda s: (len(s), sorted(s))), "cofaces": sorted(cofaces, key=lambda s: (len(s), sorted(s)))}
 
     def boundary_operator(self, k: int) -> dict[frozenset[str], list[tuple[frozenset[str], int]]]:
+        """Compute the k-th boundary operator mapping k-simplices to signed (k-1)-faces."""
         simplex_index = self._build_simplex_index()
         k_simplices = simplex_index.get(k, [])
         if not k_simplices or k == 0:
@@ -757,6 +762,7 @@ class SpectralMixin(_GraphBase):
         return result
 
     def hodge_matrix(self, k: int) -> tuple[Any, list[frozenset[str]], list[frozenset[str]]]:
+        """Compute the k-th boundary matrix B_k as a dense numpy array with simplex orderings."""
         import numpy as np
 
         simplex_index = self._build_simplex_index()
@@ -777,6 +783,7 @@ class SpectralMixin(_GraphBase):
         return B, k_simplices, km1_simplices
 
     def hodge_laplacian(self, k: int) -> Any:
+        """Compute the k-th Hodge Laplacian L_k = B_k^T B_k + B_{k+1} B_{k+1}^T."""
         import numpy as np
 
         simplex_index = self._build_simplex_index()
@@ -797,6 +804,7 @@ class SpectralMixin(_GraphBase):
         return lower + upper
 
     def betti_curve(self, max_dim: int | None = None) -> list[int]:
+        """Compute Betti numbers for dimensions 0 through max_dim via Hodge Laplacian zero eigenvalues."""
         import numpy as np
 
         simplex_index = self._build_simplex_index()
@@ -814,6 +822,7 @@ class SpectralMixin(_GraphBase):
         return betti
 
     def persistence_diagram(self) -> list[tuple[int, float, float | None]]:
+        """Compute a persistence diagram from the edge-weight filtration, returning (dim, birth, death) tuples."""
         import numpy as np
 
         if not self._edges:
@@ -858,6 +867,7 @@ class SpectralMixin(_GraphBase):
         return sorted(result, key=lambda x: (x[0], x[1]))
 
     def _subgraph_at_threshold(self, active_edges: list[Any]) -> Any:
+        """Build a subgraph containing only edges with weight <= the given threshold."""
         from hyper3.kernel import Hypergraph
         from hyper3.kernel_types import Hyperedge, Hypernode
 
