@@ -149,6 +149,7 @@ class StructuralMixin(_MemoryBase):
         cut_height: float | None = None,
         n_communities: int | None = None,
     ) -> HierarchicalCommunityResult:
+        """Detect hyperlink communities using hierarchical agglomerative clustering on edge similarity."""
         if self._community_detector is None:
             self._community_detector = CommunityDetector(self._graph)
         return self._community_detector.detect_hyperlink_communities(

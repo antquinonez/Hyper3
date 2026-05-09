@@ -187,6 +187,7 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("save", path=path, rules_saved=include_rules and len(self._rules) > 0)
 
     def _save_full(self, path: str, *, include_rules: bool) -> None:
+        """Save the complete system state including graph, rules, and subsystem snapshots to a JSON file."""
         import json
         from pathlib import Path
 
@@ -292,6 +293,7 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("load", path=path, nodes=self._graph.node_count, edges=self._graph.edge_count)
 
     def _load_full(self, path: str) -> tuple[Hypergraph, Any, list, SystemSnapshot | None]:
+        """Load a full save file, returning (graph, log, rules, snapshot)."""
         import json
         from pathlib import Path
 
@@ -306,6 +308,7 @@ class PersistenceMixin(_MemoryBase):
         return graph, log, rules, snapshot
 
     def _try_load_bare_snapshot(self, path: str) -> SystemSnapshot | None:
+        """Attempt to load a standalone snapshot file (without graph data). Returns None if not a snapshot."""
         import json
         from pathlib import Path
 
@@ -321,6 +324,7 @@ class PersistenceMixin(_MemoryBase):
         return SystemSnapshot.from_dict(data)
 
     def _restore_snapshot(self, snapshot: SystemSnapshot) -> None:
+        """Restore subsystem state from a SystemSnapshot into the running instance."""
         multiway_engine, state_clustering, rule_analytics = restore_snapshot(
             snapshot=snapshot,
             graph=self._graph,
