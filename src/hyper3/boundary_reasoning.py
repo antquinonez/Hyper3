@@ -72,6 +72,7 @@ class BoundaryReasoningEngine:
         boundary_threshold: float = 0.65,
         negation_pairs: dict[str, str] | None = None,
     ) -> None:
+        """Initialize with a hypergraph and configurable thresholds for decidability zone classification."""
         self._graph = graph
         self._decidable_threshold = decidable_threshold
         self._near_threshold = near_boundary_threshold
@@ -248,6 +249,7 @@ class BoundaryReasoningEngine:
         return alternatives
 
     def _detect_self_reference(self, concept_id: str) -> float:
+        """Return a score (0.0-0.9) indicating whether the concept has a self-loop or self-referential cycle."""
         for edge in self._graph.outgoing_edges(concept_id):
             if concept_id in edge.target_ids:
                 return 0.9
@@ -270,6 +272,7 @@ class BoundaryReasoningEngine:
         return 0.0
 
     def _detect_universal(self, concept_id: str) -> float:
+        """Return a score (0.0-0.8) based on universal-quantification keywords in the node data or edge labels."""
         node = self._graph.get_node(concept_id)
         if node and node.data:
             data = node.data if isinstance(node.data, dict) else {}
@@ -285,6 +288,7 @@ class BoundaryReasoningEngine:
         return 0.0
 
     def _detect_negation_score(self, concept_id: str) -> float:
+        """Return a score (0.0-0.9) based on the length of the shortest negation cycle around the concept."""
         cycles = self.detect_negation_cycles(concept_id)
         if not cycles:
             return 0.0
@@ -296,6 +300,7 @@ class BoundaryReasoningEngine:
         return 0.4
 
     def _detect_regress_score(self, concept_id: str) -> float:
+        """Return a score (0.0-0.8) based on the length of the longest infinite-regress chain from the concept."""
         chains = self.detect_infinite_regress(concept_id)
         if not chains:
             return 0.0
@@ -305,6 +310,7 @@ class BoundaryReasoningEngine:
         return 0.6
 
     def _detect_fixed_point(self, concept_id: str) -> float:
+        """Return 0.7 if the concept participates in a structural fixed-point pattern, else 0.0."""
         label_counts: dict[str, int] = {}
         for edge in self._graph.outgoing_edges(concept_id):
             label_counts[edge.label] = label_counts.get(edge.label, 0) + 1
@@ -325,6 +331,7 @@ class BoundaryReasoningEngine:
         return 0.0
 
     def _detect_undecidable_sim(self, concept_id: str) -> float:
+        """Return 0.5 if the concept label matches known undecidability keywords, else 0.0."""
         node = self._graph.get_node(concept_id)
         if node is None:
             return 0.0
@@ -333,6 +340,7 @@ class BoundaryReasoningEngine:
         return 0.0
 
     def _strategy_for_zone(self, zone: str) -> str:
+        """Map a decidability zone name to the corresponding reasoning strategy string."""
         return {
             "decidable": "standard",
             "near_boundary": "conservative",
@@ -341,6 +349,7 @@ class BoundaryReasoningEngine:
         }.get(zone, "standard")
 
     def _config_for_zone(self, zone: str) -> BoundaryAwareReasonConfig:
+        """Return a BoundaryAwareReasonConfig with progressively stricter settings for deeper zones."""
         configs: dict[str, BoundaryAwareReasonConfig] = {
             "decidable": BoundaryAwareReasonConfig(
                 strategy="standard",
@@ -378,6 +387,7 @@ class BoundaryReasoningEngine:
         return configs.get(zone, configs["decidable"])
 
     def _describe_patterns(self, indicators: dict[str, float]) -> list[str]:
+        """Convert indicator scores into human-readable pattern description strings."""
         patterns: list[str] = []
         if indicators.get("self_reference", 0) > 0.5:
             patterns.append("Self-referential structure detected")

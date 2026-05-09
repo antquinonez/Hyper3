@@ -54,6 +54,7 @@ class EntanglementReport(_SimpleResultBase):
 class EntanglementEngine:
     """Manages entanglement links and groups between belief distributions and performs correlated cascade collapses."""
     def __init__(self) -> None:
+        """Initialize with empty dictionaries for links, groups, and distribution mappings."""
         self._links: dict[str, EntanglementLink] = {}
         self._groups: dict[str, EntanglementGroup] = {}
         self._dist_to_links: dict[str, set[str]] = defaultdict(set)
@@ -272,6 +273,7 @@ class EntanglementEngine:
     def _update_groups_after_link(
         self, dist_a_id: str, dist_b_id: str, link_id: str
     ) -> None:
+        """Adjust group membership for two distributions connected by a new entanglement link."""
         group_a_id = self._dist_to_group.get(dist_a_id)
         group_b_id = self._dist_to_group.get(dist_b_id)
 
@@ -322,6 +324,7 @@ class EntanglementEngine:
             self._dist_to_group[dist_b_id] = new_group.id
 
     def _rebuild_groups(self) -> None:
+        """Clear and rebuild all groups from scratch by replaying stored links."""
         self._groups.clear()
         self._dist_to_group.clear()
         for link in self._links.values():
@@ -330,6 +333,7 @@ class EntanglementEngine:
             )
 
     def _get_link_strength(self, dist_a_id: str, dist_b_id: str) -> float:
+        """Look up the entanglement strength between two distributions, returning 0.0 if unlinked."""
         for link_id in self._dist_to_links.get(dist_a_id, set()):
             link = self._links.get(link_id)
             if link and (
@@ -339,6 +343,7 @@ class EntanglementEngine:
         return 0.0
 
     def _get_link(self, dist_a_id: str, dist_b_id: str) -> EntanglementLink | None:
+        """Return the EntanglementLink connecting two distributions, or None."""
         for link_id in self._dist_to_links.get(dist_a_id, set()):
             link = self._links.get(link_id)
             if link and (
@@ -350,6 +355,7 @@ class EntanglementEngine:
     def _strongest_partner(
         self, dist_id: str, collapsed: dict[str, str]
     ) -> str | None:
+        """Find the already-collapsed distribution with the highest link strength to the given distribution."""
         best_partner: str | None = None
         best_strength = -1.0
         for collapsed_id in collapsed:
@@ -362,6 +368,7 @@ class EntanglementEngine:
     def _label_to_outcome_id(
         self, qs: BeliefState | None, label: str
     ) -> str | None:
+        """Resolve a label string to the corresponding outcome node ID within a belief state."""
         if qs is None:
             return None
         for outcome in qs.outcomes:

@@ -62,6 +62,7 @@ class TranscendentalReport(_SimpleResultBase):
 class TranscendentalInferenceEngine:
     """Generates meta-level insights and transferable patterns from rule analytics and state clustering for cross-domain inference."""
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a hypergraph and empty containers for insights, transferables, and proposals."""
         self._graph = graph
         self._insights: list[TranscendentalInsight] = []
         self._transferables: list[TransferablePattern] = []
@@ -294,6 +295,7 @@ class TranscendentalInferenceEngine:
         insight: HighLevelInsight,
         supporting_patterns: list[DetectedPattern],
     ) -> list[TransferablePattern]:
+        """Create TransferablePattern objects from a high-level insight, producing domain-specific transfer functions."""
         transferables: list[TransferablePattern] = []
         evidence = insight.evidence[:3]
 
@@ -361,6 +363,7 @@ class TranscendentalInferenceEngine:
         insight: HighLevelInsight,
         supporting_patterns: list[DetectedPattern],
     ) -> float:
+        """Compute a generality score (0.0-1.0) as the ratio of distinct domains spanned by the insight."""
         domains: set[str] = set()
         for p in supporting_patterns:
             domains.update(p.domains)
@@ -368,6 +371,7 @@ class TranscendentalInferenceEngine:
         return min(1.0, len(domains) / 4.0)
 
     def _infer_rule_type(self, insight: HighLevelInsight) -> str:
+        """Infer a rule type from the insight principle text by keyword matching."""
         text = insight.principle.lower()
         if "transitive" in text or "chain" in text:
             return "transitive"
@@ -380,6 +384,7 @@ class TranscendentalInferenceEngine:
         return "contextual_substitution"
 
     def _infer_preferred_frame(self, insight: HighLevelInsight) -> str:
+        """Infer the preferred computational frame from the insight principle text by keyword matching."""
         text = insight.principle.lower()
         if "sparse" in text or "density" in text:
             return "hypergraph"
@@ -390,6 +395,7 @@ class TranscendentalInferenceEngine:
         return "quantum"
 
     def _extract_high_mi_labels(self, patterns: list[DetectedPattern]) -> list[str]:
+        """Filter detected patterns to mutual-information type and collect their label pairs."""
         labels: list[str] = []
         for p in patterns:
             if p.pattern_type == "mutual_information":
@@ -399,6 +405,7 @@ class TranscendentalInferenceEngine:
         return labels
 
     def _count_modalities(self) -> int:
+        """Count the number of distinct modality tag values across all graph nodes."""
         modalities: set[str] = set()
         for node in self._graph.nodes:
             for m in node.metadata.modality_tags:
@@ -410,6 +417,7 @@ class TranscendentalInferenceEngine:
         signature: dict[str, float],
         concept_id: str,
     ) -> float:
+        """Compute similarity between a stored signature density and the current graph density."""
         node = self._graph.get_node(concept_id)
         if node is None:
             return 0.5
