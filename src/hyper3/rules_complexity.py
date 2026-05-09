@@ -8,6 +8,7 @@ from hyper3.rules import Rule, RuleMatch
 class ComplexityComparisonRule(Rule):
     """Rule that runs multi-frame complexity analysis on each concept and stamps the results onto node data."""
     def __init__(self, perspective: MultiPerspectiveAnalyzer, frames: list[str] | None = None) -> None:
+        """Initialize with a multi-perspective analyzer and optional frame names for complexity comparisons."""
         self._perspective = perspective
         self._frames = frames or ["classical", "quantum", "hypergraph", "probabilistic"]
 

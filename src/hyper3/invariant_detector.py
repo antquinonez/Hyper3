@@ -40,10 +40,12 @@ def _bucket(value: float) -> str:
 class InvariantDetector:
     """Detects structural properties of a concept that are invariant (robust) across different computational frames."""
     def __init__(self, graph: Hypergraph, frame_names: list[str] | None = None) -> None:
+        """Initialize with a hypergraph and optional list of computational frame names."""
         self._graph = graph
         self._frame_names = frame_names or ["classical", "quantum", "hypergraph", "probabilistic"]
 
     def _frame_degree(self, node_id: str, frame: str) -> tuple[float, int]:
+        """Return the degree and neighbor count for a node as interpreted through a specific computational frame."""
         if frame == "classical":
             deg = len(self._graph.incident_edges(node_id))
             nbrs = len(self._graph.neighbors(node_id))
@@ -133,6 +135,7 @@ class InvariantDetector:
         return [self.detect(nid) for nid in node_ids]
 
     def _check_invariant(self, name: str, values: dict[str, Any]) -> PropertyInvariant:
+        """Check whether a property value is identical across all frames and compute a variance score."""
         vals = list(values.values())
         first = vals[0]
         is_inv = all(v == first for v in vals)

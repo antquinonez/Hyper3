@@ -46,6 +46,7 @@ class CommunityDetector:
     """Identifies communities (clusters) in a hypergraph via label propagation and connected-components algorithms."""
 
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a reference to the hypergraph for community detection."""
         self._graph = graph
 
     def detect_label_propagation(
@@ -381,6 +382,7 @@ class CommunityDetector:
         adj: dict[str, dict[str, float]],
         node_ids: list[str],
     ) -> dict[str, int]:
+        """Assign community labels to nodes via BFS over an adjacency map."""
         labels: dict[str, int] = {}
         visited: set[str] = set()
         label = 0
@@ -404,6 +406,7 @@ class CommunityDetector:
         adj: dict[str, dict[str, float]],
         node_ids: list[str],
     ) -> tuple[str, str] | None:
+        """Return the edge with the highest betweenness centrality from an adjacency map."""
         edge_count: dict[frozenset[str], float] = defaultdict(float)
         for source in node_ids:
             dist: dict[str, float] = {source: 0.0}
@@ -581,6 +584,7 @@ class CommunityDetector:
         labels: dict[str, int],
         neighbor_map: dict[str, list[tuple[str, float]]],
     ) -> CommunityResult:
+        """Assemble a CommunityResult from label-to-node-ID mapping with modularity and weight statistics."""
         communities_dict: dict[int, list[str]] = {}
         for nid, label in labels.items():
             communities_dict.setdefault(label, []).append(nid)

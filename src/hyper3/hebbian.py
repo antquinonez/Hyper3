@@ -53,6 +53,7 @@ class HebbianLearner:
         *,
         config: HebbianConfig | None = None,
     ) -> None:
+        """Initialize with a hypergraph, spreading-activation engine, and Hebbian configuration."""
         self._graph = graph
         self._activation = activation
         self._config = config or HebbianConfig()

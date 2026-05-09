@@ -64,6 +64,7 @@ class StructuralPatternEngine:
     in a hypergraph via role-based subgraph matching."""
 
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a reference to the hypergraph for structural pattern searches."""
         self._graph = graph
 
     def _extend_from_source(

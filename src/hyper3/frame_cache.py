@@ -43,6 +43,7 @@ class FrameCache:
         frame_quota: int = 256,
         default_ttl: float = 300.0,
     ) -> None:
+        """Create a general-purpose cache with per-frame partition support."""
         self._max_total_size = max_total_size
         self._frame_quota = frame_quota
         self._default_ttl = default_ttl
@@ -218,6 +219,7 @@ class FrameCache:
         return fc
 
     def _ensure_frame(self, frame: str) -> None:
+        """Lazily create a dedicated cache partition for a named computational frame."""
         if frame in self._frames:
             return
         current_general = self._general._max_size
