@@ -411,6 +411,53 @@ def main() -> None:
     print()
 
     print("=" * 70)
+    print("SECTION 8: Contagion Flow Analysis")
+    print("=" * 70)
+    print()
+    print("  max_flow() measures how much risk can propagate from one counterparty")
+    print("  to another. min_cut() identifies the weakest partition point.")
+    print("  shortest_path() traces the most likely contagion route.")
+    print()
+
+    flow_pairs = [
+        ("archegos_capital", "morgan_stanley"),
+        ("archegos_capital", "credit_suisse"),
+        ("archegos_capital", "nomura"),
+    ]
+    for src, tgt in flow_pairs:
+        flow_val, flow_dict = mem.analyze.max_flow(src, tgt)
+        if flow_val > 0:
+            print(f"  {src} -> {tgt}:")
+            print(f"    Max contagion flow: {flow_val:.2f}")
+            active_paths = [(s, t, f) for (s, t), f in flow_dict.items() if f > 0]
+            for s, t, f in active_paths[:3]:
+                print(f"      {s} -> {t}: flow={f:.2f}")
+        else:
+            print(f"  {src} -> {tgt}: no flow path (disconnected)")
+    print()
+
+    cut_weight, (side_a, side_b) = mem.analyze.min_cut()
+    print(f"  Global minimum cut:")
+    print(f"    Cut weight: {cut_weight:.2f}")
+    print(f"    Partition A ({len(side_a)} nodes): {list(side_a)[:5]}...")
+    print(f"    Partition B ({len(side_b)} nodes): {list(side_b)[:5]}...")
+    print()
+
+    path = mem.analyze.shortest_path("archegos_capital", "credit_suisse", weighted=True)
+    if path:
+        print(f"  Shortest risk path archegos -> credit_suisse:")
+        print(f"    {' -> '.join(path)}")
+
+    print()
+    print("  Running feedback-driven evolution...")
+    ev_result = mem.evolve_with_feedback()
+    print(f"    Reinforced: {ev_result.reinforced}")
+    print(f"    Suppressed: {ev_result.suppressed}")
+    print(f"    Decayed: {ev_result.decayed}")
+    print(f"    Pruned: {ev_result.pruned}")
+    print()
+
+    print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
@@ -421,7 +468,9 @@ def main() -> None:
     print("  Key insight: community detection reveals natural risk clusters")
     print("  (regional banking, asset management, etc.) while graph diffing")
     print("  tracks how new exposures reshape the risk landscape. Abstraction")
-    print("  enables portfolio-level analysis without losing detail.")
+    print("  enables portfolio-level analysis without losing detail. Contagion")
+    print("  flow analysis quantifies maximum risk propagation and identifies")
+    print("  the weakest partition points where firebreaks would be most effective.")
     print()
 
 

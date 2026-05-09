@@ -86,6 +86,15 @@ SECTION 6: Probabilistic Default Risk Assessment
 SECTION 7: Multi-Frame Risk Analysis
 ======================================================================
   Optimal frame: hypergraph (complexity=0.718)
+
+======================================================================
+SECTION 8: Contagion Flow Analysis
+======================================================================
+  archegos_capital -> morgan_stanley:
+    Max contagion flow: 0.99
+  Global minimum cut:
+    Cut weight: 0.00
+  Feedback-driven evolution completed
 ```
 
 ## 5. The Scenario
