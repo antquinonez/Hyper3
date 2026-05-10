@@ -620,3 +620,58 @@ class CompositeEmbeddingProvider(EmbeddingProvider):
         eigenvalues, eigenvectors = np.linalg.eigh(cov)
         top_indices = np.argsort(eigenvalues)[::-1][: self._target_dim]
         self._projection = eigenvectors[:, top_indices]
+
+
+class SemanticEdgeBuilder:
+    """Builds a secondary Hypergraph whose edges encode embedding-derived semantic similarity.
+
+    For each node in the primary graph, computes the top-k most similar
+    nodes via ``EmbeddingEngine.find_similar()`` and creates directed edges
+    with ``label="semantic_sim"`` and ``weight=cosine_similarity``.
+
+    The resulting graph can be combined with the primary graph via
+    ``LayeredGraph`` so that ``SpreadingActivation`` traverses both
+    structural and semantic edges.
+    """
+
+    def __init__(self, graph: Hypergraph, embedding: Any) -> None:
+        self._graph = graph
+        self._embedding = embedding
+        self._layer: Hypergraph | None = None
+        self._build_node_count: int = 0
+        self._build_edge_count: int = 0
+
+    @property
+    def layer(self) -> Hypergraph | None:
+        return self._layer
+
+    def is_dirty(self) -> bool:
+        if self._layer is None:
+            return False
+        return (
+            self._graph.node_count != self._build_node_count
+            or self._graph.edge_count != self._build_edge_count
+        )
+
+    def build(self, *, top_k: int = 10, threshold: float = 0.7) -> Hypergraph:
+        from hyper3.kernel_types import Hyperedge, Hypernode
+
+        self._layer = Hypergraph()
+        for node in self._graph.nodes:
+            self._layer.add_node(Hypernode(id=node.id, label=node.label))
+        for node in self._graph.nodes:
+            similar = self._embedding.find_similar(node.id, top_k=top_k, threshold=threshold)
+            for result in similar:
+                edge = Hyperedge(
+                    source_ids=frozenset({node.id}),
+                    target_ids=frozenset({result.node_b_id}),
+                    label="semantic_sim",
+                    weight=max(result.similarity, 0.0),
+                )
+                self._layer.add_edge(edge)
+        self._build_node_count = self._graph.node_count
+        self._build_edge_count = self._graph.edge_count
+        return self._layer
+
+    def rebuild(self, *, top_k: int = 10, threshold: float = 0.7) -> Hypergraph:
+        return self.build(top_k=top_k, threshold=threshold)

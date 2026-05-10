@@ -14,6 +14,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
+from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
@@ -24,6 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph
+from hyper3.layered_graph import LayeredGraph
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
 from hyper3.memory_belief import BeliefMixin
@@ -205,6 +207,8 @@ class HypergraphMemory(
         self._embedding_engine: EmbeddingEngine | None = None
         self._activation = SpreadingActivation(self._graph)
         self._retrieval = RetrievalEngine(self._graph, activation=self._activation)
+        self._semantic_builder: SemanticEdgeBuilder | None = None
+        self._layered_graph: LayeredGraph | None = None
         self._temporal = TemporalReasoner(self._graph)
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
@@ -305,6 +309,9 @@ class HypergraphMemory(
     def search_engine(self) -> SearchEngine:
         """Lazy-initialized property returning the structured search engine."""
         if self._search_engine is None:
+            if self._embedding_engine is None:
+                self._embedding_engine = EmbeddingEngine(self._graph)
+                self._retrieval._embedding = self._embedding_engine
             self._search_engine = SearchEngine(
                 self._graph,
                 activation=self._activation,

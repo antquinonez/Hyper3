@@ -14,6 +14,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
+from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
@@ -24,6 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode
+from hyper3.layered_graph import LayeredGraph
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
@@ -90,6 +92,8 @@ class _MemoryBase:
     _embedding_engine: EmbeddingEngine | None
     _activation: SpreadingActivation
     _retrieval: RetrievalEngine
+    _semantic_builder: SemanticEdgeBuilder | None
+    _layered_graph: LayeredGraph | None
     _temporal: TemporalReasoner
     _provenance: ProvenanceTracker
     _enricher: LLMEnricher
