@@ -9,6 +9,7 @@ algorithms differ by formulation (incidence-based vs tensor-based).
 from __future__ import annotations
 
 from benchmarks.equiv.shared import (
+    REASON_FORMULATION,
     EquivRunner,
     build_pairwise_h3,
     build_pairwise_nx,
@@ -109,11 +110,14 @@ def _test_pagerank(t: EquivRunner) -> None:
         t.check(f"pagerank/h3_nonneg/{node}", val >= 0)
 
     for node in G.nodes():
-        t.check_close(
+        t.check_diverge(
             f"pagerank/per_node/{node}",
             h3_pr.get(node, 0.0),
             nx_pr.get(node, 0.0),
             tol=0.1,
+            reason=REASON_FORMULATION,
+            explanation="H3 uses incidence-based P=D_v^-1 H W D_e^-1 H^T; NX uses adjacency-based transition",
+            reference="DP-8",
         )
 
     h3_ranking = sorted(h3_pr, key=h3_pr.get, reverse=True)
@@ -187,11 +191,13 @@ def _test_katz_centrality_solve(t: EquivRunner) -> None:
         label_map = {n.id: n.label for n in mem.engine.graph.nodes}
         h3_labeled = {label_map[k]: v for k, v in kc.items()}
         for node in G.nodes():
-            t.check_close(
+            t.check_diverge(
                 f"katz_centrality_solve/per_node/{node}",
                 h3_labeled.get(node, 0.0),
                 nx_kc.get(node, 0.0),
                 tol=0.15,
+                reason=REASON_FORMULATION,
+                explanation="H3 solves Katz via incidence Laplacian; NX uses adjacency Katz; different convergence behavior",
             )
 
 

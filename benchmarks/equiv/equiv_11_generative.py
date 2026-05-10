@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from benchmarks.equiv.shared import EquivRunner
+from benchmarks.equiv.shared import REASON_IMPLEMENTATION, EquivRunner
 
 
 def run() -> EquivRunner:
@@ -65,10 +65,24 @@ def _test_er_xgi(t: EquivRunner) -> None:
     n = 20
     h3_counts = [random_hypergraph(n, {1: 0.3, 2: 0.1}, seed=s).edge_count for s in range(50)]
     xgi_counts = [xgi.fast_random_hypergraph(n, [0.3, 0.1], seed=s).num_edges for s in range(50)]
-    t.check("er_xgi/mean_close", abs(np.mean(h3_counts) - np.mean(xgi_counts)) < 10.0,
-            f"H3 mean={np.mean(h3_counts):.1f}, XGI mean={np.mean(xgi_counts):.1f}")
-    t.check("er_xgi/std_close", abs(np.std(h3_counts) - np.std(xgi_counts)) < 3.0,
-            f"H3 std={np.std(h3_counts):.1f}, XGI std={np.std(xgi_counts):.1f}")
+    h3_mean = np.mean(h3_counts)
+    xgi_mean = np.mean(xgi_counts)
+    h3_std = np.std(h3_counts)
+    xgi_std = np.std(xgi_counts)
+    t.check_diverge(
+        "er_xgi/mean_close",
+        h3_mean, xgi_mean,
+        tol=10.0,
+        reason=REASON_IMPLEMENTATION,
+        explanation=f"Different edge sampling implementations; H3 mean={h3_mean:.1f}, XGI mean={xgi_mean:.1f}",
+    )
+    t.check_diverge(
+        "er_xgi/std_close",
+        h3_std, xgi_std,
+        tol=3.0,
+        reason=REASON_IMPLEMENTATION,
+        explanation=f"Stochastic variance in edge counts; H3 std={h3_std:.1f}, XGI std={xgi_std:.1f}",
+    )
 
     g = random_hypergraph(n, {1: 0.3, 2: 0.1}, seed=42)
     t.check_int("er_h3/node_count", g.node_count, n)

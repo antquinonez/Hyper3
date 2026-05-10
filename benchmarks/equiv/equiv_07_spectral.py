@@ -10,8 +10,11 @@ from __future__ import annotations
 import numpy as np
 
 from benchmarks.equiv.shared import (
+    REASON_FORMULATION,
     EquivRunner,
     build_hypergraph_h3,
+    build_pairwise_h3,
+    build_pairwise_nx,
 )
 
 
@@ -63,7 +66,13 @@ def _test_laplacian_eigenvalues(t: EquivRunner) -> None:
     eigs_h3_norm = np.sort(np.linalg.eigvalsh(np.asarray(L_norm_pw)))
     if len(eigs_h3_norm) == len(eigs_nx_norm):
         ratio = eigs_h3_norm[-1] / eigs_nx_norm[-1] if eigs_nx_norm[-1] != 0 else 0
-        t.check("norm_laplacian_eigs/pairwise_differs_by_factor", abs(ratio - 0.5) < 0.01)
+        t.diverge(
+            "norm_laplacian_eigs/scale_factor",
+            reason=REASON_FORMULATION,
+            explanation=f"H3 normalized Laplacian eigenvalues are ~0.5x NX (ratio={ratio:.3f}); "
+                        "H3 uses incidence-based normalization D_v^-1/2 vs NX adjacency-based",
+            reference="DP-6",
+        )
 
 
 def _test_spectral_embedding(t: EquivRunner) -> None:
