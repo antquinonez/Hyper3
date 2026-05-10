@@ -123,6 +123,7 @@ def main() -> None:
     print(f"structural edges:    {primary_edges}")
     print(f"semantic edges:      {sem_count}")
     print(f"layered graph total: {layered_edges}")
+    print(f"semantic layer dirty: {mem.semantic_layer_dirty()}")
 
     print("\n" + "=" * 70)
     print("SECTION 4: Activation Energy (Layered Graph)")
@@ -159,7 +160,7 @@ def main() -> None:
 
     laptops = mem.search.find(filters={"type": "laptop"}, top_k=20)
     print(f"\nlaptops (type=laptop): {laptops.total} results")
-    for r in laptops.results:
+    for r in sorted(laptops.results, key=lambda r: r.label):
         d = r.data
         print(f"  {r.label:>20}  brand={d.get('brand', ''):>10}  "
               f"price=${d.get('price', 0):>5}  ram={d.get('ram_gb', 0)}GB  "
@@ -180,7 +181,7 @@ def main() -> None:
     or_filter = parse_query("type:phone,tablet")
     or_results = mem.search.search(or_filter)
     print(f"\nOR filter (type in [phone, tablet]): {or_results.total} results")
-    for r in or_results.results:
+    for r in sorted(or_results.results, key=lambda r: r.label):
         print(f"  {r.label:>20}  type={r.data.get('type', '')}")
 
     parsed = parse_query("type:laptop brand:apple,samsung -brand:sony ^price:2.0")
@@ -241,16 +242,16 @@ def main() -> None:
     for strat in strategies:
         result = mem.search.find(filters={"brand": "apple"}, top_k=5, strategy=strat)
         print(f"\nstrategy={strat:>8}: {result.total} results, {result.elapsed_ms:.2f}ms")
-        for r in result.results[:3]:
+        for r in sorted(result.results[:3], key=lambda r: r.label):
             print(f"  {r.label:>20}  score={r.score:.3f}  strategy={r.strategy}")
 
     page1 = mem.search.find(top_k=5, offset=0)
     page2 = mem.search.find(top_k=5, offset=5)
     print("\npage 1 (top_k=5, offset=0):")
-    for r in page1.results:
+    for r in sorted(page1.results, key=lambda r: r.label):
         print(f"  {r.label:>20}  score={r.score:.3f}")
     print("\npage 2 (top_k=5, offset=5):")
-    for r in page2.results:
+    for r in sorted(page2.results, key=lambda r: r.label):
         print(f"  {r.label:>20}  score={r.score:.3f}")
 
     print("\n" + "=" * 70)
@@ -264,16 +265,20 @@ def main() -> None:
     print(f"  entries:  {final_stats.entry_count}")
     print(f"  dirty:    {final_stats.dirty}")
 
+    print(f"\nsemantic layer dirty:  {mem.semantic_layer_dirty()}")
+
     mem.add("iphone_17_pro", data={"type": "phone", "brand": "apple", "price": 1199, "year": 2025, "cpu": "a19_pro"})
     dirty_stats = mem.search.index_stats()
     print("\nafter adding iphone_17_pro:")
-    print(f"  dirty:    {dirty_stats.dirty}")
+    print(f"  index dirty:    {dirty_stats.dirty}")
+    print(f"  semantic dirty: {mem.semantic_layer_dirty()}")
 
     mem.search.find(filters={"brand": "apple"}, top_k=3)
     clean_stats = mem.search.index_stats()
-    print("  after search (auto-rebuild):")
-    print(f"  dirty:    {clean_stats.dirty}")
-    print(f"  entries:  {clean_stats.entry_count}")
+    print("  after search (index auto-rebuild):")
+    print(f"  index dirty:    {clean_stats.dirty}")
+    print(f"  index entries:  {clean_stats.entry_count}")
+    print(f"  semantic dirty: {mem.semantic_layer_dirty()} (stays dirty until rebuild)")
 
     print("\n" + "=" * 70)
     print("SECTION 11: SQLite Persistence and Serving")

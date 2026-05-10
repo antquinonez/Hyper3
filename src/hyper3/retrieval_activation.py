@@ -215,6 +215,7 @@ class SpreadingActivation:
             seed_node = self._graph.get_node(concept)
         if not seed_node:
             return []
+        self.clear()
         self.stimulate(seed_node.id, energy)
         self.spread(iterations)
         results = self.get_activated(top_k=top_k * 2)

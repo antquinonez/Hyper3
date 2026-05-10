@@ -34,6 +34,8 @@ Imagine a spreadsheet where each row is a product with columns for type, brand, 
 .venv/bin/python examples/showcase/structured_search/structured_search.py
 ```
 
+After running the example, you will understand how to: build a hypergraph from structured product data; measure node connectivity with spreading activation; add a semantic layer from embedding similarity and observe its effect on activation; build an inverted index for attribute filtering, range queries, and faceted navigation; combine index, activation, and similarity signals into a single relevance score; track index freshness with dirty flags; and persist the entire graph to SQLite for out-of-process queries.
+
 The example builds a product catalog and demonstrates 11 sections:
 
 ```
@@ -45,27 +47,21 @@ SECTION 2: Activation Energy (Structural Graph)
               airpods_pro_2  energy=1.000
              macbook_air_15  energy=0.626
               iphone_16_pro  energy=0.595
-                ipad_pro_13  energy=0.462
-             studio_display  energy=0.434
 
 SECTION 3: Building the Semantic Layer
   structural edges:    33
   semantic edges:      44
   layered graph total: 77
 
-SECTION 5: Indexing and Filtered Search
-  indexed fields: 8, indexed values: 57, total entries: 119
-  laptops (type=laptop): 6 results
-
-SECTION 8: Multi-Signal Scoring
-  macbook_air_15   1.380  1.000  0.860  0.826   1.50     hybrid
-  xps_15           1.241  1.000  0.586  0.701   1.50     hybrid
-  macbook_pro_16   1.050  1.000  1.000  0.000   1.50     hybrid
+SECTION 10: Index Maintenance and Dirty Tracking
+  semantic layer dirty:  False
+  after adding iphone_17_pro:
+    index dirty:    True
+    semantic dirty: True
 
 SECTION 11: SQLite Persistence and Serving
   file size: 73,728 bytes, nodes: 21, edges: 33
   apple products (via SQLite): 10
-  text search 'macbook' (via SQLite): 2 results
 ```
 
 ## 5. The Scenario
@@ -354,16 +350,25 @@ page2 = mem.search.find(top_k=5, offset=5)
 
 ### Section 10: Index Maintenance and Dirty Tracking
 
-Observe dirty tracking as the graph changes:
+Observe dirty tracking for both the attribute index and the semantic layer as the graph changes:
 
 ```python
+# Before mutation: both clean
+mem.search.index_stats().dirty        # False
+mem.semantic_layer_dirty()             # False
+
+# After adding a node: both dirty
 mem.add("iphone_17_pro", data={"type": "phone", "brand": "apple", ...})
-mem.search.index_stats().dirty  # True
+mem.search.index_stats().dirty        # True
+mem.semantic_layer_dirty()             # True
+
+# Index auto-rebuilds on next search; semantic layer stays dirty
 mem.search.find(filters={"brand": "apple"}, top_k=3)
-mem.search.index_stats().dirty  # False
+mem.search.index_stats().dirty        # False
+mem.semantic_layer_dirty()             # True (stays dirty until rebuild)
 ```
 
-**Result:** After adding `iphone_17_pro`, index is dirty (`dirty=True`). After the next search, index auto-rebuilds with 124 entries (`dirty=False`).
+**Result:** After adding `iphone_17_pro`, both the index and semantic layer are dirty. The index auto-rebuilds on the next search (124 entries). The semantic layer remains dirty because it must be explicitly rebuilt via `build_semantic_layer()`.
 
 ### Section 11: SQLite Persistence and Serving
 
@@ -405,10 +410,12 @@ store.close()
 
 ### Dirty Flag Interpretation
 
-| State | Meaning |
-|-------|---------|
-| `dirty: False` | Index is up-to-date with the graph |
-| `dirty: True` | Graph has changed since last index build; next search will rebuild |
+| Flag | Dirty | Meaning |
+|------|-------|---------|
+| `index_stats().dirty` | `False` | Index is up-to-date with the graph |
+| `index_stats().dirty` | `True` | Graph has changed since last index build; next search will rebuild |
+| `semantic_layer_dirty()` | `False` | Semantic layer matches current graph structure |
+| `semantic_layer_dirty()` | `True` | New nodes or edges added since last `build_semantic_layer()` |
 
 ## 9. Key Metrics
 
@@ -421,6 +428,7 @@ store.close()
 | Indexed fields | 8 |
 | Unique indexed values | 57 |
 | Total index entries | 119 (initial), 124 (after adding iphone_17_pro) |
+| Dirty tracking | Both index and semantic layer dirty after mutation; index auto-rebuilds on search |
 | Filtered laptops | 6 |
 | Laptops in price range 800..1500 | 3 |
 | Apple products | 9 (initial), 10 (after adding iphone_17_pro) |
