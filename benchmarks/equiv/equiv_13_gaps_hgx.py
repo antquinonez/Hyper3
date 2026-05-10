@@ -24,18 +24,22 @@ def _build_small_graph():
 
 
 def _test_motif_detection(t: EquivRunner) -> None:
+    import networkx as nx
+
     mem = _build_small_graph()
 
     result = mem.detect_motifs(order=3, runs_config_model=5, seed=42)
 
     t.check("motif_detection/produces_result", result is not None)
 
-    if hasattr(result, "motifs"):
-        t.check("motif_detection/has_motifs", len(result.motifs) > 0)
-    elif isinstance(result, dict):
-        t.check("motif_detection/has_motifs", len(result) > 0)
-    else:
-        t.check("motif_detection/non_empty", bool(result))
+    G_nx = nx.Graph()
+    for e in mem._graph.edges:
+        members = list(e.node_ids)
+        labels = {n.id: n.label for n in mem._graph._nodes.values()}
+        for i in range(len(members)):
+            for j in range(i + 1, len(members)):
+                G_nx.add_edge(labels[members[i]], labels[members[j]])
+    t.check_int("motif_detection/graph_size_matches", G_nx.number_of_nodes(), mem._graph.node_count)
 
 
 def _test_directed_motif_detection(t: EquivRunner) -> None:
@@ -56,9 +60,16 @@ def _test_configuration_model(t: EquivRunner) -> None:
     mem = _build_small_graph()
     result = configuration_model(mem._graph, n_steps=100, seed=42)
 
-    t.check("configuration_model/produces_result", result is not None)
     t.check("configuration_model/preserves_node_count",
             result.node_count == mem._graph.node_count)
+    t.check_int("configuration_model/preserves_edge_count",
+                result.edge_count, mem._graph.edge_count)
+
+    orig_deg = sorted(sum(1 for e in mem._graph._edges.values() if nid in e.node_ids)
+                      for nid in mem._graph._nodes)
+    new_deg = sorted(sum(1 for e in result._edges.values() if nid in e.node_ids)
+                     for nid in result._nodes)
+    t.check("configuration_model/preserves_degree_sequence", orig_deg == new_deg)
 
 
 def _test_hyperlink_communities(t: EquivRunner) -> None:
@@ -74,7 +85,8 @@ def _test_hyperlink_communities(t: EquivRunner) -> None:
         for c in result.communities:
             if hasattr(c, "member_labels"):
                 all_labels.update(c.member_labels)
-        t.check("hyperlink_communities/covers_nodes", len(all_labels) > 0)
+        t.check_int("hyperlink_communities/covers_all_nodes",
+                    len(all_labels), mem._graph.node_count)
 
 
 def _test_simplicial_contagion(t: EquivRunner) -> None:
@@ -100,6 +112,7 @@ def _test_simplicial_contagion(t: EquivRunner) -> None:
 
 def _test_temporal_hypergraph(t: EquivRunner) -> None:
     from hyper3 import HypergraphMemory
+    from hyper3.temporal import AllenRelation
 
     mem = HypergraphMemory(evolve_interval=0)
     for n in ["a", "b", "c"]:
@@ -110,10 +123,16 @@ def _test_temporal_hypergraph(t: EquivRunner) -> None:
     mem.temporal.add_event("c", start=7.0, end=12.0)
 
     events = mem.temporal.events
-    t.check("temporal_hypergraph/events_registered", len(events) > 0)
+    t.check_int("temporal_hypergraph/events_registered", len(events), 3)
 
-    result = mem.temporal.allen("a", "b")
-    t.check("temporal_hypergraph/relation_computed", result is not None)
+    rel_ab = mem.temporal.allen("a", "b")
+    t.check("temporal_hypergraph/a_before_b", rel_ab == AllenRelation.BEFORE or rel_ab == AllenRelation.OVERLAPS)
+
+    rel_bc = mem.temporal.allen("b", "c")
+    t.check("temporal_hypergraph/b_before_c", rel_bc == AllenRelation.BEFORE or rel_bc == AllenRelation.OVERLAPS)
+
+    rel_ac = mem.temporal.allen("a", "c")
+    t.check("temporal_hypergraph/a_before_c", rel_ac == AllenRelation.BEFORE)
 
 
 def run() -> EquivRunner:

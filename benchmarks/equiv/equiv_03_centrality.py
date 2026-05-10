@@ -108,12 +108,18 @@ def _test_pagerank(t: EquivRunner) -> None:
         val = h3_pr.get(node, 0.0)
         t.check(f"pagerank/h3_nonneg/{node}", val >= 0)
 
-    t.check("pagerank/h3_different_from_nx_note",
-            True,
-            )
-    t.gap("pagerank_exact_nx_equivalence",
-          "H3 incidence-based P=D_v^-1 H W D_e^-1 H^T differs from NX adjacency-based PageRank; "
-          "both valid formulations, different transition matrices")
+    for node in G.nodes():
+        t.check_close(
+            f"pagerank/per_node/{node}",
+            h3_pr.get(node, 0.0),
+            nx_pr.get(node, 0.0),
+            tol=0.1,
+        )
+
+    h3_ranking = sorted(h3_pr, key=h3_pr.get, reverse=True)
+    nx_ranking = sorted(nx_pr, key=nx_pr.get, reverse=True)
+    t.check("pagerank/top_node_agrees", h3_ranking[0] == nx_ranking[0],
+            f"H3 top={h3_ranking[0]}, NX top={nx_ranking[0]}")
 
 
 def _test_closeness_centrality(t: EquivRunner) -> None:
@@ -178,10 +184,15 @@ def _test_katz_centrality_solve(t: EquivRunner) -> None:
         t.check("katz_centrality_solve/nx_available", False)
 
     if nx_kc is not None:
-        {n.id: n.label for n in mem.engine.graph.nodes}
-        h3_sum = sum(kc.values())
-        nx_sum = sum(nx_kc.values())
-        t.check_close("katz_centrality_solve/sum_close", h3_sum, nx_sum, tol=0.5)
+        label_map = {n.id: n.label for n in mem.engine.graph.nodes}
+        h3_labeled = {label_map[k]: v for k, v in kc.items()}
+        for node in G.nodes():
+            t.check_close(
+                f"katz_centrality_solve/per_node/{node}",
+                h3_labeled.get(node, 0.0),
+                nx_kc.get(node, 0.0),
+                tol=0.15,
+            )
 
 
 def _test_subhypergraph_centrality(t: EquivRunner) -> None:

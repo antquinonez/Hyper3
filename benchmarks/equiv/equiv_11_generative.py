@@ -122,6 +122,7 @@ def _test_uniform_hgx(t: EquivRunner) -> None:
     t.check_int("uniform_hgx/hgx_nodes", hgx_g.num_nodes(), n)
     t.check_int("uniform_hgx/h3_edges", h3_g.edge_count, m_count)
     t.check_int("uniform_hgx/hgx_edges", hgx_g.num_edges(), m_count)
+    t.check_int("uniform_hgx/edge_count_match", h3_g.edge_count, hgx_g.num_edges())
 
 
 def _test_complete_xgi(t: EquivRunner) -> None:
@@ -138,6 +139,7 @@ def _test_complete_xgi(t: EquivRunner) -> None:
     t.check_int("complete_xgi/xgi_node_count", H.num_nodes, n)
     t.check_int("complete_xgi/h3_edge_count", g.edge_count, comb(n, 2))
     t.check_int("complete_xgi/xgi_edge_count", H.num_edges, comb(n, 2))
+    t.check_int("complete_xgi/h3_xgi_match", g.edge_count, H.num_edges)
 
     g3 = complete_hypergraph(6, order=2)
     H3 = xgi.complete_hypergraph(6, order=2)
@@ -162,6 +164,7 @@ def _test_ring_lattice_xgi(t: EquivRunner) -> None:
 
     h3_sizes = _h3_edge_size_counts(g)
     t.check_int("ring_xgi/all_size_k", h3_sizes.get(k, 0), g.edge_count)
+    t.check_int("ring_xgi/edge_count_vs_xgi", g.edge_count, H.num_edges)
 
 
 def _test_chung_lu_xgi(t: EquivRunner) -> None:
@@ -327,15 +330,12 @@ def _test_barabasi_albert_nx(t: EquivRunner) -> None:
     from hyper3.generators import barabasi_albert_graph
 
     g = barabasi_albert_graph(20, 2, seed=42)
-    t.check_int("ba_nx/node_count", g.node_count, 20)
-    t.check("ba_nx/connected", g.is_connected())
+    G_nx = nx.barabasi_albert_graph(20, 2, seed=42)
+    t.check_int("ba_nx/node_count", g.node_count, G_nx.number_of_nodes())
+    t.check("ba_nx/connected", g.is_connected() == nx.is_connected(G_nx))
 
     g2 = barabasi_albert_graph(20, 2, seed=42)
     t.check_int("ba_nx/reproducible", g2.edge_count, g.edge_count)
-
-    G_nx = nx.barabasi_albert_graph(20, 2, seed=42)
-    t.check_int("ba_nx/nx_nodes", G_nx.number_of_nodes(), g.node_count)
-    t.check("ba_nx/nx_connected", nx.is_connected(G_nx))
 
 
 def _test_star_nx(t: EquivRunner) -> None:
@@ -344,13 +344,17 @@ def _test_star_nx(t: EquivRunner) -> None:
     from hyper3.generators import star_hypergraph
 
     g = star_hypergraph(6)
-    t.check_int("star_nx/node_count", g.node_count, 6)
-    t.check_int("star_nx/edge_count", g.edge_count, 5)
-    t.check("star_nx/connected", g.is_connected())
-
     G_nx = nx.star_graph(5)
-    t.check_int("star_nx/nx_nodes", G_nx.number_of_nodes(), g.node_count)
-    t.check_int("star_nx/nx_edges", G_nx.number_of_edges(), g.edge_count)
+    t.check_int("star_nx/node_count", g.node_count, G_nx.number_of_nodes())
+    t.check_int("star_nx/edge_count", g.edge_count, G_nx.number_of_edges())
+    t.check("star_nx/connected", g.is_connected() == nx.is_connected(G_nx))
+
+    nx_deg = dict(G_nx.degree())
+    for n in G_nx.nodes():
+        h3_n = g.get_node_by_label(f"n{n}")
+        if h3_n:
+            h3_deg = g.node_degree(h3_n.id)
+            t.check_int(f"star_nx/degree/{n}", h3_deg, nx_deg[n])
 
 
 def _test_configuration_model_hgx(t: EquivRunner) -> None:
