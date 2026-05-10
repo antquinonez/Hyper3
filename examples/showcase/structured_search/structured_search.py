@@ -1,17 +1,21 @@
 """
-Structured Search: Filtering, Facets, and Multi-Signal Scoring
-===============================================================
+Structured Search: From Topology to Semantic Retrieval
+======================================================
 
-Demonstrates Hyper3's structured search system on a product catalog.
-Covers attribute indexing, filter queries, faceted navigation,
-autocomplete suggestions, parsed query strings, and multi-signal
-scoring that combines index match, graph activation, and embedding
-similarity into a single ranked result set.
+Demonstrates Hyper3's structured search system on a 20-product catalog.
+The sections follow the system's conceptual model:
 
-The final section shows SQLite persistence: saving the graph to a
-database, running serving queries directly against SQLite (attribute
-filters, facets, FTS text search, suggestions, neighbor lookups),
-and loading back into a fresh HypergraphMemory.
+  1. Build the catalog (nodes + structural edges)
+  2. Activation energy (structural graph, before semantic layer)
+  3. Building the semantic layer (embedding-derived edges)
+  4. Activation energy (layered graph, after semantic layer)
+  5. Indexing and filtered search
+  6. Range filtering and parsed queries
+  7. Faceted navigation and autocomplete
+  8. Multi-signal scoring (index + activation + similarity)
+  9. Strategy selection and pagination
+ 10. Index maintenance and dirty tracking
+ 11. SQLite persistence and serving
 
 Run:
     .venv/bin/python examples/showcase/structured_search/structured_search.py
@@ -38,7 +42,7 @@ def main() -> None:
         ("zenbook_14", {"type": "laptop", "brand": "asus", "price": 999, "ram_gb": 16, "year": 2024, "cpu": "amd_ryzen7", "weight_kg": 1.2}),
         ("ipad_pro_13", {"type": "tablet", "brand": "apple", "price": 1099, "ram_gb": 8, "year": 2024, "cpu": "m4", "weight_kg": 0.6}),
         ("surface_pro_11", {"type": "tablet", "brand": "microsoft", "price": 999, "ram_gb": 16, "year": 2024, "cpu": "snapdragon_x", "weight_kg": 0.9}),
-        ("galaxy_tab_s9", {"type": "tablet", "brand": "samsung", "price": 799, "ram_gb": 8, "year": 2023, "cpu": "snapdragon_8gen2", "weight_kg": 0.5}),
+        ("galaxy_tab_s9", {"type": "tablet", "brand": "samsung", "price": 799, "ram_gb": 8, "year": 2023, "cpu": "snapdragon_8gen2", "weight_kg": 0.2}),
         ("iphone_16_pro", {"type": "phone", "brand": "apple", "price": 999, "ram_gb": 8, "year": 2024, "cpu": "a18_pro", "weight_kg": 0.2}),
         ("pixel_9_pro", {"type": "phone", "brand": "google", "price": 999, "ram_gb": 16, "year": 2024, "cpu": "tensor_g4", "weight_kg": 0.2}),
         ("galaxy_s25_ultra", {"type": "phone", "brand": "samsung", "price": 1299, "ram_gb": 12, "year": 2025, "cpu": "snapdragon_8elite", "weight_kg": 0.2}),
@@ -100,19 +104,58 @@ def main() -> None:
     print(f"nodes: {nodes}, edges: {edges}")
 
     print("\n" + "=" * 70)
-    print("SECTION 2: Indexing and Index Statistics")
+    print("SECTION 2: Activation Energy (Structural Graph)")
+    print("=" * 70)
+
+    struct_results = mem.activate("macbook_pro_16", energy=1.0, top_k=20)
+    struct_map = {r.label: r.activation for r in struct_results}
+    print("\nstructural activation from macbook_pro_16 (top 10):")
+    for r in struct_results[:10]:
+        print(f"  {r.label:>25}  energy={r.activation:.3f}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 3: Building the Semantic Layer")
+    print("=" * 70)
+
+    sem_count = mem.build_semantic_layer(top_k=10, threshold=0.7)
+    primary_edges = mem._graph.edge_count
+    layered_edges = len(list(mem.semantic_layer.edges))
+    print(f"structural edges:    {primary_edges}")
+    print(f"semantic edges:      {sem_count}")
+    print(f"layered graph total: {layered_edges}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 4: Activation Energy (Layered Graph)")
+    print("=" * 70)
+
+    results = mem.activate("macbook_pro_16", energy=1.0, top_k=10)
+    layered_map = {r.label: r.activation for r in results}
+    print("\nlayered activation from macbook_pro_16 (top 10):")
+    for r in results:
+        print(f"  {r.label:>25}  energy={r.activation:.3f}")
+
+    print("\n--- comparison (structural vs. layered) ---")
+    print(f"  {'label':>25}  {'struct':>8}  {'layered':>8}  {'delta':>8}")
+    for key in [
+        "airpods_pro_2", "iphone_16_pro", "ipad_pro_13", "macbook_air_15",
+        "xps_15", "thinkpad_x1", "studio_display",
+    ]:
+        s = struct_map.get(key, 0.0)
+        l = layered_map.get(key, 0.0)
+        delta = l - s
+        sem_edge = "  <-- semantic edge" if key in (
+            "iphone_16_pro", "ipad_pro_13", "macbook_air_15", "xps_15",
+        ) else ""
+        print(f"  {key:>25}  {s:>8.3f}  {l:>8.3f}  {delta:>+8.3f}{sem_edge}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 5: Indexing and Filtered Search")
     print("=" * 70)
 
     stats = mem.search.reindex()
     print(f"indexed fields:  {stats.field_count}")
     print(f"indexed values:  {stats.value_count}")
     print(f"total entries:   {stats.entry_count}")
-    print(f"range fields:    {stats.range_fields}")
-    print(f"text fields:     {stats.text_fields[:8]}...")
-
-    print("\n" + "=" * 70)
-    print("SECTION 3: Filtered Search")
-    print("=" * 70)
 
     laptops = mem.search.find(filters={"type": "laptop"}, top_k=20)
     print(f"\nlaptops (type=laptop): {laptops.total} results")
@@ -123,19 +166,10 @@ def main() -> None:
               f"score={r.score:.3f}")
 
     print("\n" + "=" * 70)
-    print("SECTION 4: Range Filtering")
+    print("SECTION 6: Range Filtering and Parsed Queries")
     print("=" * 70)
 
     from hyper3 import parse_query
-
-    affordable = mem.search.find(
-        filters={"type": "laptop"},
-        top_k=20,
-    )
-    affordable_laptops = [r for r in affordable.results if r.data.get("price", 0) <= 1400]
-    print(f"\nlaptops under $1400: {len(affordable_laptops)} results")
-    for r in affordable_laptops:
-        print(f"  {r.label:>20}  ${r.data.get('price', 0):>5}  {r.data.get('brand', '')}")
 
     range_q = parse_query("type:laptop price:800..1500")
     range_results = mem.search.search(range_q)
@@ -143,8 +177,25 @@ def main() -> None:
     for r in range_results.results:
         print(f"  {r.label:>20}  ${r.data.get('price', 0):>5}")
 
+    or_filter = parse_query("type:phone,tablet")
+    or_results = mem.search.search(or_filter)
+    print(f"\nOR filter (type in [phone, tablet]): {or_results.total} results")
+    for r in or_results.results:
+        print(f"  {r.label:>20}  type={r.data.get('type', '')}")
+
+    parsed = parse_query("type:laptop brand:apple,samsung -brand:sony ^price:2.0")
+    print(f"\nparsed query: '{parsed.text}'")
+    print(f"  filters: {len(parsed.filters)}")
+    for f in parsed.filters:
+        neg = " (negated)" if f.negated else ""
+        vals = f.values if f.values else (f"[{f.min_value}..{f.max_value}]" if f.min_value is not None else f.value)
+        print(f"    field={f.field}, value={vals}{neg}")
+    print(f"  boosts:  {len(parsed.boosts)}")
+    for b in parsed.boosts:
+        print(f"    field={b.field}, factor={b.factor}")
+
     print("\n" + "=" * 70)
-    print("SECTION 5: Faceted Navigation")
+    print("SECTION 7: Faceted Navigation and Autocomplete")
     print("=" * 70)
 
     browse_all = mem.search.browse(
@@ -159,57 +210,11 @@ def main() -> None:
             sel = " <--" if b.selected else ""
             print(f"    {b.value:>15}: {b.count}{sel}")
 
-    print("\n--- Filtering with facets ---")
-    apple_results = mem.search.find(
-        filters={"brand": "apple"},
-        facet_fields=["type"],
-        top_k=20,
-    )
-    print(f"\napple products: {apple_results.total}")
-    for field_name, facet in apple_results.facets.items():
-        print(f"  {field_name} breakdown:")
-        for b in facet.buckets:
-            print(f"    {b.value:>15}: {b.count}")
-
-    print("\n" + "=" * 70)
-    print("SECTION 6: Autocomplete Suggestions")
-    print("=" * 70)
-
     brand_suggestions = mem.search.suggest("brand", "a", top_k=5)
     print(f"\nbrand suggestions for 'a': {brand_suggestions}")
 
-    type_suggestions = mem.search.suggest("type", "l", top_k=5)
-    print(f"type suggestions for 'l':  {type_suggestions}")
-
     cpu_suggestions = mem.search.suggest("cpu", "snap", top_k=5)
     print(f"cpu suggestions for 'snap': {cpu_suggestions}")
-
-    print("\n" + "=" * 70)
-    print("SECTION 7: Parsed Query Strings")
-    print("=" * 70)
-
-    parsed = parse_query("type:laptop brand:apple,samsung -brand:sony ^price:2.0")
-    print(f"\nparsed query text:    '{parsed.text}'")
-    print(f"parsed filters:       {len(parsed.filters)}")
-    for f in parsed.filters:
-        neg = " (negated)" if f.negated else ""
-        vals = f.values if f.values else (f"[{f.min_value}..{f.max_value}]" if f.min_value is not None else f.value)
-        print(f"  field={f.field}, value={vals}{neg}")
-    print(f"parsed boosts:        {len(parsed.boosts)}")
-    for b in parsed.boosts:
-        print(f"  field={b.field}, factor={b.factor}")
-
-    multi_filter = parse_query("type:phone,samsung cpu:snapdragon_8elite")
-    multi_results = mem.search.search(multi_filter)
-    print(f"\nAND filter (type in [phone, samsung] AND cpu=snapdragon_8elite): {multi_results.total} results")
-    for r in multi_results.results:
-        print(f"  {r.label:>20}  type={r.data.get('type', '')}  cpu={r.data.get('cpu', '')}")
-
-    or_filter = parse_query("type:phone,tablet")
-    or_results = mem.search.search(or_filter)
-    print(f"\nOR-like filter (type in [phone, tablet]): {or_results.total} results")
-    for r in or_results.results:
-        print(f"  {r.label:>20}  type={r.data.get('type', '')}")
 
     print("\n" + "=" * 70)
     print("SECTION 8: Multi-Signal Scoring")
@@ -229,8 +234,15 @@ def main() -> None:
               f"{r.boost_multiplier:>6.2f} {r.strategy:>10}")
 
     print("\n" + "=" * 70)
-    print("SECTION 9: Pagination and Offset")
+    print("SECTION 9: Strategy Selection and Pagination")
     print("=" * 70)
+
+    strategies = ["index", "browse", "auto"]
+    for strat in strategies:
+        result = mem.search.find(filters={"brand": "apple"}, top_k=5, strategy=strat)
+        print(f"\nstrategy={strat:>8}: {result.total} results, {result.elapsed_ms:.2f}ms")
+        for r in result.results[:3]:
+            print(f"  {r.label:>20}  score={r.score:.3f}  strategy={r.strategy}")
 
     page1 = mem.search.find(top_k=5, offset=0)
     page2 = mem.search.find(top_k=5, offset=5)
@@ -242,18 +254,7 @@ def main() -> None:
         print(f"  {r.label:>20}  score={r.score:.3f}")
 
     print("\n" + "=" * 70)
-    print("SECTION 10: Strategy Selection")
-    print("=" * 70)
-
-    strategies = ["index", "browse", "auto"]
-    for strat in strategies:
-        result = mem.search.find(filters={"brand": "apple"}, top_k=5, strategy=strat)
-        print(f"\nstrategy={strat:>8}: {result.total} results, {result.elapsed_ms:.2f}ms")
-        for r in result.results[:3]:
-            print(f"  {r.label:>20}  score={r.score:.3f}  strategy={r.strategy}")
-
-    print("\n" + "=" * 70)
-    print("SECTION 11: Index Stats After Operations")
+    print("SECTION 10: Index Maintenance and Dirty Tracking")
     print("=" * 70)
 
     final_stats = mem.search.index_stats()
@@ -274,9 +275,8 @@ def main() -> None:
     print(f"  dirty:    {clean_stats.dirty}")
     print(f"  entries:  {clean_stats.entry_count}")
 
-
     print("\n" + "=" * 70)
-    print("SECTION 12: SQLite Persistence and Serving")
+    print("SECTION 11: SQLite Persistence and Serving")
     print("=" * 70)
 
     import os

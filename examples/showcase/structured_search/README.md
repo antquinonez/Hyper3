@@ -1,14 +1,12 @@
 # Structured Search Showcase
 
-> **Attribute Indexing, Faceted Navigation, Range Filtering, Parsed Queries, Multi-Signal Scoring, and SQLite Persistence across a 20-Product Catalog**
+> **Attribute Indexing, Faceted Navigation, Semantic Retrieval, and SQLite Persistence across a 20-Product Catalog**
 
 ## 1. The Approach
 
-Product catalogs, document collections, and knowledge bases all share the same retrieval problem: find items matching specific attributes, group results by category, and rank by relevance. Traditional graph libraries store nodes and edges but provide no mechanism for querying node data attributes. You iterate all nodes and filter manually.
+Product catalogs, document collections, and knowledge bases share the same retrieval problem: find items matching specific attributes, group results by category, and rank by relevance. Traditional graph libraries store nodes and edges but provide no mechanism for querying node data attributes -- you iterate all nodes and filter manually.
 
-**The Manual Bottleneck:** Finding "all laptops under $1,400 made by Apple" in a raw graph requires iterating every node, checking `data["type"] == "laptop"`, `data["price"] <= 1400`, and `data["brand"] == "apple"`. Computing facet counts (how many products per brand?) requires a separate pass. Autocomplete suggestions require another. Each query is O(N).
-
-**The Hyper3 Approach:** The `SearchEngine` builds an inverted index over node data fields on first query. Attribute filters use the index for O(1) field-value lookups. Range queries use sorted numeric indexes with binary search. Facets compute `GROUP BY` counts over candidate sets. The query planner estimates selectivity and chooses between index-only, activation, embedding, or hybrid strategies. SQLite persistence stores the graph in a database with JSON1 attribute filtering, FTS5 text search, and auto-maintained indexes.
+Hyper3's `SearchEngine` builds an inverted index over node data fields on first query. Attribute filters use the index for O(1) field-value lookups. Range queries use sorted numeric indexes with binary search. Facets compute `GROUP BY` counts over candidate sets. The query planner estimates selectivity and chooses between index-only, activation, embedding, or hybrid strategies. A semantic layer builds a second hypergraph from embedding similarity and merges both graphs so spreading activation traverses structural and semantic edges together. SQLite persistence stores the graph in a database with JSON1 attribute filtering, FTS5 text search, and auto-maintained indexes.
 
 ## 2. A Simple Analogy
 
@@ -22,63 +20,50 @@ Imagine a spreadsheet where each row is a product with columns for type, brand, 
 | **Facet** | A count of how many matching items share each value of a given field (e.g., 6 laptops, 3 tablets) |
 | **Range Filter** | A numeric bounds filter using sorted indexes with binary search (e.g., price between 800 and 1500) |
 | **Query Planner** | Estimates how selective a filter is and chooses a retrieval strategy accordingly |
-| **Selectivity** | The fraction of nodes that pass a filter. Low selectivity (<1%) uses index-only; high selectivity uses hybrid strategies |
 | **Multi-Signal Scoring** | Combines index match score, graph activation energy, and embedding similarity into a single ranked score |
-| **Strategy** | The retrieval plan: `browse`, `index_only`, `index_then_activate`, `index_then_embed`, `activate_only`, `embed_only`, or `hybrid` |
 | **Parsed Query** | A query string like `type:laptop price:800..1500 -brand:sony ^price:2.0` parsed into filters, negations, and boosts |
 | **Dirty Tracking** | The index is marked dirty on graph mutations and rebuilt automatically on the next search |
+| **Spreading Activation** | Energy injected at a source node propagates through edges, decaying with each hop |
+| **Semantic Layer** | A second hypergraph whose edges are derived from embedding similarity, merged with the structural graph |
+| **LayeredGraph** | A read-only adapter that merges edges from the structural graph and the semantic graph into a single view |
 | **SQLite Store** | A persistence layer storing the graph in SQLite with WAL concurrent reads, JSON1 filtering, and FTS5 text search |
-| **Spreading Activation** | Energy injected at a source node propagates through edges, decaying with each hop. Nodes reachable through multiple paths accumulate more energy than nodes reachable through a single path, even at the same hop distance. This produces a relevance ranking based on connectivity strength, not just proximity. |
 
 ## 4. Quick Start
-
-Run the showcase to build a 20-product catalog:
 
 ```bash
 .venv/bin/python examples/showcase/structured_search/structured_search.py
 ```
 
-### What You'll See
-
-The example builds a product catalog and demonstrates 12 sections:
+The example builds a product catalog and demonstrates 11 sections:
 
 ```
-======================================================================
 SECTION 1: Product Catalog Construction
-======================================================================
   nodes: 20, edges: 33
 
-======================================================================
-SECTION 3: Filtered Search
-======================================================================
+SECTION 2: Activation Energy (Structural Graph)
+  structural activation from macbook_pro_16 (top 10):
+              airpods_pro_2  energy=1.000
+             macbook_air_15  energy=0.626
+              iphone_16_pro  energy=0.595
+                ipad_pro_13  energy=0.462
+             studio_display  energy=0.434
+
+SECTION 3: Building the Semantic Layer
+  structural edges:    33
+  semantic edges:      44
+  layered graph total: 77
+
+SECTION 5: Indexing and Filtered Search
+  indexed fields: 8, indexed values: 57, total entries: 119
   laptops (type=laptop): 6 results
 
-======================================================================
-SECTION 5: Faceted Navigation
-======================================================================
-  browse results: 20 products
-  facets:
-    type (20 values):
-               laptop: 6
-               tablet: 3
-                audio: 3
-              display: 3
-                phone: 3
-             wearable: 2
-
-======================================================================
 SECTION 8: Multi-Signal Scoring
-======================================================================
-  hybrid search for 'macbook_pro_16' (type=laptop, boosted brand):
-                   label   score    idx    act    sim  boost   strategy
-          macbook_pro_16   1.001  1.000  0.838  0.000   1.50     hybrid
-          macbook_air_15   0.959  1.000  0.695  0.000   1.50     hybrid
+  macbook_air_15   1.380  1.000  0.860  0.826   1.50     hybrid
+  xps_15           1.241  1.000  0.586  0.701   1.50     hybrid
+  macbook_pro_16   1.050  1.000  1.000  0.000   1.50     hybrid
 
-======================================================================
-SECTION 12: SQLite Persistence and Serving
-======================================================================
-  saved to SQLite: /tmp/tmpXXXXXX.db
-    file size:    73,728 bytes
+SECTION 11: SQLite Persistence and Serving
+  file size: 73,728 bytes, nodes: 21, edges: 33
   apple products (via SQLite): 10
   text search 'macbook' (via SQLite): 2 results
 ```
@@ -96,10 +81,16 @@ The example models a consumer electronics catalog with **20 products and 33 edge
 
 Each product has data attributes: `type`, `brand`, `price`, `ram_gb`, `year`, `cpu`, `weight_kg`. Two edge types connect them:
 
-- `compatible_with` — accessory compatibility (e.g., macbook_pro_16 -> studio_display)
-- `same_category` — same-product-type alternatives (e.g., macbook_pro_16 -> thinkpad_x1)
+- `compatible_with` -- accessory compatibility (19 edges)
+- `same_category` -- same-product-type alternatives (14 edges)
 
-### Product Catalog Topology
+## 6. Three Readings of the Same Graph
+
+The search system reads the same hypergraph through three lenses. The first two are independent (topology and activation). The third (layered architecture) unifies them with embedding-derived semantic edges.
+
+### Diagram 1: Graph Topology
+
+The physical edge structure -- who is connected to whom, via what label.
 
 ```mermaid
 graph LR
@@ -128,13 +119,119 @@ graph LR
     MP --"same_category"--> TP
 ```
 
-## 6. The Analysis Pipeline
+**What it shows:** Edges exist because someone explicitly created them. `compatible_with` reflects real accessory relationships. `same_category` reflects product categorization.
 
-The example walks through 12 sections that demonstrate the search system's capabilities.
+**What it ignores:** Node content, semantic meaning, and any relationship not explicitly encoded as an edge.
+
+### Diagram 2: Spreading Activation Energy (Structural)
+
+Energy injected at `macbook_pro_16` propagates through structural edges, decaying with each hop. `mem.activate()` uses 5 iterations by default. Nodes reachable through multiple paths accumulate more energy than nodes reachable through a single path, even at the same hop distance.
+
+```mermaid
+graph TD
+    SRC["macbook_pro_16<br/>source"]
+
+    SRC ==>|"4 energy paths<br/>converge"| AP2["airpods_pro_2<br/><b>1.000</b>"]
+    SRC -->|"direct + via airpods"| MA["macbook_air_15<br/><b>0.626</b>"]
+    SRC -->|"direct"| AM["airpods_max<br/><b>0.622</b>"]
+    SRC -->|"indirect"| IPH["iphone_16_pro<br/><b>0.595</b>"]
+    SRC -->|"direct"| AW["apple_watch_ultra<br/><b>0.492</b>"]
+    SRC -->|"indirect"| IPAD["ipad_pro_13<br/><b>0.462</b>"]
+    SRC -->|"direct"| SD["studio_display<br/><b>0.434</b>"]
+    SRC -.->|"1 path"| PDX["pro_display_xdr<br/><b>0.317</b>"]
+    SRC -.->|"same_category only"| XPS["xps_15<br/><b>0.239</b>"]
+    SRC -.->|"same_category only"| TP["thinkpad_x1<br/><b>0.239</b>"]
+
+    style SRC fill:#e6f3ff,stroke:#0066cc,stroke-width:3px
+    style AP2 fill:#2d8633,stroke:#1a5c1f,stroke-width:3px,color:#fff
+    style MA fill:#d9f2d9,stroke:#339933
+    style AM fill:#d9f2d9,stroke:#339933
+    style IPH fill:#fff2cc,stroke:#cc9900
+    style AW fill:#d9f2d9,stroke:#339933
+    style IPAD fill:#fff2cc,stroke:#cc9900
+    style SD fill:#d9f2d9,stroke:#339933
+    style PDX fill:#f5f5f5,stroke:#999999
+    style XPS fill:#f5f5f5,stroke:#999999
+    style TP fill:#f5f5f5,stroke:#999999
+```
+
+The key insight is **multi-path accumulation, not hop distance.** `airpods_pro_2` receives the highest activation (1.000) because energy from 4 independent paths converges on it: the direct edge from `macbook_pro_16`, plus paths through `macbook_air_15`, `iphone_16_pro`, and `ipad_pro_13`.
+
+| Tier | Activation | Nodes | Why |
+|------|-----------|-------|-----|
+| **Hub** | 1.000 | airpods_pro_2 | 4 independent energy paths converge. Normalization caps at 1.0. |
+| **Strong** | 0.6-0.7 | macbook_air_15, airpods_max | Each receives energy from 2+ paths. |
+| **Moderate** | 0.4-0.6 | iphone_16_pro, apple_watch_ultra, ipad_pro_13, studio_display | Reached through 1-2 indirect paths. |
+| **Weak** | 0.2-0.3 | pro_display_xdr, xps_15, thinkpad_x1 | Single path or distant connection. |
+
+### Diagram 3: Layered Architecture
+
+The semantic layer builds a second hypergraph whose edges are derived from embedding similarity (cosine similarity >= 0.7 threshold), then merges both graphs so spreading activation traverses structural and semantic edges together.
+
+```mermaid
+graph LR
+    subgraph "Layer 1: Structural Graph (33 edges)"
+        S1["macbook_pro_16"]
+        S2["macbook_air_15"]
+        S3["airpods_pro_2"]
+        S4["iphone_16_pro"]
+        S5["xps_15"]
+
+        S1 --"compatible_with"--> S3
+        S1 --"same_category"--> S2
+        S1 --"same_category"--> S5
+        S2 --"compatible_with"--> S4
+    end
+
+    subgraph "Layer 2: Semantic Graph (44 edges)"
+        E1["macbook_pro_16"]
+        E2["macbook_air_15"]
+        E3["iphone_16_pro"]
+        E4["xps_15"]
+
+        E1 -.->|"sim=0.826"| E2
+        E1 -.->|"sim=0.836"| E3
+        E1 -.->|"sim=0.701"| E4
+    end
+
+    subgraph "LayeredGraph (77 edges merged)"
+        L1["SpreadingActivation"]
+        L2["traverses both edge sets"]
+    end
+
+    S1 & E1 --> L1
+    L1 --> L2
+```
+
+Without the semantic layer, `iphone_16_pro` receives activation only through an indirect path: `macbook_pro_16 -> macbook_air_15 -> iphone_16_pro` (2 hops, energy diluted). With the semantic layer, it receives direct energy via the `sim=0.836` edge -- a shortcut created by the embedding model.
+
+**Structural vs. Layered Activation (from Section 4 output):**
+
+| Node | Structural | Layered | Delta | Semantic edge? |
+|------|-----------|---------|-------|----------------|
+| airpods_pro_2 | 1.000 | 1.000 | -0.000 | No |
+| iphone_16_pro | 0.595 | 0.872 | +0.276 | Yes (sim=0.836) |
+| ipad_pro_13 | 0.462 | 0.740 | +0.278 | Yes (sim=0.743) |
+| macbook_air_15 | 0.626 | 0.684 | +0.058 | Yes (sim=0.826) |
+| xps_15 | 0.239 | 0.404 | +0.165 | Yes (sim=0.701) |
+| thinkpad_x1 | 0.239 | 0.316 | +0.077 | No (sim=0.696, below 0.7) |
+| studio_display | 0.434 | 0.344 | -0.090 | No (sim=0.608, below 0.7) |
+
+Nodes with semantic edges receive large activation boosts (+0.165 to +0.278). Nodes without semantic edges either stay flat or decrease slightly because the semantic edges redirect energy flow toward semantically similar nodes.
+
+**Reading the Three Diagrams Together:**
+
+| Diagram | What it measures | What it ignores | Analogy |
+|---------|-----------------|----------------|---------|
+| **Topology** | Edge structure: who is connected to whom | Node content, semantics | A subway map -- shows stops and connections |
+| **Activation** | Connectivity: how much energy accumulates at each node | Node labels, semantic meaning | A heat map of foot traffic |
+| **Layered** | Combined propagation through structural + semantic edges | Nothing -- merges all signals | A transit system with express lines bypassing intermediate stops |
+
+## 7. The Analysis Pipeline
 
 ### Section 1: Product Catalog Construction
 
-Build the graph from product data dictionaries and edge lists:
+Build the graph from product data dictionaries and edge lists.
 
 ```python
 mem = HypergraphMemory(evolve_interval=0)
@@ -148,83 +245,74 @@ for src, tgt, label in edges:
 
 **Result:** 20 nodes, 33 edges. Each node carries typed data attributes. Each edge connects compatible products or same-category alternatives.
 
-### Section 2: Indexing and Index Statistics
+### Section 2: Activation Energy (Structural Graph)
 
-Build the attribute index on first search (or explicitly via `reindex()`):
+Inject energy at `macbook_pro_16` on the structural graph (no semantic layer yet):
+
+```python
+struct_results = mem.activate("macbook_pro_16", energy=1.0, top_k=20)
+```
+
+**Why this matters:** This establishes a baseline for connectivity. Later, after adding semantic edges, we can measure how much the semantic layer changes the activation landscape. `airpods_pro_2` tops the list at 1.000 because 4 independent energy paths converge on it.
+
+### Section 3: Building the Semantic Layer
+
+Build a second hypergraph from embedding similarity and merge it with the structural graph:
+
+```python
+sem_count = mem.build_semantic_layer(top_k=10, threshold=0.7)
+```
+
+**Result:** 33 structural + 44 semantic = 77 total edges in the layered view. Pairs above the 0.7 cosine similarity threshold get `semantic_sim` edges: iphone_16_pro (0.836), macbook_air_15 (0.826), ipad_pro_13 (0.743), xps_15 (0.701). Pairs below the threshold do not: thinkpad_x1 (0.696), airpods_pro_2 (0.670).
+
+### Section 4: Activation Energy (Layered Graph)
+
+Run the same activation query on the layered graph:
+
+```python
+results = mem.activate("macbook_pro_16", energy=1.0, top_k=10)
+```
+
+**Why this matters:** The comparison table (see Diagram 3) shows the semantic layer's effect. `iphone_16_pro` jumps from 0.595 to 0.872 (+0.276) because the direct semantic edge carries energy in 1 hop instead of 2. `studio_display` drops from 0.434 to 0.344 (-0.090) because energy is redirected toward semantically similar nodes.
+
+### Section 5: Indexing and Filtered Search
+
+Build the attribute index and filter by type:
 
 ```python
 stats = mem.search.reindex()
-```
-
-**Why this matters:** The index maps every field-value pair to a set of node IDs. Without it, every attribute query scans all 20 nodes. With it, `type=laptop` is a single dictionary lookup returning 6 node IDs. The index auto-rebuilds when the graph changes, so you never manage it manually.
-
-**Result:** 8 indexed fields, 58 unique values, 119 total index entries. Range fields (price, ram_gb, year, weight_kg, size_inch) use sorted numeric indexes. Text fields (type, brand, cpu) use token-based lookup.
-
-### Section 3: Filtered Search
-
-Find all laptops using an attribute filter:
-
-```python
 laptops = mem.search.find(filters={"type": "laptop"}, top_k=20)
 ```
 
-**Why this matters:** The query planner detects no text query and a filter-only request, choosing the `browse` strategy. The index resolves `type=laptop` to 6 node IDs in O(1). Without the index, this would scan all 20 nodes checking each `data` dict.
+**Result:** 8 indexed fields, 57 unique values, 119 total index entries. `type=laptop` is a single dictionary lookup returning 6 node IDs.
 
-**Result:** 6 laptops returned with score 1.000 (index match). Brands include dell ($1,799), hp ($1,399), apple ($1,299 and $2,499), asus ($999), and lenovo ($1,599).
-
-### Section 4: Range Filtering
+### Section 6: Range Filtering and Parsed Queries
 
 Find laptops in a price range using parsed query syntax:
 
 ```python
+from hyper3 import parse_query
+
 range_q = parse_query("type:laptop price:800..1500")
 results = mem.search.search(range_q)
 ```
 
-**Why this matters:** Range queries use sorted numeric indexes with binary search (`bisect_left`/`bisect_right`), not linear scans. The `parse_query()` function parses `field:min..max` syntax into range filters automatically. Combined with `type:laptop`, the query intersects the laptop set with the price range set.
+**Result:** 3 laptops (spectre_x360 $1,399, macbook_air_15 $1,299, zenbook_14 $999). Range queries use sorted numeric indexes with binary search. Multi-value filters use OR: `type:phone,tablet` matches 6 products.
 
-**Result:** 3 laptops under $1,500: spectre_x360 ($1,399), macbook_air_15 ($1,299), zenbook_14 ($999).
+### Section 7: Faceted Navigation and Autocomplete
 
-### Section 5: Faceted Navigation
-
-Browse the full catalog with facet counts grouped by type and brand:
+Browse with facet counts and prefix suggestions:
 
 ```python
 browse_all = mem.search.browse(facet_fields=["type", "brand"], top_k=5)
+brand_suggestions = mem.search.suggest("brand", "a")
 ```
 
-**Why this matters:** Facets answer "how many products are in each category?" in a single query. E-commerce sites use this to render sidebar filters (Laptops [6], Tablets [3], ...). The `FacetedAggregation` counts candidates per field value, producing `FacetResult` objects with `FacetBucket` lists. Filtering by `brand=apple` then computing type facets shows 2 laptops, 2 audio, 2 displays, 1 tablet, 1 phone, 1 wearable.
-
-**Result:** Type breakdown: laptop 6, tablet 3, audio 3, display 3, phone 3, wearable 2. Brand breakdown: apple 9, samsung 3, and 7 brands with 1 each.
-
-### Section 6: Autocomplete Suggestions
-
-Suggest field values matching a prefix:
-
-```python
-mem.search.suggest("brand", "a")
-mem.search.suggest("cpu", "snap")
-```
-
-**Why this matters:** Autocomplete is the standard interaction pattern for search boxes. The value registry stores all known values per field, enabling prefix matching without scanning nodes.
-
-**Result:** Brand prefix "a" returns `['apple', 'asus']`. CPU prefix "snap" returns `['snapdragon_8elite', 'snapdragon_8gen2', 'snapdragon_x']`.
-
-### Section 7: Parsed Query Strings
-
-Parse complex query strings into structured filters, negations, and boosts:
-
-```python
-parsed = parse_query("type:laptop brand:apple,samsung -brand:sony ^price:2.0")
-```
-
-**Why this matters:** The parsed query syntax supports exact match (`field:value`), multi-value (`field:a,b,c`), range (`field:min..max`), negation (`-field:value`), and boost (`^field:factor`) in a single string. This is the search box syntax; `parse_query()` converts it into a `SearchQuery` object that the engine executes. Multi-value filters use OR within a field (type in [phone, tablet] matches 6 products).
-
-**Result:** 3 filters (type=laptop, brand in [apple, samsung], brand not sony) and 1 boost (price x2.0).
+**Result:** Type breakdown: laptop 6, tablet 3, audio 3, display 3, phone 3, wearable 2. Brand: apple 9, samsung 3, plus 7 brands with 1 each. Autocomplete: brand prefix "a" returns `['apple', 'asus']`, cpu prefix "snap" returns `['snapdragon_8elite', 'snapdragon_8gen2', 'snapdragon_x']`.
 
 ### Section 8: Multi-Signal Scoring
 
-Combine index match, graph activation, and embedding similarity into a single score:
+Combine index match, graph activation, and embedding similarity:
 
 ```python
 scored = mem.search.find(
@@ -235,174 +323,76 @@ scored = mem.search.find(
 )
 ```
 
-**Why this matters:** A real search system needs more than attribute matching. The `ScoringPipeline` combines three signals: index score (did the node pass the filter?), activation score (how much energy reached this node from the query?), and similarity score (how semantically close is the embedding?). Brand boost multiplies Apple products by 1.5x. The query planner selects the `hybrid` strategy because both text and filters are present.
+**Scoring formula:** `score = (index_weight + activation * 0.4 + similarity * 0.6) / total_weight * boost_multiplier` where `total_weight = 1.0 + 0.4 + 0.6 = 2.0` for the hybrid strategy.
 
-**Result:** macbook_pro_16 scores 1.001 (index 1.0 + activation 0.838, boosted by 1.5x). macbook_air_15 scores 0.959 (activation 0.695). Non-Apple laptops score lower (xps_15 and thinkpad_x1 at 0.861) or lowest (zenbook_14 and spectre_x360 at 0.750, zero activation).
+| Label | Score | idx | act | sim | boost | Strategy |
+|-------|-------|-----|-----|-----|-------|----------|
+| macbook_air_15 | 1.380 | 1.000 | 0.860 | 0.826 | 1.50 | hybrid |
+| xps_15 | 1.241 | 1.000 | 0.586 | 0.701 | 1.50 | hybrid |
+| macbook_pro_16 | 1.050 | 1.000 | 1.000 | 0.000 | 1.50 | hybrid |
+| thinkpad_x1 | 0.879 | 1.000 | 0.431 | 0.000 | 1.50 | hybrid |
+| zenbook_14 | 0.785 | 1.000 | 0.116 | 0.000 | 1.50 | hybrid |
+| spectre_x360 | 0.783 | 1.000 | 0.110 | 0.000 | 1.50 | hybrid |
 
-#### How Spreading Activation Energy Works
+> **Note:** The `act` column uses 3 iterations in the scoring pipeline, while `mem.activate()` (Sections 2 and 4) uses 5 iterations (the default `max_iterations`). This means the activation values in this table differ from the standalone activation output -- both are correct, they use different iteration counts.
 
-When `mem.search.find("macbook_pro_16", ...)` executes, the scoring pipeline injects 1.0 energy at the `macbook_pro_16` node and spreads it through the graph over 3 iterations. At each step, every active node distributes its energy to neighbors through incident edges, scaled by a decay factor (0.85). After each step, activations are normalized so the maximum stays at 1.0 and nodes below 0.01 are pruned.
+`macbook_pro_16` has sim=0.000 because the embedding engine excludes the source node from its own similarity results. `thinkpad_x1` has sim=0.000 because its cosine similarity (0.696) falls below the 0.7 threshold. `zenbook_14` and `spectre_x360` receive low activation (0.116, 0.110) through the semantic layer -- they would be 0.000 without it.
 
-> **What is an iteration?** A single iteration is one full sweep across all currently-active nodes. On iteration 1, only `macbook_pro_16` is active — it distributes energy to its direct neighbors. On iteration 2, those neighbors are also active — each distributes its accumulated energy to *its* neighbors, reaching nodes 2 hops away. On iteration 3, the wave reaches 3-hop nodes like `zenbook_14` and `spectre_x360`. More iterations mean energy reaches further into the graph but with diminishing returns due to the 0.85 decay factor.
+### Section 9: Strategy Selection and Pagination
 
-**The key insight is multi-path accumulation, not hop distance.** Two nodes at the same hop distance can receive very different activation levels depending on how many paths carry energy to them. A node reachable through 4 independent paths accumulates energy from all of them; a node reachable through 1 path does not.
-
-The two diagrams below illustrate this. The first shows the actual edge topology around `macbook_pro_16`. The second shows the resulting activation values after 3 spreading iterations, with arrows indicating which paths contribute energy.
-
-##### Diagram 1: Graph Topology Around macbook_pro_16
-
-```mermaid
-graph TD
-    SRC["macbook_pro_16<br/><i>(source)</i>"]
-
-    SRC --"compatible_with"--> SD["studio_display"]
-    SRC --"compatible_with"--> PDX["pro_display_xdr"]
-    SRC --"compatible_with"--> AP2["airpods_pro_2"]
-    SRC --"compatible_with"--> AM["airpods_max"]
-    SRC --"compatible_with"--> AW["apple_watch_ultra"]
-
-    SRC --"same_category"--> MA["macbook_air_15"]
-    SRC --"same_category"--> XPS["xps_15"]
-    SRC --"same_category"--> TP["thinkpad_x1"]
-
-    MA --"compatible_with"--> SD
-    MA --"compatible_with"--> AP2
-    MA --"compatible_with"--> IPH["iphone_16_pro"]
-
-    AP2 --"compatible_with"--> IPAD["ipad_pro_13"]
-    AP2 --"compatible_with"--> IPH
-    AP2 --"same_category"--> AM
-
-    SD --"same_category"--> PDX
-
-    IPAD --"compatible_with"--> AW
-    IPH --"compatible_with"--> AW
-
-    TP --"same_category"--> ZB["zenbook_14"]
-    XPS --"same_category"--> SPX["spectre_x360"]
-
-    style SRC fill:#e6f3ff,stroke:#0066cc,stroke-width:3px
-    style AP2 fill:#d9f2d9,stroke:#339933,stroke-width:2px
-    style AM fill:#d9f2d9,stroke:#339933
-    style SD fill:#fff2cc,stroke:#cc9900
-    style PDX fill:#fff2cc,stroke:#cc9900
-    style AW fill:#fff2cc,stroke:#cc9900
-    style MA fill:#d9f2d9,stroke:#339933
-```
-
-Note that both `airpods_pro_2` and `airpods_max` are **direct** 1-hop neighbors of `macbook_pro_16` via `compatible_with` edges. But `airpods_pro_2` is also connected to 4 other active nodes (`macbook_air_15`, `iphone_16_pro`, `ipad_pro_13`) that themselves receive energy from `macbook_pro_16`. Each of those nodes spreads additional energy into `airpods_pro_2` on subsequent iterations. `airpods_max` has only one additional connection (`same_category` to `airpods_pro_2`).
-
-##### Diagram 2: Activation Values After 3 Spreading Iterations
-
-```mermaid
-graph TD
-    SRC["macbook_pro_16<br/><b>0.863</b>"]
-
-    SRC ==>|"4 energy paths<br/>converge"| AP2["airpods_pro_2<br/><b>1.000</b> (highest)"]
-    SRC -->|"1 direct + 1 via airpods_pro_2"| AM["airpods_max<br/><b>0.840</b>"]
-    SRC -->|"1 direct + 1 via studio_display"| PDX["pro_display_xdr<br/><b>0.460</b>"]
-    SRC -->|"1 direct + 1 via macbook_air_15"| SD["studio_display<br/><b>0.541</b>"]
-    SRC -->|"1 direct + 3 via other nodes"| AW["apple_watch_ultra<br/><b>0.555</b>"]
-    SRC -->|"2 paths: direct + via airpods_pro_2"| MA["macbook_air_15<br/><b>0.716</b>"]
-    SRC -.->|"1 path: same_category only"| XPS["xps_15<br/><b>0.380</b>"]
-    SRC -.->|"1 path: same_category only"| TP["thinkpad_x1<br/><b>0.380</b>"]
-    SRC -.->|"2 paths via macbook_air_15<br/>+ iphone_16_pro"| IPH["iphone_16_pro<br/><b>0.439</b>"]
-    SRC -.->|"2 paths via airpods_pro_2<br/>+ macbook_air_15"| IPAD["ipad_pro_13<br/><b>0.329</b>"]
-
-    AP2 -.->|"feeds energy back"| AM
-
-    style SRC fill:#e6f3ff,stroke:#0066cc,stroke-width:3px
-    style AP2 fill:#2d8633,stroke:#1a5c1f,stroke-width:3px,color:#fff
-    style AM fill:#d9f2d9,stroke:#339933,stroke-width:2px
-    style SD fill:#d9f2d9,stroke:#339933
-    style AW fill:#d9f2d9,stroke:#339933
-    style MA fill:#d9f2d9,stroke:#339933,stroke-width:2px
-    style PDX fill:#fff2cc,stroke:#cc9900
-    style IPH fill:#fff2cc,stroke:#cc9900
-    style IPAD fill:#fff2cc,stroke:#cc9900
-    style XPS fill:#f5f5f5,stroke:#999999
-    style TP fill:#f5f5f5,stroke:#999999
-```
-
-The activation values after 3 iterations (with `normalize_per_step=True`) reveal four energy tiers:
-
-| Tier | Activation | Nodes | Why |
-|------|-----------|-------|-----|
-| **Hub** | 1.000 | airpods_pro_2 | 4 independent energy paths converge here (macbook_pro_16 direct, macbook_air_15, iphone_16_pro, ipad_pro_13). Normalization caps it at 1.0. |
-| **Strong** | 0.7–0.9 | macbook_pro_16 (0.863), airpods_max (0.840), macbook_air_15 (0.716) | Each receives energy from 2+ paths. airpods_max gets a direct edge plus energy from airpods_pro_2 via same_category. |
-| **Moderate** | 0.3–0.6 | apple_watch_ultra (0.555), studio_display (0.541), pro_display_xdr (0.460), iphone_16_pro (0.439), xps_15 (0.380), thinkpad_x1 (0.380), ipad_pro_13 (0.329) | Reached through 1-2 paths but further from the energy concentration. |
-| **Weak** | <0.1 | spectre_x360 (0.051), zenbook_14 (0.051) | 2 hops away through a single path (via xps_15 or thinkpad_x1). |
-
-The hub effect is the central mechanism: `airpods_pro_2` accumulates more energy than the source node itself because energy from multiple branches of the graph converges on it. After normalization, it becomes the reference point (1.0) against which all other activations are measured.
-
-The energy values feed directly into the final score. In the hybrid strategy, the `ScoringPipeline` computes `score = (index_weight + activation * act_weight + similarity * sim_weight) / total_weight`. For macbook_pro_16, the 0.863 activation pushes its score above 1.0. For zenbook_14, the near-zero activation (0.051) means its score comes almost entirely from the index match.
-
-### Section 9: Pagination and Offset
-
-Page through results with `top_k` and `offset`:
-
-```python
-page1 = mem.search.find(top_k=5, offset=0)
-page2 = mem.search.find(top_k=5, offset=5)
-```
-
-**Result:** Page 1 returns 5 products (airpods_max, galaxy_watch_7, spectre_x360, ipad_pro_13, pro_display_xdr). Page 2 returns the next 5 (galaxy_s25_ultra, zenbook_14, thinkpad_x1, studio_display, xps_15).
-
-### Section 10: Strategy Selection
-
-Compare retrieval strategies explicitly:
+Compare retrieval strategies and page through results:
 
 ```python
 for strat in ["index", "browse", "auto"]:
     result = mem.search.find(filters={"brand": "apple"}, top_k=5, strategy=strat)
+
+page1 = mem.search.find(top_k=5, offset=0)
+page2 = mem.search.find(top_k=5, offset=5)
 ```
 
-**Why this matters:** The `index` strategy assigns score 1.0 to all matching nodes. The `browse` strategy assigns score 0.0 (no relevance ranking, just filtering). The `auto` strategy selects `browse` for filter-only queries with no text. Understanding these differences helps choose the right strategy for your use case.
+**Result:** All three strategies return 9 Apple products. Page 1 and page 2 each return 5 results.
 
-**Result:** All three return 9 Apple products. Index strategy: score 1.0. Browse strategy: score 0.0. Auto strategy: selects browse, score 1.0. All complete in 0.06ms.
-
-### Section 11: Index Stats After Operations
+### Section 10: Index Maintenance and Dirty Tracking
 
 Observe dirty tracking as the graph changes:
 
 ```python
 mem.add("iphone_17_pro", data={"type": "phone", "brand": "apple", ...})
-dirty_stats = mem.search.index_stats()  # dirty: True
+mem.search.index_stats().dirty  # True
 mem.search.find(filters={"brand": "apple"}, top_k=3)
-clean_stats = mem.search.index_stats()  # dirty: False, entries: 124
+mem.search.index_stats().dirty  # False
 ```
 
-**Why this matters:** The index stays in sync with the graph automatically. Adding a node marks the index dirty. The next search detects the dirty flag and rebuilds the index before querying. You never call `reindex()` manually after mutations.
+**Result:** After adding `iphone_17_pro`, index is dirty (`dirty=True`). After the next search, index auto-rebuilds with 124 entries (`dirty=False`).
 
-**Result:** After adding iphone_17_pro, index is dirty. After the next search, index auto-rebuilds with 124 entries (5 new from the added node's data fields).
+### Section 11: SQLite Persistence and Serving
 
-### Section 12: SQLite Persistence and Serving
-
-Save the graph to SQLite and query it directly without loading into memory:
+Save the graph to SQLite and query it directly:
 
 ```python
+from hyper3 import SqliteStore
+
 mem.save_sqlite(db_path)
 
 store = SqliteStore(db_path)
 apple_db = store.find_nodes(filters={"brand": "apple"})
 facets_db = store.facets(["type", "brand"])
 text_db = store.search_text("macbook")
+suggest_db = store.suggest("brand", "s")
 neighbors_db = store.neighbors("macbook_pro_16", direction="out")
 store.close()
 ```
 
-**Why this matters:** The SQLite store serves queries directly from the database file without loading the full Hypergraph into memory. This enables two usage modes: (1) build in memory, persist to SQLite for durability, and (2) open a saved database and run serving queries against it. The store supports attribute filtering via JSON1 (`json_extract`), facets via `GROUP BY`, full-text search via FTS5, autocomplete via `LIKE`, and neighbor lookups via the adjacency table. WAL mode enables concurrent reads from multiple processes.
+**Result:** 73,728-byte database with 21 nodes and 33 edges. Direct SQLite queries return 10 Apple products, 2 results for "macbook" text search, brand suggestions `['samsung', 'sony']` for prefix "s", and 8 neighbors of `macbook_pro_16`. Loading back into a fresh `HypergraphMemory` preserves all nodes, edges, and data attributes.
 
-**Result:** 73,728-byte database containing 21 nodes and 33 edges. Direct SQLite queries return 10 Apple products, type/brand facets, 2 results for "macbook" text search, brand suggestions `['samsung', 'sony']` for prefix "s", and 8 neighbors of macbook_pro_16. Loading back into a fresh `HypergraphMemory` preserves all nodes, edges, and data attributes.
-
-## 7. Understanding the Output
+## 8. Understanding the Output
 
 ### Search Score Interpretation
 
 | Score Range | Meaning |
 |-------------|---------|
-| 1.0 | Pure index match (filter passed, no activation or embedding) |
-| >1.0 | Multi-signal score combining index + activation + boost |
+| >1.0 | Multi-signal score combining index + activation + embedding similarity + boost |
+| 1.0 | Pure index match (filter passed, no activation, embedding, or boost) |
 | 0.0 | Browse result (no relevance ranking, just filtering) |
 
 ### Strategy Interpretation
@@ -410,19 +400,8 @@ store.close()
 | Strategy | When Selected | Scoring |
 |----------|--------------|---------|
 | `browse` | Filter-only, no text query | Index match only (0.0 or 1.0) |
-| `index_only` | Very selective filter (<1% of nodes) | Index match only |
-| `index_then_activate` | Moderate filter + text | Index + activation |
-| `index_then_embed` | Moderate filter + text + embeddings available | Index + embedding |
-| `activate_only` | Text query, no filters | Activation only |
-| `embed_only` | Text query, embeddings available, no filters | Embedding only |
+| `index_only` | Very selective filter | Index match only |
 | `hybrid` | Text + filters + activation + embedding | All signals combined |
-
-### Facet Bucket Interpretation
-
-| Field | Value | Count | Meaning |
-|-------|-------|-------|---------|
-| type | laptop | 6 | 6 products have `data["type"] = "laptop"` |
-| brand | apple | 9 | 9 products have `data["brand"] = "apple"` |
 
 ### Dirty Flag Interpretation
 
@@ -431,131 +410,36 @@ store.close()
 | `dirty: False` | Index is up-to-date with the graph |
 | `dirty: True` | Graph has changed since last index build; next search will rebuild |
 
-## 8. Key Metrics
+## 9. Key Metrics
 
 | Metric | Value |
 |--------|-------|
 | Products (nodes) | 20 |
-| Compatibility + category edges | 33 |
+| Structural edges | 33 |
+| Semantic edges | 44 |
+| Layered graph total edges | 77 |
 | Indexed fields | 8 |
-| Unique indexed values | 58 |
-| Total index entries | 119 |
-| Range-indexed fields | 5 (price, ram_gb, year, weight_kg, size_inch) |
-| Text-indexed fields | 3 (type, brand, cpu) |
+| Unique indexed values | 57 |
+| Total index entries | 119 (initial), 124 (after adding iphone_17_pro) |
 | Filtered laptops | 6 |
-| Laptops under $1,400 | 3 |
+| Laptops in price range 800..1500 | 3 |
 | Apple products | 9 (initial), 10 (after adding iphone_17_pro) |
 | Product types | 6 (laptop, tablet, phone, audio, wearable, display) |
-| Brands | 9 (apple, samsung, sony, asus, dell, lenovo, hp, microsoft, lg, google) |
-| Parsed query filters | 3 (type=laptop, brand in [apple,samsung], -brand=sony) |
-| Multi-signal top score | 1.001 (macbook_pro_16, activation 0.838, boost 1.5x) |
-| Strategy execution time | 0.06ms (all three strategies) |
+| Brands | 10 |
+| Multi-signal top score | 1.380 (macbook_air_15, activation 0.860, similarity 0.826, boost 1.5x) |
 | SQLite file size | 73,728 bytes |
+| SQLite nodes (after adding iphone_17_pro) | 21 |
 | SQLite Apple products | 10 |
 | SQLite text search "macbook" | 2 results |
-| SQLite neighbors of macbook_pro_16 | 8 |
+| Neighbors of macbook_pro_16 | 8 |
 
-## 9. What Makes This Different
-
-**Lazy attribute indexing** replaces manual node iteration. The `AttributeIndex` builds on first search and auto-rebuilds when the graph changes. Without it, every attribute query scans all nodes. The index tracks dirty state internally, so callers never manage rebuilds.
-
-**Query planning by selectivity** chooses the cheapest strategy automatically. A filter matching 1% of nodes uses index-only lookup. A filter matching 50% activates the full pipeline. This avoids the cost of activation and embedding computation when the index alone produces a small enough candidate set.
-
-**Faceted aggregation over candidates** computes category counts on the filtered result set, not the full graph. This is how e-commerce sites render sidebar filters: the facet counts reflect the current query context, not the total catalog.
-
-**Multi-signal scoring** combines graph structure with attribute matching. Spreading activation rewards connectivity, not just proximity: `airpods_pro_2` accumulates the highest activation (1.0) because energy from 4 independent paths converges on it, even though it is the same 1-hop distance from the source as `airpods_max` (0.84) which has only 2 paths. The index ensures only laptops pass the filter. The final score blends both signals.
-
-**SQLite as a serving layer** persists the graph with JSON1 attribute filtering, FTS5 text search, and auto-maintained adjacency indexes. Queries run directly against the database file without loading the full Hypergraph into memory. WAL mode enables concurrent reads from multiple processes.
-
-## 10. Code Implementation
-
-**1. Build the Catalog**
-
-```python
-mem = HypergraphMemory(evolve_interval=0)
-
-for name, data in products:
-    mem.add(name, data=data)
-
-for src, tgt, label in edges:
-    mem.link(src, tgt, label=label, weight=2.0)
-```
-
-**2. Filtered Search**
-
-```python
-results = mem.search.find(filters={"type": "laptop"}, top_k=20)
-for r in results.results:
-    print(f"{r.label}  brand={r.data['brand']}  price=${r.data['price']}")
-```
-
-**3. Range Filtering**
-
-```python
-from hyper3 import parse_query
-
-q = parse_query("type:laptop price:800..1500")
-results = mem.search.search(q)
-```
-
-**4. Faceted Navigation**
-
-```python
-browse = mem.search.browse(facet_fields=["type", "brand"], top_k=5)
-for field_name, facet in browse.facets.items():
-    for bucket in facet.buckets:
-        print(f"{field_name}={bucket.value}: {bucket.count}")
-```
-
-**5. Autocomplete**
-
-```python
-suggestions = mem.search.suggest("brand", "a")
-```
-
-**6. Multi-Signal Scoring**
-
-```python
-scored = mem.search.find(
-    "macbook_pro_16",
-    filters={"type": "laptop"},
-    boosts={"brand": 1.5},
-    top_k=6,
-)
-for r in scored.results:
-    print(f"{r.label}  score={r.score:.3f}  act={r.activation_score:.3f}")
-```
-
-**7. SQLite Persistence**
-
-```python
-from hyper3 import SqliteStore
-
-mem.save_sqlite("catalog.db")
-
-store = SqliteStore("catalog.db")
-results = store.find_nodes(filters={"brand": "apple"})
-facets = store.facets(["type"])
-matches = store.search_text("macbook")
-neighbors = store.neighbors("macbook_pro_16", direction="out")
-store.close()
-```
-
-**8. Load from SQLite**
-
-```python
-mem2 = HypergraphMemory(evolve_interval=0)
-mem2.load_sqlite("catalog.db")
-assert "macbook_pro_16" in mem2
-```
-
-## 11. Real-World Gap
+## 10. Real-World Gap
 
 1. **Catalog Data Pipeline:** The showcase constructs 20 products from Python dictionaries. Real adoption requires ETL from product databases, PIM systems, or vendor feeds into labeled nodes.
 
 2. **Scale:** The showcase operates on 20 products with 8 fields. Production catalogs have millions of SKUs with hundreds of attributes. The in-memory index scales well to tens of thousands of nodes; beyond that, SQLite's JSON1 and FTS5 are the appropriate serving layer.
 
-3. **Embedding Quality:** The showcase uses hash-based embeddings (deterministic but not semantically meaningful). Production semantic search requires trained embeddings from sentence transformers or similar models, provided via `mem.search.set_provider()`.
+3. **Embedding Quality:** The showcase uses `FastEmbedProvider` with the ONNX model `BAAI/bge-small-en-v1.5` for semantically meaningful cosine similarity. Production semantic search may require domain-specific fine-tuned models for specialized vocabularies, configured via `mem.search.set_provider()`.
 
 4. **Real-Time Updates:** The showcase adds a product and observes dirty tracking. Production catalogs receive continuous updates. The dirty-tracking + lazy rebuild pattern works for moderate update rates; high-throughput scenarios would need incremental index updates.
 
@@ -563,7 +447,7 @@ assert "macbook_pro_16" in mem2
 
 6. **Personalization:** Scoring uses uniform boost factors. Production search personalizes results based on user history, preferences, and context, which would require per-user boost parameters.
 
-## 12. Reference
+## 11. Reference
 
 ### Key API Methods
 
@@ -571,12 +455,15 @@ assert "macbook_pro_16" in mem2
 |--------|---------|
 | `mem.add(label, data)` | Create a node with metadata |
 | `mem.link(source, target, label)` | Create a typed edge |
-| `mem.search.find(text, filters, boosts, facet_fields)` | Structured search with attribute filtering |
+| `mem.build_semantic_layer(top_k, threshold)` | Build semantic graph from embeddings |
+| `mem.semantic_layer_dirty()` | Check if semantic layer needs rebuild |
+| `mem.activate(label, energy, top_k)` | Spreading activation from a source node |
+| `mem.search.find(text, filters, boosts, top_k)` | Structured search with multi-signal scoring |
 | `mem.search.browse(filters, facet_fields)` | Filter-only browse with facets |
-| `mem.search.search(query)` | Execute a structured `SearchQuery` object |
+| `mem.search.search(query)` | Execute a parsed `SearchQuery` object |
 | `mem.search.reindex()` | Build or rebuild the attribute index |
-| `mem.search.index_stats()` | Return index statistics |
-| `mem.search.suggest(field, prefix)` | Autocomplete suggestions |
+| `mem.search.index_stats()` | Return index statistics and dirty flag |
+| `mem.search.suggest(field, prefix)` | Autocomplete suggestions for a field |
 | `parse_query(text)` | Parse query string into `SearchQuery` |
 | `mem.save_sqlite(path)` | Persist graph to SQLite |
 | `mem.load_sqlite(path)` | Load graph from SQLite |
