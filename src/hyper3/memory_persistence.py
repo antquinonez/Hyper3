@@ -4,14 +4,25 @@ import contextlib
 import time
 from typing import Any
 
+from hyper3.abstraction import AbstractionNavigator
+from hyper3.adaptive_slice import AdaptiveSliceEngine
+from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
+from hyper3.belief_revision import ContradictionResolver
+from hyper3.boundary_reasoning import BoundaryReasoningEngine
+from hyper3.cache import LazyCache
+from hyper3.collapse_trigger import CollapseTriggerEngine
+from hyper3.constraints import BoundaryNavigator
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.evolution import GraphMaintenanceEngine
 from hyper3.feedback import OperationFeedback
+from hyper3.interference_reasoning import InterferenceReasoningEngine
+from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode, Metadata
 from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
+from hyper3.persistence_sqlite import SqliteStore
 from hyper3.provenance import ProvenanceTracker
 from hyper3.results import EvolutionStats, ImportResult, MemoryStats
 from hyper3.retrieval_activation import SpreadingActivation
@@ -371,6 +382,94 @@ class PersistenceMixin(_MemoryBase):
             monitor_stats=meta_stats,
             multi_edge_count=multi_edge_count,
         )
+
+
+    def save_sqlite(self, path: str, *, wal: bool = True) -> None:
+        """Save the graph to a SQLite database for persistence and serving.
+
+        Creates or overwrites a SQLite file with the full graph (nodes,
+        edges, adjacency). WAL mode enables concurrent reads from other
+        processes. The in-memory Hypergraph is unchanged.
+
+        Args:
+            path: Path to the SQLite database file.
+            wal: Use WAL journal mode for concurrent read access.
+        """
+        store = SqliteStore(path, wal=wal)
+        try:
+            store.save_graph(self._graph)
+        finally:
+            store.close()
+        self._log.record("save_sqlite", path=path)
+
+    def load_sqlite(self, path: str) -> None:
+        """Load the graph from a SQLite database, replacing the current graph.
+
+        Reconstructs the in-memory Hypergraph from the SQLite file. Resets
+        all engines (traversal, evolution, etc.) around the new graph,
+        matching the behaviour of ``load()``. Constructor-level thresholds
+        are preserved from the current instance, not from the saved file.
+
+        Args:
+            path: Path to the SQLite database file.
+        """
+        store = SqliteStore(path, wal=True)
+        try:
+            loaded = store.load_graph()
+        finally:
+            store.close()
+        self._graph = loaded
+        self._rebuild_engines()
+        self._cache.clear()
+        for node in self._graph.nodes:
+            self._cache.put(f"store:{node.label}", node.id)
+        self._log.record("load_sqlite", path=path)
+
+    def _rebuild_engines(self) -> None:
+
+        self._traversal = TraversalEngine(self._graph)
+        self._observer = ObserverSlice(self._graph)
+        self._evolution = GraphMaintenanceEngine(
+            self._graph,
+            decay_threshold=self._decay_threshold,
+            merge_threshold=self._merge_threshold,
+        )
+        self._equivalence = EquivalenceEngine(self._graph, threshold=self._merge_threshold)
+        self._multiway_engine = None
+        self._convergence_engine = None
+        self._belief = BeliefLayer(self._graph)
+        self._discovery = RuleDiscoveryEngine(self._graph)
+        self._state_clustering = None
+        self._rule_analytics = None
+        self._anomaly_detector = StructuralAnomalyDetector(self._graph)
+        self._perspective = MultiPerspectiveAnalyzer(self._graph)
+        self._meta = SystemMonitor(
+            self._graph, self._evolution, self._log, self._discovery,
+        )
+        self._embedding_engine = None
+        self._activation = SpreadingActivation(self._graph)
+        self._retrieval = RetrievalEngine(self._graph, activation=self._activation)
+        self._temporal = TemporalReasoner(self._graph)
+        self._provenance = ProvenanceTracker()
+        self._enricher = LLMEnricher()
+        self._overlay = None
+        self._feedback = OperationFeedback(self._graph)
+        self._boundary_reasoning = BoundaryReasoningEngine(self._graph)
+        self._interference = InterferenceReasoningEngine(self._graph, self._belief)
+        self._invariant_detector = InvariantDetector(self._graph)
+        self._collapse = CollapseTriggerEngine(self._belief)
+        self._abstraction = AbstractionNavigator(self._graph)
+        self._adaptive = AdaptiveSliceEngine(self._graph)
+        self._basis = BasisSelector(self._graph)
+        self._resolver = ContradictionResolver(self._graph, self._provenance)
+        self._boundary_nav = BoundaryNavigator()
+        self._cache = LazyCache()
+        self._search_engine = None
+        self._hebbian = None
+        self._community_detector = None
+        self._graph_differ = None
+        if hasattr(self._perspective, '_frame_cache') and self._perspective._frame_cache is not None:
+            self._perspective._frame_cache.clear()
 
 
 def _json_fallback(obj: Any) -> Any:

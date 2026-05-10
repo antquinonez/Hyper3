@@ -288,11 +288,11 @@ Frequently-accessed graph operations are accelerated by lazy caches and structur
 - `StateClusteringEngine._distance_cache: dict[tuple[str, str], StateDistanceMetrics]`
 - `TransitiveRule` pre-built `edge_set` for O(1) edge-existence checks
 
-### DP-15: Zero External Dependencies for Core
+### DP-15: Removed
 
-The core library has no network calls, no database, no external services. All computation is local and deterministic (given fixed random seeds). Optional capabilities (FAISS embeddings, matplotlib visualization) are gated behind `[faiss]` and `[viz]` extras.
-
-**Why**: External dependencies introduce fragility and non-determinism. The library must be fully functional with only numpy/scipy/networkx.
+Previously required zero external dependencies for core. Removed to enable
+SQLite as a first-class persistence and serving layer. See
+`roadmap/01_persistence.md` for the evolution plan.
 
 ### DP-16: Domain Prefixes for Module Relationships
 

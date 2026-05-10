@@ -206,6 +206,7 @@ from hyper3.multiway_causal import (
 )
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
+from hyper3.persistence_sqlite import SqliteStore
 from hyper3.provenance import (
     Explanation,
     ProvenanceRecord,
