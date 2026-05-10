@@ -885,6 +885,16 @@ class AnalyzeNamespace:
         Returns:
             If a single method: ``{label: score}`` dict.
             If a list: ``{method: {label: score}}`` dict.
+
+        Divergence from NetworkX:
+            ``"pagerank"`` uses the incidence-based transition matrix
+            P = D_v⁻¹ H W D_e⁻¹ H^T (see Zhou et al. 2007), not the
+            adjacency-based transition used by ``nx.pagerank``. On
+            pairwise graphs with uniform weights, rankings agree but
+            per-node values differ by up to ~3%.
+            ``"katz"`` solves via the incidence Laplacian rather than
+            the adjacency matrix, producing similar rankings with
+            different absolute values.
         """
         if isinstance(method, list):
             return {m: self._single_centrality(m, top_k=top_k, **kwargs) for m in method}
@@ -1079,6 +1089,11 @@ class AnalyzeNamespace:
 
     def laplacian(self) -> Any:
         """Compute the hypergraph Laplacian matrix.
+
+        Uses the incidence-based formulation L = D_v - H W D_e⁻¹ H^T
+        rather than the adjacency-based L = D - A used by NetworkX.
+        The normalized variant (D_v⁻¹ᐟ² L D_v⁻¹ᐟ²) produces eigenvalues
+        at approximately 0.5x those of ``nx.normalized_laplacian_spectrum``.
 
         Returns:
             The Laplacian as a numpy array (node x node).

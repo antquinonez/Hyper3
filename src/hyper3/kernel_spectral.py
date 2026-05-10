@@ -338,6 +338,12 @@ class SpectralMixin(_GraphBase):
         Where L is the unnormalized hypergraph Laplacian and D_v is the
         node degree matrix.
 
+        Divergence from NetworkX:
+            Uses incidence-based normalization (D_v from node-hyperedge
+            incidence) rather than adjacency-based normalization. The
+            resulting eigenvalues are approximately 0.5x those from
+            ``nx.normalized_laplacian_spectrum``.
+
         Returns:
             Tuple of (L_norm, node_id_list).  Returns a zero matrix
             for graphs with no nodes.
