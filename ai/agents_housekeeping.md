@@ -47,7 +47,7 @@ Run this sequence after substantive changes. All gates must pass:
 .venv/bin/ruff check src/hyper3/ tests/
 
 # 4. All examples (must complete without error)
-for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/showcase/*/*.py; do [ "$(basename "$f")" = "__init__.py" ] && continue; .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 for f in examples/projects/*/pipeline.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 5. All demos (must complete without error)
@@ -98,5 +98,5 @@ Current project metrics (update after changes):
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
 - **Examples**: 111 (49 Hyper3 showcase + 5 project pipelines; 41 comparison + 12 laminar; 3 standalone)
-- **Equiv battery**: 853 pass / 0 fail / 25 gap / 1 skip (22 suites, HGX + XGI + NX)
+- **Equiv battery**: 888 pass / 0 fail / 24 gap / 1 skip (22 suites, HGX + XGI + NX)
 - **Benchmarks**: 15 (10 original + 5 new: bayesian, backward_chain, community, belief_distributions, multi_frame)
