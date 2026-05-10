@@ -28,6 +28,7 @@ Imagine a spreadsheet where each row is a product with columns for type, brand, 
 | **Parsed Query** | A query string like `type:laptop price:800..1500 -brand:sony ^price:2.0` parsed into filters, negations, and boosts |
 | **Dirty Tracking** | The index is marked dirty on graph mutations and rebuilt automatically on the next search |
 | **SQLite Store** | A persistence layer storing the graph in SQLite with WAL concurrent reads, JSON1 filtering, and FTS5 text search |
+| **Spreading Activation** | Energy injected at a source node propagates through edges, decaying with each hop. Nodes reachable through multiple paths accumulate more energy than nodes reachable through a single path, even at the same hop distance. This produces a relevance ranking based on connectivity strength, not just proximity. |
 
 ## 4. Quick Start
 
@@ -238,6 +239,104 @@ scored = mem.search.find(
 
 **Result:** macbook_pro_16 scores 1.001 (index 1.0 + activation 0.838, boosted by 1.5x). macbook_air_15 scores 0.959 (activation 0.695). Non-Apple laptops score lower (xps_15 and thinkpad_x1 at 0.861) or lowest (zenbook_14 and spectre_x360 at 0.750, zero activation).
 
+#### How Spreading Activation Energy Works
+
+When `mem.search.find("macbook_pro_16", ...)` executes, the scoring pipeline injects 1.0 energy at the `macbook_pro_16` node and spreads it through the graph over 3 iterations. At each step, every active node distributes its energy to neighbors through incident edges, scaled by a decay factor (0.85). After each step, activations are normalized so the maximum stays at 1.0 and nodes below 0.01 are pruned.
+
+> **What is an iteration?** A single iteration is one full sweep across all currently-active nodes. On iteration 1, only `macbook_pro_16` is active — it distributes energy to its direct neighbors. On iteration 2, those neighbors are also active — each distributes its accumulated energy to *its* neighbors, reaching nodes 2 hops away. On iteration 3, the wave reaches 3-hop nodes like `zenbook_14` and `spectre_x360`. More iterations mean energy reaches further into the graph but with diminishing returns due to the 0.85 decay factor.
+
+**The key insight is multi-path accumulation, not hop distance.** Two nodes at the same hop distance can receive very different activation levels depending on how many paths carry energy to them. A node reachable through 4 independent paths accumulates energy from all of them; a node reachable through 1 path does not.
+
+The two diagrams below illustrate this. The first shows the actual edge topology around `macbook_pro_16`. The second shows the resulting activation values after 3 spreading iterations, with arrows indicating which paths contribute energy.
+
+##### Diagram 1: Graph Topology Around macbook_pro_16
+
+```mermaid
+graph TD
+    SRC["macbook_pro_16<br/><i>(source)</i>"]
+
+    SRC --"compatible_with"--> SD["studio_display"]
+    SRC --"compatible_with"--> PDX["pro_display_xdr"]
+    SRC --"compatible_with"--> AP2["airpods_pro_2"]
+    SRC --"compatible_with"--> AM["airpods_max"]
+    SRC --"compatible_with"--> AW["apple_watch_ultra"]
+
+    SRC --"same_category"--> MA["macbook_air_15"]
+    SRC --"same_category"--> XPS["xps_15"]
+    SRC --"same_category"--> TP["thinkpad_x1"]
+
+    MA --"compatible_with"--> SD
+    MA --"compatible_with"--> AP2
+    MA --"compatible_with"--> IPH["iphone_16_pro"]
+
+    AP2 --"compatible_with"--> IPAD["ipad_pro_13"]
+    AP2 --"compatible_with"--> IPH
+    AP2 --"same_category"--> AM
+
+    SD --"same_category"--> PDX
+
+    IPAD --"compatible_with"--> AW
+    IPH --"compatible_with"--> AW
+
+    TP --"same_category"--> ZB["zenbook_14"]
+    XPS --"same_category"--> SPX["spectre_x360"]
+
+    style SRC fill:#e6f3ff,stroke:#0066cc,stroke-width:3px
+    style AP2 fill:#d9f2d9,stroke:#339933,stroke-width:2px
+    style AM fill:#d9f2d9,stroke:#339933
+    style SD fill:#fff2cc,stroke:#cc9900
+    style PDX fill:#fff2cc,stroke:#cc9900
+    style AW fill:#fff2cc,stroke:#cc9900
+    style MA fill:#d9f2d9,stroke:#339933
+```
+
+Note that both `airpods_pro_2` and `airpods_max` are **direct** 1-hop neighbors of `macbook_pro_16` via `compatible_with` edges. But `airpods_pro_2` is also connected to 4 other active nodes (`macbook_air_15`, `iphone_16_pro`, `ipad_pro_13`) that themselves receive energy from `macbook_pro_16`. Each of those nodes spreads additional energy into `airpods_pro_2` on subsequent iterations. `airpods_max` has only one additional connection (`same_category` to `airpods_pro_2`).
+
+##### Diagram 2: Activation Values After 3 Spreading Iterations
+
+```mermaid
+graph TD
+    SRC["macbook_pro_16<br/><b>0.863</b>"]
+
+    SRC ==>|"4 energy paths<br/>converge"| AP2["airpods_pro_2<br/><b>1.000</b> (highest)"]
+    SRC -->|"1 direct + 1 via airpods_pro_2"| AM["airpods_max<br/><b>0.840</b>"]
+    SRC -->|"1 direct + 1 via studio_display"| PDX["pro_display_xdr<br/><b>0.460</b>"]
+    SRC -->|"1 direct + 1 via macbook_air_15"| SD["studio_display<br/><b>0.541</b>"]
+    SRC -->|"1 direct + 3 via other nodes"| AW["apple_watch_ultra<br/><b>0.555</b>"]
+    SRC -->|"2 paths: direct + via airpods_pro_2"| MA["macbook_air_15<br/><b>0.716</b>"]
+    SRC -.->|"1 path: same_category only"| XPS["xps_15<br/><b>0.380</b>"]
+    SRC -.->|"1 path: same_category only"| TP["thinkpad_x1<br/><b>0.380</b>"]
+    SRC -.->|"2 paths via macbook_air_15<br/>+ iphone_16_pro"| IPH["iphone_16_pro<br/><b>0.439</b>"]
+    SRC -.->|"2 paths via airpods_pro_2<br/>+ macbook_air_15"| IPAD["ipad_pro_13<br/><b>0.329</b>"]
+
+    AP2 -.->|"feeds energy back"| AM
+
+    style SRC fill:#e6f3ff,stroke:#0066cc,stroke-width:3px
+    style AP2 fill:#2d8633,stroke:#1a5c1f,stroke-width:3px,color:#fff
+    style AM fill:#d9f2d9,stroke:#339933,stroke-width:2px
+    style SD fill:#d9f2d9,stroke:#339933
+    style AW fill:#d9f2d9,stroke:#339933
+    style MA fill:#d9f2d9,stroke:#339933,stroke-width:2px
+    style PDX fill:#fff2cc,stroke:#cc9900
+    style IPH fill:#fff2cc,stroke:#cc9900
+    style IPAD fill:#fff2cc,stroke:#cc9900
+    style XPS fill:#f5f5f5,stroke:#999999
+    style TP fill:#f5f5f5,stroke:#999999
+```
+
+The activation values after 3 iterations (with `normalize_per_step=True`) reveal four energy tiers:
+
+| Tier | Activation | Nodes | Why |
+|------|-----------|-------|-----|
+| **Hub** | 1.000 | airpods_pro_2 | 4 independent energy paths converge here (macbook_pro_16 direct, macbook_air_15, iphone_16_pro, ipad_pro_13). Normalization caps it at 1.0. |
+| **Strong** | 0.7–0.9 | macbook_pro_16 (0.863), airpods_max (0.840), macbook_air_15 (0.716) | Each receives energy from 2+ paths. airpods_max gets a direct edge plus energy from airpods_pro_2 via same_category. |
+| **Moderate** | 0.3–0.6 | apple_watch_ultra (0.555), studio_display (0.541), pro_display_xdr (0.460), iphone_16_pro (0.439), xps_15 (0.380), thinkpad_x1 (0.380), ipad_pro_13 (0.329) | Reached through 1-2 paths but further from the energy concentration. |
+| **Weak** | <0.1 | spectre_x360 (0.051), zenbook_14 (0.051) | 2 hops away through a single path (via xps_15 or thinkpad_x1). |
+
+The hub effect is the central mechanism: `airpods_pro_2` accumulates more energy than the source node itself because energy from multiple branches of the graph converges on it. After normalization, it becomes the reference point (1.0) against which all other activations are measured.
+
+The energy values feed directly into the final score. In the hybrid strategy, the `ScoringPipeline` computes `score = (index_weight + activation * act_weight + similarity * sim_weight) / total_weight`. For macbook_pro_16, the 0.863 activation pushes its score above 1.0. For zenbook_14, the near-zero activation (0.051) means its score comes almost entirely from the index match.
+
 ### Section 9: Pagination and Offset
 
 Page through results with `top_k` and `offset`:
@@ -364,7 +463,7 @@ store.close()
 
 **Faceted aggregation over candidates** computes category counts on the filtered result set, not the full graph. This is how e-commerce sites render sidebar filters: the facet counts reflect the current query context, not the total catalog.
 
-**Multi-signal scoring** combines graph structure with attribute matching. Spreading activation discovers that macbook_air_15 is close to macbook_pro_16 in the graph (they share compatible accessories and are in the same category). The index ensures only laptops pass the filter. The final score blends both signals.
+**Multi-signal scoring** combines graph structure with attribute matching. Spreading activation rewards connectivity, not just proximity: `airpods_pro_2` accumulates the highest activation (1.0) because energy from 4 independent paths converges on it, even though it is the same 1-hop distance from the source as `airpods_max` (0.84) which has only 2 paths. The index ensures only laptops pass the filter. The final score blends both signals.
 
 **SQLite as a serving layer** persists the graph with JSON1 attribute filtering, FTS5 text search, and auto-maintained adjacency indexes. Queries run directly against the database file without loading the full Hypergraph into memory. WAL mode enables concurrent reads from multiple processes.
 
