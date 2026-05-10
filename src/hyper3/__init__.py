@@ -299,6 +299,12 @@ from hyper3.rules_causal_sequence import CausalSequenceRule
 from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
 from hyper3.rules_simultaneity import SimultaneityRule
+from hyper3.search_engine import SearchEngine
+from hyper3.search_facets import FacetedAggregation
+from hyper3.search_index import AttributeIndex, SearchFilter
+from hyper3.search_planner import QueryPlanner, SearchPlan
+from hyper3.search_query import FieldBoost, SearchQuery, build_query, parse_query
+from hyper3.search_scoring import ScoringPipeline
 from hyper3.snapshot import SystemSnapshot
 from hyper3.state_clustering import (
     AnalogyProposal,

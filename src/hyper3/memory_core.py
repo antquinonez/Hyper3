@@ -743,6 +743,8 @@ class CoreMixin(_MemoryBase):
     def _maybe_evolve(self) -> None:
         """Increment the operation counter and trigger evolution if the interval is reached."""
         self._operation_count += 1
+        if self._search_engine is not None:
+            self._search_engine.mark_dirty()
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
             if hasattr(self, "_feedback") and self._feedback is not None:
                 self.evolve_with_feedback()

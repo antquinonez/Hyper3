@@ -49,6 +49,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
@@ -111,6 +112,7 @@ class _MemoryBase:
     _collapse_trigger: CollapseTriggerEngine | None
     _invariant_detector: InvariantDetector | None
     _prefetch: StructuralPrefetchEngine | None
+    _search_engine: SearchEngine | None
 
     def _invalidate_frame_cache(self, *concepts: str) -> None:
         """Invalidate frame cache entries for specific concepts, or clear all if none given."""

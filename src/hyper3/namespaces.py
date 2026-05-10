@@ -28,17 +28,20 @@ from hyper3.results import (
     DiscoverResult,
     FeedbackSummaryResult,
     GraphDescription,
+    IndexStats,
     IterativeReasonResult,
     LabeledEdge,
     ReasonResult,
     RollbackResult,
     SearchHit,
+    SearchResultSet,
     TrainResult,
 )
 from hyper3.results import TemporalMatch as TemporalMatch
 from hyper3.retrieval_engine import RetrievalResult
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
+from hyper3.search_query import SearchQuery
 from hyper3.system_monitor import TuningPlan, TuningTrigger
 from hyper3.temporal import AllenRelation, TemporalEvent
 from hyper3.types_api import CentralityMethod, TemporalRelation
@@ -795,6 +798,111 @@ class SearchNamespace:
         """
         raw = self._mem.spread_hyperedge(concept, energy=energy, mode=mode, iterations=iterations)
         return [ActivationHit(label=r.label, energy=r.activation) for r in raw]
+
+    def find(
+        self,
+        text: str = "",
+        *,
+        filters: dict[str, Any] | None = None,
+        boosts: dict[str, float] | None = None,
+        facet_fields: list[str] | None = None,
+        top_k: int = 10,
+        offset: int = 0,
+        strategy: str = "auto",
+    ) -> SearchResultSet:
+        """Structured search with attribute filtering, boosting, and faceted navigation.
+
+        Args:
+            text: Search query text (used for activation/embedding signals).
+            filters: Dict of field-value pairs for exact match filtering.
+            boosts: Dict of field-factor pairs for score boosting.
+            facet_fields: Fields to compute facet aggregations for.
+            top_k: Maximum number of results.
+            offset: Pagination offset.
+            strategy: Retrieval strategy (``"auto"``, ``"index"``,
+                ``"activate"``, ``"embed"``, ``"hybrid"``, ``"browse"``).
+
+        Returns:
+            SearchResultSet with ranked results, facets, and timing.
+        """
+        engine = self._mem.search_engine
+        return engine.find(
+            text=text, filters=filters, boosts=boosts,
+            facet_fields=facet_fields, top_k=top_k, offset=offset,
+            strategy=strategy,
+        )
+
+    def browse(
+        self,
+        *,
+        filters: dict[str, Any] | None = None,
+        facet_fields: list[str] | None = None,
+        top_k: int = 20,
+    ) -> SearchResultSet:
+        """Browse with filters and facets (no text query).
+
+        Args:
+            filters: Dict of field-value pairs for exact match filtering.
+            facet_fields: Fields to compute facet aggregations for.
+            top_k: Maximum number of results.
+
+        Returns:
+            SearchResultSet with filtered results and facet counts.
+        """
+        engine = self._mem.search_engine
+        return engine.browse(filters=filters, facet_fields=facet_fields, top_k=top_k)
+
+    def search(self, query: SearchQuery) -> SearchResultSet:
+        """Execute a structured SearchQuery.
+
+        Args:
+            query: A SearchQuery object with text, filters, boosts, and facet fields.
+
+        Returns:
+            SearchResultSet with ranked results, facets, and timing.
+        """
+        engine = self._mem.search_engine
+        return engine.search(query)
+
+    def reindex(self, indexed_fields: set[str] | None = None) -> IndexStats:
+        """Build or rebuild the search attribute index.
+
+        Must be called before ``find()``/``browse()`` can use attribute
+        filtering. Rebuilds automatically on first search if not called
+        explicitly.
+
+        Args:
+            indexed_fields: Specific fields to index. If None, indexes all
+                data fields.
+
+        Returns:
+            IndexStats with field, value, and entry counts.
+        """
+        engine = self._mem.search_engine
+        return engine.reindex(indexed_fields=indexed_fields)
+
+    def index_stats(self) -> IndexStats:
+        """Return search index statistics.
+
+        Returns:
+            IndexStats with field, value, and entry counts.
+        """
+        engine = self._mem.search_engine
+        return engine.index_stats()
+
+    def suggest(self, field: str, prefix: str, top_k: int = 10) -> list[str]:
+        """Autocomplete suggestions for field values matching a prefix.
+
+        Args:
+            field: The data field to suggest values for.
+            prefix: Prefix string to match.
+            top_k: Maximum number of suggestions.
+
+        Returns:
+            List of matching field values.
+        """
+        engine = self._mem.search_engine
+        return engine.suggest(field, prefix, top_k=top_k)
 
 
 class AnalyzeNamespace:

@@ -58,6 +58,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
@@ -235,6 +236,7 @@ class HypergraphMemory(
         self._ns_monitor: MonitorNamespace | None = None
         self._ns_cognitive: CognitiveNamespace | None = None
         self._ns_engine: EngineAccessor | None = None
+        self._search_engine: SearchEngine | None = None
 
     @property
     def reason(self) -> ReasonNamespace:
@@ -298,6 +300,19 @@ class HypergraphMemory(
         if self._ns_engine is None:
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
+
+    @property
+    def search_engine(self) -> SearchEngine:
+        """Lazy-initialized property returning the structured search engine."""
+        if self._search_engine is None:
+            self._search_engine = SearchEngine(
+                self._graph,
+                activation=self._activation,
+                embedding=self._embedding_engine,
+                feedback_store=self._retrieval.feedback,
+                ltr=self._retrieval.ltr,
+            )
+        return self._search_engine
 
     def centrality(self, method, *, top_k=None, **kwargs) -> Any:
         """Shortcut delegate to analyze.centrality()."""
