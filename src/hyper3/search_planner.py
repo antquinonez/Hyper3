@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from hyper3.kernel import Hypergraph
 from hyper3.results import _SimpleResultBase
 from hyper3.search_index import AttributeIndex
 from hyper3.search_query import SearchQuery
+
+if TYPE_CHECKING:
+    from hyper3.embedding import EmbeddingEngine
 
 
 @dataclass
@@ -21,9 +25,16 @@ class SearchPlan(_SimpleResultBase):
 
 
 class QueryPlanner:
-    def __init__(self, graph: Hypergraph, index: AttributeIndex | None = None) -> None:
+    def __init__(
+        self,
+        graph: Hypergraph,
+        index: AttributeIndex | None = None,
+        *,
+        embedding: EmbeddingEngine | None = None,
+    ) -> None:
         self._graph = graph
         self._index = index
+        self._embedding = embedding
 
     def plan(self, query: SearchQuery) -> SearchPlan:
         has_text = bool(query.text)
@@ -68,7 +79,7 @@ class QueryPlanner:
         return len(filtered) / total
 
     def _has_embedding(self) -> bool:
-        return False
+        return self._embedding is not None
 
     def _get_candidates(self, query: SearchQuery) -> set[str]:
         if not query.filters:

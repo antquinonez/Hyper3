@@ -87,17 +87,10 @@ class ScoringPipeline:
         seed_emb = self._embedding.get_embedding(seed.id)
         if seed_emb is None:
             return {}
-        import numpy as np
-
-        scores: dict[str, float] = {}
-        for node in self._graph.nodes:
-            if node.id == seed.id:
-                continue
-            emb = self._embedding.get_embedding(node.id)
-            if emb is None:
-                continue
-            scores[node.id] = float(np.dot(seed_emb, emb))
-        return scores
+        similar = self._embedding.find_similar(
+            seed.id, top_k=plan.embedding_top_k,
+        )
+        return {r.node_b_id: r.similarity for r in similar}
 
     @staticmethod
     def _combine(activation: float, similarity: float, plan: SearchPlan) -> float:

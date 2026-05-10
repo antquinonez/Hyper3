@@ -32,7 +32,7 @@ class SearchEngine:
         self._ltr = ltr or LearningToRank()
         self._index = AttributeIndex()
         self._facets = FacetedAggregation(graph, index=self._index)
-        self._planner = QueryPlanner(graph, index=self._index)
+        self._planner = QueryPlanner(graph, index=self._index, embedding=self._embedding)
         self._scorer = ScoringPipeline(
             graph, activation=self._activation, embedding=self._embedding,
         )
@@ -50,7 +50,7 @@ class SearchEngine:
         if indexed_fields is not None:
             self._index = AttributeIndex(indexed_fields=indexed_fields)
             self._facets = FacetedAggregation(self._graph, index=self._index)
-            self._planner = QueryPlanner(self._graph, index=self._index)
+            self._planner = QueryPlanner(self._graph, index=self._index, embedding=self._embedding)
         self._index.build(self._graph)
         self._dirty = False
         return IndexStats(**self._index.stats())

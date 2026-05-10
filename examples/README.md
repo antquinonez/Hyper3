@@ -64,6 +64,7 @@ Showcase Examples (`showcase/`)
 | `infrastructure_self_healing/` | `infrastructure_self_healing.py` | Self-healing infrastructure (47 nodes), feedback-driven evolution, metamorphosis validation |
 | `bayesian_medical_diagnosis/` | `bayesian_medical_diagnosis.py` | Emergency chest pain evaluation (26 nodes), Bayesian posterior updating, belief distributions, confidence assessment |
 | `temporal_incident_forensics/` | `temporal_incident_forensics.py` | Deployment incident forensics (20 nodes), temporal events, Allen relations, causal chain detection |
+| `structured_search/` | `structured_search.py` | Product catalog search (20 products), attribute indexing, faceted navigation, range filters, multi-signal scoring |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 

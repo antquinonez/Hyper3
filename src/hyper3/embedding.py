@@ -335,6 +335,9 @@ class EmbeddingEngine:
         if target_norm > 0:
             target = target / target_norm
         exclude = {a, b, c}
+        if self._faiss_index is not None:
+            raw = self._faiss_search(target, top_k + len(exclude))
+            return [(nid, sim) for nid, sim in raw if nid not in exclude][:top_k]
         candidates: list[tuple[str, float]] = []
         for node in self._graph.nodes:
             if node.id in exclude:
