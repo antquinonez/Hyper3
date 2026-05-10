@@ -8,6 +8,11 @@ autocomplete suggestions, parsed query strings, and multi-signal
 scoring that combines index match, graph activation, and embedding
 similarity into a single ranked result set.
 
+The final section shows SQLite persistence: saving the graph to a
+database, running serving queries directly against SQLite (attribute
+filters, facets, FTS text search, suggestions, neighbor lookups),
+and loading back into a fresh HypergraphMemory.
+
 Run:
     .venv/bin/python examples/showcase/structured_search/structured_search.py
 """
@@ -268,6 +273,69 @@ def main() -> None:
     print("  after search (auto-rebuild):")
     print(f"  dirty:    {clean_stats.dirty}")
     print(f"  entries:  {clean_stats.entry_count}")
+
+
+    print("\n" + "=" * 70)
+    print("SECTION 12: SQLite Persistence and Serving")
+    print("=" * 70)
+
+    import os
+    import tempfile
+
+    from hyper3 import SqliteStore
+
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+
+    mem.save_sqlite(db_path)
+    db_size = os.path.getsize(db_path)
+    print(f"\nsaved to SQLite: {db_path}")
+    print(f"  file size:    {db_size:,} bytes")
+    print(f"  nodes:        {mem.size[0]}")
+    print(f"  edges:        {mem.size[1]}")
+
+    store = SqliteStore(db_path)
+    print("\n--- Direct SQLite queries (no Hypergraph in memory) ---")
+    print(f"  store nodes:  {store.node_count()}")
+    print(f"  store edges:  {store.edge_count()}")
+
+    apple_db = store.find_nodes(filters={"brand": "apple"}, top_k=20)
+    print(f"\n  apple products (via SQLite): {len(apple_db)}")
+    for r in apple_db:
+        print(f"    {r['label']:>20}  type={r['data'].get('type', '')}")
+
+    facets_db = store.facets(["type", "brand"])
+    print("\n  facets (via SQLite):")
+    for field_name, buckets in facets_db.items():
+        print(f"    {field_name}:")
+        for b in buckets[:4]:
+            print(f"      {b['value']:>15}: {b['count']}")
+
+    text_db = store.search_text("macbook", top_k=5)
+    print(f"\n  text search 'macbook' (via SQLite): {len(text_db)} results")
+    for r in text_db:
+        print(f"    {r['label']:>20}")
+
+    suggest_db = store.suggest("brand", "s")
+    print(f"\n  brand suggestions for 's' (via SQLite): {suggest_db}")
+
+    neighbors_db = store.neighbors("macbook_pro_16", direction="out")
+    print(f"\n  neighbors of macbook_pro_16 (via SQLite): {len(neighbors_db)}")
+    for r in neighbors_db:
+        print(f"    {r['label']:>20}")
+
+    store.close()
+
+    mem2 = HypergraphMemory(evolve_interval=0)
+    mem2.load_sqlite(db_path)
+    print("\n--- Loaded into fresh HypergraphMemory ---")
+    print(f"  nodes:        {mem2.size[0]}")
+    print(f"  edges:        {mem2.size[1]}")
+    print(f"  macbook_pro_16 in mem2: {'macbook_pro_16' in mem2}")
+    print(f"  airpods_pro_2 data:     {mem2.node_data('airpods_pro_2')}")
+
+    os.unlink(db_path)
+    print(f"\n  cleaned up {db_path}")
 
 
 if __name__ == "__main__":
