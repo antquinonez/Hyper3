@@ -210,7 +210,9 @@ Why explanations matter: the Allen relation label ("overlaps") names the relatio
 ## 10. Code Implementation
 
 ```python
-from medical_timeline.engine import MedicalTimelineTracker
+# The demo uses sys.path manipulation; for library use:
+# from medical_timeline.engine import MedicalTimelineTracker
+from engine import MedicalTimelineTracker
 
 tracker = MedicalTimelineTracker()
 

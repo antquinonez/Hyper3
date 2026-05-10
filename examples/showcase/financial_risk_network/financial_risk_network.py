@@ -365,14 +365,23 @@ def main() -> None:
     print()
 
     print(f"  Stochastic default sampling (10 draws):")
+    draw_counts: dict[str, int] = {}
     for i in range(10):
         answer = mem.sample(qs)
         if answer:
             node = mem.engine.graph.get_node(answer.node_id)
             lbl = node.label if node else answer.node_id
+            draw_counts[lbl] = draw_counts.get(lbl, 0) + 1
             print(f"    Draw {i + 1:2d}: {lbl}")
         else:
             print(f"    Draw {i + 1:2d}: no result")
+    if draw_counts:
+        dominant = max(draw_counts, key=draw_counts.get)
+        dominant_prob = sum(abs(o.amplitude) ** 2 for o in qs.outcomes
+                           if (mem.engine.graph.get_node(o.node_id).label if mem.engine.graph.get_node(o.node_id) else "") == dominant)
+        dominant_prob_norm = dominant_prob / total_prob if total_prob > 0 else 0
+        print(f"\n  {dominant} drawn {draw_counts[dominant]}/10 times, consistent with")
+        print(f"  its dominant probability of {dominant_prob_norm:.3f}.")
     print()
 
     qs_risk = mem.belief.create(
@@ -411,6 +420,54 @@ def main() -> None:
     print()
 
     print("=" * 70)
+    print("SECTION 8: Contagion Flow Analysis")
+    print("=" * 70)
+    print()
+    print("  max_flow() measures how much risk can propagate from one counterparty")
+    print("  to another. min_cut() identifies the weakest partition point.")
+    print("  shortest_path() traces the most likely contagion route.")
+    print()
+
+    flow_pairs = [
+        ("archegos_capital", "morgan_stanley"),
+        ("archegos_capital", "credit_suisse"),
+        ("archegos_capital", "nomura"),
+    ]
+    for src, tgt in flow_pairs:
+        flow_val, flow_dict = mem.analyze.max_flow(src, tgt)
+        if flow_val > 0:
+            print(f"  {src} -> {tgt}:")
+            print(f"    Max contagion flow: {flow_val:.2f}")
+            active_paths = [(s, t, f) for (s, t), f in flow_dict.items() if f > 0]
+            for s, t, f in active_paths[:3]:
+                print(f"      {s} -> {t}: flow={f:.2f}")
+        else:
+            print(f"  {src} -> {tgt}: no flow path (disconnected)")
+    print()
+
+    cut_weight, (side_a, side_b) = mem.analyze.min_cut()
+    print(f"  Global minimum cut:")
+    print(f"    Cut weight: {cut_weight:.2f}")
+    print(f"    Partition A ({len(side_a)} nodes): {list(side_a)[:5]}...")
+    print(f"    Partition B ({len(side_b)} nodes): {list(side_b)[:5]}...")
+    print()
+
+    path = mem.analyze.shortest_path("archegos_capital", "credit_suisse", weighted=True)
+    if path:
+        print(f"  Shortest risk path archegos -> credit_suisse:")
+        print(f"    {' -> '.join(path)}")
+
+    print()
+    print("  Running feedback-driven evolution to adjust edge weights")
+    print("  based on which risk paths were activated during analysis:")
+    ev_result = mem.evolve_with_feedback()
+    print(f"    Reinforced: {ev_result.reinforced}")
+    print(f"    Suppressed: {ev_result.suppressed}")
+    print(f"    Decayed: {ev_result.decayed}")
+    print(f"    Pruned: {ev_result.pruned}")
+    print()
+
+    print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
     stats = mem.stats()
@@ -421,7 +478,9 @@ def main() -> None:
     print("  Key insight: community detection reveals natural risk clusters")
     print("  (regional banking, asset management, etc.) while graph diffing")
     print("  tracks how new exposures reshape the risk landscape. Abstraction")
-    print("  enables portfolio-level analysis without losing detail.")
+    print("  enables portfolio-level analysis without losing detail. Contagion")
+    print("  flow analysis quantifies maximum risk propagation and identifies")
+    print("  the weakest partition points where firebreaks would be most effective.")
     print()
 
 

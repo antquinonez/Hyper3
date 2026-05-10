@@ -321,6 +321,7 @@ class ReasoningMixin(_MemoryBase):
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
     ) -> ReasonResult:
+        """Reason with boundary-aware constraints, applying rules through the overlay system."""
         if self._boundary_reasoning is None:
             from hyper3.boundary_reasoning import BoundaryReasoningEngine as _BRE
             self._boundary_reasoning = _BRE(self._graph)
@@ -907,6 +908,7 @@ class ReasoningMixin(_MemoryBase):
         return self.rule_analytics.compute_bias_profile()
 
     def _post_reasoning_transcendental(self) -> None:
+        """Feed rule analytics insights into the transcendental inference engine after a reasoning cycle."""
         if self._transcendental is None:
             from hyper3.transcendental import TranscendentalInferenceEngine
             self._transcendental = TranscendentalInferenceEngine(self._graph)

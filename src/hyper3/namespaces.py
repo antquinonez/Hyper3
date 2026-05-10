@@ -28,17 +28,20 @@ from hyper3.results import (
     DiscoverResult,
     FeedbackSummaryResult,
     GraphDescription,
+    IndexStats,
     IterativeReasonResult,
     LabeledEdge,
     ReasonResult,
     RollbackResult,
     SearchHit,
+    SearchResultSet,
     TrainResult,
 )
 from hyper3.results import TemporalMatch as TemporalMatch
 from hyper3.retrieval_engine import RetrievalResult
 from hyper3.rules import Rule
 from hyper3.rules_discovery import DiscoveredRule
+from hyper3.search_query import SearchQuery
 from hyper3.system_monitor import TuningPlan, TuningTrigger
 from hyper3.temporal import AllenRelation, TemporalEvent
 from hyper3.types_api import CentralityMethod, TemporalRelation
@@ -66,6 +69,7 @@ class ReasonNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating reasoning operations."""
         self._mem = mem
 
     def __call__(self, seeds: set[str] | None = None, *, rules: list[Rule] | None = None,
@@ -255,6 +259,7 @@ class BeliefNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating belief operations."""
         self._mem = mem
 
     def create(self, outcomes: list[str], *, amplitudes: list[float] | None = None,
@@ -427,12 +432,14 @@ class BeliefNamespace:
         return self._mem.compute_density_matrix(state_id)
 
     def sample_adaptive(self, state: BeliefState) -> str | None:
+        """Sample an outcome using the adaptive basis strategy (selects the historically most effective basis)."""
         result = self._mem.sample_adaptive(state)
         if result is None:
             return None
         return self._mem.node_label(result.node_id)
 
     def sample_blended(self, state: BeliefState) -> str | None:
+        """Sample an outcome using a blended strategy that combines multiple sampling bases."""
         result = self._mem.sample_blended(state)
         if result is None:
             return None
@@ -447,6 +454,7 @@ class BeliefNamespace:
         return self._mem.list_basis_effectiveness()
 
     def _resolve_state(self, concept: str) -> BeliefState | None:
+        """Look up the BeliefState containing a concept label as one of its outcomes."""
         node_id = self._mem.resolve_id(concept)
         if node_id is None:
             return None
@@ -464,6 +472,7 @@ class BayesNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating Bayesian operations."""
         self._mem = mem
 
     def set_prior(self, concept: str, *, outcomes: list[str],
@@ -558,6 +567,7 @@ class SearchFeedbackSubNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for feedback and learning-to-rank operations."""
         self._mem = mem
 
     def record(self, query: str, results: list[RetrievalResult],
@@ -598,6 +608,7 @@ class SearchPrefetchSubNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for prefetch and cache-warming operations."""
         self._mem = mem
 
     def enable(self, enabled: bool = True) -> None:
@@ -650,6 +661,7 @@ class SearchNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory and construct feedback and prefetch sub-namespaces."""
         self._mem = mem
         self.feedback = SearchFeedbackSubNamespace(mem)
         self.prefetch = SearchPrefetchSubNamespace(mem)
@@ -787,6 +799,111 @@ class SearchNamespace:
         raw = self._mem.spread_hyperedge(concept, energy=energy, mode=mode, iterations=iterations)
         return [ActivationHit(label=r.label, energy=r.activation) for r in raw]
 
+    def find(
+        self,
+        text: str = "",
+        *,
+        filters: dict[str, Any] | None = None,
+        boosts: dict[str, float] | None = None,
+        facet_fields: list[str] | None = None,
+        top_k: int = 10,
+        offset: int = 0,
+        strategy: str = "auto",
+    ) -> SearchResultSet:
+        """Structured search with attribute filtering, boosting, and faceted navigation.
+
+        Args:
+            text: Search query text (used for activation/embedding signals).
+            filters: Dict of field-value pairs for exact match filtering.
+            boosts: Dict of field-factor pairs for score boosting.
+            facet_fields: Fields to compute facet aggregations for.
+            top_k: Maximum number of results.
+            offset: Pagination offset.
+            strategy: Retrieval strategy (``"auto"``, ``"index"``,
+                ``"activate"``, ``"embed"``, ``"hybrid"``, ``"browse"``).
+
+        Returns:
+            SearchResultSet with ranked results, facets, and timing.
+        """
+        engine = self._mem.search_engine
+        return engine.find(
+            text=text, filters=filters, boosts=boosts,
+            facet_fields=facet_fields, top_k=top_k, offset=offset,
+            strategy=strategy,
+        )
+
+    def browse(
+        self,
+        *,
+        filters: dict[str, Any] | None = None,
+        facet_fields: list[str] | None = None,
+        top_k: int = 20,
+    ) -> SearchResultSet:
+        """Browse with filters and facets (no text query).
+
+        Args:
+            filters: Dict of field-value pairs for exact match filtering.
+            facet_fields: Fields to compute facet aggregations for.
+            top_k: Maximum number of results.
+
+        Returns:
+            SearchResultSet with filtered results and facet counts.
+        """
+        engine = self._mem.search_engine
+        return engine.browse(filters=filters, facet_fields=facet_fields, top_k=top_k)
+
+    def search(self, query: SearchQuery) -> SearchResultSet:
+        """Execute a structured SearchQuery.
+
+        Args:
+            query: A SearchQuery object with text, filters, boosts, and facet fields.
+
+        Returns:
+            SearchResultSet with ranked results, facets, and timing.
+        """
+        engine = self._mem.search_engine
+        return engine.search(query)
+
+    def reindex(self, indexed_fields: set[str] | None = None) -> IndexStats:
+        """Build or rebuild the search attribute index.
+
+        Must be called before ``find()``/``browse()`` can use attribute
+        filtering. Rebuilds automatically on first search if not called
+        explicitly.
+
+        Args:
+            indexed_fields: Specific fields to index. If None, indexes all
+                data fields.
+
+        Returns:
+            IndexStats with field, value, and entry counts.
+        """
+        engine = self._mem.search_engine
+        return engine.reindex(indexed_fields=indexed_fields)
+
+    def index_stats(self) -> IndexStats:
+        """Return search index statistics.
+
+        Returns:
+            IndexStats with field, value, and entry counts.
+        """
+        engine = self._mem.search_engine
+        return engine.index_stats()
+
+    def suggest(self, field: str, prefix: str, top_k: int = 10) -> list[str]:
+        """Autocomplete suggestions for field values matching a prefix.
+
+        Args:
+            field: The data field to suggest values for.
+            prefix: Prefix string to match.
+            top_k: Maximum number of suggestions.
+
+        Returns:
+            List of matching field values.
+        """
+        engine = self._mem.search_engine
+        return engine.suggest(field, prefix, top_k=top_k)
+
 
 class AnalyzeNamespace:
     """Graph analytics: centrality, paths, components, communities, and transforms.
@@ -795,6 +912,7 @@ class AnalyzeNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating analytics operations."""
         self._mem = mem
 
     def paths(self, source: str, target: str, *, label: str | None = None,
@@ -875,16 +993,28 @@ class AnalyzeNamespace:
         Returns:
             If a single method: ``{label: score}`` dict.
             If a list: ``{method: {label: score}}`` dict.
+
+        Divergence from NetworkX:
+            ``"pagerank"`` uses the incidence-based transition matrix
+            P = D_v⁻¹ H W D_e⁻¹ H^T (see Zhou et al. 2007), not the
+            adjacency-based transition used by ``nx.pagerank``. On
+            pairwise graphs with uniform weights, rankings agree but
+            per-node values differ by up to ~3%.
+            ``"katz"`` solves via the incidence Laplacian rather than
+            the adjacency matrix, producing similar rankings with
+            different absolute values.
         """
         if isinstance(method, list):
             return {m: self._single_centrality(m, top_k=top_k, **kwargs) for m in method}
         return self._single_centrality(method, top_k=top_k, **kwargs)
 
     def _label_map(self, raw: dict[str, float]) -> dict[str, float]:
+        """Convert a node-ID-keyed dict to a label-keyed dict."""
         return {self._mem._node_label(nid): s for nid, s in raw.items()}
 
     def _single_centrality(self, method: str, *, top_k: int | None = None,
                            **kwargs: Any) -> dict[str, float]:
+        """Dispatch to the appropriate centrality algorithm, translate IDs to labels, and optionally truncate to top-k."""
         _lm = self._label_map
         if method == "degree":
             result = _lm(self._mem._graph.degree_centrality())
@@ -1067,6 +1197,11 @@ class AnalyzeNamespace:
 
     def laplacian(self) -> Any:
         """Compute the hypergraph Laplacian matrix.
+
+        Uses the incidence-based formulation L = D_v - H W D_e⁻¹ H^T
+        rather than the adjacency-based L = D - A used by NetworkX.
+        The normalized variant (D_v⁻¹ᐟ² L D_v⁻¹ᐟ²) produces eigenvalues
+        at approximately 0.5x those of ``nx.normalized_laplacian_spectrum``.
 
         Returns:
             The Laplacian as a numpy array (node x node).
@@ -1375,7 +1510,7 @@ class AnalyzeNamespace:
         Returns:
             List of summary node labels.
         """
-        return self._mem.list_summaries()
+        return [m.summary_label for m in self._mem.list_summaries()]
 
     def contradictions(self) -> list[Any]:
         """Detect contradictory edges in the graph.
@@ -1445,6 +1580,7 @@ class TemporalNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating temporal operations."""
         self._mem = mem
 
     def add_event(self, label: str, start: float, end: float, **metadata: Any) -> TemporalEvent:
@@ -1603,6 +1739,7 @@ class MonitorNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating monitoring operations."""
         self._mem = mem
 
     def health(self) -> Any:
@@ -1725,6 +1862,7 @@ class CognitiveNamespace:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for delegating cognitive operations."""
         self._mem = mem
 
     def prove(self, concept: str, *, facts: set[str] | None = None, depth: int = 5) -> Any:
@@ -1860,6 +1998,7 @@ class EngineAccessor:
     """
 
     def __init__(self, mem: HypergraphMemory) -> None:
+        """Initialize with a reference to the parent HypergraphMemory for exposing raw engine objects."""
         self._mem = mem
 
     @property

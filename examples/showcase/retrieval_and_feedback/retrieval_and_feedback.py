@@ -623,10 +623,69 @@ def main():
         print(f"    Overlap: {len(overlap)}/5  {sorted(overlap) if overlap else '(none)'}")
         print()
 
-    # =====================================================================
-    # SUMMARY
-    # =====================================================================
+    print()
+    print("=" * 70)
+    print("SECTION 9: Threat Chain Discovery via Reasoning")
+    print("=" * 70)
+    print()
+    print("  Transitive rules discover multi-hop attack chains that")
+    print("  retrieval alone cannot find.")
+    print()
 
+    from hyper3 import TransitiveRule
+
+    mem.add_rules(
+        TransitiveRule(edge_label="enables", new_label="enables_chain"),
+        TransitiveRule(edge_label="targets", new_label="targets_chain"),
+    )
+    result = mem.reason(
+        seeds={"sql_injection", "phishing"}, max_depth=3, auto_commit=True
+    )
+    print(f"  Reasoning from sql_injection and phishing:")
+    print(f"    States created: {result.expansion.states_created if result.expansion else 0}")
+    print(f"    Edges inferred: {result.expansion.edges_produced if result.expansion else 0}")
+
+    inferred = [e for e in mem.analyze.edges(label="enables_chain") if e.source_labels and e.target_labels]
+    if inferred:
+        print(f"    Attack chains discovered ({len(inferred)}):")
+        for e in inferred[:5]:
+            print(f"      {e.source_labels[0]} -[enables_chain]-> {e.target_labels[0]}")
+    else:
+        print("    No transitive chains found for 'enables' edges")
+
+    print()
+    print("=" * 70)
+    print("SECTION 10: Threat Cluster Identification")
+    print("=" * 70)
+    print()
+    print("  Community detection groups related threats with their mitigations")
+    print("  and detection tools, enabling rapid identification of defense")
+    print("  coverage gaps and attack surface clustering.")
+    print()
+
+    comm_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
+    print(f"  Communities detected: {comm_result.community_count}")
+    print(f"  Modularity: {comm_result.modularity:.4f}")
+    print(f"  Coverage: {comm_result.coverage:.4f}")
+    for comm in comm_result.communities[:5]:
+        members = comm.member_labels[:6]
+        print(f"    Cluster ({comm.size} nodes): {', '.join(members)}")
+
+    print()
+    print("=" * 70)
+    print("SECTION 11: Anomalous Threat Pattern Detection")
+    print("=" * 70)
+    print()
+
+    threats = ["zero_day", "apt", "supply_chain_attack", "ransomware", "insider_threat"]
+    for threat in threats:
+        if mem.has(threat):
+            anomaly = mem.analyze.anomalies(threat)
+            status = anomaly.anomaly_status if anomaly else "unknown"
+            score = anomaly.boundary_score if anomaly else 0.0
+            print(f"    {threat:25s} status={status:12s} boundary_score={score:.4f}")
+
+    print()
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
@@ -635,9 +694,12 @@ def main():
     print(f"  Events:    {stats.log_size}")
     print(f"  Feedback:  {mem.feedback.size} judgments across {len(queries)} queries")
     print(f"  LTR model: trained with {report.get('samples', 0)} samples")
+    print()
     print(f"  Key takeaway: RRF fuses graph topology (activation) with")
     print(f"  embedding similarity. Relevance feedback teaches the system")
-    print(f"  which signal matters more for each type of query.")
+    print(f"  which signal matters more for each type of query. Reasoning")
+    print(f"  discovers multi-hop attack chains, community detection groups")
+    print(f"  related threats, and anomaly detection flags unusual patterns.")
     print()
 
 

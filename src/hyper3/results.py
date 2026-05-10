@@ -600,6 +600,51 @@ class AnomalyReport(_SimpleResultBase):
     recommendations: list[str] = field(default_factory=list)
 
 
+@dataclass
+class FacetBucket(_SimpleResultBase):
+    value: str = ""
+    count: int = 0
+    selected: bool = False
+
+
+@dataclass
+class FacetResult(_SimpleResultBase):
+    field_name: str = ""
+    buckets: list[FacetBucket] = field(default_factory=list)
+    total: int = 0
+
+
+@dataclass
+class SearchResult(_SimpleResultBase):
+    node_id: str = ""
+    label: str = ""
+    score: float = 0.0
+    data: dict[str, Any] = field(default_factory=dict)
+    index_score: float = 0.0
+    activation_score: float = 0.0
+    similarity_score: float = 0.0
+    boost_multiplier: float = 1.0
+    strategy: str = ""
+
+
+@dataclass
+class SearchResultSet(_SimpleResultBase):
+    results: list[SearchResult] = field(default_factory=list)
+    total: int = 0
+    facets: dict[str, FacetResult] = field(default_factory=dict)
+    elapsed_ms: float = 0.0
+
+
+@dataclass
+class IndexStats(_SimpleResultBase):
+    field_count: int = 0
+    value_count: int = 0
+    entry_count: int = 0
+    dirty: bool = True
+    range_fields: list[str] = field(default_factory=list)
+    text_fields: list[str] = field(default_factory=list)
+
+
 def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
     return sorted(scores.items(), key=lambda x: -x[1])[:k]
 

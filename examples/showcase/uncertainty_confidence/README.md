@@ -91,7 +91,7 @@ Solid arrows: observed `depends_on`, `exposed_to`, and `triggers` edges (12 tota
 
 **Section 1 — Build supply chain knowledge graph:** 15 nodes and 12 directed edges are created across four categories. Suppliers connect to products via `depends_on` edges, products connect to risk factors via `exposed_to` edges, and risk factors connect to market events via `triggers` edges. Suppliers are tagged with `data={"verification": "verified"}`, products with `data={"source": "supplier_report"}`, risk factors with `data={"source": "market_estimate"}`, and market events with `data={"verification": "unverified"}`. This data metadata does not affect confidence scoring directly but provides context for interpretation.
 
-**Section 2 — Run reasoning to create inference chains:** A `TransitiveRule` is registered with `edge_label="depends_on"` and `new_label="indirect_dependency"`. This rule finds two-hop chains: if A depends_on B and B depends_on C, it infers an `indirect_dependency` edge from A to C. Running `reason(seed_concepts={"widget_alpha", "widget_beta"}, max_depth=5)` produces 3 new edges across 4 multiway states. The inferred edges are: widget_beta -> supplier_hooli (chain: widget_beta -> supplier_acme -> supplier_globex -> supplier_hooli is too long; actual chain is widget_beta -> supplier_hooli via widget_beta -> supplier_acme -> supplier_hooli... the exact chains depend on graph topology), widget_alpha -> supplier_globex, and widget_alpha -> widget_gamma. Why this matters: these inferred edges represent indirect dependencies that were not explicitly recorded. widget_alpha now has a computed dependency on supplier_globex, even though no direct edge connects them. The confidence engine will score these differently from the observed edges.
+**Section 2 — Run reasoning to create inference chains:** A `TransitiveRule` is registered with `edge_label="depends_on"` and `new_label="indirect_dependency"`. This rule finds two-hop chains: if A depends_on B and B depends_on C, it infers an `indirect_dependency` edge from A to C. Running `reason(seeds={"widget_alpha", "widget_beta"}, depth=5)` produces 3 new edges across 4 multiway states. The inferred edges are: widget_beta -> supplier_hooli (chain: widget_beta -> supplier_acme -> supplier_globex -> supplier_hooli is too long; actual chain is widget_beta -> supplier_hooli via widget_beta -> supplier_acme -> supplier_hooli... the exact chains depend on graph topology), widget_alpha -> supplier_globex, and widget_alpha -> widget_gamma. Why this matters: these inferred edges represent indirect dependencies that were not explicitly recorded. widget_alpha now has a computed dependency on supplier_globex, even though no direct edge connects them. The confidence engine will score these differently from the observed edges.
 
 **Section 3 — Single-node confidence scores:** The script calls `score_node()` on four representative nodes. supplier_acme (a verified supplier) receives confidence 1.0000 at depth 0 with source "observed" — it was directly entered into the graph. widget_alpha (a product from supplier reports) also receives confidence 1.0000 at depth 0 — it is a direct observation regardless of its data source tag. widget_gamma (a product that is also the target of an inferred `indirect_dependency` edge) receives confidence 2.5500 at depth 1 with source "inferred" — its confidence comes from contributing edge weights multiplied by the decay factor. trade_embargo (an unverified market event) receives confidence 1.0000 at depth 0 — unverified status does not lower confidence; only inference depth does. Why this matters: the confidence score distinguishes direct observations from inferred facts. A risk manager reviewing widget_gamma's dependency chain can see that its confidence is derived, not observed, and plan verification accordingly.
 
@@ -142,16 +142,16 @@ risk_factors = ["regulatory_risk", "geopolitical_risk", "currency_risk"]
 events = ["trade_embargo", "supply_shortage", "labor_strike"]
 
 for s in suppliers:
-    mem.store(s, data={"verification": "verified"})
+    mem.add(s, data={"verification": "verified"})
 for p in products:
-    mem.store(p, data={"source": "supplier_report"})
+    mem.add(p, data={"source": "supplier_report"})
 for r in risk_factors:
-    mem.store(r, data={"source": "market_estimate"})
+    mem.add(r, data={"source": "market_estimate"})
 for e in events:
-    mem.store(e, data={"verification": "unverified"})
+    mem.add(e, data={"verification": "unverified"})
 
-mem.relate("supplier_acme", "widget_alpha", label="depends_on")
-mem.relate("supplier_acme", "widget_beta", label="depends_on")
+mem.link("supplier_acme", "widget_alpha", label="depends_on")
+mem.link("supplier_acme", "widget_beta", label="depends_on")
 ```
 
 **2. Run transitive reasoning:**
@@ -162,7 +162,7 @@ from hyper3 import TransitiveRule
 mem.add_rules(
     TransitiveRule(edge_label="depends_on", new_label="indirect_dependency"),
 )
-result = mem.reason(seed_concepts={"widget_alpha", "widget_beta"}, max_depth=5)
+result = mem.reason(seeds={"widget_alpha", "widget_beta"}, depth=5)
 print(f"edges produced: {result.expansion.edges_produced}")
 ```
 
@@ -218,11 +218,11 @@ This showcase demonstrates confidence propagation on a small synthetic supply ch
 | `mem.analyze_uncertainty()` | Score all nodes and return aggregate statistics |
 | `mem.trace_chain(source, target)` | Find highest-confidence path between two concepts |
 | `mem.flag_low_confidence(threshold)` | List concepts below confidence threshold |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules via multiway expansion from seed concepts |
+| `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
 | `TransitiveRule(edge_label, new_label)` | Infer A -> C from A -> B -> C chains |
-| `mem.store(concept, data)` | Create a node with optional data dict |
-| `mem.relate(source, target, label, weight)` | Add a pairwise directed edge |
+| `mem.add(concept, data)` | Create a node with optional data dict |
+| `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 
 ### Related Examples
 

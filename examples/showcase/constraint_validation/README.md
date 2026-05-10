@@ -65,7 +65,7 @@ Exact rejection counts and violation messages vary by constraint configuration. 
 - `NoSelfLoopConstraint` detects when any node ID appears in both `source_ids` and `target_ids`. The violation message names the overlapping node IDs.
 - `WeightInflationConstraint(max_weight=100, growth_factor=2.0)` rejects weight=500 (exceeds max 100) but accepts weight=2.0 and weight=0.001. The growth factor checks whether the proposed weight exceeds the average neighbor weight multiplied by the growth factor.
 - `DuplicateEdgeConstraint` compares the proposed edge's source_ids, target_ids, and label against every existing edge. An exact match on all three triggers rejection.
-- `ProvenanceDepthConstraint(max_depth=10)` reads `provenance_depth` from edge metadata and rejects when it exceeds the limit. The deep edge has `metadata.custom["provenance_depth"] = 15`, which exceeds max_depth=10.
+- `ProvenanceDepthConstraint(depth=10)` reads `provenance_depth` from edge metadata and rejects when it exceeds the limit. The deep edge has `metadata.custom["provenance_depth"] = 15`, which exceeds depth=10.
 
 Why this matters: the dual interface (`is_valid()` returning bool, `check()` returning a human-readable message) supports both programmatic filtering and debugging. A production pipeline uses `is_valid()` to silently reject bad edges, while a developer diagnosing a rejected batch uses `check()` to understand why.
 
@@ -154,7 +154,7 @@ print(f"accepted: {len(valid)}, rejected: {len(rejected)}")
 from hyper3 import TransitiveRule
 
 mem.add_rules(TransitiveRule(edge_label="relates_to", new_label="indirect"))
-result = mem.reason(seed_concepts={"concept_a"}, max_depth=3)
+result = mem.reason(seeds={"concept_a"}, depth=3)
 
 inferred = [e for e in mem.engine.graph.edges if e.label == "indirect"]
 valid, rejected = nav.validate_and_filter(inferred, mem.engine.graph)

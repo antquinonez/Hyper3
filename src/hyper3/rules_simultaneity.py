@@ -10,6 +10,7 @@ from hyper3.rules import Rule, RuleMatch
 class SimultaneityRule(Rule):
     """Rule that creates simultaneous edges between nodes that co-occur in sibling multiway states."""
     def __init__(self, multiway: MultiwayGraph) -> None:
+        """Initialize with a reference to the multiway graph for simultaneity detection."""
         self._multiway = multiway
 
     @property
@@ -62,6 +63,7 @@ class SimultaneityRule(Rule):
         return [], [edge.id]
 
     def _edge_exists(self, graph: Hypergraph, a: str, b: str) -> bool:
+        """Check whether a simultaneous-labeled edge already exists between two nodes."""
         for e in graph.incident_edges(a):
             if e.label == "simultaneous" and (
                 (a in e.source_ids and b in e.target_ids) or (b in e.source_ids and a in e.target_ids)

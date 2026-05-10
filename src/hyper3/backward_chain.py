@@ -57,6 +57,7 @@ class BackwardChainEngine:
         max_depth: int = 5,
         max_alternatives: int = 3,
     ) -> None:
+        """Initialize with a hypergraph, rule list, and chaining depth/alternative limits."""
         self._graph = graph
         self._rules = rules
         self._max_depth = max_depth

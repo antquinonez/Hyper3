@@ -14,6 +14,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
+from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
@@ -24,6 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph
+from hyper3.layered_graph import LayeredGraph
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
 from hyper3.memory_belief import BeliefMixin
@@ -58,6 +60,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
@@ -134,6 +137,7 @@ class HypergraphMemory(
     })
 
     def __dir__(self) -> list[str]:
+        """Return sorted list of public API attribute names."""
         return sorted(self._PUBLIC_API)
 
     def __contains__(self, concept: object) -> bool:
@@ -203,6 +207,8 @@ class HypergraphMemory(
         self._embedding_engine: EmbeddingEngine | None = None
         self._activation = SpreadingActivation(self._graph)
         self._retrieval = RetrievalEngine(self._graph, activation=self._activation)
+        self._semantic_builder: SemanticEdgeBuilder | None = None
+        self._layered_graph: LayeredGraph | None = None
         self._temporal = TemporalReasoner(self._graph)
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()
@@ -234,6 +240,7 @@ class HypergraphMemory(
         self._ns_monitor: MonitorNamespace | None = None
         self._ns_cognitive: CognitiveNamespace | None = None
         self._ns_engine: EngineAccessor | None = None
+        self._search_engine: SearchEngine | None = None
 
     @property
     def reason(self) -> ReasonNamespace:
@@ -298,22 +305,44 @@ class HypergraphMemory(
             self._ns_engine = EngineAccessor(self)
         return self._ns_engine
 
+    @property
+    def search_engine(self) -> SearchEngine:
+        """Lazy-initialized property returning the structured search engine."""
+        if self._search_engine is None:
+            if self._embedding_engine is None:
+                self._embedding_engine = EmbeddingEngine(self._graph)
+                self._retrieval._embedding = self._embedding_engine
+            self._search_engine = SearchEngine(
+                self._graph,
+                activation=self._activation,
+                embedding=self._embedding_engine,
+                feedback_store=self._retrieval.feedback,
+                ltr=self._retrieval.ltr,
+            )
+        return self._search_engine
+
     def centrality(self, method, *, top_k=None, **kwargs) -> Any:
+        """Shortcut delegate to analyze.centrality()."""
         return self.analyze.centrality(method, top_k=top_k, **kwargs)
 
-    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[str] | None:
+    def paths(self, source, target, *, label=None, max_depth=5, max_paths=10) -> list[list[str]]:
+        """Shortcut delegate to analyze.paths()."""
         return self.analyze.paths(source, target, label=label, max_depth=max_depth, max_paths=max_paths)
 
     def communities(self, **kwargs) -> Any:
+        """Shortcut delegate to analyze.communities()."""
         return self.analyze.communities(**kwargs)
 
     def anomalies(self, concept, **kwargs) -> Any:
+        """Shortcut delegate to analyze.anomalies()."""
         return self.analyze.anomalies(concept, **kwargs)
 
     def similar(self, concept, **kwargs) -> Any:
+        """Shortcut delegate to search.similar()."""
         return self.search.similar(concept, **kwargs)
 
     def edges(self, **kwargs) -> Any:
+        """Shortcut delegate to analyze.edges()."""
         return self.analyze.edges(**kwargs)
 
     @property

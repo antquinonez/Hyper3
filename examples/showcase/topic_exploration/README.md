@@ -8,7 +8,7 @@ Research topics have dense interconnections: causes cascade into effects, feedba
 
 **The Hyper3 approach:** Use `ConceptSet` — a chainable, scored set of concept labels — to explore the graph fluently. Start from a seed concept, expand through neighbors, filter by score or attribute, trace causal paths, rank by centrality, and identify structural gaps. Each step returns another ConceptSet, composing into a single pipeline.
 
-This showcase uses the full three-layer API: `mem.find()` (Layer 3: ConceptSet entry point), namespace methods like `mem.reason()` and `mem.analyze.centrality()` (Layer 2: namespaces), and `mem.store()`/`mem.relate()` (Layer 1: data access).
+This showcase uses the full three-layer API: `mem.find()` (Layer 3: ConceptSet entry point), namespace methods like `mem.reason()` and `mem.analyze.centrality()` (Layer 2: namespaces), and `mem.add()`/`mem.link()` (Layer 1: data access).
 
 ## 2. A Simple Analogy
 
@@ -173,10 +173,10 @@ Store 77 concepts with domain-specific metadata and wire them with 116 unique re
 
 ```python
 for label, data in concepts.items():
-    mem.store(label, data=data)
+    mem.add(label, data=data)
 
 for src, tgt, label in unique_edges:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 ```
 
 **Result:** 77 nodes, 116 edges. Single connected component.
@@ -538,8 +538,8 @@ The showcase constructs a synthetic climate science graph. Real research knowled
 
 | Method | Layer | Purpose |
 |--------|-------|---------|
-| `mem.store(label, data)` | 1 (Data) | Create a concept node with metadata |
-| `mem.relate(source, target, label)` | 1 (Data) | Create a labeled relationship edge |
+| `mem.add(label, data)` | 1 (Data) | Create a concept node with metadata |
+| `mem.link(source, target, label)` | 1 (Data) | Create a labeled relationship edge |
 | `mem.find(label)` / `mem.find(data=...)` | 3 (ConceptSet) | Entry point for chainable exploration |
 | `mem.info(label)` | 1 (Data) | Get node metadata |
 | `mem.neighbors(label, ...)` | 1 (Data) | Get neighbor labels |

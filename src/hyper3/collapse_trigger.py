@@ -23,6 +23,7 @@ class CollapseDecision(_SimpleResultBase):
 class CollapseTriggerEngine:
     """Evaluates belief states for conditions that warrant probability collapse (staleness, dominance, convergence, interference peaks)."""
     def __init__(self, belief: BeliefLayer) -> None:
+        """Initialize with a reference to the belief layer for collapse trigger evaluation."""
         self._belief = belief
 
     def evaluate(self, qs_id: str) -> CollapseDecision:

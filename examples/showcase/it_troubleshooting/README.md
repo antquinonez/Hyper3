@@ -228,7 +228,7 @@ class ITTroubleshootingEngine:
 ### Modeling N-ary Failure Conditions
 
 ```python
-self.mem.relate_hyperedge(
+self.mem.link_hyper(
     sources={"power_failure", "hardware_failure"},
     targets={"server_wont_boot"},
     label="either_condition",
@@ -279,11 +279,11 @@ tree = engine.get_issue_tree("server_wont_boot")
 
 | Feature | Hyper3 API |
 |---------|------------|
-| N-ary edges | `relate_hyperedge()` |
-| Node metadata | `store(label, data={})` |
+| N-ary edges | `link_hyper()` |
+| Node metadata | `mem.add(label, data={})` |
 | Outgoing neighbors | `mem.neighbors(concept, edge_label=..., direction="out")` |
 | Incoming neighbors | `mem.neighbors(concept, edge_label=..., direction="in")` |
-| Edge weights | `relate(source, target, label=..., weight=...)` |
+| Edge weights | `mem.link(source, target, label=..., weight=...)` |
 | Causal path finding | `mem.find_paths(source, target, edge_label=...)` |
 | Backward chaining | `mem.prove(concept, known_facts=..., edge_label=...)` |
 | Confidence scoring | `mem.compute_confidence(concept)` |

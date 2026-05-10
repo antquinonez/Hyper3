@@ -171,7 +171,7 @@ Three capabilities go beyond undirected hyperedges or pairwise graphs:
 **1. N-ary directed hyperedge**
 
 ```python
-mem.relate_hyperedge(
+mem.link_hyper(
     sources={"enzyme_a", "enzyme_b", "enzyme_c"},
     targets={"product_y"},
     label="cooperative_catalysis",
@@ -207,7 +207,7 @@ for neighbor, edges in co_neighbors.items():
 mem.add_rules(
     TransitiveRule(edge_label="catalyzes", new_label="enables_production"),
 )
-result = mem.reason(seed_concepts={"substrate_x"}, max_depth=2)
+result = mem.reason(seeds={"substrate_x"}, depth=2)
 ```
 
 ## 9. Reference
@@ -216,13 +216,13 @@ result = mem.reason(seed_concepts={"substrate_x"}, max_depth=2)
 
 | Method | Purpose |
 |--------|---------|
-| `mem.relate(source, target, label, weight)` | Create a binary directed hyperedge |
-| `mem.relate_hyperedge(sources, targets, label, weight)` | Create an n-ary directed hyperedge |
+| `mem.link(source, target, label, weight)` | Create a binary directed hyperedge |
+| `mem.link_hyper(sources, targets, label, weight)` | Create an n-ary directed hyperedge |
 | `mem.in_degree()` | Return dict mapping concept label to in-degree |
 | `mem.out_degree()` | Return dict mapping concept label to out-degree |
 | `mem.edges_labeled(edge_label)` | Iterate edges with source/target labels and cardinality |
 | `mem.hyperedge_neighbors(concept)` | Dict of co-participating concepts and shared edges |
-| `mem.reason(seed_concepts, max_depth)` | Run multiway expansion from seed nodes |
+| `mem.reason(seeds, depth)` | Run multiway expansion from seed nodes |
 | `mem.add_rules(*rules)` | Register inference rules |
 
 ### Related Examples

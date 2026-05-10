@@ -175,10 +175,10 @@ mem = HypergraphMemory(evolve_interval=0)
 
 all_entities = {**DISEASES, **SYMPTOMS, **LAB_FINDINGS, **IMAGING, **RISK_FACTORS, **MEDICATIONS}
 for name, data in all_entities.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt in CAUSES_EDGES:
-    mem.relate(src, tgt, label="causes")
+    mem.link(src, tgt, label="causes")
 ```
 
 **Result:** 92 nodes, 139 edges. Each node carries typed data (category, severity, specificity, normal ranges) that downstream analysis uses for filtering.
@@ -192,7 +192,7 @@ mem.add_rules(
     TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     InverseRule(edge_label="causes", inverse_label="caused_by"),
 )
-mem.reason(seed_concepts=set(DISEASES.keys()) | set(SYMPTOMS.keys()), max_depth=3, max_total_states=80)
+mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), depth=3, max_total_states=80)
 
 patient_findings = {"fever", "cough", "productive_cough", "dyspnea", "pleuritic_chest_pain", "tachycardia"}
 ddx = ["pneumonia", "pulmonary_embolism", "bronchitis", "pleural_effusion", "copd_exacerbation"]
@@ -210,10 +210,10 @@ for dx in ddx:
 Clinical evidence can be contradictory. A chest infiltrate on X-ray supports pneumonia, but a negative blood culture opposes it. Hyper3 detects such contradictions through `detect_contradictions()` and resolves them with `revise_beliefs()`:
 
 ```python
-mem.store("patient_ct_result", data={"finding": "chest_infiltrate_xray"})
-mem.relate("patient_ct_result", "pneumonia", label="supports")
-mem.store("negative_blood_culture", data={"finding": "no_bacteremia"})
-mem.relate("negative_blood_culture", "pneumonia", label="opposes")
+mem.add("patient_ct_result", data={"finding": "chest_infiltrate_xray"})
+mem.link("patient_ct_result", "pneumonia", label="supports")
+mem.add("negative_blood_culture", data={"finding": "no_bacteremia"})
+mem.link("negative_blood_culture", "pneumonia", label="opposes")
 
 contradictions = mem.detect_contradictions()
 revision = mem.revise_beliefs(strategy="higher_weight")
@@ -298,7 +298,7 @@ ddx_concepts = [
 ]
 ddx_amplitudes = [0.70, 0.35, 0.30, 0.20, 0.25]
 
-qs = mem.create_distribution(ddx_concepts, amplitudes=ddx_amplitudes)
+qs = mem.belief.create(ddx_concepts, amplitudes=ddx_amplitudes)
 outcome = mem.sample(qs)
 ```
 
@@ -331,7 +331,7 @@ anomaly_concepts = [
 ]
 
 for concept in anomaly_concepts:
-    result = mem.detect_structural_anomalies(concept)
+    result = mem.analyze.anomalies(concept)
 ```
 
 **Why anomaly detection matters:** In a clinical knowledge graph, a symptom caused by many diseases is a diagnostic bottleneck — it appears in many presentations but discriminates between few. Structural anomaly detection identifies these bottlenecks automatically through graph topology, flagging concepts where additional testing would be most valuable. Without this analysis, a clinician might not realize that a common symptom like cough is the least informative finding because so many diseases produce it.
@@ -477,10 +477,10 @@ SYMPTOMS = {
 mem = HypergraphMemory(evolve_interval=0)
 
 for name, data in all_entities.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt in CAUSES_EDGES:
-    mem.relate(src, tgt, label="causes")
+    mem.link(src, tgt, label="causes")
 ```
 
 **3. Add Inference Rules and Reason**
@@ -490,7 +490,7 @@ mem.add_rules(
     TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     InverseRule(edge_label="causes", inverse_label="caused_by"),
 )
-mem.reason(seed_concepts=set(DISEASES.keys()) | set(SYMPTOMS.keys()), max_depth=3)
+mem.reason(seeds=set(DISEASES.keys()) | set(SYMPTOMS.keys()), depth=3)
 ```
 
 **4. Backward Chaining for Diagnosis**
@@ -505,8 +505,8 @@ print(f"Missing evidence: {result.missing_premises}")
 **5. Belief Revision**
 
 ```python
-mem.relate("ct_infiltrate", "pneumonia", label="supports")
-mem.relate("negative_culture", "pneumonia", label="opposes")
+mem.link("ct_infiltrate", "pneumonia", label="supports")
+mem.link("negative_culture", "pneumonia", label="opposes")
 
 contradictions = mem.detect_contradictions()
 revision = mem.revise_beliefs(strategy="higher_weight")
@@ -515,7 +515,7 @@ revision = mem.revise_beliefs(strategy="higher_weight")
 **6. Probabilistic Differential Diagnosis**
 
 ```python
-qs = mem.create_distribution(
+qs = mem.belief.create(
     ["pneumonia", "pulmonary_embolism", "bronchitis"],
     amplitudes=[0.70, 0.35, 0.30],
 )
@@ -527,7 +527,7 @@ print(f"Sampled diagnosis: {node.label}")
 **7. Structural Anomaly Detection**
 
 ```python
-result = mem.detect_structural_anomalies("cough")
+result = mem.analyze.anomalies("cough")
 print(f"Status: {result.anomaly_status}, score: {result.boundary_score:.3f}")
 for insight in result.structural_insights:
     print(f"  - {insight}")
@@ -578,10 +578,10 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a clinical entity node |
-| `mem.relate(source, target, label)` | Create a semantic clinical edge |
+| `mem.add(label, data)` | Create a clinical entity node |
+| `mem.link(source, target, label)` | Create a semantic clinical edge |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules to generate inferred edges |
+| `mem.reason(seeds, depth)` | Apply rules to generate inferred edges |
 | `mem.prove(concept, known_facts)` | Backward-chain from diagnosis to evidence |
 | `mem.detect_contradictions()` | Find opposing evidence edges |
 | `mem.revise_beliefs(strategy)` | Resolve contradictions by edge weight |
@@ -591,9 +591,9 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | `mem.match_diamonds(edge_label)` | Find convergent symptom patterns |
 | `mem.match_fan_out(edge_label, min_fan)` | Find diseases with many manifestations |
 | `mem.match_chains(edge_label, min_length)` | Find inference chains of minimum length |
-| `mem.create_distribution(concepts, amplitudes)` | Create a belief distribution over candidate diagnoses |
+| `mem.belief.create(concepts, amplitudes)` | Create a belief distribution over candidate diagnoses |
 | `mem.sample(distribution)` | Collapse a belief distribution to a single diagnosis via the Born rule |
-| `mem.detect_structural_anomalies(concept)` | Identify diagnostic bottlenecks through graph topology |
+| `mem.analyze.anomalies(concept)` | Identify diagnostic bottlenecks through graph topology |
 
 ### Related Examples
 

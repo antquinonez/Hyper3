@@ -1,6 +1,6 @@
 # Managing Competing Hypotheses Under Uncertainty
 
-> Production outage hypothesis management using belief distributions, weighted sampling, correlation, interference detection, and entropy on a 62-node incident graph.
+> Production outage hypothesis management using belief distributions, weighted sampling, correlation, interference detection, entropy, Bayesian posterior updating, and confidence assessment on a 63-node incident graph.
 
 ## 1. The Approach
 
@@ -286,7 +286,28 @@ The pure state caveat: the script creates a distribution with amplitudes `[0.6, 
 
 Why this matters: entropy gives a single number for "how uncertain are we?" A confident diagnosis has low entropy; a wild guess has high entropy. Tracking entropy over time shows whether the investigation is converging.
 
-### Section 7: Honest Comparison with Bayesian Inference
+### Section 7: Bayesian Posterior Updating
+
+While the belief layer represents uncertainty, the Bayesian subsystem reduces it by applying Bayes' rule as evidence arrives. Starting from a uniform prior over five root causes, three sequential evidence updates converge on certificate_expiry:
+
+| Evidence | certificate_expiry | db_pool | dns_failure | memory_leak | kafka |
+|----------|-------------------|---------|-------------|-------------|-------|
+| Prior | 0.200 | 0.200 | 0.200 | 0.200 | 0.200 |
+| SSL alert + cert logs | 0.727 | 0.086 | 0.128 | 0.043 | 0.017 |
+| No DNS issues other services | 0.913 | 0.046 | 0.023 | 0.015 | 0.003 |
+| DB pool metrics moderate | 0.922 | 0.056 | 0.009 | 0.012 | 0.001 |
+
+After all evidence, certificate_expiry has 92.2% posterior probability with a Bayes factor of 99.17 against the second hypothesis (strong evidence). The 95% credible set contains certificate_expiry and db_connection_pool_exhaustion.
+
+Why this matters: the Bayesian subsystem provides the same functionality as `sample()` with context weights, but with explicit prior-posterior tracking, KL divergence measurement, and formal hypothesis testing. It is the clearer API for sequential evidence accumulation.
+
+### Section 8: Confidence Assessment and Knowledge Gaps
+
+After Bayesian analysis identifies the most probable root cause, the confidence subsystem evaluates how reliable each part of the knowledge graph is. Each concept receives a confidence score based on provenance depth and graph structure. The section traces confidence chains from root causes to impact nodes and flags low-confidence areas as knowledge gaps.
+
+Why this matters: even when Bayesian analysis converges on a diagnosis, individual concepts in the knowledge graph may have varying reliability. Confidence scoring surfaces weak areas where additional relationships or evidence would improve diagnostic quality.
+
+### Section 9: Honest Comparison with Bayesian Inference
 
 The script explicitly compares the belief layer against Bayesian inference:
 
@@ -340,7 +361,7 @@ A sampling frequency matching the expected posterior (e.g., 40.7% vs 40.7%) conf
 
 | Metric | Value |
 |--------|-------|
-| Graph nodes | 62 |
+| Graph nodes | 63 |
 | Graph edges | 104 |
 | Root cause hypotheses | 5 |
 | Evidence nodes | 14 |
@@ -367,6 +388,9 @@ A sampling frequency matching the expected posterior (e.g., 40.7% vs 40.7%) conf
 | Shannon entropy of pure state probs | 0.857331 bits |
 | Max correlation | +0.6 (`dns_failure` <-> `db_pool_exhaustion`) |
 | Min correlation | -0.1 (`cert_expiry` <-> `db_pool_exhaustion`) |
+| Bayesian MAP estimate | `certificate_expiry` (92.2% posterior) |
+| Bayes factor (cert_expiry vs dns_failure) | 99.17 (strong evidence) |
+| 95% credible set | [`certificate_expiry`, `db_connection_pool_exhaustion`] |
 
 ## 9. What Makes This Different
 
@@ -386,10 +410,10 @@ import numpy as np
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("certificate_expiry", data={"category": "security", "severity": "critical"})
-mem.store("dns_resolution_failure", data={"category": "network", "severity": "critical"})
-mem.relate("log_ssl_cert_invalid", "certificate_expiry", label="supports")
-mem.relate("alert_ssl_expiry_0_days", "certificate_expiry", label="supports")
+mem.add("certificate_expiry", data={"category": "security", "severity": "critical"})
+mem.add("dns_resolution_failure", data={"category": "network", "severity": "critical"})
+mem.link("log_ssl_cert_invalid", "certificate_expiry", label="supports")
+mem.link("alert_ssl_expiry_0_days", "certificate_expiry", label="supports")
 
 hypotheses = [
     "certificate_expiry", "dns_resolution_failure",
@@ -397,7 +421,7 @@ hypotheses = [
     "kafka_partition_rebalance",
 ]
 
-qs = mem.create_distribution(concepts=hypotheses)
+qs = mem.belief.create(concepts=hypotheses)
 for outcome in qs.outcomes:
     print(f"{outcome.label}: probability={outcome.probability:.4f}")
 
@@ -419,7 +443,7 @@ ent = mem.correlate(
     },
 )
 
-qs_agg = mem.create_distribution(
+qs_agg = mem.belief.create(
     concepts=["certificate_expiry", "certificate_expiry"],
     amplitudes=[0.7, 0.5],
     use_context_field=False,
@@ -449,13 +473,23 @@ print(f"Max entropy for 3 outcomes: {entropy:.6f} bits")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.create_distribution(concepts, amplitudes, use_context_field)` | Creates a belief state over the given concepts. Without amplitudes, uses spreading activation from graph connectivity. |
+| `mem.belief.create(concepts, amplitudes, use_context_field)` | Creates a belief state over the given concepts. Without amplitudes, uses spreading activation from graph connectivity. |
 | `mem.sample(qs, context)` | Samples one outcome proportional to `|amplitude|^2 * context_weight`. Returns the selected node. |
 | `mem.correlate(group_a, group_b, correlations)` | Creates a correlation matrix between two hypothesis groups. |
 | `mem.sample_correlated(qs, observed_label)` | Samples correlated outcomes given an observation. |
 | `mem.compute_interactions(qs)` | Computes interference patterns for duplicate hypotheses in a distribution. Returns `is_constructive`, `is_destructive`, `net_amplitude`. |
 | `mem.belief.von_neumann_entropy(rho)` | Computes `S = -Tr(rho log2 rho)` for a density matrix. |
 | `mem.belief.compute_density_matrix(qs_id)` | Computes `rho = |psi><psi|` for a quantum state. |
+| `mem.set_prior(concept, outcomes, weights)` | Creates a Bayesian prior distribution over named outcomes. |
+| `mem.update_belief(concept, evidence_name, likelihoods)` | Applies evidence via Bayes' rule, returning posterior and KL divergence. |
+| `mem.get_belief(concept)` | Retrieves the current posterior distribution. |
+| `mem.map_estimate(concept)` | Returns the label of the most probable hypothesis. |
+| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Computes the cumulative Bayes factor between two hypotheses. |
+| `mem.credible_set(concept, level)` | Returns the smallest set of hypotheses covering `level` probability mass. |
+| `mem.compute_all_confidences()` | Computes confidence scores for every concept in the graph. |
+| `mem.compute_confidence(concept)` | Computes a single concept's confidence score. |
+| `mem.flag_low_confidence(threshold)` | Finds concepts below a confidence threshold. |
+| `mem.trace_confidence_chain(source, target)` | Finds the highest-confidence path between two concepts. |
 
 ### Related Examples
 

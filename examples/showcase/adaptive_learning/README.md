@@ -439,8 +439,8 @@ This showcase constructs a synthetic graph and records pre-defined outcomes. Pro
 | Method | Purpose |
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
-| `mem.store(concept, data=...)` | Create a node with typed data |
-| `mem.relate(source, target, label=..., weight=...)` | Create a directed edge with semantic label |
+| `mem.add(concept, data=...)` | Create a node with typed data |
+| `mem.link(source, target, label=..., weight=...)` | Create a directed edge with semantic label |
 | `mem.rule_analytics` | Access the rule effectiveness tracker |
 | `analytics.record_rule_outcome(rule, outcome)` | Record a rule application outcome |
 | `analytics.get_rule_effectiveness()` | Get per-rule effectiveness metrics |
@@ -449,7 +449,7 @@ This showcase constructs a synthetic graph and records pre-defined outcomes. Pro
 | `quantum.record_basis_outcome(basis, success)` | Record a basis selection outcome |
 | `quantum.get_effective_basis()` | Thompson-sample a basis |
 | `quantum.basis_effectiveness` | Dict of basis name to success rate |
-| `mem.create_distribution(concepts)` | Create a belief distribution over concepts |
+| `mem.belief.create(concepts)` | Create a belief distribution over concepts |
 | `mem.sample_with_profile(qs, basis)` | Sample from distribution using a specific basis |
 | `mem.perspective` | Access the multi-frame analyzer |
 | `analyzer.record_frame_outcome(frame, success)` | Record a frame application outcome |

@@ -144,16 +144,16 @@ papers = ["paper_transformers", "paper_gnn", "paper_cnn"]
 institutions = ["mit_lab", "stanford_lab"]
 
 for t in topics:
-    mem.store(t, data={"type": "topic"})
+    mem.add(t, data={"type": "topic"})
 for a in authors:
-    mem.store(a, data={"type": "author"})
+    mem.add(a, data={"type": "author"})
 for p in papers:
-    mem.store(p, data={"type": "paper"})
+    mem.add(p, data={"type": "paper"})
 for i in institutions:
-    mem.store(i, data={"type": "institution"})
+    mem.add(i, data={"type": "institution"})
 
-mem.relate("alice_chen", "paper_transformers", label="writes")
-mem.relate("alice_chen", "mit_lab", label="affiliated_with")
+mem.link("alice_chen", "paper_transformers", label="writes")
+mem.link("alice_chen", "mit_lab", label="affiliated_with")
 
 v0 = mem.capture_version()
 print(f"v0: nodes={v0.node_count}, edges={v0.edge_count}")
@@ -162,9 +162,9 @@ print(f"v0: nodes={v0.node_count}, edges={v0.edge_count}")
 **2. Edit and capture new version:**
 
 ```python
-mem.store("paper_diffusion", data={"type": "paper"})
-mem.relate("alice_chen", "carol_wu", label="collaborates_with")
-mem.relate("alice_chen", "paper_diffusion", label="writes")
+mem.add("paper_diffusion", data={"type": "paper"})
+mem.link("alice_chen", "carol_wu", label="collaborates_with")
+mem.link("alice_chen", "paper_diffusion", label="writes")
 
 v1 = mem.capture_version()
 delta = mem.diff_from_version(0)
@@ -184,8 +184,8 @@ for v in history.versions:
 **4. Rollback to a previous version:**
 
 ```python
-mem.store("bad_node_1", data={"type": "error"})
-mem.relate("bad_node_1", "alice_chen", label="spurious")
+mem.add("bad_node_1", data={"type": "error"})
+mem.link("bad_node_1", "alice_chen", label="spurious")
 
 rollback = mem.rollback_to_version(2)
 print(f"changes undone: {rollback.changes_undone}")
@@ -221,8 +221,8 @@ This showcase demonstrates version control on a small research knowledge graph. 
 | `mem.rollback_to_version(version_id)` | Restore the graph to a previous version, undoing all changes |
 | `mem.version_history()` | Return timeline of all captured versions |
 | `mem.diff_from_snapshot(snapshot)` | Compute delta between current graph and an external snapshot dict |
-| `mem.store(concept, data)` | Create a node with optional data dict |
-| `mem.relate(source, target, label, weight)` | Add a pairwise directed edge |
+| `mem.add(concept, data)` | Create a node with optional data dict |
+| `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.describe()` | Return graph statistics (nodes, edges, density, components) |
 
 ### Related Examples

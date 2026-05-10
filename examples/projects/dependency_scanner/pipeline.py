@@ -1,8 +1,6 @@
 """
 Software Dependency Security Scanner Pipeline (Prefect + Hyper3)
-import os
-os.environ.setdefault("PREFECT_LOGGING_TO_API_WHEN_MISSING_FLOW", "ignore")
-=================================================================
+================================================================
 
 A production-grade data pipeline that:
 

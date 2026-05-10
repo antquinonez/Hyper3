@@ -256,7 +256,7 @@ for label, wd in sorted(weighted_deg.items()):
 **Multi-stat comparison:**
 
 ```python
-cent = mem.degree_centrality()
+cent = mem.analyze.centrality("degree", )
 pr = mem.pagerank()
 for label in sorted(cent.keys()):
     print(f"{label:>8} {cent[label]:>10.4f} {pr.get(label, 0.0):>10.4f}")
@@ -268,8 +268,8 @@ for label in sorted(cent.keys()):
 before_deg = mem.degree()
 before_density = mem.density()
 
-mem.stimulate("a", energy=1.0)
-mem.spread_activation(iterations=2)
+mem.activate("a", energy=1.0)
+mem.activate(iterations=2)
 mem.hebbian_reinforce()
 evolve_result = mem.evolve()
 
@@ -281,7 +281,7 @@ print(f"edges decayed: {evolve_result.decayed}")
 **Community detection:**
 
 ```python
-comm_result = mem.detect_communities(seed=42)
+comm_result = mem.analyze.communities(seed=42)
 print(f"communities: {comm_result.community_count}")
 for community in comm_result.communities:
     print(f"  {sorted(community.member_labels)} ({community.size} nodes)")
@@ -302,17 +302,17 @@ for community in comm_result.communities:
 |--------|---------|-------|
 | `mem.degree()` | `dict[str, int]` | Label-to-degree mapping |
 | `mem.degree(weighted=True)` | `dict[str, float]` | Sum of incident edge weights |
-| `mem.degree_centrality()` | `dict[str, float]` | Normalized degree / (n-1) |
+| `mem.analyze.centrality("degree", )` | `dict[str, float]` | Normalized degree / (n-1) |
 | `mem.pagerank()` | `dict[str, float]` | Iterative weight propagation |
 | `mem.query_nodes(data=...)` | `list[str]` | Exact data-attribute match |
 | `mem.ensure(concept, data=..., update=True)` | — | Idempotent node creation with data merge |
 | `mem.engine.graph.edges` | iterable of `Hyperedge` | Access `node_ids`, `weight` |
-| `mem.relate_hyperedge(sources, targets, label)` | `Hyperedge` | Create n-ary edge |
-| `mem.stimulate(concept, energy=...)` | — | Inject activation energy into a node |
-| `mem.spread_activation(iterations=...)` | — | Propagate activation across edges |
+| `mem.link_hyper(sources, targets, label)` | `Hyperedge` | Create n-ary edge |
+| `mem.activate(concept, energy=...)` | — | Inject activation energy into a node |
+| `mem.activate(iterations=...)` | — | Propagate activation across edges |
 | `mem.hebbian_reinforce()` | — | Strengthen edges between co-activated nodes |
 | `mem.evolve()` | `EvolveResult` | Decay, prune, merge, reinforce; returns counts |
-| `mem.detect_communities(seed=...)` | `CommunityResult` | Label-propagation partitioning with modularity |
+| `mem.analyze.communities(seed=...)` | `CommunityResult` | Label-propagation partitioning with modularity |
 | `mem.density()` | `float` | Edge-to-node ratio |
 
 ### Related Examples

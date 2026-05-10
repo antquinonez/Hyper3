@@ -152,19 +152,24 @@ class TemporalMixin(_MemoryBase):
         return list(self._temporal._events.values())
 
     def get_temporal_event(self, event_id: str) -> TemporalEvent | None:
+        """Retrieve a temporal event by ID."""
         return self._temporal.get_event(event_id)
 
     def detect_temporal_causal_chains(self, *, min_chain_length: int = 3,
                                        max_chains: int = 1000) -> list[list[str]]:
+        """Detect causal chains in the temporal event graph."""
         return self._temporal.detect_causal_chains(
             min_chain_length=min_chain_length, max_chains=max_chains)
 
     def infer_temporal_constraints(self) -> list[Any]:
+        """Infer Allen interval constraints between temporal events."""
         return self._temporal.infer_constraints()
 
     def check_temporal_constraint_consistency(self) -> list[dict[str, Any]]:
+        """Check the consistency of the inferred temporal constraint network."""
         return self._temporal.check_constraint_consistency()
 
     def add_temporal_constraint(self, event_a: str, event_b: str, relation: AllenRelation,
                                  confidence: float = 1.0) -> Any:
+        """Add an explicit temporal constraint between two events using an Allen relation."""
         return self._temporal.add_constraint(event_a, event_b, relation, confidence=confidence)

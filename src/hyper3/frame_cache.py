@@ -43,6 +43,7 @@ class FrameCache:
         frame_quota: int = 256,
         default_ttl: float = 300.0,
     ) -> None:
+        """Create a general-purpose cache with per-frame partition support."""
         self._max_total_size = max_total_size
         self._frame_quota = frame_quota
         self._default_ttl = default_ttl
@@ -194,6 +195,9 @@ class FrameCache:
             all_keys.extend(k for k in cache._cache if k not in self._general._cache)
         return all_keys
 
+    def __iter__(self):
+        return iter(self.keys())
+
     def to_dict(self) -> dict[str, Any]:
         """Serialize the cache configuration (sizes, quotas, TTL) to a plain dict."""
         return {
@@ -218,6 +222,7 @@ class FrameCache:
         return fc
 
     def _ensure_frame(self, frame: str) -> None:
+        """Lazily create a dedicated cache partition for a named computational frame."""
         if frame in self._frames:
             return
         current_general = self._general._max_size

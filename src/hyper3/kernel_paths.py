@@ -223,6 +223,7 @@ class PathMixin(_GraphBase):
         return dist
 
     def _all_eccentricities(self) -> dict[str, int]:
+        """Compute eccentricity (max BFS distance) for every node."""
         ecc: dict[str, int] = {}
         for nid in self._nodes:
             dists = self._bfs_all_distances(nid)
@@ -294,6 +295,7 @@ class PathMixin(_GraphBase):
         return [nid for nid, e in ecc.items() if e == r]
 
     def _projected_successors(self) -> dict[str, set[str]]:
+        """Build a directed successor map from the pairwise projection of source-to-target pairs."""
         succ: dict[str, set[str]] = {nid: set() for nid in self._nodes}
         for edge in self._edges.values():
             for s in edge.source_ids:
@@ -430,6 +432,7 @@ class PathMixin(_GraphBase):
         return max(dist.values())
 
     def _projected_undirected_neighbors(self) -> dict[str, set[str]]:
+        """Build an undirected neighbor map from the pairwise projection."""
         nbrs: dict[str, set[str]] = {nid: set() for nid in self._nodes}
         for edge in self._edges.values():
             members = list(edge.node_ids)
@@ -440,6 +443,7 @@ class PathMixin(_GraphBase):
         return nbrs
 
     def _edge_count_undirected(self) -> int:
+        """Count unique undirected edges in the pairwise projection."""
         seen: set[frozenset[str]] = set()
         for edge in self._edges.values():
             members = list(edge.node_ids)
@@ -507,7 +511,7 @@ class PathMixin(_GraphBase):
         """Compute minimum spanning edges via Kruskal algorithm. Operates on the pairwise projection. Note: a k-node hyperedge generates k*(k-1)/2 candidate edges, each with the hyperedge weight."""
         if not self._nodes:
             return []
-        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight, reverse=True)
+        edges_sorted = sorted(self._edges.values(), key=lambda e: e.weight)
         parent: dict[str, str] = {nid: nid for nid in self._nodes}
         rank: dict[str, int] = {nid: 0 for nid in self._nodes}
 
@@ -600,6 +604,7 @@ class PathMixin(_GraphBase):
         return list(remaining)
 
     def _build_capacity_map(self) -> dict[tuple[str, str], float]:
+        """Build a (source, target) -> capacity map from all edges."""
         cap: dict[tuple[str, str], float] = {}
         for edge in self._edges.values():
             for s in edge.source_ids:
@@ -611,6 +616,7 @@ class PathMixin(_GraphBase):
         return cap
 
     def _adj_from_capacity(self, cap: dict[tuple[str, str], float]) -> dict[str, dict[str, float]]:
+        """Build an adjacency dict from a capacity map."""
         adj: dict[str, dict[str, float]] = {nid: {} for nid in self._nodes}
         for (u, v), c in cap.items():
             adj[u][v] = adj[u].get(v, 0.0) + c
@@ -765,6 +771,7 @@ class PathMixin(_GraphBase):
         return global_best, global_partition
 
     def _undirected_weighted_edges(self) -> list[tuple[str, str, float]]:
+        """Collect undirected weighted edges with summed weights from the pairwise projection."""
         weight_map: dict[frozenset[str], float] = {}
         pair_order: dict[frozenset[str], tuple[str, str]] = {}
         for edge in self._edges.values():
@@ -961,6 +968,7 @@ class PathMixin(_GraphBase):
         return basis
 
     def _build_s_line_graph(self, s: int) -> nx.Graph:
+        """Build a networkx s-line graph where edges sharing >= s vertices are connected."""
         lg = nx.Graph()
         edge_ids = list(self._edges.keys())
         for eid in edge_ids:

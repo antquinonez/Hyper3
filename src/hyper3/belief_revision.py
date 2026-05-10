@@ -110,6 +110,7 @@ class ContradictionResolver:
         custom_negations: dict[str, str] | None = None,
         resolution_strategy: str = "higher_confidence",
     ) -> None:
+        """Initialize with a hypergraph, provenance tracker, resolution strategy, and negation label map."""
         self._graph = graph
         self._provenance = provenance
         self._resolution_strategy = resolution_strategy

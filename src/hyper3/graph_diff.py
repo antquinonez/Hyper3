@@ -76,6 +76,7 @@ class GraphDiffer:
     """Captures graph versions, computes deltas between snapshots, and supports rollback to prior versions."""
 
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a hypergraph reference, empty version history, and zeroed version counter."""
         self._graph = graph
         self._history: list[GraphVersion] = []
         self._version_counter = 0

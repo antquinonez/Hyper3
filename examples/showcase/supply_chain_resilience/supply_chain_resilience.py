@@ -581,9 +581,6 @@ def main():
     print(f"\n  Seed nodes for reasoning: {len(cascade_seeds)}")
 
     print("\n  Phase 1: Risk cascade reasoning (affected_by)...")
-    mem.add_rules(
-        TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by"),
-    )
     result1 = mem.reason(
         seeds=cascade_seeds,
         max_depth=3,
@@ -595,10 +592,6 @@ def main():
     print(f"    New edges:       {exp1.edges_produced}")
 
     print("\n  Phase 2: Indirect supply chain reasoning (supplies_to)...")
-    mem.add_rules(
-        TransitiveRule(edge_label="supplies_to", new_label="indirectly_supplies"),
-        InverseRule(edge_label="supplies_to", inverse_label="supplied_by"),
-    )
     result2 = mem.reason(
         seeds=cascade_seeds,
         max_depth=3,

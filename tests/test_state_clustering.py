@@ -1726,8 +1726,9 @@ class TestEmbeddingCosineDistanceNoneFallback:
         s2 = MultiwayState(parent_id=s1.id, active_node_ids=frozenset({"b"}), depth=1)
         mw.add_state(s1)
         mw.add_state(s2)
-        from hyper3.embedding import EmbeddingEngine
         import numpy as np
+
+        from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         bs = StateClusteringEngine(g, mw, embedding_engine=emb)
         bs._state_embeddings[s1.id] = np.zeros(5)
@@ -1846,8 +1847,9 @@ class TestRankNovelBySimilarityEdgeCases:
         mw = MultiwayGraph()
         root = MultiwayState(active_node_ids=frozenset({"r1"}))
         mw.add_state(root)
-        from hyper3.embedding import EmbeddingEngine
         import numpy as np
+
+        from hyper3.embedding import EmbeddingEngine
         emb = EmbeddingEngine(g)
         emb._embedding_cache["r1"] = np.array([1.0, 0.0])
         emb._embedding_cache["r2"] = np.array([-1.0, 0.0])

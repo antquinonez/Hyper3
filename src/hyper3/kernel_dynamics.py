@@ -72,6 +72,7 @@ class DynamicsMixin:
         runs_config_model: int = 10,
         seed: int | None = None,
     ) -> MotifResult:
+        """Detect undirected motifs by comparing observed counts against a configuration model."""
         pairwise = self._pairwise_adjacency()
         node_list = list(pairwise.keys())
         if len(node_list) < order:
@@ -111,6 +112,7 @@ class DynamicsMixin:
         )
 
     def _pairwise_adjacency(self) -> dict[str, set[str]]:
+        """Build an undirected adjacency dict from the pairwise projection."""
         adj: dict[str, set[str]] = {}
         for nid in self._nodes:
             adj[nid] = set()
@@ -128,6 +130,7 @@ class DynamicsMixin:
         node_list: list[str],
         order: int,
     ) -> dict[str, int]:
+        """Count motif occurrences by degree-sequence signature over all node combinations."""
         counts: dict[str, int] = {}
         for combo in itertools.combinations(node_list, order):
             deg_seq = sorted(
@@ -143,6 +146,7 @@ class DynamicsMixin:
         node_list: list[str],
         rng: random.Random,
     ) -> dict[str, set[str]]:
+        """Randomize edges via degree-preserving double-edge swaps for null model generation."""
         edges = [(u, v) for u in node_list for v in adj.get(u, set()) if u < v]
         if not edges:
             return {n: set() for n in node_list}
@@ -185,6 +189,7 @@ class DynamicsMixin:
         timesteps: int = 100,
         seed: int | None = None,
     ) -> ContagionResult:
+        """Simulate simplicial SIS contagion with pairwise and higher-order infection terms."""
         rng = random.Random(seed)
         n = len(self._nodes)
         if n == 0:
@@ -237,6 +242,7 @@ class DynamicsMixin:
         dt: float = 0.002,
         seed: int | None = None,
     ) -> KuramotoResult:
+        """Simulate Kuramoto oscillator synchronization with pairwise and triplet coupling."""
         import numpy as np
 
         node_list = [n.id for n in self._nodes.values()]
@@ -304,6 +310,7 @@ class DynamicsMixin:
         integration_step: float = 0.01,
         seed: int | None = None,
     ) -> MSFResult:
+        """Compute the master stability function for synchronization analysis via Lyapunov exponents."""
         import numpy as np
 
         node_list = [n.id for n in self._nodes.values()]
@@ -349,6 +356,7 @@ class DynamicsMixin:
         integration_step: float,
         seed: int | None,
     ) -> float:
+        """Compute the maximum Lyapunov exponent for a given coupling strength alpha."""
         import numpy as np
 
         np_rng = np.random.default_rng(seed)
@@ -393,6 +401,7 @@ class DynamicsMixin:
         runs_config_model: int = 10,
         seed: int | None = None,
     ) -> DirectedMotifResult:
+        """Detect directed motifs by comparing observed counts against a directed configuration model."""
         adj = self._directed_pairwise_adjacency()
         node_list = list(adj.keys())
         if len(node_list) < order:
@@ -432,6 +441,7 @@ class DynamicsMixin:
         )
 
     def _directed_pairwise_adjacency(self) -> dict[str, set[str]]:
+        """Build a directed adjacency dict from source-to-target pairs."""
         adj: dict[str, set[str]] = {}
         for nid in self._nodes:
             adj[nid] = set()
@@ -447,6 +457,7 @@ class DynamicsMixin:
         node_list: list[str],
         order: int,
     ) -> dict[str, int]:
+        """Count directed motif occurrences using canonical labeling."""
         counts: dict[str, int] = {}
         for combo in itertools.combinations(node_list, order):
             idx_map = {n: i for i, n in enumerate(combo)}
@@ -467,6 +478,7 @@ class DynamicsMixin:
         node_list: list[str],
         rng: random.Random,
     ) -> dict[str, set[str]]:
+        """Randomize directed edges via degree-preserving swaps for null model generation."""
         edges = [(u, v) for u in node_list for v in adj.get(u, set())]
         if not edges:
             return {n: set() for n in node_list}
@@ -501,6 +513,7 @@ class DynamicsMixin:
         return result
 
     def transition_matrix(self) -> Any:
+        """Delegate to SpectralMixin.transition_matrix."""
         from hyper3.kernel_spectral import SpectralMixin
 
         return SpectralMixin.transition_matrix(self)  # type: ignore[arg-type]

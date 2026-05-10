@@ -102,12 +102,12 @@ mem = HypergraphMemory(evolve_interval=0, rules=[
 ])
 
 for concept in ["quantum_computing", "machine_learning", "cryptography", ...]:
-    mem.store(concept, data={"type": "concept"})
+    mem.add(concept, data={"type": "concept"})
 
-mem.relate("quantum_computing", "machine_learning", label="influences", weight=3.0)
+mem.link("quantum_computing", "machine_learning", label="influences", weight=3.0)
 
-result = mem.reason(seed_concepts={"quantum_computing"}, max_depth=3)
-mem.create_distribution(["quantum_computing", "machine_learning", "cryptography"])
+result = mem.reason(seeds={"quantum_computing"}, depth=3)
+mem.belief.create(["quantum_computing", "machine_learning", "cryptography"])
 ```
 
 **2. Capture a full system snapshot:**

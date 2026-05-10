@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from hyper3.cache import LazyCache
 from hyper3.embedding import EmbeddingEngine, EmbeddingProvider
+from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.feedback import OperationFeedback
+from hyper3.layered_graph import LayeredGraph
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import FeedbackSummaryResult, TrainResult
 from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
@@ -61,6 +63,40 @@ class RetrievalMixin(_MemoryBase):
     def clear_activations(self) -> None:
         """Clear all activation values."""
         self._activation.clear()
+
+    def build_semantic_layer(self, *, top_k: int = 10, threshold: float = 0.7) -> int:
+        """Build a semantic edge layer from embedding similarity.
+
+        Creates a secondary graph with ``semantic_sim`` edges weighted by
+        cosine similarity. Replaces the current activation engine with one
+        that traverses both structural and semantic edges.
+
+        Returns the number of semantic edges created.
+        """
+        if self._embedding_engine is None:
+            self._embedding_engine = EmbeddingEngine(self._graph)
+            self._retrieval._embedding = self._embedding_engine
+        if self._semantic_builder is None:
+            self._semantic_builder = SemanticEdgeBuilder(self._graph, self._embedding_engine)
+        self._semantic_builder.build(top_k=top_k, threshold=threshold)
+        layer = self._semantic_builder.layer
+        assert layer is not None
+        self._layered_graph = LayeredGraph(self._graph, layer)
+        self._activation = SpreadingActivation(self._layered_graph)  # type: ignore[arg-type]
+        self._search_engine = None
+        self._log.record("build_semantic_layer", edges=layer.edge_count)
+        return layer.edge_count
+
+    def semantic_layer_dirty(self) -> bool:
+        """Return True if the semantic layer needs rebuilding."""
+        if self._semantic_builder is None:
+            return False
+        return self._semantic_builder.is_dirty()
+
+    @property
+    def semantic_layer(self) -> LayeredGraph | None:
+        """Return the layered graph if a semantic layer has been built."""
+        return self._layered_graph
 
     def record_feedback(self, query: str, results: list, relevant_labels: set[str]) -> int:
         """Record relevance feedback for a retrieval result.

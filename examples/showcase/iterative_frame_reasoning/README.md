@@ -356,10 +356,10 @@ The `RobustReachabilityDetector` reports confidence 0.792 for the 38 invariant n
 mem = HypergraphMemory(evolve_interval=0)
 
 for name, data in all_entities.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label in relations:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 
 mem.add_rules(
     TransitiveRule(edge_label="depends_on", new_label="indirect_depends_on"),
@@ -417,7 +417,7 @@ disagreeing = union_all - intersection_all
 |--------|---------|
 | `mem.reason_with_frame(seed_labels, frame_name)` | Run reasoning within a specific computational frame |
 | `RobustReachabilityDetector(perspective).find_invariants(seed_ids, graph)` | Find nodes reachable across all built-in frames |
-| `mem.degree_centrality()` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("degree", )` | Compute degree centrality for all nodes |
 | `mem.neighbors(label, edge_label, direction)` | Get directed neighbor labels |
 | `mem.query_nodes(type=...)` | Filter nodes by data attributes |
 | `mem.engine.graph.incident_edges(node_id)` | Get all edges touching a node |

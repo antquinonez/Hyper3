@@ -205,15 +205,15 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("python", data={"type": "language", "paradigm": "multi"})
-mem.relate("python", "ml", label="used_for")
+mem.add("python", data={"type": "language", "paradigm": "multi"})
+mem.link("python", "ml", label="used_for")
 
-mem.stimulate("python")
-activation = mem.spread_activation()
+mem.activate("python")
+activation = mem.activate()
 
-similar = mem.find_similar("python", top_k=5)
+similar = mem.search.similar("python", top_k=5)
 
-retrieval = mem.retrieve("python", top_k=8)
+retrieval = mem.search.query("python", top_k=8)
 
 edge_sim = mem.hyperedge_similarity("python", metric="jaccard")
 ```

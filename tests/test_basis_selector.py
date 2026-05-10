@@ -187,7 +187,7 @@ class TestRecordOutcome:
         g = _make_graph_with_nodes(3)
         sel = BasisSelector(g, max_history=10)
         ctx = BasisContext(concept_id="x")
-        for i in range(20):
+        for _i in range(20):
             sel.record_outcome("temporal", "x", ctx, True)
         assert len(sel._outcome_history) == 10
 
@@ -195,7 +195,7 @@ class TestRecordOutcome:
         g = _make_graph_with_nodes(3)
         sel = BasisSelector(g, max_history=5)
         ctx = BasisContext(concept_id="x")
-        for i in range(5):
+        for _i in range(5):
             sel.record_outcome("linguistic", "x", ctx, False)
         sel.record_outcome("temporal", "x", ctx, True)
         assert sel._outcome_history[-1].basis_name == "temporal"

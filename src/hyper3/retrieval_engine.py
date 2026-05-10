@@ -237,12 +237,8 @@ class RetrievalEngine:
 
         similarity_ranked: list[tuple[str, float]] = []
         if self._embedding:
-            for node in self._graph.nodes:
-                if node.id == seed_node.id:
-                    continue
-                sim = self._embedding.compute_similarity(seed_node.id, node.id)
-                similarity_ranked.append((node.id, sim))
-            similarity_ranked.sort(key=lambda x: x[1], reverse=True)
+            similar = self._embedding.find_similar(seed_node.id, top_k=top_k * 3, threshold=-1.0)
+            similarity_ranked = [(r.node_b_id, r.similarity) for r in similar]
 
         if use_ltr and self._feedback.size >= 5:
             return self._rank_with_ltr(seed_node.id, concept, activation_ranked, similarity_ranked, top_k)

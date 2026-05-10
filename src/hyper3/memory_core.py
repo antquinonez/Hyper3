@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.event_log import EventLog
@@ -19,6 +19,7 @@ from hyper3.results import BulkResult, EvolveResult, MergeReport, NodeInfo
 
 if TYPE_CHECKING:
     from hyper3.concept_set import ConceptSet
+    from hyper3.memory import HypergraphMemory
 
 
 class CoreMixin(_MemoryBase):
@@ -150,15 +151,18 @@ class CoreMixin(_MemoryBase):
     def _evaluate_slice_outcome(
         self, results: list[Hypernode], max_depth: int,
     ) -> bool:
+        """Heuristic evaluation of whether a slice query returned enough results."""
         n = len(results)
         if n == 0:
             return False
         return not (n < 3 and max_depth < 7)
 
     def has(self, concept: str) -> bool:
+        """Check whether a concept label exists in the graph."""
         return self._find_node(concept) is not None
 
     def get(self, concept: str, key: str | None = None, *, default: Any = None) -> Any:
+        """Retrieve a concept data dict or a specific data key. Returns default if not found."""
         node = self._find_node(concept)
         if node is None:
             return default
@@ -172,6 +176,7 @@ class CoreMixin(_MemoryBase):
         return default
 
     def set(self, concept: str, **kwargs: Any) -> None:
+        """Set data fields on an existing concept node."""
         node = self._find_node(concept)
         if node is None:
             raise NodeNotFoundError(concept)
@@ -182,6 +187,7 @@ class CoreMixin(_MemoryBase):
         self._invalidate_frame_cache(concept)
 
     def info(self, concept: str) -> NodeInfo | None:
+        """Return a NodeInfo summary for a concept, or None if not found."""
         node = self._find_node(concept)
         if node is None:
             return None
@@ -194,6 +200,7 @@ class CoreMixin(_MemoryBase):
 
     @property
     def size(self) -> tuple[int, int]:
+        """Return (node_count, edge_count) as a tuple."""
         return (self._graph.node_count, self._graph.edge_count)
 
     def add(
@@ -207,6 +214,7 @@ class CoreMixin(_MemoryBase):
         update: bool = False,
         **kwargs: Any,
     ) -> Hypernode:
+        """Add a concept to the graph, optionally updating data if it already exists."""
         if kwargs:
             data = {**(data if isinstance(data, dict) else {} or {}), **kwargs}
         cached = self._cache.get(f"store:{concept}")
@@ -244,6 +252,7 @@ class CoreMixin(_MemoryBase):
         bidirectional: bool = False,
         edge_data: dict[str, Any] | None = None,
     ) -> Hyperedge:
+        """Create a directed edge between two concepts with an optional label and weight."""
         if weight <= 0:
             raise ValueError(f"Edge weight must be positive, got {weight}")
         src_node = self._find_node(source)
@@ -316,6 +325,7 @@ class CoreMixin(_MemoryBase):
         weight: float = 1.0,
         **edge_data: Any,
     ) -> Hyperedge:
+        """Create a true hyperedge with multiple source and target concepts."""
         if not sources:
             raise ValueError("sources must not be empty")
         if not targets:
@@ -375,6 +385,7 @@ class CoreMixin(_MemoryBase):
         nodes: dict[str, dict[str, Any]] | None = None,
         edges: list[tuple[str, str, str] | dict[str, Any]] | None = None,
     ) -> BulkResult:
+        """Bulk-add nodes and edges in a single batch, returning a BulkResult."""
         nodes_added = 0
         nodes_skipped = 0
         edges_added = 0
@@ -459,9 +470,9 @@ class CoreMixin(_MemoryBase):
             labels = [concept] if isinstance(concept, str) else list(concept)
             items.extend((label, 1.0) for label in labels)
         elif type is not None or data is not None:
-            matched = self.query_nodes(type=type, data=data)
+            matched = cast("HypergraphMemory", self).query_nodes(type=type, data=data)
             items.extend((label, 1.0) for label in matched)
-        return ConceptSet(self, items)
+        return ConceptSet(cast("HypergraphMemory", self), items)
 
     def ensure(
         self,
@@ -732,6 +743,8 @@ class CoreMixin(_MemoryBase):
     def _maybe_evolve(self) -> None:
         """Increment the operation counter and trigger evolution if the interval is reached."""
         self._operation_count += 1
+        if self._search_engine is not None:
+            self._search_engine.mark_dirty()
         if self._evolve_interval > 0 and self._operation_count % self._evolve_interval == 0:
             if hasattr(self, "_feedback") and self._feedback is not None:
                 self.evolve_with_feedback()

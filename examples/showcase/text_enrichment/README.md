@@ -286,7 +286,7 @@ for report in reports:
             mem.ensure(value, data={"type": category, "source": "manual_regex"})
     for ip in indicators.get("ip_address", []):
         for cve in indicators.get("cve_id", []):
-            mem.relate(ip, cve, label="exploited_via")
+            mem.link(ip, cve, label="exploited_via")
 ```
 
 ### Pluggable LLMProvider
@@ -334,7 +334,7 @@ exploited_edges = mem.pattern_match(edge_label="exploited_via")
 | `HypergraphMemory(evolve_interval=0)` | Create a memory instance with auto-evolution disabled for deterministic behavior |
 | `mem.ingest_batch(texts, extract=True, deduplicate=True)` | Process multiple texts, extracting entities and relations into the graph |
 | `mem.ensure(label, data={...})` | Create a node only if absent; idempotent for batch enrichment |
-| `mem.relate(source, target, label=..., weight=...)` | Create a directed edge between two concepts |
+| `mem.link(source, target, label=..., weight=...)` | Create a directed edge between two concepts |
 | `mem.recall(concept, max_depth=N)` | Traverse the graph from a concept, returning reachable nodes |
 | `mem.pattern_match(edge_label=...)` | Find all edges matching a specific relation label |
 | `mem.set_llm_provider(provider)` | Set a custom `LLMProvider` for text extraction |

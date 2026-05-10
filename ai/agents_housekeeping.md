@@ -20,23 +20,24 @@ After making substantive changes (new features, bug fixes, API changes), perform
 
 1. **Update test count** in the "Making Changes" section of `AGENTS.md`.
 2. **Update coverage report**: Run `.venv/bin/python -m pytest tests/ --cov=hyper3 --cov-report=term-missing --tb=short` and verify 95%+ per module.
-3. **Update `examples/README.md`** if new examples were added.
-4. **Update the Architecture section** if new modules were added.
-5. **Update Key Conventions** if new conventions were introduced (e.g., weight semantics, context parameters).
-6. **Update Common Pitfalls** if new pitfalls were discovered.
-7. **Update the Extracted Modules or New Modules sections** if new result dataclasses were added to `results.py`.
-8. **Update `src/hyper3/__init__.py`** if new public classes were added.
-9. **Run full validation**: tests + pyright + ruff + examples + demos + benchmarks + equiv.
-10. **Update `benchmarks/README.md`** if new benchmarks or equiv suites were added.
-11. **Update project metrics** in this file and `README.md` (test count, coverage, example count, equiv counts).
-12. **Run the equivalence battery** and verify 0 FAILs: `.venv/bin/python benchmarks/equiv/run_equiv.py`.
+3. **Update `README.md`** -- verify the Architecture section lists all current modules, the API reference reflects current methods, and all metrics (test count, module count, coverage, pyright/ruff error count, equiv counts) are accurate. This includes the Architecture tree, the benchmark/equiv paragraph, the testing line, and any example counts.
+4. **Update `examples/README.md`** if new examples were added.
+5. **Update the Architecture section** of `AGENTS.md` if new modules were added.
+6. **Update Key Conventions** if new conventions were introduced (e.g., weight semantics, context parameters).
+7. **Update Common Pitfalls** if new pitfalls were discovered.
+8. **Update the Extracted Modules or New Modules sections** if new result dataclasses were added to `results.py`.
+9. **Update `src/hyper3/__init__.py`** if new public classes were added.
+10. **Run full validation**: tests + pyright + ruff + examples + demos + benchmarks + equiv.
+11. **Update `benchmarks/README.md`** if new benchmarks or equiv suites were added.
+12. **Update project metrics** in this file (test count, coverage, pyright/ruff error count, equiv counts).
+13. **Run the equivalence battery** and verify 0 FAILs: `.venv/bin/python benchmarks/equiv/run_equiv.py`.
 
 ### Full Validation Checklist
 
 Run this sequence after substantive changes. All gates must pass:
 
 ```bash
-# 1. Test suite (2426 tests, must all pass)
+# 1. Test suite (3490 tests, must all pass)
 .venv/bin/python -m pytest tests/ -q --tb=short
 
 # 2. Type checking (0 errors)
@@ -46,8 +47,8 @@ Run this sequence after substantive changes. All gates must pass:
 .venv/bin/ruff check src/hyper3/ tests/
 
 # 4. All examples (must complete without error)
-for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
-for f in examples/showcase/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/showcase/*/*.py; do [ "$(basename "$f")" = "__init__.py" ] && continue; .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in examples/projects/*/pipeline.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 5. All demos (must complete without error)
 for f in demos/demo*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
@@ -91,10 +92,11 @@ apply_docstrings({
 **When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
-- **Tests**: 2426
+- **Tests**: 3490
 - **Test files**: 38 (one per source module + integration)
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
-- **Examples**: 110 (47 Hyper3: 3 basic, 22 intermediate, 11 advanced, 11 domain, 5 project pipelines; 47 comparison + 8 laminar)
-- **Equiv battery**: 369 pass / 0 fail / 59 gap (14 suites, HGX + XGI + NX)
+- **Examples**: 111 (49 Hyper3 showcase + 5 project pipelines; 41 comparison + 12 laminar; 3 standalone)
+- **Equiv battery**: 867 pass / 17 diverge / 0 fail / 24 gap / 1 skip (22 suites, HGX + XGI + NX)
+- **Benchmarks**: 15 (10 original + 5 new: bayesian, backward_chain, community, belief_distributions, multi_frame)

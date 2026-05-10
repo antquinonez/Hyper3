@@ -85,7 +85,7 @@ from t: {}
 
 **All paths** enumeration finds 7 distinct routes from london to rome. Some paths appear duplicated because the hyperedge and pairwise edges create parallel connections between the same node pairs.
 
-**BFS traversal** via `recall("london", max_depth=3)` reaches 6 of the 7 cities within 3 hops from london (rome is at depth 4).
+**BFS traversal** via `recall("london", depth=3)` reaches 6 of the 7 cities within 3 hops from london (rome is at depth 4).
 
 **Hyperedge-as-single-hop**: The `europass_zone` hyperedge connects {london, paris} to {berlin, prague} in one hop. Without it, the shortest path london -> prague would be london -> berlin -> prague (2 hops). With the hyperedge, it is london -> prague (1 hop). This matters because collective relationships — transit zones, collaboration groups, shared resources — enable direct access that pairwise decomposition would not reflect.
 
@@ -168,7 +168,7 @@ from hyper3 import HypergraphMemory
 mem = HypergraphMemory(evolve_interval=0)
 mem.ensure("a")
 mem.ensure("b")
-mem.relate("a", "b", label="link", weight=5.0)
+mem.link("a", "b", label="link", weight=5.0)
 
 path = mem.shortest_path("a", "b", weighted=True)
 # ['a', 'b']
@@ -191,7 +191,7 @@ from_a = mem.single_source_distances("a", weighted=True)
 ### Connected components
 
 ```python
-components = mem.connected_components()
+components = mem.analyze.components()
 # [['a', 'b']]
 
 mem.is_connected()       # True if 1 component
@@ -202,7 +202,7 @@ mem.component_of("a")    # component containing 'a'
 ### Hyperedge as single hop
 
 ```python
-mem.relate_hyperedge(
+mem.link_hyper(
     sources={"london", "paris"},
     targets={"berlin", "prague"},
     label="europass_zone",
@@ -219,15 +219,15 @@ path = mem.shortest_path("london", "prague")
 from hyper3.rules import TransitiveRule
 
 mem.add_rules(TransitiveRule(edge_label="train", new_label="indirect_train"))
-result = mem.reason(seed_concepts={"london"}, max_depth=3)
+result = mem.reason(seeds={"london"}, depth=3)
 # result.expansion.edges_produced -> inferred indirect connections
 ```
 
 ### Spreading activation
 
 ```python
-mem.stimulate("london", energy=1.0)
-activated = mem.spread_activation(iterations=3)
+mem.activate("london", energy=1.0)
+activated = mem.activate(iterations=3)
 # activated: list of (label, activation, depth) sorted by activation
 ```
 
@@ -237,7 +237,7 @@ activated = mem.spread_activation(iterations=3)
 version_info = mem.capture_version()
 # {'version_id': 0, 'node_count': 8, 'edge_count': 9}
 
-mem.relate("s", "c", label="new_road", weight=1.5)
+mem.link("s", "c", label="new_road", weight=1.5)
 delta = mem.diff_from_version(version_info["version_id"])
 # delta.edges_added, delta.node_count_before, delta.edge_count_after
 ```
@@ -252,7 +252,7 @@ evolve_result = mem.evolve()
 ### Community detection
 
 ```python
-cr = mem.detect_communities(seed=42)
+cr = mem.analyze.communities(seed=42)
 # cr.community_count, cr.modularity, cr.coverage
 # cr.communities: list of community objects with member_labels
 ```
@@ -284,22 +284,22 @@ mem.max_edge_order()      # largest edge size minus 1
 | `mem.find_paths(src, tgt, max_paths=10)` | `list[list[str]]` | All simple paths between two nodes |
 | `mem.shortest_path_lengths(weighted=True)` | `dict[str, dict[str, float]]` | All-pairs distance matrix |
 | `mem.single_source_distances(src, weighted=True)` | `dict[str, float]` | Distances from one node to all reachable nodes |
-| `mem.connected_components()` | `list[set[str]]` | All connected components as label sets |
+| `mem.analyze.components()` | `list[set[str]]` | All connected components as label sets |
 | `mem.is_connected()` | `bool` | Whether the graph has exactly one component |
 | `mem.largest_connected_component()` | `set[str]` | Nodes in the largest component |
 | `mem.component_of(concept)` | `set[str]` | Component containing the given concept |
 | `mem.density()` | `float` | Edge-to-maximum-possible-edge ratio |
 | `mem.unique_edge_sizes()` | `list[int]` | Distinct node counts across all edges |
 | `mem.max_edge_order()` | `int` | Largest edge size minus 1 |
-| `mem.recall(concept, max_depth=N)` | `list[Hypernode]` | BFS-like traversal up to N hops |
-| `mem.relate_hyperedge(sources, targets, label, weight)` | `Hyperedge` | Create an N-ary directed hyperedge |
-| `mem.reason(seed_concepts, max_depth)` | `ReasoningResult` | Apply inference rules to discover new edges |
+| `mem.recall(concept, depth=N)` | `list[Hypernode]` | BFS-like traversal up to N hops |
+| `mem.link_hyper(sources, targets, label, weight)` | `Hyperedge` | Create an N-ary directed hyperedge |
+| `mem.reason(seeds, depth)` | `ReasoningResult` | Apply inference rules to discover new edges |
 | `mem.add_rules(*rules)` | `None` | Register inference rules for reasoning |
-| `mem.stimulate(concept, energy)` | `None` | Inject energy into a node for activation |
-| `mem.spread_activation(iterations)` | `list[ActivationResult]` | Spread activation energy through the graph |
+| `mem.activate(concept, energy)` | `None` | Inject energy into a node for activation |
+| `mem.activate(iterations)` | `list[ActivationResult]` | Spread activation energy through the graph |
 | `mem.clear_activations()` | `None` | Reset all node activations to zero |
 | `mem.capture_version()` | `dict` | Snapshot current graph state (version_id, node_count, edge_count) |
 | `mem.diff_from_version(version_id)` | `VersionDelta \| None` | Compute changes since a captured version |
 | `mem.evolve()` | `EvolveResult` | Run decay, prune, and merge on the graph |
-| `mem.detect_communities(seed)` | `CommunityResult` | Detect communities via label propagation |
+| `mem.analyze.communities(seed)` | `CommunityResult` | Detect communities via label propagation |
 | `mem.edges_labeled(edge_label)` | `list[Hyperedge]` | Retrieve all edges with a given label |

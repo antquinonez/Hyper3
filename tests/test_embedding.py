@@ -6,9 +6,16 @@ from hyper3.embedding import (
     EmbeddingProvider,
     HashEmbeddingProvider,
     SimilarityResult,
+    _default_embedding_provider,
 )
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.memory import HypergraphMemory
+
+try:
+    from hyper3.embedding import FastEmbedProvider
+    HAS_FASTEMBED = True
+except ImportError:
+    HAS_FASTEMBED = False
 
 
 class TestHashEmbeddingProvider:
@@ -62,7 +69,7 @@ class TestEmbeddingEngine:
     def test_get_embedding_returns_vector(self):
         g = _make_graph("cat")
         nid = g.get_node_by_label("cat").id
-        engine = EmbeddingEngine(g)
+        engine = EmbeddingEngine(g, provider=HashEmbeddingProvider())
         emb = engine.get_embedding(nid)
         assert emb is not None
         assert emb.shape == (64,)
@@ -228,7 +235,7 @@ class TestEmbeddingEngine:
 
     def test_dimension_property(self):
         g = Hypergraph()
-        engine = EmbeddingEngine(g)
+        engine = EmbeddingEngine(g, provider=HashEmbeddingProvider())
         assert engine.dimension == 64
         custom_engine = EmbeddingEngine(g, provider=HashEmbeddingProvider(dim=128))
         assert custom_engine.dimension == 128
@@ -573,3 +580,101 @@ class TestEmbeddingEdgeCases:
         engine = EmbeddingEngine(g)
         emb = engine.get_embedding(node.id)
         assert emb is not None
+
+
+@pytest.mark.skipif(not HAS_FASTEMBED, reason="fastembed not installed")
+class TestFastEmbedProvider:
+    def test_embed_returns_correct_dimension(self):
+        provider = FastEmbedProvider()
+        emb = provider.embed("hello world")
+        assert emb.shape == (384,)
+        assert abs(np.linalg.norm(emb) - 1.0) < 1e-6
+
+    def test_dimension_reports_native_dim(self):
+        provider = FastEmbedProvider()
+        assert provider.dimension() == 384
+
+    def test_dimension_override(self):
+        provider = FastEmbedProvider(dim=128)
+        assert provider.dimension() == 128
+
+    def test_similar_texts_have_high_cosine(self):
+        provider = FastEmbedProvider()
+        a = provider.embed("cat")
+        b = provider.embed("kitten")
+        cat_dog_sim = float(np.dot(a, b))
+        c = provider.embed("refrigerator")
+        cat_fridge_sim = float(np.dot(a, c))
+        assert cat_dog_sim > cat_fridge_sim
+
+    def test_deterministic(self):
+        provider = FastEmbedProvider()
+        a = provider.embed("deterministic test")
+        b = provider.embed("deterministic test")
+        np.testing.assert_array_almost_equal(a, b)
+
+    def test_embed_batch_shape(self):
+        provider = FastEmbedProvider()
+        texts = ["alpha", "beta", "gamma"]
+        batch = provider.embed_batch(texts)
+        assert batch.shape == (3, 384)
+
+    def test_embed_batch_consistent_with_single(self):
+        provider = FastEmbedProvider()
+        texts = ["foo", "bar"]
+        batch = provider.embed_batch(texts)
+        single_a = provider.embed("foo")
+        single_b = provider.embed("bar")
+        np.testing.assert_array_almost_equal(batch[0], single_a, decimal=5)
+        np.testing.assert_array_almost_equal(batch[1], single_b, decimal=5)
+
+    def test_embed_batch_unit_normalized(self):
+        provider = FastEmbedProvider()
+        texts = ["one", "two", "three"]
+        batch = provider.embed_batch(texts)
+        for i in range(len(texts)):
+            assert abs(np.linalg.norm(batch[i]) - 1.0) < 1e-6
+
+
+@pytest.mark.skipif(not HAS_FASTEMBED, reason="fastembed not installed")
+class TestFastEmbedProviderIntegration:
+    def test_embedding_engine_uses_fastembed_by_default(self):
+        g = _make_graph("cat", "dog")
+        engine = EmbeddingEngine(g)
+        assert isinstance(engine.provider, FastEmbedProvider)
+
+    def test_find_similar_semantic_ranking(self):
+        g = _make_graph("cat", "kitten", "dog", "puppy", "refrigerator")
+        cat_id = g.get_node_by_label("cat").id
+        engine = EmbeddingEngine(g, similarity_threshold=-1.0)
+        engine.precompute_all()
+        results = engine.find_similar(cat_id, top_k=4, threshold=-1.0)
+        labels = {r.label_b for r in results}
+        assert "refrigerator" not in labels or all(
+            r.similarity > 0.3 for r in results if r.label_b != "refrigerator"
+        )
+
+    def test_default_provider_is_fastembed(self):
+        provider = _default_embedding_provider()
+        assert isinstance(provider, FastEmbedProvider)
+
+    def test_explicit_hash_provider_still_works(self):
+        g = _make_graph("cat")
+        engine = EmbeddingEngine(g, provider=HashEmbeddingProvider())
+        assert isinstance(engine.provider, HashEmbeddingProvider)
+        nid = g.get_node_by_label("cat").id
+        emb = engine.get_embedding(nid)
+        assert emb is not None
+        assert emb.shape == (64,)
+
+    def test_analogy_with_semantic_embeddings(self):
+        g = _make_graph("king", "queen", "man", "woman", "paris", "france")
+        engine = EmbeddingEngine(g, similarity_threshold=-1.0)
+        engine.precompute_all()
+        king_id = g.get_node_by_label("king").id
+        queen_id = g.get_node_by_label("queen").id
+        man_id = g.get_node_by_label("man").id
+        results = engine.analogy(king_id, queen_id, man_id, top_k=3)
+        assert len(results) > 0
+        all_labels = {g.get_node(nid).label for nid, _ in results}
+        assert "woman" in all_labels

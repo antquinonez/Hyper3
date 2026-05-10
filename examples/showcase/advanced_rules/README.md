@@ -212,7 +212,7 @@ Note: Hash embeddings produce structural analogies based on topology, not semant
 
 ### Section 7: Full Reasoning with All Rules Combined
 
-All rules are registered and `reason()` is called with 7 seed concepts (chosen to form `depends_on` chains), `max_depth=3`, and `max_total_states=50`:
+All rules are registered and `reason()` is called with 7 seed concepts (chosen to form `depends_on` chains), `depth=3`, and `max_total_states=50`:
 
 | Metric | Value |
 |---|---|
@@ -357,8 +357,8 @@ mem.add_rules(transitive, causal, gen, analogical,
               InverseRule(edge_label="mitigates", inverse_label="resolved_by"))
 
 result = mem.reason(
-    seed_concepts={"svc-api-gateway", "svc-auth", "svc-order"},
-    max_depth=3,
+    seeds={"svc-api-gateway", "svc-auth", "svc-order"},
+    depth=3,
     max_total_states=50,
 )
 ```
@@ -380,7 +380,7 @@ result = mem.reason(
 |---|---|
 | `mem.auto_discover_and_apply()` | Inspects edge structure, discovers transitive/inverse/hub patterns, registers matching rules |
 | `mem.add_rules(*rules)` | Registers inference rules for use by `reason()` |
-| `mem.reason(seed_concepts, max_depth, max_total_states)` | Applies all registered rules via multiway expansion from seed concepts |
+| `mem.reason(seeds, depth, max_total_states)` | Applies all registered rules via multiway expansion from seed concepts |
 | `mem.set_embedding_provider(provider)` | Sets the embedding provider for vector-based operations |
 | `mem.discovery.get_discovered_rules()` | Returns list of `DiscoveredRule` objects from the last auto-discovery |
 | `TransitiveRule(edge_label, new_label)` | Finds two-hop chains with matching edge labels |

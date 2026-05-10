@@ -159,11 +159,11 @@ SERVICES = {
 }
 
 for label, data in all_nodes.items():
-    mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+    mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
 
 for edges, label in edge_groups:
     for src, tgt in edges:
-        mem.relate(src, tgt, label=label)
+        mem.link(src, tgt, label=label)
 ```
 
 **Result:** 82 nodes, 158 edges across 7 edge label types.
@@ -196,8 +196,8 @@ mem.add_rules(
 )
 
 result = mem.reason(
-    seed_concepts=seeds_a,
-    max_depth=3,
+    seeds=seeds_a,
+    depth=3,
     max_total_states=30,
     auto_commit=False,
 )
@@ -352,10 +352,10 @@ The overlay workflow follows a consistent pattern: create, reason, evaluate, dec
 mem = HypergraphMemory(evolve_interval=0)
 
 for label, data in all_nodes.items():
-    mem.store(label, data=data, modalities={Modality.CONCEPTUAL})
+    mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
 
 for src, tgt in DEPENDS_ON:
-    mem.relate(src, tgt, label="depends_on")
+    mem.link(src, tgt, label="depends_on")
 ```
 
 **2. Register Inference Rules**
@@ -371,8 +371,8 @@ mem.add_rules(
 
 ```python
 result = mem.reason(
-    seed_concepts={"redis_cache_auth", "auth_service", "user_service"},
-    max_depth=3,
+    seeds={"redis_cache_auth", "auth_service", "user_service"},
+    depth=3,
     max_total_states=30,
     auto_commit=False,
     confidence_decay=0.9,
@@ -435,7 +435,7 @@ rb = mem.rollback_inferences()
 
 | Method | Purpose |
 |--------|---------|
-| `mem.reason(seed_concepts, auto_commit=False)` | Run inference rules, keeping results in overlay |
+| `mem.reason(seeds, auto_commit=False)` | Run inference rules, keeping results in overlay |
 | `mem.commit_inferences()` | Merge overlay edges into base graph |
 | `mem.rollback_inferences()` | Discard overlay edges |
 | `mem.overlay` | Access the current overlay (None if inactive) |

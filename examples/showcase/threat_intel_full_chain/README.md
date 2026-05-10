@@ -331,13 +331,13 @@ from hyper3 import HypergraphMemory, Modality
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("APT28", data={"sophistication": "high", "origin": "Russia", "type": "threat_actor"},
+mem.add("APT28", data={"sophistication": "high", "origin": "Russia", "type": "threat_actor"},
           modalities={Modality.CAUSAL})
-mem.store("CVE-2023-44228", data={"cvss": 10.0, "product": "Apache_Log4j2", "type": "vulnerability"},
+mem.add("CVE-2023-44228", data={"cvss": 10.0, "product": "Apache_Log4j2", "type": "vulnerability"},
           modalities={Modality.SENSORY})
 
-mem.relate("APT28", "CVE-2023-44228", label="exploits")
-mem.relate("APT28", "GOV", label="targets")
+mem.link("APT28", "CVE-2023-44228", label="exploits")
+mem.link("APT28", "GOV", label="targets")
 ```
 
 ### Rule-based reasoning
@@ -352,8 +352,8 @@ mem.add_rules(
 )
 
 result = mem.reason(
-    seed_concepts={"APT28", "CVE-2023-44228", "GOV"},
-    max_depth=3,
+    seeds={"APT28", "CVE-2023-44228", "GOV"},
+    depth=3,
     auto_commit=True,
 )
 ```
@@ -361,8 +361,7 @@ result = mem.reason(
 ### Spreading activation for alert triage
 
 ```python
-mem.stimulate("CVE-2023-44228", energy=1.0)
-activated = mem.spread_activation(iterations=4)
+activated = mem.activate("CVE-2023-44228", energy=1.0, iterations=4)
 
 for r in activated[:5]:
     print(f"{r.label:22s}  energy={r.activation:.3f}  depth={r.depth}")
@@ -372,7 +371,7 @@ for r in activated[:5]:
 
 ```python
 suspects = ["APT28", "APT29", "Lazarus", "Volt_Typhoon"]
-qs = mem.create_distribution(suspects, amplitudes=[0.7, 0.5, 0.4, 0.3])
+qs = mem.belief.create(suspects, amplitudes=[0.7, 0.5, 0.4, 0.3])
 
 answer = mem.sample(qs, context={"APT28": 3.0, "Lazarus": 0.5})
 node = mem.engine.graph.get_node(answer.node_id)
@@ -391,7 +390,7 @@ print(f"Pruned: {evo.pruned}, Merged: {evo.merged}")
 ```python
 from hyper3 import top_k
 
-centrality = mem.degree_centrality()
+centrality = mem.analyze.centrality("degree")
 actors = {a["label"] for a in THREAT_ACTORS}
 top_actors = top_k({k: v for k, v in centrality.items() if k in actors}, k=5)
 for label, score in top_actors:
@@ -419,19 +418,18 @@ for label, score in top_actors:
 | Method | Purpose |
 |---|---|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with auto-evolution disabled |
-| `mem.store(label, data=..., modalities=...)` | Create a hypernode with typed data |
-| `mem.relate(source, target, label=..., weight=...)` | Create a labeled directed hyperedge |
+| `mem.add(label, data=..., modalities=...)` | Create a hypernode with typed data |
+| `mem.link(source, target, label=..., weight=...)` | Create a labeled directed hyperedge |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seed_concepts=..., max_depth=..., auto_commit=True)` | Run multiway reasoning |
-| `mem.stimulate(concept, energy=...)` | Inject activation energy into a node |
-| `mem.spread_activation(iterations=...)` | Propagate energy along edges |
-| `mem.create_distribution(outcomes, amplitudes=...)` | Create a belief state |
+| `mem.reason(seeds=..., depth=..., auto_commit=True)` | Run multiway reasoning |
+| `mem.activate(concept, energy=..., iterations=...)` | Inject activation energy and propagate along edges |
+| `mem.belief.create(outcomes, amplitudes=...)` | Create a belief state |
 | `mem.sample(distribution, context=...)` | Sample an outcome via Born rule |
 | `mem.evolve()` | Run decay/prune/merge/reinforce cycle |
-| `mem.degree_centrality()` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
 | `mem.pattern_match(source_label=..., edge_label=...)` | Find edges matching a pattern |
 | `mem.subgraph(node_labels)` | Extract a subgraph |
-| `mem.recall(concept, max_depth=..., max_nodes=...)` | Retrieve neighborhood (accesses nodes, affecting evolution) |
+| `mem.recall(concept, depth=..., max_nodes=...)` | Retrieve neighborhood (accesses nodes, affecting evolution) |
 | `top_k(scores, k=5)` | Return top-k items from a score dict |
 
 ### Inference rules used

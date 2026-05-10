@@ -116,6 +116,92 @@ def main() -> None:
         print(f"  total revised: {revision.edges_revised}")
 
     print("\n" + "=" * 70)
+    print("SECTION 6: MULTI-RULE REASONING (INVERSE + ABDUCTIVE)")
+    print("=" * 70)
+
+    print("\n--- Expanding beyond transitive inference ---")
+
+    mem.add_rules(
+        InverseRule(edge_label="causes", inverse_label="caused_by"),
+        InverseRule(edge_label="prevents", inverse_label="prevented_by"),
+    )
+
+    result2 = mem.reason(seeds={"smoking", "exercise"}, max_depth=3)
+    print(f"\nmulti-rule reasoning from 'smoking' and 'exercise':")
+    print(f"  states created: {result2.expansion.states_created}")
+    print(f"  rules applied: {result2.expansion.rules_applied}")
+    print(f"  edges produced: {result2.expansion.edges_produced}")
+
+    inverse_edges = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="caused_by") if e.source_labels and e.target_labels]
+    if inverse_edges:
+        print(f"\n  inverse edges (caused_by):")
+        for lbl, src, tgt in sorted(inverse_edges):
+            print(f"    {src} -[{lbl}]-> {tgt}")
+        print()
+        print("  Inverse edges enable backward causal queries like")
+        print("  'what caused death?' -> lung_cancer, heart_disease")
+
+    prevented_by_edges = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="prevented_by") if e.source_labels and e.target_labels]
+    if prevented_by_edges:
+        print(f"\n  inverse edges (prevented_by):")
+        for lbl, src, tgt in sorted(prevented_by_edges):
+            print(f"    {src} -[{lbl}]-> {tgt}")
+
+    print("\n" + "=" * 70)
+    print("SECTION 7: POST-REVISION CONFIDENCE ASSESSMENT")
+    print("=" * 70)
+
+    print("\n--- Evaluating knowledge graph quality after revision ---")
+
+    all_conf = mem.compute_all_confidences()
+    print(f"\n  Overall confidence statistics:")
+    print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
+    print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
+    print(f"    Low confidence (<0.3): {all_conf.low_confidence_count}")
+
+    print(f"\n  Per-concept confidence scores:")
+    for concept in ["smoking", "lung_cancer", "death", "heart_disease", "exercise", "asbestos"]:
+        score = mem.compute_confidence(concept)
+        if score:
+            bar_len = min(int(score.confidence * 10), 30)
+            bar = "#" * bar_len
+            print(f"    {concept:20s} {score.confidence:.4f} {bar} (depth={score.depth}, source={score.source})")
+
+    low = mem.flag_low_confidence(threshold=0.5)
+    if low:
+        print(f"\n  Low-confidence concepts (threshold=0.5):")
+        for item in low:
+            print(f"    {item.node_label:20s} confidence={item.confidence:.4f} (depth={item.depth})")
+    else:
+        print(f"\n  No low-confidence concepts found.")
+
+    if low:
+        print()
+        print("  Low-confidence concepts indicate where additional evidence")
+        print("  or relationships would strengthen the knowledge graph.")
+
+    print(f"\n  Confidence chains (highest-confidence paths):")
+    chains_to_check = [
+        ("smoking", "death"),
+        ("asbestos", "death"),
+        ("exercise", "heart_disease"),
+    ]
+    for src, tgt in chains_to_check:
+        chain = mem.trace_confidence_chain(src, tgt)
+        if chain:
+            print(f"    {src} -> {tgt}: confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
+
+    print("\n" + "=" * 70)
+    print("SUMMARY")
+    print("=" * 70)
+    print()
+    print("  1. Transitive inference discovers hidden causal chains")
+    print("  2. Backward chaining proves goals from known facts")
+    print("  3. Provenance makes every inference auditable")
+    print("  4. Belief revision detects and resolves contradictions")
+    print("  5. Inverse rules enable bidirectional causal queries")
+    print("  6. Confidence scoring identifies knowledge gaps")
+    print()
     print("DONE")
 
 

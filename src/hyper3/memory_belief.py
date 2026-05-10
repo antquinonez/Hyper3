@@ -268,6 +268,7 @@ class BeliefMixin(_MemoryBase):
         return None
 
     def _register_entanglement_for_correlation(self, corr: ConceptCorrelation) -> None:
+        """Register entanglement links between belief distributions that share nodes in a correlation."""
         group_a_dists: list[str] = []
         group_b_dists: list[str] = []
         for qs in self._belief._states.values():
@@ -388,6 +389,7 @@ class BeliefMixin(_MemoryBase):
         return list(self._belief._states.values())
 
     def _get_basis_selector(self) -> BasisSelector:
+        """Lazily initialize and return the BasisSelector with pre-seeded effectiveness data."""
         if self._basis_selector is None:
             self._basis_selector = BasisSelector(self._graph)
             for name, rate in self._belief.basis_effectiveness.items():

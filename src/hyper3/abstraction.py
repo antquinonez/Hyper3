@@ -48,6 +48,7 @@ class AbstractionNavigator:
     """Collapses subgraphs into summary nodes and expands them back, enabling hierarchical abstraction."""
 
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a reference hypergraph and empty mappings."""
         self._graph = graph
         self._mappings: dict[str, AbstractionMapping] = {}
 

@@ -4,7 +4,8 @@ Shared infrastructure for Hyper3 equivalence tests.
 Provides:
 - Graph builders that construct the same logical graph in Hyper3, HGX, XGI, and NX
 - Assertion helpers with tolerance-based comparison
-- EquivRunner harness for PASS/FAIL/GAP/SKIP tracking
+- Divergence tracking for known algorithmic differences
+- EquivRunner harness for PASS/FAIL/DIVERGE/GAP/SKIP tracking
 """
 
 from __future__ import annotations
@@ -18,10 +19,44 @@ import numpy as np
 
 STATUS_PASS = "PASS"
 STATUS_FAIL = "FAIL"
+STATUS_DIVERGE = "DIVERGE"
 STATUS_GAP = "GAP"
 STATUS_SKIP = "SKIP"
 
-SYMBOLS = {STATUS_PASS: "+", STATUS_FAIL: "X", STATUS_GAP: "?", STATUS_SKIP: "-"}
+SYMBOLS = {
+    STATUS_PASS: "+",
+    STATUS_FAIL: "X",
+    STATUS_DIVERGE: "~",
+    STATUS_GAP: "?",
+    STATUS_SKIP: "-",
+}
+
+REASON_FORMULATION = "formulation"
+REASON_PROJECTION = "projection"
+REASON_HEURISTIC = "heuristic"
+REASON_NUMERICAL = "numerical"
+REASON_IMPLEMENTATION = "implementation"
+
+ALL_REASONS = {
+    REASON_FORMULATION,
+    REASON_PROJECTION,
+    REASON_HEURISTIC,
+    REASON_NUMERICAL,
+    REASON_IMPLEMENTATION,
+}
+
+
+@dataclass
+class DivergenceRecord:
+    name: str
+    actual: float
+    expected: float
+    delta: float
+    tolerance: float
+    reason: str
+    explanation: str
+    reference: str = ""
+    passed: bool = True
 
 
 @dataclass
@@ -29,6 +64,7 @@ class TestResult:
     name: str
     status: str
     detail: str = ""
+    divergence: DivergenceRecord | None = None
 
 
 @dataclass
@@ -45,6 +81,10 @@ class EquivSummary:
         return sum(1 for r in self.results if r.status == STATUS_FAIL)
 
     @property
+    def divergences(self) -> int:
+        return sum(1 for r in self.results if r.status == STATUS_DIVERGE)
+
+    @property
     def gaps(self) -> int:
         return sum(1 for r in self.results if r.status == STATUS_GAP)
 
@@ -52,11 +92,16 @@ class EquivSummary:
     def skipped(self) -> int:
         return sum(1 for r in self.results if r.status == STATUS_SKIP)
 
+    @property
+    def divergence_records(self) -> list[DivergenceRecord]:
+        return [r.divergence for r in self.results if r.divergence is not None]
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "suite": self.suite_name,
             "passed": self.passed,
             "failed": self.failed,
+            "divergences": self.divergences,
             "gaps": self.gaps,
             "skipped": self.skipped,
             "results": [(r.status, r.name, r.detail) for r in self.results],
@@ -168,6 +213,60 @@ class EquivRunner:
     def skip(self, name: str, reason: str = "") -> None:
         self._summary.results.append(TestResult(name, STATUS_SKIP, reason))
 
+    def check_diverge(
+        self,
+        name: str,
+        actual: float,
+        expected: float,
+        *,
+        tol: float = 1e-6,
+        reason: str = REASON_NUMERICAL,
+        explanation: str = "",
+        reference: str = "",
+    ) -> None:
+        delta = abs(actual - expected)
+        passed = math.isfinite(actual) and math.isfinite(expected) and delta <= tol
+        rec = DivergenceRecord(
+            name=name,
+            actual=actual,
+            expected=expected,
+            delta=delta,
+            tolerance=tol,
+            reason=reason,
+            explanation=explanation,
+            reference=reference,
+            passed=passed,
+        )
+        if passed:
+            self._summary.results.append(
+                TestResult(name, STATUS_DIVERGE, f"delta={delta:.2e} (tol={tol:.2e}) -- {reason}: {explanation}", divergence=rec)
+            )
+        else:
+            self._summary.results.append(
+                TestResult(name, STATUS_FAIL, f"actual={actual}, expected={expected}, delta={delta} exceeds tol={tol}")
+            )
+
+    def diverge(
+        self,
+        name: str,
+        reason: str,
+        explanation: str,
+        reference: str = "",
+    ) -> None:
+        rec = DivergenceRecord(
+            name=name,
+            actual=float("nan"),
+            expected=float("nan"),
+            delta=float("nan"),
+            tolerance=0.0,
+            reason=reason,
+            explanation=explanation,
+            reference=reference,
+        )
+        self._summary.results.append(
+            TestResult(name, STATUS_DIVERGE, f"{reason}: {explanation}", divergence=rec)
+        )
+
     @property
     def summary(self) -> EquivSummary:
         return self._summary
@@ -182,7 +281,13 @@ class EquivRunner:
                 line += f"  -- {r.detail}"
             print(line)
         s = self._summary
-        print(f"\n  Passed: {s.passed}  Failed: {s.failed}  Gaps: {s.gaps}  Skipped: {s.skipped}")
+        parts = [f"Passed: {s.passed}"]
+        if s.divergences:
+            parts.append(f"Diverged: {s.divergences}")
+        parts.append(f"Failed: {s.failed}")
+        parts.append(f"Gaps: {s.gaps}")
+        parts.append(f"Skipped: {s.skipped}")
+        print(f"\n  {'  '.join(parts)}")
 
 
 def _try_import(module_name: str) -> Any:

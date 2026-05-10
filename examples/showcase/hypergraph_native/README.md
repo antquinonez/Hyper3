@@ -302,7 +302,7 @@ Why gated diffusion matters: a protein complex only activates its target when su
 **1. Create an n-ary hyperedge:**
 
 ```python
-mem.relate_hyperedge(
+mem.link_hyper(
     sources={"TP53", "MDM2", "ATM"},
     targets={"p53_signaling"},
     label="complex_regulates",
@@ -368,7 +368,7 @@ for mode in ["linear", "or", "majority", "and"]:
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `mem.relate_hyperedge(sources, targets, label, weight)` | `Hyperedge` | Create an n-ary directed hyperedge |
+| `mem.link_hyper(sources, targets, label, weight)` | `Hyperedge` | Create an n-ary directed hyperedge |
 | `mem.query_hyperedges(containing=, min_source_cardinality=)` | `list[Hyperedge]` | Filter edges by node membership or minimum source cardinality |
 | `mem.s_persistence(max_s=)` | `SPersistenceResult` | Multi-resolution component analysis at s-levels 1 through max_s |
 | `mem.spectral_embedding(dimensions=)` | `dict[str, ndarray]` | Node label to embedding vector via hypergraph Laplacian eigenvectors |

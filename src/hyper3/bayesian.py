@@ -121,6 +121,7 @@ class BayesianLayer:
     """
 
     def __init__(self, graph: Hypergraph) -> None:
+        """Initialize with a hypergraph reference, empty beliefs dict, and empty evidence history."""
         self._graph = graph
         self._beliefs: dict[str, CategoricalDistribution] = {}
         self._evidence_history: dict[str, list[Evidence]] = {}

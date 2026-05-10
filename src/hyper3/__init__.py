@@ -79,6 +79,7 @@ from hyper3.constraints import (
 from hyper3.embedding import (
     EmbeddingEngine,
     EmbeddingProvider,
+    FastEmbedProvider,
     HashEmbeddingProvider,
     SimilarityResult,
 )
@@ -86,6 +87,7 @@ from hyper3.embedding_graph import (
     CompositeEmbeddingProvider,
     NeighborhoodFingerprintProvider,
     RandomWalkEmbeddingProvider,
+    SemanticEdgeBuilder,
 )
 from hyper3.enrichment import (
     ExtractedEntity,
@@ -172,6 +174,7 @@ from hyper3.invariant_detector import (
     InvariantReport,
     PropertyInvariant,
 )
+from hyper3.layered_graph import LayeredGraph
 from hyper3.kernel import (
     AbstractionLayer,
     Hyperedge,
@@ -206,6 +209,7 @@ from hyper3.multiway_causal import (
 )
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
+from hyper3.persistence_sqlite import SqliteStore
 from hyper3.provenance import (
     Explanation,
     ProvenanceRecord,
@@ -295,9 +299,16 @@ from hyper3.rules import (
     StructuralProjectionRule,
     TransitiveRule,
 )
+from hyper3.rules_causal_sequence import CausalSequenceRule
 from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
 from hyper3.rules_simultaneity import SimultaneityRule
+from hyper3.search_engine import SearchEngine
+from hyper3.search_facets import FacetedAggregation
+from hyper3.search_index import AttributeIndex, SearchFilter
+from hyper3.search_planner import QueryPlanner, SearchPlan
+from hyper3.search_query import FieldBoost, SearchQuery, build_query, parse_query
+from hyper3.search_scoring import ScoringPipeline
 from hyper3.snapshot import SystemSnapshot
 from hyper3.state_clustering import (
     AnalogyProposal,

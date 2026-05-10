@@ -162,24 +162,24 @@ queues = ["mq_orders", "mq_events"]
 infra = ["load_balancer"]
 
 for s in services:
-    mem.store(s, data={"type": "service"})
+    mem.add(s, data={"type": "service"})
 for d in databases:
-    mem.store(d, data={"type": "database"})
+    mem.add(d, data={"type": "database"})
 for q in queues:
-    mem.store(q, data={"type": "queue"})
-mem.store(infra[0], data={"type": "infrastructure"})
+    mem.add(q, data={"type": "queue"})
+mem.add(infra[0], data={"type": "infrastructure"})
 
-mem.relate("load_balancer", "api_gateway", label="routes_to")
-mem.relate("api_gateway", "auth_svc", label="routes_to")
-mem.relate("auth_svc", "user_svc", label="calls")
-mem.relate("user_svc", "order_svc", label="calls")
-mem.relate("order_svc", "auth_svc", label="calls")
+mem.link("load_balancer", "api_gateway", label="routes_to")
+mem.link("api_gateway", "auth_svc", label="routes_to")
+mem.link("auth_svc", "user_svc", label="calls")
+mem.link("user_svc", "order_svc", label="calls")
+mem.link("order_svc", "auth_svc", label="calls")
 ```
 
 **2. Detect structural anomalies:**
 
 ```python
-result = mem.detect_structural_anomalies("auth_svc")
+result = mem.analyze.anomalies("auth_svc")
 print(f"status: {result.anomaly_status}")
 print(f"boundary score: {result.boundary_score:.4f}")
 print(f"warnings: {result.warnings}")
@@ -214,10 +214,10 @@ for a in assumptions:
 **6. Cross-reference with centrality:**
 
 ```python
-centrality = mem.betweenness_centrality()
+centrality = mem.analyze.centrality("betweenness", )
 top = sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:5]
 for node, score in top:
-    anomaly = mem.detect_structural_anomalies(node)
+    anomaly = mem.analyze.anomalies(node)
     print(f"  {node}: centrality={score:.4f}, status={anomaly.anomaly_status}")
 ```
 
@@ -236,12 +236,12 @@ This showcase demonstrates structural anomaly detection on a small synthetic ser
 
 | Method | Purpose |
 |--------|---------|
-| `mem.detect_structural_anomalies(concept)` | Assess a single node's anomaly status and boundary indicators |
+| `mem.analyze.anomalies(concept)` | Assess a single node's anomaly status and boundary indicators |
 | `mem.map_boundaries()` | Classify all nodes into low_risk/boundary/anomalous regions |
 | `mem.suggest_assumptions(concept)` | Propose bridging edges to improve exploration coverage |
-| `mem.betweenness_centrality()` | Compute betweenness centrality for all nodes |
-| `mem.store(concept, data)` | Create a node with optional data dict |
-| `mem.relate(source, target, label, weight)` | Add a pairwise directed edge |
+| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.add(concept, data)` | Create a node with optional data dict |
+| `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 
 ### Related Examples

@@ -62,6 +62,9 @@ Showcase Examples (`showcase/`)
 | `threat_intel_full_chain/` | `threat_intel_full_chain.py` | Full-chain CTI (73 nodes), rule reasoning, activation triage, belief sampling, self-evolution |
 | `financial_risk_network/` | `financial_risk_network.py` | Cross-asset risk (76 nodes), community detection, graph diffing, Hebbian learning |
 | `infrastructure_self_healing/` | `infrastructure_self_healing.py` | Self-healing infrastructure (47 nodes), feedback-driven evolution, metamorphosis validation |
+| `bayesian_medical_diagnosis/` | `bayesian_medical_diagnosis.py` | Emergency chest pain evaluation (26 nodes), Bayesian posterior updating, belief distributions, confidence assessment |
+| `temporal_incident_forensics/` | `temporal_incident_forensics.py` | Deployment incident forensics (20 nodes), temporal events, Allen relations, causal chain detection |
+| `structured_search/` | `structured_search.py` | Product catalog search (20 products), attribute indexing, faceted navigation, range filters, multi-signal scoring |
 
 See `showcase/multiway_reasoning/README.md` for detailed architecture diagrams and explanations.
 
@@ -88,7 +91,7 @@ Root Demos
 
 The project root contains additional demo scripts:
 
-- `demo_walkthrough.py` - Full car diagnostic walkthrough (all 10 steps)
+- `demo_walkthrough.py` - Full car diagnostic walkthrough (all 11 steps)
 - `demo_integrated.py` - Weather-impact domain with full pipeline
 - `demo_multiway.py` - Low-level multiway engine demo
 - `demo_discovery.py` - Rule discovery engine demo

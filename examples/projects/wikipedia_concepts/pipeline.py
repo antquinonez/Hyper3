@@ -536,11 +536,13 @@ def analyze_spreading_activation(mem: HypergraphMemory, seeds: list[str] | None 
         logger.warning("No seed concepts found in graph, skipping activation analysis")
         return []
 
+    all_activated: list[Any] = []
     for seed in present_seeds:
         activated = mem.activate(seed, energy=1.0)
+        all_activated.extend(activated)
 
     results: list[dict[str, Any]] = []
-    for a in activated[:25]:
+    for a in all_activated[:25]:
         node = mem.engine.graph.get_node(a.node_id)
         label = node.label if node else a.node_id
         results.append({"concept": label, "activation": a.activation})

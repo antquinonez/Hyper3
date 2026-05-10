@@ -119,7 +119,7 @@ Solid arrows: pairwise edges (7). Dashed arrows: n-ary hyperedge connections (2 
 
 **Section 5 — Neighborhood queries:** Dave's neighborhood spans 7 nodes total. Direction matters here: Dave's out-neighbors (4 nodes he acts on or manages) are different from his in-neighbors (3 nodes that feed into him). Filtering to `collaborates` edges only returns 3 partners: grace, frank, eve — the people Dave works with, excluding his reports and assignments. This directional filtering is what makes neighborhood queries useful: "who does Dave manage?" and "who does Dave work with?" are different questions answered by the same graph.
 
-**Section 6 — Reasoning:** A `TransitiveRule` is registered with `edge_label="collaborates"` and `new_label="indirect_collaboration"`. This rule finds two-hop chains: if A collaborates with B and B collaborates with C, it infers an `indirect_collaboration` edge from A to C. Running `reason(seed_concepts={"alice"}, max_depth=3)` produces 1 new edge and creates 2 states in the multiway expansion. The inferred edge is `alice -[indirect_collaboration]-> carol`, derived from the chain alice -> bob -> carol (both edges labeled `collaborates`). Why this matters: alice and carol are not directly connected by a `collaborates` edge, but the transitive rule recognizes they are connected through bob. This inferred edge makes the indirect collaboration queryable alongside direct ones.
+**Section 6 — Reasoning:** A `TransitiveRule` is registered with `edge_label="collaborates"` and `new_label="indirect_collaboration"`. This rule finds two-hop chains: if A collaborates with B and B collaborates with C, it infers an `indirect_collaboration` edge from A to C. Running `reason(seeds={"alice"}, depth=3)` produces 1 new edge and creates 2 states in the multiway expansion. The inferred edge is `alice -[indirect_collaboration]-> carol`, derived from the chain alice -> bob -> carol (both edges labeled `collaborates`). Why this matters: alice and carol are not directly connected by a `collaborates` edge, but the transitive rule recognizes they are connected through bob. This inferred edge makes the indirect collaboration queryable alongside direct ones.
 
 **Section 7 — Self-evolution:** Dave is stimulated 3 times with energy 1.0, then activation is spread for 2 iterations and Hebbian reinforcement is applied. Finally, `evolve()` runs a full evolution cycle. The result: 0 edges decayed, 0 nodes pruned, 2 nodes merged. The graph shrinks from 8 nodes to 6, while edges remain at 10 (9 original + 1 inferred). Density rises from 0.1607 to 0.3333 because the same number of edges now spans fewer nodes. Why this matters: the merge operation identified two pairs of structurally equivalent nodes and combined them, reducing redundancy without losing connectivity. In a larger graph, this process would also decay unused edges and prune disconnected nodes, keeping the graph lean over time.
 
@@ -174,16 +174,16 @@ from hyper3 import HypergraphMemory
 mem = HypergraphMemory(evolve_interval=0)
 
 for name in ["alice", "bob", "carol", "dave", "eve", "frank", "grace", "henry"]:
-    mem.store(name, data={})
+    mem.add(name, data={})
 
-mem.relate("alice", "bob", label="collaborates")
-mem.relate("bob", "carol", label="collaborates")
+mem.link("alice", "bob", label="collaborates")
+mem.link("bob", "carol", label="collaborates")
 ```
 
 **2. Add n-ary hyperedges:**
 
 ```python
-mem.relate_hyperedge(
+mem.link_hyper(
     sources={"alice", "bob", "carol"},
     targets={"dave"},
     label="joint_project",
@@ -221,7 +221,7 @@ from hyper3 import TransitiveRule
 mem.add_rules(
     TransitiveRule(edge_label="collaborates", new_label="indirect_collaboration"),
 )
-result = mem.reason(seed_concepts={"alice"}, max_depth=3)
+result = mem.reason(seeds={"alice"}, depth=3)
 print(f"edges produced: {result.expansion.edges_produced}")
 ```
 
@@ -229,8 +229,8 @@ print(f"edges produced: {result.expansion.edges_produced}")
 
 ```python
 for _ in range(3):
-    mem.stimulate("dave", energy=1.0)
-mem.spread_activation(iterations=2)
+    mem.activate("dave", energy=1.0)
+mem.activate(iterations=2)
 mem.hebbian_reinforce()
 evolve_result = mem.evolve()
 print(f"nodes merged: {evolve_result.merged}")
@@ -251,18 +251,18 @@ This showcase demonstrates Hyper3's core capabilities on a small synthetic graph
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(concept, data)` | Create a node with optional data dict |
-| `mem.relate(source, target, label, weight)` | Add a pairwise directed edge |
-| `mem.relate_hyperedge(sources, targets, label)` | Add an n-ary directed hyperedge |
+| `mem.add(concept, data)` | Create a node with optional data dict |
+| `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
+| `mem.link_hyper(sources, targets, label)` | Add an n-ary directed hyperedge |
 | `mem.describe()` | Return graph statistics (nodes, edges, density, components) |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 | `mem.query_nodes(data)` | Find nodes matching data attributes |
 | `mem.edges_labeled(min_source_cardinality)` | List labeled edges, optionally filtering by source cardinality |
 | `mem.ensure(concept, data, update)` | Create node if absent; merge data with `update=True` |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules via multiway expansion from seed concepts |
-| `mem.stimulate(concept, energy)` | Inject activation energy into a node |
-| `mem.spread_activation(iterations)` | Propagate activation across edges |
+| `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |
+| `mem.activate(concept, energy)` | Inject activation energy into a node |
+| `mem.activate(iterations)` | Propagate activation across edges |
 | `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
 | `mem.evolve()` | Run decay/prune/merge evolution cycle |
 | `TransitiveRule(edge_label, new_label)` | Infer A -> C from A -> B -> C chains |

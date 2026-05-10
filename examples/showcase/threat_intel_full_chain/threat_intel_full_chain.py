@@ -328,7 +328,6 @@ def main():
     print("  exploited in the wild. Which threat actors and sectors light up?")
     print()
 
-    mem.search.activate("CVE-2023-44228", energy=1.0)
     activated = mem.activate("CVE-2023-44228", energy=1.0, iterations=4)
 
     activated_actors = [r for r in activated if r.label in actor_set and r.label != "CVE-2023-44228"]
@@ -415,8 +414,6 @@ def main():
 
     pre_nodes = mem.size[0]
     pre_edges_evolve = mem.size[1]
-    stale_labels = {ioc["label"] for ioc in STALE_IOC}
-
     stale_labels = {ioc["label"] for ioc in STALE_IOC}
     for label in stale_labels:
         node = mem.engine.graph.get_node_by_label(label)

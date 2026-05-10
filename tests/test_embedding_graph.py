@@ -384,7 +384,7 @@ class TestEmbeddingEngineIntegration:
 
     def test_backward_compat_hash_provider(self):
         graph = _build_chain_graph(5)
-        engine = EmbeddingEngine(graph)
+        engine = EmbeddingEngine(graph, provider=HashEmbeddingProvider())
         n0 = graph.get_node_by_label("node_0")
         assert n0 is not None
         vec = engine.get_embedding(n0.id)

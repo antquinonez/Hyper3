@@ -237,6 +237,12 @@ class CentralityMixin(_GraphBase):
         This degrades to standard PageRank when all edges are pairwise
         with equal weights.
 
+        Divergence from NetworkX:
+            Uses incidence-based transition P = D_v⁻¹ H W D_e⁻¹ H^T
+            (Zhou et al. 2007), not the adjacency-based transition
+            used by ``nx.pagerank``. Rankings typically agree but
+            per-node values differ.
+
         Args:
             alpha: Damping factor (teleportation probability).
             max_iterations: Maximum power-iteration steps.
@@ -380,6 +386,11 @@ class CentralityMixin(_GraphBase):
 
         Unlike the power-iteration version, this solves the linear system
         directly.  More accurate but O(n^3).
+
+        Divergence from NetworkX:
+            Operates on the incidence Laplacian rather than the adjacency
+            matrix. Rankings typically agree with ``nx.katz_centrality``
+            but absolute values differ.
 
         Args:
             alpha: Attenuation factor.

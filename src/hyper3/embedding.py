@@ -74,6 +74,83 @@ class HashEmbeddingProvider(EmbeddingProvider):
         return vec
 
 
+class FastEmbedProvider(EmbeddingProvider):
+    """Semantic embedding provider backed by fastembed (ONNX-accelerated sentence-transformers).
+
+    Uses ``BAAI/bge-small-en-v1.5`` by default (384 dimensions, ~130MB model).
+    Falls back to ``HashEmbeddingProvider`` if fastembed is not installed.
+
+    Install with::
+
+        pip install hyper3[embed]
+    """
+
+    _DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
+
+    def __init__(self, model_name: str | None = None, *, dim: int | None = None) -> None:
+        """Initialize the fastembed provider.
+
+        Args:
+            model_name: fastembed model identifier. Defaults to
+                ``BAAI/bge-small-en-v1.5``.
+            dim: Override the output dimensionality. When ``None``, the
+                provider reports the model's native dimension after first
+                embedding call.
+        """
+        self._model_name = model_name or self._DEFAULT_MODEL
+        self._dim_override = dim
+        self._model: Any = None
+        self._native_dim: int | None = None
+
+    def _ensure_model(self) -> None:
+        if self._model is not None:
+            return
+        try:
+            from fastembed import TextEmbedding
+        except ImportError as exc:
+            raise ImportError(
+                "fastembed is required for FastEmbedProvider. "
+                "Install with: pip install hyper3[embed]"
+            ) from exc
+        self._model = TextEmbedding(self._model_name)
+        self._native_dim = self._model.embedding_size
+
+    def dimension(self) -> int:
+        if self._dim_override is not None:
+            return self._dim_override
+        self._ensure_model()
+        return self._native_dim or 384
+
+    def embed(self, text: str) -> np.ndarray:
+        self._ensure_model()
+        results = list(self._model.embed([text]))
+        vec = np.array(results[0], dtype=np.float64)
+        norm = np.linalg.norm(vec)
+        if norm > 0:
+            vec /= norm
+        return vec
+
+    def embed_batch(self, texts: list[str]) -> np.ndarray:
+        self._ensure_model()
+        results = list(self._model.embed(texts))
+        mat = np.array(results, dtype=np.float64)
+        norms = np.linalg.norm(mat, axis=1, keepdims=True)
+        norms = np.where(norms > 0, norms, 1.0)
+        mat /= norms
+        return mat
+
+
+def _default_embedding_provider() -> EmbeddingProvider:
+    """Return FastEmbedProvider if fastembed is installed, else HashEmbeddingProvider."""
+    try:
+        import importlib.util
+        if importlib.util.find_spec("fastembed") is None:
+            return HashEmbeddingProvider()
+        return FastEmbedProvider()
+    except (ImportError, ModuleNotFoundError):
+        return HashEmbeddingProvider()
+
+
 @dataclass
 class SimilarityResult:
     """A pair of nodes with their cosine similarity and embedding distance."""
@@ -101,12 +178,13 @@ class EmbeddingEngine:
 
         Args:
             graph: The hypergraph whose nodes will be embedded.
-            provider: Embedding provider; defaults to ``HashEmbeddingProvider``.
+            provider: Embedding provider; defaults to ``FastEmbedProvider`` when
+                fastembed is installed, otherwise ``HashEmbeddingProvider``.
             similarity_threshold: Default cosine-similarity cutoff for search.
             cache_embeddings: Whether to cache computed embeddings in memory.
         """
         self._graph = graph
-        self._provider = provider or HashEmbeddingProvider()
+        self._provider = provider if provider is not None else _default_embedding_provider()
         self._similarity_threshold = similarity_threshold
         self._cache_embeddings = cache_embeddings
         self._embedding_cache: dict[str, np.ndarray] = {}
@@ -335,6 +413,9 @@ class EmbeddingEngine:
         if target_norm > 0:
             target = target / target_norm
         exclude = {a, b, c}
+        if self._faiss_index is not None:
+            raw = self._faiss_search(target, top_k + len(exclude))
+            return [(nid, sim) for nid, sim in raw if nid not in exclude][:top_k]
         candidates: list[tuple[str, float]] = []
         for node in self._graph.nodes:
             if node.id in exclude:
@@ -422,9 +503,9 @@ class EmbeddingEngine:
         else:
             quantizer = faiss.IndexFlatIP(dim)
             index = faiss.IndexIVFFlat(quantizer, dim, nlist, faiss.METRIC_INNER_PRODUCT)
-            index.train(mat)
+            index.train(mat)  # type: ignore[arg-type]
             index.nprobe = self._faiss_nprobe
-        index.add(mat)
+        index.add(mat)  # type: ignore[arg-type]
         self._faiss_index = index
         self._faiss_id_map: dict[int, str] = {i: nid for i, nid in enumerate(ids)}
 

@@ -32,6 +32,11 @@ BENCHMARKS = [
     ("bench_07_enrichment", "Text Enrichment (RegexExtractor vs Simple Regex)"),
     ("bench_08_scalability", "Scalability (Hyper3 vs networkx at scale)"),
     ("bench_09_retrieval_feedback", "Retrieval Quality with Feedback Learning"),
+    ("bench_10_bayesian", "Bayesian Reasoning (vs Naive/Laplace)"),
+    ("bench_11_backward_chain", "Backward Chaining and Confidence (vs BFS/Edge Count)"),
+    ("bench_12_community", "Community Detection (vs NX Label Prop/Louvain)"),
+    ("bench_13_belief_distributions", "Belief Distributions (vs Uniform/Weighted Sampling)"),
+    ("bench_14_multi_frame", "Multi-Frame Analysis (vs Single Frame)"),
 ]
 
 

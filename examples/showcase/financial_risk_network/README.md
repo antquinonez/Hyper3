@@ -86,6 +86,15 @@ SECTION 6: Probabilistic Default Risk Assessment
 SECTION 7: Multi-Frame Risk Analysis
 ======================================================================
   Optimal frame: hypergraph (complexity=0.718)
+
+======================================================================
+SECTION 8: Contagion Flow Analysis
+======================================================================
+  archegos_capital -> morgan_stanley:
+    Max contagion flow: 0.99
+  Global minimum cut:
+    Cut weight: 0.00
+  Feedback-driven evolution completed
 ```
 
 ## 5. The Scenario
@@ -214,10 +223,10 @@ mem = HypergraphMemory(evolve_interval=0)
 
 all_entities = {**COUNTERPARTIES, **INSTRUMENTS, **RISK_FACTORS, **REGULATORS}
 for name, data in all_entities.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label, weight in EXPOSURES:
-    mem.relate(src, tgt, label=label, weight=weight)
+    mem.link(src, tgt, label=label, weight=weight)
 ```
 
 **Result:** 75 nodes, 104 edges. Every counterparty carries credit rating and region data. Every instrument carries type and currency. Every risk factor carries its category. These attributes enable filtering and composition analysis in later sections.
@@ -227,7 +236,7 @@ for src, tgt, label, weight in EXPOSURES:
 Run weighted label propagation to identify natural clusters in the risk network:
 
 ```python
-result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 ```
 
 **Why this matters:** Risk reports group exposures by asset class (bonds, equities, FX). But real risk clusters cross asset-class boundaries. Community detection discovers that Deutsche Bank, HSBC, BNP Paribas, Bridgewater, their shared instruments, connected risk factors, and regulators form a single cluster — a cross-regional banking ecosystem whose risk profile emerges from the interaction of credit, market, and regulatory dimensions. Without community detection, this cluster is invisible in reports that list positions by instrument type.
@@ -241,12 +250,12 @@ Capture a baseline version, simulate a crisis event, and measure the structural 
 ```python
 v0 = mem.capture_version()
 
-mem.store("archegos_capital", data={"category": "counterparty", "type": "hedge_fund"})
-mem.relate("archegos_capital", "sp500_futures", label="holds")
-mem.relate("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
-mem.relate("archegos_capital", "vix_futures", label="holds")
-mem.relate("archegos_capital", "sec", label="regulated_by")
-mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
+mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund"})
+mem.link("archegos_capital", "sp500_futures", label="holds")
+mem.link("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
+mem.link("archegos_capital", "vix_futures", label="holds")
+mem.link("archegos_capital", "sec", label="regulated_by")
+mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
 
 v1 = mem.capture_version()
 delta = mem.diff_from_version(v0["version_id"])
@@ -275,10 +284,10 @@ summary = mem.collapse_subgraph(us_banks, summary_label="us_banking_sector",
 Stimulate risk factors, spread activation across the network, and apply Hebbian reinforcement:
 
 ```python
-mem.stimulate("recession_risk", energy=2.0)
-mem.stimulate("equity_risk", energy=1.5)
-mem.stimulate("volatility_risk", energy=1.0)
-mem.spread_activation()
+mem.activate("recession_risk", energy=2.0)
+mem.activate("equity_risk", energy=1.5)
+mem.activate("volatility_risk", energy=1.0)
+mem.activate()
 
 hebbian_result = mem.hebbian_reinforce()
 ```
@@ -292,7 +301,7 @@ hebbian_result = mem.hebbian_reinforce()
 Create belief distributions over default candidates and sample from them using the Born rule:
 
 ```python
-qs = mem.create_distribution(
+qs = mem.belief.create(
     ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
     amplitudes=[0.7, 0.4, 0.15, 0.10],
     use_context_field=True,
@@ -456,17 +465,17 @@ risk_factors = {
 }
 
 for name, data in {**counterparties, **instruments, **risk_factors}.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
-mem.relate("goldman_sachs", "us_treasury_10y", label="holds", weight=5.0)
-mem.relate("us_treasury_10y", "interest_rate_risk", label="exposed_to")
-mem.relate("interest_rate_risk", "credit_spread_risk", label="amplifies")
+mem.link("goldman_sachs", "us_treasury_10y", label="holds", weight=5.0)
+mem.link("us_treasury_10y", "interest_rate_risk", label="exposed_to")
+mem.link("interest_rate_risk", "credit_spread_risk", label="amplifies")
 ```
 
 ### Detecting Risk Communities
 
 ```python
-result = mem.detect_communities(method="weighted_label_propagation", seed=42)
+result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 for comm in result.communities:
     print(f"Community {comm.community_id}: {comm.size} nodes, "
           f"internal={comm.internal_edges}, external={comm.external_edges}")
@@ -477,9 +486,9 @@ for comm in result.communities:
 ```python
 v0 = mem.capture_version()
 
-mem.store("archegos_capital", data={"category": "counterparty", "type": "hedge_fund"})
-mem.relate("archegos_capital", "sp500_futures", label="holds")
-mem.relate("credit_suisse", "archegos_capital", label="prime_broker_for")
+mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund"})
+mem.link("archegos_capital", "sp500_futures", label="holds")
+mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
 
 delta = mem.diff_from_version(v0["version_id"])
 print(f"Changes: {len(delta.nodes_added)} nodes, {len(delta.edges_added)} edges")
@@ -498,9 +507,9 @@ mem.expand_summary("us_banking_sector")
 ### Hebbian Reinforcement of Risk Correlations
 
 ```python
-mem.stimulate("recession_risk", energy=2.0)
-mem.stimulate("equity_risk", energy=1.5)
-mem.spread_activation()
+mem.activate("recession_risk", energy=2.0)
+mem.activate("equity_risk", energy=1.5)
+mem.activate()
 
 hebbian_result = mem.hebbian_reinforce()
 strongest = mem.strongest_associations("recession_risk", top_k=5)
@@ -509,7 +518,7 @@ strongest = mem.strongest_associations("recession_risk", top_k=5)
 ### Probabilistic Default Risk Assessment
 
 ```python
-qs = mem.create_distribution(
+qs = mem.belief.create(
     ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
     amplitudes=[0.7, 0.4, 0.15, 0.10],
     use_context_field=True,
@@ -573,19 +582,19 @@ print(f"Best frame: {optimal_name}")
 | Method | Purpose |
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
-| `mem.store(label, data=...)` | Create a node with metadata attributes |
-| `mem.relate(src, tgt, label=..., weight=...)` | Create a directed edge with a semantic label and importance weight |
-| `mem.detect_communities(method=..., seed=...)` | Identify clusters of densely connected nodes |
+| `mem.add(label, data=...)` | Create a node with metadata attributes |
+| `mem.link(src, tgt, label=..., weight=...)` | Create a directed edge with a semantic label and importance weight |
+| `mem.analyze.communities(method=..., seed=...)` | Identify clusters of densely connected nodes |
 | `mem.capture_version()` | Save a snapshot of the current graph structure |
 | `mem.diff_from_version(version_id)` | Compute structural changes since a saved version |
 | `mem.collapse_subgraph(labels, summary_label=..., summary_data=...)` | Replace nodes with a summary node |
 | `mem.expand_summary(summary_label)` | Restore a collapsed subgraph |
 | `mem.list_summaries()` | List all active summary nodes |
-| `mem.stimulate(concept, energy=...)` | Inject activation energy into a node |
-| `mem.spread_activation()` | Propagate activation through the graph |
+| `mem.activate(concept, energy=...)` | Inject activation energy into a node |
+| `mem.activate()` | Propagate activation through the graph |
 | `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
 | `mem.strongest_associations(concept, top_k=...)` | Find the strongest weighted neighbors of a node |
-| `mem.create_distribution(labels, amplitudes=..., use_context_field=...)` | Create a belief distribution over outcomes |
+| `mem.belief.create(labels, amplitudes=..., use_context_field=...)` | Create a belief distribution over outcomes |
 | `mem.sample(distribution)` | Sample a single outcome from a belief distribution via the Born rule |
 | `mem.multi_frame_analysis(concept)` | Analyze a concept through all computational frames |
 | `mem.select_optimal_frame(concept)` | Select the best frame based on learned effectiveness |

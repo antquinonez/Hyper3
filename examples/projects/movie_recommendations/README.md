@@ -24,9 +24,9 @@ flowchart TD
     B -->|"187 nodes, 1777 edges"| C
     B -->|"activate('Inception 2')"| D
     B -->|"pattern_match('acted_in')<br/>pattern_match('directed_by')"| E
-    B -->|"detect_communities()"| F
-    B -->|"betweenness_centrality()"| G
-    B -->|"activate vs retrieve"| H
+    B -->|"analyze.communities()"| F
+    B -->|"analyze.centrality()"| G
+    B -->|"activate vs search.query"| H
 
     D -->|"genre-similar movies"| I["Recommendations"]
     E -->|"recurring collab pairs"| I
@@ -104,9 +104,9 @@ The graph is built by `build_graph()` which creates five entity types and five e
 | `director` | `ensure()` | 25 |
 | `actor` | `ensure()` | 40 |
 | `studio` | `ensure()` | 10 |
-| `movie` | `store()` | 100 |
+| `movie` | `add()` | 100 |
 
-`ensure()` is used for entities that are referenced by many movies (genres, directors, actors, studios) to avoid spurious reinforcement. `store()` is used for movies since they are the primary nodes of interest.
+`ensure()` is used for entities that are referenced by many movies (genres, directors, actors, studios) to avoid spurious reinforcement. `add()` is used for movies since they are the primary nodes of interest.
 
 **Edge types**:
 
@@ -121,9 +121,9 @@ The graph is built by `build_graph()` which creates five entity types and five e
 **Weight strategy**: `has_genre` edges use `weight = rating / 10.0` so higher-rated movies propagate stronger activation through their genres. `similar_taste` edges use `weight = len(shared_actors)` so movies with more overlapping cast members are more strongly connected. Both directions of `similar_taste` edges receive the same weight via `bidirectional=True`.
 
 ```python
-mem.relate(m.title, genre, label="has_genre", weight=m.rating / 10.0)
-mem.relate(a_title, b_title, label="similar_taste",
-           weight=float(len(shared)), bidirectional=True)
+mem.link(m.title, genre, label="has_genre", weight=m.rating / 10.0)
+mem.link(a_title, b_title, label="similar_taste",
+         weight=float(len(shared)), bidirectional=True)
 ```
 
 ## Recommendation Strategies
@@ -164,7 +164,7 @@ directed_edges = mem.pattern_match(edge_label="directed_by")
 Community detection identifies taste clusters -- groups of movies that are densely connected to each other through shared actors, genres, and `similar_taste` edges.
 
 ```python
-result = mem.detect_communities(seed=42)
+result = mem.analyze.communities(seed=42)
 ```
 
 **Results**: 1 community found with modularity 0.0 and coverage 1.0. The graph is too densely connected for label propagation to split into multiple communities. With 100 movies, 40 actors (each appearing in 3-6 movies), and genre co-membership, the graph forms a single connected component. This is a structural property of the synthetic dataset: with 40 actors and an average of 4.5 actors per movie, the actor-to-movie bipartite projection creates enough `similar_taste` edges to connect the entire graph.
@@ -174,7 +174,7 @@ result = mem.detect_communities(seed=42)
 Betweenness centrality identifies movies that sit on the most shortest paths between other nodes. These "bridge movies" connect disparate parts of the graph and serve as gateway recommendations -- watching them can lead users to new genres or directors.
 
 ```python
-bc = mem.betweenness_centrality(top_k=10)
+bc = mem.analyze.centrality("betweenness", top_k=10)
 ```
 
 **Results** (top-3 bridge nodes):
@@ -191,14 +191,13 @@ The Morning After sits on the most shortest paths because its Comedy + Romance g
 
 This section compares two retrieval approaches:
 
-1. **Pure activation**: `mem.stimulate()` + `mem.spread_activation()` propagates energy from the seed movie.
-2. **RRF retrieval**: `mem.retrieve()` fuses activation scores with structural similarity using reciprocal rank fusion.
+1. **Pure activation**: `mem.search.activate()` propagates energy from the seed movie.
+2. **RRF retrieval**: `mem.search.query()` fuses activation scores with structural similarity using reciprocal rank fusion.
 
 ```python
-mem.stimulate(seed_movie, energy=1.0)
-activation_results = mem.spread_activation(iterations=4)
+activation_results = mem.search.activate(seed_movie, energy=1.0, iterations=4)
 
-retrieval_results = mem.retrieve(seed_movie, top_k=15, iterations=4)
+retrieval_results = mem.search.query(seed_movie, top_k=15, iterations=4)
 ```
 
 **Results** (seed: The Last Meridian, comparing top-10 lists):
@@ -218,9 +217,9 @@ These four movies are structurally similar to The Last Meridian but not reachabl
 |----------|--------------|-----|----------|
 | Genre activation | Movies sharing genre neighborhoods | `mem.activate()` | "More like this" within genres |
 | Actor-director collabs | Creative partnerships | `mem.pattern_match()` | Director or actor-based suggestions |
-| Community detection | Taste clusters | `mem.detect_communities()` | Broad taste profiling |
-| Betweenness centrality | Gateway/bridge movies | `mem.betweenness_centrality()` | Cross-genre exploration |
-| RRF retrieval | Activation + similarity fusion | `mem.retrieve()` | Balanced recommendations |
+| Community detection | Taste clusters | `mem.analyze.communities()` | Broad taste profiling |
+| Betweenness centrality | Gateway/bridge movies | `mem.analyze.centrality("betweenness")` | Cross-genre exploration |
+| RRF retrieval | Activation + similarity fusion | `mem.search.query()` | Balanced recommendations |
 
 The overlap analysis in Section 6 shows that pure activation and RRF retrieval agree on 6 of 10 top recommendations but diverge on 4. Activation excels at genre-local suggestions (movies reachable through connected edges). Retrieval adds structurally similar movies that may be in different parts of the graph. The two approaches are complementary.
 

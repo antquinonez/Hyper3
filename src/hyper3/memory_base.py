@@ -14,6 +14,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.embedding import EmbeddingEngine
+from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
@@ -24,6 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode
+from hyper3.layered_graph import LayeredGraph
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
@@ -49,6 +51,7 @@ from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
+from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
 from hyper3.structural_match import StructuralPatternEngine
@@ -89,6 +92,8 @@ class _MemoryBase:
     _embedding_engine: EmbeddingEngine | None
     _activation: SpreadingActivation
     _retrieval: RetrievalEngine
+    _semantic_builder: SemanticEdgeBuilder | None
+    _layered_graph: LayeredGraph | None
     _temporal: TemporalReasoner
     _provenance: ProvenanceTracker
     _enricher: LLMEnricher
@@ -111,8 +116,10 @@ class _MemoryBase:
     _collapse_trigger: CollapseTriggerEngine | None
     _invariant_detector: InvariantDetector | None
     _prefetch: StructuralPrefetchEngine | None
+    _search_engine: SearchEngine | None
 
     def _invalidate_frame_cache(self, *concepts: str) -> None:
+        """Invalidate frame cache entries for specific concepts, or clear all if none given."""
         if self._perspective._frame_cache is not None:
             if concepts:
                 fc = self._perspective._frame_cache

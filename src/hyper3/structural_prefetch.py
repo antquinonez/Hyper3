@@ -28,6 +28,7 @@ class PrefetchStats(_SimpleResultBase):
 class StructuralPrefetchEngine:
     """Prefetches neighboring nodes into the cache on access to accelerate subsequent lookups."""
     def __init__(self, graph: Hypergraph, cache: LazyCache, config: PrefetchConfig | None = None) -> None:
+        """Initialize with a hypergraph, lazy cache, and optional prefetch configuration."""
         self._graph = graph
         self._cache = cache
         self._config = config or PrefetchConfig()

@@ -54,6 +54,7 @@ class InterferenceReport(_SimpleResultBase):
 class InterferenceReasoningEngine:
     """Analyzes cross-distribution interference patterns in belief states, detecting contradictions and reinforcements."""
     def __init__(self, graph: Hypergraph, belief: BeliefLayer) -> None:
+        """Initialize with a hypergraph, belief layer, and empty pattern history."""
         self._graph = graph
         self._belief = belief
         self._pattern_history: dict[str, list[InterferencePattern]] = {}
@@ -172,6 +173,7 @@ class InterferenceReasoningEngine:
     def _contradictions_from_patterns(
         self, patterns: list[InterferencePattern], threshold: float
     ) -> list[InterferenceInsight]:
+        """Extract contradiction insights from interference patterns exceeding the destructive threshold."""
         insights: list[InterferenceInsight] = []
         for p in patterns:
             if p.destructive >= threshold:
@@ -192,6 +194,7 @@ class InterferenceReasoningEngine:
     def _reinforcements_from_patterns(
         self, patterns: list[InterferencePattern], threshold: float
     ) -> list[InterferenceInsight]:
+        """Extract reinforcement insights from interference patterns exceeding the constructive threshold."""
         insights: list[InterferenceInsight] = []
         for p in patterns:
             if p.constructive >= threshold:

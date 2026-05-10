@@ -154,7 +154,7 @@ Six builder functions create 45 hosts, 22 segments, 16 controls, 18 services, 16
 Degree centrality counts the fraction of total nodes each host connects to. A high degree means the host touches many entities (services, segments, vulnerabilities, controls, trust targets), making it a large attack surface.
 
 ```python
-degree = mem.degree_centrality()
+degree = mem.analyze.centrality("degree", )
 host_degree = {lbl: score for lbl, score in degree.items() if lbl in set(hosts)}
 top_exposed = top_k(host_degree, k=10)
 ```
@@ -176,7 +176,7 @@ top_exposed = top_k(host_degree, k=10)
 Betweenness centrality measures how often a node appears on shortest paths between other node pairs. High betweenness means traffic (or an attacker) must pass through this node.
 
 ```python
-betweenness = mem.betweenness_centrality()
+betweenness = mem.analyze.centrality("betweenness", )
 top_choke = top_k(betweenness, k=10)
 ```
 
@@ -199,7 +199,7 @@ The top 5 host chokepoints:
 Connected components identify isolated network regions. Proper segmentation should produce separate components for each zone.
 
 ```python
-components = mem.connected_components()
+components = mem.analyze.components()
 ```
 
 **Results:** 8 connected components.
@@ -327,8 +327,8 @@ The 18 direct trust violations in Section 6 are only the explicitly documented r
 ```python
 mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
 reason_result = mem.reason(
-    seed_concepts={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
-    max_depth=4,
+    seeds={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
+    depth=4,
 )
 ```
 
@@ -354,7 +354,7 @@ Notable inferred chains:
 Community detection groups nodes into clusters based on connection density, independent of the explicit zone labels. This reveals whether the actual network topology matches the intended zone architecture.
 
 ```python
-comm_result = mem.detect_communities(seed=42)
+comm_result = mem.analyze.communities(seed=42)
 ```
 
 **Results:** **11 communities** detected with modularity 0.3412 and coverage 0.8790.
@@ -385,7 +385,7 @@ The most significant finding is Community 33, which contains 19 internal hosts a
 Structural anomaly detection examines a host's connectivity pattern — cycles, centrality, label consistency, and neighbor structure — to classify it as `low_risk`, `boundary`, or `anomalous`.
 
 ```python
-result = mem.detect_structural_anomalies("dc-01")
+result = mem.analyze.anomalies("dc-01")
 ```
 
 **Results for 6 critical hosts:**
@@ -509,26 +509,26 @@ from hyper3 import HypergraphMemory, Modality, TransitiveRule, top_k
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("dc-01", data={"os": "windows", "zone": "restricted", "criticality": 10, "patch_level": 0.95})
-mem.relate("dc-01", "seg-restricted-1", label="connects_to")
-mem.relate("dc-01", "svc-ldap", label="runs")
-mem.relate("dc-01", "dc-02", label="trusts")
-mem.relate("dc-01", "cve-2024-0016", label="vulnerable_to")
-mem.relate("dc-01", "fw-restricted", label="protected_by")
+mem.add("dc-01", data={"os": "windows", "zone": "restricted", "criticality": 10, "patch_level": 0.95})
+mem.link("dc-01", "seg-restricted-1", label="connects_to")
+mem.link("dc-01", "svc-ldap", label="runs")
+mem.link("dc-01", "dc-02", label="trusts")
+mem.link("dc-01", "cve-2024-0016", label="vulnerable_to")
+mem.link("dc-01", "fw-restricted", label="protected_by")
 ```
 
 ### Computing Centrality
 
 ```python
-degree = mem.degree_centrality()
-betweenness = mem.betweenness_centrality()
+degree = mem.analyze.centrality("degree", )
+betweenness = mem.analyze.centrality("betweenness", )
 top_exposed = top_k(degree, k=10)
 ```
 
 ### Finding Violations and Paths
 
 ```python
-components = mem.connected_components()
+components = mem.analyze.components()
 cycles = mem.detect_cycles(max_cycles=15)
 path = mem.shortest_path("dev-server", "db-primary")
 ```
@@ -550,14 +550,14 @@ for label in host_labels:
 
 ```python
 mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
-result = mem.reason(seed_concepts={"admin-jump-01", "dev-server"}, max_depth=4)
+result = mem.reason(seeds={"admin-jump-01", "dev-server"}, depth=4)
 indirect_edges = mem.edges_labeled(edge_label="trusts_indirectly")
 ```
 
 ### Community Detection
 
 ```python
-comm_result = mem.detect_communities(seed=42)
+comm_result = mem.analyze.communities(seed=42)
 print(f"Communities: {comm_result.community_count}")
 print(f"Modularity:  {comm_result.modularity:.4f}")
 ```
@@ -565,7 +565,7 @@ print(f"Modularity:  {comm_result.modularity:.4f}")
 ### Structural Anomaly Detection
 
 ```python
-result = mem.detect_structural_anomalies("dc-01")
+result = mem.analyze.anomalies("dc-01")
 print(f"Status: {result.anomaly_status}, Score: {result.boundary_score:.3f}")
 ```
 
@@ -595,11 +595,11 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data, modalities)` | Create a node with typed metadata |
-| `mem.relate(source, target, label, weight)` | Create a labeled directed edge |
-| `mem.degree_centrality()` | Compute normalized degree centrality for all nodes |
-| `mem.betweenness_centrality()` | Compute betweenness centrality for all nodes |
-| `mem.connected_components()` | Find all connected components |
+| `mem.add(label, data, modalities)` | Create a node with typed metadata |
+| `mem.link(source, target, label, weight)` | Create a labeled directed edge |
+| `mem.analyze.centrality("degree", )` | Compute normalized degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.analyze.components()` | Find all connected components |
 | `mem.detect_cycles(max_cycles)` | Detect cycles up to a limit |
 | `mem.shortest_path(source, target)` | Find shortest path between two nodes |
 | `mem.degree_distribution()` | Histogram of degree values |
@@ -609,10 +609,10 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 | `mem.neighbors(label, edge_label, direction)` | Get neighbors filtered by edge label and direction |
 | `mem.engine.graph.get_node_by_label(label)` | Get node object by label |
 | `mem.add_rules(rules)` | Register inference rules for reasoning |
-| `mem.reason(seed_concepts, max_depth)` | Apply rules to expand the graph, producing inferred edges |
+| `mem.reason(seeds, depth)` | Apply rules to expand the graph, producing inferred edges |
 | `mem.edges_labeled(edge_label)` | Return all edges with a given label |
-| `mem.detect_communities(seed)` | Detect communities via label propagation; returns `CommunityResult` |
-| `mem.detect_structural_anomalies(concept)` | Analyze a host's connectivity for structural anomalies |
+| `mem.analyze.communities(seed)` | Detect communities via label propagation; returns `CommunityResult` |
+| `mem.analyze.anomalies(concept)` | Analyze a host's connectivity for structural anomalies |
 
 ### Related Examples
 

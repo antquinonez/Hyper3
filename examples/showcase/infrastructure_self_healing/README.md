@@ -291,6 +291,20 @@ The expansion produced minimal results because the feedback-driven recovery in R
 
 Why this result is expected: multiway expansion is sensitive to graph structure. After aggressive cleanup removes stale nodes and their edges, the remaining graph has fewer multi-hop chains matching the registered rules. The 89 edges in the final graph (up from 66 at construction, due to inference edges added during reasoning) are distributed across heterogeneous labels, reducing the density of same-label chains needed for transitive rules.
 
+### Section 9: Temporal Incident Timeline
+
+The temporal subsystem models the degradation incident as a sequence of temporal events with start/end times. Eight events are registered covering the full incident lifecycle: healthy baseline, stale config push, DB pool growth, API latency spike, customer timeouts, pager alert, feedback recovery, and service restoration.
+
+Allen interval relations reveal the temporal structure:
+- `stale_config_pushed` -> `db_pool_growth_begins`: **before** (config error precedes pool growth)
+- `db_pool_growth_begins` -> `api_latency_spike`: **overlaps** (pool growth overlaps with latency impact)
+- `api_latency_spike` -> `customer_timeouts`: **overlaps** (latency and timeouts co-occur)
+- `healthy_baseline` -> `stale_config_pushed`: **meets** (baseline ends exactly when degradation begins)
+
+Auto-detected causal chains connect events across the timeline, including a 4-event chain: `healthy_baseline -> stale_config_pushed -> pager_alert_fired -> service_restored`. The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
+
+Why this matters: infrastructure incidents are temporal phenomena. The graph structure models *what* is connected, but temporal reasoning adds *when* things happen and *in what order*. Allen relations provide a precise vocabulary for event ordering that goes beyond simple timestamps, and causal chain detection automatically reconstructs the incident narrative from temporal data.
+
 ## 6. Key Metrics
 
 | Metric | Value |
@@ -338,6 +352,10 @@ Why this result is expected: multiway expansion is sensitive to graph structure.
 | Multiway states created | 1 |
 | Multiway edges produced | 0 |
 | Causal invariant merges | 0 |
+| Temporal events | 8 |
+| Allen relations computed | 6 pairs |
+| Inferred temporal constraints | 28 |
+| Auto-detected causal chains | 5 |
 
 ## 7. What Makes This Different
 
@@ -364,10 +382,10 @@ mem.add_rules(TransitiveRule(edge_label="blocks"))
 mem.add_rules(InverseRule(edge_label="blocks", inverse_label="blocked_by"))
 
 for name, data in SERVERS.items():
-    mem.store(name, data=data)
+    mem.add(name, data=data)
 
 for src, tgt, label in DEPENDENCIES:
-    mem.relate(src, tgt, label=label)
+    mem.link(src, tgt, label=label)
 ```
 
 **Recording operation feedback:**
@@ -409,7 +427,7 @@ if triggers:
 **Computational bias profile:**
 
 ```python
-mem.reason({"api-gw-01", "order-svc-01"}, max_depth=3, max_total_states=15)
+mem.reason({"api-gw-01", "order-svc-01"}, depth=3, max_total_states=15)
 profile = mem.compute_bias_profile()
 print(f"reasoning style: {profile['reasoning_style']}")
 print(f"dominant rules: {profile['dominant_rules']}")
@@ -430,8 +448,8 @@ print(f"dominant rules: {profile['dominant_rules']}")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.store(label, data)` | Create a node with typed metadata |
-| `mem.relate(source, target, label)` | Create a labeled directed edge |
+| `mem.add(label, data)` | Create a node with typed metadata |
+| `mem.link(source, target, label)` | Create a labeled directed edge |
 | `mem.find_paths(source, target, max_depth)` | Find all paths between two nodes |
 | `mem.evolve()` | Run decay, prune, merge, reinforce cycle |
 | `mem.evolve_with_feedback()` | Run evolution using accumulated operation history |
@@ -448,7 +466,7 @@ print(f"dominant rules: {profile['dominant_rules']}")
 | `mem.propose_tuning(triggers)` | Generate a tuning plan from metamorphosis triggers |
 | `mem.execute_tuning_validated(plan)` | Apply tuning with rollback on fitness decrease |
 | `mem.diff_from_version(version_id)` | Compare current graph to a captured version |
-| `mem.reason(concepts, max_depth, max_total_states)` | Run multiway rule-based reasoning |
+| `mem.reason(seeds, depth, max_total_states)` | Run multiway rule-based reasoning |
 | `mem.stats()` | Get graph statistics (node count, edge count) |
 
 ### Related Examples

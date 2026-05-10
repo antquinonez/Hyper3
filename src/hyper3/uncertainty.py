@@ -60,6 +60,7 @@ class UncertaintyEngine:
         high_threshold: float = 0.8,
         low_threshold: float = 0.3,
     ) -> None:
+        """Initialize with a hypergraph, provenance tracker, confidence, and decay parameters."""
         self._graph = graph
         self._provenance = provenance
         self._base_confidence = base_confidence

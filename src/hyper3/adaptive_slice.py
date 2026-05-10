@@ -83,6 +83,7 @@ class AdaptiveSliceEngine:
         *,
         max_history: int = 500,
     ) -> None:
+        """Initialize the engine with a graph, history limit, and precomputed grid keys."""
         self._graph = graph
         self._max_history = max_history
         self._outcome_history: list[SliceOutcomeRecord] = []
@@ -177,6 +178,7 @@ class AdaptiveSliceEngine:
         )
 
     def _heuristic_recommend(self, context: SliceContext) -> RecommendedSlice:
+        """Fallback heuristic that recommends slice parameters based on context features."""
         depth = 3
         nodes = 50
         weight = 0.0

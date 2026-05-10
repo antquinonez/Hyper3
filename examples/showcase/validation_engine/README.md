@@ -105,10 +105,10 @@ mem = HypergraphMemory(evolve_interval=0, rules=[
 ])
 
 for gene in ["gene_brca1", "gene_tp53", "gene_egfr", "gene_kras"]:
-    mem.store(gene, data={"type": "gene"})
+    mem.add(gene, data={"type": "gene"})
 
-mem.relate("gene_brca1", "gene_tp53", label="regulates", weight=3.0)
-mem.relate("gene_tp53", "protein_p53", label="regulates", weight=3.0)
+mem.link("gene_brca1", "gene_tp53", label="regulates", weight=3.0)
+mem.link("gene_tp53", "protein_p53", label="regulates", weight=3.0)
 ```
 
 **2. Run simple vs enhanced comparison:**
@@ -118,7 +118,7 @@ from hyper3 import ValidationEngine
 
 ve = ValidationEngine(mem)
 report = ve.run_comparison(
-    seed_concepts={"gene_brca1", "gene_tp53"},
+    seeds={"gene_brca1", "gene_tp53"},
     rules=[TransitiveRule(edge_label="regulates", new_label="indirect_regulation")],
 )
 

@@ -25,6 +25,7 @@ class BoundaryIndicator:
         contradiction_risk: float = 0.0,
         structural_anomaly_score: float = 0.0,
     ) -> None:
+        """Store four anomaly indicator scores as instance attributes."""
         self.cyclic_structure = cyclic_structure
         self.high_centrality = high_centrality
         self.contradiction_risk = contradiction_risk

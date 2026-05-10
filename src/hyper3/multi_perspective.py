@@ -325,6 +325,7 @@ class MultiPerspectiveAnalyzer:
 
     @property
     def frame_cache(self) -> FrameCache:
+        """Lazily create and return a FrameCache instance on first access."""
         if self._frame_cache is None:
             self._frame_cache = FrameCache(max_total_size=2048, frame_quota=256)
         return self._frame_cache

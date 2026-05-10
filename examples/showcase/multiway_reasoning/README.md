@@ -353,7 +353,7 @@ mem.add_rules(*rules)
 
 ```python
 seed = {"failed-health-check", "latency-spike", "db-primary-down", "us-east-api"}
-result = mem.reason(seed_concepts=seed, max_depth=3, max_total_states=50)
+result = mem.reason(seeds=seed, depth=3, max_total_states=50)
 ```
 
 **3. Extract Lateral Insights**
@@ -420,7 +420,7 @@ Hyper3 provides the **reasoning engine**; the data engineering pipeline that fee
 
 | Method | Purpose |
 | ----- | ----- |
-| `mem.reason(seed_concepts, max_depth, max_total_states)` | Run multiway expansion from seed nodes |
+| `mem.reason(seeds, depth, max_total_states)` | Run multiway expansion from seed nodes |
 | `mem.lateral_insights(concept)` | Find knowledge transferable across branches |
 | `mem.state_clustering.simultaneity_groups` | Get groups of states at the same depth |
 | `mem.state_clustering.coordinates` | Get state coordinate embeddings |
