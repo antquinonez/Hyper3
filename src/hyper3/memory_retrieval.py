@@ -4,7 +4,7 @@ from hyper3.cache import LazyCache
 from hyper3.embedding import EmbeddingEngine, EmbeddingProvider
 from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.feedback import OperationFeedback
-from hyper3.layered_graph import LayeredGraph
+from hyper3.layered_graph import LayerStack
 from hyper3.memory_base import _MemoryBase
 from hyper3.results import FeedbackSummaryResult, TrainResult
 from hyper3.retrieval_activation import ActivationResult, SpreadingActivation
@@ -81,22 +81,20 @@ class RetrievalMixin(_MemoryBase):
         self._semantic_builder.build(top_k=top_k, threshold=threshold)
         layer = self._semantic_builder.layer
         assert layer is not None
-        self._layered_graph = LayeredGraph(self._graph, layer)
-        self._activation = SpreadingActivation(self._layered_graph)  # type: ignore[arg-type]
+        self._stack.register("semantic", layer, weight=1.0, derived=True)
+        self._activation = SpreadingActivation(self._stack)  # type: ignore[arg-type]
         self._search_engine = None
         self._log.record("build_semantic_layer", edges=layer.edge_count)
         return layer.edge_count
 
     def semantic_layer_dirty(self) -> bool:
         """Return True if the semantic layer needs rebuilding."""
-        if self._semantic_builder is None:
-            return False
-        return self._semantic_builder.is_dirty()
+        return self._stack.layer_dirty("semantic")
 
     @property
-    def semantic_layer(self) -> LayeredGraph | None:
-        """Return the layered graph if a semantic layer has been built."""
-        return self._layered_graph
+    def semantic_layer(self) -> LayerStack:
+        """Return the layer stack."""
+        return self._stack
 
     def record_feedback(self, query: str, results: list, relevant_labels: set[str]) -> int:
         """Record relevance feedback for a retrieval result.

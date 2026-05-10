@@ -119,7 +119,7 @@ class TestSemanticEdgeBuilderIntegration:
         assert mem.semantic_layer_dirty() is True
 
     def test_activation_uses_semantic_edges(self):
-        from hyper3.layered_graph import LayeredGraph
+        from hyper3.layered_graph import LayerStack
         from hyper3.retrieval_activation import SpreadingActivation
         g = _make_graph("alpha", "beta")
         a_id = g.get_node_by_label("alpha").id
@@ -127,8 +127,9 @@ class TestSemanticEdgeBuilderIntegration:
         engine = EmbeddingEngine(g, provider=HashEmbeddingProvider())
         builder = SemanticEdgeBuilder(g, engine)
         builder.build(top_k=3, threshold=-1.0)
-        lg = LayeredGraph(g, builder.layer)
-        sa = SpreadingActivation(lg)
+        stack = LayerStack(g)
+        stack.register("semantic", builder.layer)
+        sa = SpreadingActivation(stack)  # type: ignore[arg-type]
         sa.stimulate(a_id)
         sa.spread(3)
         assert b_id in sa.activations

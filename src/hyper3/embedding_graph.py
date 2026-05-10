@@ -630,7 +630,7 @@ class SemanticEdgeBuilder:
     with ``label="semantic_sim"`` and ``weight=cosine_similarity``.
 
     The resulting graph can be combined with the primary graph via
-    ``LayeredGraph`` so that ``SpreadingActivation`` traverses both
+    ``LayerStack`` so that ``SpreadingActivation`` traverses both
     structural and semantic edges.
     """
 
