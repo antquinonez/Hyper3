@@ -111,3 +111,10 @@ Reference copies (`comparison/laminar/`)
 
 The original laminar examples remain in `comparison/laminar/` as
 reference copies. The canonical versions live in `showcase/`.
+
+License
+-------
+
+All examples are part of the Hyper3 project, released under the [MIT License](../../LICENSE).
+
+Copyright (c) 2026 Antonio Quinonez

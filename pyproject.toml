@@ -6,6 +6,7 @@ build-backend = "hatchling.build"
 name = "hyper3"
 version = "0.1.0"
 description = "Self-evolving hypergraph cognitive kernel with Ruliad-inspired multiway expansion"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=1.26",
