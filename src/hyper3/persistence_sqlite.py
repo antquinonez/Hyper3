@@ -161,6 +161,7 @@ class SqliteStore:
             if edge.label:
                 graph._edge_label_index.setdefault(edge.label, set()).add(edge.id)
         graph._neighbor_cache = None
+        graph._pairwise_nx_cache = None
         return graph
 
     def upsert_node(self, node: Hypernode) -> None:

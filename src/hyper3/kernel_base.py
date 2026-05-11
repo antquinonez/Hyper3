@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hyper3.exceptions import NodeNotFoundError
 from hyper3.kernel_types import Hyperedge, Hypernode
+
+if TYPE_CHECKING:
+    import networkx as nx
 
 
 class _GraphBase:
@@ -16,6 +19,7 @@ class _GraphBase:
     _dimension_index: dict[str, set[str]]
     _label_index: dict[str, str]
     _neighbor_cache: dict[str, list[str]] | None
+    _pairwise_nx_cache: nx.Graph | None
     _batch_mode: bool
     _cache_invalidated_in_batch: bool
 
@@ -58,7 +62,7 @@ class _GraphBase:
     def _bfs_all_distances(self, source: str) -> dict[str, float]:
         """BFS from source returning hop count to every reachable node."""
         ...
-    def _pairwise_undirected_nx(self) -> Any:
+    def _pairwise_undirected_nx(self) -> nx.Graph:
         """Build an undirected networkx Graph from the pairwise projection."""
         ...
     def _node_data_attr(self, attribute: str) -> dict[str, Any]:
@@ -79,6 +83,7 @@ class CoreMixin(_GraphBase):
         self._dimension_index: dict[str, set[str]] = {}
         self._label_index: dict[str, str] = {}
         self._neighbor_cache: dict[str, list[str]] | None = None
+        self._pairwise_nx_cache: nx.Graph | None = None
         self._batch_mode: bool = False
         self._cache_invalidated_in_batch: bool = False
 
@@ -108,6 +113,7 @@ class CoreMixin(_GraphBase):
             self._cache_invalidated_in_batch = True
         else:
             self._neighbor_cache = None
+            self._pairwise_nx_cache = None
         return node
 
     def get_node(self, node_id: str) -> Hypernode | None:
@@ -162,6 +168,7 @@ class CoreMixin(_GraphBase):
             self._cache_invalidated_in_batch = True
         else:
             self._neighbor_cache = None
+            self._pairwise_nx_cache = None
         return True
 
     def add_edge(self, edge: Hyperedge) -> Hyperedge:
@@ -197,6 +204,7 @@ class CoreMixin(_GraphBase):
             self._cache_invalidated_in_batch = True
         else:
             self._neighbor_cache = None
+            self._pairwise_nx_cache = None
         return edge
 
     def get_edge(self, edge_id: str) -> Hyperedge | None:
@@ -242,6 +250,7 @@ class CoreMixin(_GraphBase):
             self._cache_invalidated_in_batch = True
         else:
             self._neighbor_cache = None
+            self._pairwise_nx_cache = None
         return True
 
     def merge_node(self, primary_id: str, secondary_id: str) -> Hypernode | None:
@@ -310,6 +319,7 @@ class CoreMixin(_GraphBase):
         self._batch_mode = False
         if self._cache_invalidated_in_batch:
             self._neighbor_cache = None
+            self._pairwise_nx_cache = None
             self._cache_invalidated_in_batch = False
 
     def _node_data_attr(self, attribute: str) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from typing import TYPE_CHECKING, Any
 
 import networkx as nx
@@ -421,16 +422,18 @@ class QueryMixin(_GraphBase):
         return float(nx.attribute_assortativity_coefficient(subG, attribute))
 
     def _pairwise_undirected_nx(self) -> nx.Graph:
-        """Build an undirected networkx Graph from the hypergraph via clique expansion (each hyperedge becomes a complete pairwise subgraph). No weights or labels are preserved."""
-        G = nx.Graph()
-        for nid in self._nodes:
-            G.add_node(nid)
-        for edge in self._edges.values():
-            members = list(edge.node_ids)
-            for i in range(len(members)):
-                for j in range(i + 1, len(members)):
-                    G.add_edge(members[i], members[j])
-        return G
+        """Build an undirected networkx Graph from the hypergraph via clique expansion. Cached and invalidated on structural mutation. Returns a copy so callers can mutate freely."""
+        if self._pairwise_nx_cache is None:
+            G = nx.Graph()
+            for nid in self._nodes:
+                G.add_node(nid)
+            for edge in self._edges.values():
+                members = list(edge.node_ids)
+                for i in range(len(members)):
+                    for j in range(i + 1, len(members)):
+                        G.add_edge(members[i], members[j])
+            self._pairwise_nx_cache = G
+        return copy.deepcopy(self._pairwise_nx_cache)
 
     def average_neighbor_degree(self, nodes: set[str] | None = None) -> dict[str, float]:
         """Compute the average degree of each node neighbors. Delegates to networkx via pairwise clique projection. Note: degrees are inflated for nodes in large hyperedges due to clique expansion."""
