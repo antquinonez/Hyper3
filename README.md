@@ -104,8 +104,18 @@ src/hyper3/
     memory_cognitive.py    CognitiveMixin: backward chaining, Hebbian, uncertainty
     memory_monitoring.py   MonitoringMixin: introspect, metamorphosis, validation
 
+  Search Subsystem
+    search_engine.py       SearchEngine (unified search over activation, embedding, index)
+    search_index.py        AttributeIndex (field-value, range, text indexing)
+    search_query.py        SearchQuery, FieldBoost, build_query, parse_query
+    search_planner.py      QueryPlanner, SearchPlan (strategy selection, selectivity estimation)
+    search_scoring.py      ScoringPipeline (multi-signal score fusion)
+    search_facets.py       FacetedAggregation (field value counts, range buckets)
+
   Infrastructure
     persistence.py         Serializer (JSON save/load)
+    persistence_sqlite.py  SqliteStore (SQLite persistence layer)
+    layered_graph.py       LayeredGraph, LayerStack (multi-layer hypergraph merge)
     embedding.py           EmbeddingEngine (semantic similarity, pluggable providers, optional FAISS)
     embedding_graph.py     RandomWalkEmbeddingProvider, NeighborhoodFingerprintProvider, CompositeEmbeddingProvider
     retrieval_activation.py SpreadingActivation (energy propagation, associative recall)
@@ -233,6 +243,23 @@ mem.add_temporal_event("lunch", datetime(2024, 1, 15, 12), datetime(2024, 1, 15,
 matches = mem.temporal_query("meeting", relation="before")
 ```
 
+### Structured Search
+
+```python
+mem.store("Alice", data={"role": "engineer", "team": "platform"})
+mem.store("Bob", data={"role": "manager", "team": "platform"})
+mem.store("Carol", data={"role": "engineer", "team": "ml"})
+
+results = mem.search.find("", filters={"team": "platform"}, top_k=10)
+for hit in results.hits:
+    print(f"  {hit.label}: {hit.score:.3f}")
+
+facets = mem.search.browse(facet_fields=["role", "team"])
+for field, agg in facets.facets.items():
+    for bucket in agg.buckets:
+        print(f"  {field}={bucket.value}: {bucket.count}")
+```
+
 ### Persistence
 
 ```python
@@ -287,9 +314,21 @@ Nodes (`Hypernode`) represent concepts with labels, data payloads, metadata (tem
 
 `TemporalReasoner` implements full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, and edge-level temporal consistency checking.
 
+### Structured Search
+
+`SearchEngine` provides structured search over the hypergraph with attribute filtering, field boosting, faceted navigation, and multi-signal scoring (activation, embedding, and index-based). `AttributeIndex` supports exact-match, range, and text-prefix queries. `QueryPlanner` selects the optimal retrieval strategy based on available signals. `FacetedAggregation` computes field-value counts and range buckets over result sets.
+
 ### Provenance and Overlay
 
 `ProvenanceTracker` records inference derivations with recursive `explain()`. `HypergraphOverlay` provides a temporary inference layer with `commit()`/`rollback()` for review-before-commit workflows.
+
+### Layered Graphs
+
+`LayerStack` merges edges from a primary hypergraph with N named secondary layers. Secondary layers (e.g., semantic edges, derived relationships) are registered via `register()` and contribute to edge-access methods. Derived layers track dirtiness against the primary graph.
+
+### SQLite Persistence
+
+`SqliteStore` provides a SQLite-based persistence layer as an alternative to JSON serialization, suitable for larger graphs and query-heavy workloads.
 
 ### Cognitive Engines
 
@@ -316,6 +355,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 |--------|-------------|
 | `store(concept, *, data, ...)` | Add a concept node |
 | `recall(concept, *, max_depth, ...)` | Retrieve concept and related neighborhood |
+| `recall_adaptive(concept)` | Adaptive recall with Thompson-sampling slice selection |
 | `ensure(concept, *, data, ...)` | Idempotent node creation (no reinforcement) |
 | `relate(source, target, *, label, ...)` | Create a pairwise directed edge |
 | `relate_hyperedge(sources, targets, *, label, ...)` | Create an n-ary hyperedge |
@@ -336,6 +376,9 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `reason_incremental(new_nodes, ...)` | Incremental expansion from new nodes |
 | `reason_iterative(seeds, *, max_iterations, ...)` | Iterative deepening reasoning |
 | `reason_with_frame(seeds, *, frame_name, ...)` | Frame-specific reasoning |
+| `reason_robust(seeds, *, rules)` | Consensus reasoning across multiple runs |
+| `reason_fused(seeds, *, rules, ...)` | Multi-signal fused reasoning |
+| `reason_boundary_aware(seeds, ...)` | Boundary-aware reasoning with decidability zones |
 | `derive(concept, *, rules)` | Single-step derivation |
 | `commit_inferences()` | Merge overlay inferences to base graph |
 | `rollback_inferences()` | Discard overlay inferences |
@@ -343,6 +386,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `rules` | Read-only list of active inference rules |
 | `discover_rules()` | Discover structural patterns |
 | `auto_discover_and_apply()` | Discover and register rules automatically |
+| `compute_bias_profile()` | Reasoning tendency analysis |
 
 ### Belief
 
@@ -350,7 +394,12 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 |--------|-------------|
 | `create_distribution(concepts, *, amplitudes, ...)` | Create a belief distribution |
 | `sample(qs, *, context)` | Born-rule sampling from distribution |
+| `sample_distribution(concept, *, context)` | Sample by concept label directly |
 | `sample_with_profile(qs, basis_name)` | Profile-biased sampling |
+| `sample_adaptive(qs, ...)` | Adaptive sampling with basis selection |
+| `sample_blended(qs, ...)` | Blended multi-basis sampling |
+| `sample_correlated(qs, concept)` | Correlated outcome sampling |
+| `sample_entangled(concepts, ...)` | Entangled group sampling |
 | `correlate(group_a, group_b, correlations)` | Correlate outcome sampling between groups |
 | `detect_sampling_triggers(qs)` | Detect interference maxima and other triggers |
 | `compute_interactions(qs)` | Compute constructive/destructive interference |
@@ -379,10 +428,18 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `degree_centrality(*, top_k)` | Degree centrality scores |
 | `betweenness_centrality(*, top_k)` | Betweenness centrality scores |
 | `pagerank(*, alpha, weighted, top_k)` | Hypergraph-native PageRank |
+| `in_degree()` / `out_degree()` | Directed degree counts |
 | `describe()` | Graph summary (degree stats, density, components) |
 | `connected_components()` | Connected components |
+| `is_connected()` | Check graph connectivity |
+| `component_of(concept)` | Component containing concept |
+| `largest_connected_component()` | Largest component |
 | `has_cycle()` / `detect_cycles()` | Cycle detection |
 | `shortest_path(source, target, *, weighted)` | Shortest path query (weighted by default) |
+| `shortest_path_lengths(*, weighted)` | All-pairs shortest distances |
+| `single_source_distances(concept, ...)` | Distances from one concept |
+| `eccentricity(concept)` | Node eccentricity |
+| `diameter()` / `radius()` | Graph diameter and radius |
 
 ### Retrieval
 
@@ -394,6 +451,7 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `retrieve(concept, *, top_k, ...)` | Combined retrieval via RRF (activation + semantic) |
 | `record_feedback(query, results, relevant)` | Mark results relevant/irrelevant |
 | `train_retriever()` | Train learning-to-rank from feedback |
+| `feedback_summary()` | Retrieval feedback statistics |
 
 ### Embedding & Similarity
 
@@ -405,11 +463,30 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `enable_faiss(...)` | Enable FAISS index for fast similarity search |
 | `spectral_embedding(*, dimensions)` | Hypergraph Laplacian spectral embeddings |
 
+### Search (via `mem.search`)
+
+| Method | Description |
+|--------|-------------|
+| `search.query(concept, *, top_k, ...)` | Retrieve related concepts via graph-based retrieval |
+| `search.find(text, *, filters, boosts, ...)` | Structured search with filtering and faceting |
+| `search.browse(*, filters, facet_fields)` | Browse with filters and facet counts (no text query) |
+| `search.search(query)` | Execute a structured `SearchQuery` object |
+| `search.similar(concept, *, top_k)` | Semantic similarity via embeddings |
+| `search.analogy(a, b, c, *, top_k)` | Vector analogy: a is to b as c is to ? |
+| `search.activate(concept, *, energy, top_k)` | Spreading activation for associative recall |
+| `search.diffuse(concept, *, energy, mode)` | Hyperedge-aware activation diffusion |
+| `search.set_provider(provider)` | Set pluggable embedding provider |
+| `search.enable_faiss(...)` | Enable FAISS index for fast similarity search |
+| `search.reindex(indexed_fields)` | Build or rebuild the attribute index |
+| `search.index_stats()` | Search index statistics |
+| `search.suggest(field, prefix, top_k)` | Autocomplete suggestions for field values |
+
 ### Temporal
 
 | Method | Description |
 |--------|-------------|
 | `add_temporal_event(label, start, end)` | Add a temporal event |
+| `add_temporal_constraint(event_a, event_b, relation)` | Add Allen interval constraint |
 | `temporal_query(concept, *, relation)` | Temporal proximity queries (Allen relations) |
 | `causal_chain(labels)` | Detect causal chains |
 
@@ -425,7 +502,9 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | Method | Description |
 |--------|-------------|
 | `prove(concept, *, known_facts, ...)` | Backward chaining with proof tree |
+| `prove_batch(concepts, ...)` | Batch backward chaining |
 | `hebbian_reinforce()` | Strengthen co-activated edges |
+| `hebbian_reinforce_pair(a, b)` | Strengthen a specific edge pair |
 | `compute_confidence(concept)` | Confidence score via provenance depth |
 | `detect_contradictions()` | Find contradictory edges |
 | `revise_beliefs(*, strategy)` | Resolve contradictions |
@@ -448,10 +527,11 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 
 | Method | Description |
 |--------|-------------|
-| `save(path)` / `load(path)` | Persist/restore full state as JSON |
+| `save(path)` / `load(path)` | Persist/restore state as JSON (use `full=True` for all subsystems) |
 | `save_state(path)` / `load_state(path)` | Full system snapshot (includes all subsystems) |
 | `export_json(path)` / `import_json(path)` | JSON export/import |
 | `export_edgelist(path)` / `import_edgelist(path)` | Edge list export/import |
+| `load_records(path)` | Load records from SQLite store |
 | `stats()` | Memory statistics |
 
 ### Monitoring
@@ -461,7 +541,6 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `introspect()` | Meta-cognitive health report |
 | `check_metamorphosis()` | Detect tuning triggers |
 | `propose_tuning(triggers)` | Generate tuning plan |
-| `compute_bias_profile()` | Reasoning tendency analysis |
 | `feedback_summary()` | Cross-operation outcome summary |
 | `multi_frame_analysis(concept)` | Multi-perspective analysis |
 | `validate_reasoning(seeds, ...)` | A/B reasoning validation |
@@ -490,11 +569,12 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 .venv/bin/python examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py
 .venv/bin/python examples/showcase/multiway_reasoning/multiway_lateral_insights.py
 .venv/bin/python examples/showcase/hypergraph_native/hypergraph_native.py
+.venv/bin/python examples/showcase/structured_search/structured_search.py
 .venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
 .venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
 ```
 
-See `examples/README.md` for the full index of 50+ examples.
+See `examples/README.md` for the full index of 51 examples.
 
 ## Testing
 
@@ -505,7 +585,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-3490 tests, 98% coverage across 90 modules. 0 pyright errors, 0 ruff errors.
+3675 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
@@ -532,4 +612,6 @@ Key optimizations in the kernel:
 
 ## License
 
-Proprietary. All rights reserved.
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Antonio Quinonez
