@@ -174,6 +174,7 @@ from hyper3.invariant_detector import (
     InvariantReport,
     PropertyInvariant,
 )
+from hyper3.layered_graph import LayerStack
 from hyper3.layered_graph import LayeredGraph
 from hyper3.kernel import (
     AbstractionLayer,

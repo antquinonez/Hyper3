@@ -25,7 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph
-from hyper3.layered_graph import LayeredGraph
+from hyper3.layered_graph import LayerStack
 from hyper3.memory_analytics import AnalyticsMixin
 from hyper3.memory_bayesian import BayesianMixin
 from hyper3.memory_belief import BeliefMixin
@@ -208,7 +208,7 @@ class HypergraphMemory(
         self._activation = SpreadingActivation(self._graph)
         self._retrieval = RetrievalEngine(self._graph, activation=self._activation)
         self._semantic_builder: SemanticEdgeBuilder | None = None
-        self._layered_graph: LayeredGraph | None = None
+        self._stack: LayerStack = LayerStack(self._graph)
         self._temporal = TemporalReasoner(self._graph)
         self._provenance = ProvenanceTracker()
         self._enricher = LLMEnricher()

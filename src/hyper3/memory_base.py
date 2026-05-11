@@ -25,7 +25,7 @@ from hyper3.hebbian import HebbianLearner
 from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode
-from hyper3.layered_graph import LayeredGraph
+from hyper3.layered_graph import LayerStack
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
@@ -93,7 +93,7 @@ class _MemoryBase:
     _activation: SpreadingActivation
     _retrieval: RetrievalEngine
     _semantic_builder: SemanticEdgeBuilder | None
-    _layered_graph: LayeredGraph | None
+    _stack: LayerStack
     _temporal: TemporalReasoner
     _provenance: ProvenanceTracker
     _enricher: LLMEnricher

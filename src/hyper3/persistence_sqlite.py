@@ -127,6 +127,8 @@ class SqliteStore:
             )
             graph._nodes[node.id] = node
             graph._node_to_edges[node.id] = set()
+            graph._outgoing_edge_index[node.id] = set()
+            graph._incoming_edge_index[node.id] = set()
             if node.label:
                 graph._label_index[node.label] = node.id
         edge_rows = self._conn.execute(
@@ -152,7 +154,14 @@ class SqliteStore:
             graph._edges[edge.id] = edge
             for nid in edge.source_ids | edge.target_ids:
                 graph._node_to_edges.setdefault(nid, set()).add(edge.id)
+            for nid in edge.source_ids:
+                graph._outgoing_edge_index.setdefault(nid, set()).add(edge.id)
+            for nid in edge.target_ids:
+                graph._incoming_edge_index.setdefault(nid, set()).add(edge.id)
+            if edge.label:
+                graph._edge_label_index.setdefault(edge.label, set()).add(edge.id)
         graph._neighbor_cache = None
+        graph._pairwise_nx_cache = None
         return graph
 
     def upsert_node(self, node: Hypernode) -> None:
