@@ -149,7 +149,7 @@ Requires Python >=3.12. Core dependencies: numpy, scipy, networkx.
 
 ## Quick Start
 
-Create a hypergraph, add concepts and relationships, then use a transitive inference rule to discover that Paris is in Europe (even though no direct edge exists).
+Apply inference rules to automatically derive new relationships: discover that Paris is in Europe via transitive reasoning even when no direct edge exists.
 
 ```python
 from hyper3 import HypergraphMemory, TransitiveRule
@@ -185,25 +185,34 @@ for e in mem.graph.edges:
 Ambiguous concepts are represented as superpositions of outcomes with complex amplitudes. Sampling collapses to a single outcome via the Born rule (probability = |amplitude|^2). Correlations link outcomes across different distributions.
 
 ```python
+# Create nodes for the possible spin states
 mem.add("spin_up")
 mem.add("spin_down")
 
+# Create a belief distribution: spin can be up or down with given amplitudes
+# Amplitudes are complex numbers; probabilities are |amplitude|^2
 qs = mem.belief.create(
     outcomes=["spin_up", "spin_down"],
     amplitudes=[0.6, 0.4],
 )
 
+# Get the probability distribution (Born rule: P = |amplitude|^2)
 print(f"Probabilities: {mem.belief.probabilities(qs)}")
 # Output: Probabilities: {'spin_up': 0.692, 'spin_down': 0.308}
 
+# Sample from the distribution - probabilistically collapses to one outcome
 outcome = mem.belief.sample(qs)
 print(f"Sampled: {outcome}")
 # Output: Sampled: spin_up
 
+# Create nodes for particles and their charge properties
 mem.add("electron")
 mem.add("proton")
 mem.add("negative")
 mem.add("positive")
+
+# Correlate particle types with their charges: electron is likely negative, proton is likely positive
+# When sampling, these correlations influence the joint outcome distribution
 mem.belief.correlate(
     ["electron", "proton"],
     ["negative", "positive"],
@@ -216,6 +225,7 @@ mem.belief.correlate(
 Automatically detect recurring edge-label patterns (transitive chains, inverse pairs, hub structures) and register inference rules for future reasoning, without manual rule specification.
 
 ```python
+# Create a chain of connected nodes
 mem.add("A")
 mem.add("B")
 mem.add("C")
@@ -224,6 +234,9 @@ mem.link("A", "B", label="connects")
 mem.link("B", "C", label="connects")
 mem.link("C", "D", label="connects")
 
+# Automatically discover structural patterns in the graph
+# The engine detects the transitive chain pattern (A-connects->B-connects->C-connects->D)
+# and creates a TransitiveRule for the "connects" label
 result = mem.reason.auto_discover()
 print(f"Discovered {result.total_patterns} patterns, {result.new_rules_added} new rules")
 # Output: Discovered 1 patterns, 1 new rules
@@ -234,6 +247,7 @@ print(f"Discovered {result.total_patterns} patterns, {result.new_rules_added} ne
 Inject energy at a concept and propagate it through the graph along edges. Nearby and strongly-connected concepts receive higher activation, enabling associative recall without explicit queries.
 
 ```python
+# Build a simple knowledge graph about coffee and related concepts
 mem.add("coffee")
 mem.add("morning")
 mem.add("sunrise")
@@ -244,6 +258,8 @@ mem.link("morning", "sunrise", label="associated")
 mem.link("coffee", "caffeine", label="contains")
 mem.link("caffeine", "energy", label="causes")
 
+# Activate the concept "coffee" - energy propagates through the graph
+# Direct neighbors get the most energy, their neighbors get less, etc.
 results = mem.search.activate("coffee", top_k=5)
 for r in results:
     print(f"  {r.label}: {r.energy:.3f}")
@@ -258,6 +274,7 @@ for r in results:
 Compute spectral embeddings from the hypergraph Laplacian and use them for cosine similarity search and vector analogy queries (a is to b as c is to ?), no external embedding model required.
 
 ```python
+# Add programming language and library concepts with metadata
 concepts = [
     ("Python", {"type": "language", "paradigm": "multi"}),
     ("JavaScript", {"type": "language", "paradigm": "multi"}),
@@ -269,15 +286,19 @@ concepts = [
 for name, data in concepts:
     mem.add(name, data=data)
 
+# Create relationships between languages and their ecosystems/peers
 mem.link("Python", "numpy", label="ecosystem")
 mem.link("Python", "pandas", label="ecosystem")
 mem.link("Rust", "Go", label="similar_paradigm")
 mem.link("Python", "JavaScript", label="similar_paradigm")
 
+# Generate spectral embeddings from the hypergraph Laplacian
+# These capture structural relationships in the graph
 emb = mem.analyze.spectral_embedding(dimensions=8)
 print(f"Embedded {len(emb)} nodes")
 # Output: Embedded 6 nodes
 
+# Find nodes similar to Python based on the spectral embedding
 similar = mem.search.similar("Python", top_k=3, threshold=0.0)
 for s in similar:
     print(f"  {s.label}: similarity={s.similarity:.3f}")
@@ -285,6 +306,8 @@ for s in similar:
 # Output:   pandas: similarity=0.739
 # Output:   JavaScript: similarity=0.720
 
+# Vector analogy: Python is to numpy as Rust is to what?
+# Uses the embedding space to solve: a - b + c ≈ ?
 results = mem.search.analogy("Python", "numpy", "Rust", top_k=3)
 for label, score in results:
     print(f"  {label}: {score:.3f}")
@@ -298,6 +321,7 @@ for label, score in results:
 Combine spreading activation with relevance feedback: mark which results are relevant, train the learning-to-rank retriever, and improve future retrieval quality.
 
 ```python
+# Build a medical knowledge graph
 mem.add("diabetes", data={"type": "condition"})
 mem.add("insulin", data={"type": "treatment"})
 mem.add("metformin", data={"type": "treatment"})
@@ -308,6 +332,7 @@ mem.link("diabetes", "metformin", label="treated_by", weight=3.0)
 mem.link("diabetes", "obesity", label="risk_factor", weight=4.0)
 mem.link("diabetes", "exercise", label="prevented_by", weight=2.0)
 
+# Run spreading activation from diabetes
 results = mem.search.activate("diabetes", top_k=5)
 for r in results:
     print(f"  {r.label}: energy={r.energy:.3f}")
@@ -316,59 +341,88 @@ for r in results:
 # Output:   metformin: energy=0.600
 # Output:   exercise: energy=0.400
 
+# Record user feedback: insulin and obesity are relevant to diabetes
+# This trains the learning-to-rank model to prioritize these in future queries
 mem.search.feedback.record("diabetes", results, {"insulin", "obesity"})
 mem.search.feedback.train()
 ```
 
 ### Bayesian Reasoning
 
+Update beliefs about uncertain events using prior distributions and evidence likelihoods, with MAP estimation and credible interval computation.
+
 ```python
+# Add a weather concept
 mem.add("weather")
+
+# Set a prior distribution over possible weather states
+# sunny has 50% probability, cloudy 30%, rainy 20%
 mem.bayes.set_prior("weather", outcomes=["sunny", "cloudy", "rainy"], weights=[0.5, 0.3, 0.2])
 print(f"Prior: {mem.bayes.get('weather')}")
 # Output: Prior: CategoricalDistribution(outcomes={'sunny': 0.5, 'cloudy': 0.3, 'rainy': 0.2})
 
+# Update the belief with new evidence: the sky is dark
+# Likelihoods: if sky is dark, P(sunny)=0.1, P(cloudy)=0.5, P(rainy)=0.8
 mem.bayes.update("weather", evidence="dark_sky", likelihoods={"sunny": 0.1, "cloudy": 0.5, "rainy": 0.8})
+
+# Get the maximum a posteriori (MAP) estimate - the most probable outcome
 print(f"MAP estimate: {mem.bayes.map('weather')}")
 # Output: MAP estimate: rainy
 
+# Get the 90% credible interval - outcomes that cover 90% of probability mass
 print(f"90% credible: {mem.bayes.credible('weather', level=0.9)}")
 # Output: 90% credible: ['rainy', 'cloudy', 'sunny']
 ```
 
 ### Temporal Reasoning
 
+Represent events as intervals and compute Allen interval algebra relations (before, after, during, overlaps, etc.) between them.
+
 ```python
 from datetime import datetime
 
+# Add event concepts
 mem.add("meeting")
 mem.add("lunch")
 
+# Define time intervals for events
+# Meeting runs from 9:00 to 10:00
 t1 = datetime(2024, 1, 15, 9)
 t2 = datetime(2024, 1, 15, 10)
+# Lunch runs from 12:00 to 13:00
 t3 = datetime(2024, 1, 15, 12)
 t4 = datetime(2024, 1, 15, 13)
 
+# Register temporal events with their start and end timestamps
 mem.temporal.add_event("meeting", t1.timestamp(), t2.timestamp())
 mem.temporal.add_event("lunch", t3.timestamp(), t4.timestamp())
 
+# Compute the Allen interval relation between meeting and lunch
+# BEFORE means meeting ends before lunch starts
 print(f"Allen relation: {mem.temporal.allen('meeting', 'lunch')}")
 # Output: Allen relation: AllenRelation.BEFORE
 ```
 
 ### Structured Search
 
+Search and browse the hypergraph using attribute filters, field boosting, and faceted aggregation for structured data exploration.
+
 ```python
+# Add people with structured metadata (role and team)
 mem.add("Alice", data={"role": "engineer", "team": "platform"})
 mem.add("Bob", data={"role": "manager", "team": "platform"})
 mem.add("Carol", data={"role": "engineer", "team": "ml"})
 
+# Structured search: find all nodes with team="platform"
+# Returns results sorted by relevance score
 results = mem.search.find("", filters={"team": "platform"}, top_k=10)
 for hit in results.results:
     print(f"  {hit.label}: {hit.score:.3f}")
 # Output:   Bob: 1.000
 # Output:   Alice: 1.000
 
+# Faceted navigation: count occurrences of each field value
+# Useful for building filter UIs and understanding data distribution
 facets = mem.search.browse(facet_fields=["role", "team"])
 for field, agg in facets.facets.items():
     for bucket in agg.buckets:
@@ -381,9 +435,13 @@ for field, agg in facets.facets.items():
 
 ### Persistence
 
+Save and load the complete knowledge graph state to/from JSON files for persistence across sessions.
+
 ```python
+# Save the entire knowledge graph to a JSON file
 mem.save("knowledge.json")
 
+# Create a new memory instance and load the saved graph
 mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load("knowledge.json")
 print(f"Loaded {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
