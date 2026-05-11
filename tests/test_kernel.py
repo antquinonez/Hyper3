@@ -6320,3 +6320,86 @@ class TestDetectCyclesDFSMaxCycles:
         limited = g.detect_cycles(max_cycles=1)
         assert len(limited) == 1
 
+
+class TestEdgeLabelIndex:
+    def _make_graph(self):
+        g = Hypergraph()
+        a = Hypernode(id="a")
+        b = Hypernode(id="b")
+        c = Hypernode(id="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        return g
+
+    def test_edges_by_label_returns_matching_edges(self):
+        g = self._make_graph()
+        e1 = Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes")
+        e2 = Hyperedge(id="e2", source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="causes")
+        e3 = Hyperedge(id="e3", source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="enables")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        g.add_edge(e3)
+        causes = g.edges_by_label("causes")
+        assert len(causes) == 2
+        assert {e.id for e in causes} == {"e1", "e2"}
+
+    def test_edges_by_label_unknown_returns_empty(self):
+        g = self._make_graph()
+        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes"))
+        assert g.edges_by_label("unknown") == []
+
+    def test_empty_label_edges_not_indexed(self):
+        g = self._make_graph()
+        g.add_edge(Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label=""))
+        g.add_edge(Hyperedge(id="e2", source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="causes"))
+        assert g.edges_by_label("") == []
+        assert len(g.edges_by_label("causes")) == 1
+
+    def test_remove_edge_updates_label_index(self):
+        g = self._make_graph()
+        e1 = Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes")
+        e2 = Hyperedge(id="e2", source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="causes")
+        g.add_edge(e1)
+        g.add_edge(e2)
+        assert len(g.edges_by_label("causes")) == 2
+        g.remove_edge("e1")
+        assert len(g.edges_by_label("causes")) == 1
+        assert g.edges_by_label("causes")[0].id == "e2"
+
+    def test_remove_last_edge_for_label_cleans_up_key(self):
+        g = self._make_graph()
+        e1 = Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes")
+        g.add_edge(e1)
+        assert len(g.edges_by_label("causes")) == 1
+        g.remove_edge("e1")
+        assert g.edges_by_label("causes") == []
+        assert "causes" not in g._edge_label_index
+
+    def test_remove_node_cleans_up_label_index(self):
+        g = self._make_graph()
+        e1 = Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes")
+        g.add_edge(e1)
+        g.remove_node("b")
+        assert g.edges_by_label("causes") == []
+        assert "causes" not in g._edge_label_index
+
+    def test_label_index_after_batch_operations(self):
+        g = self._make_graph()
+        g.begin_batch()
+        g.add_edge(Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes"))
+        g.add_edge(Hyperedge(id="e2", source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="causes"))
+        g.end_batch()
+        assert len(g.edges_by_label("causes")) == 2
+
+    def test_multiple_labels_independent(self):
+        g = self._make_graph()
+        g.add_edge(Hyperedge(id="e1", source_ids=frozenset({"a"}), target_ids=frozenset({"b"}), label="causes"))
+        g.add_edge(Hyperedge(id="e2", source_ids=frozenset({"b"}), target_ids=frozenset({"c"}), label="enables"))
+        g.add_edge(Hyperedge(id="e3", source_ids=frozenset({"a"}), target_ids=frozenset({"c"}), label="causes"))
+        assert len(g.edges_by_label("causes")) == 2
+        assert len(g.edges_by_label("enables")) == 1
+        g.remove_edge("e1")
+        assert len(g.edges_by_label("causes")) == 1
+        assert len(g.edges_by_label("enables")) == 1
+

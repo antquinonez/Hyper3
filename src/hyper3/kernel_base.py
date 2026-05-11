@@ -12,6 +12,7 @@ class _GraphBase:
     _node_to_edges: dict[str, set[str]]
     _outgoing_edge_index: dict[str, set[str]]
     _incoming_edge_index: dict[str, set[str]]
+    _edge_label_index: dict[str, set[str]]
     _dimension_index: dict[str, set[str]]
     _label_index: dict[str, str]
     _neighbor_cache: dict[str, list[str]] | None
@@ -26,6 +27,9 @@ class _GraphBase:
         ...
     def neighbors(self, node_id: str) -> list[str]:
         """Return IDs of nodes adjacent to the given node."""
+        ...
+    def edges_by_label(self, label: str) -> list[Hyperedge]:
+        """Return all edges with the given semantic label via the edge label index."""
         ...
     def remove_edge(self, edge_id: str) -> bool:
         """Remove an edge by ID. Returns True if the edge was removed, False otherwise."""
@@ -71,6 +75,7 @@ class CoreMixin(_GraphBase):
         self._node_to_edges: dict[str, set[str]] = {}
         self._outgoing_edge_index: dict[str, set[str]] = {}
         self._incoming_edge_index: dict[str, set[str]] = {}
+        self._edge_label_index: dict[str, set[str]] = {}
         self._dimension_index: dict[str, set[str]] = {}
         self._label_index: dict[str, str] = {}
         self._neighbor_cache: dict[str, list[str]] | None = None
@@ -186,6 +191,8 @@ class CoreMixin(_GraphBase):
         for nid in edge.target_ids:
             self._incoming_edge_index[nid].add(edge.id)
         self._edges[edge.id] = edge
+        if edge.label:
+            self._edge_label_index.setdefault(edge.label, set()).add(edge.id)
         if self._batch_mode:
             self._cache_invalidated_in_batch = True
         else:
@@ -225,6 +232,12 @@ class CoreMixin(_GraphBase):
             if nid in self._incoming_edge_index:
                 self._incoming_edge_index[nid].discard(edge_id)
         del self._edges[edge_id]
+        if edge.label:
+            label_set = self._edge_label_index.get(edge.label)
+            if label_set is not None:
+                label_set.discard(edge_id)
+                if not label_set:
+                    del self._edge_label_index[edge.label]
         if self._batch_mode:
             self._cache_invalidated_in_batch = True
         else:

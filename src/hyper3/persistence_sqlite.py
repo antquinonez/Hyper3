@@ -158,6 +158,8 @@ class SqliteStore:
                 graph._outgoing_edge_index.setdefault(nid, set()).add(edge.id)
             for nid in edge.target_ids:
                 graph._incoming_edge_index.setdefault(nid, set()).add(edge.id)
+            if edge.label:
+                graph._edge_label_index.setdefault(edge.label, set()).add(edge.id)
         graph._neighbor_cache = None
         return graph
 

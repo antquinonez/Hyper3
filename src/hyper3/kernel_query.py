@@ -60,6 +60,20 @@ class QueryMixin(_GraphBase):
         edge_ids = self._incoming_edge_index.get(node_id, set())
         return [self._edges[eid] for eid in edge_ids if eid in self._edges]
 
+    def edges_by_label(self, label: str) -> list[Hyperedge]:
+        """Return all edges with the given semantic label.
+
+        Uses the edge label index for O(1) lookup per label.
+
+        Args:
+            label: The edge label to filter by.
+
+        Returns:
+            List of hyperedges matching the label.
+        """
+        edge_ids = self._edge_label_index.get(label, set())
+        return [self._edges[eid] for eid in edge_ids if eid in self._edges]
+
     def neighbors(self, node_id: str) -> list[str]:
         """Return IDs of all nodes sharing an edge with the given node.
 
