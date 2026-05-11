@@ -104,8 +104,18 @@ src/hyper3/
     memory_cognitive.py    CognitiveMixin: backward chaining, Hebbian, uncertainty
     memory_monitoring.py   MonitoringMixin: introspect, metamorphosis, validation
 
+  Search Subsystem
+    search_engine.py       SearchEngine (unified search over activation, embedding, index)
+    search_index.py        AttributeIndex (field-value, range, text indexing)
+    search_query.py        SearchQuery, FieldBoost, build_query, parse_query
+    search_planner.py      QueryPlanner, SearchPlan (strategy selection, selectivity estimation)
+    search_scoring.py      ScoringPipeline (multi-signal score fusion)
+    search_facets.py       FacetedAggregation (field value counts, range buckets)
+
   Infrastructure
     persistence.py         Serializer (JSON save/load)
+    persistence_sqlite.py  SqliteStore (SQLite persistence layer)
+    layered_graph.py       LayeredGraph, LayerStack (multi-layer hypergraph merge)
     embedding.py           EmbeddingEngine (semantic similarity, pluggable providers, optional FAISS)
     embedding_graph.py     RandomWalkEmbeddingProvider, NeighborhoodFingerprintProvider, CompositeEmbeddingProvider
     retrieval_activation.py SpreadingActivation (energy propagation, associative recall)
@@ -139,37 +149,71 @@ Requires Python >=3.12. Core dependencies: numpy, scipy, networkx.
 
 ## Quick Start
 
+Apply inference rules to automatically derive new relationships: discover that Paris is in Europe via transitive reasoning even when no direct edge exists.
+
 ```python
 from hyper3 import HypergraphMemory, TransitiveRule
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.store("Paris")
-mem.store("France")
-mem.store("Europe")
+mem.add("Paris")
+mem.add("France")
+mem.add("Europe")
 
-mem.relate("Paris", "France", label="capital_of")
-mem.relate("France", "Europe", label="part_of")
+mem.link("Paris", "France", label="located_in", weight=5.0)
+mem.link("France", "Europe", label="located_in", weight=4.0)
 
-mem.add_rules(TransitiveRule(edge_label="capital_of"))
-result = mem.reason({"Paris", "France", "Europe"}, max_depth=2)
+mem.reason.add_rules(TransitiveRule(edge_label="located_in"))
+result = mem.reason({"Paris", "France", "Europe"}, depth=2)
 print(f"States created: {result.expansion.states_created}")
+# Output: States created: 2
+
+print(f"Edges after reasoning: {mem.graph.edge_count}")
+# Output: Edges after reasoning: 3
+
+for e in mem.graph.edges:
+    src = [mem.graph.get_node(s).label for s in e.source_ids if mem.graph.get_node(s)]
+    tgt = [mem.graph.get_node(t).label for t in e.target_ids if mem.graph.get_node(t)]
+    print(f"  {' -> '.join(src)} --[{e.label}]--> {' -> '.join(tgt)}")
+# Output:   Paris --[located_in]--> France
+# Output:   France --[located_in]--> Europe
+# Output:   Paris --[inferred]--> Europe
 ```
 
 ### Belief Distributions
 
+Ambiguous concepts are represented as superpositions of outcomes with complex amplitudes. Sampling collapses to a single outcome via the Born rule (probability = |amplitude|^2). Correlations link outcomes across different distributions.
+
 ```python
-qs = mem.create_distribution(
-    "quantum_concept",
+# Create nodes for the possible spin states
+mem.add("spin_up")
+mem.add("spin_down")
+
+# Create a belief distribution: spin can be up or down with given amplitudes
+# Amplitudes are complex numbers; probabilities are |amplitude|^2
+qs = mem.belief.create(
     outcomes=["spin_up", "spin_down"],
     amplitudes=[0.6, 0.4],
 )
 
-result = mem.sample(qs)
-node = mem.graph.get_node(result.node_id)
-print(f"Selected: {node.label if node else result.node_id}")
+# Get the probability distribution (Born rule: P = |amplitude|^2)
+print(f"Probabilities: {mem.belief.probabilities(qs)}")
+# Output: Probabilities: {'spin_up': 0.692, 'spin_down': 0.308}
 
-mem.correlate(
+# Sample from the distribution - probabilistically collapses to one outcome
+outcome = mem.belief.sample(qs)
+print(f"Sampled: {outcome}")
+# Output: Sampled: spin_up
+
+# Create nodes for particles and their charge properties
+mem.add("electron")
+mem.add("proton")
+mem.add("negative")
+mem.add("positive")
+
+# Correlate particle types with their charges: electron is likely negative, proton is likely positive
+# When sampling, these correlations influence the joint outcome distribution
+mem.belief.correlate(
     ["electron", "proton"],
     ["negative", "positive"],
     correlations={("electron", "negative"): 0.95, ("proton", "positive"): 0.95},
@@ -178,83 +222,230 @@ mem.correlate(
 
 ### Rule Discovery
 
+Automatically detect recurring edge-label patterns (transitive chains, inverse pairs, hub structures) and register inference rules for future reasoning, without manual rule specification.
+
 ```python
-result = mem.auto_discover_and_apply()
-print(f"Discovered {result['total_patterns']} patterns")
+# Create a chain of connected nodes
+mem.add("A")
+mem.add("B")
+mem.add("C")
+mem.add("D")
+mem.link("A", "B", label="connects")
+mem.link("B", "C", label="connects")
+mem.link("C", "D", label="connects")
+
+# Automatically discover structural patterns in the graph
+# The engine detects the transitive chain pattern (A-connects->B-connects->C-connects->D)
+# and creates a TransitiveRule for the "connects" label
+result = mem.reason.auto_discover()
+print(f"Discovered {result.total_patterns} patterns, {result.new_rules_added} new rules")
+# Output: Discovered 1 patterns, 1 new rules
 ```
 
 ### Spreading Activation
 
+Inject energy at a concept and propagate it through the graph along edges. Nearby and strongly-connected concepts receive higher activation, enabling associative recall without explicit queries.
+
 ```python
-mem.relate("coffee", "morning", label="associated")
-mem.relate("morning", "sunrise", label="associated")
-results = mem.activate("coffee", top_k=5)
+# Build a simple knowledge graph about coffee and related concepts
+mem.add("coffee")
+mem.add("morning")
+mem.add("sunrise")
+mem.add("caffeine")
+mem.add("energy")
+mem.link("coffee", "morning", label="associated")
+mem.link("morning", "sunrise", label="associated")
+mem.link("coffee", "caffeine", label="contains")
+mem.link("caffeine", "energy", label="causes")
+
+# Activate the concept "coffee" - energy propagates through the graph
+# Direct neighbors get the most energy, their neighbors get less, etc.
+results = mem.search.activate("coffee", top_k=5)
 for r in results:
-    print(f"  {r.label}: {r.activation:.3f}")
+    print(f"  {r.label}: {r.energy:.3f}")
+# Output:   caffeine: 0.857
+# Output:   morning: 0.857
+# Output:   energy: 0.484
+# Output:   sunrise: 0.484
 ```
 
-### Semantic Similarity
+### Graph-Native Similarity
+
+Compute spectral embeddings from the hypergraph Laplacian and use them for cosine similarity search and vector analogy queries (a is to b as c is to ?), no external embedding model required.
 
 ```python
-from hyper3 import HashEmbeddingProvider
+# Add programming language and library concepts with metadata
+concepts = [
+    ("Python", {"type": "language", "paradigm": "multi"}),
+    ("JavaScript", {"type": "language", "paradigm": "multi"}),
+    ("Rust", {"type": "language", "paradigm": "systems"}),
+    ("Go", {"type": "language", "paradigm": "systems"}),
+    ("numpy", {"type": "library", "ecosystem": "python"}),
+    ("pandas", {"type": "library", "ecosystem": "python"}),
+]
+for name, data in concepts:
+    mem.add(name, data=data)
 
-mem.set_embedding_provider(HashEmbeddingProvider(dim=64))
-similar = mem.find_similar("Paris", top_k=5)
+# Create relationships between languages and their ecosystems/peers
+mem.link("Python", "numpy", label="ecosystem")
+mem.link("Python", "pandas", label="ecosystem")
+mem.link("Rust", "Go", label="similar_paradigm")
+mem.link("Python", "JavaScript", label="similar_paradigm")
+
+# Generate spectral embeddings from the hypergraph Laplacian
+# These capture structural relationships in the graph
+emb = mem.analyze.spectral_embedding(dimensions=8)
+print(f"Embedded {len(emb)} nodes")
+# Output: Embedded 6 nodes
+
+# Find nodes similar to Python based on the spectral embedding
+similar = mem.search.similar("Python", top_k=3, threshold=0.0)
 for s in similar:
-    print(f"  {s.label_b}: {s.similarity:.3f}")
+    print(f"  {s.label}: similarity={s.similarity:.3f}")
+# Output:   numpy: similarity=0.773
+# Output:   pandas: similarity=0.739
+# Output:   JavaScript: similarity=0.720
 
-results = mem.analogy("Paris", "France", "Berlin", top_k=3)
+# Vector analogy: Python is to numpy as Rust is to what?
+# Uses the embedding space to solve: a - b + c ≈ ?
+results = mem.search.analogy("Python", "numpy", "Rust", top_k=3)
+for label, score in results:
+    print(f"  {label}: {score:.3f}")
+# Output:   pandas: 0.446
+# Output:   Go: 0.443
+# Output:   JavaScript: 0.435
 ```
 
 ### Retrieval with Feedback
 
+Combine spreading activation with relevance feedback: mark which results are relevant, train the learning-to-rank retriever, and improve future retrieval quality.
+
 ```python
-results = mem.retrieve("diabetes", top_k=10)
-mem.record_feedback("diabetes", results, {"insulin", "metformin", "obesity"})
-mem.train_retriever()
-results = mem.retrieve("diabetes", top_k=10, use_ltr=True)
+# Build a medical knowledge graph
+mem.add("diabetes", data={"type": "condition"})
+mem.add("insulin", data={"type": "treatment"})
+mem.add("metformin", data={"type": "treatment"})
+mem.add("obesity", data={"type": "risk_factor"})
+mem.add("exercise", data={"type": "prevention"})
+mem.link("diabetes", "insulin", label="treated_by", weight=5.0)
+mem.link("diabetes", "metformin", label="treated_by", weight=3.0)
+mem.link("diabetes", "obesity", label="risk_factor", weight=4.0)
+mem.link("diabetes", "exercise", label="prevented_by", weight=2.0)
+
+# Run spreading activation from diabetes
+results = mem.search.activate("diabetes", top_k=5)
+for r in results:
+    print(f"  {r.label}: energy={r.energy:.3f}")
+# Output:   insulin: energy=1.000
+# Output:   obesity: energy=0.800
+# Output:   metformin: energy=0.600
+# Output:   exercise: energy=0.400
+
+# Record user feedback: insulin and obesity are relevant to diabetes
+# This trains the learning-to-rank model to prioritize these in future queries
+mem.search.feedback.record("diabetes", results, {"insulin", "obesity"})
+mem.search.feedback.train()
 ```
 
 ### Bayesian Reasoning
 
+Update beliefs about uncertain events using prior distributions and evidence likelihoods, with MAP estimation and credible interval computation.
+
 ```python
-mem.set_prior("weather", outcomes=["sunny", "cloudy", "rainy"], weights=[0.5, 0.3, 0.2])
-mem.update_belief("weather", evidence_name="dark_sky", likelihoods=[0.1, 0.5, 0.8])
-print(mem.map_estimate("weather"))
-print(mem.credible_set("weather", level=0.9))
+# Add a weather concept
+mem.add("weather")
+
+# Set a prior distribution over possible weather states
+# sunny has 50% probability, cloudy 30%, rainy 20%
+mem.bayes.set_prior("weather", outcomes=["sunny", "cloudy", "rainy"], weights=[0.5, 0.3, 0.2])
+print(f"Prior: {mem.bayes.get('weather')}")
+# Output: Prior: CategoricalDistribution(outcomes={'sunny': 0.5, 'cloudy': 0.3, 'rainy': 0.2})
+
+# Update the belief with new evidence: the sky is dark
+# Likelihoods: if sky is dark, P(sunny)=0.1, P(cloudy)=0.5, P(rainy)=0.8
+mem.bayes.update("weather", evidence="dark_sky", likelihoods={"sunny": 0.1, "cloudy": 0.5, "rainy": 0.8})
+
+# Get the maximum a posteriori (MAP) estimate - the most probable outcome
+print(f"MAP estimate: {mem.bayes.map('weather')}")
+# Output: MAP estimate: rainy
+
+# Get the 90% credible interval - outcomes that cover 90% of probability mass
+print(f"90% credible: {mem.bayes.credible('weather', level=0.9)}")
+# Output: 90% credible: ['rainy', 'cloudy', 'sunny']
 ```
 
 ### Temporal Reasoning
 
+Represent events as intervals and compute Allen interval algebra relations (before, after, during, overlaps, etc.) between them.
+
 ```python
 from datetime import datetime
-mem.add_temporal_event("meeting", datetime(2024, 1, 15, 9), datetime(2024, 1, 15, 10))
-mem.add_temporal_event("lunch", datetime(2024, 1, 15, 12), datetime(2024, 1, 15, 13))
-matches = mem.temporal_query("meeting", relation="before")
+
+# Add event concepts
+mem.add("meeting")
+mem.add("lunch")
+
+# Define time intervals for events
+# Meeting runs from 9:00 to 10:00
+t1 = datetime(2024, 1, 15, 9)
+t2 = datetime(2024, 1, 15, 10)
+# Lunch runs from 12:00 to 13:00
+t3 = datetime(2024, 1, 15, 12)
+t4 = datetime(2024, 1, 15, 13)
+
+# Register temporal events with their start and end timestamps
+mem.temporal.add_event("meeting", t1.timestamp(), t2.timestamp())
+mem.temporal.add_event("lunch", t3.timestamp(), t4.timestamp())
+
+# Compute the Allen interval relation between meeting and lunch
+# BEFORE means meeting ends before lunch starts
+print(f"Allen relation: {mem.temporal.allen('meeting', 'lunch')}")
+# Output: Allen relation: AllenRelation.BEFORE
+```
+
+### Structured Search
+
+Search and browse the hypergraph using attribute filters, field boosting, and faceted aggregation for structured data exploration.
+
+```python
+# Add people with structured metadata (role and team)
+mem.add("Alice", data={"role": "engineer", "team": "platform"})
+mem.add("Bob", data={"role": "manager", "team": "platform"})
+mem.add("Carol", data={"role": "engineer", "team": "ml"})
+
+# Structured search: find all nodes with team="platform"
+# Returns results sorted by relevance score
+results = mem.search.find("", filters={"team": "platform"}, top_k=10)
+for hit in results.results:
+    print(f"  {hit.label}: {hit.score:.3f}")
+# Output:   Bob: 1.000
+# Output:   Alice: 1.000
+
+# Faceted navigation: count occurrences of each field value
+# Useful for building filter UIs and understanding data distribution
+facets = mem.search.browse(facet_fields=["role", "team"])
+for field, agg in facets.facets.items():
+    for bucket in agg.buckets:
+        print(f"  {field}={bucket.value}: {bucket.count}")
+# Output:   role=engineer: 2
+# Output:   role=manager: 1
+# Output:   team=platform: 2
+# Output:   team=ml: 1
 ```
 
 ### Persistence
 
+Save and load the complete knowledge graph state to/from JSON files for persistence across sessions.
+
 ```python
+# Save the entire knowledge graph to a JSON file
 mem.save("knowledge.json")
 
+# Create a new memory instance and load the saved graph
 mem2 = HypergraphMemory(evolve_interval=0)
 mem2.load("knowledge.json")
 print(f"Loaded {mem2.graph.node_count} nodes, {mem2.graph.edge_count} edges")
-```
-
-### Visualization
-
-Requires `matplotlib>=3.8` (`pip install -e ".[viz]"`).
-
-```python
-from hyper3.visualization import plot_hypergraph, plot_belief_state
-
-fig = plot_hypergraph(mem.graph, layout="spring", show_weights=True)
-fig.savefig("graph.png")
-
-fig = plot_belief_state(mem.belief, qs.id, graph=mem.graph)
-fig.savefig("belief.png")
+# Output: Loaded 2 nodes, 1 edges
 ```
 
 ## Core Concepts
@@ -287,9 +478,21 @@ Nodes (`Hypernode`) represent concepts with labels, data payloads, metadata (tem
 
 `TemporalReasoner` implements full Allen interval algebra (13 relations), causal chain detection, temporal proximity queries, and edge-level temporal consistency checking.
 
+### Structured Search
+
+`SearchEngine` provides structured search over the hypergraph with attribute filtering, field boosting, faceted navigation, and multi-signal scoring (activation, embedding, and index-based). `AttributeIndex` supports exact-match, range, and text-prefix queries. `QueryPlanner` selects the optimal retrieval strategy based on available signals. `FacetedAggregation` computes field-value counts and range buckets over result sets.
+
 ### Provenance and Overlay
 
 `ProvenanceTracker` records inference derivations with recursive `explain()`. `HypergraphOverlay` provides a temporary inference layer with `commit()`/`rollback()` for review-before-commit workflows.
+
+### Layered Graphs
+
+`LayerStack` merges edges from a primary hypergraph with N named secondary layers. Secondary layers (e.g., semantic edges, derived relationships) are registered via `register()` and contribute to edge-access methods. Derived layers track dirtiness against the primary graph.
+
+### SQLite Persistence
+
+`SqliteStore` provides a SQLite-based persistence layer as an alternative to JSON serialization, suitable for larger graphs and query-heavy workloads.
 
 ### Cognitive Engines
 
@@ -308,110 +511,123 @@ Nodes (`Hypernode`) represent concepts with labels, data payloads, metadata (tem
 
 ## API Reference
 
-The `HypergraphMemory` class is the primary entry point, providing a unified API over all subsystems:
+The `HypergraphMemory` class is the primary entry point. Operations are organized into namespaces: `mem.reason`, `mem.belief`, `mem.bayes`, `mem.search`, `mem.temporal`, `mem.analyze`, `mem.cognitive`, and `mem.monitor`.
 
 ### Core
 
 | Method | Description |
 |--------|-------------|
-| `store(concept, *, data, ...)` | Add a concept node |
-| `recall(concept, *, max_depth, ...)` | Retrieve concept and related neighborhood |
+| `add(concept, *, data, ...)` | Add a concept node |
+| `get(concept, key, *, default)` | Retrieve concept data or a specific key |
+| `set(concept, **kwargs)` | Update concept attributes |
 | `ensure(concept, *, data, ...)` | Idempotent node creation (no reinforcement) |
-| `relate(source, target, *, label, ...)` | Create a pairwise directed edge |
-| `relate_hyperedge(sources, targets, *, label, ...)` | Create an n-ary hyperedge |
-| `has_node(concept)` | Check if concept exists |
+| `link(source, target, *, label, weight, ...)` | Create a pairwise directed edge |
+| `has(concept)` | Check if concept exists |
 | `neighbors(concept, *, edge_label, direction)` | Directed neighbor queries |
-| `query_hyperedges(*, min_source_cardinality, ...)` | Filter hyperedges by cardinality |
-| `hyperedge_neighbors(concept)` | Co-participation queries |
-| `query(concept, *, strategy, ...)` | Traverse from concept (BFS/DFS/adaptive) |
-| `query_nodes(*, type, data, ...)` | Filter nodes by data attributes |
+| `find(concept, *, type, data)` | Create a `ConceptSet` for chainable exploration |
+| `query_hyperedges(*, label, containing, ...)` | Filter hyperedges by cardinality |
 | `evolve()` | Run one self-evolution cycle (decay, prune, merge) |
-| `evolve_with_feedback()` | Adaptive evolution based on fitness trends |
 
-### Reasoning
+### Reasoning (`mem.reason`)
 
-| Method | Description |
-|--------|-------------|
-| `reason(seeds, *, rules, max_depth, ...)` | Multiway expansion with all registered rules |
-| `reason_incremental(new_nodes, ...)` | Incremental expansion from new nodes |
-| `reason_iterative(seeds, *, max_iterations, ...)` | Iterative deepening reasoning |
-| `reason_with_frame(seeds, *, frame_name, ...)` | Frame-specific reasoning |
-| `derive(concept, *, rules)` | Single-step derivation |
-| `commit_inferences()` | Merge overlay inferences to base graph |
-| `rollback_inferences()` | Discard overlay inferences |
-| `add_rules(*rules)` | Register inference rules |
-| `rules` | Read-only list of active inference rules |
-| `discover_rules()` | Discover structural patterns |
-| `auto_discover_and_apply()` | Discover and register rules automatically |
-
-### Belief
+Callable directly: `mem.reason(seeds, *, depth, ...)`.
 
 | Method | Description |
 |--------|-------------|
-| `create_distribution(concepts, *, amplitudes, ...)` | Create a belief distribution |
-| `sample(qs, *, context)` | Born-rule sampling from distribution |
-| `sample_with_profile(qs, basis_name)` | Profile-biased sampling |
-| `correlate(group_a, group_b, correlations)` | Correlate outcome sampling between groups |
-| `detect_sampling_triggers(qs)` | Detect interference maxima and other triggers |
-| `compute_interactions(qs)` | Compute constructive/destructive interference |
-| `detect_structural_anomalies(concept, ...)` | Detect cycles, contradictions, unusual structure |
-| `lateral_insights(concept)` | Cross-branch insight transfer |
+| `reason(seeds, *, depth, ...)` | Multiway expansion with all registered rules |
+| `reason.expand(seeds, *, rules, depth, ...)` | Full multiway expansion |
+| `reason.incremental(new_nodes, ...)` | Incremental expansion from new nodes |
+| `reason.iterative(seeds, *, max_iterations, ...)` | Iterative deepening reasoning |
+| `reason.frame(seeds, *, frame_name, ...)` | Frame-specific reasoning |
+| `reason.robust(seeds, *, rules)` | Consensus reasoning across multiple runs |
+| `reason.derive(concept, *, rules)` | Single-step derivation |
+| `reason.commit()` | Merge overlay inferences to base graph |
+| `reason.rollback()` | Discard overlay inferences |
+| `reason.add_rules(*rules)` | Register inference rules |
+| `reason.rules` | Read-only list of active inference rules |
+| `reason.discover()` | Discover structural patterns |
+| `reason.auto_discover()` | Discover and register rules automatically |
+| `reason.bias_profile()` | Reasoning tendency analysis |
 
-### Bayesian
-
-| Method | Description |
-|--------|-------------|
-| `set_prior(concept, *, outcomes, weights)` | Initialize categorical prior |
-| `update_belief(concept, *, evidence_name, likelihoods)` | Bayesian posterior update |
-| `get_belief(concept)` | Get current distribution |
-| `map_estimate(concept)` | Most probable outcome |
-| `bayes_factor(concept, *, hypothesis_a, hypothesis_b)` | Bayes factor computation |
-| `credible_set(concept, *, level)` | Outcomes within probability mass threshold |
-| `reset_belief(concept)` | Restore prior |
-
-### Analytics
+### Belief (`mem.belief`)
 
 | Method | Description |
 |--------|-------------|
-| `find_paths(source, target, *, edge_label, ...)` | Shortest paths between concepts |
-| `pattern_match(*, edge_label, ...)` | Find matching edge patterns |
-| `subgraph(concepts)` | Extract induced subgraph |
-| `degree_centrality(*, top_k)` | Degree centrality scores |
-| `betweenness_centrality(*, top_k)` | Betweenness centrality scores |
-| `pagerank(*, alpha, weighted, top_k)` | Hypergraph-native PageRank |
-| `describe()` | Graph summary (degree stats, density, components) |
-| `connected_components()` | Connected components |
-| `has_cycle()` / `detect_cycles()` | Cycle detection |
-| `shortest_path(source, target, *, weighted)` | Shortest path query (weighted by default) |
+| `belief.create(outcomes, *, amplitudes)` | Create a belief distribution |
+| `belief.sample(target, *, context)` | Born-rule sampling from distribution |
+| `belief.correlate(group_a, group_b, correlations)` | Correlate outcome sampling between groups |
+| `belief.triggers(state)` | Detect interference maxima and sampling triggers |
+| `belief.interactions(state)` | Compute constructive/destructive interference |
+| `belief.probabilities(state)` | Outcome probability dict |
+| `belief.list()` | List all belief states |
 
-### Retrieval
+### Bayesian (`mem.bayes`)
 
 | Method | Description |
 |--------|-------------|
-| `activate(concept, *, energy, top_k, ...)` | Spreading activation for associative recall |
-| `stimulate(concept, *, energy)` | Inject activation energy |
-| `spread_activation(*, iterations)` | Propagate activation through graph |
-| `retrieve(concept, *, top_k, ...)` | Combined retrieval via RRF (activation + semantic) |
-| `record_feedback(query, results, relevant)` | Mark results relevant/irrelevant |
-| `train_retriever()` | Train learning-to-rank from feedback |
+| `bayes.set_prior(concept, *, outcomes, weights)` | Initialize categorical prior |
+| `bayes.update(concept, *, evidence, likelihoods)` | Bayesian posterior update |
+| `bayes.get(concept)` | Get current distribution |
+| `bayes.map(concept)` | Most probable outcome |
+| `bayes.credible(concept, *, level)` | Outcomes within probability mass threshold |
+| `bayes.factor(concept, *, hyp_a, hyp_b)` | Bayes factor computation |
+| `bayes.reset(concept)` | Restore prior |
 
-### Embedding & Similarity
-
-| Method | Description |
-|--------|-------------|
-| `set_embedding_provider(provider)` | Set pluggable embedding provider |
-| `find_similar(concept, *, top_k, ...)` | Semantic similarity search |
-| `analogy(a, b, c, *, top_k)` | Vector analogy: a is to b as c is to ? |
-| `enable_faiss(...)` | Enable FAISS index for fast similarity search |
-| `spectral_embedding(*, dimensions)` | Hypergraph Laplacian spectral embeddings |
-
-### Temporal
+### Analytics (`mem.analyze`)
 
 | Method | Description |
 |--------|-------------|
-| `add_temporal_event(label, start, end)` | Add a temporal event |
-| `temporal_query(concept, *, relation)` | Temporal proximity queries (Allen relations) |
-| `causal_chain(labels)` | Detect causal chains |
+| `analyze.paths(source, target, ...)` | Shortest paths between concepts |
+| `analyze.centrality(method, *, top_k)` | Centrality scores (pagerank, betweenness, degree, ...) |
+| `analyze.describe()` | Graph summary (degree stats, density, components) |
+| `analyze.components()` | Connected components |
+| `analyze.shortest_path(source, target, *, weighted)` | Shortest path query |
+| `analyze.distances(source, *, weighted)` | Distances from one concept |
+| `analyze.eccentricity(concept)` | Node eccentricity |
+| `analyze.diameter()` / `radius()` | Graph diameter and radius |
+| `analyze.cycles(*, max_cycles)` | Cycle detection |
+| `analyze.spectral_embedding(*, dimensions)` | Hypergraph Laplacian spectral embeddings |
+| `analyze.subgraph(concepts)` | Extract induced subgraph |
+| `analyze.pattern(*, label, source, target)` | Find matching edge patterns |
+| `analyze.anomalies(concept, ...)` | Detect structural anomalies |
+| `analyze.communities(*, method, seed)` | Community detection |
+| `analyze.collapse(concepts, *, label, data)` | Collapse subgraph to summary node |
+| `analyze.expand_summary(label)` | Restore collapsed subgraph |
+| `analyze.match_chains(*, label, min_length)` | Find chain patterns |
+| `analyze.match_diamonds(*, label)` | Find diamond patterns |
+| `analyze.match_fan_out(*, label, min_fan)` | Find fan-out patterns |
+| `analyze.capture_version()` | Snapshot current graph state |
+| `analyze.diff(version_id)` | Compute delta from snapshot |
+
+### Search (`mem.search`)
+
+| Method | Description |
+|--------|-------------|
+| `search.query(concept, *, top_k, ...)` | Retrieve related concepts via graph-based retrieval |
+| `search.find(text, *, filters, boosts, ...)` | Structured search with filtering and faceting |
+| `search.browse(*, filters, facet_fields)` | Browse with filters and facet counts (no text query) |
+| `search.similar(concept, *, top_k, threshold)` | Semantic similarity via embeddings |
+| `search.analogy(a, b, c, *, top_k)` | Vector analogy: a is to b as c is to ? |
+| `search.activate(concept, *, energy, top_k)` | Spreading activation for associative recall |
+| `search.diffuse(concept, *, energy, mode)` | Hyperedge-aware activation diffusion |
+| `search.set_provider(provider)` | Set pluggable embedding provider |
+| `search.enable_faiss(...)` | Enable FAISS index for fast similarity search |
+| `search.reindex(indexed_fields)` | Build or rebuild the attribute index |
+| `search.index_stats()` | Search index statistics |
+| `search.suggest(field, prefix, top_k)` | Autocomplete suggestions for field values |
+| `search.feedback.record(query, results, relevant)` | Mark results relevant/irrelevant |
+| `search.feedback.train()` | Train learning-to-rank from feedback |
+| `search.feedback.summary()` | Retrieval feedback statistics |
+
+### Temporal (`mem.temporal`)
+
+| Method | Description |
+|--------|-------------|
+| `temporal.add_event(label, start, end)` | Add a temporal event |
+| `temporal.add_constraint(event_a, event_b, relation)` | Add Allen interval constraint |
+| `temporal.query(concept, *, relation, max_gap)` | Temporal queries (before, after, overlapping, proximity) |
+| `temporal.allen(source, target)` | Compute Allen interval relation |
+| `temporal.causal_chain(labels)` | Detect causal chains |
 
 ### Provenance
 
@@ -420,51 +636,41 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 | `explain(source, target, *, edge_label)` | Recursive explanation of inference derivation |
 | `retract_inference(source, target, *, edge_label)` | Cascade retract a conclusion and dependents |
 
-### Cognitive Engines
+### Cognitive (`mem.cognitive`)
 
 | Method | Description |
 |--------|-------------|
-| `prove(concept, *, known_facts, ...)` | Backward chaining with proof tree |
-| `hebbian_reinforce()` | Strengthen co-activated edges |
-| `compute_confidence(concept)` | Confidence score via provenance depth |
-| `detect_contradictions()` | Find contradictory edges |
-| `revise_beliefs(*, strategy)` | Resolve contradictions |
-| `detect_communities(*, method, seed)` | Community detection (label propagation) |
-| `capture_version()` | Snapshot current graph state |
-| `diff_from_version(version_id)` | Compute delta from snapshot |
-| `collapse_subgraph(labels, ...)` | Collapse subgraph to summary node |
-| `expand_summary(label)` | Restore collapsed subgraph |
-| `match_structural_pattern(*, pattern_name, ...)` | Subgraph pattern matching |
+| `cognitive.prove(concept, *, facts, depth)` | Backward chaining with proof tree |
+| `cognitive.hebbian_reinforce()` | Strengthen co-activated edges |
+| `cognitive.confidence(concept)` | Confidence score via provenance depth |
+| `cognitive.associations(concept, *, top_k)` | Co-activation association scores |
 
 ### Hypergraph-Native
 
 | Method | Description |
 |--------|-------------|
-| `s_persistence(*, max_s)` | Multi-resolution s-connected component structure |
-| `hyperedge_similarity(concept, *, metric)` | Hyperedge similarity by node-set overlap |
 | `spread_hyperedge(concept, *, mode)` | N-ary hyperedge diffusion (and/or/majority) |
 
 ### Persistence
 
 | Method | Description |
 |--------|-------------|
-| `save(path)` / `load(path)` | Persist/restore full state as JSON |
-| `save_state(path)` / `load_state(path)` | Full system snapshot (includes all subsystems) |
+| `save(path)` / `load(path)` | Persist/restore state as JSON (use `full=True` for all subsystems) |
 | `export_json(path)` / `import_json(path)` | JSON export/import |
 | `export_edgelist(path)` / `import_edgelist(path)` | Edge list export/import |
+| `load_records(nodes, edges)` | Load records from dict lists |
 | `stats()` | Memory statistics |
 
-### Monitoring
+### Monitoring (`mem.monitor`)
 
 | Method | Description |
 |--------|-------------|
-| `introspect()` | Meta-cognitive health report |
-| `check_metamorphosis()` | Detect tuning triggers |
-| `propose_tuning(triggers)` | Generate tuning plan |
-| `compute_bias_profile()` | Reasoning tendency analysis |
-| `feedback_summary()` | Cross-operation outcome summary |
-| `multi_frame_analysis(concept)` | Multi-perspective analysis |
-| `validate_reasoning(seeds, ...)` | A/B reasoning validation |
+| `monitor.health()` | Meta-cognitive health report |
+| `monitor.metamorphosis()` | Detect tuning triggers |
+| `monitor.tune(*, triggers)` | Generate and execute tuning plan |
+| `monitor.frame(concept, frame_name)` | Multi-perspective analysis |
+| `monitor.validate(seeds, *, rules)` | A/B reasoning validation |
+| `monitor.evolve_with_feedback()` | Adaptive evolution based on fitness trends |
 
 ## Demos
 
@@ -490,11 +696,12 @@ The `HypergraphMemory` class is the primary entry point, providing a unified API
 .venv/bin/python examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py
 .venv/bin/python examples/showcase/multiway_reasoning/multiway_lateral_insights.py
 .venv/bin/python examples/showcase/hypergraph_native/hypergraph_native.py
+.venv/bin/python examples/showcase/structured_search/structured_search.py
 .venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
 .venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
 ```
 
-See `examples/README.md` for the full index of 50+ examples.
+See `examples/README.md` for the full index of 51 examples.
 
 ## Testing
 
@@ -505,7 +712,7 @@ See `examples/README.md` for the full index of 50+ examples.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-3490 tests, 98% coverage across 90 modules. 0 pyright errors, 0 ruff errors.
+3675 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
@@ -532,4 +739,6 @@ Key optimizations in the kernel:
 
 ## License
 
-Proprietary. All rights reserved.
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Antonio Quinonez

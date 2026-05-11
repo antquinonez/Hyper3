@@ -343,3 +343,9 @@ edge counts. Both produce majority intra-community edges (>50%).
    "structural properties" for basic invariants.
 7. The equiv scripts (`benchmarks/equiv/equiv_*.py`) are the executable source of
    truth. This document is the human-readable summary.
+
+## License
+
+Part of the Hyper3 project, released under the [MIT License](../../LICENSE).
+
+Copyright (c) 2026 Antonio Quinonez

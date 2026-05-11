@@ -111,3 +111,10 @@ Shared Utilities
 - IR metrics (precision@k, recall@k, MAP, NDCG@k, F1@k)
 - Baseline implementations (BFS, PPR, RWR, age/random pruning, simple regex)
 - Timer, result formatting, and comparison table printing
+
+License
+-------
+
+All benchmarks are part of the Hyper3 project, released under the [MIT License](../LICENSE).
+
+Copyright (c) 2026 Antonio Quinonez
