@@ -96,8 +96,13 @@ class Hyperedge:
     data: Any = None
     metadata: Metadata = field(default_factory=Metadata)
     weight: float = 1.0
+    _node_ids_cache: frozenset[str] | None = field(default=None, repr=False)
 
     @property
     def node_ids(self) -> frozenset[str]:
-        """Union of source and target node IDs."""
-        return self.source_ids | self.target_ids
+        """Union of source and target node IDs. Cached after first access."""
+        cached = self._node_ids_cache
+        if cached is None:
+            cached = self.source_ids | self.target_ids
+            object.__setattr__(self, '_node_ids_cache', cached)
+        return cached

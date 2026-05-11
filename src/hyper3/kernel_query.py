@@ -45,7 +45,8 @@ class QueryMixin(_GraphBase):
         Returns:
             List of hyperedges where node_id appears in source_ids.
         """
-        return [e for e in self.incident_edges(node_id) if node_id in e.source_ids]
+        edge_ids = self._outgoing_edge_index.get(node_id, set())
+        return [self._edges[eid] for eid in edge_ids if eid in self._edges]
 
     def incoming_edges(self, node_id: str) -> list[Hyperedge]:
         """Return edges where node_id is in target_ids.
@@ -56,7 +57,8 @@ class QueryMixin(_GraphBase):
         Returns:
             List of hyperedges where node_id appears in target_ids.
         """
-        return [e for e in self.incident_edges(node_id) if node_id in e.target_ids]
+        edge_ids = self._incoming_edge_index.get(node_id, set())
+        return [self._edges[eid] for eid in edge_ids if eid in self._edges]
 
     def neighbors(self, node_id: str) -> list[str]:
         """Return IDs of all nodes sharing an edge with the given node.

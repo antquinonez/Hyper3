@@ -210,6 +210,7 @@ class HypergraphOverlay:
                     new_target = (edge.target_ids - {secondary_id}) | {primary_id}
                     edge.source_ids = frozenset(new_source)
                     edge.target_ids = frozenset(new_target)
+                    edge._node_ids_cache = None
                     for nid in new_source | new_target:
                         self._overlay_node_to_edges.setdefault(nid, set()).add(eid)
                     self._overlay_node_to_edges.pop(secondary_id, None)

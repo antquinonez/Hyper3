@@ -10,6 +10,8 @@ class _GraphBase:
     _nodes: dict[str, Hypernode]
     _edges: dict[str, Hyperedge]
     _node_to_edges: dict[str, set[str]]
+    _outgoing_edge_index: dict[str, set[str]]
+    _incoming_edge_index: dict[str, set[str]]
     _dimension_index: dict[str, set[str]]
     _label_index: dict[str, str]
     _neighbor_cache: dict[str, list[str]] | None
@@ -67,6 +69,8 @@ class CoreMixin(_GraphBase):
         self._nodes: dict[str, Hypernode] = {}
         self._edges: dict[str, Hyperedge] = {}
         self._node_to_edges: dict[str, set[str]] = {}
+        self._outgoing_edge_index: dict[str, set[str]] = {}
+        self._incoming_edge_index: dict[str, set[str]] = {}
         self._dimension_index: dict[str, set[str]] = {}
         self._label_index: dict[str, str] = {}
         self._neighbor_cache: dict[str, list[str]] | None = None
@@ -89,6 +93,8 @@ class CoreMixin(_GraphBase):
             return self._nodes[node.id]
         self._nodes[node.id] = node
         self._node_to_edges[node.id] = set()
+        self._outgoing_edge_index[node.id] = set()
+        self._incoming_edge_index[node.id] = set()
         if node.label:
             self._label_index[node.label] = node.id
         for modality in node.metadata.modality_tags:
@@ -143,6 +149,8 @@ class CoreMixin(_GraphBase):
             self._label_index.pop(node.label, None)
         del self._nodes[node_id]
         del self._node_to_edges[node_id]
+        self._outgoing_edge_index.pop(node_id, None)
+        self._incoming_edge_index.pop(node_id, None)
         for dim_set in self._dimension_index.values():
             dim_set.discard(node_id)
         if self._batch_mode:
@@ -173,6 +181,10 @@ class CoreMixin(_GraphBase):
             if nid not in self._nodes:
                 raise NodeNotFoundError(nid)
             self._node_to_edges[nid].add(edge.id)
+        for nid in edge.source_ids:
+            self._outgoing_edge_index[nid].add(edge.id)
+        for nid in edge.target_ids:
+            self._incoming_edge_index[nid].add(edge.id)
         self._edges[edge.id] = edge
         if self._batch_mode:
             self._cache_invalidated_in_batch = True
@@ -206,6 +218,12 @@ class CoreMixin(_GraphBase):
         for nid in edge.node_ids:
             if nid in self._node_to_edges:
                 self._node_to_edges[nid].discard(edge_id)
+        for nid in edge.source_ids:
+            if nid in self._outgoing_edge_index:
+                self._outgoing_edge_index[nid].discard(edge_id)
+        for nid in edge.target_ids:
+            if nid in self._incoming_edge_index:
+                self._incoming_edge_index[nid].discard(edge_id)
         del self._edges[edge_id]
         if self._batch_mode:
             self._cache_invalidated_in_batch = True
@@ -249,12 +267,23 @@ class CoreMixin(_GraphBase):
             edge = self._edges.get(edge_id)
             if not edge:
                 continue
+            was_source = secondary_id in edge.source_ids
+            was_target = secondary_id in edge.target_ids
             new_source = (edge.source_ids - {secondary_id}) | {primary_id}
             new_target = (edge.target_ids - {secondary_id}) | {primary_id}
             edge.source_ids = frozenset(new_source)
             edge.target_ids = frozenset(new_target)
+            edge._node_ids_cache = None
             self._node_to_edges[primary_id].add(edge_id)
+            if was_source:
+                self._outgoing_edge_index[secondary_id].discard(edge_id)
+                self._outgoing_edge_index[primary_id].add(edge_id)
+            if was_target:
+                self._incoming_edge_index[secondary_id].discard(edge_id)
+                self._incoming_edge_index[primary_id].add(edge_id)
         self._node_to_edges[secondary_id].clear()
+        self._outgoing_edge_index[secondary_id].clear()
+        self._incoming_edge_index[secondary_id].clear()
         self.remove_node(secondary_id)
         return primary
 
