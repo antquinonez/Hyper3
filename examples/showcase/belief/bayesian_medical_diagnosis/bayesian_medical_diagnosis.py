@@ -247,12 +247,12 @@ def main() -> None:
     print("=" * 70)
 
     all_conf = mem.compute_all_confidences()
-    print(f"\n  Overall confidence statistics:")
+    print("\n  Overall confidence statistics:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
     print(f"    Low confidence (<0.3): {all_conf.low_confidence_count}")
 
-    print(f"\n  Per-diagnosis confidence:")
+    print("\n  Per-diagnosis confidence:")
     for dx in dx_outcomes:
         score = mem.compute_confidence(dx)
         if score:

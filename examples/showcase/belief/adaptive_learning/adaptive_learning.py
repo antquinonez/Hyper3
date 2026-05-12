@@ -14,8 +14,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, Modality, TransitiveRule, InverseRule
-
+from hyper3 import HypergraphMemory
 
 SERVERS = [
     "web-frontend-01", "web-frontend-02", "web-frontend-03",
@@ -295,7 +294,7 @@ def main() -> None:
               f"reinforcement={reinf:.2f}  apps={apps}")
 
     best = rule_analytics.get_best_rules(3)
-    print(f"\n  Top 3 rules by effectiveness:")
+    print("\n  Top 3 rules by effectiveness:")
     for name, score in best:
         print(f"    {name}: {score:.2f}")
     print()
@@ -328,8 +327,8 @@ def main() -> None:
         chosen = quantum.get_effective_basis()
         selections[chosen] = selections.get(chosen, 0) + 1
 
-    print(f"\n  Thompson sampling selections over 200 trials:")
-    for basis in sorted(selections, key=selections.get, reverse=True):
+    print("\n  Thompson sampling selections over 200 trials:")
+    for basis in sorted(selections, key=lambda k: selections.get(k, 0), reverse=True):
         count = selections[basis]
         bar = "#" * (count // 2)
         print(f"    {basis:15s}  {count:3d}  {bar}")
@@ -340,7 +339,7 @@ def main() -> None:
         (["payment-service-01", "payment-service-02", "database-layer"], "dependency-trace"),
     ]
 
-    print(f"\n  Sample results by basis for different problem types:")
+    print("\n  Sample results by basis for different problem types:")
     for concepts, problem_type in problem_sets:
         qs = mem.belief.create(concepts)
         if qs is None:
@@ -386,7 +385,7 @@ def main() -> None:
         "timeout-cascade", "database-layer", "payment-service",
     ]
 
-    print(f"\n  Frame selection comparison:")
+    print("\n  Frame selection comparison:")
     print(f"    {'Concept':30s}  {'Complexity-based':>16s}  {'Learned (TS)':>16s}")
     print("    " + "-" * 70)
     for concept in test_concepts:
@@ -401,7 +400,7 @@ def main() -> None:
             frame_selections[name] = frame_selections.get(name, 0) + 1
 
     print(f"\n  Learned frame selections over {len(test_concepts) * 50} trials:")
-    for frame in sorted(frame_selections, key=frame_selections.get, reverse=True):
+    for frame in sorted(frame_selections, key=lambda k: frame_selections.get(k, 0), reverse=True):
         count = frame_selections[frame]
         bar = "#" * (count // 3)
         print(f"    {frame:15s}  {count:3d}  {bar}")
@@ -462,7 +461,7 @@ def main() -> None:
     if triggers:
         plan = mem.propose_tuning(triggers)
         if plan:
-            print(f"\n  Proposed metamorphosis plan:")
+            print("\n  Proposed metamorphosis plan:")
             print(f"    Actions: {plan.actions}")
             print(f"    Expected improvement: {plan.expected_improvement:.2f}")
             print(f"    Risk level: {plan.risk_level:.2f}")
@@ -476,7 +475,7 @@ def main() -> None:
 
     print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
 
-    print(f"\n  Rule effectiveness rankings (top 5):")
+    print("\n  Rule effectiveness rankings (top 5):")
     best = rule_analytics.get_best_rules(5)
     for rank, (name, score) in enumerate(best, 1):
         print(f"    {rank}. {name:25s}  {score:.2f}")
@@ -486,8 +485,8 @@ def main() -> None:
               f"(eff={effectiveness[worst_rule]['effectiveness']:.2f})")
 
     if quantum.basis_effectiveness:
-        best_basis = max(quantum.basis_effectiveness, key=quantum.basis_effectiveness.get)
-        worst_basis = min(quantum.basis_effectiveness, key=quantum.basis_effectiveness.get)
+        best_basis = max(quantum.basis_effectiveness, key=lambda k: quantum.basis_effectiveness.get(k, 0.0))
+        worst_basis = min(quantum.basis_effectiveness, key=lambda k: quantum.basis_effectiveness.get(k, 0.0))
         print(f"\n  Best measurement basis: {best_basis} "
               f"(rate={quantum.basis_effectiveness[best_basis]:.2f})")
         print(f"  Worst measurement basis: {worst_basis} "
@@ -495,7 +494,7 @@ def main() -> None:
 
     frame_eff = analyzer.get_frame_effectiveness()
     if frame_eff:
-        best_frame = max(frame_eff, key=frame_eff.get)
+        best_frame = max(frame_eff, key=lambda k: frame_eff.get(k, 0.0))
         print(f"\n  Optimal frame: {best_frame} "
               f"(effectiveness={frame_eff[best_frame]:.2f})")
 
@@ -503,7 +502,7 @@ def main() -> None:
     if triggers:
         print(f"  Self-repair: {len(triggers)} trigger(s) detected, actions recommended")
     else:
-        print(f"  Self-repair: no actions needed")
+        print("  Self-repair: no actions needed")
     print()
 
 

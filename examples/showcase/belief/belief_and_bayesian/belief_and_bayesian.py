@@ -42,14 +42,14 @@ def main() -> None:
             label_map[nid] = label
 
     prior = mem.bayes.get("patient")
-    print(f"\nprior:")
+    print("\nprior:")
     if prior:
         for oid, prob in sorted(prior.outcomes.items(), key=lambda x: -x[1]):
             print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
 
     mem.bayes.update("patient", evidence="fever", likelihoods={"healthy": 0.1, "disease_a": 0.8, "disease_b": 0.3})
     posterior = mem.bayes.get("patient")
-    print(f"\nposterior (after fever evidence):")
+    print("\nposterior (after fever evidence):")
     if posterior:
         for oid, prob in sorted(posterior.outcomes.items(), key=lambda x: -x[1]):
             print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
@@ -59,7 +59,7 @@ def main() -> None:
 
     mem.bayes.update("patient", evidence="lab_results", likelihoods={"healthy": 0.05, "disease_a": 0.9, "disease_b": 0.4})
     posterior2 = mem.bayes.get("patient")
-    print(f"\nposterior (after lab results):")
+    print("\nposterior (after lab results):")
     if posterior2:
         for oid, prob in sorted(posterior2.outcomes.items(), key=lambda x: -x[1]):
             print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")

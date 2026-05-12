@@ -25,6 +25,7 @@ Run with:
 from __future__ import annotations
 
 import numpy as np
+
 from hyper3 import HypergraphMemory, Modality
 
 
@@ -339,7 +340,6 @@ def section_2_distribution(mem: HypergraphMemory, hypotheses: list[str]) -> None
     total = sum(i.probability for i in qs.outcomes)
     print(f"\n  Total probability: {total:.4f}")
     print()
-    return qs
 
 
 def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
@@ -366,7 +366,7 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     context_arr = np.array([evidence_weights_by_label[h] for h in hypotheses])
     expected_probs = context_arr / context_arr.sum()
     print("\n  Expected posterior distribution (uniform prior x context, normalized):")
-    for h, p in zip(hypotheses, expected_probs):
+    for h, p in zip(hypotheses, expected_probs, strict=True):
         print(f"    {h:40s} {p:.1%}")
 
     context_weights = evidence_weights_by_label
@@ -382,7 +382,7 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
             counts[label] = counts.get(label, 0) + 1
 
     print(f"\n  Sample frequency over {n_trials} trials:")
-    for label in sorted(counts, key=counts.get, reverse=True):
+    for label in sorted(counts, key=lambda k: counts.get(k, 0), reverse=True):
         bar = "#" * (counts[label] // 10)
         print(f"    {label:40s} {counts[label]:4d} ({counts[label]/n_trials:.1%}) {bar}")
 
@@ -420,16 +420,16 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
         },
     )
     print(f"  Correlation created: {ent.id[:12]}...")
-    print(f"  Group A (network/security): certificate_expiry, dns_resolution_failure")
-    print(f"  Group B (application/database): memory_leak_api, db_connection_pool_exhaustion")
-    print(f"\n  Correlations (positive = co-occur, negative = mutually exclusive):")
-    print(f"    dns_failure  <-> db_pool_exhaustion: +0.6 (DNS issues stress DB pool)")
-    print(f"    cert_expiry  <-> memory_leak:        +0.2 (weak)")
-    print(f"    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
-    print(f"    dns_failure  <-> memory_leak:        +0.15 (weak)")
+    print("  Group A (network/security): certificate_expiry, dns_resolution_failure")
+    print("  Group B (application/database): memory_leak_api, db_connection_pool_exhaustion")
+    print("\n  Correlations (positive = co-occur, negative = mutually exclusive):")
+    print("    dns_failure  <-> db_pool_exhaustion: +0.6 (DNS issues stress DB pool)")
+    print("    cert_expiry  <-> memory_leak:        +0.2 (weak)")
+    print("    cert_expiry  <-> db_pool_exhaustion: -0.1 (slightly anti-correlated)")
+    print("    dns_failure  <-> memory_leak:        +0.15 (weak)")
 
     cascaded = mem.belief.sample_correlated(qs, "certificate_expiry")
-    print(f"\n  Correlated sample (observe certificate_expiry):")
+    print("\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
             label = mem.node_label(partner_id) or partner_id[:12]
@@ -508,8 +508,8 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     for vec, weight in basis_confident:
         rho_mixed_confident += weight * np.outer(vec, vec.conj())
     entropy_confident = mem.belief.von_neumann_entropy(rho_mixed_confident)
-    print(f"  Mixed state (one hypothesis dominates at 90%):")
-    print(f"    Weights: 0.90, 0.08, 0.02")
+    print("  Mixed state (one hypothesis dominates at 90%):")
+    print("    Weights: 0.90, 0.08, 0.02")
     print(f"    Entropy: {entropy_confident:.6f} bits (low = confident)")
 
     rho_mixed_moderate = np.zeros((3, 3), dtype=complex)
@@ -521,13 +521,13 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     for vec, weight in basis_moderate:
         rho_mixed_moderate += weight * np.outer(vec, vec.conj())
     entropy_moderate = mem.belief.von_neumann_entropy(rho_mixed_moderate)
-    print(f"\n  Mixed state (moderate uncertainty):")
-    print(f"    Weights: 0.60, 0.30, 0.10")
+    print("\n  Mixed state (moderate uncertainty):")
+    print("    Weights: 0.60, 0.30, 0.10")
     print(f"    Entropy: {entropy_moderate:.6f} bits")
 
     rho_max = np.eye(4, dtype=complex) / 4
     entropy_max = mem.belief.von_neumann_entropy(rho_max)
-    print(f"\n  Maximally uncertain (4 hypotheses, equal weight):")
+    print("\n  Maximally uncertain (4 hypotheses, equal weight):")
     print(f"    Entropy: {entropy_max:.6f} bits = log2(4) = {np.log2(4):.6f}")
 
     print("\n  Quick check: pure state entropy (should be 0)")
@@ -541,7 +541,7 @@ def section_6_entropy(mem: HypergraphMemory, hypotheses: list[str]) -> None:
         entropy_pure = mem.belief.von_neumann_entropy(rho_pure)
         print(f"    Pure state entropy: {entropy_pure:.10f} bits (effectively 0)")
         print(f"    Shannon entropy of probs: {-sum(i.probability * np.log2(max(i.probability, 1e-15)) for i in qs_pure.outcomes):.6f} bits")
-        print(f"    --> These differ! Pure state entropy=0, Shannon>0. They are NOT the same.")
+        print("    --> These differ! Pure state entropy=0, Shannon>0. They are NOT the same.")
 
     print()
     print("  Bottom line: Von Neumann entropy measures uncertainty of the STATE")
@@ -672,7 +672,7 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
     print()
 
     all_conf = mem.compute_all_confidences()
-    print(f"  Overall graph confidence:")
+    print("  Overall graph confidence:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
     print(f"    Low confidence (<0.3): {all_conf.low_confidence_count}")

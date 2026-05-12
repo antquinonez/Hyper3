@@ -18,10 +18,10 @@ from collections import defaultdict
 
 from hyper3 import (
     HypergraphMemory,
-    RobustReachabilityDetector,
-    Modality,
-    TransitiveRule,
     InverseRule,
+    Modality,
+    RobustReachabilityDetector,
+    TransitiveRule,
 )
 
 
@@ -444,7 +444,7 @@ def analyze_perspective(
             reachable_labels.add(label)
 
     print(f"    Reachable nodes: {len(reachable_labels)}")
-    print(f"    Top critical assets from this perspective:")
+    print("    Top critical assets from this perspective:")
     for label, score in sorted_assets[:6]:
         data = mem.node_data(label) or {}
         dtype = data.get("type", "?")
@@ -483,7 +483,7 @@ def find_invariants_and_disagreements(
     print(f"    Invariant nodes (reachable from ALL built-in frames): {len(inv_labels)}")
     print(f"    Invariant confidence: {inv.confidence:.3f}")
     if inv.frame_unique:
-        print(f"    Per-frame unique nodes:")
+        print("    Per-frame unique nodes:")
         for fname, unique_ids in inv.frame_unique.items():
             unique_labels = set()
             for uid in unique_ids:
@@ -504,7 +504,7 @@ def find_invariants_and_disagreements(
 
     invariant_assets.sort(key=lambda x: x[1], reverse=True)
 
-    print(f"\n    Top invariant assets (protect these first):")
+    print("\n    Top invariant assets (protect these first):")
     for label, crit, dtype in invariant_assets[:10]:
         print(f"      {label:25s}  criticality={crit}  type={dtype}")
 
@@ -544,7 +544,7 @@ def generate_recommendations(
     print("\n  --- Recommended Action Items ---")
 
     all_top_assets: dict[str, int] = defaultdict(int)
-    for pname, res in perspective_results.items():
+    for res in perspective_results.values():
         for label, _score in res["sorted_assets"][:8]:
             all_top_assets[label] += 1
 
@@ -589,7 +589,7 @@ def generate_recommendations(
 
     if high_crit:
         high_crit.sort(key=lambda x: x[3], reverse=True)
-        print(f"\n    High-criticality dependency hubs (single points of failure):")
+        print("\n    High-criticality dependency hubs (single points of failure):")
         for label, crit, exposure, dep_count in high_crit:
             print(f"      - {label}: criticality={crit}, "
                   f"exposure={exposure}, depended_on_by={dep_count}")
@@ -606,7 +606,7 @@ def main():
     print("SECTION 1: Infrastructure Graph Construction")
     print("=" * 70)
 
-    all_labels = build_infrastructure(mem)
+    build_infrastructure(mem)
     print(f"  Nodes: {mem.size[0]}")
     print(f"  Edges: {mem.size[1]}")
 

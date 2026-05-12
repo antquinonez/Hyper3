@@ -60,8 +60,9 @@ def main() -> None:
         seeds={"supplier_acme", "supplier_globex", "widget_alpha"},
         max_depth=3,
     )
-    print(f"edges produced: {result.expansion.edges_produced}")
-    print(f"states created: {result.expansion.states_created}")
+    if result.expansion:
+        print(f"edges produced: {result.expansion.edges_produced}")
+        print(f"states created: {result.expansion.states_created}")
 
     inferred = mem.analyze.edges(label="indirect_dependency")
     for e in inferred:
