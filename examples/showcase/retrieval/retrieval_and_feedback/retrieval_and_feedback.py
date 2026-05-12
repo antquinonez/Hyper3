@@ -14,12 +14,12 @@ via ``mem.set_embedding_provider(my_provider)`` for meaningful semantic
 similarity.
 
 Run with:
-    .venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/03_retrieval_and_feedback.py
+    .venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py
 """
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, Modality
+from hyper3 import HypergraphMemory
 
 
 def _build_kb(mem: HypergraphMemory) -> None:
@@ -445,8 +445,9 @@ def main():
     print(f"  Edges: {mem.size[1]}")
 
     categories: dict[str, int] = {}
-    for node in mem.engine.graph.nodes:
-        cat = node.data.get("category", "unknown") if isinstance(node.data, dict) else "unknown"
+    for label in mem.query_nodes():
+        cat_data = mem.node_data(label)
+        cat = cat_data.get("category", "unknown") if isinstance(cat_data, dict) else "unknown"
         categories[cat] = categories.get(cat, 0) + 1
     for cat, count in sorted(categories.items()):
         print(f"    {cat}: {count} nodes")
@@ -639,9 +640,9 @@ def main():
         TransitiveRule(edge_label="targets", new_label="targets_chain"),
     )
     result = mem.reason(
-        seeds={"sql_injection", "phishing"}, max_depth=3, auto_commit=True
+        seed_concepts={"sql_injection", "phishing"}, max_depth=3, auto_commit=True
     )
-    print(f"  Reasoning from sql_injection and phishing:")
+    print("  Reasoning from sql_injection and phishing:")
     print(f"    States created: {result.expansion.states_created if result.expansion else 0}")
     print(f"    Edges inferred: {result.expansion.edges_produced if result.expansion else 0}")
 
@@ -695,11 +696,11 @@ def main():
     print(f"  Feedback:  {mem.feedback.size} judgments across {len(queries)} queries")
     print(f"  LTR model: trained with {report.get('samples', 0)} samples")
     print()
-    print(f"  Key takeaway: RRF fuses graph topology (activation) with")
-    print(f"  embedding similarity. Relevance feedback teaches the system")
-    print(f"  which signal matters more for each type of query. Reasoning")
-    print(f"  discovers multi-hop attack chains, community detection groups")
-    print(f"  related threats, and anomaly detection flags unusual patterns.")
+    print("  Key takeaway: RRF fuses graph topology (activation) with")
+    print("  embedding similarity. Relevance feedback teaches the system")
+    print("  which signal matters more for each type of query. Reasoning")
+    print("  discovers multi-hop attack chains, community detection groups")
+    print("  related threats, and anomaly detection flags unusual patterns.")
     print()
 
 

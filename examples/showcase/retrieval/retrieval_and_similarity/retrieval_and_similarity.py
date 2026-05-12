@@ -1,15 +1,12 @@
 """
 Laminar Comparison: Retrieval, Embedding & Similarity
 ======================================================
-Parallels:
-  - XGI: similarity via stats (degree correlation, clustering)
-  - NetworkX: node similarity, link prediction
 
 Shows spreading activation retrieval, embedding-based similarity,
-and learning-to-rank — capabilities Hyper3 adds on top of
-basic graph similarity.
+and RRF fusion -- capabilities Hyper3 adds on top of basic graph
+similarity.
 
-Run: .venv/bin/python examples/showcase/retrieval/retrieval_and_similarity/26_retrieval_and_similarity.py
+Run: .venv/bin/python examples/showcase/retrieval/retrieval_and_similarity/retrieval_and_similarity.py
 """
 
 from __future__ import annotations
@@ -72,12 +69,8 @@ def main() -> None:
     print("SECTION 2: SPREADING ACTIVATION RETRIEVAL")
     print("=" * 70)
 
-    print("\n--- No direct competitor equivalent ---")
-    print("XGI/HNX: no associative recall mechanism")
-
-    mem.search.activate("python")
     activation_results = mem.search.activate("python")
-    print(f"\nspreading activation from 'python':")
+    print("\nspreading activation from 'python':")
     sorted_results = sorted(activation_results, key=lambda r: r.energy, reverse=True)
     for item in sorted_results[:10]:
         bar = "#" * int(item.energy * 20)
@@ -87,16 +80,13 @@ def main() -> None:
     print("SECTION 3: SEMANTIC SIMILARITY")
     print("=" * 70)
 
-    print("\n--- NetworkX equivalent ---")
-    print("nx.similarity.simulate_graph(G)  -> basic structural similarity")
-
     similar = mem.search.similar("python", top_k=5)
-    print(f"\nmost similar to 'python':")
+    print("\nmost similar to 'python':")
     for item in similar:
         print(f"  {item.label:>15}: {item.similarity:.4f}")
 
     similar_rust = mem.search.similar("rust", top_k=5)
-    print(f"\nmost similar to 'rust':")
+    print("\nmost similar to 'rust':")
     for item in similar_rust:
         print(f"  {item.label:>15}: {item.similarity:.4f}")
 
@@ -104,22 +94,19 @@ def main() -> None:
     print("SECTION 4: COMBINED RETRIEVAL (Activation + Similarity)")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
-    print("Reciprocal Rank Fusion of activation + embedding signals")
-
     retrieval = mem.search.query("python", top_k=8)
-    print(f"\nretrieval results for 'python':")
+    print("\nretrieval results for 'python':")
     for item in retrieval:
         print(f"  {item.label:>15}: rrf={item.rrf_score:.4f}, "
               f"activation={item.activation:.4f}, "
               f"similarity={item.similarity:.4f}")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: HYPEREDGE SIMILARITY (Hyper3 advantage)")
+    print("SECTION 5: HYPEREDGE SIMILARITY")
     print("=" * 70)
 
     sim_result = mem.hyperedge_similarity("python", metric="jaccard")
-    print(f"\nhyperedge similarity to 'python':")
+    print("\nhyperedge similarity to 'python':")
     for entry in sim_result[:5]:
         print(f"  {entry}")
 

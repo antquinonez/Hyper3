@@ -4,7 +4,7 @@ Combined signal analysis: spreading activation + semantic similarity.
 Evaluates whether merging structural (graph) and semantic (embedding)
 signals produces better retrieval than either signal alone.
 
-Run: .venv/bin/python examples/combined_signal_analysis.py
+Run: .venv/bin/python examples/showcase/retrieval/combined_signal_analysis/combined_signal_analysis.py
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    HypergraphMemory,
     EmbeddingProvider,
+    HypergraphMemory,
     Modality,
 )
 
@@ -238,19 +238,14 @@ def run_query(
     top_k: int = 10,
     iterations: int = 3,
 ) -> list[dict]:
-    mem.search.activate(concept)
     activated = mem.activate(concept, top_k=top_k * 2, iterations=iterations)
 
-    engine = mem.embedding_engine
-    seed_node = mem.engine.graph.get_node_by_label(concept)
-    if not seed_node:
-        return []
+    similar = mem.search.similar(concept, top_k=top_k * 2, threshold=0.0)
+    sim_map = {s.label: s.similarity or 0.0 for s in similar}
 
     results = []
     for r in activated:
-        if r.node_id == seed_node.id:
-            continue
-        sim = engine.compute_similarity(seed_node.id, r.node_id) if engine else 0.0
+        sim = sim_map.get(r.label, 0.0)
         combined = combined_score(r.activation, sim, alpha)
         results.append({
             "label": r.label,

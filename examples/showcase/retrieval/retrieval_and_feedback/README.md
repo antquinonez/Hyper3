@@ -25,7 +25,7 @@ Information retrieval systems typically rely on a single signal — keyword matc
 Run the showcase to build a 177-node cybersecurity knowledge base and demonstrate retrieval with feedback:
 
 ```bash
-.venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/03_retrieval_and_feedback.py
+.venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py
 ```
 
 ### What You'll See
@@ -247,7 +247,7 @@ Transitive rules discover multi-hop attack chains that retrieval alone cannot fi
 
 ```python
 mem.add_rules(TransitiveRule(edge_label="enables", new_label="enables_chain"))
-result = mem.reason(seeds={"sql_injection", "phishing"}, depth=3, auto_commit=True)
+result = mem.reason(seed_concepts={"sql_injection", "phishing"}, max_depth=3, auto_commit=True)
 ```
 
 In the 177-node graph, the `enables` edges form a star topology (vulnerabilities enabling individual threats) without two-hop chains, so the rule confirms existing relationships rather than discovering new ones. In denser threat graphs where vulnerabilities chain through shared CWEs or products, transitive reasoning uncovers attack paths invisible to single-hop retrieval.

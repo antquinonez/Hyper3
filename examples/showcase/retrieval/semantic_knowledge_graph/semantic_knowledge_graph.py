@@ -6,7 +6,7 @@ EmbeddingEngine for semantic similarity, analogical reasoning, and
 associative recall via spreading activation.
 
 Requires: pip install sentence-transformers
-Run:      .venv/bin/python examples/semantic_knowledge_graph.py
+Run:      .venv/bin/python examples/showcase/retrieval/semantic_knowledge_graph/semantic_knowledge_graph.py
 """
 
 from __future__ import annotations
@@ -15,11 +15,9 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    HypergraphMemory,
     EmbeddingProvider,
-    HashEmbeddingProvider,
+    HypergraphMemory,
     Modality,
-    TransitiveRule,
 )
 
 
@@ -201,17 +199,14 @@ def main() -> None:
     activated = mem.activate("Python")
 
     if activated:
-        python_node = mem.engine.graph.get_node_by_label("Python")
-        if python_node:
-            print(f"\nActivated concepts near 'Python', ranked by semantic relevance:")
-            for r in activated[:8]:
-                sim = 0.0
-                if python_node and r.node_id != python_node.id:
-                    from hyper3 import EmbeddingEngine
-                    engine = mem.embedding_engine
-                    if engine:
-                        sim = engine.compute_similarity(python_node.id, r.node_id)
-                print(f"  {r.label:<35} activation={r.activation:.3f}  semantic_sim={sim:.3f}")
+        similar_map = {}
+        for s in mem.search.similar("Python", top_k=len(activated), threshold=0.0):
+            similar_map[s.label] = s.similarity or 0.0
+
+        print("\nActivated concepts near 'Python', ranked by semantic relevance:")
+        for r in activated[:8]:
+            sim = similar_map.get(r.label, 0.0)
+            print(f"  {r.label:<35} activation={r.activation:.3f}  semantic_sim={sim:.3f}")
 
     print("\nDone.")
 

@@ -9,7 +9,7 @@ what it misses in domain-specific text, and shows the pluggable LLMProvider
 interface for upgrading to a real NER pipeline.
 
 Run with:
-    .venv/bin/python examples/showcase/retrieval/text_enrichment/07_text_enrichment.py
+    .venv/bin/python examples/showcase/retrieval/text_enrichment/text_enrichment.py
 """
 
 from __future__ import annotations
@@ -17,8 +17,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 
-from hyper3 import HypergraphMemory, LLMProvider, ExtractionResult
-
+from hyper3 import HypergraphMemory, LLMProvider
 
 REPORTS: list[str] = [
     (

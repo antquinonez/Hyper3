@@ -36,7 +36,7 @@ The built-in highlighter catches names and general relationships ("Person A caus
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/retrieval/text_enrichment/07_text_enrichment.py
+.venv/bin/python examples/showcase/retrieval/text_enrichment/text_enrichment.py
 ```
 
 ```

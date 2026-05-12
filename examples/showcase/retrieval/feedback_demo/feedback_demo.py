@@ -6,7 +6,7 @@ Shows how the new features fix the problems identified in the medical KB analysi
 2. Directional activation respects edge semantics (complication vs treated_by)
 3. Relevance feedback trains a learning-to-rank model from user input
 
-Run: .venv/bin/python examples/feedback_demo.py
+Run: .venv/bin/python examples/showcase/retrieval/feedback_demo/feedback_demo.py
 """
 
 from __future__ import annotations
@@ -15,10 +15,9 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from hyper3 import (
-    HypergraphMemory,
     EmbeddingProvider,
+    HypergraphMemory,
     Modality,
-    RetrievalEngine,
 )
 
 
@@ -129,8 +128,8 @@ def print_results(label: str, results, expected: set[str] | None = None):
     print(f"\n{'=' * 70}")
     print(f"  {label}")
     print(f"{'=' * 70}")
-    from hyper3.retrieval_engine import RetrievalResult
-    if results and isinstance(results[0], RetrievalResult):
+    from hyper3 import SearchHit
+    if results and isinstance(results[0], SearchHit):
         print(f"{'Concept':<30} {'Act':>6} {'Sem':>6} {'RRF':>8} {'A#':>4} {'S#':>4}")
         print(f"{'-'*30} {'-'*6} {'-'*6} {'-'*8} {'-'*4} {'-'*4}")
         hits = 0

@@ -19,7 +19,7 @@ Traditional graph queries return nodes that match a filter. Hyper3 retrieves rel
 ## Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/retrieval/retrieval_and_similarity/26_retrieval_and_similarity.py
+.venv/bin/python examples/showcase/retrieval/retrieval_and_similarity/retrieval_and_similarity.py
 ```
 
 Expected output (14 nodes, 18 edges):
@@ -117,7 +117,7 @@ Python is the central hub — it connects to 3 fields and 4 frameworks, making i
 
 ### 2. Spreading Activation from Python
 
-`stimulate("python")` injects energy at the python node. `spread_activation()` propagates it outward along edges. The top-10 results:
+`mem.search.activate("python")` injects energy at the python node and propagates it outward along edges. The top-10 results:
 
 | Concept | Activation | Why |
 |---------|-----------|-----|
@@ -208,14 +208,13 @@ mem = HypergraphMemory(evolve_interval=0)
 mem.add("python", data={"type": "language", "paradigm": "multi"})
 mem.link("python", "ml", label="used_for")
 
-mem.activate("python")
-activation = mem.activate()
+activation = mem.search.activate("python")
 
 similar = mem.search.similar("python", top_k=5)
 
 retrieval = mem.search.query("python", top_k=8)
 
-edge_sim = mem.hyperedge_similarity("python", metric="jaccard")
+edge_sim = mem.analyze.hyperedge_similarity("python", metric="jaccard")
 ```
 
 ## Real-World Gap
@@ -231,12 +230,11 @@ edge_sim = mem.hyperedge_similarity("python", metric="jaccard")
 
 | Method | Returns | Purpose |
 |--------|---------|---------|
-| `stimulate(concept)` | None | Injects energy at a seed node |
-| `spread_activation()` | `list[ActivationResult]` | Propagates energy, returns per-node activation scores |
-| `find_similar(concept, top_k)` | `list[SimilarityResult]` | Ranks concepts by embedding vector similarity |
-| `retrieve(concept, top_k)` | `list[RetrievalResult]` | RRF-fused ranking from activation + similarity |
-| `hyperedge_similarity(concept, metric)` | `list[tuple]` | Pairwise Jaccard similarity of edges incident to the concept |
+| `mem.search.activate(concept)` | `list[ActivationHit]` | Injects energy at a seed node and propagates it through the graph, returning per-node activation scores |
+| `mem.search.similar(concept, top_k)` | `list[SearchHit]` | Ranks concepts by embedding vector similarity |
+| `mem.search.query(concept, top_k)` | `list[SearchHit]` | RRF-fused ranking from activation + similarity |
+| `mem.analyze.hyperedge_similarity(concept, metric)` | `list[tuple]` | Pairwise Jaccard similarity of edges incident to the concept |
 
 ### Related examples
 
-- `examples/showcase/retrieval/retrieval_and_similarity/retrieval_and_similarity.py` — full script for this showcase
+- `examples/showcase/retrieval/retrieval_and_similarity/retrieval_and_similarity.py` -- full script for this showcase
