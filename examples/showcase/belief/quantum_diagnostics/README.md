@@ -421,7 +421,7 @@ hypotheses = [
     "kafka_partition_rebalance",
 ]
 
-qs = mem.belief.create(concepts=hypotheses)
+qs = mem.belief.create(outcomes=hypotheses)
 for outcome in qs.outcomes:
     print(f"{outcome.label}: probability={outcome.probability:.4f}")
 
@@ -434,7 +434,7 @@ context = {
 }
 answer = mem.sample(qs, context=context)
 
-ent = mem.correlate(
+ent = mem.belief.correlate(
     group_a=["certificate_expiry", "dns_resolution_failure"],
     group_b=["memory_leak_api", "db_connection_pool_exhaustion"],
     correlations={
@@ -444,11 +444,11 @@ ent = mem.correlate(
 )
 
 qs_agg = mem.belief.create(
-    concepts=["certificate_expiry", "certificate_expiry"],
+    outcomes=["certificate_expiry", "certificate_expiry"],
     amplitudes=[0.7, 0.5],
-    use_context_field=False,
+    use_context=False,
 )
-patterns = mem.compute_interactions(qs_agg)
+patterns = mem.belief.interactions(qs_agg)
 for p in patterns:
     print(f"{p.is_constructive}: net={p.net_amplitude:.4f}")
 

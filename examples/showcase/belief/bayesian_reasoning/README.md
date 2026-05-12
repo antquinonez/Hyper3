@@ -227,17 +227,19 @@ mem.add("database_overload", data={"type": "root_cause", "prior": 0.30})
 mem.add("high_cpu", data={"type": "evidence"})
 mem.link("high_cpu", "database_overload", label="indicates", weight=8.5)
 
-def bayesian_update(prior, evidence_name, likelihoods):
+def bayesian_update(
+    prior: dict[str, float],
+    evidence_name: str,
+) -> dict[str, float]:
+    likelihood = LIKELIHOODS[evidence_name]
     unnormalized = {
-        cause: prior[cause] * likelihoods[evidence_name].get(cause, 0.01)
-        for cause in prior
+        cause: prior[cause] * likelihood.get(cause, 0.01) for cause in prior
     }
-    total = sum(unnormalized.values())
-    return {k: v / total for k, v in unnormalized.items()}
+    return normalize(unnormalized)
 
-current = prior
-for evidence in observation_order:
-    current = bayesian_update(current, evidence, likelihoods)
+current = dict(prior)
+for i, evidence_name in enumerate(OBSERVATION_ORDER, 1):
+    current = bayesian_update(current, evidence_name)
 ```
 
 The knowledge graph stores the likelihood network as weighted `indicates` edges. The Bayesian update reads those edge weights to compute posterior probabilities. Each call to `bayesian_update` applies Bayes' theorem: `P(cause | evidence) proportional to P(evidence | cause) * P(cause)`.

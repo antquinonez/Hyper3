@@ -384,7 +384,7 @@ Each call to `record_rule_outcome` updates the success/failure counts for that r
 ### Measurement Basis Learning
 
 ```python
-quantum = mem.belief
+quantum = mem.engine.belief
 
 quantum.record_basis_outcome("temporal", True)
 quantum.record_basis_outcome("emotional", False)

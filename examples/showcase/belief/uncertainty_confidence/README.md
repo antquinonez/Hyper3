@@ -169,7 +169,7 @@ print(f"edges produced: {result.expansion.edges_produced}")
 **3. Score individual nodes:**
 
 ```python
-score = mem.score_node("widget_gamma")
+score = mem.compute_confidence("widget_gamma")
 print(f"confidence: {score.confidence:.4f}")
 print(f"depth: {score.depth}")
 print(f"source: {score.source}")
@@ -178,18 +178,18 @@ print(f"source: {score.source}")
 **4. Run full uncertainty analysis:**
 
 ```python
-analysis = mem.analyze_uncertainty()
-print(f"average confidence: {analysis.avg_confidence:.4f}")
-print(f"high confidence nodes: {analysis.high_confidence_count}")
+uncertainty = mem.compute_all_confidences()
+print(f"average confidence: {uncertainty.avg_confidence:.4f}")
+print(f"high confidence nodes: {uncertainty.high_confidence_count}")
 ```
 
 **5. Trace confidence chains:**
 
 ```python
-chain = mem.trace_chain("widget_alpha", "supplier_globex")
+chain = mem.trace_confidence_chain("widget_alpha", "supplier_globex")
 if chain:
-    print(f"depth: {chain.depth}")
-    print(f"cumulative confidence: {chain.cumulative_confidence:.4f}")
+    print(f"depth: {chain.chain_depth}")
+    print(f"cumulative confidence: {chain.chain_confidence:.4f}")
 ```
 
 **6. Flag low-confidence concepts:**
@@ -214,9 +214,9 @@ This showcase demonstrates confidence propagation on a small synthetic supply ch
 
 | Method | Purpose |
 |--------|---------|
-| `mem.score_node(concept)` | Get confidence score for a single node |
-| `mem.analyze_uncertainty()` | Score all nodes and return aggregate statistics |
-| `mem.trace_chain(source, target)` | Find highest-confidence path between two concepts |
+| `mem.compute_confidence(concept)` | Get confidence score for a single node |
+| `mem.compute_all_confidences()` | Score all nodes and return aggregate statistics |
+| `mem.trace_confidence_chain(source, target)` | Find highest-confidence path between two concepts |
 | `mem.flag_low_confidence(threshold)` | List concepts below confidence threshold |
 | `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |

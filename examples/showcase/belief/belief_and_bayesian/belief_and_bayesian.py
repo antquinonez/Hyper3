@@ -33,20 +33,36 @@ def main() -> None:
     mem.bayes.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
                   weights=[0.7, 0.2, 0.1])
 
+    outcome_labels = ["healthy", "disease_a", "disease_b"]
+    label_map = {}
+    for label in outcome_labels:
+        nid = mem.resolve_id(label)
+        if nid:
+            label_map[nid] = label
+
     prior = mem.bayes.get("patient")
-    print(f"\nprior: {prior}")
+    print(f"\nprior:")
+    if prior:
+        for oid, prob in sorted(prior.outcomes.items(), key=lambda x: -x[1]):
+            print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
 
     mem.bayes.update("patient", evidence="fever", likelihoods={"healthy": 0.1, "disease_a": 0.8, "disease_b": 0.3})
     posterior = mem.bayes.get("patient")
-    print(f"posterior (after fever evidence): {posterior}")
+    print(f"\nposterior (after fever evidence):")
+    if posterior:
+        for oid, prob in sorted(posterior.outcomes.items(), key=lambda x: -x[1]):
+            print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
 
     estimate = mem.bayes.map("patient")
-    print(f"MAP estimate: {estimate}")
+    print(f"\nMAP estimate: {estimate}")
 
     mem.bayes.update("patient", evidence="lab_results", likelihoods={"healthy": 0.05, "disease_a": 0.9, "disease_b": 0.4})
     posterior2 = mem.bayes.get("patient")
-    print(f"posterior (after lab results): {posterior2}")
-    print(f"updated MAP estimate: {mem.bayes.map('patient')}")
+    print(f"\nposterior (after lab results):")
+    if posterior2:
+        for oid, prob in sorted(posterior2.outcomes.items(), key=lambda x: -x[1]):
+            print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
+    print(f"\nupdated MAP estimate: {mem.bayes.map('patient')}")
 
     bf = mem.bayes.factor("patient", hyp_a="disease_a", hyp_b="disease_b")
     print(f"Bayes factor (disease_a vs disease_b): {bf:.2f}")
@@ -135,7 +151,10 @@ def main() -> None:
 
     mem.bayes.reset("patient")
     prior_after = mem.bayes.get("patient")
-    print(f"prior after reset: {prior_after}")
+    print("prior after reset:")
+    if prior_after:
+        for oid, prob in sorted(prior_after.outcomes.items(), key=lambda x: -x[1]):
+            print(f"  {label_map.get(oid, oid[:12]):25s} {prob:.4f}")
 
     print("\n" + "=" * 70)
     print("DONE")

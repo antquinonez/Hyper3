@@ -34,31 +34,62 @@ This showcase demonstrates two probabilistic reasoning mechanisms: Bayesian beli
 ======================================================================
 SECTION 1: BAYESIAN BELIEF UPDATING
 ======================================================================
-prior: {..., outcomes: healthy=0.700, disease_a=0.200, disease_b=0.100}
-posterior (after fever evidence): {..., disease_a=0.615}
+
+--- No competitor equivalent ---
+Set prior and update with evidence
+
+prior:
+  healthy                   0.7000
+  disease_a                 0.2000
+  disease_b                 0.1000
+
+posterior (after fever evidence):
+  disease_a                 0.6154
+  healthy                   0.2692
+  disease_b                 0.1154
+
 MAP estimate: disease_a
-posterior (after lab results): {..., disease_a=0.903}
+
+posterior (after lab results):
+  disease_a                 0.9028
+  disease_b                 0.0752
+  healthy                   0.0219
+
 updated MAP estimate: disease_a
 Bayes factor (disease_a vs disease_b): 6.00
 
 ======================================================================
 SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS
 ======================================================================
+
+--- No competitor equivalent ---
+Born-rule sampling: P = |amplitude|^2
+
 sampling distribution (100 trials):
-    river_edge:  53 ( 53.0%)
-     financial:  34 ( 34.0%)
-     billiards:  13 ( 13.0%)
+    river_edge:  50 ( 50.0%) #########################
+     financial:  43 ( 43.0%) #####################
+     billiards:   7 (  7.0%) ###
 
 ======================================================================
-SECTION 3: CONCEPT CORRELATION
+SECTION 3: CONCEPT CORRELATION (QUANTUM-INSPIRED)
 ======================================================================
-sampled from distribution -> river_edge
+
+--- No competitor equivalent ---
+
+sampled from distribution -> financial
+  (correlated outcome is biased by this observation)
 
 ======================================================================
 SECTION 4: CREDIBLE SET
 ======================================================================
 90% credible set for patient diagnosis: ['disease_a']
-prior after reset: uniform (0.333 each)
+prior after reset:
+  healthy                   0.3333
+  disease_a                 0.3333
+  disease_b                 0.3333
+
+======================================================================
+DONE
 ```
 
 Sampling counts in Section 2 are probabilistic and vary across runs.
@@ -144,15 +175,15 @@ mem.add("healthy", data={"type": "state"})
 mem.add("disease_a", data={"type": "state"})
 mem.add("disease_b", data={"type": "state"})
 
-mem.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
+mem.bayes.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
               weights=[0.7, 0.2, 0.1])
 
-mem.update_belief("patient", evidence_name="fever",
+mem.bayes.update("patient", evidence="fever",
                   likelihoods={"healthy": 0.1, "disease_a": 0.8, "disease_b": 0.3})
 
-estimate = mem.map_estimate("patient")
-bf = mem.bayes_factor("patient", hypothesis_a="disease_a", hypothesis_b="disease_b")
-cs = mem.credible_set("patient", level=0.9)
+estimate = mem.bayes.map("patient")
+bf = mem.bayes.factor("patient", hyp_a="disease_a", hyp_b="disease_b")
+cs = mem.bayes.credible("patient", level=0.9)
 ```
 
 ```python
@@ -161,9 +192,9 @@ mem.belief.create(
     ["financial", "river_edge", "billiards"],
     amplitudes=[0.6, 0.7, 0.3],
 )
-sample = mem.sample_distribution("financial")
+sample = mem.belief.sample("financial")
 
-mem.correlate(
+mem.belief.correlate(
     ["financial", "river_edge", "billiards"],
     ["drinking", "river", "ocean"],
     correlations={
@@ -191,16 +222,16 @@ This showcase uses hand-specified likelihoods, priors, and correlation coefficie
 |--------|---------|
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
 | `mem.add(concept, data=...)` | Create a node with typed data |
-| `mem.set_prior(concept, outcomes, weights)` | Set initial probability distribution over outcomes |
-| `mem.update_belief(concept, evidence_name, likelihoods)` | Apply Bayesian update with evidence likelihoods |
-| `mem.get_belief(concept)` | Retrieve current belief distribution |
-| `mem.map_estimate(concept)` | Return the outcome with highest posterior probability |
-| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Compute evidence ratio between two hypotheses |
-| `mem.credible_set(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
-| `mem.reset_belief(concept)` | Reset distribution to uniform |
+| `mem.bayes.set_prior(concept, outcomes, weights)` | Set initial probability distribution over outcomes |
+| `mem.bayes.update(concept, evidence, likelihoods)` | Apply Bayesian update with evidence likelihoods |
+| `mem.bayes.get(concept)` | Retrieve current belief distribution |
+| `mem.bayes.map(concept)` | Return the outcome with highest posterior probability |
+| `mem.bayes.factor(concept, hyp_a, hyp_b)` | Compute evidence ratio between two hypotheses |
+| `mem.bayes.credible(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
+| `mem.bayes.reset(concept)` | Reset distribution to uniform |
 | `mem.belief.create(outcomes, amplitudes)` | Create Born-rule distribution with complex amplitudes |
-| `mem.sample_distribution(concept)` | Sample an outcome via the Born rule |
-| `mem.correlate(outcomes_a, outcomes_b, correlations)` | Link two distributions with pairwise correlations |
+| `mem.belief.sample(concept)` | Sample an outcome via the Born rule |
+| `mem.belief.correlate(outcomes_a, outcomes_b, correlations)` | Link two distributions with pairwise correlations |
 
 ### Related Examples
 
