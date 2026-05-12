@@ -1,11 +1,13 @@
 """
-Laminar Comparison: Belief & Bayesian Inference (Hyper3-only)
-==============================================================
-No direct competitor parallel — XGI, HNX, NetworkX have no
-probabilistic belief representation or Bayesian updating.
+Belief Distributions and Bayesian Updating
+===========================================
 
-Shows Born-rule belief distributions, Bayesian prior/posterior
-updating, concept correlation, and multi-outcome sampling.
+Demonstrates two probabilistic reasoning mechanisms: Bayesian belief
+updating (evidence revises a prior over hypotheses) and Born-rule
+distributions (ambiguous concepts with complex-amplitude states).
+
+Covers prior/posterior updating, MAP estimation, Bayes factors,
+credible sets, Born-rule sampling, concept correlation, and reset.
 
 Run: .venv/bin/python examples/showcase/belief/belief_and_bayesian/belief_and_bayesian.py
 """
@@ -27,8 +29,7 @@ def main() -> None:
     mem.add("disease_a", data={"type": "state"})
     mem.add("disease_b", data={"type": "state"})
 
-    print("\n--- No competitor equivalent ---")
-    print("Set prior and update with evidence")
+    print("\n  Setting prior and updating with evidence")
 
     mem.bayes.set_prior("patient", outcomes=["healthy", "disease_a", "disease_b"],
                   weights=[0.7, 0.2, 0.1])
@@ -84,8 +85,7 @@ def main() -> None:
         amplitudes=[0.6, 0.7, 0.3],
     )
 
-    print("\n--- No competitor equivalent ---")
-    print("Born-rule sampling: P = |amplitude|^2")
+    print("\n  Born-rule sampling: P = |amplitude|^2")
 
     counts = {"financial": 0, "river_edge": 0, "billiards": 0}
     n_samples = 100
@@ -105,10 +105,14 @@ def main() -> None:
     print("SECTION 3: CONCEPT CORRELATION (QUANTUM-INSPIRED)")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n  Linking two distributions with pairwise correlation coefficients")
 
     mem.add("water", data={"type": "concept"})
     mem.add("fish", data={"type": "concept"})
+
+    print("\n  Creating fresh distributions for correlation (overwrites Section 2 state)")
+    print("  Group A: bank senses (financial, river_edge, billiards)")
+    print("  Group B: water senses (drinking, river, ocean)")
 
     mem.belief.create(
         ["financial", "river_edge", "billiards"],
