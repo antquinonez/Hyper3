@@ -267,7 +267,7 @@ mem.add_rules(TransitiveRule(edge_label="depends_on",
                               new_label="indirectly_depends_on"))
 result = mem.reason(
     seeds=chain_seeds,
-    depth=3,
+    max_depth=3,
     max_total_states=50,
 )
 ```
@@ -638,7 +638,7 @@ print(f"blast radius = {len(affected)} modules")
 ```python
 mem.add_rules(TransitiveRule(edge_label="depends_on",
                               new_label="indirectly_depends_on"))
-result = mem.reason(seeds=chain_seeds, depth=3,
+result = mem.reason(seeds=chain_seeds, max_depth=3,
                      max_total_states=50)
 new_edges = mem.pattern_match(edge_label="indirectly_depends_on")
 ```
@@ -720,7 +720,7 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 | `mem.detect_cycles(max_cycles)` | Find circular dependency chains |
 | `mem.query(label, strategy, max_depth)` | BFS/DFS traversal for blast radius |
 | `mem.add_rules(TransitiveRule(...))` | Register transitive inference rule |
-| `mem.reason(seeds, depth)` | Apply rules via multiway expansion |
+| `mem.reason(seeds, max_depth)` | Apply rules via multiway expansion |
 | `mem.pattern_match(edge_label)` | Find edges by label |
 | `mem.stats()` | Graph statistics (nodes, edges, components) |
 | `mem.collapse_subgraph(labels, summary_label, summary_data)` | Replace a node group with a summary node |

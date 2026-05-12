@@ -237,7 +237,7 @@ Apply rules to all 70 nodes to discover the full dependency graph:
 ```python
 result = mem.reason(
     seeds=all_labels,  # All 82 nodes
-    depth=4,
+    max_depth=4,
     max_total_states=300,
 )
 ```
@@ -303,7 +303,7 @@ graph TD
 Find infrastructure nodes that, if removed, fragment the dependency graph:
 
 ```python
-bc = mem.analyze.centrality("betweenness", )
+bc = mem.analyze.centrality("betweenness")
 top_spof = top_k(bc, k=15)
 ```
 
@@ -510,7 +510,7 @@ mem.add_rules(
     InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
 )
 
-result = mem.reason(seeds=all_labels, depth=4, max_total_states=300)
+result = mem.reason(seeds=all_labels, max_depth=4, max_total_states=300)
 ```
 
 **5. Analyze Blast Radius**
@@ -590,7 +590,7 @@ Hyper3 provides the **reasoning engine**; the data engineering pipeline that fee
 | `mem.link(source, target, label)` | Create a semantic edge |
 | `mem.add_rules(*rules)` | Register inference rules |
 | `mem.reason(seeds, depth)` | Run multiway expansion with rules |
-| `mem.analyze.centrality("betweenness", )` | Compute centrality scores |
+| `mem.analyze.centrality("betweenness")` | Compute centrality scores |
 | `mem.pattern_match(edge_label)` | Find edges by label |
 | `mem.stats()` | Get graph statistics |
 

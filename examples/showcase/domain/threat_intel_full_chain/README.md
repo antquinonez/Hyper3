@@ -353,7 +353,7 @@ mem.add_rules(
 
 result = mem.reason(
     seeds={"APT28", "CVE-2023-44228", "GOV"},
-    depth=3,
+    max_depth=3,
     auto_commit=True,
 )
 ```

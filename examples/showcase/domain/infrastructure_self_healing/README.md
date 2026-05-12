@@ -36,7 +36,7 @@ Expected output (excerpt):
 ======================================================================
 SUMMARY
 ======================================================================
-  Final graph: 33 nodes, 89 edges
+  Final graph: 41 nodes, 91 edges
   Stale nodes cleaned: 13/15
   Healthy nodes preserved: 31
   Fitness journey: declining -> stable
@@ -333,7 +333,7 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Feedback suppressed (first cycle) | 2 |
 | Stale nodes cleaned | 13/15 |
 | Healthy nodes preserved | 31 |
-| Final graph | 33 nodes, 89 edges |
+| Final graph | 41 nodes, 91 edges |
 | Post-recovery health | 0.55 |
 | Post-recovery fitness trend | stable |
 | Cross-operation correlations | 13 nodes |
@@ -427,7 +427,7 @@ if triggers:
 **Computational bias profile:**
 
 ```python
-mem.reason({"api-gw-01", "order-svc-01"}, depth=3, max_total_states=15)
+mem.reason({"api-gw-01", "order-svc-01"}, max_depth=3, max_total_states=15)
 profile = mem.compute_bias_profile()
 print(f"reasoning style: {profile['reasoning_style']}")
 print(f"dominant rules: {profile['dominant_rules']}")
@@ -466,7 +466,7 @@ print(f"dominant rules: {profile['dominant_rules']}")
 | `mem.propose_tuning(triggers)` | Generate a tuning plan from metamorphosis triggers |
 | `mem.execute_tuning_validated(plan)` | Apply tuning with rollback on fitness decrease |
 | `mem.diff_from_version(version_id)` | Compare current graph to a captured version |
-| `mem.reason(seeds, depth, max_total_states)` | Run multiway rule-based reasoning |
+| `mem.reason(seeds, max_depth, max_total_states)` | Run multiway rule-based reasoning |
 | `mem.stats()` | Get graph statistics (node count, edge count) |
 
 ### Related Examples

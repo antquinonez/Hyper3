@@ -36,18 +36,18 @@ SECTION 1: Building timeline with more data...
   Added 3 doctor visits
 
 SECTION 2: Checking temporal relations (Allen Algebra)...
-  fever                ↔ cough               : overlaps
-  fever                ↔ fatigue             : overlaps
-  cough                ↔ fatigue             : overlaps
-  headache             ↔ fatigue             : during
-  fever                ↔ headache            : before
-  nausea               ↔ chest_pain          : contains
-  chest_pain           ↔ shortness_breath    : contains
+  fever                <-> cough               : overlaps
+  fever                <-> fatigue             : overlaps
+  cough                <-> fatigue             : overlaps
+  headache             <-> fatigue             : during
+  fever                <-> headache            : before
+  nausea               <-> chest_pain          : contains
+  chest_pain           <-> shortness_breath    : contains
 
 SECTION 4: Enhanced causal chain detection (length >= 3)...
   Found 2 causal chain(s):
-    Length 3: fever → headache → chest_pain
-    Length 3: fever → headache → shortness_breath
+    Length 3: fever -> headache -> chest_pain
+    Length 3: fever -> headache -> shortness_breath
 ```
 
 ## 5. The Scenario

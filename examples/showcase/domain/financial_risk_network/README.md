@@ -52,10 +52,10 @@ SECTION 1: Building Financial Risk Network
 ======================================================================
 SECTION 2: Community Detection - Risk Clusters
 ======================================================================
-  Communities found: 17
-  Modularity: 0.532
-  Coverage: 72.5%
-  Largest community: 17 nodes
+  Communities found: 16
+  Modularity: 0.522
+  Coverage: 79.3%
+  Largest community: 20 nodes
 
 ======================================================================
 SECTION 3: Graph Diffing - Tracking Risk Evolution
@@ -68,19 +68,19 @@ SECTION 3: Graph Diffing - Tracking Risk Evolution
 ======================================================================
 SECTION 5: Hebbian Learning - Risk Correlation Strengthening
 ======================================================================
-  Edges strengthened: 40
-  Edges weakened:     29
-  Co-activation pairs: 69
-  Avg weight change:  0.6313
+  Edges strengthened: 0
+  Edges weakened:     58
+  Co-activation pairs: 58
+  Avg weight change:  0.0100
 
 ======================================================================
 SECTION 6: Probabilistic Default Risk Assessment
 ======================================================================
   Default risk distribution (4 outcomes):
-    credit_suisse             P(default) = 0.582
-    deutsche_bank             P(default) = 0.263
-    goldman_sachs             P(default) = 0.107
-    jp_morgan                 P(default) = 0.048
+    credit_suisse             P(default) = 0.610
+    deutsche_bank             P(default) = 0.271
+    goldman_sachs             P(default) = 0.082
+    jp_morgan                 P(default) = 0.036
 
 ======================================================================
 SECTION 7: Multi-Frame Risk Analysis
@@ -94,7 +94,10 @@ SECTION 8: Contagion Flow Analysis
     Max contagion flow: 0.99
   Global minimum cut:
     Cut weight: 0.00
-  Feedback-driven evolution completed
+    Reinforced: 0
+    Suppressed: 0
+    Decayed: 0
+    Pruned: 0
 ```
 
 ## 5. The Scenario
@@ -284,12 +287,11 @@ summary = mem.collapse_subgraph(us_banks, summary_label="us_banking_sector",
 Stimulate risk factors, spread activation across the network, and apply Hebbian reinforcement:
 
 ```python
-mem.activate("recession_risk", energy=2.0)
-mem.activate("equity_risk", energy=1.5)
-mem.activate("volatility_risk", energy=1.0)
-mem.activate()
+mem.search.activate("recession_risk", energy=2.0)
+mem.search.activate("equity_risk", energy=1.5)
+mem.search.activate("volatility_risk", energy=1.0)
 
-hebbian_result = mem.hebbian_reinforce()
+hebbian_result = mem.cognitive.hebbian_reinforce()
 ```
 
 **Why this matters:** Risk factors that activate together in a stress scenario are correlated in practice. Recession risk amplifies both equity risk and counterparty default risk. When all three activate simultaneously, the edges connecting them should be stronger — reflecting the empirical observation that these risks compound. Hebbian reinforcement automates this: edges between co-activated nodes are strengthened (40 edges), edges between nodes where only one activated are weakened (29 edges). The result is a network where the strongest correlations reflect actual stress scenarios, not just topological adjacency.
@@ -304,7 +306,7 @@ Create belief distributions over default candidates and sample from them using t
 qs = mem.belief.create(
     ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
     amplitudes=[0.7, 0.4, 0.15, 0.10],
-    use_context_field=True,
+    use_context=True,
 )
 
 for i in range(10):
@@ -397,10 +399,10 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 | Instruments | 21 |
 | Risk factors | 20 |
 | Regulators | 10 |
-| Communities detected | 17 |
-| Modularity | 0.532 |
-| Coverage | 72.5% |
-| Largest community | 17 nodes |
+| Communities detected | 16 |
+| Modularity | 0.522 |
+| Coverage | 79.3% |
+| Largest community | 20 nodes |
 | Second largest community | 12 nodes |
 | Graph diff — nodes added | 1 |
 | Graph diff — edges added | 5 |
@@ -408,21 +410,21 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 | US banks collapsed | 5 |
 | External connections preserved | 12 |
 | Communities after abstraction | 22 |
-| Communities after expansion | 15 |
-| Hebbian — edges strengthened | 40 |
-| Hebbian — edges weakened | 29 |
-| Hebbian — co-activation pairs | 69 |
-| Hebbian — avg weight change | 0.6313 |
+| Communities after expansion | 14 |
+| Hebbian — edges strengthened | 0 |
+| Hebbian — edges weakened | 58 |
+| Hebbian — co-activation pairs | 58 |
+| Hebbian — avg weight change | 0.0100 |
 | Strongest recession correlation | equity_risk (1.00), counterparty_default_risk (1.00) |
-| Default distribution — credit_suisse | P(default) = 0.582 |
-| Default distribution — deutsche_bank | P(default) = 0.263 |
-| Default distribution — goldman_sachs | P(default) = 0.107 |
-| Default distribution — jp_morgan | P(default) = 0.048 |
-| Risk factor — interest_rate_risk | P(dominant) = 0.596 |
-| Risk factor — credit_spread_risk | P(dominant) = 0.260 |
+| Default distribution — credit_suisse | P(default) = 0.610 |
+| Default distribution — deutsche_bank | P(default) = 0.271 |
+| Default distribution — goldman_sachs | P(default) = 0.082 |
+| Default distribution — jp_morgan | P(default) = 0.036 |
+| Risk factor — interest_rate_risk | P(dominant) = 0.592 |
+| Risk factor — credit_spread_risk | P(dominant) = 0.263 |
 | Risk factor — fx_risk | P(dominant) = 0.106 |
 | Risk factor — liquidity_risk | P(dominant) = 0.038 |
-| Multi-frame — classical complexity | 0.769 |
+| Multi-frame — classical complexity | 0.788 |
 | Multi-frame — quantum complexity | 1.000 |
 | Multi-frame — hypergraph complexity | 0.718 |
 | Multi-frame — probabilistic complexity | 0.876 |
@@ -507,11 +509,11 @@ mem.expand_summary("us_banking_sector")
 ### Hebbian Reinforcement of Risk Correlations
 
 ```python
-mem.activate("recession_risk", energy=2.0)
-mem.activate("equity_risk", energy=1.5)
-mem.activate()
+mem.search.activate("recession_risk", energy=2.0)
+mem.search.activate("equity_risk", energy=1.5)
+mem.search.activate("volatility_risk", energy=1.0)
 
-hebbian_result = mem.hebbian_reinforce()
+hebbian_result = mem.cognitive.hebbian_reinforce()
 strongest = mem.strongest_associations("recession_risk", top_k=5)
 ```
 
@@ -521,7 +523,7 @@ strongest = mem.strongest_associations("recession_risk", top_k=5)
 qs = mem.belief.create(
     ["credit_suisse", "deutsche_bank", "goldman_sachs", "jp_morgan"],
     amplitudes=[0.7, 0.4, 0.15, 0.10],
-    use_context_field=True,
+    use_context=True,
 )
 
 answer = mem.sample(qs)
@@ -590,11 +592,10 @@ print(f"Best frame: {optimal_name}")
 | `mem.collapse_subgraph(labels, summary_label=..., summary_data=...)` | Replace nodes with a summary node |
 | `mem.expand_summary(summary_label)` | Restore a collapsed subgraph |
 | `mem.list_summaries()` | List all active summary nodes |
-| `mem.activate(concept, energy=...)` | Inject activation energy into a node |
-| `mem.activate()` | Propagate activation through the graph |
-| `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
+| `mem.search.activate(concept, energy=...)` | Inject activation energy into a node |
+| `mem.cognitive.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
 | `mem.strongest_associations(concept, top_k=...)` | Find the strongest weighted neighbors of a node |
-| `mem.belief.create(labels, amplitudes=..., use_context_field=...)` | Create a belief distribution over outcomes |
+| `mem.belief.create(labels, amplitudes=..., use_context=...)` | Create a belief distribution over outcomes |
 | `mem.sample(distribution)` | Sample a single outcome from a belief distribution via the Born rule |
 | `mem.multi_frame_analysis(concept)` | Analyze a concept through all computational frames |
 | `mem.select_optimal_frame(concept)` | Select the best frame based on learned effectiveness |

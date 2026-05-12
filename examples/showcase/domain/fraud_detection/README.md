@@ -208,7 +208,7 @@ mem.add_rules(
 
 reason_result = mem.reason(
     seeds={"acct_zenith_holdings", "acct_global_trading", "viktor_kingpin"},
-    depth=3,
+    max_depth=3,
     max_total_states=50,
 )
 ```
@@ -528,7 +528,7 @@ mem.add_rules(
 )
 reason_result = mem.reason(
     seeds={"acct_zenith_holdings"},
-    depth=3,
+    max_depth=3,
 )
 indirect = mem.pattern_match(edge_label="transfers_indirectly")
 ```
@@ -629,7 +629,7 @@ Hyper3 provides graph construction, traversal, reasoning, and analysis. The foll
 | `mem.activate(concept, energy, top_k)` | Spreading activation from a node |
 | `mem.search.query(concept, top_k, iterations)` | Retrieve related entities |
 | `mem.add_rules(*rules)` | Register inference rules |
-| `mem.reason(seeds, depth)` | Apply rules to discover new edges |
+| `mem.reason(seeds, max_depth)` | Apply rules to discover new edges |
 | `mem.pattern_match(edge_label)` | Find all edges with a given label |
 | `mem.detect_cycles(max_cycles)` | Find circular paths |
 | `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |

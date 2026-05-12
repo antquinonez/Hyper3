@@ -193,7 +193,7 @@ for rel_label, pairs in RELATIONSHIP_MAP.items():
 Explore what's connected to Lazarus in 2 hops:
 
 ```python
-lazarus_neighborhood = mem.recall("Lazarus", depth=2, max_nodes=30)
+lazarus_neighborhood = mem.recall("Lazarus", max_depth=2, max_nodes=30)
 ```
 
 Figure 3: Recall from Lazarus reveals 10 nodes connected through malware, CVEs, and target sectors.
@@ -232,7 +232,7 @@ targets_edges = mem.pattern_match(edge_label="targets")    # 62 edges
 Use degree centrality to find the highest-impact vulnerabilities:
 
 ```python
-centrality = mem.analyze.centrality("degree", )
+centrality = mem.analyze.centrality("degree")
 cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
 top_cves = top_k(cve_centrality, k=5)
 ```
@@ -299,7 +299,7 @@ graph TD
 Find paths from threat actors to target industries:
 
 ```python
-paths = mem.find_paths("Lazarus", "FIN", depth=4, max_paths=10)
+paths = mem.analyze.paths("Lazarus", "FIN", max_depth=4, max_paths=10)
 ```
 
 Figure 5: Attack paths from Lazarus to Financial sector.
@@ -320,8 +320,8 @@ Find nodes with no edges -- these are isolated indicators that need more context
 
 ```python
 all_labels = {n.label for n in mem.engine.graph.nodes}
-connected_labels = set()
-for edge in mem.engine.graph.labeled_edges:
+connected_labels: set[str] = set()
+for edge in mem.analyze.edges():
     connected_labels.update(edge["source_labels"])
     connected_labels.update(edge["target_labels"])
 
@@ -367,9 +367,9 @@ graph TD
 Query the same node through different modalities to see different slices:
 
 ```python
-causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, depth=2)
-sensory_nodes = mem.query("CVE-2023-44228", modality=Modality.SENSORY, depth=2)
-conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, depth=2)
+causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, max_depth=2, max_nodes=20)
+sensory_nodes = mem.query("CVE-2023-44228", modality=Modality.SENSORY, max_depth=2, max_nodes=20)
+conceptual_nodes = mem.query("CVE-2023-44228", modality=Modality.CONCEPTUAL, max_depth=2, max_nodes=20)
 ```
 
 | Modality | Returns | Purpose |
@@ -390,7 +390,7 @@ mem.add_rules(
     InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
 )
 
-reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, depth=3)
+reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, max_depth=3)
 ```
 
 **Result:** 16 inferred edges produced across 17 states with 16 rule applications.
@@ -589,9 +589,9 @@ for rel_label, pairs in RELATIONSHIP_MAP.items():
 
 ```python
 exploits = mem.pattern_match(edge_label="exploits")
-centrality = mem.analyze.centrality("degree", )
+centrality = mem.analyze.centrality("degree")
 top_cves = top_k(centrality, k=5)
-paths = mem.find_paths("Lazarus", "FIN", depth=4)
+paths = mem.analyze.paths("Lazarus", "FIN", max_depth=4, max_paths=10)
 profile_subgraph = mem.subgraph(apt28_labels)
 ```
 
@@ -602,7 +602,7 @@ mem.add_rules(
     TransitiveRule(edge_label="exploits", new_label="exploits_indirectly"),
     InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
 )
-reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, depth=3)
+reason_result = mem.reason(seeds={"APT28", "Lazarus", "Conti"}, max_depth=3)
 ```
 
 **6. Detect Communities and Anomalies**
@@ -687,9 +687,9 @@ Hyper3 provides the **knowledge graph engine**; the data engineering pipeline th
 | `mem.recall(concept, max_depth)` | BFS traversal from a node |
 | `mem.query(concept, modality, strategy)` | Modality-filtered traversal |
 | `mem.pattern_match(edge_label, source_label)` | Find edges matching criteria |
-| `mem.analyze.centrality("degree", )` | Compute centrality scores for all nodes |
+| `mem.analyze.centrality("degree")` | Compute centrality scores for all nodes |
 | `mem.subgraph(labels)` | Extract a subgraph around specific nodes |
-| `mem.find_paths(source, target, max_depth)` | Find attack paths between nodes |
+| `mem.analyze.paths(source, target, max_depth)` | Find attack paths between nodes |
 | `mem.analyze.components()` | Identify threat ecosystems (clusters) |
 | `mem.stats()` | Get graph statistics |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |

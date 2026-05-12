@@ -47,7 +47,7 @@ SECTION 1: Building troubleshooting graph...
   Total nodes: 13
   Total edges: 10
 
-SECTION 2: Proving root cause: power_failure → server_wont_boot
+SECTION 2: Proving root cause: power_failure -> server_wont_boot
   (Using mem.find_paths() for causal path discovery)
   Result: PROVEN
   Confidence: 1.00

@@ -334,7 +334,7 @@ mem.add_rules(
 
 result = mem.reason(
     seeds=cascade_seeds,
-    depth=3,
+    max_depth=3,
     max_total_states=50,
 )
 
@@ -344,7 +344,7 @@ cascades = mem.pattern_match(edge_label="cascade_affected_by")
 ### Tracing Disruption Paths
 
 ```python
-paths = mem.find_paths("risk_sanctions", "prod_vehicle", depth=8, max_paths=3)
+paths = mem.find_paths("risk_sanctions", "prod_vehicle", max_depth=8, max_paths=3)
 for path in paths:
     lead_total = sum(
         mem.engine.graph.get_node_by_label(step).data.get("lead_time_days", 0)
@@ -376,7 +376,7 @@ for path in paths:
 | `mem.reason(seeds=..., depth=..., max_total_states=...)` | Run multiway reasoning |
 | `mem.pattern_match(edge_label=...)` | Find edges matching a label |
 | `mem.find_paths(src, tgt, depth=..., max_paths=...)` | Trace paths between nodes |
-| `mem.analyze.components()` | Find connected subgraphs |
+| `mem.connected_components()` | Find connected subgraphs |
 | `mem.engine.graph.get_node_by_label(name)` | Look up a node by its label |
 | `top_k(scores, k=N)` | Get top N items from a centrality dict |
 
