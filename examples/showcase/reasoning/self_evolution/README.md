@@ -22,7 +22,7 @@ This showcase builds a small 8-node chain graph, runs each evolution mechanism, 
 ## Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/reasoning/self_evolution/24_self_evolution.py
+.venv/bin/python examples/showcase/reasoning/self_evolution/self_evolution.py
 ```
 
 Expected output (excerpt):
@@ -39,7 +39,7 @@ Hebbian reinforcement:
   edges strengthened: 3
   edges weakened: 0
   total co-activations: 3
-  avg weight change: 0.2677
+  avg weight change: 0.2702
 
 feedback summary:
   overall health: 0.5
@@ -114,7 +114,7 @@ Why this matters: without feedback, evolution operates on general rules (decay e
 | Hebbian edges strengthened | 3 |
 | Hebbian edges weakened | 0 |
 | Hebbian co-activations | 3 |
-| Hebbian avg weight change | 0.2677 |
+| Hebbian avg weight change | 0.2702 |
 | Feedback reinforced | 0 |
 | Feedback suppressed | 0 |
 | Feedback overall health | 0.5 |
@@ -152,16 +152,15 @@ Hebbian learning:
 ```python
 mem2 = HypergraphMemory(evolve_interval=0)
 for node in ["x", "y", "z", "w"]:
-    mem2.store(node)
+    mem2.add(node)
 
-mem2.relate("x", "y", label="linked", weight=1.0)
-mem2.relate("y", "z", label="linked", weight=1.0)
+mem2.link("x", "y", label="linked", weight=1.0)
+mem2.link("y", "z", label="linked", weight=1.0)
 
-mem2.stimulate("x")
-mem2.stimulate("y")
-mem2.spread_activation()
+mem2.search.activate("x", energy=1.0)
+mem2.search.activate("y", energy=1.0)
 
-hebb_result = mem2.hebbian_reinforce()
+hebb_result = mem2.cognitive.hebbian_reinforce()
 print(f"edges strengthened: {hebb_result.edges_strengthened}")
 ```
 
@@ -191,9 +190,8 @@ print(f"overall health: {summary.overall_health}")
 |--------|---------|
 | `mem.evolve()` | Run decay, prune, merge, reinforce cycle |
 | `mem.evolve_with_feedback()` | Run evolution using operation history |
-| `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
-| `mem.activate(concept)` | Inject activation into a node |
-| `mem.activate()` | Propagate activation through the graph |
+| `mem.cognitive.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
+| `mem.search.activate(concept, energy=1.0)` | Inject activation into a node |
 | `mem.feedback_summary()` | Report feedback-driven evolution state |
 | `mem.recall(concept, max_depth=N)` | Retrieve related concepts (triggers usage tracking) |
 

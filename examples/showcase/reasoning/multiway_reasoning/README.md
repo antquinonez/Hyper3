@@ -31,7 +31,7 @@ Think of this like a doctor who simultaneously explores multiple possible diagno
 Run the flagship showcase to see multi-hypothesis reasoning in action:
 
 ```bash
-.venv/bin/python examples/showcase/reasoning/multiway_reasoning/01_multiway_lateral_insights.py
+.venv/bin/python examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py
 ```
 
 ### What You'll See

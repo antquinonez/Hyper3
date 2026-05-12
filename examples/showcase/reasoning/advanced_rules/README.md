@@ -30,7 +30,7 @@ Imagine a city's road network. You know the direct streets (A connects to B), bu
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/reasoning/advanced_rules/12_advanced_rules.py
+.venv/bin/python examples/showcase/reasoning/advanced_rules/advanced_rules.py
 ```
 
 ```
@@ -45,7 +45,7 @@ SUMMARY
   Transitive chains:  55 hidden dependency paths
   Causal links:       8 co-occurrence patterns
   Abstractions:       22 similar-service pairs
-  Analogies:          5 structural (A:B::C:D)
+  Analogies:          9 structural (A:B::C:D)
   Final graph:        130 nodes, 284 edges
 ```
 
@@ -194,19 +194,23 @@ The groups by team:
 
 ### Section 6: StructuralProjectionRule — Structural Analogies
 
-`StructuralProjectionRule(similarity_threshold=0.7)` with `HashEmbeddingProvider(dim=32)` finds **5 structural analogies**. These are subgraph pairs where the embedding arithmetic `emb(A) - emb(B) ≈ emb(C) - emb(D)`, meaning the relationship between A and B structurally resembles the relationship between C and D.
+`StructuralProjectionRule(similarity_threshold=0.7)` with `HashEmbeddingProvider(dim=32)` finds **9 structural analogies**. These are subgraph pairs where the embedding arithmetic `emb(A) - emb(B) ≈ emb(C) - emb(D)`, meaning the relationship between A and B structurally resembles the relationship between C and D.
 
-**Why structural analogies matter**: An analogy like `svc-shipping : host-prod-07 :: host-prod-16 : svc-notification` suggests that the deployment relationship pattern between shipping and its host mirrors a pattern between the host for queue/cache services and the notification service. These parallels can reveal unexpected operational similarities — the same class of deployment risk may apply to both subgraphs.
+**Why structural analogies matter**: An analogy like `svc-subscription : host-prod-12 :: corr-notification-push-fail : deploy-v2.5.0` suggests that the structural relationship pattern between a subscription service and its host mirrors a pattern between a correlation node and a deployment. These parallels can reveal unexpected operational similarities — the same class of structural pattern may apply to both subgraphs, suggesting transferable monitoring or incident response strategies.
 
-The 5 analogies (scores 0.700–0.726):
+The 9 analogies (scores 0.707–0.789):
 
 | Analogy | Score |
 |---|---|
-| `svc-shipping:host-prod-07 :: host-prod-16:svc-notification` | 0.726 |
-| `metric-error-burst-payment:alert-payment-declines :: deploy-v2.4.0:host-prod-06` | 0.710 |
-| `svc-order:metric-error-burst-order :: corr-external-gateway-timeout:alert-search-degraded` | 0.703 |
-| `deploy-v2.3.2:deploy-v2.3.1 :: metric-cpu-spike-prod-01:alert-cpu-critical` | 0.702 |
-| `corr-deploy-cpu-spike:metric-cpu-spike-prod-01 :: deploy-v3.1.1:alert-cpu-critical` | 0.700 |
+| `svc-subscription:host-prod-12 :: corr-notification-push-fail:deploy-v2.5.0` | 0.789 |
+| `deploy-v3.1.0:metric-cache-miss-rate :: ext-sendgrid:metric-error-burst-payment` | 0.739 |
+| `svc-review:host-prod-07 :: svc-payment:svc-notification` | 0.731 |
+| `deploy-v3.1.0:metric-cache-miss-rate :: svc-api-gateway:metric-error-burst-payment` | 0.725 |
+| `metric-cpu-spike-prod-01:alert-cpu-critical :: corr-search-index-delay:deploy-hotfix-001` | 0.723 |
+| `metric-error-burst-payment:alert-payment-declines :: ext-elasticsearch:ext-cloudflare` | 0.717 |
+| `deploy-hotfix-001:alert-high-latency-api :: host-prod-18:svc-cache` | 0.715 |
+| `svc-checkout:svc-payment :: host-prod-05:ext-twilio` | 0.708 |
+| `svc-order:svc-notification :: host-prod-19:metric-external-api-slow` | 0.707 |
 
 Note: Hash embeddings produce structural analogies based on topology, not semantic meaning. Production deployments using sentence-transformer embeddings would find semantically meaningful analogies.
 
@@ -237,7 +241,7 @@ The graph grows from 130 nodes / 234 edges to 130 nodes / 284 edges — a net ga
 | TransitiveRule | 55 chains | 55 pairs of services where a hidden dependency exists through an intermediate service |
 | HubInferenceRule | 8 links | 8 correlation nodes with statistically significant co-occurrence (support >= 2, confidence >= 0.6) |
 | GeneralizationRule | 22 pairs | 22 node pairs with data attribute similarity >= 0.8 |
-| StructuralProjectionRule | 5 analogies | 5 subgraph pairs where embedding arithmetic yields analogy score >= 0.7 |
+| StructuralProjectionRule | 9 analogies | 9 subgraph pairs where embedding arithmetic yields analogy score >= 0.7 |
 
 ### Auto-Discovery Output
 
@@ -269,7 +273,7 @@ The 18 discovered patterns break into 3 transitive patterns (edge labels with en
 | Top transitive target | `svc-inventory` (9 chains) |
 | Causal links found | 8 (all support=3, confidence=0.75) |
 | Service abstraction pairs | 22 (threshold >= 0.8) |
-| Structural analogies | 5 (scores 0.700–0.726) |
+| Structural analogies | 9 (scores 0.707–0.789) |
 | Category nodes created | 5 |
 | Reasoning states created | 51 |
 | Rules applied during reasoning | 50 |

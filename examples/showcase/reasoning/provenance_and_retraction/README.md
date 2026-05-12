@@ -27,7 +27,7 @@ Think of this like a house of cards. Each card (inference) rests on other cards 
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/reasoning/provenance_and_retraction/05_provenance_and_retraction.py
+.venv/bin/python examples/showcase/reasoning/provenance_and_retraction/provenance_and_retraction.py
 ```
 
 ### What You'll See
@@ -300,5 +300,5 @@ print(f"Removed {len(retracted_ids)} edges")
 | Example | Focus |
 |---------|-------|
 | `examples/showcase/reasoning/multiway_reasoning/` | Multi-hypothesis reasoning with branch scoring |
-| `examples/showcase/reasoning/provenance_and_retraction/provenance_and_retraction.py` | Provenance tracking, cascading retraction |
-| `examples/showcase/domain/medical_diagnosis/medical_diagnosis.py` | Biomedical knowledge graph construction |
+| `examples/showcase/reasoning/knowledge_reasoning/` | Transitive inference, belief revision, confidence scoring |
+| `examples/showcase/domain/medical_diagnosis/` | Biomedical knowledge graph construction |

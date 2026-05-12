@@ -7,7 +7,7 @@ implements self-modifying graph structure with feedback loops.
 Shows decay, prune, merge, reinforce, Hebbian learning,
 and feedback-driven evolution.
 
-Run: .venv/bin/python examples/showcase/reasoning/self_evolution/24_self_evolution.py
+Run: .venv/bin/python examples/showcase/reasoning/self_evolution/self_evolution.py
 """
 
 from __future__ import annotations

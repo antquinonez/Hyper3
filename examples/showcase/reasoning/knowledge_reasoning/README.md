@@ -31,7 +31,7 @@ These capabilities exist because storing facts is insufficient. Real knowledge w
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/reasoning/knowledge_reasoning/23_knowledge_reasoning.py
+.venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py
 ```
 
 ### What You'll See

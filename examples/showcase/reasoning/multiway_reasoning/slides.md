@@ -66,7 +66,7 @@ Each "branch" of reasoning represents a different diagnosis, and Hyper3 compares
 Run the flagship showcase:
 
 ```bash
-.venv/bin/python examples/showcase/multiway_reasoning/01_multiway_lateral_insights.py
+.venv/bin/python examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py
 ```
 
 **What You'll See:** 66 different hypothesis branches from a single failed health check.
@@ -82,9 +82,38 @@ The example models a realistic, multi-region cloud infrastructure:
 - **Shared Core:** PostgreSQL, RabbitMQ, Redis clusters
 - **The Trigger:** Failed health check on `us-east-api`
 
----
+```mermaid
+graph TB
+    subgraph "Traffic Layer"
+        CDN["CDN Edge"]
+        LB_G["Load Balancer Global"]
+    end
 
-[MISSING TOPOLGY]
+    subgraph "us-east-1"
+        LB_E["LB us-east"]
+        API_E["API Service"]
+        CACHE_E["Cache Replica"]
+        DB_RE["DB Replica"]
+    end
+
+    subgraph "us-west-2"
+        LB_W["LB us-west"]
+        API_W["API Service"]
+    end
+
+    subgraph "Shared Infrastructure"
+        DB["DB Primary PostgreSQL"]
+        CACHE["Cache Primary Redis"]
+    end
+
+    CDN --> LB_G
+    LB_G --> LB_E
+    LB_G --> LB_W
+    LB_E --> API_E
+    API_E --> CACHE_E
+    API_E --> DB_RE
+    DB --> DB_RE
+```
 
 ---
 
@@ -101,9 +130,21 @@ Ten inference rules operate simultaneously, creating a branching DAG of 66 leaf 
 
 ## How the Engine Works
 
-Figure: The engine takes seed concepts and applies multiple inference rules simultaneously.
+Figure: The engine takes seed concepts and applies multiple inference rules simultaneously, creating a branching tree of hypotheses.
 
-[MISSING IMAGE]
+```mermaid
+graph TD
+    SEED["Seed Concepts: failed-health-check, latency-spike, db-primary-down..."]
+    SEED --> MW{"Multiway Engine"}
+    MW -->|"TransitiveRule"| B1["Branch: indirect chains"]
+    MW -->|"InverseRule"| B2["Branch: reverse edges"]
+    MW -->|"AbductiveRule"| B3["Branch: possible causes"]
+    B1 --> LEAF["Leaf States: 66 total"]
+    B2 --> LEAF
+    B3 --> LEAF
+    LEAF --> SCORE["Branch Scoring vs Symptoms"]
+```
+
 ---
 
 ## 7. The Top Hypothesis
@@ -213,11 +254,11 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 | Example | Focus |
 |---------|-------|
-| `examples/showcase/self_evolving_cognition/self_evolving_cognition.py` | Feedback-driven evolution |
-| `examples/showcase/adaptive_learning/adaptive_learning.py` | Rule effectiveness learning |
-| `examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py` | Multiway reasoning integration |
-| `examples/showcase/medical_diagnosis/medical_diagnosis.py` | Backward chaining |
-| `examples/showcase/fraud_detection/fraud_detection_intelligence.py` | Cycle detection |
+| `examples/showcase/workflow/self_evolving_cognition/` | Feedback-driven evolution |
+| `examples/showcase/belief/adaptive_learning/` | Rule effectiveness learning |
+| `examples/showcase/domain/infrastructure_self_healing/` | Multiway reasoning integration |
+| `examples/showcase/domain/medical_diagnosis/` | Backward chaining |
+| `examples/showcase/domain/fraud_detection/` | Cycle detection |
 
 ---
 

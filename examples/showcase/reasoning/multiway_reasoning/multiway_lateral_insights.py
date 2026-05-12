@@ -10,7 +10,7 @@ analysis and lateral insights.
 This is the flagship showcase example for Hyper3's multi-hypothesis reasoning.
 
 Run with:
-    .venv/bin/python examples/showcase/reasoning/multiway_reasoning/01_multiway_lateral_insights.py
+    .venv/bin/python examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py
 
 See README.md in this directory for detailed architecture diagrams and explanations.
 """

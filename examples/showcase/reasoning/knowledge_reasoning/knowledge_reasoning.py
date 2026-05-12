@@ -7,7 +7,7 @@ provide rule-based inference or reasoning capabilities.
 Shows Hyper3's unique value: transitive inference, multiway expansion,
 backward chaining (proof), provenance tracking, and belief revision.
 
-Run: .venv/bin/python examples/showcase/reasoning/knowledge_reasoning/23_knowledge_reasoning.py
+Run: .venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py
 """
 
 from __future__ import annotations
@@ -90,14 +90,18 @@ def main() -> None:
 
     for e in mem.analyze.edges(label="indirectly_causes"):
         if e.source_labels and e.target_labels:
-            explanation = mem.explain(e.source_labels[0], e.target_labels[0])
-            if explanation:
-                rendered = explanation.render()
-                print(f"\nexplanation: {e.source_labels[0]} indirectly causes {e.target_labels[0]}")
-                for line in rendered.split("\n"):
-                    if line.strip():
-                        print(f"  {line}")
-        break
+            if e.source_labels[0] == "asbestos" and e.target_labels[0] == "death":
+                explanation = mem.explain(e.source_labels[0], e.target_labels[0])
+                if explanation:
+                    rendered = explanation.render()
+                    lines = rendered.split("\n")
+                    print(f"\nexplanation: {e.source_labels[0]} indirectly causes {e.target_labels[0]}")
+                    for line in lines[:8]:
+                        if line.strip():
+                            print(f"  {line}")
+                    if len(lines) > 8:
+                        print(f"  ...")
+                break
 
     print("\n" + "=" * 70)
     print("SECTION 5: BELIEF REVISION (CONTRADICTION DETECTION)")

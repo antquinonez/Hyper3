@@ -14,7 +14,7 @@ placed correlation patterns are embedded for the rule engine to
 recover automatically.
 
 Run with:
-    .venv/bin/python examples/showcase/reasoning/advanced_rules/12_advanced_rules.py
+    .venv/bin/python examples/showcase/reasoning/advanced_rules/advanced_rules.py
 """
 
 from __future__ import annotations

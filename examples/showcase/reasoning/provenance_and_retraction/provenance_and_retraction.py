@@ -14,7 +14,7 @@ evidence chains. When a source paper is retracted, all derived
 conclusions are automatically removed.
 
 Run with:
-    .venv/bin/python examples/showcase/reasoning/provenance_and_retraction/05_provenance_and_retraction.py
+    .venv/bin/python examples/showcase/reasoning/provenance_and_retraction/provenance_and_retraction.py
 """
 
 from __future__ import annotations
