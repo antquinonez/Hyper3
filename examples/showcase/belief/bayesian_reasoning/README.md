@@ -22,11 +22,12 @@ Think of a doctor running a differential diagnosis. Before any tests, the doctor
 | **Credible set** | The smallest set of root causes covering 95% of posterior probability |
 | **Bayes factor** | How much the evidence favors one hypothesis over another, relative to prior odds |
 | **Information gain** | How much a piece of evidence shifts the distribution, measured as KL divergence |
+| **KL divergence** | A measure of how different two probability distributions are, in bits |
 
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/belief/bayesian_reasoning/14_bayesian_reasoning.py
+    .venv/bin/python examples/showcase/belief/bayesian_reasoning/bayesian_reasoning.py
 ```
 
 ### What You'll See
@@ -35,13 +36,13 @@ Think of a doctor running a differential diagnosis. Before any tests, the doctor
 ======================================================================
 SUMMARY
 ======================================================================
-  Graph: 14 nodes, 48 edges
+  Graph: 15 nodes, 48 edges
   Root causes analyzed: 6
   Evidence observed:    6
   MAP root cause:       database_overload (P = 0.9299)
   95% credible set:     database_overload, memory_leak
   Bayes factor (H1/H2): 14.63 (strong)
-  Most informative:     config_diff_detected (KL = 0.7070)
+  Most informative:     config_diff_detected (KL = 1.0200)
   Entropy reduction:    2.471 -> 0.501 bits
 ```
 
@@ -51,7 +52,7 @@ A production outage with 6 candidate root causes and 8 observable evidence types
 
 ### Knowledge Graph Topology
 
-Figure 1: 14 nodes (6 root causes, 8 evidence types) connected by 48 weighted indicator edges.
+Figure 1: 15 nodes (6 root causes, 8 evidence types, 1 Bayesian analysis node) connected by 48 weighted indicator edges.
 
 ```mermaid
 graph LR
@@ -75,6 +76,10 @@ graph LR
         AS["auth_service_down<br/>prior=0.15"]
     end
 
+    subgraph "Analysis"
+        OD["outage_diagnosis<br/>(Bayesian node)"]
+    end
+
     CPU -->|"indicates w=8.5"| DB
     CPU -->|"indicates w=9.0"| ML
     DBQ -->|"indicates w=9.5"| DB
@@ -87,23 +92,23 @@ graph LR
     NET -->|"indicates w=9.0"| NW
 ```
 
-The graph stores likelihoods as edge weights (scaled to 1-10). Each evidence node connects to all 6 root causes with weights proportional to `P(evidence | cause)`.
+The graph stores likelihoods as edge weights (scaled to 1-10). Each evidence node connects to all 6 root causes with weights proportional to `P(evidence | cause)`. The `outage_diagnosis` node holds the Bayesian prior and posterior state.
 
 ## 6. Analysis Pipeline
 
-The script runs 6 sections, each building on the previous.
+The script runs 6 sections, each building on the previous. All Bayesian computations use Hyper3's built-in Bayesian subsystem (`set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, `credible_set`).
 
 ### Section 1: Building the Knowledge Graph
 
-The graph has 14 nodes (6 root causes + 8 evidence types) and 48 edges (each evidence node connects to all 6 causes via `indicates` edges with weights proportional to likelihoods). Every evidence node reaches all 6 causes — the discrimination comes from the weight differences.
+The graph has 15 nodes (6 root causes + 8 evidence types + 1 Bayesian analysis node) and 48 edges (each evidence node connects to all 6 causes via `indicates` edges with weights proportional to likelihoods). Every evidence node reaches all 6 causes — the discrimination comes from the weight differences.
 
 ### Section 2: Setting Prior Beliefs
 
-Priors reflect historical incident frequency: `database_overload` starts at 0.3000, `network_partition` at 0.2000, `config_error` and `auth_service_down` at 0.1500 each, `memory_leak` and `dns_failure` at 0.1000 each. The prior entropy is 2.471 bits out of a maximum 2.585 bits (near-uniform), meaning the priors provide little discrimination.
+`mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)` creates a Bayesian prior distribution on the `outage_diagnosis` node. Priors reflect historical incident frequency: `database_overload` starts at 0.3000, `network_partition` at 0.2000, `config_error` and `auth_service_down` at 0.1500 each, `memory_leak` and `dns_failure` at 0.1000 each. The prior entropy is 2.471 bits out of a maximum 2.585 bits (near-uniform), meaning the priors provide little discrimination.
 
 ### Section 3: Sequential Evidence-Driven Updates
 
-Six pieces of evidence arrive in order. The posterior shifts after each:
+Six pieces of evidence arrive in order. Each call to `mem.update_belief("outage_diagnosis", evidence_name=..., likelihoods=...)` applies Bayes' rule and returns an `UpdateResult` with the prior snapshot, posterior snapshot, and KL divergence from the update. The posterior shifts after each:
 
 | Step | Evidence | Top Cause | P(top) | Key Shift |
 |------|----------|-----------|--------|-----------|
@@ -118,7 +123,7 @@ Six pieces of evidence arrive in order. The posterior shifts after each:
 
 ### Section 4: MAP Estimate and Credible Set
 
-The MAP (Maximum A Posteriori) estimate is `database_overload` with P = 0.9299. The 95% credible set contains only 2 of 6 root causes:
+`mem.map_estimate("outage_diagnosis")` returns `database_overload` with P = 0.9299. `mem.credible_set("outage_diagnosis", level=0.95)` returns a 2-member credible set:
 
 | Root Cause | P(cause\|data) | Cumulative |
 |------------|----------------|------------|
@@ -129,7 +134,7 @@ Four causes are excluded: `config_error` (0.0211), `network_partition` (0.0197),
 
 ### Section 5: Bayes Factor Comparison
 
-The Bayes factor compares how much the evidence favors `database_overload` over each alternative, accounting for prior odds:
+`mem.bayes_factor("outage_diagnosis", hypothesis_a=..., hypothesis_b=...)` computes the cumulative Bayes factor for `database_overload` over each alternative, accounting for prior odds:
 
 | Hypothesis | BF | Strength |
 |------------|-----|----------|
@@ -139,7 +144,7 @@ The Bayes factor compares how much the evidence favors `database_overload` over 
 | vs `auth_service_down` | 58.88 | strong |
 | vs `dns_failure` | 2355.21 | decisive |
 
-The prior odds for `database_overload` vs `memory_leak` were 3.0000 (0.30/0.10). The posterior odds are 43.8859. The Bayes factor of 14.63 means the evidence multiplies the prior odds by 14.63×. Against `dns_failure`, the Bayes factor is 2355.21 — the evidence overwhelmingly rules out DNS failure as a plausible cause.
+The prior odds for `database_overload` vs `memory_leak` were 3.0000 (0.30/0.10). The posterior odds are 43.8859. The Bayes factor of 14.63 means the evidence multiplies the prior odds by 14.63x. Against `dns_failure`, the Bayes factor is 2355.21 — the evidence overwhelmingly rules out DNS failure as a plausible cause.
 
 **Bayes factor thresholds:**
 
@@ -152,20 +157,20 @@ The prior odds for `database_overload` vs `memory_leak` were 3.0000 (0.30/0.10).
 
 ### Section 6: Information Gain Analysis
 
-Each evidence piece is ranked by how much it shifts the prior distribution (KL divergence, measured independently):
+Each evidence piece is ranked by how much it shifts the prior distribution (KL divergence, measured independently in bits):
 
 | Evidence | KL(posterior\|\|prior) |
 |----------|------------------------|
-| `config_diff_detected` | 0.7070 |
-| `memory_growth_trend` | 0.5202 |
-| `network_packet_loss` | 0.2858 |
-| `db_slow_queries` | 0.2847 |
-| `high_cpu` | 0.2531 |
-| `intermittent_503s` | 0.0288 |
+| `config_diff_detected` | 1.0200 |
+| `memory_growth_trend` | 0.7505 |
+| `network_packet_loss` | 0.4123 |
+| `db_slow_queries` | 0.4107 |
+| `high_cpu` | 0.3651 |
+| `intermittent_503s` | 0.0415 |
 
-`config_diff_detected` is the most informative single piece of evidence (KL = 0.7070) because its likelihood distribution is the most peaked — it strongly favors `config_error` (0.95) and is near-zero for everything else. This makes it a powerful discriminator even though `config_error` ended up unlikely given the other evidence.
+`config_diff_detected` is the most informative single piece of evidence (KL = 1.0200 bits) because its likelihood distribution is the most peaked — it strongly favors `config_error` (0.95) and is near-zero for everything else. This makes it a powerful discriminator even though `config_error` ended up unlikely given the other evidence.
 
-The cumulative information gain across sequential updates is 0.6964 bits total. Entropy drops from 2.471 bits (prior) to 0.501 bits (final posterior) — a reduction of 1.970 bits, meaning the 6 observations eliminated roughly 80% of the initial uncertainty.
+The cumulative information gain across sequential updates is 1.0047 bits. Each update's KL divergence is available from the `UpdateResult.kl_divergence` field returned by `update_belief()`. Entropy drops from 2.471 bits (prior) to 0.501 bits (final posterior) — a reduction of 1.970 bits, meaning the 6 observations eliminated roughly 80% of the initial uncertainty.
 
 ## 7. Understanding the Output
 
@@ -181,11 +186,15 @@ The delta columns in Section 3 show how each evidence observation redistributes 
 
 A 2-member credible set from 6 candidates means the evidence has concentrated 95.11% of the probability mass onto just `database_overload` and `memory_leak`. In an operational context, this means: investigate the database first, keep memory leak as a fallback, and deprioritize the other four causes.
 
+### KL Divergence Units
+
+All KL divergence values in this showcase use base-2 logarithms (bits). The `UpdateResult.kl_divergence` field from `update_belief()` measures KL(posterior || prior) in bits. The independent information gain in Section 6 also uses bits, computed via the same formula applied against the original prior.
+
 ## 8. Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| Graph nodes | 14 |
+| Graph nodes | 15 |
 | Graph edges | 48 |
 | Root cause nodes | 6 |
 | Evidence nodes | 8 |
@@ -203,8 +212,8 @@ A 2-member credible set from 6 candidates means the evidence has concentrated 95
 | Credible set coverage | 0.9511 |
 | Bayes factor (H1/H2) | 14.63 (strong) |
 | Bayes factor (H1 vs dns_failure) | 2355.21 (decisive) |
-| Most informative evidence | config_diff_detected (KL = 0.7070) |
-| Cumulative information gain | 0.6964 bits |
+| Most informative evidence | config_diff_detected (KL = 1.0200) |
+| Cumulative information gain | 1.0047 bits |
 | Final posterior entropy | 0.501 bits |
 | Entropy reduction | 1.970 bits |
 
@@ -214,7 +223,9 @@ A 2-member credible set from 6 candidates means the evidence has concentrated 95
 
 **Static scoring cannot do this.** If you scored each root cause by summing likelihoods across all evidence, the scores would not be probabilities — they would not sum to 1, would not account for prior frequency, and would not show how confidence changes as evidence accumulates. Bayesian updating produces a proper probability distribution at every step, with clear uncertainty quantification (credible sets, entropy).
 
-**Information gain ranking identifies the most diagnostic observations.** Knowing that `config_diff_detected` has the highest KL divergence (0.7070) tells you which observation to prioritize collecting first in future incidents. This is actionable: if you can only run one diagnostic check, check for config diffs first.
+**Information gain ranking identifies the most diagnostic observations.** Knowing that `config_diff_detected` has the highest KL divergence (1.0200 bits) tells you which observation to prioritize collecting first in future incidents. This is actionable: if you can only run one diagnostic check, check for config diffs first.
+
+**Built-in Bayesian API.** This showcase uses Hyper3's Bayesian subsystem directly — `set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, and `credible_set` — rather than implementing Bayes' rule manually. The knowledge graph stores the likelihood network as weighted `indicates` edges for reference, but the actual inference uses the library's `BayesianLayer` engine.
 
 ## 10. Code Implementation
 
@@ -223,26 +234,30 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.add("database_overload", data={"type": "root_cause", "prior": 0.30})
-mem.add("high_cpu", data={"type": "evidence"})
-mem.link("high_cpu", "database_overload", label="indicates", weight=8.5)
+for cause in ROOT_CAUSES:
+    mem.add(cause, data={"type": "root_cause", "prior": PRIORS[cause]})
 
-def bayesian_update(
-    prior: dict[str, float],
-    evidence_name: str,
-) -> dict[str, float]:
-    likelihood = LIKELIHOODS[evidence_name]
-    unnormalized = {
-        cause: prior[cause] * likelihood.get(cause, 0.01) for cause in prior
-    }
-    return normalize(unnormalized)
+for evidence in EVIDENCE_NODES:
+    mem.add(evidence, data={"type": "evidence"})
 
-current = dict(prior)
-for i, evidence_name in enumerate(OBSERVATION_ORDER, 1):
-    current = bayesian_update(current, evidence_name)
+mem.add("outage_diagnosis", data={"type": "bayesian_analysis"})
+mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)
+
+for evidence_name in OBSERVATION_ORDER:
+    result = mem.update_belief(
+        "outage_diagnosis",
+        evidence_name=evidence_name,
+        likelihoods=LIKELIHOODS[evidence_name],
+    )
+    print(f"KL divergence: {result.kl_divergence:.4f} bits")
+
+map_est = mem.map_estimate("outage_diagnosis")
+bf = mem.bayes_factor("outage_diagnosis", hypothesis_a="database_overload",
+                       hypothesis_b="memory_leak")
+credible = mem.credible_set("outage_diagnosis", level=0.95)
 ```
 
-The knowledge graph stores the likelihood network as weighted `indicates` edges. The Bayesian update reads those edge weights to compute posterior probabilities. Each call to `bayesian_update` applies Bayes' theorem: `P(cause | evidence) proportional to P(evidence | cause) * P(cause)`.
+The knowledge graph stores the likelihood network as weighted `indicates` edges (weights = likelihood x 10). The Bayesian updates use `update_belief()`, which applies Bayes' rule: `P(cause | evidence) proportional to P(evidence | cause) * P(cause)`. Each `UpdateResult` contains the prior snapshot, posterior snapshot, KL divergence, and per-hypothesis Bayes factors.
 
 ## 11. Real-World Gap
 
@@ -263,9 +278,13 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
 | `mem.add(concept, data=...)` | Create a node with typed data |
 | `mem.link(source, target, label=..., weight=...)` | Create a directed edge with semantic label and weight |
+| `mem.set_prior(concept, outcomes, weights)` | Create a Bayesian prior distribution over named outcomes |
+| `mem.update_belief(concept, evidence_name, likelihoods)` | Apply evidence via Bayes' rule, returning `UpdateResult` with prior, posterior, and KL divergence |
+| `mem.get_belief(concept)` | Retrieve current posterior distribution |
+| `mem.map_estimate(concept)` | Return the label of the most probable hypothesis |
+| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Compute the cumulative Bayes factor between two hypotheses |
+| `mem.credible_set(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
 | `mem.neighbors(concept, edge_label=..., direction=...)` | Query neighbors filtered by edge label and direction |
-| `mem.engine.graph.node_count` | Total number of nodes in the graph |
-| `mem.engine.graph.edge_count` | Total number of edges in the graph |
 
 ### Related Examples
 
@@ -273,5 +292,5 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 |---------|-------|
 | `examples/showcase/reasoning/multiway_reasoning/` | Multi-hypothesis parallel reasoning |
 | `examples/showcase/domain/microservices_reasoning/` | Causal chain analysis in microservices |
-| `examples/showcase/domain/medical_diagnosis/medical_diagnosis.py` | Backward chaining for differential diagnosis |
-| `examples/showcase/belief/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection |
+| `examples/showcase/belief/bayesian_medical_diagnosis/` | Bayesian updating for medical diagnosis |
+| `examples/showcase/belief/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection

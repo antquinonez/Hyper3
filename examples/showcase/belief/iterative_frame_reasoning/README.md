@@ -30,7 +30,7 @@ Imagine inspecting a building with four specialists: an electrician traces power
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/belief/iterative_frame_reasoning/09_iterative_frame_reasoning.py
+    .venv/bin/python examples/showcase/belief/iterative_frame_reasoning/iterative_frame_reasoning.py
 ```
 
 ### What You'll See

@@ -25,7 +25,7 @@ This showcase demonstrates two probabilistic reasoning mechanisms: Bayesian beli
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/belief/belief_and_bayesian/25_belief_and_bayesian.py
+    .venv/bin/python examples/showcase/belief/belief_and_bayesian/belief_and_bayesian.py
 ```
 
 ### What You'll See
@@ -34,65 +34,29 @@ This showcase demonstrates two probabilistic reasoning mechanisms: Bayesian beli
 ======================================================================
 SECTION 1: BAYESIAN BELIEF UPDATING
 ======================================================================
-
---- No competitor equivalent ---
-Set prior and update with evidence
-
-prior:
-  healthy                   0.7000
-  disease_a                 0.2000
-  disease_b                 0.1000
-
-posterior (after fever evidence):
-  disease_a                 0.6154
-  healthy                   0.2692
-  disease_b                 0.1154
-
-MAP estimate: disease_a
-
-posterior (after lab results):
-  disease_a                 0.9028
-  disease_b                 0.0752
-  healthy                   0.0219
-
-updated MAP estimate: disease_a
-Bayes factor (disease_a vs disease_b): 6.00
+...
+  MAP estimate: disease_a
+  Bayes factor (disease_a vs disease_b): 6.00
 
 ======================================================================
 SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS
 ======================================================================
-
---- No competitor equivalent ---
-Born-rule sampling: P = |amplitude|^2
-
+...
 sampling distribution (100 trials):
-    river_edge:  50 ( 50.0%) #########################
-     financial:  43 ( 43.0%) #####################
-     billiards:   7 (  7.0%) ###
-
-======================================================================
-SECTION 3: CONCEPT CORRELATION (QUANTUM-INSPIRED)
-======================================================================
-
---- No competitor equivalent ---
-
-sampled from distribution -> financial
-  (correlated outcome is biased by this observation)
+     river_edge:  XX ( XX.X%) ...
+     financial:   XX ( XX.X%) ...
+     billiards:    X (  X.X%) ...
 
 ======================================================================
 SECTION 4: CREDIBLE SET
 ======================================================================
-90% credible set for patient diagnosis: ['disease_a']
-prior after reset:
-  healthy                   0.3333
-  disease_a                 0.3333
-  disease_b                 0.3333
-
+ 90% credible set for patient diagnosis: ['disease_a']
+...
 ======================================================================
 DONE
 ```
 
-Sampling counts in Section 2 are probabilistic and vary across runs.
+Exact sampling counts in Section 2 vary across runs due to probabilistic sampling. The rank order (river_edge > financial > billiards) is stable.
 
 ## 4. Analysis Pipeline
 
@@ -150,9 +114,9 @@ After calling `reset_belief`, the distribution returns to uniform (0.333 each). 
 | MAP estimate | disease_a |
 | Bayes factor (disease_a vs disease_b) | 6.00 |
 | 90% credible set | ['disease_a'] |
-| Born-rule samples (100 trials, river_edge) | 53 (53.0%) |
-| Born-rule samples (100 trials, financial) | 34 (34.0%) |
-| Born-rule samples (100 trials, billiards) | 13 (13.0%) |
+| Born-rule expected P (river_edge) | 0.521 |
+| Born-rule expected P (financial) | 0.383 |
+| Born-rule expected P (billiards) | 0.096 |
 | Prior after reset | uniform (0.333 each) |
 
 ## 6. What Makes This Different

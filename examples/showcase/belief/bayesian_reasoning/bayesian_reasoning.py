@@ -4,12 +4,13 @@ Bayesian Belief Updating for Incident Root Cause Analysis
 
 Build a knowledge graph linking potential root causes to observable evidence
 for a production outage, then perform sequential Bayesian updates as evidence
-arrives. Demonstrates prior specification, posterior computation, MAP
-estimation, credible sets, Bayes factor comparison, and information gain
-(KL divergence) ranking of evidence.
+arrives using Hyper3's Bayesian subsystem (set_prior, update_belief, map_estimate,
+bayes_factor, credible_set). Demonstrates prior specification, posterior
+computation, MAP estimation, credible sets, Bayes factor comparison, and
+information gain (KL divergence) ranking of evidence.
 
 Run with:
-    .venv/bin/python examples/showcase/belief/bayesian_reasoning/14_bayesian_reasoning.py
+    .venv/bin/python examples/showcase/belief/bayesian_reasoning/bayesian_reasoning.py
 """
 
 from __future__ import annotations
@@ -17,7 +18,6 @@ from __future__ import annotations
 import math
 
 from hyper3 import HypergraphMemory
-
 
 ROOT_CAUSES: list[str] = [
     "database_overload",
@@ -125,51 +125,33 @@ OBSERVATION_ORDER: list[str] = [
 ]
 
 
-def normalize(dist: dict[str, float]) -> dict[str, float]:
-    total = sum(dist.values())
-    if total == 0:
-        return {k: 1.0 / len(dist) for k in dist}
-    return {k: v / total for k, v in dist.items()}
-
-
-def bayesian_update(
-    prior: dict[str, float],
-    evidence_name: str,
-) -> dict[str, float]:
-    likelihood = LIKELIHOODS[evidence_name]
-    unnormalized = {
-        cause: prior[cause] * likelihood.get(cause, 0.01) for cause in prior
-    }
-    return normalize(unnormalized)
-
-
-def kl_divergence(p: dict[str, float], q: dict[str, float]) -> float:
+def _kl_bits(p: dict[str, float], q: dict[str, float]) -> float:
     kl = 0.0
     for k in p:
-        pi = p[k]
-        qi = q[k]
+        pi, qi = p[k], q[k]
         if pi > 0 and qi > 0:
-            kl += pi * math.log(pi / qi)
+            kl += pi * math.log2(pi / qi)
     return kl
 
 
-def information_gain(
-    prior: dict[str, float],
-    evidence_name: str,
-) -> float:
-    posterior = bayesian_update(prior, evidence_name)
-    return kl_divergence(posterior, prior)
+def _bayesian_update(
+    prior: dict[str, float], evidence_name: str,
+) -> dict[str, float]:
+    lh = LIKELIHOODS[evidence_name]
+    unnorm = {cause: prior[cause] * lh.get(cause, 0.01) for cause in prior}
+    total = sum(unnorm.values())
+    if total == 0:
+        return {k: 1.0 / len(unnorm) for k in unnorm}
+    return {k: v / total for k, v in unnorm.items()}
 
 
 def print_distribution(dist: dict[str, float], title: str) -> None:
     print(f"\n  {title}")
     print(f"  {'Root Cause':25s} {'P(cause)':>10s}  Bar")
     print(f"  {'-' * 25} {'-' * 10}  {'-' * 30}")
-    sorted_items = sorted(dist.items(), key=lambda x: -x[1])
-    for cause, prob in sorted_items:
+    for cause, prob in sorted(dist.items(), key=lambda x: -x[1]):
         bar_len = int(prob * 50)
-        bar = "#" * bar_len
-        print(f"  {cause:25s} {prob:10.4f}  {bar}")
+        print(f"  {cause:25s} {prob:10.4f}  {'#' * bar_len}")
 
 
 def print_shift(
@@ -180,8 +162,7 @@ def print_shift(
     print(f"\n  Evidence observed: {evidence_name}")
     print(f"  {'Root Cause':25s} {'Prior':>10s} {'Posterior':>10s} {'Delta':>10s}")
     print(f"  {'-' * 25} {'-' * 10} {'-' * 10} {'-' * 10}")
-    sorted_items = sorted(posterior.items(), key=lambda x: -x[1])
-    for cause in [c for c, _ in sorted_items]:
+    for cause in sorted(posterior, key=lambda k: posterior[k], reverse=True):
         p_before = prior[cause]
         p_after = posterior[cause]
         delta = p_after - p_before
@@ -220,80 +201,97 @@ def main() -> None:
         neighbors = mem.neighbors(evidence, edge_label="indicates", direction="out")
         print(f"    {evidence:25s} -> {len(neighbors)} causes")
 
+    print("\n" + "=" * 70)
+    print("SECTION 2: Setting Prior Beliefs (Bayesian Prior)")
     print("=" * 70)
-    print("SECTION 2: Setting Prior Beliefs")
-    print("=" * 70)
 
-    prior = dict(PRIORS)
-    assert abs(sum(prior.values()) - 1.0) < 1e-9, "Priors must sum to 1.0"
+    prior_weights = [PRIORS[c] for c in ROOT_CAUSES]
+    mem.add("outage_diagnosis", data={"type": "bayesian_analysis"})
+    mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)
 
-    print("\n  Prior distribution (based on historical incident data):")
-    print(f"  {'Root Cause':25s} {'Prior':>10s}  Bar")
-    print(f"  {'-' * 25} {'-' * 10}  {'-' * 30}")
-    sorted_prior = sorted(prior.items(), key=lambda x: -x[1])
-    for cause, prob in sorted_prior:
-        bar_len = int(prob * 50)
-        print(f"  {cause:25s} {prob:10.4f}  {'#' * bar_len}")
+    label_map: dict[str, str] = {}
+    for label in ROOT_CAUSES:
+        nid = mem.resolve_id(label)
+        if nid:
+            label_map[nid] = label
 
-    top_prior = max(prior, key=prior.get)
-    print(f"\n  Highest prior: {top_prior} ({prior[top_prior]:.4f})")
+    prior = mem.get_belief("outage_diagnosis")
+    prior_dict: dict[str, float] = {}
+    if prior:
+        print("\n  Prior distribution (based on historical incident data):")
+        print(f"  {'Root Cause':25s} {'Prior':>10s}  Bar")
+        print(f"  {'-' * 25} {'-' * 10}  {'-' * 30}")
+        for oid, prob in sorted(prior.outcomes.items(), key=lambda x: -x[1]):
+            label = label_map.get(oid, oid[:12])
+            prior_dict[label] = prob
+            bar_len = int(prob * 50)
+            print(f"  {label:25s} {prob:10.4f}  {'#' * bar_len}")
 
-    entropy = -sum(p * math.log2(p) for p in prior.values() if p > 0)
+    top_prior = max(prior_dict, key=lambda k: prior_dict[k])
+    print(f"\n  Highest prior: {top_prior} ({prior_dict[top_prior]:.4f})")
+
+    prior_entropy = prior.entropy() if prior else 0.0
     max_entropy = math.log2(len(ROOT_CAUSES))
-    print(f"  Prior entropy: {entropy:.3f} bits (max {max_entropy:.3f})")
+    print(f"  Prior entropy: {prior_entropy:.3f} bits (max {max_entropy:.3f})")
     print()
 
     print("=" * 70)
     print("SECTION 3: Sequential Evidence-Driven Updates")
     print("=" * 70)
 
-    current = dict(prior)
-    all_posteriors: list[tuple[str, dict[str, float]]] = []
+    all_step_results: list[tuple[str, dict[str, float], float]] = []
+    prev_dict = dict(prior_dict)
 
     for i, evidence_name in enumerate(OBSERVATION_ORDER, 1):
-        pre_update = dict(current)
-        current = bayesian_update(current, evidence_name)
-        all_posteriors.append((evidence_name, dict(current)))
+        result = mem.update_belief(
+            "outage_diagnosis",
+            evidence_name=evidence_name,
+            likelihoods=LIKELIHOODS[evidence_name],
+        )
+
+        current_dict: dict[str, float] = {}
+        if result.posterior:
+            for oid, prob in result.posterior.outcomes.items():
+                label = label_map.get(oid, oid[:12])
+                current_dict[label] = prob
 
         print(f"\n  --- Update {i}/{len(OBSERVATION_ORDER)} ---")
-        print_shift(pre_update, current, evidence_name)
+        print_shift(prev_dict, current_dict, evidence_name)
+        if result.kl_divergence > 0:
+            print(f"    KL divergence: {result.kl_divergence:.4f} bits")
 
-    print_distribution(current, "Final posterior distribution after all evidence:")
+        all_step_results.append((evidence_name, dict(current_dict), result.kl_divergence))
+        prev_dict = dict(current_dict)
+
+    print_distribution(prev_dict, "Final posterior distribution after all evidence:")
     print()
 
     print("=" * 70)
     print("SECTION 4: MAP Estimate and Credible Set")
     print("=" * 70)
 
-    sorted_posterior = sorted(current.items(), key=lambda x: -x[1])
-    map_cause, map_prob = sorted_posterior[0]
-    print(f"\n  MAP (Maximum A Posteriori) estimate:")
-    print(f"    {map_cause}: P = {map_prob:.4f}")
+    map_est = mem.map_estimate("outage_diagnosis")
+    map_prob = prev_dict.get(map_est, 0.0) if map_est else 0.0
+    print("\n  MAP (Maximum A Posteriori) estimate:")
+    print(f"    {map_est}: P = {map_prob:.4f}")
 
-    print(f"\n  95% Credible set (highest posterior density):")
-    cumulative = 0.0
-    credible_members: list[tuple[str, float]] = []
-    for cause, prob in sorted_posterior:
-        credible_members.append((cause, prob))
-        cumulative += prob
-        if cumulative >= 0.95:
-            break
+    credible = mem.credible_set("outage_diagnosis", level=0.95)
 
+    sorted_posterior = sorted(prev_dict.items(), key=lambda x: -x[1])
+    print("\n  95% Credible set (highest posterior density):")
     print(f"  {'Root Cause':25s} {'P(cause|data)':>14s}  {'Cumulative':>12s}")
     print(f"  {'-' * 25} {'-' * 14}  {'-' * 12}")
-    running = 0.0
-    for cause, prob in credible_members:
-        running += prob
-        in_set = "***" if (cause, prob) in credible_members else ""
-        print(f"  {cause:25s} {prob:14.4f}  {running:12.4f} {in_set}")
+    cumulative = 0.0
+    for cause, prob in sorted_posterior:
+        cumulative += prob
+        in_set = "***" if cause in credible else ""
+        print(f"  {cause:25s} {prob:14.4f}  {cumulative:12.4f} {in_set}")
     print(f"\n  Credible set coverage: {cumulative:.4f}")
-    print(f"  Credible set size:     {len(credible_members)} / {len(ROOT_CAUSES)}")
+    print(f"  Credible set size:     {len(credible)} / {len(ROOT_CAUSES)}")
 
-    excluded = [
-        (c, p) for c, p in sorted_posterior if (c, p) not in credible_members
-    ]
+    excluded = [(c, p) for c, p in sorted_posterior if c not in credible]
     if excluded:
-        print(f"\n  Excluded from 95% credible set:")
+        print("\n  Excluded from 95% credible set:")
         for cause, prob in excluded:
             print(f"    {cause:25s} {prob:.4f}")
     print()
@@ -302,47 +300,56 @@ def main() -> None:
     print("SECTION 5: Bayes Factor Comparison")
     print("=" * 70)
 
-    h1_name, h1_prob = sorted_posterior[0]
-    h2_name, h2_prob = sorted_posterior[1]
-    prior_odds = prior[h1_name] / prior[h2_name]
-    posterior_odds = h1_prob / h2_prob
-    bayes_factor = posterior_odds / prior_odds
+    sorted_post = sorted(prev_dict.items(), key=lambda x: -x[1])
+    h1_name, h1_prob = sorted_post[0]
+    h2_name, h2_prob = sorted_post[1]
 
-    print(f"\n  Comparing top two hypotheses:")
+    bf_top2 = mem.bayes_factor(
+        "outage_diagnosis",
+        hypothesis_a=h1_name,
+        hypothesis_b=h2_name,
+    )
+
+    print("\n  Comparing top two hypotheses:")
     print(f"    H1: {h1_name} (posterior = {h1_prob:.4f})")
     print(f"    H2: {h2_name} (posterior = {h2_prob:.4f})")
-    print(f"\n  Prior odds     P(H1)/P(H2):       {prior_odds:.4f}")
-    print(f"  Posterior odds  P(H1|D)/P(H2|D):   {posterior_odds:.4f}")
-    print(f"  Bayes factor   BF(H1,H2):          {bayes_factor:.2f}")
+    print(f"\n  Prior odds     P(H1)/P(H2):       {PRIORS[h1_name]/PRIORS[h2_name]:.4f}")
+    print(f"  Posterior odds  P(H1|D)/P(H2|D):   {h1_prob/h2_prob:.4f}")
+    if bf_top2 is not None:
+        print(f"  Bayes factor   BF(H1,H2):          {bf_top2:.2f}")
 
-    if bayes_factor > 100:
-        strength = "decisive"
-    elif bayes_factor > 10:
-        strength = "strong"
-    elif bayes_factor > 3:
-        strength = "substantial"
-    else:
-        strength = "weak"
-    print(f"  Evidence strength: {strength}")
+    if bf_top2 is not None:
+        if bf_top2 > 100:
+            strength = "decisive"
+        elif bf_top2 > 10:
+            strength = "strong"
+        elif bf_top2 > 3:
+            strength = "substantial"
+        else:
+            strength = "weak"
+        print(f"  Evidence strength: {strength}")
     print()
 
     print("  Full pairwise Bayes factor matrix (top cause vs all):")
     print(f"  {'Hypothesis':25s} {'BF':>10s} {'Strength':>12s}")
     print(f"  {'-' * 25} {'-' * 10} {'-' * 12}")
-    for cause, prob in sorted_posterior[1:]:
-        if prob > 0 and prior[cause] > 0:
-            po = h1_prob / prob
-            ppo = prior[h1_name] / prior[cause]
-            bf = po / ppo
-            if bf > 100:
-                s = "decisive"
-            elif bf > 10:
-                s = "strong"
-            elif bf > 3:
-                s = "substantial"
-            else:
-                s = "weak"
-            print(f"  {cause:25s} {bf:10.2f} {s:>12s}")
+    for cause, prob in sorted_post[1:]:
+        if prob > 0 and PRIORS[cause] > 0:
+            bf = mem.bayes_factor(
+                "outage_diagnosis",
+                hypothesis_a=h1_name,
+                hypothesis_b=cause,
+            )
+            if bf is not None:
+                if bf > 100:
+                    s = "decisive"
+                elif bf > 10:
+                    s = "strong"
+                elif bf > 3:
+                    s = "substantial"
+                else:
+                    s = "weak"
+                print(f"  {cause:25s} {bf:10.2f} {s:>12s}")
     print()
 
     print("=" * 70)
@@ -351,13 +358,14 @@ def main() -> None:
 
     ig_scores: list[tuple[str, float]] = []
     for evidence_name in OBSERVATION_ORDER:
-        ig = information_gain(prior, evidence_name)
+        posterior = _bayesian_update(dict(prior_dict), evidence_name)
+        ig = _kl_bits(posterior, prior_dict)
         ig_scores.append((evidence_name, ig))
 
     ig_scores.sort(key=lambda x: -x[1])
 
-    print(f"\n  Information gain (KL divergence) of each evidence piece,")
-    print(f"  measured independently against the prior distribution:")
+    print("\n  Information gain (KL divergence) of each evidence piece,")
+    print("  measured independently against the prior distribution:")
     print(f"\n  {'Evidence':25s} {'KL(posterior||prior)':>22s}  Bar")
     print(f"  {'-' * 25} {'-' * 22}  {'-' * 30}")
     max_ig = max(ig for _, ig in ig_scores) if ig_scores else 1.0
@@ -371,20 +379,17 @@ def main() -> None:
 
     print("\n  Cumulative information gain across sequential updates:")
     cumulative_kl = 0.0
-    running_prior = dict(prior)
     print(f"  {'Step':>4s}  {'Evidence':25s} {'Step KL':>10s} {'Cumulative':>12s}")
     print(f"  {'----'}  {'-' * 25} {'-' * 10} {'-' * 12}")
-    for i, (evidence_name, posterior) in enumerate(all_posteriors, 1):
-        step_kl = kl_divergence(posterior, running_prior)
+    for i, (ev_name, _, step_kl) in enumerate(all_step_results, 1):
         cumulative_kl += step_kl
-        print(f"  {i:4d}  {evidence_name:25s} {step_kl:10.4f} {cumulative_kl:12.4f}")
-        running_prior = dict(posterior)
+        print(f"  {i:4d}  {ev_name:25s} {step_kl:10.4f} {cumulative_kl:12.4f}")
 
     final_entropy = -sum(
-        p * math.log2(p) for p in current.values() if p > 0
+        p * math.log2(p) for p in prev_dict.values() if p > 0
     )
-    print(f"\n  Entropy: prior {entropy:.3f} -> posterior {final_entropy:.3f} bits")
-    print(f"  Total information gained: {entropy - final_entropy:.3f} bits")
+    print(f"\n  Entropy: prior {prior_entropy:.3f} -> posterior {final_entropy:.3f} bits")
+    print(f"  Total information gained: {prior_entropy - final_entropy:.3f} bits")
     print()
 
     print("=" * 70)
@@ -393,11 +398,12 @@ def main() -> None:
     print(f"  Graph: {mem.size[0]} nodes, {mem.size[1]} edges")
     print(f"  Root causes analyzed: {len(ROOT_CAUSES)}")
     print(f"  Evidence observed:    {len(OBSERVATION_ORDER)}")
-    print(f"  MAP root cause:       {map_cause} (P = {map_prob:.4f})")
-    print(f"  95% credible set:     {', '.join(c for c, _ in credible_members)}")
-    print(f"  Bayes factor (H1/H2): {bayes_factor:.2f} ({strength})")
+    print(f"  MAP root cause:       {map_est} (P = {map_prob:.4f})")
+    print(f"  95% credible set:     {', '.join(credible)}")
+    if bf_top2 is not None:
+        print(f"  Bayes factor (H1/H2): {bf_top2:.2f} ({strength})")
     print(f"  Most informative:     {most_informative[0]} (KL = {most_informative[1]:.4f})")
-    print(f"  Entropy reduction:    {entropy:.3f} -> {final_entropy:.3f} bits")
+    print(f"  Entropy reduction:    {prior_entropy:.3f} -> {final_entropy:.3f} bits")
     print()
 
 

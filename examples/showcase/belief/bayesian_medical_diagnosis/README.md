@@ -8,7 +8,11 @@ A patient presents to the emergency department with chest pain. Six diagnoses ar
 
 This is the first Hyper3 example demonstrating the full Bayesian subsystem: `set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, and `credible_set`. It also demonstrates belief distributions for ambiguous symptom interpretation and confidence assessment for identifying knowledge gaps.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine an ER doctor evaluating chest pain. Before running any tests, the doctor has prior beliefs based on prevalence: GERD is common, heart attacks are less frequent but more dangerous. Each test result revises those beliefs — an ECG showing ST elevation makes heart attack far more likely, while a normal D-dimer makes pulmonary embolism unlikely. The Bayesian framework formalizes this incremental reasoning: each test result updates a probability distribution over diagnoses, converging on the most probable cause.
+
+## 3. Key Concepts
 
 | Term | What it does |
 |------|-------------|
@@ -20,30 +24,103 @@ This is the first Hyper3 example demonstrating the full Bayesian subsystem: `set
 | **Belief distribution** | Holds multiple interpretations of an ambiguous concept with weighted probabilities |
 | **Confidence assessment** | Scores each concept in the knowledge graph for reliability |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/belief/bayesian_medical_diagnosis/bayesian_medical_diagnosis.py
 ```
 
-## 4. The Scenario
+### What You'll See
 
-A 26-node medical knowledge graph with 32 edges covering six entity categories:
+```
+======================================================================
+SUMMARY
+======================================================================
+  1. Prior distribution established from prevalence data
+  2. Sequential Bayesian updates converge to MI diagnosis
+  3. MAP estimate and Bayes factor confirm MI
+  4. Belief distributions handle ambiguous symptom interpretation
+  5. Confidence assessment identifies knowledge gaps
+  6. Graph: 26 nodes, 32 edges
+```
 
-| Category | Count | Examples |
-|----------|-------|---------|
-| Symptoms | 5 | chest_pain, shortness_of_breath, radiating_pain |
-| Diagnoses | 6 | mi, pe, gerd, costochondritis, anxiety, aortic_dissection |
-| Test results | 5 | ecg_st_elevation, troponin_elevated, d_dimer_elevated |
-| Risk factors | 6 | hypertension, smoking_history, age_over_50 |
-| Pain interpretations | 3 | cardiac_chest_pain, gi_chest_pain, musculoskeletal_chest_pain |
+## 5. The Scenario
+
+A 26-node medical knowledge graph (22 built in Section 1, 1 Bayesian analysis node added in Section 2, 3 pain interpretations added in Section 5) with 32 edges covering six entity categories:
+
+| Category | Count | Section added | Examples |
+|----------|-------|--------------|---------|
+| Symptoms | 5 | Section 1 | chest_pain, shortness_of_breath, radiating_pain |
+| Diagnoses | 6 | Section 1 | mi, pe, gerd, costochondritis, anxiety, aortic_dissection |
+| Test results | 5 | Section 1 | ecg_st_elevation, troponin_elevated, d_dimer_elevated |
+| Risk factors | 6 | Section 1 | hypertension, smoking_history, age_over_50 |
+| Bayesian analysis | 1 | Section 2 | differential_diagnosis |
+| Pain interpretations | 3 | Section 5 | cardiac_chest_pain, gi_chest_pain, musculoskeletal_chest_pain |
 
 Edge types: `causes_symptom` (diagnosis to symptom), `supports` (test to diagnosis), `risk_factor_for` (risk factor to diagnosis).
 
-## 5. Analysis Pipeline
+### Knowledge Graph Topology
+
+Figure 1: Core graph of diagnoses, symptoms, tests, and risk factors (22 nodes, 32 edges). The `differential_diagnosis` node and pain interpretation nodes are added later.
+
+```mermaid
+graph LR
+    subgraph "Symptoms"
+        CP[chest_pain]
+        SOB[shortness_of_breath]
+        DIA[diaphoresis]
+        NAU[nausea]
+        RP[radiating_pain]
+    end
+
+    subgraph "Diagnoses"
+        MI[mi<br/>prior=0.30]
+        PE[pe<br/>prior=0.10]
+        GERD[gerd<br/>prior=0.25]
+        COSTO[costochondritis<br/>prior=0.15]
+        ANX[anxiety<br/>prior=0.15]
+        AD[aortic_dissection<br/>prior=0.05]
+    end
+
+    subgraph "Tests"
+        ECG[ecg_st_elevation]
+        TROP[troponin_elevated]
+        DDIMER[d_dimer_elevated]
+        CXR[chest_xray_normal]
+        CTANG[ct_angio_positive]
+    end
+
+    subgraph "Risk Factors"
+        HTN[hypertension]
+        SMK[smoking_history]
+        AGE[age_over_50]
+        FAM[family_history]
+        SURG[recent_surgery]
+        OBE[obesity]
+    end
+
+    MI -->|"causes_symptom"| CP
+    MI -->|"causes_symptom"| SOB
+    MI -->|"causes_symptom"| RP
+    PE -->|"causes_symptom"| SOB
+    GERD -->|"causes_symptom"| CP
+    COSTO -->|"causes_symptom"| CP
+    ANX -->|"causes_symptom"| CP
+    AD -->|"causes_symptom"| CP
+    AD -->|"causes_symptom"| RP
+
+    ECG -->|"supports w=0.90"| MI
+    TROP -->|"supports w=0.95"| MI
+    DDIMER -->|"supports w=0.85"| PE
+    CTANG -->|"supports w=0.95"| PE
+    HTN -->|"risk_factor_for"| MI
+    SMK -->|"risk_factor_for"| MI
+```
+
+## 6. Analysis Pipeline
 
 ### Section 1: Building the Medical Knowledge Graph
-Creates 22 nodes and 32 edges representing diagnoses, symptoms, tests, and risk factors. Edge weights represent the strength of each relationship.
+Creates 22 nodes (5 symptoms, 6 diagnoses, 5 tests, 6 risk factors) and 32 weighted edges representing diagnostic relationships. Edge weights represent the strength of each relationship (e.g., troponin_elevated supports mi with weight 0.95).
 
 ### Section 2: Initial Differential Diagnosis (Prior)
 A Bayesian prior is established over six diagnoses using prevalence data: MI (0.30), GERD (0.25), costochondritis (0.15), anxiety (0.15), PE (0.10), aortic_dissection (0.05).
@@ -70,7 +147,7 @@ Chest pain is modeled as a belief distribution over three interpretations (cardi
 ### Section 6: Knowledge Gap Identification
 Confidence scores for all concepts. Low-confidence concepts indicate areas where additional test relationships or risk factor connections would improve diagnostic confidence.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -82,7 +159,7 @@ Confidence scores for all concepts. Low-confidence concepts indicate areas where
 | Bayes factor (MI vs PE) | 410.40 |
 | 95% credible set | `['mi']` |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Sequential Bayesian updating** provides a principled framework for incremental evidence accumulation. Each update shifts the posterior via Bayes' rule, and KL divergence quantifies how much each piece of evidence changes beliefs. This is mathematically rigorous compared to ad hoc scoring systems.
 
@@ -90,7 +167,7 @@ Confidence scores for all concepts. Low-confidence concepts indicate areas where
 
 **Ambiguity-preserving representation.** Chest pain is not forced into a single interpretation. The belief distribution holds cardiac, GI, and musculoskeletal interpretations simultaneously, collapsing to a specific interpretation only when context demands it.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 ```python
 from hyper3 import HypergraphMemory
@@ -112,7 +189,7 @@ print(mem.map_estimate("differential_diagnosis"))
 print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b="pe"))
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 - **Synthetic likelihoods.** The likelihood values (e.g., P(ST elevation | MI) = 0.90) are representative but should come from clinical studies.
 - **No temporal dynamics.** Test results arrive sequentially in practice, and the timing matters (troponin peaks at specific hours post-onset).
@@ -120,7 +197,7 @@ print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b
 - **Single patient.** A production system would maintain distributions across populations.
 - **No learning from outcomes.** The priors are fixed; a real system would update priors based on confirmed diagnoses.
 
-## 10. Reference
+## 11. Reference
 
 ### API Methods
 

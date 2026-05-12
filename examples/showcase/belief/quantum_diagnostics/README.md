@@ -1,6 +1,6 @@
 # Managing Competing Hypotheses Under Uncertainty
 
-> Production outage hypothesis management using belief distributions, weighted sampling, correlation, interference detection, entropy, Bayesian posterior updating, and confidence assessment on a 63-node incident graph.
+> Production outage hypothesis management using belief distributions, weighted sampling, correlation, interference detection, entropy, Bayesian posterior updating, and confidence assessment on a 62-node incident graph.
 
 ## 1. The Approach
 
@@ -30,10 +30,10 @@ If two lab results agree (both point to the same diagnosis), the confidence goes
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/belief/quantum_diagnostics/11_quantum_diagnostics.py
+    .venv/bin/python examples/showcase/belief/quantum_diagnostics/quantum_diagnostics.py
 ```
 
-Expected output (7 sections):
+Expected output (9 sections):
 
 ```
 SECTION 1: Building the Incident Knowledge Graph
@@ -361,7 +361,8 @@ A sampling frequency matching the expected posterior (e.g., 40.7% vs 40.7%) conf
 
 | Metric | Value |
 |--------|-------|
-| Graph nodes | 63 |
+| Graph nodes (Section 1) | 62 |
+| Graph nodes (after Section 7) | 63 |
 | Graph edges | 104 |
 | Root cause hypotheses | 5 |
 | Evidence nodes | 14 |

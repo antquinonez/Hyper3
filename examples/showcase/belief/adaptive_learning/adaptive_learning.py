@@ -9,7 +9,7 @@ Covers rule effectiveness learning, measurement basis learning, frame
 effectiveness learning, and system monitor self-assessment.
 
 Run with:
-    .venv/bin/python examples/showcase/belief/adaptive_learning/12_adaptive_learning.py
+    .venv/bin/python examples/showcase/belief/adaptive_learning/adaptive_learning.py
 """
 
 from __future__ import annotations

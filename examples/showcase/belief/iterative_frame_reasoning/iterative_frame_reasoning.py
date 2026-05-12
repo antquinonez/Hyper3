@@ -9,7 +9,7 @@ invariants (assets to protect first) and disagreement regions (areas
 needing further analysis).
 
 Run with:
-    .venv/bin/python examples/showcase/belief/iterative_frame_reasoning/09_iterative_frame_reasoning.py
+    .venv/bin/python examples/showcase/belief/iterative_frame_reasoning/iterative_frame_reasoning.py
 """
 
 from __future__ import annotations

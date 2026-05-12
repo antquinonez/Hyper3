@@ -35,7 +35,7 @@ Think of a junior on-call engineer who always follows the same troubleshooting c
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/belief/adaptive_learning/12_adaptive_learning.py
+    .venv/bin/python examples/showcase/belief/adaptive_learning/adaptive_learning.py
 ```
 
 ### What You'll See
