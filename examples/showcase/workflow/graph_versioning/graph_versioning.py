@@ -122,17 +122,6 @@ def main() -> None:
 
     mem.capture_version()
 
-    from hyper3 import GraphDiffer
-
-    differ = GraphDiffer(mem.engine.graph)
-    for _ in history.versions:
-        differ.capture()
-
-    mem.capture_version()
-    mem.engine.graph.get_node_by_label("bad_node_1")
-    mem.engine.graph.get_node_by_label("bad_node_2")
-
-    mem.diff_from_version(v2["version_id"])
     print(f"\nperforming rollback to v{v2['version_id']}...")
 
     if mem.differ:

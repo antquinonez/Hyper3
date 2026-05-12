@@ -28,7 +28,7 @@ This showcase exercises five capabilities on a small 19-node graph:
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/workflow/self_evolving_cognition/13_self_evolving_cognition.py
+.venv/bin/python examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py
 ```
 
 Expected output (5 sections):

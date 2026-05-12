@@ -35,7 +35,7 @@ Imagine a committee that votes on a proposal. A pairwise graph would record "Ali
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/workflow/hypergraph_native/14_hypergraph_native.py
+.venv/bin/python examples/showcase/workflow/hypergraph_native/hypergraph_native.py
 ```
 
 ### What You Will See
@@ -61,10 +61,10 @@ SECTION 3: Multi-Resolution Structure (s-persistence)
 
 SECTION 4: Spectral Embedding from Hypergraph Laplacian
   Computed 35 embeddings in 4D
-    TP53: magnitude=0.4315  dim0=0.1607
-    BRCA1: magnitude=0.3667  dim0=0.1392
-    KRAS: magnitude=0.4518  dim0=0.1607
-    EGFR: magnitude=0.3425  dim0=0.1607
+    TP53: magnitude=0.4315  dim0=0.1554
+    BRCA1: magnitude=0.3667  dim0=0.1346
+    KRAS: magnitude=0.4518  dim0=0.1554
+    EGFR: magnitude=0.3425  dim0=0.1554
   Cosine similarity(TP53, BRCA1) = 0.9995
   Cosine similarity(TP53, KRAS)  = 0.0464
 
@@ -100,7 +100,7 @@ The 14 edges divide into two types:
 
 ### Network Topology
 
-Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups.
+Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups. Five additional proteins (ATR, CHEK1, CHEK2, MYC, VEGFA) are present in the graph but not shown in edges — they participate in pairwise `participates_in` connections.
 
 ```mermaid
 graph LR
@@ -126,6 +126,11 @@ graph LR
         RAF1["RAF1"]
         APC["APC"]
         CTNNB1["CTNNB1"]
+        ATR["ATR"]
+        CHEK1["CHEK1"]
+        CHEK2["CHEK2"]
+        MYC["MYC"]
+        VEGFA["VEGFA"]
     end
 
     subgraph "Pathways"

@@ -3,14 +3,14 @@ Incident Timeline Analysis for IT Operations
 =============================================
 
 Demonstrates using Hyper3 temporal reasoning to reconstruct and analyze
-a realistic multi-stage security incident with 47 events across 10 phases
+a realistic multi-stage security incident with 46 events across 10 phases
 (reconnaissance through recovery). Uses Allen interval algebra to detect
 parallel attacker activity, trace causal chains, identify the critical
 path, and catch temporal anti-patterns such as remediation starting before
 detection is complete.
 
 Run with:
-    .venv/bin/python examples/showcase/workflow/temporal_reasoning/04_temporal_reasoning.py
+    .venv/bin/python examples/showcase/workflow/temporal_reasoning/temporal_reasoning.py
 """
 
 from __future__ import annotations

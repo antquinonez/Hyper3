@@ -9,7 +9,7 @@ Shows Allen interval algebra, temporal event ordering, causal chain
 detection, and constraint checking -- capabilities unique to Hyper3
 in this comparison space.
 
-Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/22_temporal_reasoning.py
+Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/temporal_reasoning.py
 """
 
 from __future__ import annotations

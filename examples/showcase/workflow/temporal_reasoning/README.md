@@ -30,7 +30,7 @@ Simple timestamps answer "when." Allen relations answer "how" — how two time w
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/workflow/temporal_reasoning/04_temporal_reasoning.py
+.venv/bin/python examples/showcase/workflow/temporal_reasoning/temporal_reasoning.py
 ```
 
 <details>

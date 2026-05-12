@@ -41,15 +41,15 @@ snapshot captured:
   cache items: 12
 
 SECTION 3: SAVE SNAPSHOT TO DISK
-saved graph to: graph.json (23041 bytes)
-saved snapshot to: snapshot.json (21073 bytes, 20.6 KB)
+saved graph to: graph.json (23484 bytes)
+saved snapshot to: snapshot.json (46198 bytes, 45.1 KB)
 
 SECTION 4: RESTORE INTO FRESH INSTANCE
 nodes match: True
 edges match: True
 ```
 
-File sizes vary by OS tempfile location. The snapshot JSON is typically 20-22 KB for a 12-node enriched graph.
+File sizes vary by OS tempfile location. The snapshot JSON is typically 44-46 KB for a 12-node enriched graph.
 
 ## 4. Analysis Pipeline
 
@@ -57,7 +57,7 @@ File sizes vary by OS tempfile location. The snapshot JSON is typically 20-22 KB
 
 **Section 2 — Capture full system snapshot:** `capture_snapshot()` is called with all 10 subsystem references (belief, multiway_engine, state_clustering, rule_analytics, provenance, retrieval, perspective, meta, cache, feedback). The result is an immutable `SystemSnapshot` containing: 1 belief state, 7 multiway states, 6 provenance records, 6 retrieval feedback entries, 0 frame outcomes, 12 cache items, and 0 feedback signals. Why this matters: the snapshot is a single object that can be inspected, serialized, or transmitted without reference to the live system. Its immutability guarantees that downstream consumers see a consistent view — no partial updates, no race conditions, no "snapshot captured mid-mutation" anomalies.
 
-**Section 3 — Save snapshot to disk:** `mem.save()` writes the graph structure to `graph.json` (23 KB). `mem.save_state()` writes the subsystem snapshot to `snapshot.json` (21 KB). These are two separate files because the graph and subsystems have different serialization formats and different lifecycles. Why this matters: the graph JSON contains nodes, edges, weights, labels, and data payloads — the structural substrate. The snapshot JSON contains belief amplitudes, multiway states, provenance chains, retrieval feedback, analytics counters, cache entries, and monitor readings — the computational layer. Separating them allows restoring the graph alone (for structural analysis) or the subsystem state alone (for analytics audit) without the other.
+**Section 3 — Save snapshot to disk:** `mem.save()` writes the graph structure to `graph.json` (~23 KB). `mem.save(path, full=True)` writes the full system state (graph + subsystems) to `snapshot.json` (~45 KB). These are two separate files because the graph and subsystems have different serialization formats and different lifecycles. Why this matters: the graph JSON contains nodes, edges, weights, labels, and data payloads — the structural substrate. The snapshot JSON contains belief amplitudes, multiway states, provenance chains, retrieval feedback, analytics counters, cache entries, and monitor readings — the computational layer. Separating them allows restoring the graph alone (for structural analysis) or the subsystem state alone (for analytics audit) without the other.
 
 **Section 4 — Restore into fresh instance:** A new `HypergraphMemory` is created with the same rules configuration. `mem2.load(graph_path)` restores the graph structure. `mem2.load_state(snapshot_path)` restores the subsystem state. The restored graph matches: 12 nodes, 18 edges. Why this matters: the fresh instance starts from zero — no nodes, no edges, no subsystem state. The two-step restore (graph first, then snapshot) rebuilds the complete session. The rules configuration must match the original because rule objects are not serialized — they are code, not data. A mismatch here means reasoning after restore may behave differently.
 
@@ -79,7 +79,7 @@ File sizes vary by OS tempfile location. The snapshot JSON is typically 20-22 KB
 | Retrieval feedback entries | 6 |
 | Cache items | 12 |
 | Graph JSON size | ~23 KB |
-| Snapshot JSON size | ~21 KB |
+| Snapshot JSON size | ~45 KB |
 | Snapshot dict keys | 32 |
 
 ## 6. What Makes This Different
@@ -130,11 +130,11 @@ print(f"belief states: {len(snapshot.belief_states)}")
 
 ```python
 mem.save("graph.json")
-mem.save_state("snapshot.json")
+mem.save("snapshot.json", full=True)
 
 mem2 = HypergraphMemory(evolve_interval=0, rules=[...])
 mem2.load("graph.json")
-mem2.load_state("snapshot.json")
+mem2.load("snapshot.json")
 ```
 
 **4. Serialization round-trip via to_dict/from_dict:**
@@ -165,8 +165,7 @@ This showcase snapshots a 12-node enriched graph. Real-world adoption involves a
 |--------|---------|
 | `mem.save(path)` | Serialize graph structure to JSON file |
 | `mem.load(path)` | Restore graph structure from JSON file |
-| `mem.save_state(path)` | Serialize subsystem snapshot to JSON file |
-| `mem.load_state(path)` | Restore subsystem state from JSON file |
+| `mem.save(path, full=True)` | Serialize full system state (graph + subsystems) to JSON file |
 | `capture_snapshot(belief, multiway_engine, ...)` | Capture all subsystem state into a SystemSnapshot |
 | `snapshot.to_dict()` | Convert snapshot to a JSON-serializable dict |
 | `SystemSnapshot.from_dict(data)` | Reconstruct snapshot from a dict |

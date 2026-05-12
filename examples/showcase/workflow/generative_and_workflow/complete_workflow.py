@@ -6,7 +6,7 @@ Parallels XGI case_study_zhang2022.
 Combines generative models, statistics, centralities, spectral clustering,
 clustering coefficients, and graph transformations into a single workflow.
 
-Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/36_complete_workflow.py
+Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/complete_workflow.py
 """
 
 from __future__ import annotations

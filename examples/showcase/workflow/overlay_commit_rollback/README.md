@@ -31,7 +31,7 @@ Think of overlays like a database transaction. You open a transaction (create an
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/workflow/overlay_commit_rollback/08_overlay_commit_rollback.py
+.venv/bin/python examples/showcase/workflow/overlay_commit_rollback/overlay_commit_rollback.py
 ```
 
 ### What You'll See
@@ -203,7 +203,7 @@ result = mem.reason(
 )
 ```
 
-**Result:** 31 states created, 30 rules applied, 30 inference edges in the overlay. Blast radius matches 4 of 6 symptoms (67%) with average confidence 0.84. The overlay contains edges like `order_service --[indirectly_depends_on]--> redis_cache_auth` and `web_frontend --[indirectly_depends_on]--> user_service`.
+**Result:** 31 states created, 30 rules applied, 30 inference edges in the overlay. Blast radius matches 5 of 6 symptoms (83%) with average confidence 0.84. The overlay contains edges like `order_service --[indirectly_depends_on]--> redis_cache_auth` and `web_frontend --[indirectly_depends_on]--> user_service`.
 
 **Rollback:** The overlay is discarded. 30 edges rolled back. Base graph stays at 158 edges.
 
@@ -216,17 +216,17 @@ rb = mem.rollback_inferences()
 
 Seeds: `{network_segment_dmz, lb_web, lb_api, dns_primary}`. The theory is that the DMZ network segment has a partition or misconfiguration, blocking external traffic.
 
-**Result:** 31 states created, 30 rules applied, 30 inference edges. The inferred edges are structurally similar to hypothesis A because `TransitiveRule` follows the same `depends_on` chains regardless of which nodes seed the expansion. Blast radius matches 4 of 6 symptoms (67%) with average confidence 0.84.
+**Result:** 31 states created, 30 rules applied, 30 inference edges. The inferred edges are structurally similar to hypothesis A because `TransitiveRule` follows the same `depends_on` chains regardless of which nodes seed the expansion. Blast radius matches 5 of 6 symptoms (83%) with average confidence 0.84.
 
 **Rollback:** 30 edges discarded. Base graph remains at 158 edges.
 
-**Why this matters:** Even though the numerical scores are identical, the hypothesis is evaluated as incorrect because the seed set (DMZ network infrastructure) does not explain the authentication and payment failures. The overlay mechanism keeps these edges from polluting the graph while the team considers the results.
+**Why this matters:** Even though the numerical scores are identical to hypothesis A, the hypothesis is evaluated as a weaker explanation because the seed set (DMZ network infrastructure) is an infrastructure layer one step removed from the directly failing services. The overlay mechanism keeps these edges from polluting the graph while the team considers the results.
 
 ### Section 5: Hypothesis C — Kafka Ingestion Cluster Issue
 
 Seeds: `{kafka_ingestion, kafka_analytics, kafka_events, analytics_service, reporting_service, search_service}`. The theory is that the Kafka ingestion cluster is degraded, causing downstream data pipeline failures.
 
-**Result:** 31 states created, 30 rules applied, 30 inference edges. Blast radius matches 4 of 6 symptoms (67%) with average confidence 0.84.
+**Result:** 31 states created, 30 rules applied, 30 inference edges. Blast radius matches 5 of 6 symptoms (83%) with average confidence 0.84.
 
 **Rollback:** 30 edges discarded. Base graph remains at 158 edges.
 
@@ -237,11 +237,11 @@ All three hypotheses produce identical numerical metrics:
 | Metric | Hyp A | Hyp B | Hyp C |
 |--------|-------|-------|-------|
 | Overlay edges | 30 | 30 | 30 |
-| Symptoms matched | 4 | 4 | 4 |
-| Match score | 67% | 67% | 67% |
+| Symptoms matched | 5 | 5 | 5 |
+| Match score | 83% | 83% | 83% |
 | Avg confidence | 0.84 | 0.84 | 0.84 |
 
-The identical scores occur because `TransitiveRule` expands through the same `depends_on` chains regardless of the seed set — the graph is densely connected enough that all three seed sets reach the same transitive frontier within 3 hops. The differentiation comes from domain knowledge: hypothesis A's seeds (cache, auth, gateway, payment) directly relate to the observed symptoms, while hypotheses B and C target infrastructure layers that are further from the failing services.
+The identical scores occur because `TransitiveRule` expands through the same `depends_on` chains regardless of the seed set — the graph is densely connected enough that all three seed sets reach the same transitive frontier within 3 hops. Each hypothesis misses `reporting_service` (the one symptom not matched). The differentiation comes from domain knowledge: hypothesis A's seeds (cache, auth, gateway, payment) directly relate to the observed symptoms, while hypotheses B and C target infrastructure layers that are further from the failing services.
 
 ### Section 7: Committing the Correct Hypothesis
 
@@ -327,7 +327,7 @@ Confidence decays with chain length via the `confidence_decay=0.9` parameter. A 
 | Incorrect edges avoided | 60 (from hypotheses B + C) |
 | Committed edges | 30 (from hypothesis A) |
 | Average confidence | 0.84 |
-| Match score (all hypotheses) | 67% (4/6 symptoms) |
+| Match score (all hypotheses) | 83% (5/6 symptoms) |
 
 ## 9. What Makes This Different
 

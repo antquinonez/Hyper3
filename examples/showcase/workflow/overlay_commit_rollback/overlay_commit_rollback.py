@@ -12,7 +12,7 @@ reviewed against observed symptoms, and either committed (correct) or
 rolled back (wrong).  Only the winning hypothesis persists.
 
 Run with:
-    .venv/bin/python examples/showcase/workflow/overlay_commit_rollback/08_overlay_commit_rollback.py
+    .venv/bin/python examples/showcase/workflow/overlay_commit_rollback/overlay_commit_rollback.py
 """
 
 from __future__ import annotations
@@ -544,7 +544,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 5: Hypothesis C - Kafka Inestion Cluster Issue (PARTIAL)")
+    print("SECTION 5: Hypothesis C - Kafka Ingestion Cluster Issue (PARTIAL)")
     print("=" * 70)
 
     seeds_c = {"kafka_ingestion", "kafka_analytics", "kafka_events",

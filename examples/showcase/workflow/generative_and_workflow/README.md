@@ -49,8 +49,8 @@ star(7): nodes=7, edges=6
   center degree: 6
 
 SECTION 7: ANALYSIS ON GENERATED GRAPHS
-  communities found: 1
-  modularity: 0.0000
+  communities found: 2
+  modularity: 0.4161
   reasoning edges produced: 1
   reasoning states created: 2
 ```
@@ -126,7 +126,7 @@ This script exercises seven generator functions and then applies analysis (commu
 
 **Chung-Lu (`random_chung_lu`)** — Matches a prescribed degree sequence. Given expected degrees `[3, 3, 3, 2, 2, 1, 1, 1]` and edge sizes `[2, 2, 3, 3]`, produces 5 edges across 8 nodes. Use when you need a graph whose degree distribution matches a target.
 
-**Analysis of Generated Graphs (Section 7)** — After generation, the script applies community detection to the SBM graph and reasoning to the random hypergraph. Community detection via label propagation finds 1 community containing all 20 nodes (modularity 0.0000) — the SBM's high intra-block density with only 2 blocks merges them into a single component. Reasoning with `TransitiveRule` on the Erdos-Renyi graph from seed node `n0` produces 1 new inferred edge via 1 rule application across 2 multiway states. This demonstrates that generated graphs can be used directly as inputs to analysis and reasoning pipelines without manual construction.
+**Analysis of Generated Graphs (Section 7)** — After generation, the script applies community detection to the SBM graph and reasoning to the random hypergraph. Community detection via label propagation finds 2 communities matching the two planted blocks (n0–n9 and n10–n19, modularity 0.4161) — the SBM's high intra-block probability (0.6) versus low inter-block probability (0.05) produces clear community structure that label propagation successfully recovers. Reasoning with `TransitiveRule` on the Erdos-Renyi graph from seed node `n0` produces 1 new inferred edge via 1 rule application across 2 multiway states. This demonstrates that generated graphs can be used directly as inputs to analysis and reasoning pipelines without manual construction.
 
 ### temporal_reasoning.py — Allen Interval Algebra, Causal Chains, Belief, and Activation
 
@@ -199,8 +199,8 @@ The three metrics identify different nodes as most central because they measure 
 
 | Metric | Value |
 |--------|-------|
-| SBM communities found (label propagation) | 1 |
-| SBM modularity | 0.0000 |
+| SBM communities found (label propagation) | 2 |
+| SBM modularity | 0.4161 |
 | Reasoning edges produced (from n0) | 1 |
 | Reasoning rules applied | 1 |
 | Reasoning states created | 2 |

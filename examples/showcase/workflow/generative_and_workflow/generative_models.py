@@ -7,7 +7,7 @@ Demonstrates Hyper3's generator functions for creating random, structured,
 and clustered hypergraphs. Each generator produces a Hypergraph with
 reproducible random structure via seed parameters.
 
-Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/27_generative_models.py
+Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/generative_models.py
 """
 
 from __future__ import annotations

@@ -69,33 +69,33 @@ nodes added: 13, edges added: 16
 
 A research knowledge graph with four node categories:
 
-- **Topics** (3): machine_learning, nlp, computer_vision
-- **Authors** (5): alice_chen, bob_smith, carol_wu, diana_lee, evan_park
-- **Papers** (3): paper_transformers, paper_gnn, paper_cnn
-- **Institutions** (2): mit_lab, stanford_lab
+- **Topics** (4): machine_learning, neural_networks, nlp, computer_vision
+- **Authors** (3): alice_chen, bob_smith, carol_wu
+- **Papers** (3): paper_transformer, paper_cnn, paper_gan
+- **Institutions** (2): mit, stanford
 
 Three editing sessions add collaborations and cross-domain links, then a fourth session introduces erroneous edges that get rolled back.
 
 ```mermaid
 graph LR
-    alice_chen -->|writes| paper_transformers
-    bob_smith -->|writes| paper_transformers
-    carol_wu -->|writes| paper_gnn
-    diana_lee -->|writes| paper_cnn
-    evan_park -->|writes| paper_cnn
-    alice_chen -->|affiliated_with| mit_lab
-    bob_smith -->|affiliated_with| mit_lab
-    carol_wu -->|affiliated_with| stanford_lab
-    diana_lee -->|affiliated_with| stanford_lab
+    alice_chen -->|writes| paper_transformer
+    bob_smith -->|writes| paper_cnn
+    carol_wu -->|writes| paper_gan
+    alice_chen -->|affiliated_with| mit
+    bob_smith -->|affiliated_with| stanford
+    carol_wu -->|affiliated_with| mit
+    paper_transformer -->|cites| nlp
+    paper_cnn -->|cites| computer_vision
+    paper_gan -->|cites| computer_vision
 ```
 
 Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges (v1), cross-domain links (v2), and erroneous data that gets rolled back.
 
 ## 5. Analysis Pipeline
 
-**Section 1 — Build initial graph and capture baseline:** 12 nodes and 9 edges are created. Topics (machine_learning, nlp, computer_vision) are tagged with `data={"type": "topic"}`. Authors are tagged with `data={"type": "author"}`. Papers are tagged with `data={"type": "paper"}`. Institutions are tagged with `data={"type": "institution"}`. Nine edges connect authors to papers (`writes`), papers to topics (`about`), and authors to institutions (`affiliated_with`). `capture_version()` snapshots this as v0 (version_id=0, nodes=12, edges=9). Why this matters: the baseline version establishes the known-good state. Every subsequent change is measured against this snapshot, and rollback to v0 would restore the graph to its original state.
+**Section 1 — Build initial graph and capture baseline:** 12 nodes and 9 edges are created. Topics (machine_learning, neural_networks, nlp, computer_vision) are tagged with `data={"type": "topic"}`. Authors are tagged with `data={"type": "author"}`. Papers are tagged with `data={"type": "paper"}`. Institutions are tagged with `data={"type": "institution"}`. Nine edges connect authors to papers (`writes`), papers to topics (`cites`), and authors to institutions (`affiliated_with`). `capture_version()` snapshots this as v0 (version_id=0, nodes=12, edges=9). Why this matters: the baseline version establishes the known-good state. Every subsequent change is measured against this snapshot, and rollback to v0 would restore the graph to its original state.
 
-**Section 2 — First edit session — add collaborations:** The script adds 5 new edges and 1 new node. alice_chen and bob_smith get `collaborates_with` edges to carol_wu. A new paper node (paper_diffusion) is created with alice_chen and carol_wu as authors. paper_diffusion cites machine_learning. `capture_version()` snapshots this as v1 (version_id=1, nodes=13, edges=14). `diff_from_version(0)` produces a GraphDelta with 6 total changes: 1 node added (paper_diffusion) and 5 edges added (3 collaboration/writes edges + 1 cites edge + 1 cross-reference). Each change is a typed NodeDelta or EdgeDelta with the new values. Why this matters: the delta provides a complete audit trail of the first editing session. A reviewer can see exactly what was added without comparing the full graph manually. The delta shows not just counts but the specific nodes and edges that changed.
+**Section 2 — First edit session — add collaborations:** The script adds 5 new edges and 1 new node. alice_chen and bob_smith get `collaborates_with` edges to carol_wu. A new paper node (paper_diffusion) is created with alice_chen and carol_wu as authors. paper_diffusion cites machine_learning. `capture_version()` snapshots this as v1 (version_id=1, nodes=13, edges=14). `diff_from_version(0)` produces a GraphDelta with 6 total changes: 1 node added (paper_diffusion) and 5 edges added (2 collaborates_with + 2 writes + 1 cites). Each change is a typed NodeDelta or EdgeDelta with the new values. Why this matters: the delta provides a complete audit trail of the first editing session. A reviewer can see exactly what was added without comparing the full graph manually. The delta shows not just counts but the specific nodes and edges that changed.
 
 **Section 3 — Second edit session — cross-domain links:** The script adds 2 new edges: nlp -> computer_vision (`cross_domain`) and machine_learning -> nlp (`subfield_of`). `capture_version()` snapshots this as v2 (version_id=2, nodes=13, edges=16). `diff_from_version(1)` shows 2 total changes: 2 edges added, 0 nodes changed. The graph has grown from 14 to 16 edges while the node count remains at 13. Why this matters: this is a minimal edit — just 2 edges connecting existing topics. The delta captures this precisely, showing that no nodes were added or removed. A reviewer can approve this change quickly because the diff is small and focused.
 
@@ -138,10 +138,10 @@ from hyper3 import HypergraphMemory
 
 mem = HypergraphMemory(evolve_interval=0)
 
-topics = ["machine_learning", "nlp", "computer_vision"]
-authors = ["alice_chen", "bob_smith", "carol_wu", "diana_lee", "evan_park"]
-papers = ["paper_transformers", "paper_gnn", "paper_cnn"]
-institutions = ["mit_lab", "stanford_lab"]
+topics = ["machine_learning", "neural_networks", "nlp", "computer_vision"]
+authors = ["alice_chen", "bob_smith", "carol_wu"]
+papers = ["paper_transformer", "paper_cnn", "paper_gan"]
+institutions = ["mit", "stanford"]
 
 for t in topics:
     mem.add(t, data={"type": "topic"})
@@ -152,11 +152,11 @@ for p in papers:
 for i in institutions:
     mem.add(i, data={"type": "institution"})
 
-mem.link("alice_chen", "paper_transformers", label="writes")
-mem.link("alice_chen", "mit_lab", label="affiliated_with")
+mem.link("alice_chen", "paper_transformer", label="writes")
+mem.link("alice_chen", "mit", label="affiliated_with")
 
 v0 = mem.capture_version()
-print(f"v0: nodes={v0.node_count}, edges={v0.edge_count}")
+print(f"v0: nodes={v0['node_count']}, edges={v0['edge_count']}")
 ```
 
 **2. Edit and capture new version:**
