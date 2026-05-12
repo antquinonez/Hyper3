@@ -29,14 +29,23 @@ Hyper3 combines pairwise and n-ary directed hyperedges with labeled relationship
 ```
 
 ```
+======================================================================
 SECTION 1: CONSTRUCTION
+======================================================================
 nodes: 8, edges: 7
 
+======================================================================
 SECTION 2: N-ARY HYPEREDGES
-N-ary hyperedges (source cardinality >= 2): 1
-  joint_project: {'alice', 'bob', 'carol'} -> {'dave'}
+======================================================================
 
+N-ary hyperedges (source cardinality >= 2): 1
+  joint_project: {'alice', 'carol', 'bob'} -> {'dave'}
+
+======================================================================
 SECTION 3: BASIC QUERIES
+======================================================================
+all nodes: ['alice', 'bob', 'carol', 'dave', 'eve', 'frank', 'grace', 'henry']
+
 graph description:
   nodes: 8
   edges: 9
@@ -45,33 +54,48 @@ graph description:
   isolated nodes: 0
   components: 1
 
+======================================================================
 SECTION 4: SEMANTIC METADATA
+======================================================================
 engineers: ['alice']
 platform team: ['alice', 'dave']
 
+======================================================================
 SECTION 5: NEIGHBORHOOD QUERIES
-dave out-neighbors: ['grace', 'frank', 'henry', 'eve']
-dave in-neighbors: ['carol', 'alice', 'bob']
-dave all-neighbors: ['grace', 'frank', 'carol', 'alice', 'henry', 'eve', 'bob']
-dave collaborators: ['grace', 'frank', 'eve']
+======================================================================
+dave out-neighbors: ['frank', 'henry', 'eve', 'grace']
+dave in-neighbors: ['alice', 'bob', 'carol']
+dave all-neighbors: ['frank', 'carol', 'alice', 'henry', 'bob', 'eve', 'grace']
+dave collaborators: ['frank', 'eve', 'grace']
 
-SECTION 6: REASONING
+======================================================================
+SECTION 6: REASONING (Hyper3 advantage)
+======================================================================
+
 reasoning from 'alice':
   edges produced: 1
   states created: 2
+
 indirect collaborations inferred:
   alice -[indirect_collaboration]-> carol
 
-SECTION 7: SELF-EVOLUTION
+======================================================================
+SECTION 7: SELF-EVOLUTION (Hyper3 advantage)
+======================================================================
+
 evolution cycle:
   nodes before/after: 8/6
   edges before/after: 10/10
   edges decayed: 0
   nodes pruned: 0
   nodes merged: 2
+
 post-evolution description:
   density: 0.3333
   components: 1
+
+======================================================================
+DONE
 ```
 
 ## 4. The Scenario
@@ -193,7 +217,7 @@ mem.link_hyper(
 **3. Query graph statistics:**
 
 ```python
-desc = mem.describe()
+desc = mem.analyze.describe()
 print(f"nodes: {desc.node_count}, edges: {desc.edge_count}")
 print(f"density: {desc.density:.4f}")
 ```
@@ -201,7 +225,7 @@ print(f"density: {desc.density:.4f}")
 **4. Attach and query semantic metadata:**
 
 ```python
-mem.ensure("alice", data={"role": "engineer", "team": "platform"}, update=True)
+mem.ensure("alice", data={"role": "engineer", "team": "platform", "level": 5}, update=True)
 engineers = mem.query_nodes(data={"role": "engineer"})
 platform = mem.query_nodes(data={"team": "platform"})
 ```
@@ -221,17 +245,15 @@ from hyper3 import TransitiveRule
 mem.add_rules(
     TransitiveRule(edge_label="collaborates", new_label="indirect_collaboration"),
 )
-result = mem.reason(seeds={"alice"}, depth=3)
+result = mem.reason(seeds={"alice"}, max_depth=3)
 print(f"edges produced: {result.expansion.edges_produced}")
 ```
 
 **7. Run self-evolution:**
 
 ```python
-for _ in range(3):
-    mem.activate("dave", energy=1.0)
-mem.activate(iterations=2)
-mem.hebbian_reinforce()
+mem.search.activate("dave", energy=1.0)
+mem.cognitive.hebbian_reinforce()
 evolve_result = mem.evolve()
 print(f"nodes merged: {evolve_result.merged}")
 ```

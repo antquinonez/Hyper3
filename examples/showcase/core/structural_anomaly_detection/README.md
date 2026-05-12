@@ -30,31 +30,96 @@ The StructuralAnomalyDetector scores each concept on four dimensions — cyclic 
 ```
 SECTION 1: BUILD SERVICE MESH TOPOLOGY
 nodes: 18, edges: 28
-edge labels: {'routes_to': 9, 'calls': 7, 'publishes_to': 2, ...}
+edge labels: {'routes_to': 9, 'calls': 7, 'publishes_to': 2, 'subscribes_to': 2, 'reads_from': 4, 'writes_to': 4}
 
 SECTION 2: INDIVIDUAL ANOMALY ASSESSMENT
-api_gateway: status=low_risk, boundary_score=0.0794
-auth_svc: status=anomalous, boundary_score=0.3975
+api_gateway:
+  status: low_risk
+  boundary score: 0.0794
+  warnings: []
+
+auth_svc:
+  status: anomalous
+  boundary score: 0.3975
   warnings: ['Cyclic structure detected', 'Contradictory edge labels detected']
-order_svc: status=anomalous, boundary_score=0.4218
+
+user_svc:
+  status: anomalous
+  boundary score: 0.3975
+  warnings: ['Cyclic structure detected', 'Contradictory edge labels detected']
+
+order_svc:
+  status: anomalous
+  boundary score: 0.4218
+  warnings: ['Cyclic structure detected', 'Contradictory edge labels detected']
+
+logging_svc:
+  status: low_risk
+  boundary score: 0.0265
+  warnings: []
+
+config_svc:
+  status: low_risk
+  boundary score: 0.0088
+  warnings: []
 
 SECTION 3: BOUNDARY INDICATOR DEEP DIVE
+api_gateway indicators:
+  cyclic_structure: 0.0000
+  high_centrality: 0.2647
+  contradiction_risk: 0.0000
+  structural_anomaly: 0.0000
+  boundary_score: 0.0794
+
 auth_svc indicators:
   cyclic_structure: 0.8000
   high_centrality: 0.1250
   contradiction_risk: 0.6000
+  structural_anomaly: 0.0000
+  boundary_score: 0.3975
+
+logging_svc indicators:
+  cyclic_structure: 0.0000
+  high_centrality: 0.0882
+  contradiction_risk: 0.0000
+  structural_anomaly: 0.0000
+  boundary_score: 0.0265
+
+config_svc indicators:
+  cyclic_structure: 0.0000
+  high_centrality: 0.0294
+  contradiction_risk: 0.0000
+  structural_anomaly: 0.0000
+  boundary_score: 0.0088
 
 SECTION 4: BOUNDARY REGION MAPPING
 classification: {'low_risk': 14, 'boundary': 0, 'anomalous': 4}
-anomalous: auth_svc, user_svc, order_svc, db_primary
+
+anomalous services:
+  auth_svc: boundary_score=0.3975
+  user_svc: boundary_score=0.3975
+  order_svc: boundary_score=0.4218
+  db_primary: boundary_score=0.3450
 
 SECTION 5: EXPLORATION WITH ASSUMPTIONS
 suggested assumptions for 'config_svc': 3
+  bridge_08c2fece: Assume reachability to api_gateway (coverage gain: 0.5000)
+  bridge_f3a1bdb8: Assume reachability to order_svc (coverage gain: 0.3889)
+  bridge_38c96008: Assume reachability to db_primary (coverage gain: 0.2222)
+
+config_svc anomaly status: low_risk
+  boundary score: 0.0088
+  structural insights: []
 
 SECTION 6: CROSS-REFERENCE WITH CENTRALITY
 top-5 betweenness centrality:
   api_gateway: centrality=0.0515, anomaly_status=low_risk
   order_svc: centrality=0.0380, anomaly_status=anomalous
+  payment_svc: centrality=0.0294, anomaly_status=low_risk
+  user_svc: centrality=0.0245, anomaly_status=anomalous
+  search_svc: centrality=0.0147, anomaly_status=low_risk
+
+anomaly summary: mapped=0, low_risk=0, boundary=0, anomalous=0
 ```
 
 > Output may vary slightly depending on centrality computation precision and edge weight assignments.
@@ -126,7 +191,7 @@ Solid arrows: service mesh edges (28 total). The auth -> user -> order -> auth c
 |--------|-------|
 | Nodes | 18 |
 | Edges | 28 |
-| Edge labels | 6 (`routes_to`: 9, `calls`: 7, `reads_from`: 4, `writes_to`: 4, `publishes_to`: 2, `subscribes_to`: 2) |
+| Edge labels | 6 (`routes_to`: 9, `calls`: 7, `publishes_to`: 2, `subscribes_to`: 2, `reads_from`: 4, `writes_to`: 4) |
 | Anomalous nodes | 4 (auth_svc, user_svc, order_svc, db_primary) |
 | Boundary nodes | 0 |
 | Low-risk nodes | 14 |
@@ -214,7 +279,7 @@ for a in assumptions:
 **6. Cross-reference with centrality:**
 
 ```python
-centrality = mem.analyze.centrality("betweenness", )
+centrality = mem.analyze.centrality("betweenness")
 top = sorted(centrality.items(), key=lambda x: x[1], reverse=True)[:5]
 for node, score in top:
     anomaly = mem.analyze.anomalies(node)
@@ -239,7 +304,7 @@ This showcase demonstrates structural anomaly detection on a small synthetic ser
 | `mem.analyze.anomalies(concept)` | Assess a single node's anomaly status and boundary indicators |
 | `mem.map_boundaries()` | Classify all nodes into low_risk/boundary/anomalous regions |
 | `mem.suggest_assumptions(concept)` | Propose bridging edges to improve exploration coverage |
-| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
 | `mem.add(concept, data)` | Create a node with optional data dict |
 | `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |

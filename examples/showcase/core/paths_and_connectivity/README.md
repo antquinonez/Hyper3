@@ -71,7 +71,7 @@ max edge order: 4
 shortest path (weighted):   ['s', 'a', 'c', 't']
 shortest path (unweighted): ['s', 'b', 'c', 't']
 
-from s: {'a': 0.1, 'b': 0.5, 'c': 0.3, 'd': 0.6, 't': 0.425}
+from s: {'a': 0.1, 'b': 0.5, 'c': 0.30000000000000004, 'd': 0.6, 't': 0.42500000000000004}
 from t: {}
 ```
 
@@ -170,7 +170,7 @@ mem.ensure("a")
 mem.ensure("b")
 mem.link("a", "b", label="link", weight=5.0)
 
-path = mem.shortest_path("a", "b", weighted=True)
+path = mem.analyze.shortest_path("a", "b", weighted=True)
 # ['a', 'b']
 ```
 
@@ -194,7 +194,7 @@ from_a = mem.single_source_distances("a", weighted=True)
 components = mem.analyze.components()
 # [['a', 'b']]
 
-mem.is_connected()       # True if 1 component
+mem.analyze.is_connected()       # True if 1 component
 mem.largest_connected_component()  # largest component as set
 mem.component_of("a")    # component containing 'a'
 ```
@@ -209,25 +209,24 @@ mem.link_hyper(
     weight=10.0,
 )
 
-path = mem.shortest_path("london", "prague")
+path = mem.analyze.shortest_path("london", "prague")
 # ['london', 'prague']  -- 1 hop through the hyperedge
 ```
 
 ### Reasoning with TransitiveRule
 
 ```python
-from hyper3.rules import TransitiveRule
+from hyper3 import TransitiveRule
 
 mem.add_rules(TransitiveRule(edge_label="train", new_label="indirect_train"))
-result = mem.reason(seeds={"london"}, depth=3)
+result = mem.reason(seeds={"london"}, max_depth=3)
 # result.expansion.edges_produced -> inferred indirect connections
 ```
 
 ### Spreading activation
 
 ```python
-mem.activate("london", energy=1.0)
-activated = mem.activate(iterations=3)
+activated = mem.search.activate("london", energy=1.0)
 # activated: list of (label, activation, depth) sorted by activation
 ```
 
@@ -260,7 +259,7 @@ cr = mem.analyze.communities(seed=42)
 ### Graph metrics
 
 ```python
-mem.density()             # actual_edges / max_possible_edges
+mem.analyze.describe().density  # actual_edges / max_possible_edges
 mem.unique_edge_sizes()   # set of (src_size + tgt_size) per edge
 mem.max_edge_order()      # largest edge size minus 1
 ```

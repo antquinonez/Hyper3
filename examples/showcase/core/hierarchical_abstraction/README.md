@@ -30,37 +30,82 @@ The AbstractionNavigator enables working at the right granularity: collapsing de
 
 ```
 SECTION 1: BUILD ORGANIZATIONAL GRAPH
-nodes: 23, edges: 22
+nodes: 23, edges: 14
 
 SECTION 2: FIRST-LEVEL ABSTRACTION - COLLAPSE TEAMS
-team_alpha: edges collapsed: 6, internal: 4, external: 2
-team_beta: edges collapsed: 5, internal: 4, external: 1
-team_gamma: edges collapsed: 6, internal: 4, external: 2
-team_delta: edges collapsed: 5, internal: 4, external: 1
+team_alpha:
+  edges collapsed: 4
+  internal edges: 2
+  external connections: 2
+  detail labels: ['aaron', 'alice', 'amy', 'anna', 'axel']
+
+team_beta:
+  edges collapsed: 2
+  internal edges: 2
+  external connections: 0
+  detail labels: ['bella', 'betty', 'bob', 'brian', 'bruce']
+
+team_gamma:
+  edges collapsed: 5
+  internal edges: 2
+  external connections: 3
+  detail labels: ['carmen', 'carol', 'charlie', 'clara', 'craig']
+
+team_delta:
+  edges collapsed: 3
+  internal edges: 2
+  external connections: 1
+  detail labels: ['dave', 'derek', 'diana', 'donna', 'dylan']
+
 after team collapse: nodes=27, edges=6
 active summaries: 4
 
 SECTION 3: ANALYZE AT TEAM LEVEL
-team_alpha: degree_centrality=0.0769
-team_beta: degree_centrality=0.0385
-team_gamma: degree_centrality=0.0769
-team_delta: degree_centrality=0.0385
+team-level degree centrality:
+  team_alpha: 0.0769
+  team_beta: 0.0000
+  team_delta: 0.0385
+  team_gamma: 0.1154
+
+team-level betweenness centrality:
+  team_alpha: 0.0000
+  team_beta: 0.0000
+  team_delta: 0.0000
+  team_gamma: 0.0031
 
 SECTION 4: SECOND-LEVEL ABSTRACTION - COLLAPSE DEPARTMENTS
-dept_engineering: edges collapsed: 2, internal: 1, external: 1
-dept_product: edges collapsed: 2, internal: 1, external: 1
-after department collapse: nodes=29, edges=4
+dept_engineering:
+  edges collapsed: 2
+  internal edges: 0
+  external connections: 2
+
+dept_product:
+  edges collapsed: 3
+  internal edges: 1
+  external connections: 2
+
+after department collapse: nodes=29, edges=5
 total active summaries: 6
 
 SECTION 5: EXPAND AND DRILL DOWN
-expanded 'dept_engineering': expanded nodes: 2, expanded edges: 2
-after expand: nodes=28, edges=5
+expanded 'dept_engineering':
+  expanded nodes: 2
+  expanded edges: 4
+  summary removed: True
+
+after expand: nodes=28, edges=7
 remaining summaries: 5
 
-SECTION 6: CROSS-LEVEL CENTRALITY
-dept_engineering: 0.1111
-division_tech: 0.0741
-dept_product: 0.0370
+SECTION 6: CROSS-LEVEL CENTRALITY COMPARISON
+current degree centrality (mixed levels):
+  dept_engineering: 0.1111
+  dept_product: 0.1111
+  division_tech: 0.0741
+  team_alpha: 0.0741
+  team_beta: 0.0741
+  alice: 0.0000
+  anna: 0.0000
+  aaron: 0.0000
 ```
 
 > Node and edge counts include detail nodes that remain in the graph (hidden but not removed).
@@ -132,15 +177,15 @@ Internal `collaborates_with` edges (within teams) are removed during collapse. E
 | Metric | Value |
 |--------|-------|
 | Original nodes | 23 (20 employees + 2 departments + 1 division) |
-| Original edges | 22 |
+| Original edges | 14 |
 | After team collapse | 27 nodes, 6 edges, 4 active summaries |
-| Internal edges collapsed per team | 4 |
-| External connections rewired per team | 1-2 |
-| After department collapse | 29 nodes, 4 edges, 6 active summaries |
-| After expanding dept_engineering | 28 nodes, 5 edges, 5 remaining summaries |
-| Highest team-level centrality | team_alpha, team_gamma (0.0769) |
-| Lowest team-level centrality | team_beta, team_delta (0.0385) |
-| Highest cross-level centrality | dept_engineering (0.1111) |
+| Internal edges collapsed per team | 2 |
+| External connections rewired per team | 0-3 |
+| After department collapse | 29 nodes, 5 edges, 6 active summaries |
+| After expanding dept_engineering | 28 nodes, 7 edges, 5 remaining summaries |
+| Highest team-level centrality | team_gamma (0.1154) |
+| Lowest team-level centrality | team_beta (0.0000) |
+| Highest cross-level centrality | dept_engineering, dept_product (0.1111) |
 | Division centrality | division_tech (0.0741) |
 
 ## 7. What Makes This Different
@@ -196,7 +241,7 @@ for team_name, members in teams.items():
 **3. Analyze at team level:**
 
 ```python
-centrality = mem.analyze.centrality("degree", )
+centrality = mem.analyze.centrality("degree")
 for team_name in teams:
     print(f"{team_name}: {centrality.get(team_name, 0.0):.4f}")
 ```
@@ -225,7 +270,7 @@ print(f"expanded edges: {result.expanded_edges}")
 **6. Cross-level centrality comparison:**
 
 ```python
-centrality = mem.analyze.centrality("degree", )
+centrality = mem.analyze.centrality("degree")
 for node, score in sorted(centrality.items(), key=lambda x: -x[1])[:8]:
     print(f"  {node}: {score:.4f}")
 ```
@@ -247,8 +292,8 @@ This showcase demonstrates hierarchical abstraction on a small organizational gr
 |--------|---------|
 | `mem.collapse_subgraph(summary_name, detail_nodes)` | Replace detail nodes with a summary node, rewiring external edges |
 | `mem.expand_summary(summary_name)` | Restore detail nodes from a summary, recreating external edges |
-| `mem.analyze.centrality("degree", )` | Compute degree centrality for all nodes |
-| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
 | `mem.add(concept, data)` | Create a node with optional data dict |
 | `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.describe()` | Return graph statistics (nodes, edges, density, components) |

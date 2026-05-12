@@ -35,8 +35,8 @@ This showcase runs three scripts:
 ```
 nodes: 14, edges: 28
 communities detected: 3
-modularity: 0.5797
-coverage: 0.9286
+modularity: 0.6358
+coverage: 0.9848
   community 0: ['a1', 'a2', 'a3', 'a4', 'a5'] (5 nodes)
   community 1: ['b1', 'b2', 'b3', 'b4', 'b5'] (5 nodes)
   community 2: ['c1', 'c2', 'c3', 'c4'] (4 nodes)
@@ -67,17 +67,20 @@ cluster agreement (greedy match): 100.00%
     complete          1.0000
 
 community detection on mixed graph:
-  communities: 2
-  modularity: 0.2392
-  community 5: ['a', 'b', 'c', 'd', 'e', 'f'] (size=6, avg_cc=0.7778)
+  communities: 3
+  modularity: 0.5822
+  community 0: ['a', 'b', 'c'] (size=3, avg_cc=0.7778)
+  community 2: ['d', 'e', 'f'] (size=3, avg_cc=0.7778)
   community 7: ['g', 'h'] (size=2, avg_cc=0.0000)
 
 stimulating highest-clustering node: 'a' (cc=1.0000)
 
 activated nodes after spreading from 'a':
-  c: activation=1.0000, depth=1, cc=0.3333
-  b: activation=0.9898, depth=1, cc=1.0000
-  a: activation=0.8755, depth=0, cc=1.0000
+  c: energy=1.0000, cc=0.3333
+  b: energy=0.9882, cc=1.0000
+  d: energy=0.1644, cc=0.3333
+  f: energy=0.1045, cc=1.0000
+  e: energy=0.1045, cc=1.0000
 ```
 
 ## 4. Script Walkthroughs
@@ -289,10 +292,9 @@ mem = HypergraphMemory(evolve_interval=0)
 cc_values = {c: mem.clustering_coefficient(c) for c in ["a", "b", "c"]}
 seed_node = max(cc_values, key=cc_values.get)
 
-mem.activate(seed_node, energy=1.0)
-activated = mem.activate(iterations=3)
+activated = mem.search.activate(seed_node, energy=1.0)
 for act in activated:
-    print(f"  {act.label}: activation={act.activation:.4f}, depth={act.depth}")
+    print(f"  {act.label}: energy={act.energy:.4f}")
 ```
 
 ## 8. Reference

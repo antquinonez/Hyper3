@@ -39,9 +39,7 @@ Imagine a building with three security zones: a lobby (DMZ), office floors (inte
 ### Expected Output
 
 ```
-======================================================================
 SECTION 1: Building Enterprise Network Topology
-======================================================================
   Hosts:             45
   Network segments:  22
   Security controls: 16
@@ -51,17 +49,11 @@ SECTION 1: Building Enterprise Network Topology
   Total nodes:       129
   Total edges:       356
 
-======================================================================
-SUMMARY
-======================================================================
+SUMMARY:
   Network: 129 nodes, 375 edges
-  Connected components: 8
-  Total cycles detected: 15
-  Cross-zone violations: 18
-  Most exposed host:     dc-01                     (degree=0.1875)
-  Top chokepoint:        dc-01                     (betweenness=0.0108)
-  Highest risk host:     web-04                    (risk=62.4)
-  Segmentation:          ISOLATED
+  Components: 8, Cycles: 15, Violations: 18
+  Most exposed: dc-01
+  Highest risk: web-04 (risk=62.4)
 ```
 
 ## 5. The Scenario
@@ -154,7 +146,7 @@ Six builder functions create 45 hosts, 22 segments, 16 controls, 18 services, 16
 Degree centrality counts the fraction of total nodes each host connects to. A high degree means the host touches many entities (services, segments, vulnerabilities, controls, trust targets), making it a large attack surface.
 
 ```python
-degree = mem.analyze.centrality("degree", )
+degree = mem.analyze.centrality("degree")
 host_degree = {lbl: score for lbl, score in degree.items() if lbl in set(hosts)}
 top_exposed = top_k(host_degree, k=10)
 ```
@@ -176,7 +168,7 @@ top_exposed = top_k(host_degree, k=10)
 Betweenness centrality measures how often a node appears on shortest paths between other node pairs. High betweenness means traffic (or an attacker) must pass through this node.
 
 ```python
-betweenness = mem.analyze.centrality("betweenness", )
+betweenness = mem.analyze.centrality("betweenness")
 top_choke = top_k(betweenness, k=10)
 ```
 
@@ -328,7 +320,7 @@ The 18 direct trust violations in Section 6 are only the explicitly documented r
 mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
 reason_result = mem.reason(
     seeds={"admin-jump-01", "dev-server", "dc-01", "vpn-gateway"},
-    depth=4,
+    max_depth=4,
 )
 ```
 
@@ -357,7 +349,7 @@ Community detection groups nodes into clusters based on connection density, inde
 comm_result = mem.analyze.communities(seed=42)
 ```
 
-**Results:** **11 communities** detected with modularity 0.3412 and coverage 0.8790.
+**Results:** **11 communities** detected with modularity 0.3616 and coverage 0.8790.
 
 | Community | Size | Host Zones | Description |
 |-----------|------|------------|-------------|
@@ -477,7 +469,7 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 | Inferred indirect trust edges | 19 |
 | Restricted hosts reachable via indirect trust | 6 |
 | Communities detected | 11 |
-| Modularity | 0.3412 |
+| Modularity | 0.3616 |
 | Community coverage | 0.8790 |
 | Zone-mixing communities | 4 |
 | Largest community | Community 33 (79 members) |
@@ -520,8 +512,8 @@ mem.link("dc-01", "fw-restricted", label="protected_by")
 ### Computing Centrality
 
 ```python
-degree = mem.analyze.centrality("degree", )
-betweenness = mem.analyze.centrality("betweenness", )
+degree = mem.analyze.centrality("degree")
+betweenness = mem.analyze.centrality("betweenness")
 top_exposed = top_k(degree, k=10)
 ```
 
@@ -550,7 +542,7 @@ for label in host_labels:
 
 ```python
 mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
-result = mem.reason(seeds={"admin-jump-01", "dev-server"}, depth=4)
+result = mem.reason(seeds={"admin-jump-01", "dev-server"}, max_depth=4)
 indirect_edges = mem.edges_labeled(edge_label="trusts_indirectly")
 ```
 
@@ -597,8 +589,8 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 |--------|---------|
 | `mem.add(label, data, modalities)` | Create a node with typed metadata |
 | `mem.link(source, target, label, weight)` | Create a labeled directed edge |
-| `mem.analyze.centrality("degree", )` | Compute normalized degree centrality for all nodes |
-| `mem.analyze.centrality("betweenness", )` | Compute betweenness centrality for all nodes |
+| `mem.analyze.centrality("degree")` | Compute normalized degree centrality for all nodes |
+| `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
 | `mem.analyze.components()` | Find all connected components |
 | `mem.detect_cycles(max_cycles)` | Detect cycles up to a limit |
 | `mem.shortest_path(source, target)` | Find shortest path between two nodes |

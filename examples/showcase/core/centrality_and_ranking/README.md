@@ -85,10 +85,9 @@ hub:
   anomaly status: anomalous
   boundary score: 0.4543
 
-communities detected: 2
-modularity: 0.2149
-  community 0: ['a', 'b', 'c', 'd', 'hub'] (5 nodes)
-  community 1: ['e', 'f', 'g'] (3 nodes)
+communities detected: 1
+modularity: 0.0000
+  community 0: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'hub'] (8 nodes)
 ```
 
 **Script 3 output** (7-node project graph, statistics + evolution + abstraction):
@@ -220,18 +219,18 @@ mem = HypergraphMemory(evolve_interval=0)
 mem.add("alice", data={"role": "lead"})
 mem.link("alice", "bob", label="manages", weight=5.0)
 
-deg = mem.analyze.centrality("degree", )
-betw = mem.analyze.centrality("betweenness", )
-pr = mem.pagerank(alpha=0.85, weighted=True, top_k=3)
+deg = mem.analyze.centrality("degree")
+betw = mem.analyze.centrality("betweenness")
+pr = mem.analyze.centrality("pagerank", alpha=0.85, weighted=True, top_k=3)
 ```
 
 **Four-way centrality comparison:**
 
 ```python
-deg = mem.analyze.centrality("degree", )
-betw = mem.analyze.centrality("betweenness", )
-pr = mem.pagerank(alpha=0.85)
-katz = mem.katz_centrality(alpha=0.1)
+deg = mem.analyze.centrality("degree")
+betw = mem.analyze.centrality("betweenness")
+pr = mem.analyze.centrality("pagerank", alpha=0.85)
+katz = mem.analyze.centrality("katz", alpha=0.1)
 ```
 
 **Structural anomaly detection:**
@@ -253,24 +252,25 @@ for community in comm.communities:
 **Structural statistics:**
 
 ```python
-desc = mem.describe()
+desc = mem.analyze.describe()
 print(f"nodes: {desc.node_count}, density: {desc.density:.4f}")
 print(f"degree range: {desc.degree_min}-{desc.degree_max}, mean: {desc.degree_mean:.2f}")
 
 deg = mem.degree()
 deg_w = mem.degree(weighted=True)
-in_deg = mem.in_degree()
-out_deg = mem.out_degree()
-print(f"density: {mem.density():.4f}")
+in_deg = mem.analyze.centrality("in_degree")
+out_deg = mem.analyze.centrality("out_degree")
+print(f"density: {mem.analyze.describe().density:.4f}")
 print(f"max edge order: {mem.max_edge_order()}")
 ```
 
 **Evolution:**
 
 ```python
-mem.activate("alice", energy=1.0)
-mem.activate(iterations=2)
-mem.hebbian_reinforce()
+mem.search.activate("alice", energy=1.0)
+mem.search.activate("bob", energy=1.0)
+mem.search.activate("project_x", energy=1.0)
+mem.cognitive.hebbian_reinforce()
 result = mem.evolve()
 print(f"decayed: {result.decayed}, pruned: {result.pruned}, merged: {result.merged}")
 ```
@@ -303,23 +303,22 @@ for s in mem.list_summaries():
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `mem.analyze.centrality("degree", )` | `dict[str, float]` | Normalized degree (degree / n-1) for each node |
-| `mem.analyze.centrality("betweenness", )` | `dict[str, float]` | Normalized betweenness centrality |
-| `mem.pagerank(alpha, weighted, top_k)` | `dict[str, float]` | Hypergraph PageRank with damping factor |
-| `mem.katz_centrality(alpha)` | `dict[str, float]` | Katz centrality with attenuation parameter |
-| `mem.describe()` | `DescribeResult` | Structural summary (nodes, edges, density, degrees, types) |
+| `mem.analyze.centrality("degree")` | `dict[str, float]` | Normalized degree (degree / n-1) for each node |
+| `mem.analyze.centrality("betweenness")` | `dict[str, float]` | Normalized betweenness centrality |
+| `mem.analyze.centrality("pagerank", alpha, weighted, top_k)` | `dict[str, float]` | Hypergraph PageRank with damping factor |
+| `mem.analyze.centrality("katz", alpha)` | `dict[str, float]` | Katz centrality with attenuation parameter |
+| `mem.analyze.describe()` | `DescribeResult` | Structural summary (nodes, edges, density, degrees, types) |
 | `mem.degree(weighted)` | `dict[str, int\|float]` | Raw or weighted degree per node |
-| `mem.in_degree()` | `dict[str, int]` | Incoming edge count per node |
-| `mem.out_degree()` | `dict[str, int]` | Outgoing edge count per node |
-| `mem.density()` | `float` | Edge density of the graph |
+| `mem.analyze.centrality("in_degree")` | `dict[str, float]` | Incoming edge centrality per node |
+| `mem.analyze.centrality("out_degree")` | `dict[str, float]` | Outgoing edge centrality per node |
+| `mem.analyze.describe().density` | `float` | Edge density of the graph |
 | `mem.unique_edge_sizes()` | `list[int]` | Distinct edge cardinalities present |
 | `mem.max_edge_order()` | `int` | Largest edge order (size - 1) |
 | `mem.degree_distribution()` | `dict[int, int]` | Histogram: degree value to node count |
 | `mem.analyze.anomalies(concept)` | `ExplorationReport` | Anomaly status, boundary score, structural insights |
 | `mem.analyze.communities(seed)` | `CommunityResult` | Communities, modularity, coverage, member labels |
 | `mem.evolve()` | `EvolveResult` | Decayed edges, pruned nodes, merged nodes |
-| `mem.activate(concept, energy)` | `None` | Injects activation energy into a node |
-| `mem.activate(iterations)` | `None` | Propagates activation across edges |
-| `mem.hebbian_reinforce()` | `None` | Strengthens edges between co-activated nodes |
+| `mem.search.activate(concept, energy)` | `None` | Injects activation energy into a node |
+| `mem.cognitive.hebbian_reinforce()` | `None` | Strengthens edges between co-activated nodes |
 | `mem.collapse_subgraph(nodes, summary_label, summary_data)` | `CollapseResult` | Replaces nodes with summary, returns mapping and edge changes |
 | `mem.list_summaries()` | `list[SummaryMapping]` | Active summary-to-detail mappings |

@@ -76,10 +76,9 @@ after evolution (decay weak edges, reinforce active paths):
   nodes merged: 0
 
 SECTION 7: COMMUNITY DETECTION
-communities detected: 2
-modularity: 0.1525
-  community 0: ['a', 'b', 'e', 'f', 'g'] (5 nodes)
-  community 1: ['c', 'd'] (2 nodes)
+communities detected: 1
+modularity: 0.0000
+  community 0: ['a', 'b', 'c', 'd', 'e', 'f', 'g'] (7 nodes)
 ```
 
 ## 4. The Scenario
@@ -144,7 +143,7 @@ A 7-node graph with strong core edges (weight 8.0) and weak peripheral edges (we
 
 ### Section 7 — Community Detection
 
-After evolution, `detect_communities()` partitions the 7-node graph into 2 communities with modularity 0.1525: community 0 contains `['a', 'b', 'e', 'f', 'g']` (5 nodes) and community 1 contains `['c', 'd']` (2 nodes). The split reflects the graph structure: nodes `a` and `b` are pulled toward the peripheral cluster through the bridge edge `d-e`, while `c` and `d` form a tightly-coupled pair at the core's center. Community detection reveals these structural groupings that are not obvious from degree alone.
+After evolution, `detect_communities()` partitions the 7-node graph into 1 community with modularity 0.0000: community 0 contains `['a', 'b', 'c', 'd', 'e', 'f', 'g']` (7 nodes). The n-ary hyperedges and bridge edges connect all nodes so densely that there is no meaningful partition — the entire graph is a single community.
 
 ## 6. Key Metrics
 
@@ -210,10 +209,9 @@ After evolution, `detect_communities()` partitions the 7-node graph into 2 commu
 
 | Metric | Value |
 |--------|-------|
-| Communities | 2 |
-| Modularity | 0.1525 |
-| Community 0 | `['a', 'b', 'e', 'f', 'g']` (5 nodes) |
-| Community 1 | `['c', 'd']` (2 nodes) |
+| Communities | 1 |
+| Modularity | 0.0000 |
+| Community 0 | `['a', 'b', 'c', 'd', 'e', 'f', 'g']` (7 nodes) |
 
 ## 7. What Makes This Different
 
@@ -256,7 +254,7 @@ for label, wd in sorted(weighted_deg.items()):
 **Multi-stat comparison:**
 
 ```python
-cent = mem.analyze.centrality("degree", )
+cent = mem.analyze.centrality("degree")
 pr = mem.pagerank()
 for label in sorted(cent.keys()):
     print(f"{label:>8} {cent[label]:>10.4f} {pr.get(label, 0.0):>10.4f}")
@@ -302,7 +300,7 @@ for community in comm_result.communities:
 |--------|---------|-------|
 | `mem.degree()` | `dict[str, int]` | Label-to-degree mapping |
 | `mem.degree(weighted=True)` | `dict[str, float]` | Sum of incident edge weights |
-| `mem.analyze.centrality("degree", )` | `dict[str, float]` | Normalized degree / (n-1) |
+| `mem.analyze.centrality("degree")` | `dict[str, float]` | Normalized degree / (n-1) |
 | `mem.pagerank()` | `dict[str, float]` | Iterative weight propagation |
 | `mem.query_nodes(data=...)` | `list[str]` | Exact data-attribute match |
 | `mem.ensure(concept, data=..., update=True)` | — | Idempotent node creation with data merge |

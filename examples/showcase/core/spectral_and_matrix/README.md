@@ -46,69 +46,61 @@ These three scripts form a progression — start with the matrices, then apply t
 **Step 1 output (foundation):**
 
 ```
+SECTION 1: INCIDENCE MATRIX + ADJACENCY MATRIX
 incidence matrix shape: (5, 4)
-  nnz: 8, sparsity: 0.6000
+adjacency matrix shape: (5, 5)
 
-Laplacian eigenvalues: [-0.     0.191  0.691  1.309  1.809]
-normalized Laplacian eigenvalues: [-0.      0.1464  0.5     0.8536  1.    ]
+SECTION 2: HYPERGRAPH LAPLACIAN + NORMALIZED LAPLACIAN
+eigenvalues: [-0.     0.191  0.691  1.309  1.809]
+zero eigenvalues: 1
 
+SECTION 3: N-ARY EDGES CHANGE THE MATRICES
 n-ary incidence matrix shape: (6, 2)
-  edge sizes: [3, 4], max edge order: 3
-n-ary Laplacian eigenvalues: [-0.      0.4505  1.      5.      5.      5.5495]
 
-communities from n-ary hyperedge structure:
-  communities found: 1
-  modularity: 0.0000
-  coverage: 1.0000
+SECTION 4: COMMUNITY DETECTION ON N-ARY EDGE GRAPH
+communities found: 1
 ```
 
 **Step 2 output (spectral analysis on a 12-node clustered graph):**
 
 ```
+SECTION 1: BUILD A STRUCTURED HYPERGRAPH
 nodes: 12, edges: 22
-structure: 3 dense clusters (4 nodes each) with bridge edges
 
-incidence matrix shape: (12, 22)
-  rows (nodes): 12, cols (edges): 22
-  non-zeros: 48
+SECTION 2: INCIDENCE MATRIX
+shape: (12, 22), non-zeros: 48
 
-hypergraph Laplacian shape: (12, 12)
-  eigenvalues (sorted): [-0.      0.1191  0.3346  6.      6.      6.3612]
-  zero eigenvalues (= components): 1
+SECTION 3: HYPERGRAPH LAPLACIAN
+shape: (12, 12), eigenvalues sorted, zero eigenvalues: 1
 
-spectral embeddings (dim=3):
-  n0: [0.314, 0.352, 0.156]
-  n4: [0.324, -0.084, -0.363]
-  n8: [0.256, -0.337, 0.248]
+SECTION 4: SPECTRAL EMBEDDING
+embeddings (dim=3) for each node
 
-s-persistence analysis:
-  s=1: 1 components
-  s=2: 10 components
-  s=3: 22 components
+SECTION 5: S-PERSISTENCE
+s=1: 1 components, s=2: 10 components, s=3: 22 components
 
-label propagation communities:
-  communities found: 3
-  modularity: 0.6303
-  coverage: 0.9714
-  community 0: ['n0', 'n1', 'n2', 'n3'] (size=4)
-  community 4: ['n4', 'n5', 'n6', 'n7'] (size=4)
-  community 10: ['n10', 'n11', 'n8', 'n9'] (size=4)
+SECTION 6: COMMUNITY DETECTION
+communities found: 3, modularity: 0.6303
 ```
 
 **Step 3 output (transformations on a 4-node graph):**
 
 ```
+SECTION 1: Dual Hypergraph
 original: nodes=4, edges=4
 dual: nodes=4, edges=4
+
+SECTION 2: Line Graph and Bipartite Graph
 line graph: nodes=4, edges=5
 bipartite graph: nodes=8, edges=8
 
+SECTION 3: Matrix Properties
 original adjacency: shape=(4, 4), density=0.3333
 original Laplacian eigenvalues: [-0.   0.5  1.5  2. ]
-dual adjacency: shape=(4, 4), density=0.3333
 
-original graph communities: 1, modularity: 0.0000
-dual graph communities: 4, modularity: 0.0000
+SECTION 4: COMMUNITY DETECTION - Original vs Dual
+original graph communities: 1
+dual graph communities: 4
 ```
 
 ## 4. Script Walkthroughs

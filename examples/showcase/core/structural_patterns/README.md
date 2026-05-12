@@ -36,18 +36,33 @@ Think of a city's road network. A **chain** is a one-way street where each inter
 ### What You'll See
 
 ```
-======================================================================
 SECTION 1: Building Technology Ecosystem Graph
-======================================================================
   Nodes: 76
   Edges: 109
 
-======================================================================
-SUMMARY
-======================================================================
-  Graph: 76 nodes, 109 edges
-  Patterns: 0 dependency chains, 10 hubs, 10 diamonds
-  Communities: 14 (modularity=0.534)
+SECTION 2: Chain Detection
+  'develops' chains found: 0
+  'uses' chains (length >= 2): 0
+
+SECTION 3: Fan-Out Analysis
+  Companies using 3+ technologies:
+    acme_cloud           fan_out=6
+    zenith_fintech       fan_out=5
+    nexa_ai              fan_out=4
+    volt_data            fan_out=4
+    ...
+
+SECTION 4: Diamond Detection
+  Technology convergence diamonds: 10
+
+SECTION 5: Community Detection
+  Communities: 14
+  Modularity:  0.595
+  Coverage:    68.5%
+
+SECTION 6: Cross-Analysis
+  Largest community (10 nodes):
+    Cross-community connections: 13
 ```
 
 ## 5. The Scenario
@@ -259,15 +274,15 @@ Weighted label propagation finds natural clusters in the graph:
 result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 ```
 
-**Result:** 14 communities, modularity 0.534, coverage 62.4%.
+**Result:** 14 communities, modularity 0.595, coverage 68.5%.
 
-A modularity of 0.534 indicates moderately strong community structure — communities are more densely connected internally than externally, but there is meaningful cross-community connectivity.
+A modularity of 0.595 indicates moderately strong community structure — communities are more densely connected internally than externally, but there is meaningful cross-community connectivity.
 
 Top communities by size:
 
 | Community | Size | Internal Edges | External Edges | Composition |
 |-----------|------|---------------|---------------|-------------|
-| 0 | 9 | 9 | 13 | acme_cloud ecosystem (company, product, 3 techs, 2 people, 2 standards) |
+| 0 | 10 | 9 | 13 | acme_cloud ecosystem (company, product, 3 techs, 2 people, 2 standards) |
 | 5 | 9 | 8 | 8 | zenith_fintech ecosystem (company, product, 3 techs, 2 people, 2 standards) |
 | 9 | 9 | 11 | 10 | nova_biotech + helix_health joint cluster (2 companies, 2 products, 2 techs, 2 people, 1 standard) |
 | 2 | 6 | 5 | 5 | volt_data ecosystem (company, product, 3 techs, 1 person) |
@@ -280,7 +295,7 @@ Top communities by size:
 
 ### Section 6: Cross-Analysis — Communities + Patterns
 
-The largest community (Community 0, 9 nodes) centers on `acme_cloud`:
+The largest community (Community with 10 nodes) centers on `acme_cloud`:
 
 ```python
 largest = max(result.communities, key=lambda c: c.size)
@@ -342,9 +357,9 @@ The observed modularity of 0.534 indicates strong but not rigid community struct
 | Technology hubs (fan-out >= 3) | 10 |
 | Convergence diamonds | 10 |
 | Communities | 14 |
-| Modularity | 0.534 |
-| Coverage | 62.4% |
-| Largest community size | 9 nodes |
+| Modularity | 0.595 |
+| Coverage | 68.5% |
+| Largest community size | 10 nodes |
 | Cross-community connections (largest) | 13 |
 | Highest fan-out | `acme_cloud` (6 technologies) |
 | Most converged technology | `docker` (5 diamonds) |

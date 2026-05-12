@@ -36,25 +36,25 @@ nodes: 5, edges: 5
 
 SECTION 2: IN-DEGREE / OUT-DEGREE
        concept  out_deg   in_deg    total
-      enzyme_a        2        0        2
-      enzyme_b        2        0        2
-      enzyme_c        2        0        2
-     product_y        0        2        2
-   substrate_x        1        3        4
+      enzyme_a      2.0      0.0      2.0
+      enzyme_b      2.0      0.0      2.0
+      enzyme_c      2.0      0.0      2.0
+     product_y      0.0      2.0      2.0
+   substrate_x      1.0      3.0      4.0
 
 SECTION 3: SOURCE / TARGET ACCESS
   binds: {'enzyme_a'} -> {'substrate_x'}  (tail=1, head=1)
   binds: {'enzyme_b'} -> {'substrate_x'}  (tail=1, head=1)
   binds: {'enzyme_c'} -> {'substrate_x'}  (tail=1, head=1)
   catalyzes: {'substrate_x'} -> {'product_y'}  (tail=1, head=1)
-  cooperative_catalysis: {'enzyme_b', 'enzyme_a', 'enzyme_c'} -> {'product_y'}  (tail=3, head=1)
+  cooperative_catalysis: {'enzyme_a', 'enzyme_b', 'enzyme_c'} -> {'product_y'}  (tail=3, head=1)
 
 SECTION 4: HYPEREDGE NEIGHBORS
 substrate_x co-participates in hyperedges with:
-  enzyme_c: 1 shared hyperedge(s)
-  enzyme_a: 1 shared hyperedge(s)
   enzyme_b: 1 shared hyperedge(s)
   product_y: 1 shared hyperedge(s)
+  enzyme_c: 1 shared hyperedge(s)
+  enzyme_a: 1 shared hyperedge(s)
 
 SECTION 5: SEMANTIC DIRECTION + INFERENCE
 reasoning from 'substrate_x':
@@ -207,7 +207,7 @@ for neighbor, edges in co_neighbors.items():
 mem.add_rules(
     TransitiveRule(edge_label="catalyzes", new_label="enables_production"),
 )
-result = mem.reason(seeds={"substrate_x"}, depth=2)
+result = mem.reason(seeds={"substrate_x"}, max_depth=2)
 ```
 
 ## 9. Reference
