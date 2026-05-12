@@ -234,9 +234,9 @@ def _link_playbooks_to_incidents(mem: HypergraphMemory) -> None:
 
 def _link_infrastructure(mem: HypergraphMemory) -> None:
     for srv in SERVERS:
-        node = mem.engine.graph.get_node_by_label(srv)
-        if node and node.data:
-            region = node.data.get("region", "us-east-1")
+        data = mem.node_data(srv)
+        if data:
+            region = data.get("region", "us-east-1")
             mem.link(srv, region, label="located_in")
             mem.link(srv, "production", label="deployed_in")
     for svc in SERVICES:
@@ -352,8 +352,7 @@ def main() -> None:
                 continue
             result = mem.sample_with_profile(qs_fresh, basis_name)
             if result:
-                node = mem.engine.graph.get_node(result.node_id)
-                label = node.label if node else result.node_id
+                label = mem.node_label(result.node_id) or result.node_id
                 print(f"      {basis_name:12s} -> {label}")
             else:
                 print(f"      {basis_name:12s} -> no sample")

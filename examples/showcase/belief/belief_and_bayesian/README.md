@@ -118,9 +118,14 @@ graph LR
     end
 
     subgraph "Water Distribution (Born-rule)"
+        WTR["water"]
         DRK["drinking<br/>amp=0.3"]
         RIV["river<br/>amp=0.8"]
         OCE["ocean<br/>amp=0.4"]
+    end
+
+    subgraph "Extra Concepts"
+        FISH["fish"]
     end
 ```
 

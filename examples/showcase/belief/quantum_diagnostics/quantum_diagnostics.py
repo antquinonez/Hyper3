@@ -306,7 +306,15 @@ def section_1_build_graph(mem: HypergraphMemory) -> list[str]:
         "memory_leak_api",
         "kafka_partition_rebalance",
     ]
-    evidence_count = len([n for n in mem.engine.graph.nodes if n.data.get("source")])
+    evidence_count = len([e for e in [
+        "log_connection_refused", "log_ssl_cert_invalid",
+        "metric_db_pool_active_95pct", "metric_dns_timeout_5s",
+        "metric_heap_growth_trend", "metric_kafka_consumer_lag",
+        "alert_circuit_breaker_open", "alert_ssl_expiry_0_days",
+        "deploy_last_commit_config_change", "log_dns_resolution_slow",
+        "metric_gc_pause_increase", "log_kafka_rebalance_event",
+        "evidence_recent_deploy_rollback", "evidence_no_dns_issues_other_services",
+    ] if mem.has(e)])
     print(f"  Root cause hypotheses: {len(hypotheses)}")
     print(f"  Evidence nodes: {evidence_count}")
     print()
@@ -370,8 +378,7 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
         qs_trial = mem.belief.create(outcomes=hypotheses, amplitudes=None, use_context=False)
         answer = mem.sample(qs_trial, context=context_weights)
         if answer:
-            node = mem.engine.graph.get_node(answer.node_id)
-            label = node.label if node else answer.node_id
+            label = mem.node_label(answer.node_id) or answer.node_id
             counts[label] = counts.get(label, 0) + 1
 
     print(f"\n  Sample frequency over {n_trials} trials:")
@@ -425,8 +432,7 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     print(f"\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
         for partner_id, prediction in cascaded.items():
-            node = mem.engine.graph.get_node(partner_id)
-            label = node.label if node else partner_id[:12]
+            label = mem.node_label(partner_id) or partner_id[:12]
             print(f"    {label}: prediction={prediction}")
         print()
         print("  Positive predictions mean the correlated outcome is expected")
@@ -456,8 +462,7 @@ def section_5_interference(mem: HypergraphMemory) -> None:
     print("    amplitudes: [+0.70, +0.50]")
     patterns_c = mem.belief.interactions(qs_constructive)
     for p in patterns_c:
-        node = mem.engine.graph.get_node(p.node_id)
-        label = node.label if node else p.node_id[:8]
+        label = mem.node_label(p.node_id) or p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
 
@@ -470,8 +475,7 @@ def section_5_interference(mem: HypergraphMemory) -> None:
     print("    amplitudes: [+0.70, -0.50]")
     patterns_d = mem.belief.interactions(qs_destructive)
     for p in patterns_d:
-        node = mem.engine.graph.get_node(p.node_id)
-        label = node.label if node else p.node_id[:8]
+        label = mem.node_label(p.node_id) or p.node_id[:8]
         kind = "CONSTRUCTIVE" if p.is_constructive else ("DESTRUCTIVE" if p.is_destructive else "NEUTRAL")
         print(f"    -> {label:25s} [{kind:12s}] net={p.net_amplitude:.4f}")
 

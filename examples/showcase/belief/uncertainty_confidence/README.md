@@ -8,7 +8,11 @@ Knowledge graphs accumulate inferred facts through reasoning chains. Each infere
 
 The UncertaintyEngine propagates confidence scores through inference chains, using provenance depth to decay confidence and trace_chain to find the highest-confidence path between concepts. This enables risk managers to distinguish "we know this" (observed, confidence 1.0) from "we inferred this through a chain" (confidence derived from edge weights and depth). Every node receives a ConfidenceScore recording its value, how many inference steps produced it, and whether it was observed or inferred. Confidence chains trace the best path between any two concepts, showing cumulative confidence and every rule applied along the way.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine auditing a supply chain. You know directly that widget_alpha comes from supplier_acme because you have the purchase order. But someone tells you widget_alpha also depends on supplier_globex through a chain of intermediaries — you did not see this yourself, you inferred it from transitive dependencies. You trust the inference, but less than the direct purchase order. Confidence scoring works the same way: direct observations get full confidence, and each inference step produces a score that reflects how many hops away from direct evidence the fact is.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -21,7 +25,7 @@ The UncertaintyEngine propagates confidence scores through inference chains, usi
 | **Inferred source** | A fact produced by a reasoning rule (depth > 0, confidence derived from chain) |
 | **Flagging** | Identifying concepts below a confidence threshold that need human verification |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/belief/uncertainty_confidence/uncertainty_confidence.py
@@ -59,49 +63,50 @@ concepts below confidence 0.5: 0
 
 > Output may vary slightly depending on reasoning engine state and confidence combination strategy.
 
-## 4. The Scenario
+## 5. The Scenario
 
 A 15-node supply chain knowledge graph with four node categories:
 
-- **Suppliers** (verified data): supplier_acme, supplier_stark, supplier_globex, supplier_hooli, supplier_umbrella
+- **Suppliers** (verified data): supplier_acme, supplier_globex, supplier_hooli, supplier_stark, supplier_umbrella
 - **Products** (supplier reports): widget_alpha, widget_beta, widget_gamma, widget_delta
 - **Risk factors** (market estimates): regulatory_risk, geopolitical_risk, currency_risk
 - **Market events** (unverified): trade_embargo, supply_shortage, labor_strike
 
 ```mermaid
 graph LR
-    supplier_acme -->|depends_on| widget_alpha
-    supplier_acme -->|depends_on| widget_beta
-    supplier_stark -->|depends_on| widget_gamma
-    supplier_globex -->|depends_on| supplier_stark
-    supplier_hooli -->|depends_on| supplier_globex
-    supplier_umbrella -->|depends_on| widget_delta
+    widget_alpha -->|depends_on w=3.0| supplier_acme
+    widget_beta -->|depends_on w=2.5| supplier_globex
+    widget_gamma -->|depends_on w=2.0| supplier_hooli
+    widget_delta -->|depends_on w=1.5| supplier_stark
+    widget_alpha -->|depends_on w=2.0| widget_beta
+    widget_beta -->|depends_on w=1.5| widget_gamma
 
-    widget_alpha -->|exposed_to| regulatory_risk
-    widget_beta -->|exposed_to| geopolitical_risk
-    widget_gamma -->|exposed_to| currency_risk
-    regulatory_risk -->|triggers| trade_embargo
-    geopolitical_risk -->|triggers| supply_shortage
-    currency_risk -->|triggers| labor_strike
+    regulatory_risk -->|affects w=2.0| supplier_umbrella
+    geopolitical_risk -->|affects w=3.0| supplier_globex
+    currency_risk -->|affects w=1.5| supplier_acme
+
+    trade_embargo -->|causes w=4.0| geopolitical_risk
+    supply_shortage -->|causes w=2.0| currency_risk
+    labor_strike -->|causes w=1.0| regulatory_risk
 ```
 
-Solid arrows: observed `depends_on`, `exposed_to`, and `triggers` edges (12 total). Dashed arrows (added by reasoning): inferred `indirect_dependency` edges from transitive chains.
+Solid arrows: observed `depends_on`, `affects`, and `causes` edges (12 total). Dashed arrows (added by reasoning): inferred `indirect_dependency` edges from transitive chains.
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
-**Section 1 — Build supply chain knowledge graph:** 15 nodes and 12 directed edges are created across four categories. Suppliers connect to products via `depends_on` edges, products connect to risk factors via `exposed_to` edges, and risk factors connect to market events via `triggers` edges. Suppliers are tagged with `data={"verification": "verified"}`, products with `data={"source": "supplier_report"}`, risk factors with `data={"source": "market_estimate"}`, and market events with `data={"verification": "unverified"}`. This data metadata does not affect confidence scoring directly but provides context for interpretation.
+**Section 1 — Build supply chain knowledge graph:** 15 nodes and 12 directed edges are created across four categories. Products connect to suppliers via `depends_on` edges (e.g., widget_alpha depends on supplier_acme), risk factors affect suppliers via `affects` edges (e.g., geopolitical_risk affects supplier_globex), and market events cause risk factors via `causes` edges (e.g., trade_embargo causes geopolitical_risk). Products also depend on other products via `depends_on` (widget_alpha depends on widget_beta, widget_beta depends on widget_gamma). Suppliers are tagged with `data={"type": "supplier", "reliability": "verified"}`, products with `data={"type": "product", "reliability": "supplier_report"}`, risk factors with `data={"type": "risk_factor", "reliability": "market_estimate"}`, and market events with `data={"type": "market_event", "reliability": "unverified"}`. This data metadata does not affect confidence scoring directly but provides context for interpretation.
 
-**Section 2 — Run reasoning to create inference chains:** A `TransitiveRule` is registered with `edge_label="depends_on"` and `new_label="indirect_dependency"`. This rule finds two-hop chains: if A depends_on B and B depends_on C, it infers an `indirect_dependency` edge from A to C. Running `reason(seeds={"widget_alpha", "widget_beta"}, depth=5)` produces 3 new edges across 4 multiway states. The inferred edges are: widget_beta -> supplier_hooli (chain: widget_beta -> supplier_acme -> supplier_globex -> supplier_hooli is too long; actual chain is widget_beta -> supplier_hooli via widget_beta -> supplier_acme -> supplier_hooli... the exact chains depend on graph topology), widget_alpha -> supplier_globex, and widget_alpha -> widget_gamma. Why this matters: these inferred edges represent indirect dependencies that were not explicitly recorded. widget_alpha now has a computed dependency on supplier_globex, even though no direct edge connects them. The confidence engine will score these differently from the observed edges.
+**Section 2 — Run reasoning to create inference chains:** A `TransitiveRule` is registered with `edge_label="depends_on"` and `new_label="indirect_dependency"`. This rule finds two-hop chains: if A depends_on B and B depends_on C, it infers an `indirect_dependency` edge from A to C. Running `reason(seeds={"supplier_acme", "supplier_globex", "widget_alpha"}, max_depth=3)` produces 3 new edges across 4 multiway states. The inferred edges are: widget_alpha -> supplier_globex (chain: widget_alpha depends_on widget_beta, widget_beta depends_on supplier_globex), widget_alpha -> widget_gamma (chain: widget_alpha depends_on widget_beta, widget_beta depends_on widget_gamma), and widget_beta -> supplier_hooli (chain: widget_beta depends_on widget_gamma, widget_gamma depends_on supplier_hooli). Why this matters: these inferred edges represent indirect dependencies that were not explicitly recorded. widget_alpha now has a computed dependency on supplier_globex, even though no direct edge connects them. The confidence engine will score these differently from the observed edges.
 
-**Section 3 — Single-node confidence scores:** The script calls `score_node()` on four representative nodes. supplier_acme (a verified supplier) receives confidence 1.0000 at depth 0 with source "observed" — it was directly entered into the graph. widget_alpha (a product from supplier reports) also receives confidence 1.0000 at depth 0 — it is a direct observation regardless of its data source tag. widget_gamma (a product that is also the target of an inferred `indirect_dependency` edge) receives confidence 2.5500 at depth 1 with source "inferred" — its confidence comes from contributing edge weights multiplied by the decay factor. trade_embargo (an unverified market event) receives confidence 1.0000 at depth 0 — unverified status does not lower confidence; only inference depth does. Why this matters: the confidence score distinguishes direct observations from inferred facts. A risk manager reviewing widget_gamma's dependency chain can see that its confidence is derived, not observed, and plan verification accordingly.
+**Section 3 — Single-node confidence scores:** The script calls `compute_confidence()` on four representative nodes. supplier_acme (a verified supplier) receives confidence 1.0000 at depth 0 with source "observed" — it was directly entered into the graph. widget_alpha (a product from supplier reports) also receives confidence 1.0000 at depth 0 — it is a direct observation regardless of its data reliability tag. widget_gamma (a product that is also the target of an inferred `indirect_dependency` edge) receives confidence 2.5500 at depth 1 with source "inferred" — its confidence comes from contributing edge weights. trade_embargo (an unverified market event) receives confidence 1.0000 at depth 0 — unverified status does not lower confidence; only inference depth does. Why this matters: the confidence score distinguishes direct observations from inferred facts. A risk manager reviewing widget_gamma's dependency chain can see that its confidence is derived, not observed, and plan verification accordingly.
 
-**Section 4 — Full uncertainty analysis:** `analyze()` scores all 15 nodes and produces aggregate statistics. Average confidence is 1.4233, minimum is 1.0000 (observed nodes), maximum is 4.2500 (supplier_globex, which receives contributions from multiple inferred edges). All 15 nodes are classified as high confidence (>= 0.8), with 0 low-confidence nodes. The confidence distribution shows supplier_globex highest at 4.2500, supplier_hooli and widget_gamma at 2.5500, and all observed nodes at 1.0000. Why this matters: the distribution reveals which concepts are most affected by inference chains. supplier_globex has the highest confidence not because it is most trusted, but because it accumulates weight from multiple contributing edges. This is a signal that its confidence is heavily derived and should be interpreted cautiously.
+**Section 4 — Full uncertainty analysis:** `analyze()` scores all 15 nodes and produces aggregate statistics. Average confidence is 1.4233, minimum is 1.0000 (observed nodes), maximum is 4.2500 (supplier_globex, which receives contributions from multiple contributing edges). All 15 nodes are classified as high confidence (>= 0.8), with 0 low-confidence nodes. The confidence distribution shows supplier_globex highest at 4.2500, supplier_hooli and widget_gamma at 2.5500, and all observed nodes at 1.0000. Why this matters: the distribution reveals which concepts are most affected by inference chains. supplier_globex has the highest confidence not because it is most trusted, but because it accumulates weight from multiple contributing edges. This is a signal that its confidence is heavily derived and should be interpreted cautiously.
 
-**Section 5 — Confidence chain tracing:** `trace_chain()` finds the highest-confidence path between two concepts. The chain from widget_alpha to supplier_globex traverses 2 edges with cumulative confidence 5.0000. No chain exists from trade_embargo to supplier_acme — they are in disconnected parts of the graph (trade_embargo is downstream of risk factors, supplier_acme is upstream of products). Why this matters: chain tracing answers "how do we know that widget_alpha depends on supplier_globex?" by showing the exact path and its cumulative confidence. This is critical for supply chain audits where every inference must be explainable.
+**Section 5 — Confidence chain tracing:** `trace_chain()` finds the highest-confidence path between two concepts. The chain from widget_alpha to supplier_globex traverses 2 edges with cumulative confidence 5.0000 (via the inferred `indirect_dependency` edge created by the transitive rule). No chain exists from trade_embargo to supplier_acme — they are in disconnected parts of the graph (trade_embargo is connected to risk factors via `causes` edges, supplier_acme is connected to products via `depends_on` edges; no transitive path links them). Why this matters: chain tracing answers "how do we know that widget_alpha depends on supplier_globex?" by showing the exact path and its cumulative confidence. This is critical for supply chain audits where every inference must be explainable.
 
 **Section 6 — Flagging low-confidence inferences:** `flag_low_confidence(threshold=0.5)` scans all nodes for those below the threshold. In this graph, 0 concepts fall below 0.5 — all observed nodes have confidence 1.0, and all inferred nodes have confidence above the threshold due to high edge weights. In a real supply chain with weaker edge weights or longer inference chains, this step would surface the concepts most in need of human verification. Why this matters: rather than requiring manual inspection of every node's confidence, flagging automatically surfaces the riskiest conclusions. An auditor can focus effort on the flagged subset.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -119,7 +124,7 @@ Solid arrows: observed `depends_on`, `exposed_to`, and `triggers` edges (12 tota
 | Chain cumulative confidence (widget_alpha -> supplier_globex) | 5.0000 |
 | Rules applied | TransitiveRule (depends_on -> indirect_dependency) |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Provenance-based confidence decay** grounds confidence scores in the actual inference chain depth rather than applying a generic trust score. A node inferred through two transitive steps receives a different confidence than one inferred through one step, because each step multiplies by the decay factor. This means confidence automatically degrades for long inference chains — a property that matches how evidence works in practice: the more steps removed a conclusion is from direct observation, the less certain it is.
 
@@ -127,7 +132,7 @@ Solid arrows: observed `depends_on`, `exposed_to`, and `triggers` edges (12 tota
 
 **Flagging** surfaces the concepts that need human verification rather than requiring manual inspection of every node. `flag_low_confidence(threshold)` filters the full node set to the risky subset, enabling auditors to focus effort where inference uncertainty is highest.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 **1. Build the supply chain graph:**
 
@@ -142,16 +147,16 @@ risk_factors = ["regulatory_risk", "geopolitical_risk", "currency_risk"]
 events = ["trade_embargo", "supply_shortage", "labor_strike"]
 
 for s in suppliers:
-    mem.add(s, data={"verification": "verified"})
+    mem.add(s, data={"type": "supplier", "reliability": "verified"})
 for p in products:
-    mem.add(p, data={"source": "supplier_report"})
+    mem.add(p, data={"type": "product", "reliability": "supplier_report"})
 for r in risk_factors:
-    mem.add(r, data={"source": "market_estimate"})
+    mem.add(r, data={"type": "risk_factor", "reliability": "market_estimate"})
 for e in events:
-    mem.add(e, data={"verification": "unverified"})
+    mem.add(e, data={"type": "market_event", "reliability": "unverified"})
 
-mem.link("supplier_acme", "widget_alpha", label="depends_on")
-mem.link("supplier_acme", "widget_beta", label="depends_on")
+mem.link("widget_alpha", "supplier_acme", label="depends_on", weight=3.0)
+mem.link("widget_beta", "supplier_globex", label="depends_on", weight=2.5)
 ```
 
 **2. Run transitive reasoning:**
@@ -162,7 +167,7 @@ from hyper3 import TransitiveRule
 mem.add_rules(
     TransitiveRule(edge_label="depends_on", new_label="indirect_dependency"),
 )
-result = mem.reason(seeds={"widget_alpha", "widget_beta"}, depth=5)
+result = mem.reason(seeds={"supplier_acme", "supplier_globex", "widget_alpha"}, max_depth=3)
 print(f"edges produced: {result.expansion.edges_produced}")
 ```
 
@@ -199,7 +204,7 @@ flagged = mem.flag_low_confidence(threshold=0.5)
 print(f"concepts below threshold: {len(flagged)}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 This showcase demonstrates confidence propagation on a small synthetic supply chain. Real-world adoption involves additional work:
 
@@ -210,7 +215,7 @@ This showcase demonstrates confidence propagation on a small synthetic supply ch
 - **Combination strategies:** The showcase uses the default combination strategy. Real domains may require switching between geometric, minimum, or average depending on the relationship semantics.
 - **Dynamic updates:** Confidence scores are computed on demand. Continuously evolving graphs may need incremental score updates rather than full recomputation.
 
-## 10. Reference
+## 11. Reference
 
 | Method | Purpose |
 |--------|---------|

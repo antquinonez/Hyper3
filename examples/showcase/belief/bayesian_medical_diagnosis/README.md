@@ -147,7 +147,25 @@ Chest pain is modeled as a belief distribution over three interpretations (cardi
 ### Section 6: Knowledge Gap Identification
 Confidence scores for all concepts. Low-confidence concepts indicate areas where additional test relationships or risk factor connections would improve diagnostic confidence.
 
-## 7. Key Metrics
+## 7. Understanding the Output
+
+### Posterior Probability Progression
+
+The MI posterior increases monotonically across the four updates: 0.300, 0.444, 0.898, 0.986, 0.992. The largest single jump occurs at the ECG update (0.444 to 0.898), which reflects the high specificity of ST elevation for myocardial infarction (likelihood 0.90 for MI vs 0.10 for PE). The D-dimer normal result has the smallest effect (0.986 to 0.992) because the posterior is already concentrated on MI.
+
+### KL Divergence per Evidence Piece
+
+The KL divergence column shows how much each evidence piece shifts the distribution: chest pain symptoms (0.084 bits), ECG (0.704 bits), troponin (0.100 bits), D-dimer (0.005 bits). The ECG dominates because its likelihood distribution is the most peaked -- it strongly supports MI (0.90) while being near-zero for most alternatives.
+
+### Bayes Factor Interpretation
+
+A Bayes factor of 410.40 between MI and PE is classified as "decisive" (>100 on the standard scale). This means the accumulated evidence makes MI over 400 times more likely than PE relative to their prior odds. In clinical practice, this level of evidence is sufficient to rule in the diagnosis and begin treatment.
+
+### Belief Distribution Sampling
+
+The chest pain interpretation sampling (Section 5) is probabilistic. Given cardiac context weights (`cardiac_chest_pain: 3.0`, `gi_chest_pain: 0.5`, `musculoskeletal_chest_pain: 0.3`), the cardiac interpretation is most likely to be sampled, but non-cardiac interpretations occasionally appear. This reflects the real-world ambiguity of chest pain presentation.
+
+## 8. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -159,7 +177,7 @@ Confidence scores for all concepts. Low-confidence concepts indicate areas where
 | Bayes factor (MI vs PE) | 410.40 |
 | 95% credible set | `['mi']` |
 
-## 8. What Makes This Different
+## 9. What Makes This Different
 
 **Sequential Bayesian updating** provides a principled framework for incremental evidence accumulation. Each update shifts the posterior via Bayes' rule, and KL divergence quantifies how much each piece of evidence changes beliefs. This is mathematically rigorous compared to ad hoc scoring systems.
 
@@ -167,7 +185,7 @@ Confidence scores for all concepts. Low-confidence concepts indicate areas where
 
 **Ambiguity-preserving representation.** Chest pain is not forced into a single interpretation. The belief distribution holds cardiac, GI, and musculoskeletal interpretations simultaneously, collapsing to a specific interpretation only when context demands it.
 
-## 9. Code Implementation
+## 10. Code Implementation
 
 ```python
 from hyper3 import HypergraphMemory
@@ -189,7 +207,7 @@ print(mem.map_estimate("differential_diagnosis"))
 print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b="pe"))
 ```
 
-## 10. Real-World Gap
+## 11. Real-World Gap
 
 - **Synthetic likelihoods.** The likelihood values (e.g., P(ST elevation | MI) = 0.90) are representative but should come from clinical studies.
 - **No temporal dynamics.** Test results arrive sequentially in practice, and the timing matters (troponin peaks at specific hours post-onset).
@@ -197,7 +215,7 @@ print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b
 - **Single patient.** A production system would maintain distributions across populations.
 - **No learning from outcomes.** The priors are fixed; a real system would update priors based on confirmed diagnoses.
 
-## 11. Reference
+## 12. Reference
 
 ### API Methods
 
