@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 from hyper3.kernel import Hypergraph
 from hyper3.results import _SimpleResultBase
-from hyper3.search_index import AttributeIndex
+from hyper3.search_index import AttributeIndex, SearchFilter
 from hyper3.search_query import SearchQuery
 
 if TYPE_CHECKING:
@@ -98,26 +98,22 @@ class QueryPlanner:
         return result
 
     @staticmethod
-    def _node_matches_filter(data: dict, f: object) -> bool:
-        sf = f
-        if not hasattr(sf, 'field'):
-            return True
-        field = sf.field
-        if field not in data:
+    def _node_matches_filter(data: dict, f: SearchFilter) -> bool:
+        if f.field not in data:
             return False
-        val = data[field]
-        if hasattr(sf, 'values') and sf.values is not None:
-            match = val in sf.values
-            return not match if sf.negated else match
-        if hasattr(sf, 'min_value') and sf.min_value is not None:
+        val = data[f.field]
+        if f.values is not None:
+            match = val in f.values
+            return not match if f.negated else match
+        if f.min_value is not None:
             if not isinstance(val, (int, float)):
                 return False
-            match = val >= sf.min_value
-            if hasattr(sf, 'max_value') and sf.max_value is not None:
-                match = match and val <= sf.max_value
-            return not match if sf.negated else match
-        match = str(val) == str(sf.value)
-        return not match if sf.negated else match
+            match = val >= f.min_value
+            if f.max_value is not None:
+                match = match and val <= f.max_value
+            return not match if f.negated else match
+        match = str(val) == str(f.value)
+        return not match if f.negated else match
 
     def _plan_browse(self, query: SearchQuery, selectivity: float) -> SearchPlan:
         candidates = self._get_candidates(query)
