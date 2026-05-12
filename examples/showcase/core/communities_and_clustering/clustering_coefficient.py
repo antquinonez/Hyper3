@@ -103,7 +103,7 @@ def main() -> None:
     )
 
     print(f"\nn-ary hypergraph: nodes={hmem.size[0]}, edges={hmem.size[1]}")
-    for concept in sorted(m.label for m in mem.engine.graph.nodes):
+    for concept in sorted(n.label for n in hmem.engine.graph.nodes):
         cc = hmem.clustering_coefficient(concept)
         print(f"  {concept}: clustering={cc:.4f}")
 

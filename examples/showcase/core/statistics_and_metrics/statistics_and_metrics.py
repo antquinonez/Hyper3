@@ -56,7 +56,7 @@ def main() -> None:
 
     edge_sizes = []
     edge_orders = []
-    for e in mem2.graph.edges:
+    for e in mem2.engine.graph.edges:
         size = len(e.node_ids)
         edge_sizes.append(size)
         edge_orders.append(size - 1)
@@ -128,8 +128,8 @@ def main() -> None:
 
     before_deg = mem4.degree()
     before_density = mem4.density()
-    before_nodes = mem4.graph.node_count
-    before_edges = mem4.graph.edge_count
+    before_nodes = mem4.size[0]
+    before_edges = mem4.size[1]
 
     print(f"\nbefore evolution:")
     print(f"  nodes: {before_nodes}, edges: {before_edges}")
@@ -139,14 +139,14 @@ def main() -> None:
     mem4.search.activate("a", energy=1.0)
     mem4.search.activate("b", energy=1.0)
     mem4.search.activate("c", energy=1.0)
-    mem4.hebbian_reinforce()
+    mem4.cognitive.hebbian_reinforce()
 
     evolve_result = mem4.evolve()
 
     after_deg = mem4.degree()
     after_density = mem4.density()
-    after_nodes = mem4.graph.node_count
-    after_edges = mem4.graph.edge_count
+    after_nodes = mem4.size[0]
+    after_edges = mem4.size[1]
 
     print(f"\nafter evolution (decay weak edges, reinforce active paths):")
     print(f"  nodes: {after_nodes}, edges: {after_edges}")

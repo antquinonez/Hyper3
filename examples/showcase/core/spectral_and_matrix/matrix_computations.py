@@ -126,7 +126,7 @@ def main() -> None:
     print("SECTION 4: COMMUNITY DETECTION ON N-ARY EDGE GRAPH")
     print("=" * 70)
 
-    from hyper3.community import CommunityDetector
+    from hyper3 import CommunityDetector
 
     detector = CommunityDetector(g2)
     cr = detector.detect_label_propagation(seed=42)

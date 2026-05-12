@@ -135,13 +135,10 @@ def main() -> None:
     for asm in assumptions:
         print(f"  {asm.name}: {asm.description} (coverage gain: {asm.coverage_gain:.4f})")
 
-    if assumptions:
-        report = detector._build_exploration_report("config_svc")
-        print(f"\nbefore assumption: coverage={report.coverage_pct:.1f}%")
-
-        extended = detector.extend_exploration(report, assumptions[0])
-        print(f"after assumption: coverage={extended.coverage_pct:.1f}%")
-        print(f"  assumption-dependent nodes: {extended.assumption_dependent_nodes}")
+    anomaly_config = mem.analyze.anomalies("config_svc")
+    print(f"\nconfig_svc anomaly status: {anomaly_config.anomaly_status}")
+    print(f"  boundary score: {anomaly_config.boundary_score:.4f}")
+    print(f"  structural insights: {anomaly_config.structural_insights[:3]}")
 
     print("\n" + "=" * 70)
     print("SECTION 6: CROSS-REFERENCE WITH CENTRALITY")

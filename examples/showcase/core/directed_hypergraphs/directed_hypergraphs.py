@@ -91,7 +91,7 @@ def main() -> None:
     print("SECTION 5: SEMANTIC DIRECTION + INFERENCE (Hyper3-only layer)")
     print("=" * 70)
 
-    from hyper3.rules import TransitiveRule
+    from hyper3 import TransitiveRule
 
     mem.add_rules(
         TransitiveRule(edge_label="catalyzes", new_label="enables_production"),

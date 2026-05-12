@@ -129,7 +129,7 @@ EDGES: list[tuple[str, str, str, float]] = [
     ("pulse_security", "rust_lang", "uses", 6.0),
     ("pulse_security", "grpc", "uses", 4.0),
     ("orbit_iot", "iot_gateway_hub", "develops", 9.0),
-    ("orbit_iot", "mqtt", "uses", 7.0) if False else ("orbit_iot", "zeromq", "uses", 6.0),
+    ("orbit_iot", "zeromq", "uses", 6.0),
     ("orbit_iot", "golang", "uses", 5.0),
     ("orbit_iot", "docker", "uses", 4.0),
     ("zenith_fintech", "payflow_api", "develops", 9.0),

@@ -38,11 +38,11 @@ def main() -> None:
         mem.add(div, data={"type": "division"})
 
     for team_members in teams.values():
-        for i in range(len(team_members) - 1):
-            mem.link(team_members[i], team_members[i + 1], label="reports_to", weight=1.0)
+        for i in range(0, len(team_members) - 1, 2):
+            mem.link(team_members[i], team_members[i + 1], label="collaborates_with", weight=1.0)
 
-    mem.link("alice", "bob", label="collaborates_with", weight=1.0)
-    mem.link("carol", "dave", label="collaborates_with", weight=1.0)
+    mem.link("alice", "carol", label="collaborates_with", weight=1.0)
+    mem.link("charlie", "dave", label="collaborates_with", weight=1.0)
 
     mem.link("alice", "dept_engineering", label="managed_by", weight=1.0)
     mem.link("carol", "dept_product", label="managed_by", weight=1.0)

@@ -93,7 +93,7 @@ def main() -> None:
 
     recalled = mem.recall("london", max_depth=3)
     print(f"\nrecall from 'london' (BFS-like, depth=3):")
-    print(f"  concepts: {recalled}")
+    print(f"  concepts: {[n.label for n in recalled]}")
     print(f"  depth reached: 3")
 
     print("\n" + "=" * 70)
@@ -111,7 +111,7 @@ def main() -> None:
     print("SECTION 6: REASONING - Inferring Indirect Train Routes")
     print("=" * 70)
 
-    from hyper3.rules import TransitiveRule
+    from hyper3 import TransitiveRule
 
     mem.add_rules(
         TransitiveRule(edge_label="train", new_label="indirect_train"),

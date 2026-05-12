@@ -102,7 +102,7 @@ def main() -> None:
     print("SECTION 4: COMMUNITY DETECTION - Original vs Dual")
     print("=" * 70)
 
-    from hyper3.community import CommunityDetector
+    from hyper3 import CommunityDetector
 
     orig_detector = CommunityDetector(g)
     orig_cr = orig_detector.detect_label_propagation(seed=42)
