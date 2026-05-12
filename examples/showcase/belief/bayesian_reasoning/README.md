@@ -241,7 +241,8 @@ for evidence in EVIDENCE_NODES:
     mem.add(evidence, data={"type": "evidence"})
 
 mem.add("outage_diagnosis", data={"type": "bayesian_analysis"})
-mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)
+mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES,
+              weights=[0.30, 0.20, 0.15, 0.10, 0.10, 0.15])
 
 for evidence_name in OBSERVATION_ORDER:
     result = mem.update_belief(

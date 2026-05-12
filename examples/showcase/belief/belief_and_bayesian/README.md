@@ -69,9 +69,9 @@ SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS
 ======================================================================
 ...
 sampling distribution (100 trials):
-     river_edge:  53 ( 53.0%) ...
-      financial:  32 ( 32.0%) ...
-      billiards:  15 ( 15.0%) ...
+     river_edge:  ~52 ( ~52.0%) ...
+      financial:  ~38 ( ~38.0%) ...
+      billiards:  ~10 ( ~10.0%) ...
 
 ======================================================================
 SECTION 4: CREDIBLE SET
@@ -82,7 +82,7 @@ SECTION 4: CREDIBLE SET
 DONE
 ```
 
-Exact sampling counts in Section 2 vary across runs due to probabilistic sampling. The rank order (river_edge > financial > billiards) is stable.
+Exact sampling counts in Section 2 vary across runs due to probabilistic sampling. The percentages above reflect the expected frequency (|amplitude|^2, normalized). The rank order (river_edge > financial > billiards) is stable.
 
 ## 5. The Scenario
 
@@ -147,11 +147,11 @@ Second evidence: lab results. Likelihoods: `healthy` = 0.05, `disease_a` = 0.9, 
 
 The ambiguous concept "bank" is represented as a Born-rule distribution over three outcomes: `financial` (amplitude 0.6), `river_edge` (amplitude 0.7), `billiards` (amplitude 0.3). Sampling produces each outcome with probability proportional to |amplitude|^2:
 
-| Outcome | Amplitude | \|Amp\|^2 | Normalized P | Observed (100 samples) |
-|---------|-----------|-----------|--------------|----------------------|
-| `river_edge` | 0.7 | 0.49 | 0.521 | ~53% |
-| `financial` | 0.6 | 0.36 | 0.383 | ~34% |
-| `billiards` | 0.3 | 0.09 | 0.096 | ~13% |
+| Outcome | Amplitude | \|Amp\|^2 | Normalized P | Expected frequency (100 samples) |
+|---------|-----------|-----------|--------------|--------------------------------|
+| `river_edge` | 0.7 | 0.49 | 0.521 | ~52% |
+| `financial` | 0.6 | 0.36 | 0.383 | ~38% |
+| `billiards` | 0.3 | 0.09 | 0.096 | ~10% |
 
 **Why this matters:** A simple categorical distribution assigns fixed probabilities. Born-rule amplitudes support interference effects -- when distributions are correlated (Section 3), the effective probabilities shift based on observations of related concepts. This provides a mechanism for context-dependent interpretation that flat probability weights cannot reproduce.
 
@@ -255,7 +255,7 @@ cs = mem.bayes.credible("patient", level=0.9)
 ```python
 mem.add("bank", data={"type": "ambiguous"})
 mem.belief.create(
-    ["financial", "river_edge", "billiards"],
+    outcomes=["financial", "river_edge", "billiards"],
     amplitudes=[0.6, 0.7, 0.3],
 )
 sample = mem.belief.sample("financial")

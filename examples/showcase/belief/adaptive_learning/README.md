@@ -213,18 +213,18 @@ Four measurement perspectives are trained with outcome records:
 | linguistic | 0.40 |
 | emotional | 0.20 |
 
-Thompson sampling then selects bases over 200 trials. The selection distribution reflects the learned quality:
+Thompson sampling then selects bases over 200 trials. The selection distribution reflects the learned quality (exact counts vary across runs):
 
-| Basis | Selections | Share |
-|-------|-----------|-------|
-| temporal | 138 | 69% |
-| pragmatic | 59 | 30% |
-| linguistic | 2 | 1% |
-| emotional | 1 | 0.5% |
+| Basis | Typical Share |
+|-------|--------------|
+| temporal | ~65-75% |
+| pragmatic | ~20-30% |
+| linguistic | ~1-3% |
+| emotional | 0-1% |
 
 **Why Thompson sampling over greedy selection:** A greedy approach would always pick `temporal` (1.00 success rate) and never try `linguistic` or `emotional` again. But if the problem landscape changes — say, a new class of alerts where the `linguistic` basis is actually better — the greedy approach would never discover this. Thompson sampling keeps a small probability of exploring alternatives, so the system can adapt when conditions change.
 
-The showcase also demonstrates how different bases produce different samples for the same problem:
+The showcase also demonstrates how different bases produce different samples for the same problem (specific selections vary by run):
 
 | Problem Type | Pragmatic | Temporal | Linguistic |
 |-------------|-----------|----------|------------|
@@ -245,18 +245,18 @@ Four analysis frames are trained with outcome records:
 | classical | 0.67 |
 | hypergraph | 0.20 |
 
-The default frame selection uses a complexity heuristic that picks `classical` for every test concept. The learned (Thompson-sampled) selection overrides this:
+The default frame selection uses a complexity heuristic that picks `classical` for every test concept. The learned (Thompson-sampled) selection overrides this (specific frames vary by run):
 
-| Concept | Complexity-Based | Learned (TS) |
-|---------|-----------------|-------------|
+| Concept | Complexity-Based | Learned (TS, typical) |
+|---------|-----------------|----------------------|
 | api-gateway | classical | quantum |
-| high-latency | classical | quantum |
-| order-service | classical | classical |
+| high-latency | classical | quantum or probabilistic |
+| order-service | classical | quantum or classical |
 | timeout-cascade | classical | probabilistic |
 | database-layer | classical | quantum |
-| payment-service | classical | classical |
+| payment-service | classical | quantum or classical |
 
-Over 300 trials, the learned selection heavily favors `quantum` (192 selections) with `classical` (88) and `probabilistic` (20) as alternatives, and `hypergraph` (0) effectively excluded due to its low effectiveness score.
+Over 300 trials, the learned selection heavily favors `quantum` (~190 selections) with `classical` (~90) and `probabilistic` (~15) as alternatives, and `hypergraph` (~0-5) effectively excluded due to its low effectiveness score. Exact counts vary across runs.
 
 **Why this matters:** The complexity-based heuristic is a static rule — it picks `classical` for everything because it cannot distinguish between problem types. The learned selector develops preferences: it learns that `quantum` analysis tends to produce better results for concepts like `api-gateway` and `database-layer`, while `classical` remains appropriate for `order-service` and `payment-service`. This is knowledge the system acquires from experience rather than from a designer's upfront specification.
 
@@ -334,14 +334,14 @@ The `novel_problem` trigger fires because the system has 282 edges (a non-trivia
 | Best basis (success rate) | temporal (1.00) |
 | Worst basis (success rate) | emotional (0.20) |
 | Thompson sampling trials | 200 |
-| Temporal selections | 138 |
-| Pragmatic selections | 59 |
+| Temporal selections (typical) | ~130-150 |
+| Pragmatic selections (typical) | ~40-60 |
 | Analysis frames tested | 4 |
 | Best frame (effectiveness) | quantum (1.00) |
 | Worst frame (effectiveness) | hypergraph (0.20) |
 | Learned frame trials | 300 |
-| Quantum frame selections | 192 |
-| Classical frame selections | 88 |
+| Quantum frame selections (typical) | ~180-200 |
+| Classical frame selections (typical) | ~80-100 |
 | System fitness | 0.840 |
 | Reasoning mode | sparse |
 | Anti-patterns detected | 1 |

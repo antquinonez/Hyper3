@@ -136,22 +136,7 @@ Four sequential Bayesian updates:
 | Troponin elevated | 0.986 | 0.100 bits |
 | D-dimer normal | 0.992 | 0.005 bits |
 
-### Section 4: Diagnosis Confirmation
-- MAP estimate: `mi` (most probable diagnosis)
-- 95% credible set: `['mi']` (MI alone covers >95% probability)
-- Bayes factor (MI vs PE): 410.40 (decisive evidence)
-
-### Section 5: Ambiguous Symptom Interpretation
-Chest pain is modeled as a belief distribution over three interpretations (cardiac, GI, musculoskeletal). Context-dependent sampling (Born rule with context weights) selects the cardiac interpretation given cardiac risk factors.
-
-### Section 6: Knowledge Gap Identification
-Confidence scores for all concepts. Low-confidence concepts indicate areas where additional test relationships or risk factor connections would improve diagnostic confidence.
-
-## 7. Understanding the Output
-
-### Posterior Probability Progression
-
-The MI posterior increases monotonically across the four updates: 0.300, 0.444, 0.898, 0.986, 0.992. The largest single jump occurs at the ECG update (0.444 to 0.898), which reflects the high specificity of ST elevation for myocardial infarction (likelihood 0.90 for MI vs 0.10 for PE). The D-dimer normal result has the smallest effect (0.986 to 0.992) because the posterior is already concentrated on MI.
+The posterior after ECG (0.444 to 0.898) is the largest single jump, reflecting the high specificity of ST elevation for MI (likelihood 0.90 for MI vs 0.10 for PE).
 
 ### KL Divergence per Evidence Piece
 

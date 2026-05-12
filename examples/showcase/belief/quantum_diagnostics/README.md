@@ -52,11 +52,13 @@ SECTION 2: Distribution = Maintaining Competing Hypotheses
   Total probability: 1.0000
 
 SECTION 3: Sample = Evidence-Driven Hypothesis Selection
-  certificate_expiry sampled 40.7% (highest context weight = 3.5)
-  dns_resolution_failure sampled 20.8%
-  db_connection_pool_exhaustion sampled 18.3%
-  memory_leak_api sampled 11.3%
-  kafka_partition_rebalance sampled 8.9%
+  Expected posterior (from context weights):
+    certificate_expiry              ~41% (highest context weight = 3.5)
+    dns_resolution_failure          ~21%
+    db_connection_pool_exhaustion   ~17%
+    memory_leak_api                 ~12%
+    kafka_partition_rebalance        ~9%
+  (Observed sampling counts vary across runs; rank order is stable.)
 
 SECTION 4: Correlation = Correlated Hypotheses
   dns_failure <-> db_pool_exhaustion: +0.6
@@ -227,7 +229,7 @@ Context weights derived from evidence severity are applied during sampling:
 | `memory_leak_api` | 1.0 | 11.6% |
 | `kafka_partition_rebalance` | 0.8 | 9.3% |
 
-The high weight for `certificate_expiry` reflects strong SSL-related evidence (confidence 0.92 for `log_ssl_cert_invalid`, 0.95 for `alert_ssl_expiry_0_days`). Over 1000 sampling trials, `certificate_expiry` is selected 40.7% of the time. A comparison with `np.random.choice` using the same probabilities produces a matching distribution (41.7% for certificate_expiry).
+The high weight for `certificate_expiry` reflects strong SSL-related evidence (confidence 0.92 for `log_ssl_cert_invalid`, 0.95 for `alert_ssl_expiry_0_days`). Over 1000 sampling trials, `certificate_expiry` is selected approximately 41% of the time (varies by run). A comparison with `np.random.choice` using the same probabilities produces a matching distribution.
 
 Why this matters: sampling converts a multi-valued belief into a concrete decision point. The context mechanism lets you inject evidence without modifying the underlying distribution -- the same distribution can be sampled with different context weights for different evidence scenarios.
 
@@ -297,7 +299,7 @@ While the belief layer represents uncertainty, the Bayesian subsystem reduces it
 | No DNS issues other services | 0.913 | 0.046 | 0.023 | 0.015 | 0.003 |
 | DB pool metrics moderate | 0.922 | 0.056 | 0.009 | 0.012 | 0.001 |
 
-After all evidence, certificate_expiry has 92.2% posterior probability with a Bayes factor of 99.17 against the second hypothesis (strong evidence). The 95% credible set contains certificate_expiry and db_connection_pool_exhaustion.
+After all evidence, certificate_expiry has ~92% posterior probability with a Bayes factor of 99.17 against the second hypothesis (strong evidence). The 95% credible set contains certificate_expiry and db_connection_pool_exhaustion.
 
 Why this matters: the Bayesian subsystem provides the same functionality as `sample()` with context weights, but with explicit prior-posterior tracking, KL divergence measurement, and formal hypothesis testing. It is the clearer API for sequential evidence accumulation.
 
@@ -338,11 +340,11 @@ Probabilities near 0.20 with spreading activation mean the graph provides weak e
 
 ### Sampling frequency
 
-A sampling frequency matching the expected posterior (e.g., 40.7% vs 40.7%) confirms the context mechanism works as intended. Minor deviations (e.g., 18.3% vs 17.4%) are normal sampling variance over 1000 trials.
+A sampling frequency matching the expected posterior (e.g., ~41% observed vs 40.7% expected) confirms the context mechanism works as intended. Minor deviations (e.g., ~17% observed vs 17.4% expected) are normal sampling variance over 1000 trials.
 
 ### Correlation predictions
 
-`sample_correlated()` returns predictions for partner hypotheses when one hypothesis is observed. A prediction value of `certific` or `opposite` indicates the label was truncated in display -- the actual prediction values reflect the correlation coefficients.
+`sample_correlated()` returns predictions for partner hypotheses when one hypothesis is observed. A prediction value of `certific` (truncated from `certificate_expiry`) or `opposite` reflects the correlated outcome label -- `opposite` means the anti-correlated partner is expected to activate. Prediction labels are truncated by the API; the full label can be recovered via `mem.resolve_id()`.
 
 ### Interference classification
 

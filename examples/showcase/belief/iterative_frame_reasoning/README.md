@@ -422,7 +422,7 @@ disagreeing = union_all - intersection_all
 |--------|---------|
 | `mem.reason_with_frame(seed_labels, frame_name)` | Run reasoning within a specific computational frame |
 | `RobustReachabilityDetector(perspective).find_invariants(seed_ids, graph)` | Find nodes reachable across all built-in frames |
-| `mem.analyze.centrality("degree", )` | Compute degree centrality for all nodes |
+| `mem.analyze.centrality("degree")` | Compute degree centrality for all nodes |
 | `mem.neighbors(label, edge_label, direction)` | Get directed neighbor labels |
 | `mem.query_nodes(type=...)` | Filter nodes by data attributes |
 | `mem.engine.graph.incident_edges(node_id)` | Get all edges touching a node |
