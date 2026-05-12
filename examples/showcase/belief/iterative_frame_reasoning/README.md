@@ -6,9 +6,9 @@
 
 Enterprise infrastructure has too many interdependent components for a single analytical lens to capture every risk. A dependency audit finds one set of vulnerabilities; a compliance review finds a different set; an operational impact analysis finds yet another.
 
-**The Approach:** Hyper3 analyzes the same infrastructure graph through four computational frames — classical, hypergraph, probabilistic, and quantum — each applying different traversal strategies to the same nodes and edges. Cross-frame analysis then identifies **invariants** (assets flagged by every frame) and **disagreements** (assets visible to some frames but invisible to others).
+**The Approach:** Hyper3 analyzes the same infrastructure graph through four computational frames -- classical, hypergraph, probabilistic, and quantum -- each applying different traversal strategies to the same nodes and edges. Cross-frame analysis then identifies **invariants** (assets flagged by every frame) and **disagreements** (assets visible to some frames but invisible to others).
 
-Why this matters: no single frame captures everything. The classical frame finds 32 reachable nodes from the same seeds that the quantum frame sees only 23 for. The difference — 9 nodes — contains datastores like `db_payments` and `db_sessions` that the quantum frame's dependency-only traversal misses. Cross-frame comparison surfaces these gaps.
+Why this matters: no single frame captures everything. The classical frame finds 32 reachable nodes from the same seeds that the quantum frame sees only 23 for. The difference -- 9 nodes -- contains datastores like `db_payments` and `db_sessions` that the quantum frame's dependency-only traversal misses. Cross-frame comparison surfaces these gaps.
 
 ## 2. A Simple Analogy
 
@@ -19,12 +19,12 @@ Imagine inspecting a building with four specialists: an electrician traces power
 | Term | Plain English Meaning |
 |------|----------------------|
 | **Computational Frame** | A traversal strategy that filters the graph through a specific analytical lens |
-| **Classical Frame** | BFS traversal — follows all edges regardless of type or label |
-| **Hypergraph Frame** | Pattern-match traversal — filters by edge labels (`depends_on`, `routes_to`, `accesses`, `stores`) |
-| **Probabilistic Frame** | Compliance-weighted traversal — follows sensitive data flows, filters to `confidential`/`restricted` nodes |
-| **Quantum Frame** | Superposition traversal — follows dependency chains deeply (depth 6) but only `depends_on`/`routes_to` edges |
+| **Classical Frame** | BFS traversal -- follows all edges regardless of type or label |
+| **Hypergraph Frame** | Pattern-match traversal -- filters by edge labels (`depends_on`, `routes_to`, `accesses`, `stores`) |
+| **Probabilistic Frame** | Compliance-weighted traversal -- follows sensitive data flows, filters to `confidential`/`restricted` nodes |
+| **Quantum Frame** | Superposition traversal -- follows dependency chains deeply (depth 6) but only `depends_on`/`routes_to` edges |
 | **Invariant** | A node reachable from the seeds in every frame's built-in analysis |
-| **Disagreement** | A node reachable in some frames but not others — a visibility gap |
+| **Disagreement** | A node reachable in some frames but not others -- a visibility gap |
 | **RobustReachabilityDetector** | Engine that finds nodes reachable across all built-in frame traversals |
 
 ## 4. Quick Start
@@ -34,6 +34,8 @@ Imagine inspecting a building with four specialists: an electrician traces power
 ```
 
 ### What You'll See
+
+Frame scores and invariant counts are non-deterministic (they depend on multiway expansion order). The values below are from one representative run; reachable node counts and disagreement patterns are stable across runs.
 
 ```
 ======================================================================
@@ -85,7 +87,7 @@ The showcase models an 80-node enterprise infrastructure across 6 asset categori
 | **User Groups** | 9 | `end_users`, `sysadmin`, `payment_processor`, `auditor` |
 | **Data Flows** | 8 | `flow_login`, `flow_orders`, `flow_payments`, `flow_audit` |
 
-Three seed services (`api_gateway`, `auth_service`, `payment_service`) are analyzed — chosen because they sit at the intersection of user traffic, authentication, and financial data.
+Three seed services (`api_gateway`, `auth_service`, `payment_service`) are analyzed -- chosen because they sit at the intersection of user traffic, authentication, and financial data.
 
 ### System Topology
 
@@ -189,48 +191,43 @@ graph TB
 
 The 80 nodes and 183 edges are constructed from 6 entity categories. Five inference rules are registered:
 
-- `TransitiveRule(depends_on)` → produces `indirect_depends_on` edges
-- `TransitiveRule(routes_to)` → produces `indirect_routes_to` edges
-- `TransitiveRule(accesses)` → produces `indirect_accesses` edges
-- `InverseRule(depends_on)` → produces `depended_on_by` edges
-- `InverseRule(contains)` → produces `contained_in` edges
+- `TransitiveRule(depends_on)` -> produces `indirect_depends_on` edges
+- `TransitiveRule(routes_to)` -> produces `indirect_routes_to` edges
+- `TransitiveRule(accesses)` -> produces `indirect_accesses` edges
+- `InverseRule(depends_on)` -> produces `depended_on_by` edges
+- `InverseRule(contains)` -> produces `contained_in` edges
 
 Each frame's `reason_with_frame()` call applies all five rules, producing 30 inferred edges per frame (120 total across four frames). These inferred edges create multi-hop connections that change what each frame's traversal discovers.
 
 ### Phase 2: Four-Frame Analysis
 
-Each frame runs the same reasoning rules (producing the same 30 inferred edges) but applies a different traversal strategy to determine which nodes are "reachable" and thus critical:
+Each frame runs the same reasoning rules (producing the same 30 inferred edges) but applies a different traversal strategy to determine which nodes are "reachable" and thus critical. Frame-specific scores (`centrality x criticality`) are non-deterministic because the multiway expansion applies rules in varying order, producing different inferred edge sets per run. The patterns described below are stable.
 
 **Classical Frame (BFS, depth 4, all edges):**
-Follows every edge type without filtering. Reaches 32 nodes. Produces the broadest view — sees datastores, services, network segments, and user groups equally. `auth_service` scores highest (2.405) because it has high criticality (10) and high degree centrality (many incident edges from its 5 dependents).
+Follows every edge type without filtering. Reaches 32 nodes. Produces the broadest view -- sees datastores, services, network segments, and user groups equally. `auth_service` and `api_gateway` consistently rank at the top because they have high criticality (10 and 9) and high degree centrality (many incident edges from dependents).
 
 Why this matters: the classical frame is the baseline. It answers "what is connected to these seeds?" without bias. Without it, there is no reference for measuring what the other frames miss.
 
 **Hypergraph Frame (pattern-match, depth 5, dependency/routing edges only):**
-Filters to `depends_on`, `routes_to`, `accesses`, `stores`, and their inferred variants. Reaches 32 nodes but ranks them differently: `api_gateway` scores highest (3.304) because it sits at the center of the dependency graph — 7 services depend on it, and it routes to 7 more through the `depends_on` and `routes_to` edges.
+Filters to `depends_on`, `routes_to`, `accesses`, `stores`, and their inferred variants. Reaches 32 nodes but ranks them differently: `api_gateway` typically scores highest because it sits at the center of the dependency graph -- multiple services depend on it, and it routes to more through the `depends_on` and `routes_to` edges.
 
-Why this matters: the hypergraph frame reveals **structural bottlenecks** — nodes whose position in the dependency topology makes them single points of failure. Without this lens, a node like `api_gateway` appears important but its structural dominance is not quantified.
+Why this matters: the hypergraph frame reveals **structural bottlenecks** -- nodes whose position in the dependency topology makes them single points of failure. Without this lens, a node like `api_gateway` appears important but its structural dominance is not quantified.
 
 **Probabilistic Frame (compliance-weighted, depth 3, sensitive data flows):**
-Filters to `accesses`, `stores`, `processes`, `depends_on`, `contains`, `protects` edges. Additionally filters nodes to those with `data_classification` of `confidential` or `restricted`. Reaches only 25 nodes — the smallest set. `api_gateway` scores highest (3.532) because it processes multiple data flows touching restricted data.
+Filters to `accesses`, `stores`, `processes`, `depends_on`, `contains`, `protects` edges. Additionally filters nodes to those with `data_classification` of `confidential` or `restricted`. Reaches only 25 nodes -- the smallest set. `api_gateway` typically scores highest because it processes multiple data flows touching restricted data.
 
-Why this matters: the probabilistic frame surfaces **compliance-relevant exposure** — nodes that handle restricted data and sit in the blast radius of the seeds. Without it, compliance auditors would need to manually trace data classification tags through the dependency graph.
+Why this matters: the probabilistic frame surfaces **compliance-relevant exposure** -- nodes that handle restricted data and sit in the blast radius of the seeds. Without it, compliance auditors would need to manually trace data classification tags through the dependency graph.
 
 **Quantum Frame (superposition, depth 6, dependency chains only):**
-Filters to `depends_on` and `routes_to` edges (and their inferred variants) but explores to depth 6. Reaches 23 nodes — fewer than classical or hypergraph because the strict edge filter excludes data access and containment edges, but the deeper traversal catches long dependency chains. `api_gateway` scores highest (4.101) — the deepest reach and strictest filter amplifies its dominance as a dependency hub.
+Filters to `depends_on` and `routes_to` edges (and their inferred variants) but explores to depth 6. Reaches 23 nodes -- fewer than classical or hypergraph because the strict edge filter excludes data access and containment edges, but the deeper traversal catches long dependency chains. `api_gateway` and `auth_service` typically dominate because the deepest reach and strictest filter amplify their dominance as dependency hubs.
 
-Why this matters: the quantum frame reveals **deep operational dependencies** — chains of 5-6 hops that would cause cascading failure. A shallow traversal stops at the immediate dependents; the depth-6 traversal discovers that `api_gateway` → `auth_service` → `config_vault` → `secrets_store` forms a four-hop chain ending at restricted data.
+Why this matters: the quantum frame reveals **deep operational dependencies** -- chains of 5-6 hops that would cause cascading failure. A shallow traversal stops at the immediate dependents; the depth-6 traversal discovers that `api_gateway` -> `auth_service` -> `config_vault` -> `secrets_store` forms a four-hop chain ending at restricted data.
 
 ### Phase 3: Cross-Perspective Invariants
 
-The `RobustReachabilityDetector` identifies nodes reachable from the seeds across all built-in frame traversals (independent of the four showcase frames). It finds 38 invariant nodes with confidence 0.792.
+The `RobustReachabilityDetector` identifies nodes reachable from the seeds across all built-in frame traversals (independent of the four showcase frames). The invariant count and confidence vary across runs (typically 37-43 invariants with confidence 0.78-0.95) because the built-in frame traversals are sensitive to the current graph state including inferred edges.
 
-Per-frame unique nodes:
-- **Quantum**: 10 unique (e.g., `cdn_edge`, `dlp_gateway`, `dns_resolver`) — these appear only in the quantum frame's deep traversal
-- **Hypergraph**: 4 unique (e.g., `reporting_service`, `seg_dmz`, `seg_public`)
-- **Probabilistic**: 4 unique (e.g., `reporting_service`, `seg_dmz`, `seg_public`)
-
-The top invariant assets by criticality:
+The top invariant assets by criticality are deterministic (based on graph structure, not traversal order):
 
 | Asset | Criticality | Type |
 |-------|------------|------|
@@ -245,31 +242,28 @@ The top invariant assets by criticality:
 | `db_orders` | 9 | datastore |
 | `order_service` | 9 | service |
 
-These are the assets to protect first — every analytical lens agrees they are in the blast radius.
+These are the assets to protect first -- every analytical lens agrees they are in the blast radius.
 
 ### Phase 4: Disagreement Regions
 
-The four showcase frames disagree on 12 out of 32 total reachable nodes (20 are seen by all four). The disagreement pattern reveals a clear split:
+The four showcase frames disagree on 12 out of 32 total reachable nodes (20 are seen by all four). This count and the specific disagreement list are deterministic across runs. The disagreement pattern reveals a clear split:
 
-- **Missed by probabilistic only** (3 nodes): `blob_storage`, `mail_relay`, `object_storage` — these are `internal`-classification nodes filtered out by the probabilistic frame's sensitivity filter
-- **Missed by quantum** (9 nodes): `db_customers`, `db_feature_flags`, `db_inventory`, `db_notifications`, `db_orders`, `db_payments`, `db_products`, `db_sessions`, `secrets_store` — the quantum frame's strict `depends_on`/`routes_to` filter excludes datastore access edges (`accesses`, `stores`), so it never reaches data stores
+- **Missed by probabilistic only** (3 nodes): `blob_storage`, `mail_relay`, `object_storage` -- these are `internal`-classification nodes filtered out by the probabilistic frame's sensitivity filter
+- **Missed by quantum** (9 nodes): `db_customers`, `db_feature_flags`, `db_inventory`, `db_notifications`, `db_orders`, `db_payments`, `db_products`, `db_sessions`, `secrets_store` -- the quantum frame's strict `depends_on`/`routes_to` filter excludes datastore access edges (`accesses`, `stores`), so it never reaches data stores
 
 This split has operational implications: the quantum frame's focus on dependency chains means it underestimates data exposure risk. A security team using only the quantum frame would miss 9 datastores including `db_payments` (criticality 10, restricted data).
 
 ### Phase 5: Actionable Recommendations
 
-The pipeline generates tiered recommendations by counting how many frames flag each asset in their top 8:
+The pipeline generates tiered recommendations by counting how many frames flag each asset in their top 8. The specific assets in each tier vary across runs (typically 6-8 assets in the top tier), but the core set is stable:
 
-**Critical in 3+ frames (7 assets — prioritize hardening):**
-`api_gateway`, `auth_service`, `config_vault`, `iam_provider`, `order_service`, `payment_service`, `user_service`
+**Core assets (appear in 3+ frames across most runs):**
+`api_gateway`, `auth_service`, `config_vault`, `order_service`, `payment_service`
 
-**Critical in 2 frames (1 asset — add monitoring):**
-`hsm`
+**Frequently appearing:**
+`iam_provider`, `user_service`, `queue_rabbitmq`, `hsm`
 
-**Single-perspective concerns (2 assets — investigate):**
-`cache_redis` (flagged only by probabilistic), `queue_rabbitmq` (flagged only by quantum)
-
-**High-criticality dependency hubs (single points of failure):**
+**High-criticality dependency hubs (single points of failure, deterministic):**
 
 | Service | Criticality | Exposure | Dependents |
 |---------|------------|----------|-----------|
@@ -279,24 +273,20 @@ The pipeline generates tiered recommendations by counting how many frames flag e
 | `order_service` | 9 | internal | 2 |
 | `payment_service` | 10 | internal | 1 |
 
-`auth_service` has 5 dependents (`api_gateway`, `graphql_endpoint`, `grpc_internal`, `vpn_concentrator`, `health_check`) and criticality 10 — it is the single highest-priority hardening target.
+`auth_service` has 5 dependents (`api_gateway`, `graphql_endpoint`, `grpc_internal`, `vpn_concentrator`, `health_check`) and criticality 10 -- it is the single highest-priority hardening target.
 
 ## 7. Understanding the Output
 
 ### Frame Score Interpretation
 
-Each frame computes a risk score as `centrality × criticality` for reachable nodes. Higher scores mean the node is both structurally central (many connections) and operationally critical (high criticality rating).
+Each frame computes a risk score as `centrality x criticality` for reachable nodes. Higher scores mean the node is both structurally central (many connections) and operationally critical (high criticality rating). Specific scores vary across runs due to non-deterministic multiway expansion; the rank ordering is more stable than individual values.
 
 | Score Range | Meaning |
 |------------|---------|
-| 3.0+ | High structural centrality and high criticality — top priority |
+| 3.0+ | High structural centrality and high criticality -- top priority |
 | 2.0-3.0 | Moderate centrality with high criticality, or vice versa |
 | 1.0-2.0 | Present in the blast radius but not structurally dominant |
-| < 1.0 | Peripheral — reachable but low impact |
-
-### Invariant Confidence
-
-The `RobustReachabilityDetector` reports confidence 0.792 for the 38 invariant nodes. This means 79.2% of the graph structure supports the invariance conclusion — some paths are weak or indirect, reducing certainty.
+| < 1.0 | Peripheral -- reachable but low impact |
 
 ### Disagreement Classification
 
@@ -306,7 +296,13 @@ The `RobustReachabilityDetector` reports confidence 0.792 for the 38 invariant n
 | Missed by quantum only | Node is reachable via data access edges, not dependency edges | Important for data exposure, not for cascade failure |
 | Seen by only 1-2 frames | Node is on the periphery of analysis | Verify with domain expert |
 
+### Non-Determinism Note
+
+Frame scores, invariant counts, invariant confidence, per-frame unique node counts, and recommendation tier composition vary across runs. This is because `reason_with_frame()` applies inference rules through multiway expansion, which produces different inferred edge orderings on each run. The stable elements are: node/edge counts, reachable node counts per frame (32/32/25/23), the 12-node disagreement list, and dependency hub counts.
+
 ## 8. Key Metrics
+
+### Deterministic (stable across runs)
 
 | Metric | Value |
 |--------|-------|
@@ -323,30 +319,39 @@ The `RobustReachabilityDetector` reports confidence 0.792 for the 38 invariant n
 | Reachable nodes (hypergraph) | 32 |
 | Reachable nodes (probabilistic) | 25 |
 | Reachable nodes (quantum) | 23 |
-| Invariant nodes | 38 |
-| Invariant confidence | 0.792 |
-| Quantum unique nodes | 10 |
-| Hypergraph unique nodes | 4 |
-| Probabilistic unique nodes | 4 |
 | Nodes seen by all 4 frames | 20 |
 | Disagreement nodes | 12 |
-| Assets critical in 3+ frames | 7 |
-| Assets critical in 2 frames | 1 |
-| Single-perspective concerns | 2 |
-| Top invariant criticality | 10 (8 assets tied) |
+| Nodes missed by quantum | 9 (all datastores) |
+| Nodes missed by probabilistic only | 3 (`blob_storage`, `mail_relay`, `object_storage`) |
 | `auth_service` dependents | 5 |
 | `api_gateway` dependents | 3 |
 | `config_vault` dependents | 3 |
+| `order_service` dependents | 2 |
+| `payment_service` dependents | 1 |
+| Top invariant criticality | 10 (8 assets tied) |
+
+### Non-Deterministic (varies across runs)
+
+| Metric | Typical Range |
+|--------|--------------|
+| Invariant nodes | 37-43 |
+| Invariant confidence | 0.78-0.95 |
+| Quantum unique nodes | 2-11 |
+| Hypergraph unique nodes | 2-7 |
+| Probabilistic unique nodes | 2-7 |
+| Assets critical in 3+ frames | 6-8 |
+| Assets critical in 2 frames | 0-3 |
+| Single-perspective concerns | 0-3 |
 
 ## 9. What Makes This Different
 
-**Multi-frame traversal over single-lens analysis.** Each frame applies the same inference rules but filters the resulting graph differently. This is not running the same analysis four times — it is running four structurally different traversals on the same inferred graph. The classical frame sees 32 nodes; the quantum frame sees 23. The 9-node difference contains datastores holding restricted data.
+**Multi-frame traversal over single-lens analysis.** Each frame applies the same inference rules but filters the resulting graph differently. This is not running the same analysis four times -- it is running four structurally different traversals on the same inferred graph. The classical frame sees 32 nodes; the quantum frame sees 23. The 9-node difference contains datastores holding restricted data.
 
-**Invariant detection as prioritization.** Rather than averaging frame scores or taking the maximum, the pipeline identifies assets that are in the blast radius of every frame. These 38 invariants become the hardening priority list. Assets that only appear in one frame become investigation targets, not hardening targets.
+**Invariant detection as prioritization.** Rather than averaging frame scores or taking the maximum, the pipeline identifies assets that are in the blast radius of every frame. These invariants become the hardening priority list. Assets that only appear in one frame become investigation targets, not hardening targets.
 
-**Disagreement as diagnostic signal.** The 12 disagreement nodes are not noise — they reveal frame-specific blind spots. The quantum frame's exclusion of `accesses`/`stores` edges means it systematically misses datastores. This is actionable: if you are performing operational impact analysis, supplement with a data-flow-aware frame.
+**Disagreement as diagnostic signal.** The 12 disagreement nodes are not noise -- they reveal frame-specific blind spots. The quantum frame's exclusion of `accesses`/`stores` edges means it systematically misses datastores. This is actionable: if you are performing operational impact analysis, supplement with a data-flow-aware frame.
 
-**Tiered recommendations from frame agreement.** Counting how many frames flag an asset produces a natural priority tier: 3+ frames (harden now), 2 frames (monitor), 1 frame (investigate). This requires no manual scoring rubric — the frame agreement count is the priority signal.
+**Tiered recommendations from frame agreement.** Counting how many frames flag an asset produces a natural priority tier: 3+ frames (harden now), 2 frames (monitor), 1 frame (investigate). This requires no manual scoring rubric -- the frame agreement count is the priority signal.
 
 ## 10. Code Implementation
 
@@ -405,7 +410,7 @@ disagreeing = union_all - intersection_all
 
 **Criticality scores:** Node criticality (1-10) and data classification (`public`/`internal`/`confidential`/`restricted`) are manually assigned in the showcase. In production, these would need to come from asset management databases or automated classification tools.
 
-**Dynamic infrastructure:** The showcase analyzes a static snapshot. Real infrastructure changes continuously — services are added, removed, and reconfigured. Hyper3's `evolve()` mechanism handles graph maintenance, but the ETL pipeline feeding updates into Hyper3 is a separate concern.
+**Dynamic infrastructure:** The showcase analyzes a static snapshot. Real infrastructure changes continuously -- services are added, removed, and reconfigured. Hyper3's `evolve()` mechanism handles graph maintenance, but the ETL pipeline feeding updates into Hyper3 is a separate concern.
 
 **Remediation execution:** The showcase produces prioritized recommendations (harden `auth_service`, monitor `hsm`) but does not execute them. Integration with configuration management, patching systems, or alerting platforms is required for operational use.
 
@@ -426,17 +431,17 @@ disagreeing = union_all - intersection_all
 
 | Label | Direction | Semantics |
 |-------|-----------|-----------|
-| `depends_on` | A → B | A requires B to function |
-| `routes_to` | A → B | A forwards traffic to B |
-| `accesses` | A → B | A reads from B |
-| `stores` | A → B | A writes to B |
-| `contains` | A → B | A is a network segment holding B |
-| `protects` | A → B | A is a security control guarding B |
-| `processes` | A → B | A is a data flow handled by B |
-| `indirect_depends_on` | A → B | Transitive dependency (derived) |
-| `indirect_routes_to` | A → B | Transitive routing (derived) |
-| `depended_on_by` | B → A | Inverse of `depends_on` (derived) |
-| `contained_in` | B → A | Inverse of `contains` (derived) |
+| `depends_on` | A -> B | A requires B to function |
+| `routes_to` | A -> B | A forwards traffic to B |
+| `accesses` | A -> B | A reads from B |
+| `stores` | A -> B | A writes to B |
+| `contains` | A -> B | A is a network segment holding B |
+| `protects` | A -> B | A is a security control guarding B |
+| `processes` | A -> B | A is a data flow handled by B |
+| `indirect_depends_on` | A -> B | Transitive dependency (derived) |
+| `indirect_routes_to` | A -> B | Transitive routing (derived) |
+| `depended_on_by` | B -> A | Inverse of `depends_on` (derived) |
+| `contained_in` | B -> A | Inverse of `contains` (derived) |
 
 ### Related Examples
 
