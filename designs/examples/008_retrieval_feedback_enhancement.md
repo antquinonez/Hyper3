@@ -1,7 +1,7 @@
 # Enhancement: Retrieval and Feedback -- Reasoning + Communities
 
 ## Target File
-`examples/showcase/retrieval_and_feedback/retrieval_and_feedback.py`
+`examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py`
 
 ## Current State
 150+ node cybersecurity knowledge graph demonstrating multi-signal retrieval, RRF fusion, and learning-to-rank feedback. Uses only retrieval features; never leverages the graph's reasoning, community detection, or anomaly capabilities.
@@ -56,7 +56,7 @@ Flag threats with unusual connectivity patterns.
 - `memory_analytics.py` -- communities, anomalies
 
 ## Validation
-- Run: `.venv/bin/python examples/showcase/retrieval_and_feedback/retrieval_and_feedback.py`
+- Run: `.venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py`
 - Verify reasoning discovers multi-hop chains
 - Verify community detection identifies threat clusters
 - Verify anomaly detection flags unusual patterns

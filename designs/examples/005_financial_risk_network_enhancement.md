@@ -1,7 +1,7 @@
 # Enhancement: Financial Risk Network -- Contagion Flow Analysis
 
 ## Target File
-`examples/showcase/financial_risk_network/financial_risk_network.py`
+`examples/showcase/domain/financial_risk_network/financial_risk_network.py`
 
 ## Current State
 130+ node financial network with community detection, Hebbian learning, belief distributions, multi-frame analysis, and hierarchical abstraction. Uses clustering and centrality but never answers "how much risk can flow from A to B?"
@@ -39,7 +39,7 @@ Add evolution to maintain the risk graph over time.
 - `memory_core.py` -- evolve_with_feedback
 
 ## Validation
-- Run: `.venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py`
+- Run: `.venv/bin/python examples/showcase/domain/financial_risk_network/financial_risk_network.py`
 - Verify max_flow returns meaningful flow values
 - Verify min_cut partitions the network
 - Verify shortest path follows high-weight edges

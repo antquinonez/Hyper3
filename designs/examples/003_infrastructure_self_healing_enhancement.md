@@ -1,7 +1,7 @@
 # Enhancement: Infrastructure Self-Healing -- Temporal Reasoning
 
 ## Target File
-`examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py`
+`examples/showcase/domain/infrastructure_self_healing/infrastructure_self_healing.py`
 
 ## Current State
 Most complex showcase example (130+ nodes) with feedback loops, degradation/recovery cycles, bias profiling, metamorphosis validation, and multiway merge. Models infrastructure *structure* but not incident *timeline*.
@@ -48,7 +48,7 @@ Model the degradation and recovery as temporal events with Allen interval relati
 - Existing infrastructure graph (unchanged)
 
 ## Validation
-- Run: `.venv/bin/python examples/showcase/infrastructure_self_healing/infrastructure_self_healing.py`
+- Run: `.venv/bin/python examples/showcase/domain/infrastructure_self_healing/infrastructure_self_healing.py`
 - Verify temporal events are registered
 - Verify Allen relations are correct
 - Verify causal chain detection produces the expected chain

@@ -1,8 +1,8 @@
 # Enhancement: Recipe Substitution -- Belief Distributions for Dietary Context
 
 ## Target Files
-- `examples/showcase/recipe_substitution/demo.py`
-- `examples/showcase/recipe_substitution/engine.py`
+- `examples/showcase/domain/recipe_substitution/demo.py`
+- `examples/showcase/domain/recipe_substitution/engine.py`
 
 ## Current State
 Demonstrates ingredient substitution via graph traversal and transitive reasoning. Treats substitution as a deterministic graph problem without considering dietary context or user preferences.
@@ -64,7 +64,7 @@ Show the system improving substitution recommendations based on user ratings.
 - `memory_cognitive.py` -- compute_confidence
 
 ## Validation
-- Run: `.venv/bin/python examples/showcase/recipe_substitution/demo.py`
+- Run: `.venv/bin/python examples/showcase/domain/recipe_substitution/demo.py`
 - Verify context-dependent sampling produces different results
 - Verify Bayesian updating shifts the MAP estimate
 - Update README.md

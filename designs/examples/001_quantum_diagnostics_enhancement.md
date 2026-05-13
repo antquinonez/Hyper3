@@ -1,7 +1,7 @@
 # Enhancement: Quantum Diagnostics -- Bayesian Updating + Backward Chaining
 
 ## Target File
-`examples/showcase/quantum_diagnostics/quantum_diagnostics.py`
+`examples/showcase/belief/quantum_diagnostics/quantum_diagnostics.py`
 
 ## Current State
 Demonstrates belief distributions for competing outage hypotheses with Born-rule sampling, correlation, interference, and von Neumann entropy. Stops at *representing* uncertainty without *reducing* it through evidence.
@@ -48,7 +48,7 @@ Prove the MAP hypothesis through backward chaining from observed symptoms.
 - Existing graph construction and belief layer code (unchanged)
 
 ## Validation
-- Run the enhanced example: `.venv/bin/python examples/showcase/quantum_diagnostics/quantum_diagnostics.py`
+- Run the enhanced example: `.venv/bin/python examples/showcase/belief/quantum_diagnostics/quantum_diagnostics.py`
 - Verify Bayesian posterior converges to database_overload
 - Verify proof tree is achievable
 - Update README.md with new section descriptions
