@@ -372,7 +372,7 @@ class BeliefNamespace:
             concept: Label of the concept to use as the sampling anchor.
 
         Returns:
-            Dict mapping concept labels to their sampled outcomes.
+            Dict mapping concept labels to their predicted labels.
         """
         return self._mem.sample_correlated(state, concept)
 

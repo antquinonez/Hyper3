@@ -299,20 +299,20 @@ def main() -> None:
     print("SECTION 4: Uncertainty Propagation")
     print("=" * 70)
 
-    confidence_result = mem.compute_all_confidences()
+    confidence_result = mem.cognitive.all_confidences()
     print(f"  Average confidence across graph: {confidence_result.avg_confidence:.3f}")
     print(f"  High confidence nodes (>0.8):    {confidence_result.high_confidence_count}")
     print(f"  Low confidence nodes (<0.3):     {confidence_result.low_confidence_count}")
     print()
 
-    low_conf = mem.flag_low_confidence(threshold=0.5)
+    low_conf = mem.cognitive.low_confidence(threshold=0.5)
     print(f"  Nodes below confidence 0.5 ({len(low_conf)}):")
     for entry in low_conf[:8]:
         print(f"    {entry.node_label:<30} conf={entry.confidence:.3f}  depth={entry.depth}")
     print()
 
     for dx in ["pneumonia", "pulmonary_embolism", "lung_cancer"]:
-        conf = mem.compute_confidence(dx)
+        conf = mem.cognitive.confidence(dx)
         if conf:
             print(f"  {dx:<28} confidence={conf.confidence:.3f}  source={conf.source}")
     print()

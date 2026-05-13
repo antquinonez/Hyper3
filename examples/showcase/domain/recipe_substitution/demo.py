@@ -177,7 +177,7 @@ def main():
     best = engine.best_substitute("butter")
     print(f"  After {len(ratings)} ratings, MAP estimate for butter: {best}")
 
-    belief = engine.mem.get_belief("butter_sub_analysis")
+    belief = engine.mem.bayes.get("butter_sub_analysis")
     if belief:
         label_map = {}
         for s in engine.find_substitutes("butter"):

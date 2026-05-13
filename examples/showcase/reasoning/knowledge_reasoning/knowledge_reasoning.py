@@ -157,7 +157,7 @@ def main() -> None:
 
     print("\n--- Evaluating knowledge graph quality after revision ---")
 
-    all_conf = mem.compute_all_confidences()
+    all_conf = mem.cognitive.all_confidences()
     print(f"\n  Overall confidence statistics:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
@@ -165,13 +165,13 @@ def main() -> None:
 
     print(f"\n  Per-concept confidence scores:")
     for concept in ["smoking", "lung_cancer", "death", "heart_disease", "exercise", "asbestos"]:
-        score = mem.compute_confidence(concept)
+        score = mem.cognitive.confidence(concept)
         if score:
             bar_len = min(int(score.confidence * 10), 30)
             bar = "#" * bar_len
             print(f"    {concept:20s} {score.confidence:.4f} {bar} (depth={score.depth}, source={score.source})")
 
-    low = mem.flag_low_confidence(threshold=0.5)
+    low = mem.cognitive.low_confidence(threshold=0.5)
     if low:
         print(f"\n  Low-confidence concepts (threshold=0.5):")
         for item in low:
@@ -191,7 +191,7 @@ def main() -> None:
         ("exercise", "heart_disease"),
     ]
     for src, tgt in chains_to_check:
-        chain = mem.trace_confidence_chain(src, tgt)
+        chain = mem.cognitive.trace_confidence(src, tgt)
         if chain:
             print(f"    {src} -> {tgt}: confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
 

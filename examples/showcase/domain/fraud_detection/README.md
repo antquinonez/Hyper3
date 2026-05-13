@@ -649,6 +649,6 @@ Hyper3 provides graph construction, traversal, reasoning, and analysis. The foll
 |---------|-------|
 | `examples/showcase/domain/threat_intelligence/knowledge_basics.py` | Cyber threat intel graph with centrality and attack paths |
 | `examples/showcase/core/network_analytics/graph_analytics.py` | Centrality, cycles, components, risk scoring |
-| `examples/showcase/reasoning/multiway_reasoning/multiway_reasoning.py` | Multiway expansion, state convergence, lateral insights |
-| `examples/showcase/core/centrality_and_ranking/centrality_and_ranking.py` | Degree, betweenness, PageRank, community detection |
+| `examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py` | Multiway expansion, state convergence, lateral insights |
+| `examples/showcase/core/centrality_and_ranking/centrality_and_pagerank.py` | Degree/betweenness centrality, hypergraph PageRank |
 | `examples/showcase/retrieval/retrieval_and_similarity/retrieval_and_similarity.py` | Spreading activation, retrieval, similarity scoring |

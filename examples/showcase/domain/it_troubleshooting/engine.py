@@ -7,7 +7,7 @@ class ITTroubleshootingEngine:
     Demonstrates Hyper3's unique backward chaining capability:
     - Goal-directed reasoning: prove/disprove a hypothesis via mem.prove()
     - N-ary condition groups for complex issue relationships
-    - Root cause analysis with confidence scoring via mem.compute_confidence()
+    - Root cause analysis with confidence scoring via mem.cognitive.confidence()
     - Causal path discovery via mem.analyze.paths()
     - Provenance tracking for explainable proofs
 
@@ -113,7 +113,7 @@ class ITTroubleshootingEngine:
             else:
                 evidence_needed.append(symptom)
 
-        conf = self.mem.compute_confidence(hypothesis)
+        conf = self.mem.cognitive.confidence(hypothesis)
         confidence = conf.confidence if conf else (0.5 * len(chain) if chain else 0.0)
 
         return {

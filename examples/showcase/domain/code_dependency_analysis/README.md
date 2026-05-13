@@ -735,6 +735,6 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 | Example | Focus |
 |---------|-------|
 | `examples/showcase/domain/microservices_reasoning/reasoning_walkthrough.py` | Microservice blast radius with TransitiveRule and InverseRule |
-| `examples/showcase/core/centrality_and_ranking/centrality_walkthrough.py` | Degree, betweenness, PageRank, and eigenvector centrality |
+| `examples/showcase/core/centrality_and_ranking/centrality_comparison.py` | h-eigenvector, Katz, and node-edge centrality comparison |
 | `examples/showcase/core/network_analytics/graph_analytics.py` | Cycles, components, risk scoring |
 | `examples/showcase/reasoning/self_evolution/self_evolution.py` | Decay, prune, merge, reinforce on a dependency graph |

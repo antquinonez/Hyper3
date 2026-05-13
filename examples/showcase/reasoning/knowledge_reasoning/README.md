@@ -303,10 +303,10 @@ print(f"removed: {revision.edges_removed_count}, kept: {revision.edges_kept_coun
 | `mem.revise_beliefs()` | Resolve detected contradictions |
 | `mem.edges_labeled(edge_label=)` | Query edges by label |
 | `InverseRule(edge_label, inverse_label)` | Derive backward edges from forward edges |
-| `mem.compute_all_confidences()` | Score every concept in the graph |
-| `mem.compute_confidence(concept)` | Score a single concept |
-| `mem.flag_low_confidence(threshold)` | Find concepts below confidence threshold |
-| `mem.trace_confidence_chain(src, tgt)` | Find highest-confidence path |
+| `mem.cognitive.all_confidences()` | Score every concept in the graph |
+| `mem.cognitive.confidence(concept)` | Score a single concept |
+| `mem.cognitive.low_confidence(threshold)` | Find concepts below confidence threshold |
+| `mem.cognitive.trace_confidence(src, tgt)` | Find highest-confidence path |
 
 ### Related Examples
 

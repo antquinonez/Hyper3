@@ -170,8 +170,8 @@ This showcase snapshots a 12-node enriched graph. Real-world adoption involves a
 | `snapshot.to_dict()` | Convert snapshot to a JSON-serializable dict |
 | `SystemSnapshot.from_dict(data)` | Reconstruct snapshot from a dict |
 | `mem.describe()` | Return graph statistics (nodes, edges, density) |
-| `mem.compute_confidence(concept)` | Compute confidence score for a concept |
-| `mem.compute_all_confidences()` | Compute average confidence across all nodes |
+| `mem.cognitive.confidence(concept)` | Compute confidence score for a concept |
+| `mem.cognitive.all_confidences()` | Compute average confidence across all nodes |
 
 | Related Example | Connection |
 |----------------|------------|

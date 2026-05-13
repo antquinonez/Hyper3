@@ -15,7 +15,7 @@ The engine uses three complementary Hyper3 capabilities:
 - **`mem.find_paths()`** discovers causal paths from hypothesis to symptoms
 - **`mem.prove()`** performs goal-directed reasoning through registered inference rules (e.g., `TransitiveRule` for multi-hop causal chains)
 - **`mem.neighbors()`** traverses cause/effect relationships in both directions
-- **`mem.compute_confidence()`** provides uncertainty-aware confidence scoring for hypotheses
+- **`mem.cognitive.confidence()`** provides uncertainty-aware confidence scoring for hypotheses
 
 **Why this matters**: Forward traversal discovers what *could* be true. Backward chaining proves what *is* true given evidence. Diagnostic workflows need the latter — an engineer doesn't want to know every possible chain, they want to know whether a specific suspect actually explains the observed symptoms.
 
@@ -133,7 +133,7 @@ flowchart LR
 
     Step1["1. mem.find_paths()<br/>power_failure → server_wont_boot<br/>via 'causes' edge"]
 
-    Step1 --> Step2["2. mem.compute_confidence()<br/>for uncertainty-aware scoring"]
+    Step1 --> Step2["2. mem.cognitive.confidence()<br/>for uncertainty-aware scoring"]
 
     Step2 --> Step3["3. Result:<br/>proven=True<br/>confidence=1.0"]
 
@@ -141,7 +141,7 @@ flowchart LR
     style Step3 fill:#dfd,stroke:#333
 ```
 
-The algorithm uses `mem.find_paths()` to discover causal paths from the hypothesis to observed symptoms, and `mem.compute_confidence()` for proper confidence scoring based on the graph's provenance structure.
+The algorithm uses `mem.find_paths()` to discover causal paths from the hypothesis to observed symptoms, and `mem.cognitive.confidence()` for proper confidence scoring based on the graph's provenance structure.
 
 ### Section 4: Backward Chaining via mem.prove()
 
@@ -181,7 +181,7 @@ The `explain_proof()` method uses `mem.neighbors(direction="out")` to find all d
 | Output Field | Meaning |
 |-------------|---------|
 | `proven=True` | The hypothesis connects to all observed symptoms via causal paths |
-| `confidence=1.0` | `mem.compute_confidence()` reports full confidence for the hypothesis |
+| `confidence=1.0` | `mem.cognitive.confidence()` reports full confidence for the hypothesis |
 | `evidence_needed=[]` | All observed symptoms are reachable; no additional data required |
 | `fix_complexity: high` | Fixing this root cause requires significant effort |
 
@@ -205,7 +205,7 @@ The `explain_proof()` method uses `mem.neighbors(direction="out")` to find all d
 
 **N-ary condition groups** model "either/or" failure modes in a single hyperedge. The `either_condition` edge connecting `{power_failure, hardware_failure} → {server_wont_boot}` captures the semantics that either root cause independently explains the symptom, without requiring two separate annotated edges.
 
-**Confidence scoring** uses `mem.compute_confidence()` which leverages the graph's provenance structure and edge weights for uncertainty-aware assessment, rather than a flat additive score.
+**Confidence scoring** uses `mem.cognitive.confidence()` which leverages the graph's provenance structure and edge weights for uncertainty-aware assessment, rather than a flat additive score.
 
 **Issue tree traversal** uses `mem.neighbors()` recursively to provide the full upstream dependency graph from any symptom, showing all possible root causes with their metadata.
 
@@ -242,7 +242,7 @@ result = engine.prove_root_cause(
     hypothesis="power_failure",
     evidence={"server_wont_boot": True},
 )
-# result.proven = True, result.confidence from mem.compute_confidence()
+# result.proven = True, result.confidence from mem.cognitive.confidence()
 
 result = engine.prove_via_backward_chain(
     symptom="server_wont_boot",
@@ -286,5 +286,5 @@ tree = engine.get_issue_tree("server_wont_boot")
 | Edge weights | `mem.link(source, target, label=..., weight=...)` |
 | Causal path finding | `mem.find_paths(source, target, edge_label=...)` |
 | Backward chaining | `mem.prove(concept, known_facts=..., edge_label=...)` |
-| Confidence scoring | `mem.compute_confidence(concept)` |
+| Confidence scoring | `mem.cognitive.confidence(concept)` |
 | Inference rules | `mem.add_rules(TransitiveRule(edge_label=...))` |

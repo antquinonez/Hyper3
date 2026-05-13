@@ -225,14 +225,14 @@ revision = mem.revise_beliefs(strategy="higher_weight")
 
 ### Phase 4: Uncertainty Propagation
 
-After reasoning and belief revision, confidence scores reflect how well-evidenced each node is. `compute_all_confidences()` surveys the entire graph; `compute_confidence()` targets specific nodes:
+After reasoning and belief revision, confidence scores reflect how well-evidenced each node is. `mem.cognitive.all_confidences()` surveys the entire graph; `mem.cognitive.confidence()` targets specific nodes:
 
 ```python
-confidence_result = mem.compute_all_confidences()
-low_conf = mem.flag_low_confidence(threshold=0.5)
+confidence_result = mem.cognitive.all_confidences()
+low_conf = mem.cognitive.low_confidence(threshold=0.5)
 
 for dx in ["pneumonia", "pulmonary_embolism", "lung_cancer"]:
-    conf = mem.compute_confidence(dx)
+    conf = mem.cognitive.confidence(dx)
 ```
 
 **Why propagation matters:** A disease diagnosed through a long chain of inference (A causes B, B causes C, therefore A explains C) should carry lower confidence than one diagnosed through direct evidence. The confidence score encodes this: nodes reached through shorter paths from multiple evidence sources score higher than those reached through long chains from few sources.
@@ -585,9 +585,9 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | `mem.prove(concept, known_facts)` | Backward-chain from diagnosis to evidence |
 | `mem.detect_contradictions()` | Find opposing evidence edges |
 | `mem.revise_beliefs(strategy)` | Resolve contradictions by edge weight |
-| `mem.compute_all_confidences()` | Calculate confidence for all nodes |
-| `mem.compute_confidence(concept)` | Calculate confidence for a specific node |
-| `mem.flag_low_confidence(threshold)` | Identify nodes below a confidence threshold |
+| `mem.cognitive.all_confidences()` | Calculate confidence for all nodes |
+| `mem.cognitive.confidence(concept)` | Calculate confidence for a specific node |
+| `mem.cognitive.low_confidence(threshold)` | Identify nodes below a confidence threshold |
 | `mem.match_diamonds(edge_label)` | Find convergent symptom patterns |
 | `mem.match_fan_out(edge_label, min_fan)` | Find diseases with many manifestations |
 | `mem.match_chains(edge_label, min_length)` | Find inference chains of minimum length |
@@ -602,4 +602,4 @@ Hyper3 provides the reasoning engine once the clinical knowledge graph exists. S
 | `examples/showcase/belief/belief_and_bayesian/belief_and_bayesian.py` | Born-rule sampling, Bayesian updating, outcome distributions |
 | `examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py` | Transitive inference, backward chaining, rule application |
 | `examples/showcase/belief/bayesian_reasoning/bayesian_reasoning.py` | Bayesian networks, conditional probability, belief states |
-| `examples/showcase/core/structural_patterns/structural_patterns.py` | Diamond, fan-out, and chain pattern detection |
+| `examples/showcase/core/structural_patterns/structural_patterns_and_communities.py` | Diamond, fan-out, and chain pattern detection |

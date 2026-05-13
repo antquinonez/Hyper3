@@ -473,7 +473,7 @@ print(f"dominant rules: {profile['dominant_rules']}")
 
 | Example | Focus |
 |---------|-------|
-| `examples/showcase/reasoning/self_evolution/24_self_evolution.py` | Decay, reinforcement, Hebbian learning, feedback on a small graph |
+| `examples/showcase/reasoning/self_evolution/self_evolution.py` | Decay, reinforcement, Hebbian learning, feedback on a small graph |
 | `examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py` | Full self-evolution cycle with metamorphosis |
 | `examples/showcase/domain/microservices_reasoning/reasoning_walkthrough.py` | Transitive/inverse rule inference on microservices topology |
-| `examples/showcase/retrieval/retrieval_and_feedback/03_retrieval_and_feedback.py` | Multi-signal retrieval with learning-to-rank feedback |
+| `examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py` | Multi-signal retrieval with learning-to-rank feedback |

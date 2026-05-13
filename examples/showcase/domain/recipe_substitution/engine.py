@@ -226,9 +226,9 @@ class RecipeSubstitutionEngine:
         if not self.mem.has(f"{ingredient}_sub_analysis"):
             self.mem.add(f"{ingredient}_sub_analysis", data={"type": "bayesian_sub"})
 
-        prior = self.mem.get_belief(f"{ingredient}_sub_analysis")
+        prior = self.mem.bayes.get(f"{ingredient}_sub_analysis")
         if not prior:
-            self.mem.set_prior(
+            self.mem.bayes.set_prior(
                 f"{ingredient}_sub_analysis", outcomes=outcome_labels
             )
 
@@ -239,9 +239,9 @@ class RecipeSubstitutionEngine:
             else:
                 likelihoods[sub] = 0.3 + 0.7 * (1.0 - rating) / max(len(outcome_labels) - 1, 1)
 
-        self.mem.update_belief(
+        self.mem.bayes.update(
             f"{ingredient}_sub_analysis",
-            evidence_name=f"rating_{substitute}_{rating:.1f}",
+            evidence=f"rating_{substitute}_{rating:.1f}",
             likelihoods=likelihoods,
         )
 
@@ -249,7 +249,7 @@ class RecipeSubstitutionEngine:
         """Return the MAP estimate (most probable substitute) after learning."""
         if not self.mem.has(f"{ingredient}_sub_analysis"):
             return None
-        return self.mem.map_estimate(f"{ingredient}_sub_analysis")
+        return self.mem.bayes.map(f"{ingredient}_sub_analysis")
 
     def get_ingredient_info(self, ingredient: str) -> dict | None:
         node = self.mem.engine.graph.get_node_by_label(ingredient)

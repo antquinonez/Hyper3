@@ -396,5 +396,5 @@ result = mem.reason(
 
 ### Related Examples
 
-- `examples/showcase/knowledge_basics/` — Basic hypergraph construction and traversal
+- `examples/showcase/domain/threat_intelligence/knowledge_basics.py` — Basic hypergraph construction and traversal
 - `examples/showcase/domain/threat_intelligence/` — Rule application in a threat intelligence domain

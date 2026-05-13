@@ -268,4 +268,4 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 > "We do not force the architecture to guess. By establishing structural sovereignty through hyperedges, we allow the intelligence to flow outward in all directions, letting the true narrative emerge effortlessly from the data."
 
-[View the code →](examples/showcase/multiway_reasoning/multiway_lateral_insights.py)
+[View the code →](examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py)

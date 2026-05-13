@@ -134,13 +134,13 @@ def main() -> None:
     desc2 = mem2.analyze.describe()
     print(f"density match: {desc1.density:.4f} vs {desc2.density:.4f}")
 
-    score1 = mem.compute_confidence("quantum_computing")
-    score2 = mem2.compute_confidence("quantum_computing")
+    score1 = mem.cognitive.confidence("quantum_computing")
+    score2 = mem2.cognitive.confidence("quantum_computing")
     if score1 and score2:
         print(f"confidence for 'quantum_computing': original={score1.confidence:.4f}, restored={score2.confidence:.4f}")
 
-    all_conf1 = mem.compute_all_confidences()
-    all_conf2 = mem2.compute_all_confidences()
+    all_conf1 = mem.cognitive.all_confidences()
+    all_conf2 = mem2.cognitive.all_confidences()
     print(f"avg confidence: original={all_conf1.avg_confidence:.4f}, restored={all_conf2.avg_confidence:.4f}")
 
     print("\n" + "=" * 70)

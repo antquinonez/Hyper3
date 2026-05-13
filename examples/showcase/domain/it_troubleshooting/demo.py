@@ -7,7 +7,7 @@ Demonstrates Hyper3's unique BACKWARD CHAINING capability:
 - mem.prove() for rule-based backward chaining
 - mem.find_paths() for causal path discovery
 - mem.neighbors() for cause/effect traversal
-- mem.compute_confidence() for confidence scoring
+- mem.cognitive.confidence() for confidence scoring
 
 Run: .venv/bin/python examples/showcase/domain/it_troubleshooting/demo.py
 """
@@ -48,7 +48,7 @@ def main():
     print(f"  Evidence needed: {result['evidence_needed']}")
 
     print("\nSECTION 3: Proving root cause: hardware_failure -> multiple symptoms")
-    print("  (Using mem.compute_confidence() for proper confidence scoring)")
+    print("  (Using mem.cognitive.confidence() for proper confidence scoring)")
     result2 = engine.prove_root_cause(
         hypothesis="hardware_failure",
         evidence={"server_wont_boot": True, "application_crashes": True},
@@ -114,7 +114,7 @@ def main():
     print("  - mem.prove() for goal-directed reasoning through inference rules")
     print("  - mem.find_paths() for causal path discovery")
     print("  - mem.neighbors() for direct cause/effect traversal")
-    print("  - mem.compute_confidence() for proper confidence scoring")
+    print("  - mem.cognitive.confidence() for proper confidence scoring")
     print("  - DIFFERENT from transitive A->B->C - this proves causation!")
     print("  - All processing is LOCAL - no APIs, no network calls")
 
