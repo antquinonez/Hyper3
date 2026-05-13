@@ -75,7 +75,7 @@ nodes: 8, edges: 11
 
 --- Top node by each measure ---
         degree: hub (0.714286)
-   betweenness: hub (0.500000)
+   betweenness: hub (0.500000, 5-way tie with d, e, f, g)
        pagerank: d (0.127752)
            katz: hub (0.378416)
 
@@ -91,11 +91,11 @@ a:
   anomaly status: low_risk
   boundary score: 0.2829
 
-communities detected: 1 or 2 (non-deterministic)
-modularity: 0.0000 or 0.2149
+communities detected: 1 (non-deterministic; may vary across runs)
+modularity: 0.0000
 ```
 
-> Community detection via label propagation is non-deterministic even with a fixed seed. On this graph, results fluctuate between 1 community (all 8 nodes) and 2 communities ({a, b, c, d, hub} and {e, f, g}). Both outcomes are valid — the graph's topology sits near a decision boundary.
+> Community detection via label propagation is non-deterministic even with a fixed seed. On this graph, results fluctuate between 1 community (all 8 nodes) and 2 communities ({a, b, c, d, hub} and {e, f, g}). The output above shows a typical 1-community result (modularity 0.0000), but 2-community results (modularity 0.2149) are equally valid — the graph's topology sits near a decision boundary.
 
 **Script 3 output** (7-node project graph, statistics + evolution + abstraction):
 
@@ -131,7 +131,7 @@ Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 
 graph LR
     alice -->|manages| bob
     alice -->|manages| carol
-    alice -.->|collaborates| eve
+    alice -->|collaborates| eve
     bob -->|collaborates| carol
     bob -->|reports_to| dave
     carol -->|collaborates| frank
@@ -145,15 +145,15 @@ graph LR
     jack -->|collaborates| grace
 ```
 
-> The `project_team` hyperedge ({alice, iris, eve} -> {bob, carol, frank}) is not shown in the mermaid diagram because mermaid only supports pairwise edges.
+> The `project_team` hyperedge ({alice, iris, eve} -> {bob, carol, frank}, weight 8.0) is not shown in the mermaid diagram because mermaid only supports pairwise edges. This hyperedge routes additional flow from the product/design side to engineering, contributing to frank's elevated PageRank.
 
 **Degree centrality** ranks alice and bob tied at 0.5556 — both connect to 5 of 9 other nodes. This reflects their roles: alice manages bob and carol, and bob collaborates widely.
 
-**Betweenness centrality** ranks iris highest at 0.3819 — iris connects the product team to engineering via her collaborations with eve and grace, and coordinates back to alice. Despite having the same degree as carol (0.4444), iris has 6x higher betweenness than carol (0.0625). The difference: iris sits on paths between otherwise disconnected subgroups, while carol's connections are more local.
+**Betweenness centrality** ranks iris highest at 0.3819 — iris connects the product team to engineering via collaborations with eve and grace, and coordinates back to alice. Despite having the same degree as carol (0.4444), iris has 6x higher betweenness than carol (0.3819 vs 0.0625). The difference: iris sits on shortest paths between otherwise disconnected subgroups (product and engineering), acting as a bridge. Carol's connections are more local — she collaborates within her immediate neighborhood without bridging distant clusters. This is the canonical betweenness pattern: a node with modest degree but high brokerage.
 
 **PageRank** ranks frank highest at 0.105286, even though frank's degree (0.3333) is lower than alice's (0.5556). Why this matters: PageRank counts the importance of neighbors, not just their count. Frank receives connections from carol and henry, both of whom are themselves well-connected, and the `project_team` hyperedge routes flow through frank's neighborhood.
 
-**Weighted vs unweighted PageRank**: The weighted top-3 (frank, bob, carol) differs from the unweighted top-3 (iris, grace, frank). Edge weights change which paths the random walk prefers, shifting influence toward nodes connected by strong edges.
+**Weighted vs unweighted PageRank**: The default `centrality("pagerank")` call uses edge weights as transition probabilities, making high-weight edges preferred paths for the random walk. With weights enabled, the top-3 is (frank, bob, carol). Without weights (`weighted=False`), every edge is equally likely, producing a different top-3 (iris, grace, frank). The shift: unweighted PageRank favors nodes with many connections (iris has high degree), while weighted PageRank favors nodes connected by strong edges (frank benefits from the weight-5.0 `collaborates` edge from carol).
 
 **Structural anomaly detection** identifies alice, iris, and bob as anomalous (boundary scores 0.3233, 0.3067, 0.3233) due to cyclic dependency structures — alice manages bob, jack collaborates with bob, and iris coordinates back to alice, forming cycles. Eve, on the other hand, is classified as low_risk (0.2900) because her connections are acyclic.
 
@@ -178,7 +178,7 @@ graph LR
     g -->|link| hub
 ```
 
-**Key finding**: The four measures disagree on the top node. Degree, betweenness, and Katz all pick `hub` (0.7143, 0.5000, 0.3784), but PageRank picks `d` (0.127752). Why this happens: `hub` has the most connections and sits on many paths, but PageRank's random-walk model spreads probability mass along the chain. Node `d` sits at the midpoint of the longest chain segment, accumulating steady-state probability from both directions.
+**Key finding**: The four measures disagree on the top node. Degree and Katz pick `hub` (0.7143, 0.3784), betweenness ties hub with four chain nodes (0.5000 each — hub, d, e, f, g all sit on the maximum number of shortest paths), and PageRank picks `d` alone (0.127752). Why this happens: `hub` has the most connections and sits on many paths, but PageRank's random-walk model spreads probability mass along the chain. Node `d` sits at the midpoint of the longest chain segment, accumulating steady-state probability from both directions. The betweenness tie is notable: the cycle-closing edge (g -> hub) means the chain's back half (d, e, f, g) and hub all participate equally in shortest-path routing.
 
 **Pairwise agreement** is low — degree vs betweenness agrees on 0/8 positions, degree vs pagerank agrees on 0/8 positions. The highest agreement is degree vs katz and pagerank vs katz, each at 3/8. This illustrates why choosing the right centrality measure matters: they produce genuinely different rankings.
 
@@ -225,7 +225,7 @@ graph LR
 
 **Evolution impact**: After stimulating alice, bob, and project_x, spreading activation, running Hebbian reinforcement, and evolving, the graph merges 1 node (alice and eve have identical neighbor patterns through project_x and python). The result: 6 nodes, density increases from 0.3095 to 0.4333, degree range shifts to 2-8 with mean 4.17. Evolution reduces redundancy while preserving connectivity.
 
-**Abstraction**: On a separate 5-node graph, `collapse_subgraph` replaces {alice, bob, dave} with a single `eng_team` summary node. The collapse eliminates 3 internal edges and creates 1 external connection (eng_team → project_x), reducing the graph from 5 nodes/6 edges/density 0.3000 to 6 nodes/3 edges/density 0.1000 (the 6th node is the summary node itself alongside carol and project_x). `list_summaries()` confirms 1 active summary mapping eng_team to its detail nodes.
+**Abstraction**: On a separate 5-node graph, `collapse_subgraph` replaces {alice, bob, dave} with a single `eng_team` summary node. The collapse eliminates 3 internal edges (alice-bob collaborates, bob-dave reports_to) and creates 1 external connection (eng_team -> project_x, from the two `works_on` edges). The result: 6 nodes (carol, project_x, eng_team visible; alice, bob, dave hidden but retained), 3 edges, density drops from 0.3000 to 0.1000. The lower density reflects that the 3 hidden detail nodes are still counted in the denominator but contribute no edges. `list_summaries()` confirms 1 active summary mapping eng_team to its detail nodes.
 
 ## 5. Key Metrics
 
@@ -236,7 +236,7 @@ graph LR
 | Density | — | — | 0.3095 |
 | Components | — | — | 1 |
 | Highest degree | alice, bob (0.5556) | hub (0.7143) | project_x (6) |
-| Highest betweenness | iris (0.3819) | hub (0.5000) | — |
+| Highest betweenness | iris (0.3819) | hub, d, e, f, g (tie at 0.5000) | — |
 | Highest PageRank | frank (0.105286) | d (0.127752) | — |
 | Highest Katz | — | hub (0.378416) | — |
 | PageRank sum | 1.000000 | — | — |
@@ -251,7 +251,7 @@ graph LR
 | Anomaly: hub | — | anomalous (0.4543) | — |
 | Anomaly: d | — | anomalous (0.3182) | — |
 | Anomaly: a | — | low_risk (0.2829) | — |
-| Communities | 1 (modularity 0.0000) | 1 or 2 (non-deterministic, see note) | — |
+| Communities | 1 (modularity 0.0000) | 1 (non-deterministic, may be 2, see note) | — |
 | Evolution: nodes merged | — | — | 1 |
 | Evolution: density before/after | — | — | 0.3095 → 0.4333 |
 | Collapse: edges collapsed | — | — | 3 |
@@ -259,9 +259,9 @@ graph LR
 
 ## 6. What Makes This Different
 
-**Different measures rank nodes differently, and understanding why is the key insight.** In Script 1, alice has the highest degree but the 4th-lowest betweenness — her connections are local to her direct reports, not bridging distant parts of the graph. In Script 2, hub dominates degree, betweenness, and Katz but loses PageRank to d because the random walk spends time traversing the chain rather than bouncing off the hub.
+**Different measures rank nodes differently, and understanding why is the key insight.** In Script 1, alice has the highest degree but the 4th-lowest betweenness — her connections are local to her direct reports, not bridging distant parts of the graph. In Script 2, hub dominates degree and Katz, ties four chain nodes for betweenness (all at 0.5000 because the cycle-closing edge equalizes shortest-path participation), but loses PageRank to d because the random walk spends time traversing the chain rather than bouncing off the hub. The betweenness tie illustrates that "top node" can be a degenerate concept — five nodes share the maximum betweenness, making the measure less discriminative on this topology.
 
-**Edge weights shift rankings.** Script 1 shows that weighted and unweighted PageRank produce different top-3 lists (frank/bob/carol vs iris/grace/frank). When edge importance varies, the unweighted view can be misleading.
+**Edge weights shift rankings.** Script 1 shows that weighted and unweighted PageRank produce different top-3 lists (frank/bob/carol vs iris/grace/frank). The default `centrality("pagerank")` call uses edge weights as transition probabilities; passing `weighted=False` treats all edges equally. When edge importance varies (e.g., manages=5.0 vs collaborates=3.0), the unweighted view can be misleading.
 
 **Directional degree separates source and sink roles.** Script 3 shows that `project_x` (in-degree 6, out-degree 0) and `alice` (in-degree 0, out-degree 5) play structurally opposite roles. Undirected degree conflates these into single numbers (6 and 5), losing the direction information.
 

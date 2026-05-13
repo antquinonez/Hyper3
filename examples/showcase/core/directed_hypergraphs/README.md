@@ -74,7 +74,7 @@ The example models a biochemical enzyme catalysis network with **5 nodes and 5 e
 
 ### Reaction Topology
 
-Figure 1: Three enzymes bind substrate_x individually and cooperatively catalyze product_y. A downstream catalyzes chain enables transitive inference.
+Figure 1: Three enzymes bind substrate_x individually and cooperatively catalyze product_y. The downstream catalyzes chain (product_y -> downstream_product) enables transitive inference in Section 5. Dashed arrows indicate the n-ary cooperative_catalysis hyperedge (not shown: pairwise expansion of the 3-source hyperedge).
 
 ```mermaid
 graph LR
@@ -90,7 +90,7 @@ graph LR
 
     subgraph "Products"
         PY["product_y"]
-        DP["downstream_product"]
+        DP["downstream_product *"]
     end
 
     EA -->|"binds"| SX
@@ -105,13 +105,16 @@ graph LR
     EC -.->|"cooperative_catalysis"| PY
 ```
 
+> \* `downstream_product` and its `catalyzes` edge are added in Section 5 (transitive inference), not during initial construction. The diagram shows the complete graph for reference.
+
 ### Edge Taxonomy
 
-| Label | Count | Tail | Head | Semantics |
-|-------|-------|------|------|-----------|
-| `binds` | 3 | 1 enzyme | 1 substrate | Individual enzyme-substrate binding |
-| `catalyzes` | 2 | 1 substrate/product | 1 product/downstream | Sequential catalysis chain |
-| `cooperative_catalysis` | 1 | 3 enzymes | 1 product | N-ary cooperative catalysis |
+| Label | Count | Tail | Head | Added in | Semantics |
+|-------|-------|------|------|----------|-----------|
+| `binds` | 3 | 1 enzyme | 1 substrate | Section 1 | Individual enzyme-substrate binding |
+| `catalyzes` | 1 | 1 substrate | 1 product | Section 1 | Substrate-to-product conversion |
+| `cooperative_catalysis` | 1 | 3 enzymes | 1 product | Section 1 | N-ary cooperative catalysis |
+| `catalyzes` | 1 | 1 product | 1 downstream | Section 5 | Extends chain for transitive inference |
 
 ## 5. Analysis Pipeline
 
@@ -139,7 +142,7 @@ Each edge is displayed with its tail (source set), head (target set), and cardin
 
 ### Section 5: Transitive Inference
 
-A `TransitiveRule` on the `catalyzes` label produces a new `enables_production` edge. The two-hop chain `substrate_x -[catalyzes]-> product_y -[catalyzes]-> downstream_product` resolves to `substrate_x -[enables_production]-> downstream_product`. The engine produces 1 edge from 1 rule application.
+A `TransitiveRule` on the `catalyzes` label produces a new `enables_production` edge. The rule requires a two-hop chain sharing the same edge label: substrate_x -[catalyzes]-> product_y -[catalyzes]-> downstream_product. The single-hop `binds` edges (enzyme -> substrate_x) do not chain because no node receives a `binds` edge and also originates one. The transitive inference resolves the chain to substrate_x -[enables_production]-> downstream_product, shortcutting the intermediate product_y. The engine produces 1 edge from 1 rule application.
 
 ## 6. Key Metrics
 
@@ -162,9 +165,9 @@ Three capabilities go beyond undirected hyperedges or pairwise graphs:
 
 **Semantic direction labels** assign domain meaning to edge direction. The `binds` label means "enzyme attaches to substrate" — the direction from enzyme to substrate is not arbitrary, it encodes the biochemical semantics. An undirected edge would lose this: "enzyme_a and substrate_x are connected" doesn't say which binds to which.
 
-**Hyperedge neighbor queries** (`hyperedge_neighbors()`) find concepts that co-participate in edges, answering "which enzymes share a substrate?" without manually iterating over every edge. In the example, substrate_x's co-participants include all three enzymes (via `binds`) and product_y (via `catalyzes`) — a complete picture of its reaction neighborhood in one query.
+**Hyperedge neighbor queries** (`hyperedge_neighbors()`) find concepts that co-participate in edges, answering "which enzymes share a substrate?" without manually iterating over every edge. In the example, substrate_x's co-participants include all three enzymes (via `binds`) and product_y (via `catalyzes`) — a complete picture of its reaction neighborhood in one query. Note that the `cooperative_catalysis` hyperedge does not contribute neighbors for substrate_x because substrate_x is not a participant in that edge; the neighbor query is scoped to edges the node actually appears in.
 
-**Inference on directed edges** chains same-label edges into new edges. The `TransitiveRule` on `catalyzes` produces `enables_production` from the two-hop chain substrate_x -> product_y -> downstream_product. This works because the edges are directed: the rule knows that substrate_x catalyzes product_y (not the reverse), so the inferred edge correctly goes from substrate_x to downstream_product.
+**Inference on directed edges** chains same-label edges into new edges. The `TransitiveRule` on `catalyzes` detects the two-hop chain substrate_x -> product_y -> downstream_product and produces an `enables_production` edge from substrate_x directly to downstream_product. Direction is critical here: the rule traces forward along the catalysis chain (substrate -> product -> downstream), so the inferred edge correctly goes from substrate_x to downstream_product, not the reverse. An undirected graph would lose the causal ordering.
 
 ## 8. Code Implementation
 
