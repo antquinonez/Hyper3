@@ -498,8 +498,12 @@ print(f"Max entropy for 3 outcomes: {entropy:.6f} bits")
 
 ### Related Examples
 
-- `examples/showcase/` -- additional belief layer demonstrations
-- `ai/agents_conventions.md` -- Born rule sampling conventions and probabilistic testing guidelines
+| Example | Focus |
+|---------|-------|
+| `examples/showcase/belief/bayesian_medical_diagnosis/` | Bayesian updating for medical diagnosis |
+| `examples/showcase/belief/bayesian_reasoning/` | Sequential Bayesian inference for incident root cause analysis |
+| `examples/showcase/belief/belief_and_bayesian/` | Born-rule distributions and Bayesian updating on a simple graph |
+| `ai/agents_conventions.md` | Born rule sampling conventions and probabilistic testing guidelines |
 
 ### Glossary
 

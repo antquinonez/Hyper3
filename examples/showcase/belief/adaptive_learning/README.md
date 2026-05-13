@@ -69,6 +69,8 @@ SECTION 6: Adaptive Learning Summary
   Self-repair: 1 trigger(s) detected, actions recommended
 ```
 
+> Thompson sampling is probabilistic. Selection counts, frame choices, and basis-specific samples vary across runs. The overall shape (temporal dominant, pragmatic secondary) is stable.
+
 ## 5. The Scenario
 
 An IT operations knowledge graph with 111 nodes across 7 categories and 282 edges representing the relationships between them. The graph models servers, services, alerts, incidents, remediation playbooks, environments, and regions in a production infrastructure.

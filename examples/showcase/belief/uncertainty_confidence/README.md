@@ -236,6 +236,6 @@ This showcase demonstrates confidence propagation on a small synthetic supply ch
 
 | Example | Connection |
 |---------|-----------|
-| `knowledge_reasoning` | Provenance tracking and inference chain inspection |
-| `multiway_reasoning` | Multiway expansion and inference chain generation |
-| `construction_and_queries` | Graph construction patterns used in this showcase |
+| `examples/showcase/reasoning/knowledge_reasoning/` | Provenance tracking and inference chain inspection |
+| `examples/showcase/reasoning/multiway_reasoning/` | Multiway expansion and inference chain generation |
+| `examples/showcase/core/construction_and_queries/` | Graph construction patterns used in this showcase |

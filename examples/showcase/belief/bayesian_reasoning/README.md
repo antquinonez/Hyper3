@@ -294,4 +294,4 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | `examples/showcase/reasoning/multiway_reasoning/` | Multi-hypothesis parallel reasoning |
 | `examples/showcase/domain/microservices_reasoning/` | Causal chain analysis in microservices |
 | `examples/showcase/belief/bayesian_medical_diagnosis/` | Bayesian updating for medical diagnosis |
-| `examples/showcase/belief/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection
+| `examples/showcase/belief/adaptive_learning/` | Thompson sampling for adaptive parameter selection

@@ -226,10 +226,9 @@ def main() -> None:
         print(f"    {lbl:30s} amp={o.amplitude:.4f}  prob={o.probability:.4f}")
 
     cardiac_context = {"cardiac_chest_pain": 3.0, "gi_chest_pain": 0.5, "musculoskeletal_chest_pain": 0.3}
-    answer = mem.sample(qs_pain, context=cardiac_context)
+    answer = mem.belief.sample(qs_pain, context=cardiac_context)
     if answer:
-        lbl = mem.node_label(answer.node_id) or answer.node_id[:12]
-        print(f"\n  Given cardiac risk factors, sampled: {lbl}")
+        print(f"\n  Given cardiac risk factors, sampled: {answer}")
     print()
 
     print("=" * 70)

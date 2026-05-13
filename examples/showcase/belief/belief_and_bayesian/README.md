@@ -10,6 +10,8 @@ This showcase demonstrates two probabilistic reasoning mechanisms: Bayesian beli
 
 **Why Born-rule distributions?** Ambiguous concepts like "bank" have multiple valid interpretations (financial institution, river edge, billiards shot). Representing these as discrete categories with equal weight ignores that some interpretations are more salient. Born-rule distributions assign complex amplitudes to each outcome, and sampling produces outcomes with probability proportional to |amplitude|^2. This gives a principled mechanism for context-dependent disambiguation -- correlated distributions bias sampling so that observing one concept's outcome shifts another's probabilities.
 
+**Why both mechanisms?** Bayesian updating and Born-rule distributions address different kinds of uncertainty. Bayesian updating answers "which hypothesis does the evidence support?" -- it reduces uncertainty by applying evidence. Born-rule distributions answer "what does this ambiguous concept mean in context?" -- it preserves uncertainty by maintaining multiple interpretations simultaneously. A medical system uses Bayesian updating to rank diagnoses and Born-rule distributions to interpret ambiguous symptoms (e.g., "chest pain" could be cardiac, GI, or musculoskeletal). Section 1 demonstrates Bayesian updating; Sections 2-3 demonstrate Born-rule distributions.
+
 ## 2. A Simple Analogy
 
 Think of a doctor running a differential diagnosis. Before any tests, the doctor has prior beliefs based on prevalence (healthy is most likely). Each test result updates those beliefs -- a positive fever result shifts probability away from healthy toward disease. By the final test, the probability distribution has converged on a diagnosis. Bayesian updating does this with math instead of intuition.
@@ -167,7 +169,7 @@ Sampling from the bank distribution yields an outcome (probabilistic -- varies a
 
 The 90% credible set for the patient's diagnosis is `['disease_a']` alone -- `disease_a`'s posterior (0.903) exceeds 90%, so no other hypothesis is needed to reach the threshold. This means a decision-maker can act on `disease_a` with 90%+ confidence without hedging.
 
-After calling `bayes.reset`, the distribution returns to uniform (0.333 each). This allows reusing the same concept for a new inference session without creating a new node.
+After calling `bayes.reset`, the distribution returns to uniform (0.333 each). This allows reusing the same concept for a new inference session without creating a new node. In a clinical setting, this corresponds to clearing a patient's workup to start a fresh differential for a new complaint.
 
 ## 7. Understanding the Output
 
@@ -307,4 +309,4 @@ This showcase uses hand-specified likelihoods, priors, and correlation coefficie
 |---------|-------|
 | `examples/showcase/belief/bayesian_reasoning/` | Multi-hypothesis root cause analysis with information gain |
 | `examples/showcase/reasoning/multiway_reasoning/` | Parallel rule application with state convergence |
-| `examples/showcase/belief/adaptive_learning/adaptive_learning.py` | Thompson sampling for adaptive parameter selection |
+| `examples/showcase/belief/adaptive_learning/` | Thompson sampling for adaptive parameter selection |
