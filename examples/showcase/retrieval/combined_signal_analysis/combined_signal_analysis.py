@@ -155,7 +155,6 @@ def build_medical_kb(mem: HypergraphMemory) -> None:
     }
 
     risk_factors = {
-        "obesity": {"type": "risk_factor"},
         "smoking": {"type": "risk_factor"},
         "sedentary lifestyle": {"type": "risk_factor"},
         "high cholesterol": {"type": "risk_factor"},
@@ -263,7 +262,7 @@ def print_comparison(
     concept: str,
     results: list[dict],
     expected: list[str] | None = None,
-) -> None:
+) -> int | None:
     print(f"\n{'=' * 70}")
     print(f"QUERY: '{concept}'")
     if expected:

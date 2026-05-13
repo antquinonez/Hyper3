@@ -2,16 +2,11 @@
 Semantic Retrieval with Relevance Feedback in a Knowledge Base
 ==============================================================
 
-This example builds a 150+ node cybersecurity / IT operations knowledge
+This example builds a 177-node cybersecurity / IT operations knowledge
 base and demonstrates multi-signal retrieval: spreading activation for
-associative recall, hash-based embedding similarity, Reciprocal Rank
-Fusion (RRF) to merge both signals, and a learning-to-rank model that
-improves after user relevance feedback.
-
-The HashEmbeddingProvider used here is a deterministic placeholder. In
-production you would inject a real provider (e.g. sentence-transformers)
-via ``mem.set_embedding_provider(my_provider)`` for meaningful semantic
-similarity.
+associative recall, embedding similarity via FastEmbedProvider,
+Reciprocal Rank Fusion (RRF) to merge both signals, and a
+learning-to-rank model that improves after user relevance feedback.
 
 Run with:
     .venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py
@@ -475,7 +470,7 @@ def main():
     print("=" * 70)
     print("SECTION 3: Embedding Similarity from 'ransomware'")
     print("=" * 70)
-    print("  (HashEmbeddingProvider is a deterministic placeholder)")
+    print("  (FastEmbedProvider with BAAI/bge-small-en-v1.5)")
 
     similar = mem.search.similar("ransomware", top_k=15, threshold=-1.0)
     print(f"  {'Label':30s} {'Cosine':>8s} {'Euclid':>8s}")
@@ -640,7 +635,7 @@ def main():
         TransitiveRule(edge_label="targets", new_label="targets_chain"),
     )
     result = mem.reason(
-        seed_concepts={"sql_injection", "phishing"}, max_depth=3, auto_commit=True
+        {"sql_injection", "phishing"}, max_depth=3, auto_commit=True
     )
     print("  Reasoning from sql_injection and phishing:")
     print(f"    States created: {result.expansion.states_created if result.expansion else 0}")

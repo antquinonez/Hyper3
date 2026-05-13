@@ -69,7 +69,7 @@ KB: 25 nodes, 28 edges
 
 ## 5. The Scenario
 
-A 25-node medical knowledge graph with three node types and 28 directed edges:
+A 25-node medical knowledge graph with three node types and 37 directed edges:
 
 | Node type | Count | Examples |
 |-----------|-------|---------|
@@ -77,7 +77,7 @@ A 25-node medical knowledge graph with three node types and 28 directed edges:
 | treatment | 10 | metformin, insulin, lisinopril, statins, beta blockers, SSRIs |
 | risk factor | 5 | smoking, sedentary lifestyle, high cholesterol, chronic stress |
 
-Edge labels: `risk_factor`, `treated_by`, `complication`.
+Edge labels: `risk_factor` (16), `treated_by` (11), `complication` (10) -- totaling 37 edges.
 
 ```mermaid
 graph TB
@@ -125,6 +125,8 @@ graph TB
     DEP --"treated_by"--> SSRI
     DEP --"risk_factor"--> CS
 ```
+
+The diagram above shows a representative subset of the 37 edges. The full graph includes bidirectional risk-factor relationships (e.g., both "diabetes → obesity" and "heart disease → obesity"), complication chains linking conditions to downstream diseases, and treatment edges connecting each condition to its therapies.
 
 ## 6. Analysis Pipeline
 
@@ -187,7 +189,7 @@ The learned weights depend on the feedback data and embedding model. With senten
 | Metric | Value |
 |--------|-------|
 | Graph nodes | 25 |
-| Graph edges | 28 |
+| Graph edges | 37 |
 | Conditions | 10 |
 | Treatments | 10 |
 | Risk factors | 5 |

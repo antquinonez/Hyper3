@@ -61,17 +61,17 @@ Knowledge base: 28 nodes, 29 edges
 
 ## 5. The Scenario
 
-A 28-node medical knowledge graph with three node types and 29 directed edges:
+A 27-node medical knowledge graph with three node types and 46 directed edges:
 
 | Node type | Count | Examples |
 |-----------|-------|---------|
 | condition | 10 | type 2 diabetes, hypertension, obesity, heart disease, stroke |
 | treatment | 10 | metformin, insulin, lisinopril, statins, beta blockers |
-| risk factor | 8 | smoking, sedentary lifestyle, high cholesterol, chronic stress |
+| risk factor | 7 | smoking, sedentary lifestyle, high cholesterol, chronic stress |
 
-Each condition node carries rich data including symptoms and risk factor descriptions, which the embedding model uses for similarity computation.
+"Obesity" appears as both a condition (with symptom data) and is linked to by `risk_factor` edges from other conditions. It is stored as a single node, not duplicated.
 
-Edge labels: `risk_factor`, `treated_by`, `complication`, `treats`.
+Edge labels: `risk_factor` (18), `treated_by` (12), `complication` (15), `treats` (1) -- totaling 46 edges.
 
 ```mermaid
 graph TB
@@ -102,19 +102,20 @@ graph TB
     end
 
     subgraph "Risk Factors"
-        OBE_R["obesity"]
         SMO["smoking"]
         SED["sedentary lifestyle"]
         HC["high cholesterol"]
         CS["chronic stress"]
         PD["poor diet"]
+        FH["family history"]
+        HSI["high sodium intake"]
     end
 
     DIAB --"treated_by"--> MET
     DIAB --"treated_by"--> INS
     DIAB --"complication"--> HD
     DIAB --"complication"--> CKD
-    DIAB --"risk_factor"--> OBE_R
+    DIAB --"risk_factor"--> OBE
 
     HYP --"treated_by"--> LIS
     HYP --"treated_by"--> BB
@@ -126,6 +127,8 @@ graph TB
     DEP --"treated_by"--> CBT
     DEP --"treated_by"--> SSRI
 ```
+
+The diagram shows a representative subset. "Obesity" is a condition node that also receives `risk_factor` edges from other conditions (diabetes, hypertension). This dual role -- both a condition with symptoms and a risk factor for other diseases -- is exactly why combined retrieval matters: activation follows the graph edges, while semantic similarity recognizes obesity's medical context regardless of edge direction.
 
 ## 6. Analysis Pipeline
 
@@ -187,11 +190,11 @@ combined = alpha * activation + (1 - alpha) * similarity
 
 | Metric | Value |
 |--------|-------|
-| Graph nodes | 28 |
-| Graph edges | 29 |
+| Graph nodes | 27 |
+| Graph edges | 46 |
 | Conditions | 10 |
 | Treatments | 10 |
-| Risk factors | 8 |
+| Risk factors | 7 |
 | Embedding model | all-MiniLM-L6-v2 |
 | Alpha sweep values | 5 (0.0, 0.25, 0.5, 0.75, 1.0) |
 | Clinical scenarios | 4 (diabetes, obesity, heart disease, depression) |

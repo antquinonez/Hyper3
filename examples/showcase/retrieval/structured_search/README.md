@@ -239,6 +239,8 @@ for src, tgt, label in edges:
     mem.link(src, tgt, label=label, weight=2.0)
 ```
 
+`evolve_interval=0` disables automatic graph evolution (decay, prune, merge) so results are deterministic across runs. Production deployments should set a positive value (e.g., `evolve_interval=50`) to enable self-maintenance.
+
 **Result:** 20 nodes, 33 edges. Each node carries typed data attributes. Each edge connects compatible products or same-category alternatives.
 
 ### Section 2: Activation Energy (Structural Graph)
