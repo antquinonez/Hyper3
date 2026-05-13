@@ -67,7 +67,7 @@ SECTION 7: Getting issue tree for 'server_wont_boot'
 
 ## 5. The Scenario
 
-The engine models an IT infrastructure with 7 root causes and 5 observable symptoms:
+The engine models an IT infrastructure with 7 root causes and 6 symptom nodes (5 connected symptoms shown in the topology):
 
 ```mermaid
 graph TD
@@ -110,7 +110,7 @@ graph TD
 
 **What this shows:**
 - **Root Causes**: 7 possible root causes, each with type metadata (hardware, software, configuration, network)
-- **Symptoms**: 5 observable symptoms with severity metadata
+- **Symptoms**: 6 symptom nodes in the graph (`data_loss` is currently unconnected), with 5 connected symptoms shown in the diagram
 - **N-ary hyperedge**: The dashed `either_condition` edge represents "either power_failure OR hardware_failure can cause server_wont_boot" — a single hyperedge connecting two sources to one target
 
 The graph has **13 nodes** and **10 edges**. The n-ary hyperedge connecting both `power_failure` and `hardware_failure` to `server_wont_boot` models the real-world scenario where multiple failure modes produce the same symptom.
@@ -121,7 +121,7 @@ The graph has **13 nodes** and **10 edges**. The n-ary hyperedge connecting both
 
 ### Section 1: Building the Graph
 
-The engine creates 13 nodes (7 root causes, 5 symptoms, 1 derived node) and 10 edges (8 pairwise "causes" edges, 1 n-ary "either_condition" hyperedge counting as 2 source connections). A `TransitiveRule` is registered for `edge_label="causes"` to enable multi-hop causal chain discovery during `mem.prove()`.
+The engine creates 13 nodes (7 root causes, 6 symptom nodes) and 10 edges (9 pairwise `causes` edges, plus 1 n-ary `either_condition` hyperedge). A `TransitiveRule` is registered for `edge_label="causes"` to enable multi-hop causal chain discovery during `mem.prove()`.
 
 ### Section 2: Proving a Root Cause
 
@@ -192,7 +192,7 @@ The `explain_proof()` method uses `mem.neighbors(direction="out")` to find all d
 | Total nodes | 13 |
 | Total edges | 10 |
 | Root causes | 7 |
-| Observable symptoms | 5 |
+| Symptom nodes | 6 (5 connected in topology) |
 | power_failure → server_wont_boot confidence | 1.0 |
 | hardware_failure → server_wont_boot + application_crashes confidence | 1.0 |
 | Causes of no_network_connectivity | 2 (configuration_error, network_outage) |

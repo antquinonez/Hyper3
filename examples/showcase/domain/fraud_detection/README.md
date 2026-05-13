@@ -62,16 +62,16 @@ SECTION 2: Alert Triage and Activation
 SECTION 7: Probabilistic Fraud Scoring
 ======================================================================
   Belief state over 5 suspects:
-    viktor_kingpin            probability=0.2572
-    irina_accountant          probability=0.2469
-    katya_recruiter           probability=0.1922
+    viktor_kingpin            probability~0.258
+    irina_accountant          probability~0.247
+    katya_recruiter           probability~0.190
     ...
 
 ======================================================================
 SECTION 10: Investigation Summary
 ======================================================================
   Graph: 119 nodes, 287 edges
-  Cycles detected: 14
+  Cycles detected: 17
   Funnel accounts: 8
   Indirect transfers inferred: 50
 ```
@@ -227,7 +227,7 @@ cycles = mem.detect_cycles(max_cycles=10)
 
 **Why this matters:** Circular flows are a hallmark of layering in money laundering. Money cycles through a chain of accounts and returns to (or near) its source, creating the appearance of legitimate business transactions. Without cycle detection, an analyst examining individual transfers sees only legitimate-looking movements.
 
-**Result:** 14 circular money flows detected. Cycle 2 is a short 3-node loop: `acct_zenith_holdings -> acct_viktor_business -> acct_global_trading -> acct_zenith_holdings`. Cycle 5 is the longest at 8 unique nodes spanning the shell company network: `acct_nordic_services -> acct_viktor_personal -> acct_lena_personal -> acct_dmitri_invest -> acct_zenith_holdings -> acct_viktor_business -> acct_global_trading -> acct_alpha_consulting -> acct_nordic_services`.
+**Result:** Cycle discovery is run-dependent and now configured with a higher cap; recent runs surface roughly 17-22 circular money flows. A short 3-node loop appears around shell-account transfers, while longer loops span the broader shell-company path through `acct_zenith_holdings`, `acct_alpha_consulting`, `acct_nordic_services`, and mule-linked accounts.
 
 ### Section 5: Funnel Account Identification
 
@@ -278,9 +278,9 @@ betweenness = mem.analyze.centrality("betweenness")
 ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
 ```
 
-**Why this matters:** The ringleader (risk=0.95) has high degree but zero betweenness because they operate through lieutenants. The recruiter (risk=0.82) has the highest betweenness (0.0031) because they connect the leadership to the mule network. Betweenness reveals organizational structure that degree alone obscures: the person who bridges two otherwise-disconnected groups is operationally critical even if their total connection count is lower.
+**Why this matters:** The ringleader (risk=0.95) can have high degree but low betweenness because operations pass through intermediaries. A recruiter or mule bridge node often has the highest betweenness because it connects leadership to transfer operators. Betweenness reveals organizational structure that degree alone obscures: the person who bridges otherwise disconnected groups is operationally critical even if their total connection count is lower.
 
-**Result:** `katya_recruiter` ranks first by betweenness (0.0031) despite having a lower risk score (0.82) than `viktor_kingpin` (0.95). This is because katya connects the leadership tier to the mule network -- a structural broker role. `natasha_mule4` (0.0029), `boris_mule1` (0.0028), and `sergei_mule3` (0.0019) follow, all money mules who sit on paths between accounts.
+**Result:** A structural broker ranks highest by betweenness despite lower intrinsic risk score than the ringleader. In the current run, `natasha_mule4` leads, followed by `katya_recruiter` and `boris_mule1`, showing that bridge positions dominate shortest-path traffic.
 
 ### Section 7: Probabilistic Fraud Scoring
 
@@ -299,7 +299,7 @@ answer = mem.sample(qs)
 
 **Why this matters:** Traditional risk scoring assigns a fixed number to each suspect. Belief distributions model uncertainty explicitly: each suspect has a probability derived from complex amplitudes, and sampling via the Born rule produces a stochastic draw. This is useful when an analyst needs to prioritize a single lead for the next investigative action -- rather than picking manually from a ranked list, the system samples proportionally to each suspect's probability, with higher-probability suspects drawn more often. Without this, an analyst might fixate on the highest-scoring suspect and neglect alternatives.
 
-**Result:** The belief state assigns probabilities across 5 suspects: `viktor_kingpin` at 0.2572, `irina_accountant` at 0.2469, `katya_recruiter` at 0.1922, `lena_lieutenant` at 0.1838, and `pavel_tech` at 0.1199. Born-rule sampling (10 draws) produces a distribution consistent with these probabilities. Note: sampling is probabilistic and results vary across runs.
+**Result:** The belief state assigns probabilities across 5 suspects with `viktor_kingpin` and `irina_accountant` typically highest, followed by `katya_recruiter`, `lena_lieutenant`, and `pavel_tech`. Born-rule sampling (10 draws) produces a distribution consistent with those probabilities. Note: sampling is probabilistic and results vary across runs.
 
 ### Section 8: Structural Anomaly Detection
 
@@ -320,7 +320,7 @@ for concept in anomaly_targets:
 
 **Why this matters:** Accounts involved in circular money flows have a distinctive structural signature: they sit on cycles and receive edges with contradictory labels (both sending and receiving money through the same networks). Anomaly detection surfaces these structural red flags automatically. Without it, an analyst would need to trace each account's position in every detected cycle -- a manual process that becomes impractical as the number of cycles grows.
 
-**Result:** Two accounts are flagged as `anomalous`: `acct_zenith_holdings` (boundary score 0.4119) and `acct_global_trading` (boundary score 0.3829). Both show cyclic dependency structures and contradictory edge labels. The remaining targets are classified as `low_risk`: `viktor_kingpin` (0.0178), `katya_recruiter` (0.0153), and `boris_mule1` (0.1314). The person nodes have low boundary scores because their edge patterns are structurally normal (they own accounts, share addresses, and have social connections). The accounts have high boundary scores because they participate in money-flow cycles with contradictory labels.
+**Result:** Two accounts are flagged as `anomalous`: `acct_zenith_holdings` (boundary score around 0.41) and `acct_global_trading` (around 0.38). Both show cyclic dependency structures and contradictory edge labels. The remaining targets are classified as `low_risk` with much lower boundary scores. Person nodes tend to have lower boundary scores because their edge patterns are structurally normal (ownership, address sharing, social links), while the anomalous accounts sit inside contradictory money-flow cycles.
 
 ### Section 9: Evidence Chain Provenance
 
@@ -344,7 +344,7 @@ for suspect in ["viktor_kingpin", "katya_recruiter", "lena_lieutenant"]:
 
 **Why this matters:** An investigation needs to show not just that a suspect is connected to criminal activity, but *how* each piece of evidence links to them. `prove()` attempts to construct a chain from known facts to the target, reporting satisfied premises and missing evidence. Without provenance tracking, an analyst can say "this person is suspicious" but cannot enumerate the specific evidence that supports (or undermines) that conclusion.
 
-**Result:** All three targets return `partial` status with confidence 0.0000 and 0/0 premises satisfied. This indicates that the prover could not find paths from the known evidence (flagged accounts, unverified entities, VPN/TOR IPs) to the person targets. The graph's edge types (`owns`, `shares_address`, `associated_with`) represent relational connections rather than evidence-to-conclusion chains. In a graph augmented with explicit evidence edges (e.g., `evidence_links` from observations to suspect conclusions), `prove()` would identify which evidence items support each suspect and which are missing.
+**Result:** All three targets return `ACHIEVABLE` with full confidence in the current run because `prove()` can satisfy direct premises from the provided known evidence set. This indicates the current evidence set is broad enough to satisfy backward-chaining requirements for these targets in this schema.
 
 ### Section 10: Investigation Summary
 
@@ -356,7 +356,7 @@ print(f"Graph: {stats.nodes} nodes, {stats.edges} edges")
 print(f"Connected components: {stats.components}")
 ```
 
-**Result:** 119 nodes, 287 edges (50 edges added by reasoning), 14 connected components, 14 cycles, 8 funnel accounts, 50 indirect transfer chains inferred, 0 indirect associations inferred.
+**Result:** 119 nodes, 287 edges (50 edges added by reasoning), 14 connected components, run-dependent cycle count (~17-22 observed), 8 funnel accounts, 50 indirect transfer chains inferred, 0 indirect associations inferred.
 
 The largest suspicious subgraph (91 nodes, 261 edges) captures the core fraud ring. Recommended next steps include filing SARs for structuring, freezing key accounts, subpoenaing shell company records, and coordinating cross-border requests.
 
@@ -430,7 +430,7 @@ Note: Betweenness values are small because the graph is dense with many short al
 | IP/Device traces | 12 |
 | Alerts | 11 |
 | Connected components | 14 |
-| Circular money flows | 14 |
+| Circular money flows | run-dependent (~17-22 observed) |
 | Funnel accounts | 8 |
 | Suspicious clusters (>= 3 flagged nodes) | 1 |
 | Largest suspicious cluster | 91 nodes, 32 flagged |
@@ -440,14 +440,14 @@ Note: Betweenness values are small because the graph is dense with many short al
 | Reasoning rules applied | 50 |
 | Reasoning max depth | 2 |
 | Top activation from alert_circular_001 | acct_zenith_holdings (1.000) |
-| Highest betweenness suspect | katya_recruiter (0.0031) |
+| Highest betweenness suspect | natasha_mule4 (~0.0037 in current run) |
 | Highest risk suspect | viktor_kingpin (0.95) |
 | Largest suspicious subgraph | 91 nodes, 261 edges |
 | Belief distribution suspects | 5 |
-| Highest belief probability | viktor_kingpin (0.2572) |
+| Highest belief probability | viktor_kingpin (~0.258) |
 | Anomalous accounts | 2 (acct_zenith_holdings, acct_global_trading) |
-| Highest anomaly boundary score | acct_zenith_holdings (0.4119) |
-| Provenance targets | 3 (all partial, confidence 0.0000) |
+| Highest anomaly boundary score | acct_zenith_holdings (~0.41) |
+| Provenance targets | 3 (all achievable in current run) |
 
 ## 9. What Makes This Different
 
@@ -455,15 +455,15 @@ Note: Betweenness values are small because the graph is dense with many short al
 
 **Transitive reasoning** discovers multi-hop transfer chains that are invisible in raw transaction logs. The 50 indirect transfer chains inferred by the `TransitiveRule` represent money paths that span intermediary accounts. Without rule-based inference, an analyst would need to manually trace each chain by examining individual transactions.
 
-**Cycle detection** identifies circular money flows automatically. The 14 cycles detected include short 3-node loops (zenith -> viktor_business -> global_trading -> zenith) and long 8-node chains that traverse the full shell company network. Finding these manually requires tracing each account's transaction graph and checking for returns to the source.
+**Cycle detection** identifies circular money flows automatically. The 17 detected cycles include short loops and longer shell-company circuits that traverse multiple intermediary accounts before returning to origin. Finding these manually requires tracing each account's transaction graph and checking for returns to the source.
 
-**Betweenness-based ranking** reveals organizational structure. The ringleader (`viktor_kingpin`) has the highest risk score (0.95) but zero betweenness because they operate through intermediaries. The recruiter (`katya_recruiter`) has the highest betweenness (0.0031) because they bridge the leadership and mule tiers. Degree centrality alone would miss this distinction.
+**Betweenness-based ranking** reveals organizational structure. The ringleader (`viktor_kingpin`) has the highest risk score (0.95) but zero betweenness because they operate through intermediaries. A mule/recruiter bridge node often has the highest betweenness because it links leadership and operational transfer tiers. Degree centrality alone would miss this distinction.
 
 **Probabilistic fraud scoring** models uncertainty rather than collapsing it to a single rank. Belief distributions assign probabilities to suspects, and Born-rule sampling produces stochastic prioritization. This prevents analysts from fixating on a single suspect when multiple leads deserve attention.
 
 **Structural anomaly detection** finds accounts that sit at the center of circular flows. `acct_zenith_holdings` and `acct_global_trading` are flagged as anomalous because their graph positions exhibit cyclic dependencies and contradictory edge labels -- structural signatures of layering. This is complementary to cycle detection: cycles identify the paths, while anomaly detection identifies which nodes on those paths are structurally unusual.
 
-**Evidence provenance** traces proof chains from known facts to conclusions. While the current graph's relational edge types (`owns`, `transferred_to`) do not match the prover's expected evidence-to-conclusion patterns, the API is designed for graphs augmented with explicit evidence edges. This capability enables transparent, auditable reasoning chains.
+**Evidence provenance** traces proof chains from known facts to conclusions. With the current schema and known-facts set, `prove()` can establish achievable chains for selected suspects. This capability enables transparent, auditable reasoning chains and highlights where additional evidence-link edges would improve explanatory depth.
 
 **Unified graph representation** stores persons, accounts, transactions, devices, addresses, and alerts in a single structure. Querying across categories (which persons share an address with a flagged account?) requires no joins -- it is a two-hop traversal.
 

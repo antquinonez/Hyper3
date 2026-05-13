@@ -538,7 +538,7 @@ def main():
     print("SECTION 4: Pattern Detection")
     print("=" * 70)
 
-    cycles = mem.detect_cycles(max_cycles=10)
+    cycles = mem.detect_cycles(max_cycles=14)
     print(f"  Circular money flows detected: {len(cycles)}")
     for i, cycle in enumerate(cycles):
         print(f"    Cycle {i + 1}: {' -> '.join(cycle)} -> {cycle[0]}")
@@ -742,7 +742,7 @@ def main():
 
     if ranked:
         leader = ranked[0]
-        print(f"  Identified ring leader: {leader[0]}")
+        print(f"  Top structural broker suspect: {leader[0]}")
         print(f"    Role: {leader[1]['role']}")
         print(f"    Risk score: {leader[1]['risk_score']:.2f}")
         print(f"    Betweenness centrality: {betweenness.get(leader[0], 0):.4f}")

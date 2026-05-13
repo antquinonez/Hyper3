@@ -2,7 +2,7 @@
 Financial Risk Network Analysis with Community Detection and Abstraction
 ========================================================================
 
-Models a cross-asset risk network with 130+ nodes covering counterparties,
+Models a cross-asset risk network with 75+ nodes covering counterparties,
 instruments, risk factors, and regulatory entities. Demonstrates:
 
   1. Community detection to identify risk clusters
@@ -16,7 +16,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
+from hyper3 import HypergraphMemory
 
 
 COUNTERPARTIES = {
@@ -209,25 +209,28 @@ REGULATORY_EDGES: list[tuple[str, str]] = [
 def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
+    def populate_base_graph(target_mem: HypergraphMemory) -> None:
+        all_entities = {**COUNTERPARTIES, **INSTRUMENTS, **RISK_FACTORS, **REGULATORS}
+        for name, data in all_entities.items():
+            target_mem.add(name, data=data)
+
+        for src, tgt, label, weight in EXPOSURES:
+            target_mem.link(src, tgt, label=label, weight=weight)
+
+        for src, tgt, label in RISK_EXPOSURE_EDGES:
+            target_mem.link(src, tgt, label=label)
+
+        for src, tgt in RISK_AMPLIFICATION:
+            target_mem.link(src, tgt, label="amplifies")
+
+        for reg, cp in REGULATORY_EDGES:
+            target_mem.link(reg, cp, label="regulates")
+
     print("=" * 70)
     print("SECTION 1: Building Financial Risk Network")
     print("=" * 70)
 
-    all_entities = {**COUNTERPARTIES, **INSTRUMENTS, **RISK_FACTORS, **REGULATORS}
-    for name, data in all_entities.items():
-        mem.add(name, data=data)
-
-    for src, tgt, label, weight in EXPOSURES:
-        mem.link(src, tgt, label=label, weight=weight)
-
-    for src, tgt, label in RISK_EXPOSURE_EDGES:
-        mem.link(src, tgt, label=label)
-
-    for src, tgt in RISK_AMPLIFICATION:
-        mem.link(src, tgt, label="amplifies")
-
-    for reg, cp in REGULATORY_EDGES:
-        mem.link(reg, cp, label="regulates")
+    populate_base_graph(mem)
 
     print(f"  Nodes: {mem.size[0]}")
     print(f"  Edges: {mem.size[1]}")
@@ -298,28 +301,38 @@ def main() -> None:
     print("SECTION 4: Hierarchical Abstraction - Portfolio Rollups")
     print("=" * 70)
 
+    ab_mem = HypergraphMemory(evolve_interval=0)
+    populate_base_graph(ab_mem)
+    ab_mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
+    ab_mem.link("archegos_capital", "sp500_futures", label="holds")
+    ab_mem.link("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
+    ab_mem.link("archegos_capital", "vix_futures", label="holds")
+    ab_mem.link("archegos_capital", "sec", label="regulated_by")
+    if ab_mem.has("credit_suisse"):
+        ab_mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
+
     us_banks = {"goldman_sachs", "jp_morgan", "morgan_stanley", "citigroup", "bank_of_america"}
-    summary = mem.collapse_subgraph(us_banks, summary_label="us_banking_sector",
-                                     summary_data={"type": "sector_summary", "region": "US"})
+    summary = ab_mem.collapse_subgraph(us_banks, summary_label="us_banking_sector",
+                                       summary_data={"type": "sector_summary", "region": "US"})
     if summary:
         print(f"  Collapsed {len(summary.mapping.detail_labels)} US banks into 'us_banking_sector'")
         print(f"    Internal edges collapsed: {summary.internal_edge_count}")
         print(f"    External connections:     {summary.external_connections}")
     print()
 
-    summaries = mem.list_summaries()
+    summaries = ab_mem.list_summaries()
     print(f"  Active summary nodes: {len(summaries)}")
     for s in summaries:
         print(f"    {s.summary_label}: {', '.join(s.detail_labels)}")
     print()
 
-    us_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
+    us_result = ab_mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after abstraction: {us_result.community_count}")
     print()
 
-    mem.expand_summary("us_banking_sector")
+    ab_mem.expand_summary("us_banking_sector")
     print("  Expanded 'us_banking_sector' back to individual banks")
-    expanded_result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
+    expanded_result = ab_mem.analyze.communities(method="weighted_label_propagation", seed=42)
     print(f"  Communities after expansion: {expanded_result.community_count}")
     print()
 
@@ -428,13 +441,23 @@ def main() -> None:
     print("  shortest_path() traces the most likely contagion route.")
     print()
 
+    flow_mem = HypergraphMemory(evolve_interval=0)
+    populate_base_graph(flow_mem)
+    flow_mem.add("archegos_capital", data={"category": "counterparty", "type": "hedge_fund", "credit_rating": "NR"})
+    flow_mem.link("archegos_capital", "sp500_futures", label="holds")
+    flow_mem.link("archegos_capital", "nikkei_futures", label="holds", weight=10.0)
+    flow_mem.link("archegos_capital", "vix_futures", label="holds")
+    flow_mem.link("archegos_capital", "sec", label="regulated_by")
+    if flow_mem.has("credit_suisse"):
+        flow_mem.link("credit_suisse", "archegos_capital", label="prime_broker_for")
+
     flow_pairs = [
         ("archegos_capital", "morgan_stanley"),
         ("archegos_capital", "credit_suisse"),
         ("archegos_capital", "nomura"),
     ]
     for src, tgt in flow_pairs:
-        flow_val, flow_dict = mem.analyze.max_flow(src, tgt)
+        flow_val, flow_dict = flow_mem.analyze.max_flow(src, tgt)
         if flow_val > 0:
             print(f"  {src} -> {tgt}:")
             print(f"    Max contagion flow: {flow_val:.2f}")
@@ -445,14 +468,14 @@ def main() -> None:
             print(f"  {src} -> {tgt}: no flow path (disconnected)")
     print()
 
-    cut_weight, (side_a, side_b) = mem.analyze.min_cut()
+    cut_weight, (side_a, side_b) = flow_mem.analyze.min_cut()
     print(f"  Global minimum cut:")
     print(f"    Cut weight: {cut_weight:.2f}")
     print(f"    Partition A ({len(side_a)} nodes): {list(side_a)[:5]}...")
     print(f"    Partition B ({len(side_b)} nodes): {list(side_b)[:5]}...")
     print()
 
-    path = mem.analyze.shortest_path("archegos_capital", "credit_suisse", weighted=True)
+    path = flow_mem.analyze.shortest_path("archegos_capital", "credit_suisse", weighted=True)
     if path:
         print(f"  Shortest risk path archegos -> credit_suisse:")
         print(f"    {' -> '.join(path)}")
@@ -460,7 +483,7 @@ def main() -> None:
     print()
     print("  Running feedback-driven evolution to adjust edge weights")
     print("  based on which risk paths were activated during analysis:")
-    ev_result = mem.evolve_with_feedback()
+    ev_result = flow_mem.evolve_with_feedback()
     print(f"    Reinforced: {ev_result.reinforced}")
     print(f"    Suppressed: {ev_result.suppressed}")
     print(f"    Decayed: {ev_result.decayed}")

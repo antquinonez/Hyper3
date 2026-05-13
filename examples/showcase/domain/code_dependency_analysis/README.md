@@ -58,20 +58,20 @@ SECTION 2: Creating Dependency Edges
 ======================================================================
 SECTION 10: Package-Level Abstraction
 ======================================================================
-  pkg_core collapsed: 98 edges, 58 external connections
-  pkg_third_party collapsed: 37 edges, 36 external connections
+  pkg_core collapsed: 92 edges, 58 external connections
+  pkg_third_party collapsed: 32 edges, 31 external connections
   Active summaries: ['pkg_core', 'pkg_third_party']
   Top 5 modules in abstracted graph:
-    pkg_core                            centrality=0.562
-    pkg_third_party                     centrality=0.285
+    pkg_core                            centrality=0.492
+    pkg_third_party                     centrality=0.238
     ...
   Expanded pkg_core back to individual nodes
 
 ======================================================================
 SECTION 11: Dependency Change Tracking
 ======================================================================
-  Baseline: version_id=0, nodes=130, edges=2376
-  After adding svc.graphql: version_id=1, nodes=131, edges=2380
+  Baseline: version_id=0, nodes=129, edges=343
+  After adding svc.graphql: version_id=1, nodes=130, edges=347
   Changes from baseline:
     Nodes added: 1
     Nodes removed: 0
@@ -82,20 +82,20 @@ SECTION 11: Dependency Change Tracking
 ======================================================================
 SUMMARY
 ======================================================================
-  Graph: 131 nodes, 2380 edges
+  Graph: 130 nodes, 347 edges
   Circular dependencies: 8 cycles
-  Connected components: 18
+  Connected components: 3
   Indirect dependencies found: 50
   Outdated packages: 17
   Low-coverage at-risk modules: 18
 
   Highest-risk module: core.engine (criticality=0.103)
-  Its blast radius: 103 modules affected by a change
+  Its blast radius: 117 modules affected by a change
 ```
 
 ## 5. The Scenario
 
-The showcase models a monorepo with **129 nodes across 7 categories and 343 dependency edges** (393 after transitive inference):
+The showcase models a monorepo with **129 nodes across 7 categories and 343 dependency edges** (393 after transitive inference).
 
 | Category | Count | Examples | Purpose |
 |----------|-------|----------|---------|
@@ -358,13 +358,13 @@ summaries = mem.list_summaries()
 expand_result = mem.expand_summary("pkg_core")
 ```
 
-**Why this matters:** A 129-node graph is manageable, but real monorepos have thousands of modules. When evaluating architecture at the subsystem level, you do not need to see every internal edge within core — you need to know how the core subsystem as a whole connects to services, data, and third-party packages. `collapse_subgraph()` replaces 30 core nodes with a single `pkg_core` node, re-routing 58 external connections through it and collapsing 98 internal edges. Running centrality on the collapsed graph reveals that `pkg_core` (0.562) dominates the architecture — more than twice the centrality of any individual service. `expand_summary()` reverses the collapse, restoring the original 30 nodes for detailed analysis.
+**Why this matters:** A 129-node graph is manageable, but real monorepos have thousands of modules. When evaluating architecture at the subsystem level, you do not need to see every internal edge within core — you need to know how the core subsystem as a whole connects to services, data, and third-party packages. `collapse_subgraph()` replaces 30 core nodes with a single `pkg_core` node, re-routing 58 external connections through it and collapsing 92 internal edges. Running centrality on the collapsed graph reveals that `pkg_core` (0.492) dominates the architecture — more than twice the centrality of any individual service. `expand_summary()` reverses the collapse, restoring the original 30 nodes for detailed analysis.
 
 **Result:**
-- `pkg_core`: 98 internal edges collapsed, 58 external connections preserved
-- `pkg_third_party`: 37 internal edges collapsed, 36 external connections preserved
-- In the abstracted graph, `pkg_core` has centrality 0.562 — confirming the core subsystem is the architectural backbone
-- `pkg_third_party` ranks second at 0.285 — external dependencies form a secondary hub
+- `pkg_core`: 92 internal edges collapsed, 58 external connections preserved
+- `pkg_third_party`: 32 internal edges collapsed, 31 external connections preserved
+- In the abstracted graph, `pkg_core` has centrality 0.492 — confirming the core subsystem is the architectural backbone
+- `pkg_third_party` ranks second at 0.238 — external dependencies form a secondary hub
 - `pkg_core` was expanded back to individual nodes; `pkg_third_party` remains collapsed
 
 ### Section 11: Dependency Change Tracking
@@ -386,8 +386,8 @@ delta = mem.diff_from_version(baseline["version_id"])
 **Why this matters:** Dependency graphs evolve on every commit. Without version tracking, answering "what changed since last week?" requires re-running the full analysis and comparing output by hand. `capture_version()` records a point-in-time snapshot. `diff_from_version()` returns a structured delta listing exactly which nodes and edges were added or removed. In this example, adding `svc.graphql` with 4 dependencies produces a diff of 5 changes (1 node + 4 edges), immediately quantifiable without manual comparison.
 
 **Result:**
-- Baseline snapshot: version_id=0, 130 nodes, 2376 edges
-- After adding `svc.graphql`: version_id=1, 131 nodes, 2380 edges
+- Baseline snapshot: version_id=0, 129 nodes, 343 edges
+- After adding `svc.graphql`: version_id=1, 130 nodes, 347 edges
 - Diff: 1 node added, 0 removed, 4 edges added, 0 removed — 5 total changes
 
 ### Summary
@@ -395,15 +395,15 @@ delta = mem.diff_from_version(baseline["version_id"])
 The final section aggregates all findings:
 
 ```
-Graph: 131 nodes, 2380 edges
+Graph: 130 nodes, 347 edges
 Circular dependencies: 8 cycles
-Connected components: 18
+Connected components: 3
 Indirect dependencies found: 50
 Outdated packages: 17
 Low-coverage at-risk modules: 18
 
 Highest-risk module: core.engine (criticality=0.103)
-Its blast radius: 103 modules affected by a change
+Its blast radius: 117 modules affected by a change
 ```
 
 The final graph reflects all modifications: transitive inference (section 6), subgraph collapse/expand (section 10), and the addition of `svc.graphql` (section 11). The blast radius and component count differ from the pre-abstraction values (116 modules, 3 components) because the graph structure changed during the abstraction operations.
@@ -526,20 +526,20 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 
 | Metric | Value |
 |--------|-------|
-| `pkg_core` edges collapsed | 98 |
+| `pkg_core` edges collapsed | 92 |
 | `pkg_core` external connections | 58 |
-| `pkg_third_party` edges collapsed | 37 |
-| `pkg_third_party` external connections | 36 |
-| `pkg_core` centrality in abstracted graph | 0.562 |
-| `pkg_third_party` centrality in abstracted graph | 0.285 |
+| `pkg_third_party` edges collapsed | 32 |
+| `pkg_third_party` external connections | 31 |
+| `pkg_core` centrality in abstracted graph | 0.492 |
+| `pkg_third_party` centrality in abstracted graph | 0.238 |
 | Active summaries after collapse | `pkg_core`, `pkg_third_party` |
 
 ### Change Tracking (Section 11)
 
 | Metric | Value |
 |--------|-------|
-| Baseline snapshot | version_id=0, 130 nodes, 2376 edges |
-| After adding `svc.graphql` | version_id=1, 131 nodes, 2380 edges |
+| Baseline snapshot | version_id=0, 129 nodes, 343 edges |
+| After adding `svc.graphql` | version_id=1, 130 nodes, 347 edges |
 | Nodes added | 1 |
 | Edges added | 4 |
 | Total changes | 5 |
@@ -548,10 +548,10 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 
 | Metric | Value |
 |--------|-------|
-| Final node count | 131 |
-| Final edge count | 2380 |
-| Connected components | 18 |
-| `core.engine` blast radius (final) | 103 modules |
+| Final node count | 130 |
+| Final edge count | 347 |
+| Connected components | 3 |
+| `core.engine` blast radius (final) | 117 modules |
 
 ### Module Distribution
 
@@ -575,7 +575,7 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 
 **Subsystem coupling is derived, not declared.** The coupling matrix is computed by counting edges between module categories. No one annotated that services depend on third-party packages 11 times — the graph structure reveals this when queried by category.
 
-**Subgraph collapse provides zoom-level analysis.** `collapse_subgraph()` replaces a set of nodes with a single summary node, re-routing external edges through it. This answers questions like "how does the core subsystem as a whole connect to services?" without seeing the 30 internal nodes. `expand_summary()` reverses the collapse, restoring individual nodes when you need detail. The collapsed graph shows `pkg_core` at centrality 0.562 — confirming core is the architectural backbone in a single number that would otherwise require aggregating 30 individual centrality scores.
+**Subgraph collapse provides zoom-level analysis.** `collapse_subgraph()` replaces a set of nodes with a single summary node, re-routing external edges through it. This answers questions like "how does the core subsystem as a whole connect to services?" without seeing the 30 internal nodes. `expand_summary()` reverses the collapse, restoring individual nodes when you need detail. The collapsed graph shows `pkg_core` at centrality 0.492 — confirming core is the architectural backbone in a single number that would otherwise require aggregating 30 individual centrality scores.
 
 **Version snapshots track dependency drift.** `capture_version()` records a point-in-time snapshot of the graph. `diff_from_version()` compares the current graph against a snapshot, returning structured counts of nodes and edges added or removed. This turns "what changed since last week?" from a manual comparison into a single graph operation that returns a diff of 5 changes when one service is added.
 

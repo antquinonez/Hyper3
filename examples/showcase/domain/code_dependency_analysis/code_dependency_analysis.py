@@ -436,6 +436,12 @@ def main():
     for src, tgt, label in unique_edges:
         mem.link(src, tgt, label=label)
 
+    def populate_graph(target_mem: HypergraphMemory) -> None:
+        for label, data in all_modules.items():
+            target_mem.add(label, data=data)
+        for src, tgt, edge_label in unique_edges:
+            target_mem.link(src, tgt, label=edge_label)
+
     print(f"  {mem.size[0]} nodes, {mem.size[1]} edges")
     print()
 
@@ -636,10 +642,13 @@ def main():
     print("SECTION 10: Package-Level Abstraction")
     print("=" * 70)
 
+    ab_mem = HypergraphMemory(evolve_interval=0)
+    populate_graph(ab_mem)
+
     core_labels = set(core_modules.keys())
     third_party_labels = set(third_party.keys())
 
-    pkg_core = mem.collapse_subgraph(
+    pkg_core = ab_mem.collapse_subgraph(
         core_labels,
         summary_label="pkg_core",
         summary_data={"category": "package", "modules": len(core_labels)},
@@ -648,7 +657,7 @@ def main():
         print(f"  pkg_core collapsed: {pkg_core.edges_collapsed} edges, "
               f"{pkg_core.external_connections} external connections")
 
-    pkg_tp = mem.collapse_subgraph(
+    pkg_tp = ab_mem.collapse_subgraph(
         third_party_labels,
         summary_label="pkg_third_party",
         summary_data={"category": "package", "modules": len(third_party_labels)},
@@ -657,15 +666,15 @@ def main():
         print(f"  pkg_third_party collapsed: {pkg_tp.edges_collapsed} edges, "
               f"{pkg_tp.external_connections} external connections")
 
-    summaries = mem.list_summaries()
+    summaries = ab_mem.list_summaries()
     print(f"  Active summaries: {[s.summary_label for s in summaries]}")
 
-    abstract_degree = mem.analyze.centrality("degree")
+    abstract_degree = ab_mem.analyze.centrality("degree")
     print("  Top 5 modules in abstracted graph:")
     for label, score in top_k(abstract_degree, k=5):
         print(f"    {label:<35s} centrality={score:.3f}")
 
-    expand_result = mem.expand_summary("pkg_core")
+    expand_result = ab_mem.expand_summary("pkg_core")
     if expand_result:
         print(f"  Expanded pkg_core back to individual nodes")
     print()
@@ -678,27 +687,30 @@ def main():
     print("SECTION 11: Dependency Change Tracking")
     print("=" * 70)
 
-    baseline = mem.capture_version()
+    final_mem = HypergraphMemory(evolve_interval=0)
+    populate_graph(final_mem)
+
+    baseline = final_mem.capture_version()
     print(f"  Baseline: version_id={baseline['version_id']}, "
           f"nodes={baseline['node_count']}, edges={baseline['edge_count']}")
 
-    mem.add("svc.graphql", data={
+    final_mem.add("svc.graphql", data={
         "category": "service",
         "api_version": "v1",
         "team": "platform",
         "endpoint_count": 6,
         "latency_p95": 55,
     })
-    mem.link("svc.graphql", "core.engine", label="depends_on")
-    mem.link("svc.graphql", "core.pipeline", label="depends_on")
-    mem.link("svc.graphql", "svc.auth", label="depends_on")
-    mem.link("svc.graphql", "util.tracing", label="imports")
+    final_mem.link("svc.graphql", "core.engine", label="depends_on")
+    final_mem.link("svc.graphql", "core.pipeline", label="depends_on")
+    final_mem.link("svc.graphql", "svc.auth", label="depends_on")
+    final_mem.link("svc.graphql", "util.tracing", label="imports")
 
-    updated = mem.capture_version()
+    updated = final_mem.capture_version()
     print(f"  After adding svc.graphql: version_id={updated['version_id']}, "
           f"nodes={updated['node_count']}, edges={updated['edge_count']}")
 
-    delta = mem.diff_from_version(baseline["version_id"])
+    delta = final_mem.diff_from_version(baseline["version_id"])
     if delta:
         print(f"  Changes from baseline:")
         print(f"    Nodes added: {len(delta.nodes_added)}")
@@ -715,7 +727,7 @@ def main():
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    stats = mem.stats()
+    stats = final_mem.stats()
     print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Circular dependencies: {len(cycles)} cycles")
     print(f"  Connected components: {stats.components}")
@@ -726,7 +738,7 @@ def main():
 
     top = top_k(combined, k=1)[0]
     print(f"  Highest-risk module: {top[0]} (criticality={top[1]:.3f})")
-    blast = mem.query(top[0], strategy="bfs", max_depth=6, max_nodes=200)
+    blast = final_mem.query(top[0], strategy="bfs", max_depth=6, max_nodes=200)
     blast_count = len([n for n in blast if n.label != top[0] and n.data.get("category") != "test"])
     print(f"  Its blast radius: {blast_count} modules affected by a change")
     print()
