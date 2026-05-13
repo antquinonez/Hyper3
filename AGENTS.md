@@ -310,6 +310,39 @@ Modules use naming prefixes to show their subsystem relationships:
 
 **Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `state_clustering.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `rule_analytics.py`.
 
+### DP-17: Namespace API for Domain Operations
+
+Domain operations are exposed through namespace attributes on `HypergraphMemory`. When a namespace exists for a subsystem, prefer it over calling mixin methods directly. Namespaces provide shorter method names, group related operations, and shield callers from mixin signature changes.
+
+**Available namespaces:**
+
+| Namespace | Attribute | Purpose |
+|-----------|-----------|---------|
+| `BayesNamespace` | `mem.bayes` | Prior/posterior distributions, MAP estimates, Bayes factors, credible sets |
+| `BeliefNamespace` | `mem.belief` | Born-rule distributions, sampling, correlation, interference |
+| `AnalyzeNamespace` | `mem.analyze` | Centrality, paths, components, communities, confidence scoring |
+| `CognitiveNamespace` | `mem.cognitive` | Backward chaining, Hebbian learning, confidence propagation |
+| `ReasonNamespace` | `mem.reason` | Multiway reasoning, frame analysis |
+| `SearchNamespace` | `mem.search` | Concept search, retrieval, feedback |
+| `TemporalNamespace` | `mem.temporal` | Temporal queries, time-range filtering |
+| `MonitorNamespace` | `mem.monitor` | System health, introspection, metamorphosis |
+
+**Pattern** (preferred):
+```python
+mem.bayes.set_prior("diagnosis", outcomes=["mi", "pe"], weights=[0.3, 0.1])
+mem.bayes.update("diagnosis", evidence="ecg", likelihoods={"mi": 0.9, "pe": 0.1})
+posterior = mem.bayes.get("diagnosis")
+estimate = mem.bayes.map("diagnosis")
+bf = mem.bayes.factor("diagnosis", hyp_a="mi", hyp_b="pe")
+
+cs = mem.cognitive.confidence("concept")
+all_conf = mem.cognitive.all_confidences()
+chain = mem.cognitive.trace_confidence("src", "tgt")
+low = mem.cognitive.low_confidence(threshold=0.5)
+```
+
+**Violations to avoid**: Do not call mixin methods directly when a namespace wrapper exists. `mem.set_prior(...)` should be `mem.bayes.set_prior(...)`, `mem.compute_confidence(...)` should be `mem.cognitive.confidence(...)`, etc.
+
 ## Build & Run
 
 ```bash

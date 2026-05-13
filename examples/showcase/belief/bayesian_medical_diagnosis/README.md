@@ -6,7 +6,7 @@
 
 A patient presents to the emergency department with chest pain. Six diagnoses are plausible: myocardial infarction (MI), pulmonary embolism (PE), GERD, costochondritis, anxiety, and aortic dissection. Evidence arrives sequentially (symptoms, ECG, lab results). The Bayesian subsystem updates the posterior probability of each diagnosis as each piece of evidence arrives, converging on MI with 99.2% probability after four updates.
 
-This is the first Hyper3 example demonstrating the full Bayesian subsystem: `set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, and `credible_set`. It also demonstrates belief distributions for ambiguous symptom interpretation and confidence assessment for identifying knowledge gaps.
+This is the first Hyper3 example demonstrating the full Bayesian subsystem: `bayes.set_prior`, `bayes.update`, `bayes.map`, `bayes.factor`, and `bayes.credible`. It also demonstrates belief distributions for ambiguous symptom interpretation and confidence assessment for identifying knowledge gaps.
 
 ## 2. A Simple Analogy
 
@@ -183,13 +183,13 @@ mem.link("ecg_st_elevation", "mi", label="supports", weight=0.90)
 mem.link("troponin_elevated", "mi", label="supports", weight=0.95)
 
 mem.add("differential_diagnosis", data={"type": "bayesian_analysis"})
-mem.set_prior("differential_diagnosis", outcomes=["mi", "pe", "gerd"], weights=[0.30, 0.10, 0.25])
+mem.bayes.set_prior("differential_diagnosis", outcomes=["mi", "pe", "gerd"], weights=[0.30, 0.10, 0.25])
 
-mem.update_belief("differential_diagnosis", evidence_name="ecg_st_elevation",
+mem.bayes.update("differential_diagnosis", evidence="ecg_st_elevation",
     likelihoods={"mi": 0.90, "pe": 0.10, "gerd": 0.05})
 
-print(mem.map_estimate("differential_diagnosis"))
-print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b="pe"))
+print(mem.bayes.map("differential_diagnosis"))
+print(mem.bayes.factor("differential_diagnosis", hyp_a="mi", hyp_b="pe"))
 ```
 
 ## 11. Real-World Gap
@@ -206,14 +206,14 @@ print(mem.bayes_factor("differential_diagnosis", hypothesis_a="mi", hypothesis_b
 
 | Method | Purpose |
 |--------|---------|
-| `mem.set_prior(concept, outcomes, weights)` | Create a Bayesian prior distribution over named outcomes |
-| `mem.update_belief(concept, evidence_name, likelihoods)` | Apply evidence via Bayes' rule |
-| `mem.get_belief(concept)` | Retrieve current posterior distribution |
-| `mem.map_estimate(concept)` | Return the most probable hypothesis |
-| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Compute cumulative Bayes factor |
-| `mem.credible_set(concept, level)` | Smallest set covering probability mass |
-| `mem.compute_all_confidences()` | Score every concept in the graph |
-| `mem.flag_low_confidence(threshold)` | Find concepts below confidence threshold |
+| `mem.bayes.set_prior(concept, outcomes, weights)` | Create a Bayesian prior distribution over named outcomes |
+| `mem.bayes.update(concept, evidence, likelihoods)` | Apply evidence via Bayes' rule |
+| `mem.bayes.get(concept)` | Retrieve current posterior distribution |
+| `mem.bayes.map(concept)` | Return the most probable hypothesis |
+| `mem.bayes.factor(concept, hyp_a, hyp_b)` | Compute cumulative Bayes factor |
+| `mem.bayes.credible(concept, level)` | Smallest set covering probability mass |
+| `mem.cognitive.all_confidences()` | Score every concept in the graph |
+| `mem.cognitive.low_confidence(threshold)` | Find concepts below confidence threshold |
 
 ### Related Examples
 

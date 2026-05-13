@@ -477,22 +477,22 @@ print(f"Max entropy for 3 outcomes: {entropy:.6f} bits")
 | Method | Purpose |
 |--------|---------|
 | `mem.belief.create(concepts, amplitudes, use_context_field)` | Creates a belief state over the given concepts. Without amplitudes, uses spreading activation from graph connectivity. |
-| `mem.sample(qs, context)` | Samples one outcome proportional to `|amplitude|^2 * context_weight`. Returns the selected node. |
-| `mem.correlate(group_a, group_b, correlations)` | Creates a correlation matrix between two hypothesis groups. |
-| `mem.sample_correlated(qs, observed_label)` | Samples correlated outcomes given an observation. |
-| `mem.compute_interactions(qs)` | Computes interference patterns for duplicate hypotheses in a distribution. Returns `is_constructive`, `is_destructive`, `net_amplitude`. |
+| `mem.belief.sample(target, context)` | Samples one outcome proportional to `|amplitude|^2 * context_weight`. Returns the selected label. |
+| `mem.belief.correlate(group_a, group_b, correlations)` | Creates a correlation matrix between two hypothesis groups. |
+| `mem.belief.sample_correlated(qs, observed_label)` | Samples correlated outcomes given an observation. |
+| `mem.belief.interactions(qs)` | Computes interference patterns for duplicate hypotheses in a distribution. Returns `is_constructive`, `is_destructive`, `net_amplitude`. |
 | `mem.belief.von_neumann_entropy(rho)` | Computes `S = -Tr(rho log2 rho)` for a density matrix. |
-| `mem.belief.compute_density_matrix(qs_id)` | Computes `rho = |psi><psi|` for a quantum state. |
-| `mem.set_prior(concept, outcomes, weights)` | Creates a Bayesian prior distribution over named outcomes. |
-| `mem.update_belief(concept, evidence_name, likelihoods)` | Applies evidence via Bayes' rule, returning posterior and KL divergence. |
-| `mem.get_belief(concept)` | Retrieves the current posterior distribution. |
-| `mem.map_estimate(concept)` | Returns the label of the most probable hypothesis. |
-| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Computes the cumulative Bayes factor between two hypotheses. |
-| `mem.credible_set(concept, level)` | Returns the smallest set of hypotheses covering `level` probability mass. |
-| `mem.compute_all_confidences()` | Computes confidence scores for every concept in the graph. |
-| `mem.compute_confidence(concept)` | Computes a single concept's confidence score. |
-| `mem.flag_low_confidence(threshold)` | Finds concepts below a confidence threshold. |
-| `mem.trace_confidence_chain(source, target)` | Finds the highest-confidence path between two concepts. |
+| `mem.belief.density_matrix(qs_id)` | Computes `rho = |psi><psi|` for a quantum state. |
+| `mem.bayes.set_prior(concept, outcomes, weights)` | Creates a Bayesian prior distribution over named outcomes. |
+| `mem.bayes.update(concept, evidence, likelihoods)` | Applies evidence via Bayes' rule, returning posterior and KL divergence. |
+| `mem.bayes.get(concept)` | Retrieves the current posterior distribution. |
+| `mem.bayes.map(concept)` | Returns the label of the most probable hypothesis. |
+| `mem.bayes.factor(concept, hyp_a, hyp_b)` | Computes the cumulative Bayes factor between two hypotheses. |
+| `mem.bayes.credible(concept, level)` | Returns the smallest set of hypotheses covering `level` probability mass. |
+| `mem.cognitive.all_confidences()` | Computes confidence scores for every concept in the graph. |
+| `mem.cognitive.confidence(concept)` | Computes a single concept's confidence score. |
+| `mem.cognitive.low_confidence(threshold)` | Finds concepts below a confidence threshold. |
+| `mem.cognitive.trace_confidence(source, target)` | Finds the highest-confidence path between two concepts. |
 
 ### Related Examples
 

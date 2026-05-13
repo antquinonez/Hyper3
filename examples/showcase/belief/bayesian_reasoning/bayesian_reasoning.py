@@ -207,7 +207,7 @@ def main() -> None:
 
     prior_weights = [PRIORS[c] for c in ROOT_CAUSES]
     mem.add("outage_diagnosis", data={"type": "bayesian_analysis"})
-    mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)
+    mem.bayes.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)
 
     label_map: dict[str, str] = {}
     for label in ROOT_CAUSES:
@@ -215,7 +215,7 @@ def main() -> None:
         if nid:
             label_map[nid] = label
 
-    prior = mem.get_belief("outage_diagnosis")
+    prior = mem.bayes.get("outage_diagnosis")
     prior_dict: dict[str, float] = {}
     if prior:
         print("\n  Prior distribution (based on historical incident data):")
@@ -243,9 +243,9 @@ def main() -> None:
     prev_dict = dict(prior_dict)
 
     for i, evidence_name in enumerate(OBSERVATION_ORDER, 1):
-        result = mem.update_belief(
+        result = mem.bayes.update(
             "outage_diagnosis",
-            evidence_name=evidence_name,
+            evidence=evidence_name,
             likelihoods=LIKELIHOODS[evidence_name],
         )
 
@@ -270,12 +270,12 @@ def main() -> None:
     print("SECTION 4: MAP Estimate and Credible Set")
     print("=" * 70)
 
-    map_est = mem.map_estimate("outage_diagnosis")
+    map_est = mem.bayes.map("outage_diagnosis")
     map_prob = prev_dict.get(map_est, 0.0) if map_est else 0.0
     print("\n  MAP (Maximum A Posteriori) estimate:")
     print(f"    {map_est}: P = {map_prob:.4f}")
 
-    credible = mem.credible_set("outage_diagnosis", level=0.95)
+    credible = mem.bayes.credible("outage_diagnosis", level=0.95)
 
     sorted_posterior = sorted(prev_dict.items(), key=lambda x: -x[1])
     print("\n  95% Credible set (highest posterior density):")
@@ -304,10 +304,10 @@ def main() -> None:
     h1_name, h1_prob = sorted_post[0]
     h2_name, h2_prob = sorted_post[1]
 
-    bf_top2 = mem.bayes_factor(
+    bf_top2 = mem.bayes.factor(
         "outage_diagnosis",
-        hypothesis_a=h1_name,
-        hypothesis_b=h2_name,
+        hyp_a=h1_name,
+        hyp_b=h2_name,
     )
 
     print("\n  Comparing top two hypotheses:")
@@ -335,10 +335,10 @@ def main() -> None:
     print(f"  {'-' * 25} {'-' * 10} {'-' * 12}")
     for cause, prob in sorted_post[1:]:
         if prob > 0 and PRIORS[cause] > 0:
-            bf = mem.bayes_factor(
+            bf = mem.bayes.factor(
                 "outage_diagnosis",
-                hypothesis_a=h1_name,
-                hypothesis_b=cause,
+                hyp_a=h1_name,
+                hyp_b=cause,
             )
             if bf is not None:
                 if bf > 100:

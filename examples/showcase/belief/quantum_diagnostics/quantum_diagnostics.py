@@ -376,9 +376,8 @@ def section_3_sample(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     n_trials = 1000
     for _ in range(n_trials):
         qs_trial = mem.belief.create(outcomes=hypotheses, amplitudes=None, use_context=False)
-        answer = mem.sample(qs_trial, context=context_weights)
-        if answer:
-            label = mem.node_label(answer.node_id) or answer.node_id
+        label = mem.belief.sample(qs_trial, context=context_weights)
+        if label:
             counts[label] = counts.get(label, 0) + 1
 
     print(f"\n  Sample frequency over {n_trials} trials:")
@@ -560,12 +559,12 @@ def section_7_bayesian_reasoning(mem: HypergraphMemory, hypotheses: list[str]) -
     print()
 
     mem.add("root_cause_investigation", data={"type": "bayesian_analysis"})
-    mem.set_prior(
+    mem.bayes.set_prior(
         "root_cause_investigation",
         outcomes=hypotheses,
         weights=[1.0, 1.0, 1.0, 1.0, 1.0],
     )
-    prior = mem.get_belief("root_cause_investigation")
+    prior = mem.bayes.get("root_cause_investigation")
     if prior:
         print("  Prior (uniform):")
         label_map = {}
@@ -620,9 +619,9 @@ def section_7_bayesian_reasoning(mem: HypergraphMemory, hypotheses: list[str]) -
             label_map[nid] = h
 
     for ev_name, likelihoods in evidence_sequence:
-        result = mem.update_belief(
+        result = mem.bayes.update(
             "root_cause_investigation",
-            evidence_name=ev_name,
+            evidence=ev_name,
             likelihoods=likelihoods,
         )
         if result.posterior:
@@ -636,16 +635,16 @@ def section_7_bayesian_reasoning(mem: HypergraphMemory, hypotheses: list[str]) -
                 print(f"    KL divergence from prior: {result.kl_divergence:.4f} bits")
 
     print()
-    map_est = mem.map_estimate("root_cause_investigation")
+    map_est = mem.bayes.map("root_cause_investigation")
     print(f"  MAP estimate (most probable cause): {map_est}")
 
-    credible = mem.credible_set("root_cause_investigation", level=0.95)
+    credible = mem.bayes.credible("root_cause_investigation", level=0.95)
     print(f"  95% credible set: {credible}")
 
-    bf = mem.bayes_factor(
+    bf = mem.bayes.factor(
         "root_cause_investigation",
-        hypothesis_a="certificate_expiry",
-        hypothesis_b="dns_resolution_failure",
+        hyp_a="certificate_expiry",
+        hyp_b="dns_resolution_failure",
     )
     if bf is not None:
         print(f"  Bayes factor (cert_expiry vs dns_failure): {bf:.2f}")
@@ -670,7 +669,7 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
     print("  structure, then flags areas that need more information.")
     print()
 
-    all_conf = mem.compute_all_confidences()
+    all_conf = mem.cognitive.all_confidences()
     print("  Overall graph confidence:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
@@ -687,7 +686,7 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
     ]
     print("  Confidence scores for root cause hypotheses:")
     for cause in root_causes:
-        score = mem.compute_confidence(cause)
+        score = mem.cognitive.confidence(cause)
         if score:
             bar = "#" * int(score.confidence * 30)
             print(f"    {cause:40s} {score.confidence:.4f} {bar} (depth={score.depth}, source={score.source})")
@@ -702,7 +701,7 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
         "metric_dns_timeout_5s",
     ]
     for ev in evidence_nodes:
-        score = mem.compute_confidence(ev)
+        score = mem.cognitive.confidence(ev)
         if score:
             print(f"    {ev:40s} {score.confidence:.4f} (depth={score.depth})")
 
@@ -714,14 +713,14 @@ def section_8_confidence_assessment(mem: HypergraphMemory) -> None:
         ("db_connection_pool_exhaustion", "sla_breach_risk"),
     ]
     for src, tgt in chains_to_check:
-        chain = mem.trace_confidence_chain(src, tgt)
+        chain = mem.cognitive.trace_confidence(src, tgt)
         if chain:
             print(f"    {src} -> {tgt}:")
             print(f"      chain_confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
 
     print()
     print("  Flagging low-confidence areas (knowledge gaps):")
-    low = mem.flag_low_confidence(threshold=0.5)
+    low = mem.cognitive.low_confidence(threshold=0.5)
     if low:
         print(f"    {len(low)} concepts below threshold 0.5:")
         for item in low[:8]:

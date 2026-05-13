@@ -74,7 +74,7 @@ def main() -> None:
     print("=" * 70)
 
     for concept in ["supplier_acme", "widget_alpha", "widget_gamma", "trade_embargo"]:
-        score = mem.compute_confidence(concept)
+        score = mem.cognitive.confidence(concept)
         if score:
             print(f"\n{concept}:")
             print(f"  confidence: {score.confidence:.4f}")
@@ -86,7 +86,7 @@ def main() -> None:
     print("SECTION 4: FULL UNCERTAINTY ANALYSIS")
     print("=" * 70)
 
-    uncertainty = mem.compute_all_confidences()
+    uncertainty = mem.cognitive.all_confidences()
     print(f"average confidence: {uncertainty.avg_confidence:.4f}")
     print(f"min confidence: {uncertainty.min_confidence:.4f}")
     print(f"max confidence: {uncertainty.max_confidence:.4f}")
@@ -102,7 +102,7 @@ def main() -> None:
     print("SECTION 5: CONFIDENCE CHAIN TRACING")
     print("=" * 70)
 
-    chain = mem.trace_confidence_chain("widget_alpha", "supplier_globex")
+    chain = mem.cognitive.trace_confidence("widget_alpha", "supplier_globex")
     if chain:
         print("\nchain: widget_alpha -> supplier_globex")
         print(f"  depth: {chain.chain_depth}")
@@ -112,7 +112,7 @@ def main() -> None:
     else:
         print("\nno chain found from widget_alpha to supplier_globex")
 
-    chain2 = mem.trace_confidence_chain("trade_embargo", "supplier_acme")
+    chain2 = mem.cognitive.trace_confidence("trade_embargo", "supplier_acme")
     if chain2:
         print("\nchain: trade_embargo -> supplier_acme")
         print(f"  depth: {chain2.chain_depth}")
@@ -124,7 +124,7 @@ def main() -> None:
     print("SECTION 6: FLAGGING LOW-CONFIDENCE INFERENCES")
     print("=" * 70)
 
-    low_conf = mem.flag_low_confidence(threshold=0.5)
+    low_conf = mem.cognitive.low_confidence(threshold=0.5)
     print(f"\nconcepts below confidence 0.5: {len(low_conf)}")
     for score in low_conf:
         print(f"  {score.node_label}: confidence={score.confidence:.4f}, depth={score.depth}, source={score.source}")

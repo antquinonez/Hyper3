@@ -96,7 +96,7 @@ The graph stores likelihoods as edge weights (scaled to 1-10). Each evidence nod
 
 ## 6. Analysis Pipeline
 
-The script runs 6 sections, each building on the previous. All Bayesian computations use Hyper3's built-in Bayesian subsystem (`set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, `credible_set`).
+The script runs 6 sections, each building on the previous. All Bayesian computations use Hyper3's built-in Bayesian subsystem (`bayes.set_prior`, `bayes.update`, `bayes.map`, `bayes.factor`, `bayes.credible`).
 
 ### Section 1: Building the Knowledge Graph
 
@@ -104,11 +104,11 @@ The graph has 15 nodes (6 root causes + 8 evidence types + 1 Bayesian analysis n
 
 ### Section 2: Setting Prior Beliefs
 
-`mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)` creates a Bayesian prior distribution on the `outage_diagnosis` node. Priors reflect historical incident frequency: `database_overload` starts at 0.3000, `network_partition` at 0.2000, `config_error` and `auth_service_down` at 0.1500 each, `memory_leak` and `dns_failure` at 0.1000 each. The prior entropy is 2.471 bits out of a maximum 2.585 bits (near-uniform), meaning the priors provide little discrimination.
+`mem.bayes.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES, weights=prior_weights)` creates a Bayesian prior distribution on the `outage_diagnosis` node. Priors reflect historical incident frequency: `database_overload` starts at 0.3000, `network_partition` at 0.2000, `config_error` and `auth_service_down` at 0.1500 each, `memory_leak` and `dns_failure` at 0.1000 each. The prior entropy is 2.471 bits out of a maximum 2.585 bits (near-uniform), meaning the priors provide little discrimination.
 
 ### Section 3: Sequential Evidence-Driven Updates
 
-Six pieces of evidence arrive in order. Each call to `mem.update_belief("outage_diagnosis", evidence_name=..., likelihoods=...)` applies Bayes' rule and returns an `UpdateResult` with the prior snapshot, posterior snapshot, and KL divergence from the update. The posterior shifts after each:
+Six pieces of evidence arrive in order. Each call to `mem.bayes.update("outage_diagnosis", evidence=..., likelihoods=...)` applies Bayes' rule and returns an `UpdateResult` with the prior snapshot, posterior snapshot, and KL divergence from the update. The posterior shifts after each:
 
 | Step | Evidence | Top Cause | P(top) | Key Shift |
 |------|----------|-----------|--------|-----------|
@@ -123,7 +123,7 @@ Six pieces of evidence arrive in order. Each call to `mem.update_belief("outage_
 
 ### Section 4: MAP Estimate and Credible Set
 
-`mem.map_estimate("outage_diagnosis")` returns `database_overload` with P = 0.9299. `mem.credible_set("outage_diagnosis", level=0.95)` returns a 2-member credible set:
+`mem.bayes.map("outage_diagnosis")` returns `database_overload` with P = 0.9299. `mem.bayes.credible("outage_diagnosis", level=0.95)` returns a 2-member credible set:
 
 | Root Cause | P(cause\|data) | Cumulative |
 |------------|----------------|------------|
@@ -134,7 +134,7 @@ Four causes are excluded: `config_error` (0.0211), `network_partition` (0.0197),
 
 ### Section 5: Bayes Factor Comparison
 
-`mem.bayes_factor("outage_diagnosis", hypothesis_a=..., hypothesis_b=...)` computes the cumulative Bayes factor for `database_overload` over each alternative, accounting for prior odds:
+`mem.bayes.factor("outage_diagnosis", hypothesis_a=..., hypothesis_b=...)` computes the cumulative Bayes factor for `database_overload` over each alternative, accounting for prior odds:
 
 | Hypothesis | BF | Strength |
 |------------|-----|----------|
@@ -241,24 +241,24 @@ for evidence in EVIDENCE_NODES:
     mem.add(evidence, data={"type": "evidence"})
 
 mem.add("outage_diagnosis", data={"type": "bayesian_analysis"})
-mem.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES,
+mem.bayes.set_prior("outage_diagnosis", outcomes=ROOT_CAUSES,
               weights=[0.30, 0.20, 0.15, 0.10, 0.10, 0.15])
 
 for evidence_name in OBSERVATION_ORDER:
-    result = mem.update_belief(
+    result = mem.bayes.update(
         "outage_diagnosis",
-        evidence_name=evidence_name,
+        evidence=evidence_name,
         likelihoods=LIKELIHOODS[evidence_name],
     )
     print(f"KL divergence: {result.kl_divergence:.4f} bits")
 
-map_est = mem.map_estimate("outage_diagnosis")
-bf = mem.bayes_factor("outage_diagnosis", hypothesis_a="database_overload",
-                       hypothesis_b="memory_leak")
-credible = mem.credible_set("outage_diagnosis", level=0.95)
+map_est = mem.bayes.map("outage_diagnosis")
+bf = mem.bayes.factor("outage_diagnosis", hyp_a="database_overload",
+                      hyp_b="memory_leak")
+credible = mem.bayes.credible("outage_diagnosis", level=0.95)
 ```
 
-The knowledge graph stores the likelihood network as weighted `indicates` edges (weights = likelihood x 10). The Bayesian updates use `update_belief()`, which applies Bayes' rule: `P(cause | evidence) proportional to P(evidence | cause) * P(cause)`. Each `UpdateResult` contains the prior snapshot, posterior snapshot, KL divergence, and per-hypothesis Bayes factors.
+The knowledge graph stores the likelihood network as weighted `indicates` edges (weights = likelihood x 10). The Bayesian updates use `bayes.update()`, which applies Bayes' rule: `P(cause | evidence) proportional to P(evidence | cause) * P(cause)`. Each `UpdateResult` contains the prior snapshot, posterior snapshot, KL divergence, and per-hypothesis Bayes factors.
 
 ## 11. Real-World Gap
 
@@ -279,12 +279,12 @@ This showcase uses hand-specified likelihoods and priors. Production deployment 
 | `HypergraphMemory(evolve_interval=0)` | Create memory with deterministic behavior |
 | `mem.add(concept, data=...)` | Create a node with typed data |
 | `mem.link(source, target, label=..., weight=...)` | Create a directed edge with semantic label and weight |
-| `mem.set_prior(concept, outcomes, weights)` | Create a Bayesian prior distribution over named outcomes |
-| `mem.update_belief(concept, evidence_name, likelihoods)` | Apply evidence via Bayes' rule, returning `UpdateResult` with prior, posterior, and KL divergence |
-| `mem.get_belief(concept)` | Retrieve current posterior distribution |
-| `mem.map_estimate(concept)` | Return the label of the most probable hypothesis |
-| `mem.bayes_factor(concept, hypothesis_a, hypothesis_b)` | Compute the cumulative Bayes factor between two hypotheses |
-| `mem.credible_set(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
+| `mem.bayes.set_prior(concept, outcomes, weights)` | Create a Bayesian prior distribution over named outcomes |
+| `mem.bayes.update(concept, evidence, likelihoods)` | Apply evidence via Bayes' rule, returning `UpdateResult` with prior, posterior, and KL divergence |
+| `mem.bayes.get(concept)` | Retrieve current posterior distribution |
+| `mem.bayes.map(concept)` | Return the label of the most probable hypothesis |
+| `mem.bayes.factor(concept, hyp_a, hyp_b)` | Compute the cumulative Bayes factor between two hypotheses |
+| `mem.bayes.credible(concept, level)` | Return smallest hypothesis set exceeding probability threshold |
 | `mem.neighbors(concept, edge_label=..., direction=...)` | Query neighbors filtered by edge label and direction |
 
 ### Related Examples

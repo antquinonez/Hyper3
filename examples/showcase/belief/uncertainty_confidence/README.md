@@ -174,7 +174,7 @@ print(f"edges produced: {result.expansion.edges_produced}")
 **3. Score individual nodes:**
 
 ```python
-score = mem.compute_confidence("widget_gamma")
+score = mem.cognitive.confidence("widget_gamma")
 print(f"confidence: {score.confidence:.4f}")
 print(f"depth: {score.depth}")
 print(f"source: {score.source}")
@@ -183,7 +183,7 @@ print(f"source: {score.source}")
 **4. Run full uncertainty analysis:**
 
 ```python
-uncertainty = mem.compute_all_confidences()
+uncertainty = mem.cognitive.all_confidences()
 print(f"average confidence: {uncertainty.avg_confidence:.4f}")
 print(f"high confidence nodes: {uncertainty.high_confidence_count}")
 ```
@@ -191,7 +191,7 @@ print(f"high confidence nodes: {uncertainty.high_confidence_count}")
 **5. Trace confidence chains:**
 
 ```python
-chain = mem.trace_confidence_chain("widget_alpha", "supplier_globex")
+chain = mem.cognitive.trace_confidence("widget_alpha", "supplier_globex")
 if chain:
     print(f"depth: {chain.chain_depth}")
     print(f"cumulative confidence: {chain.chain_confidence:.4f}")
@@ -200,7 +200,7 @@ if chain:
 **6. Flag low-confidence concepts:**
 
 ```python
-flagged = mem.flag_low_confidence(threshold=0.5)
+flagged = mem.cognitive.low_confidence(threshold=0.5)
 print(f"concepts below threshold: {len(flagged)}")
 ```
 
@@ -219,10 +219,10 @@ This showcase demonstrates confidence propagation on a small synthetic supply ch
 
 | Method | Purpose |
 |--------|---------|
-| `mem.compute_confidence(concept)` | Get confidence score for a single node |
-| `mem.compute_all_confidences()` | Score all nodes and return aggregate statistics |
-| `mem.trace_confidence_chain(source, target)` | Find highest-confidence path between two concepts |
-| `mem.flag_low_confidence(threshold)` | List concepts below confidence threshold |
+| `mem.cognitive.confidence(concept)` | Get confidence score for a single node |
+| `mem.cognitive.all_confidences()` | Score all nodes and return aggregate statistics |
+| `mem.cognitive.trace_confidence(source, target)` | Find highest-confidence path between two concepts |
+| `mem.cognitive.low_confidence(threshold)` | List concepts below confidence threshold |
 | `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
 | `TransitiveRule(edge_label, new_label)` | Infer A -> C from A -> B -> C chains |

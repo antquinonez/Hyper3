@@ -130,9 +130,9 @@ def main() -> None:
     dx_weights = [0.30, 0.10, 0.25, 0.15, 0.15, 0.05]
 
     mem.add("differential_diagnosis", data={"type": "bayesian_analysis"})
-    mem.set_prior("differential_diagnosis", outcomes=dx_outcomes, weights=dx_weights)
+    mem.bayes.set_prior("differential_diagnosis", outcomes=dx_outcomes, weights=dx_weights)
 
-    prior = mem.get_belief("differential_diagnosis")
+    prior = mem.bayes.get("differential_diagnosis")
     print("\n  Prior distribution (based on prevalence):")
     label_map = {}
     for h in dx_outcomes:
@@ -150,28 +150,20 @@ def main() -> None:
     print("=" * 70)
 
     evidence_sequence = [
-        (
-            "patient_presents_with_chest_pain_and_radiating_pain",
-            {"mi": 0.80, "pe": 0.40, "gerd": 0.50, "costochondritis": 0.30, "anxiety": 0.40, "aortic_dissection": 0.60},
-        ),
-        (
-            "ecg_shows_st_elevation",
-            {"mi": 0.90, "pe": 0.10, "gerd": 0.05, "costochondritis": 0.05, "anxiety": 0.05, "aortic_dissection": 0.30},
-        ),
-        (
-            "troponin_markedly_elevated",
-            {"mi": 0.95, "pe": 0.25, "gerd": 0.02, "costochondritis": 0.01, "anxiety": 0.02, "aortic_dissection": 0.20},
-        ),
-        (
-            "d_dimer_normal",
-            {"mi": 0.60, "pe": 0.10, "gerd": 0.70, "costochondritis": 0.70, "anxiety": 0.70, "aortic_dissection": 0.40},
-        ),
+        ("patient_presents_with_chest_pain_and_radiating_pain",
+         {"mi": 0.80, "pe": 0.40, "gerd": 0.50, "costochondritis": 0.30, "anxiety": 0.40, "aortic_dissection": 0.60}),
+        ("ecg_shows_st_elevation",
+         {"mi": 0.90, "pe": 0.10, "gerd": 0.05, "costochondritis": 0.05, "anxiety": 0.05, "aortic_dissection": 0.30}),
+        ("troponin_markedly_elevated",
+         {"mi": 0.95, "pe": 0.25, "gerd": 0.02, "costochondritis": 0.01, "anxiety": 0.02, "aortic_dissection": 0.20}),
+        ("d_dimer_normal",
+         {"mi": 0.60, "pe": 0.10, "gerd": 0.70, "costochondritis": 0.70, "anxiety": 0.70, "aortic_dissection": 0.40}),
     ]
 
     for ev_name, likelihoods in evidence_sequence:
-        result = mem.update_belief(
+        result = mem.bayes.update(
             "differential_diagnosis",
-            evidence_name=ev_name,
+            evidence=ev_name,
             likelihoods=likelihoods,
         )
         if result.posterior:
@@ -189,16 +181,16 @@ def main() -> None:
     print("SECTION 4: Diagnosis Confirmation")
     print("=" * 70)
 
-    map_est = mem.map_estimate("differential_diagnosis")
+    map_est = mem.bayes.map("differential_diagnosis")
     print(f"  MAP estimate (most probable diagnosis): {map_est}")
 
-    credible = mem.credible_set("differential_diagnosis", level=0.95)
+    credible = mem.bayes.credible("differential_diagnosis", level=0.95)
     print(f"  95% credible set: {credible}")
 
-    bf = mem.bayes_factor(
+    bf = mem.bayes.factor(
         "differential_diagnosis",
-        hypothesis_a="mi",
-        hypothesis_b="pe",
+        hyp_a="mi",
+        hyp_b="pe",
     )
     if bf is not None:
         print(f"  Bayes factor (MI vs PE): {bf:.2f}")
@@ -246,7 +238,7 @@ def main() -> None:
     print("SECTION 6: Knowledge Gap Identification")
     print("=" * 70)
 
-    all_conf = mem.compute_all_confidences()
+    all_conf = mem.cognitive.all_confidences()
     print("\n  Overall confidence statistics:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
@@ -254,12 +246,12 @@ def main() -> None:
 
     print("\n  Per-diagnosis confidence:")
     for dx in dx_outcomes:
-        score = mem.compute_confidence(dx)
+        score = mem.cognitive.confidence(dx)
         if score:
             bar_len = min(int(score.confidence * 20), 30)
             print(f"    {dx:25s} {score.confidence:.4f} {'#' * bar_len}")
 
-    low = mem.flag_low_confidence(threshold=0.5)
+    low = mem.cognitive.low_confidence(threshold=0.5)
     if low:
         print(f"\n  Low-confidence concepts ({len(low)}):")
         for item in low[:5]:
