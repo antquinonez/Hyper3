@@ -110,27 +110,6 @@ class MedicalTimelineTracker:
         matches = self.mem.temporal_query(symptom, relation="overlapping")
         return sorted({m.label for m in matches})
 
-    def detect_causal_chains(self) -> list[dict]:
-        """Detect potential causal chains: A before B, B before C.
-
-        Uses mem.temporal.detect_causal_chains() instead of O(n^3) brute force.
-
-        Returns:
-            List of dicts with keys: chain, reason.
-        """
-        chains = self.mem.temporal.detect_causal_chains(min_chain_length=3, max_chains=50)
-        results = []
-        for chain in chains:
-            labels = self._event_ids_to_labels(chain)
-            if len(labels) < 3:
-                continue
-            reason_parts = [f"{labels[i]} -> {labels[i+1]}" for i in range(len(labels) - 1)]
-            results.append({
-                "chain": labels,
-                "reason": ", ".join(reason_parts),
-            })
-        return results
-
     def explain_temporal_relation(self, symptom_a: str, symptom_b: str) -> dict | None:
         """Explain WHY two symptoms have their temporal relation.
 

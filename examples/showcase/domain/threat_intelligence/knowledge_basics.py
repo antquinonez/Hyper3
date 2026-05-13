@@ -18,6 +18,8 @@ Run with:
 
 from __future__ import annotations
 
+from typing import cast
+
 from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
 THREAT_ACTORS = [
@@ -469,7 +471,7 @@ def main() -> None:
     print("SECTION 4: Top 5 Most Connected CVEs (Highest Degree)")
     print("=" * 70)
 
-    centrality = mem.analyze.centrality("degree")
+    centrality = cast(dict[str, float], mem.analyze.centrality("degree"))
     cve_set = {c["label"] for c in CVES}
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
     top_cves = top_k(cve_centrality, k=5)
@@ -540,7 +542,39 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 7: Isolated Indicators Needing Enrichment")
+    print("SECTION 7: Malware Variant Lineage")
+    print("=" * 70)
+
+    variant_edges = mem.pattern_match(edge_label="variant_of")
+    print(f"  Known malware variant relationships ({len(variant_edges)}):")
+    for e in variant_edges:
+        src = e.source_labels[0] if e.source_labels else "?"
+        tgt = e.target_labels[0] if e.target_labels else "?"
+        src_node = mem.engine.graph.get_node_by_label(src)
+        src_type = src_node.data.get("type", "?") if src_node and isinstance(src_node.data, dict) else "?"
+        print(f"    {src} ({src_type}) --> variant_of --> {tgt}")
+
+    zeus_descendants = set()
+    for e in variant_edges:
+        tgt = e.target_labels[0] if e.target_labels else ""
+        if tgt == "Zeus":
+            src = e.source_labels[0] if e.source_labels else ""
+            zeus_descendants.add(src)
+    if zeus_descendants:
+        zeus_actors: set[str] = set()
+        for mw_label in zeus_descendants:
+            mw_actors = mem.pattern_match(target_label=mw_label, edge_label="uses")
+            for ea in mw_actors:
+                if ea.source_labels:
+                    zeus_actors.add(ea.source_labels[0])
+        print("\n  Zeus malware family tree:")
+        print(f"    Direct descendants: {', '.join(sorted(zeus_descendants))}")
+        if zeus_actors:
+            print(f"    Actors using Zeus descendants: {', '.join(sorted(zeus_actors))}")
+    print()
+
+    print("=" * 70)
+    print("SECTION 8: Isolated Indicators Needing Enrichment")
     print("=" * 70)
 
     all_labels = {n.label for n in mem.engine.graph.nodes}
@@ -564,7 +598,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 8: Connected Components - Threat Ecosystems")
+    print("SECTION 9: Connected Components - Threat Ecosystems")
     print("=" * 70)
 
     components = mem.analyze.components()
@@ -600,7 +634,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 9: Modality-Filtered Traversal")
+    print("SECTION 10: Modality-Filtered Traversal")
     print("=" * 70)
 
     causal_nodes = mem.query("CVE-2023-44228", modality=Modality.CAUSAL, max_depth=2, max_nodes=20)
@@ -626,7 +660,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 10: Indirect Attack Chain Inference")
+    print("SECTION 11: Indirect Attack Chain Inference")
     print("=" * 70)
 
     mem.reason.add_rules(
@@ -668,7 +702,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 11: Threat Ecosystem Communities")
+    print("SECTION 12: Threat Ecosystem Communities")
     print("=" * 70)
 
     comm_result = mem.analyze.communities(seed=42)
@@ -704,7 +738,7 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 12: Structural Anomaly Detection on Threat Actors")
+    print("SECTION 13: Structural Anomaly Detection on Threat Actors")
     print("=" * 70)
 
     anomaly_actors = ["APT28", "Lazarus", "Conti", "Sandworm", "Volt_Typhoon"]

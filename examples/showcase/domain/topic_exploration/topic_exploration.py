@@ -569,7 +569,6 @@ def main() -> None:
     print()
 
     solution_pipeline = (pipeline
-                         .filter(lambda l, _: True)
                          .neighbors(edge_label="mitigates", direction="in")
                          .unique())
     print(f"  Solutions that mitigate downstream impacts ({len(solution_pipeline)}):")
