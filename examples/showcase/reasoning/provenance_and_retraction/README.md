@@ -45,11 +45,11 @@ SECTION 2: Reasoning with Provenance
 SECTION 3: Explaining Inferences
   2 inferred edges. Explaining each:
 
-  drug_olaparib --[was_investigated_by]--> study_alpha
+  breast_cancer --[was_investigated_by]--> study_alpha
     Rule: inverse(investigated->was_investigated_by)
     Depth: 1
 
-  breast_cancer --[was_investigated_by]--> study_alpha
+  drug_olaparib --[was_investigated_by]--> study_alpha
     Rule: inverse(investigated->was_investigated_by)
     Depth: 1
 

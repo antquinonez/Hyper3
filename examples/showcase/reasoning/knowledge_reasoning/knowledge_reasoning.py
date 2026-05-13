@@ -120,7 +120,7 @@ def main() -> None:
         print(f"  note: belief revision is non-deterministic; edge removal varies between runs")
 
     print("\n" + "=" * 70)
-    print("SECTION 6: MULTI-RULE REASONING (INVERSE + ABDUCTIVE)")
+    print("SECTION 6: MULTI-RULE REASONING (INVERSE RULES)")
     print("=" * 70)
 
     print("\n--- Expanding beyond transitive inference ---")
