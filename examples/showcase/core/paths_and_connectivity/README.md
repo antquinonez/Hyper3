@@ -48,6 +48,8 @@ shortest path london -> prague: ['london', 'prague']
   hyperedge 'europass_zone' treats {london,paris} -> {berlin,prague} as 1 hop
 ```
 
+Note: Path ordering in all-paths enumeration and BFS traversal order are non-deterministic. The shortest path results and path counts are stable.
+
 ```bash
 .venv/bin/python examples/showcase/core/paths_and_connectivity/connectivity_and_distances.py
 ```
@@ -103,7 +105,7 @@ from t: {}
 
 **Evolution impact**: An 8-node graph with 6 edges (4 strong links weighted 5.0, 2 weak links weighted 0.1) starts with 2 components. After evolution, the engine merges 4 nodes, reducing the graph to 4 nodes and 6 edges while maintaining 2 components. The merge operation combines equivalent nodes (nodes with overlapping connectivity and data), demonstrating how evolution can simplify graph structure without changing the component topology.
 
-**Community detection**: Running community detection on the mixed-edge graph (Graph 3) finds 2 communities matching the component structure: {a, b, c, d, e} (size 5) and {x, y, z} (size 3). Modularity is 0.2778 and coverage is 1.0000, meaning every node is assigned to a community and the communities capture all within-community edges.
+**Community detection**: Running community detection on the mixed-edge graph (Graph 3) finds 2 communities matching the component structure: {a, b, c, d, e} (size 5) and {x, y, z} (size 3). Modularity is 0.2778 and coverage is 1.0000, meaning every node is assigned to a community and the communities capture all within-community edges. Community IDs vary across runs, but the partition itself is stable.
 
 ### 4c. Advanced Paths (`advanced_paths.py`)
 
@@ -271,7 +273,7 @@ mem.max_edge_order()      # largest edge size minus 1
 - **Dynamic graphs**: The evolution demo shows a single evolve step. Continuous evolution with `evolve_interval` over time, and path analysis on graphs that change between queries, is not demonstrated here.
 - **Weight semantics**: Edge weights represent importance (higher = stronger). The `cost = 1/weight` inversion is a convention, not configurable. Applications with different weight semantics (monetary cost, latency) would need to pre-invert weights.
 - **Activation determinism**: Spreading activation results depend on graph structure and iteration count. Different graphs or iteration limits produce different activation rankings.
-- **Community detection**: Uses label propagation with a random seed. Results may vary across runs for graphs with ambiguous community structure.
+- **Community detection**: Uses label propagation with a fixed seed. Community IDs vary across process invocations due to hash-based node ordering, but the partition structure (which nodes group together) is typically stable on these small graphs.
 
 ## 9. Reference
 

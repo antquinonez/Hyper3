@@ -57,7 +57,7 @@ SECTION 3: Fan-Out Analysis
 
 SECTION 5: Community Detection
   Communities: 14
-  Modularity:  0.594
+  Modularity:  0.595
   Coverage:    68.5%
 
 SECTION 6: Cross-Analysis
@@ -276,24 +276,26 @@ Weighted label propagation finds natural clusters in the graph:
 result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 ```
 
-**Result:** 14 communities, modularity 0.594, coverage 68.5%.
+**Result:** 14 communities, modularity 0.595, coverage 68.5%.
+
+Community detection on this graph is non-deterministic even with `seed=42` — community IDs and exact composition fluctuate across process invocations due to hash-based node iteration order. The community count and modularity are more stable than the specific assignments. The structural findings below hold regardless of the specific partition.
 
 A modularity of 0.594 indicates moderately strong community structure — communities are more densely connected internally than externally, but there is meaningful cross-community connectivity.
 
 Top communities by size:
 
-| Community | Size | Internal Edges | External Edges | Composition |
-|-----------|------|---------------|---------------|-------------|
-| 0 | 10 | 62 | 63 | acme_cloud ecosystem |
-| 9 | 10 | 77 | 48 | nova_biotech + helix_health joint cluster |
-| 5 | 8 | 46 | 40 | zenith_fintech ecosystem |
-| 2 | 6 | 34 | 25 | volt_data ecosystem |
-| 3 | 6 | 37 | 21 | pulse_security ecosystem |
-| 1 | 5 | 29 | 53 | nexa_ai ecosystem |
-| 14 | 5 | 26 | 16 | stellar_education ecosystem |
-| 4 | 4 | 20 | 18 | orbit_iot ecosystem |
+| Community | Size | Composition |
+|-----------|------|-------------|
+| Largest | 10 nodes | acme_cloud ecosystem (company, product, technologies, people, standards) |
+| Joint | 10 nodes | nova_biotech + helix_health merged cluster |
+| Third | 8 nodes | zenith_fintech ecosystem |
+| Fourth | 6 nodes | volt_data ecosystem |
+| Fifth | 6 nodes | pulse_security ecosystem |
+| Sixth | 5 nodes | nexa_ai ecosystem |
+| Seventh | 6 nodes | stellar_education ecosystem |
+| Eighth | 4 nodes | orbit_iot ecosystem |
 
-**Notable finding:** Community 9 merges `nova_biotech` and `helix_health` into a single cluster of 10 nodes — larger than community 1 (`nexa_ai`, 5 nodes) despite both being company-centric clusters. The difference is structural: the partnership edge between `helix_health` and `nova_biotech` and their shared `tensorflow` dependency pull additional nodes (products, people, technologies) into the combined cluster. The algorithm detected this cross-company relationship organically — no manual grouping was required. Community 9 also has the highest internal edge count (77) of any community, reflecting the density created by merging two connected company ecosystems.
+**Notable finding:** Two company ecosystems merge into a single cluster of 10 nodes — larger than the nexa_ai cluster (5 nodes) despite both being company-centric. The difference is structural: the partnership edge between `helix_health` and `nova_biotech` and their shared `tensorflow` dependency pull additional nodes (products, people, technologies) into the combined cluster. The algorithm detected this cross-company relationship organically — no manual grouping was required. This merged cluster also has the highest internal edge count of any community, reflecting the density created by combining two connected company ecosystems.
 
 ### Section 6: Cross-Analysis — Communities + Patterns
 
@@ -359,13 +361,15 @@ The observed modularity of 0.594 indicates strong but not rigid community struct
 | Technology hubs (fan-out >= 3) | 10 |
 | Convergence diamonds | 10 |
 | Communities | 14 |
-| Modularity | 0.594 |
+| Modularity | 0.595 |
 | Coverage | 68.5% |
 | Largest community size | 10 nodes |
 | Cross-community connections (largest) | 13 |
 | Highest fan-out | `acme_cloud` (6 technologies) |
 | Most converged technology | `golang` (5 diamonds) |
 | Highest diamond score | `acme_cloud` + `orbit_iot` → `golang` (0.29), `acme_cloud` + `terra_logistics` → `golang` (0.29) |
+
+Note: Fan-out target ordering varies across runs. Community IDs and exact composition are non-deterministic.
 
 ## 9. What Makes This Different
 
@@ -438,7 +442,6 @@ for edge in mem.engine.graph.edges:
 This showcase uses a hand-crafted 76-node graph. Real technology ecosystem analysis faces several challenges:
 
 1. **Data extraction from package registries:** Ingesting dependency data from npm, PyPI, Maven, or Cargo requires parsing lockfiles, manifests, and dependency trees at scale. A single npm project can have hundreds of transitive dependencies.
-
 2. **GitHub organization mapping:** Real company-technology relationships come from analyzing repository languages, dependency files, CI configurations, and contributor patterns across thousands of repositories. This requires GitHub API integration and rate-limit handling.
 
 3. **Version-aware dependencies:** Real ecosystems have version constraints — a company using `react@17` and another using `react@18` have different exposure to CVEs. The current graph treats each technology as a single node without version differentiation.

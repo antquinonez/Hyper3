@@ -58,7 +58,8 @@ SECTION 3: N-ARY EDGES CHANGE THE MATRICES
 n-ary incidence matrix shape: (6, 2)
 
 SECTION 4: COMMUNITY DETECTION ON N-ARY EDGE GRAPH
-communities found: 2
+communities found: 1 or 2 (non-deterministic)
+modularity: 0.0413
 ```
 
 **Step 2 output (spectral analysis on a 12-node clustered graph):**
@@ -80,7 +81,7 @@ SECTION 5: S-PERSISTENCE
 s=1: 1 components, s=2: 10 components, s=3: 22 components
 
 SECTION 6: COMMUNITY DETECTION
-communities found: 3, modularity: 0.6323
+communities found: 3, modularity: 0.6303
 ```
 
 **Step 3 output (transformations on a 4-node graph):**
@@ -119,7 +120,9 @@ This script builds two small graphs — one with pairwise edges, one with n-ary 
 
 **N-ary edges** — Adding hyperedges (one with 3 nodes, one with 4 nodes) to a 6-node graph changes the matrices. The 4-node edge creates a dense block in the adjacency matrix: nodes u0, u1, u2, u3 are all mutually adjacent (clique sub-block). The Laplacian eigenvalues shift to `[0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495]` — the larger eigenvalues (5.0, 5.5495) reflect the strong connectivity within the 4-node hyperedge. The Fiedler value jumps from 0.191 to 0.4505, reflecting denser connectivity from the n-ary edges.
 
-**Community detection on the n-ary graph** — Label propagation finds 2 communities with modularity 0.0413 and coverage 0.5455: community 4 contains u0, u2, u4, u5 (size=4) and community 1 contains u1, u3 (size=2). The split is marginal — one community contains nodes from both hyperedges, and the low modularity confirms weak structure. A modularity of 0.0413 is near zero, meaning the partition is barely better than random; this is still "effectively one community" but the algorithm reports 2 because label propagation always produces a partition. Low modularity combined with multiple communities indicates the algorithm found a technically valid partition but it carries little structural meaning. The n-ary hyperedges connect nodes too densely (the 4-node edge alone creates a clique among u0–u3, and the second edge bridges u2 to u4, u5) for strong separation. This is consistent with the Laplacian spectrum: the small Fiedler value (0.4505) relative to the large eigenvalues (5.0+) indicates strong internal connectivity with no weak cuts.
+**Community detection on the n-ary graph** — Label propagation finds 2 communities with modularity 0.0413 and coverage 0.5455: one community contains 4 nodes and the other contains 2. The split is marginal — one community contains nodes from both hyperedges, and the low modularity confirms weak structure. A modularity of 0.0413 is near zero, meaning the partition is barely better than random; this is still "effectively one community" but the algorithm reports 2 because label propagation always produces a partition. Low modularity combined with multiple communities indicates the algorithm found a technically valid partition but it carries little structural meaning. The n-ary hyperedges connect nodes too densely (the 4-node edge alone creates a clique among u0–u3, and the second edge bridges u2 to u4, u5) for strong separation. This is consistent with the Laplacian spectrum: the small Fiedler value (0.4505) relative to the large eigenvalues (5.0+) indicates strong internal connectivity with no weak cuts.
+
+Note: The specific community assignments on this graph are non-deterministic even with `PYTHONHASHSEED=0`. Runs may produce 1 community (modularity 0.0000, coverage 1.0000) instead of 2. Both outcomes confirm the same structural conclusion: the graph is too densely connected for meaningful partitioning.
 
 **Why this matters before proceeding**: The Laplacian eigenvalues we computed here are the raw material for the next script. The key pattern to carry forward is: zero eigenvalues count components, the spectral gap between small eigenvalues reveals cluster structure, and community detection provides an independent check on spectral findings. The 2-community result with near-zero modularity in this section illustrates an important diagnostic: when community detection reports multiple communities but modularity is close to zero, the partition is not meaningful — the graph is effectively one community. In the next script, we will see the opposite case where high modularity confirms a strong, real partition.
 
@@ -137,9 +140,9 @@ This script applies the matrices from the previous section to a larger graph (12
 
 **S-persistence** — At `s=1`, all 12 nodes form 1 component (everything is connected). At `s=2`, this splits into 10 components — the three clusters fragment, with bridge nodes appearing in multiple small components. At `s=3`, there are 22 components — essentially every pair and singleton. The jump from 1 to 10 to 22 shows the three-cluster structure at `s=2` is transitional: the dense intra-cluster edges hold groups together at `s=1`, but the weaker bridge edges dissolve first.
 
-**Community detection validation** — Label propagation finds 3 communities with modularity 0.6323 and coverage 0.9677, recovering the planted cluster structure exactly: community 1 contains n0–n3 (alpha), community 4 contains n4–n7 (beta), and community 11 contains n8–n11 (gamma). This agreement between spectral embedding (continuous space clustering) and label propagation (discrete label assignment) provides independent validation that the three-cluster structure is real and not an artifact of either method alone. The modularity of 0.6323 is well above the typical significance threshold of 0.3, confirming strong community structure.
+**Community detection validation** — Label propagation finds 3 communities with modularity 0.6303 and coverage 0.9706, recovering the planted cluster structure exactly: one community contains n0–n3 (alpha), one contains n4–n7 (beta), and one contains n8–n11 (gamma). This agreement between spectral embedding (continuous space clustering) and label propagation (discrete label assignment) provides independent validation that the three-cluster structure is real and not an artifact of either method alone. The modularity of 0.6303 is well above the typical significance threshold of 0.3, confirming strong community structure.
 
-The spectral embedding clusters by dominant eigenvector group n4–n7 together cleanly in dimension 2, while the other eight nodes split across dimensions 1 and 2. This partial overlap — rather than a clean three-way split — reflects that the spectral embedding captures continuous proximity rather than discrete boundaries, and the dominant-eigenvector heuristic is a simplification compared to the label propagation result.
+The spectral embedding clusters by dominant eigenvector group n4–n7 together cleanly in dimension 2, while the other eight nodes split across dimensions 1 and 2. This partial overlap — rather than a clean three-way split — reflects that the spectral embedding captures continuous proximity rather than discrete boundaries, and the dominant-eigenvector heuristic is a simplification compared to the label propagation result. The embedding coordinates themselves are sign-ambiguous (eigenvectors are defined up to sign), so the direction of each dimension may flip across runs, but the relative distances between nodes in the same cluster remain consistent.
 
 **What we've established**: The Laplacian's eigenvalues reveal cluster count, spectral embedding places same-cluster nodes near each other, s-persistence confirms the cluster structure is stable across resolutions, and community detection validates the spectral findings with an independent algorithm. The next script asks: what happens to these properties when we transform the graph itself?
 
@@ -181,11 +184,9 @@ Each script operates on a different graph. Metrics are grouped by dataset.
 | Edge sizes | [3, 4] |
 | Max edge order | 3 |
 | Laplacian eigenvalues | [0.0, 0.4505, 1.0, 5.0, 5.0, 5.5495] |
-| Communities found | 2 |
-| Modularity | 0.0413 |
-| Coverage | 0.5455 |
-| Community 4 members | u0, u2, u4, u5 (size=4) |
-| Community 1 members | u1, u3 (size=2) |
+| Communities found | 1 or 2 (non-deterministic) |
+| Modularity | 0.0000 (1 community) or 0.0413 (2 communities) |
+| Coverage | 1.0000 or 0.5455 |
 
 ### Spectral Methods — Clustered graph (12 nodes, 22 edges)
 
@@ -196,17 +197,16 @@ Each script operates on a different graph. Metrics are grouped by dataset.
 | Incidence matrix shape | (12, 22) |
 | Incidence non-zeros | 48 |
 | Laplacian shape | (12, 12) |
-| Laplacian eigenvalues (first 6) | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] |
-| Connected components | 1 |
+| Laplacian eigenvalues (first 6) | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] || Connected components | 1 |
 | S-persistence: s=1 components | 1 |
 | S-persistence: s=2 components | 10 |
 | S-persistence: s=3 components | 22 |
 | Label propagation communities | 3 |
-| Modularity | 0.6323 |
-| Coverage | 0.9677 |
-| Community 1 members | n0, n1, n2, n3 (size=4) |
-| Community 4 members | n4, n5, n6, n7 (size=4) |
-| Community 11 members | n10, n11, n8, n9 (size=4) |
+| Modularity | 0.6303 |
+| Coverage | 0.9706 |
+| Community A members | n0, n1, n2, n3 (alpha, size=4) |
+| Community B members | n4, n5, n6, n7 (beta, size=4) |
+| Community C members | n8, n9, n10, n11 (gamma, size=4) |
 
 ### Graph Transformations — Original graph (4 nodes, 4 edges)
 
@@ -228,7 +228,7 @@ Each script operates on a different graph. Metrics are grouped by dataset.
 
 **S-persistence provides multi-resolution cluster analysis.** Standard spectral clustering fixes `k` (the number of clusters) and computes a single partition. S-persistence varies the resolution parameter `s` and tracks how components form and dissolve. The 12-node graph shows 1→10→22 components as `s` increases from 1 to 3. The natural cluster count (3) appears implicitly as the resolution where dense intra-cluster edges survive but inter-cluster bridges dissolve. Without s-persistence, choosing `k` requires external knowledge or heuristics.
 
-**Community detection validates spectral analysis.** Spectral embedding places nodes in a continuous coordinate space where clusters emerge as geometric proximity. Label propagation assigns discrete community labels through local neighbor voting. These are fundamentally different algorithms — one global (eigendecomposition), one local (iterative label updates) — so when they agree on the cluster structure, confidence in the result increases. In the 12-node graph, both methods recover the planted three-cluster partition: spectral embedding groups nodes by coordinate proximity, and label propagation produces modularity 0.6323 with the same partition. In the small n-ary graph (6 nodes, 2 hyperedges), both the spectral Fiedler value (0.4505) and the weak 2-community label propagation result (modularity 0.0413) agree that the graph is too densely connected for meaningful partitioning. The contrast between these two cases illustrates the diagnostic value of modularity: 0.63 confirms strong structure, while 0.04 signals effectively none.
+**Community detection validates spectral analysis.** Spectral embedding places nodes in a continuous coordinate space where clusters emerge as geometric proximity. Label propagation assigns discrete community labels through local neighbor voting. These are fundamentally different algorithms — one global (eigendecomposition), one local (iterative label updates) — so when they agree on the cluster structure, confidence in the result increases. In the 12-node graph, both methods recover the planted three-cluster partition: spectral embedding groups nodes by coordinate proximity, and label propagation produces modularity 0.6303 with the same partition. In the small n-ary graph (6 nodes, 2 hyperedges), both the spectral Fiedler value (0.4505) and the weak community detection result (modularity ~0.04, or a single community) agree that the graph is too densely connected for meaningful partitioning. The contrast between these two cases illustrates the diagnostic value of modularity: ~0.63 confirms strong structure, while ~0.04 signals effectively none.
 
 **Signed incidence matrices encode edge direction.** The incidence matrix uses +1 for source participation and -1 for target participation, distinguishing direction. This matters for directed hypergraphs where the source-target distinction carries semantic meaning (e.g., causal relationships). An unsigned incidence matrix would conflate these roles.
 
@@ -324,6 +324,6 @@ dual_cr = CommunityDetector(dual).detect_label_propagation(seed=42)
 
 - **Scale**: These examples run on 4–12 node graphs. Spectral decomposition of the Laplacian is O(n^3) for dense matrices. At 10K+ nodes, approximate methods (Lanczos, randomized SVD) would be needed.
 - **Data pipeline**: Graphs are constructed programmatically. Real use requires loading data from databases, log files, or knowledge bases.
-- **Non-determinism**: Label propagation produces different community assignments with different seeds. The modularity metric is deterministic given a fixed partition, but the partition itself varies. Use a fixed seed for reproducibility.
+- **Non-determinism**: Label propagation produces different community assignments with different seeds. Even with the same seed, community IDs and sometimes community counts vary across process invocations due to hash-based node ordering. The modularity metric is deterministic given a fixed partition, but the partition itself varies. The n-ary graph in `matrix_computations.py` may produce 1 or 2 communities with the same seed. The spectral embedding coordinates are sign-ambiguous (eigenvectors are defined up to sign), so dimension directions may flip across runs while relative distances remain stable.
 - **Cluster validation**: S-persistence and community detection provide complementary views of cluster structure, but selecting the "right" resolution or community count for a downstream task requires domain judgment.
 - **Edge semantics**: The Laplacian treats all edges uniformly after weighting. Directed edges with different semantic types (causal, hierarchical, associative) may require separate Laplacians or weighted combinations.

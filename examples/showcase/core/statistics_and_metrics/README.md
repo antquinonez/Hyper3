@@ -294,7 +294,7 @@ for community in comm_result.communities:
 
 - **Scale**: The showcase runs on 4–7 node graphs. Performance at 10K+ nodes is untested.
 - **Evolution visibility**: The 7-node graph shows no structural change after evolution (0 decayed, 0 pruned). Larger graphs with more marginal edges show visible pruning and reinforcement.
-- **Community detection**: Uses label propagation, which is non-deterministic. Results may vary across runs; a fixed seed ensures reproducibility in the showcase. The modularity score (0.1384) is well below the 0.3 threshold for meaningful community structure — larger, sparser graphs produce stronger partitions.
+- **Community detection**: Uses label propagation, which is non-deterministic even with a fixed seed. On this small graph, the result is typically 1 community (modularity 0.0000), but 2 communities (modularity ~0.14) can also occur depending on hash-based node ordering. The modularity score in either case is well below the 0.3 threshold for meaningful community structure — larger, sparser graphs produce stronger partitions.
 - **Data pipeline**: The showcase constructs synthetic graphs. Real adoption requires ETL from live data sources.
 
 ## 10. Reference

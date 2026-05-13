@@ -119,10 +119,10 @@ top-5 betweenness centrality:
   user_svc: centrality=0.0245, anomaly_status=anomalous
   search_svc: centrality=0.0147, anomaly_status=low_risk
 
-anomaly summary: mapped=0, low_risk=0, boundary=0, anomalous=0
+anomaly summary: mapped=18, low_risk=14, boundary=0, anomalous=4
 ```
 
-Note: The `detector.analyze()` summary reflects the detector's internal aggregation state. The per-node assessments in Section 2 and the boundary region mapping in Section 4 provide the complete classification. Bridge IDs are generated per run and will differ.
+Note: The per-node assessments in Section 2 and the boundary region mapping in Section 4 provide the complete classification. Bridge IDs are generated per run and will differ. The assumption targets (api_gateway, order_svc, db_primary) and coverage gains are stable across runs.
 
 > Output may vary slightly depending on centrality computation precision and edge weight assignments.
 
@@ -196,7 +196,7 @@ Solid arrows: service mesh edges (28 total). The auth -> user -> order -> auth c
 
 **Section 5 — Exploration with assumptions:** `suggest_assumptions()` for config_svc proposes 3 bridging edges: to api_gateway (coverage gain 0.5000), to order_svc (0.3889), and to db_primary (0.2222). These are edges that, if added, would most increase config_svc's neighborhood exploration coverage. The current coverage is already above 200% (meaning the two-hop neighborhood has been thoroughly explored relative to the graph size), so the assumptions do not change the coverage significantly. Why this matters: in a larger graph with unexplored regions, suggest_assumptions identifies the highest-impact edges to add, guiding targeted exploration of under-explored neighborhoods.
 
-**Section 6 — Cross-reference with centrality:** The script computes betweenness centrality for all nodes and lists the top 5: api_gateway (0.0515), order_svc (0.0380), payment_svc (0.0294), user_svc (0.0245), search_svc (0.0147). Cross-referencing with anomaly status reveals that order_svc and user_svc are both high-centrality and anomalous — they sit on many shortest paths and participate in the circular dependency. api_gateway has the highest centrality but is low_risk, confirming that high centrality alone does not indicate a problem. The `detector.analyze()` anomaly summary reports mapped=0, low_risk=0, boundary=0, anomalous=0 — this reflects the detector's internal aggregation state, not the graph classification. The meaningful counts come from `map_boundaries()` (14 low_risk, 4 anomalous) and per-node `detect_structural_anomalies()` calls. Why this matters: combining centrality with anomaly detection reveals which high-centrality nodes are healthy (api_gateway, a designed hub) versus which are structurally risky (order_svc, a cycle participant on many paths). This distinction is invisible to centrality analysis alone.
+**Section 6 — Cross-reference with centrality:** The script computes betweenness centrality for all nodes and lists the top 5: api_gateway (0.0515), order_svc (0.0380), payment_svc (0.0294), user_svc (0.0245), search_svc (0.0147). Cross-referencing with anomaly status reveals that order_svc and user_svc are both high-centrality and anomalous — they sit on many shortest paths and participate in the circular dependency. api_gateway has the highest centrality but is low_risk, confirming that high centrality alone does not indicate a problem. The anomaly summary reports mapped=18, low_risk=14, boundary=0, anomalous=4, matching the boundary region mapping from Section 4. Why this matters: combining centrality with anomaly detection reveals which high-centrality nodes are healthy (api_gateway, a designed hub) versus which are structurally risky (order_svc, a cycle participant on many paths). This distinction is invisible to centrality analysis alone.
 
 ## 6. Key Metrics
 

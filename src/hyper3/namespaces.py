@@ -1141,7 +1141,9 @@ class AnalyzeNamespace:
                 ``"label_propagation"``, ``"weighted_label_propagation"``,
                 ``"connected_components"``, ``"louvain"``, ``"girvan_newman"``.
             edge_label: Filter to edges with this label. If None, all edges.
-            seed: Random seed for deterministic results.
+            seed: Random seed. Reduces variability but does not guarantee
+                deterministic results -- community IDs and counts may still
+                vary across process invocations due to hash-based node ordering.
 
         Returns:
             CommunityResult with community assignments.
