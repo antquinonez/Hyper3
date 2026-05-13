@@ -76,7 +76,7 @@ An IT operations knowledge graph with 111 nodes across 7 categories and 282 edge
 
 | Category | Count | Examples |
 |----------|-------|---------|
-| Servers | 54 | `web-frontend-01`, `api-gateway-02`, `db-postgres-primary` |
+| Servers | 55 | `web-frontend-01`, `api-gateway-02`, `db-postgres-primary` |
 | Services | 26 | `api-gateway`, `database-layer`, `ml-platform` |
 | Alert types | 10 | `high-latency`, `cpu-spike`, `timeout-cascade` |
 | Incident types | 6 | `degraded-performance`, `full-outage`, `security-breach` |
@@ -88,13 +88,13 @@ An IT operations knowledge graph with 111 nodes across 7 categories and 282 edge
 
 | Label | Count | Semantics |
 |-------|-------|-----------|
-| `hosts` | 54 | Server instance hosts a service |
-| `depends_on` | 37 | Service depends on another service |
-| `triggers_on` | 24 | Alert type triggers on a service |
+| `hosts` | 58 | Server instance hosts a service (3 log servers linked to both monitoring-stack and logging-stack) |
+| `depends_on` | 40 | Service depends on another service |
+| `triggers_on` | 27 | Alert type triggers on a service |
 | `escalates_to` | 10 | Alert escalates to an incident type |
 | `remediates` | 11 | Playbook remediates an incident type |
-| `located_in` | 54 | Server located in a region |
-| `deployed_in` | 80 | Server or service deployed in an environment |
+| `located_in` | 55 | Server located in a region |
+| `deployed_in` | 81 | Server or service deployed in an environment |
 
 ### Knowledge Graph Topology
 
@@ -181,7 +181,7 @@ The script runs 6 sections, each demonstrating a different adaptive mechanism.
 
 ### Section 1: Building the IT Operations Knowledge Graph
 
-The graph is constructed with 111 nodes (54 servers, 26 services, 10 alert types, 6 incident types, 9 playbooks, 2 environments, 3 regions) and 282 edges. Server-to-service mappings connect each server instance to its parent service. Service dependency chains create multi-hop paths (e.g., `web-frontend` → `api-gateway` → `order-service` → `payment-service` → `database-layer`). Alert-to-service links model which alert types fire on which services. Alert-to-incident escalation paths and playbook-to-incident remediation links complete the operational model.
+The graph is constructed with 111 nodes (55 servers, 26 services, 10 alert types, 6 incident types, 9 playbooks, 2 environments, 3 regions) and 282 edges. Server-to-service mappings connect each server instance to its parent service (3 log servers are linked to both `monitoring-stack` and `logging-stack`, producing 58 `hosts` edges from 55 servers). Service dependency chains create multi-hop paths (e.g., `web-frontend` → `api-gateway` → `order-service` → `payment-service` → `database-layer`). Alert-to-service links model which alert types fire on which services. Alert-to-incident escalation paths and playbook-to-incident remediation links complete the operational model.
 
 **Why this structure matters:** The dependency chains give `TransitiveRule` material to work with — a two-hop `depends_on` chain like `web-frontend` → `api-gateway` → `auth-service` can produce a transitive inference. The alert-incident-playbook chain creates a reasoning path from symptom to resolution.
 
@@ -326,6 +326,20 @@ The `novel_problem` trigger fires because the system has 282 edges (a non-trivia
 | Graph nodes | 111 |
 | Graph edges | 282 |
 | Average degree | 2.54 |
+| Servers | 55 |
+| Services | 26 |
+| Alert types | 10 |
+| Incident types | 6 |
+| Playbooks | 9 |
+| Environments | 2 |
+| Regions | 3 |
+| Hosts edges | 58 |
+| Depends_on edges | 40 |
+| Triggers_on edges | 27 |
+| Escalates_to edges | 10 |
+| Remediates edges | 11 |
+| Located_in edges | 55 |
+| Deployed_in edges | 81 |
 | Rule types tracked | 6 |
 | Rule outcomes recorded | 34 |
 | Top rule (retention) | HubInferenceRule (1.00) |
