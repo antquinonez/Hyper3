@@ -45,7 +45,7 @@ SUMMARY
   Transitive chains:  55 hidden dependency paths
   Causal links:       8 co-occurrence patterns
   Abstractions:       22 similar-service pairs
-  Analogies:          ~5-15 structural (A:B::C:D)  [varies by run]
+  Analogies:          ~5-10 structural (A:B::C:D)  [varies by run]
   Final graph:        130 nodes, 284 edges
 ```
 
@@ -199,7 +199,7 @@ The groups by team:
 
 **What these analogies represent**: The analogies found by `HashEmbeddingProvider` reflect topological similarity, not causal or semantic relationships. Two node pairs appear as analogies because they occupy similar structural positions in the graph — comparable degree distributions, neighbor counts, or connectivity patterns. A service-to-host edge and a correlation-to-deployment edge may appear analogous because both connect nodes with similar fan-in/fan-out profiles, not because they share operational meaning.
 
-**Typical results**: Across runs, the rule finds 5--15 analogies with scores in the 0.70--0.78 range. The specific pairs vary because `HashEmbeddingProvider` uses hash-based initialization that changes between runs. Analogies commonly pair nodes across categories (e.g., a service with a host, a metric with an external dependency) because nodes in different categories can share similar topological profiles despite having unrelated semantics.
+**Typical results**: Across runs, the rule finds 5--10 analogies with scores in the 0.70--0.75 range. The specific pairs vary because `HashEmbeddingProvider` uses hash-based initialization that changes between runs. Analogies commonly pair nodes across categories (e.g., a service with a host, a metric with an external dependency) because nodes in different categories can share similar topological profiles despite having unrelated semantics.
 
 **Why structural analogies still matter**: Even topological analogies can reveal useful structural patterns. An analogy between two node pairs suggests that the same class of graph structure appears in multiple places — which may indicate shared operational characteristics even when the node types differ. Production deployments using sentence-transformer or domain-trained embeddings would find semantically meaningful analogies that go beyond topology.
 

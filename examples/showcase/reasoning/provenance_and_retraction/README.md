@@ -6,7 +6,7 @@
 
 In a knowledge graph built from scientific literature, an inferred relationship is only as reliable as the evidence chain supporting it. When a source study is retracted or a premise is disproven, every conclusion that depends on it becomes unreliable.
 
-**The Manual Approach:** When a paper is retracted, researchers must manually trace every citation and downstream claim, then逐一 remove or flag each affected conclusion. This is error-prone at scale — a single retracted meta-analysis might invalidate dozens of downstream inferences across multiple research groups.
+**The Manual Approach:** When a paper is retracted, researchers must manually trace every citation and downstream claim, then individually remove or flag each affected conclusion. This is error-prone at scale — a single retracted meta-analysis might invalidate dozens of downstream inferences across multiple research groups.
 
 **The Hyper3 Approach:** Every inferred edge records its **provenance**: which rule produced it, which input edges it used, and at what depth. When a premise is retracted via `retract_inference()`, the engine traces all dependent inferences and removes them in a single cascading operation, maintaining graph consistency.
 

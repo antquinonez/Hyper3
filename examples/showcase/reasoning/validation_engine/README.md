@@ -8,7 +8,13 @@ Adding more inference rules is not always better. A single `TransitiveRule` on a
 
 Alongside reasoning validation, computational frames offer different perspectives on the same problem. A classical frame sees pairwise edges; a quantum frame sees amplitude superpositions; a hypergraph frame sees n-ary patterns; a probabilistic frame sees weight distributions. The FrameTransformer quantifies the information cost of translating between these perspectives — which frame transitions preserve the most structure, and which require the most assumptions?
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Think of reasoning rules like kitchen tools. A sharp knife (single TransitiveRule) makes clean cuts. A food processor with five attachments (multi-rule reasoning) can do more — but also makes more mess. Before investing in the food processor, you'd want evidence that the extra output is worth the cleanup. The ValidationEngine is that evidence: it runs both approaches side-by-side and measures whether the added complexity produces better results or just more noise.
+
+The frame transformation side is like translating a photograph between color spaces (RGB, CMYK, grayscale). Each space reveals different information, and the translation between them loses or preserves different qualities. The FrameTransformer measures exactly what survives each translation.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -23,7 +29,7 @@ Alongside reasoning validation, computational frames offer different perspective
 
 Information loss is not a fixed property of two frames — it depends on the parameters passed to `transform()`. The same frame pair (e.g., classical->hypergraph) can yield zero loss with one set of parameters and 0.33 with another. The matrix in Section 2 uses `parameters={"branching_factor": 4, "amplitudes": [0.5, 0.3, 0.2]}` for every cell, while the individual transforms in Section 6 use different parameters per pair (`{"branching_factor": 4}` for quantum, `{"weights": [3.0, 2.0, 1.0]}` for probabilistic, `{"max_arity": 3}` for hypergraph). This is why the Section 2 matrix shows `classical->hypergraph: loss=0.0000` but Section 6 shows `classical->hypergraph: loss=0.3333` — same frames, different parameters. When comparing frame transitions, always specify which parameters produced the loss values.
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/reasoning/validation_engine/validation_engine.py
@@ -50,7 +56,7 @@ contradictions: 0
 
 Information loss values depend on the parameters passed to `FrameTransformer.transform()`. The matrix structure (which cells are zero vs nonzero) is stable.
 
-## 4. Biomedical Graph Topology
+## 5. Biomedical Graph Topology
 
 The 17-node graph spans genes, proteins, diseases, drugs, pathways, and evidence nodes. The `regulates` label forms the inference chain that the ValidationEngine tests.
 
@@ -128,7 +134,7 @@ graph LR
 
 Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Values use the parameters from Section 6 of the code. The classical frame is the most "isolated" — moving to quantum loses 75% of expressible information.
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 **Section 1 — Build biomedical knowledge graph:** 17 nodes across 6 types — genes (brca1, tp53, egfr, kras), proteins (p53, egfr, kras), diseases (breast_cancer, lung_cancer, pancreatic_cancer), drugs (cisplatin, erlotinib, olaparib), pathways (apoptosis, cell_cycle), and evidence (clinical, preclinical). 15 edges connect them with 6 semantic labels (see topology diagram above). A `TransitiveRule` is registered for the `regulates` label. Why this matters: the biomedical domain naturally produces multi-hop chains — gene_brca1 regulates gene_tp53, gene_tp53 regulates protein_p53 — making it ideal for testing whether transitive inference produces useful edges (gene_brca1 indirectly regulates protein_p53) or noise.
 
@@ -142,7 +148,7 @@ Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Valu
 
 **Section 6 — Cross-frame comparison:** Identity transform (classical->classical) has zero information loss, confirming the baseline. Three out-of-classical transforms are detailed: classical->quantum uses "superposition" algorithm with loss 0.75, preserving only reachability. Classical->probabilistic uses "probabilistic" algorithm with loss 0.08, preserving reachability and weight ordering. Classical->hypergraph uses "pattern_match" algorithm with loss 0.33, preserving pairwise edges. Note that this classical->hypergraph loss (0.33) differs from the matrix value (0.00) because the individual transform uses `parameters={"max_arity": 3}` while the matrix uses `parameters={"branching_factor": 4, "amplitudes": [0.5, 0.3, 0.2]}` — information loss is parameter-dependent. Why this matters: the preserved properties tell you what survives the frame transition. Reachability preservation means you can still answer "can A reach B?" after moving to the quantum frame, but not "what is the strongest path from A to B?" Weight ordering preservation in the probabilistic frame means you can still rank paths by strength. Pairwise edge preservation in the hypergraph frame means no edges are lost, but the hypergraph may gain additional structure from higher-arity patterns.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -165,7 +171,7 @@ Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Valu
 
 The "Min information loss" value of 0.00 comes from the parameterized matrix in Section 2, which uses `parameters={"branching_factor": 4, "amplitudes": [0.5, 0.3, 0.2]}`. Individual transforms in Section 6 use different parameters per pair (e.g., `{"max_arity": 3}` for classical->hypergraph) and show loss=0.3333 for the same frame pair. Information loss is a property of frames plus parameters, not frames alone.
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Quantified agreement** provides numeric evidence for or against enhanced reasoning. The ValidationEngine computes node Jaccard (overlap of nodes touched), edge Jaccard (overlap of edges produced), consistency (fraction of shared edges with matching labels), precision (fraction of enhanced edges also found by simple), recall (fraction of simple edges also found by enhanced), and F1 (harmonic mean of precision and recall). These six metrics give a multi-dimensional view of agreement that a single "are they the same?" boolean cannot capture.
 
@@ -175,7 +181,7 @@ The "Min information loss" value of 0.00 comes from the parameterized matrix in 
 
 **Automatic recommendation** evaluates the agreement metrics and outputs "enhanced", "simple", or "equivalent" based on coverage, F1, and contradiction count. Enhanced gets the nod when it produces more coverage with no evidence of harm. Simple wins when enhanced introduces contradictions without coverage gains. Equivalent means both produce the same results. The recommendation is a starting point, not a final answer — the metrics provide the evidence for human judgment.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 **1. Build a biomedical graph with typed nodes:**
 
@@ -243,7 +249,7 @@ print(f"information_loss: {config.information_loss:.4f}")
 print(f"preserved: {config.preserved_properties}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 This showcase validates reasoning on a 17-node biomedical graph with a single TransitiveRule. Real-world adoption involves additional considerations:
 
@@ -252,7 +258,7 @@ This showcase validates reasoning on a 17-node biomedical graph with a single Tr
 - **Frame transforms use fixed parameter mappings** — the `FrameTransformer` maps parameters between frames using predefined rules, not learned mappings. Domain-specific parameter tuning is not addressed.
 - **Scale** — the showcase runs on 17 nodes. Validation overhead (running reasoning twice per test case, computing Jaccard over all edges) scales with graph size and rule count.
 
-## 10. Reference
+## 11. Reference
 
 | Method | Purpose |
 |--------|---------|

@@ -8,7 +8,11 @@ Graph construction in production receives assertions from heterogeneous sources 
 
 The BoundaryNavigator provides a programmable validation pipeline that filters edge proposals before they enter the graph. Each constraint is an independent rule with a dual interface — `is_valid()` for programmatic filtering and `check()` for human-readable violation messages. Constraints compose into a pipeline that can be modified at runtime, enabling domain-specific validation without modifying core graph logic.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a bouncer at a club door who checks every guest against multiple criteria: valid ID, dress code, not on the banned list, and not already inside. Each check is independent — you can add or remove criteria per event. The bouncer runs every check on every guest and reports all violations, not just the first one. This lets the club decide who gets in and who gets a detailed rejection reason.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -21,7 +25,7 @@ The BoundaryNavigator provides a programmable validation pipeline that filters e
 | **validate_and_filter** | Batch method that partitions edge proposals into valid/rejected lists with per-edge violation details |
 | **check_edge** | Returns True/False for a single edge against all active constraints |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/reasoning/constraint_validation/constraint_validation.py
@@ -55,7 +59,7 @@ rejection breakdown:
 
 Exact rejection counts and violation messages vary by constraint configuration. The 15-proposal batch consistently produces 11 accepted / 4 rejected.
 
-## 4. Constraint Pipeline Flow
+## 5. Constraint Pipeline Flow
 
 Every edge proposal passes through all registered constraints. A proposal that fails any single constraint is rejected with a violation message identifying which constraint failed and why.
 
@@ -77,7 +81,7 @@ graph LR
 
 The pipeline is not a short-circuit — every constraint runs on every proposal so that `validate_and_filter()` can report all violations, not just the first. This gives a complete rejection diagnosis per edge, which matters when debugging a bad batch from an upstream source.
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 **Section 1 — Build base graph:** 10 entity nodes (`concept_a` through `concept_j`) and 5 edges are created. The edges use two labels: `relates_to` (4 edges forming a chain a->b->c->d->e) and `influences` (1 edge, a->c). This graph serves as the validation target — the constraint pipeline will check proposed edges against this existing structure.
 
@@ -97,7 +101,7 @@ Why this matters: the dual interface (`is_valid()` returning bool, `check()` ret
 
 **Section 6 — Integration with reasoning:** A `TransitiveRule` is registered for the `relates_to` chain, producing 2 inferred edges via multiway expansion. These inferred edges are then validated through the same constraint pipeline — both pass. Why this matters: reasoning is a source of edge proposals just like ETL or user input. Running inferred edges through the constraint pipeline catches over-enthusiastic inference before it commits to the graph. A rule that produces excessively deep chains, duplicate edges, or self-referencing loops is caught at the gate.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -113,7 +117,7 @@ Why this matters: the dual interface (`is_valid()` returning bool, `check()` ret
 | Inferred edges (post-reasoning) | 2 |
 | Inferred edges passing validation | 2 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Composable pipeline** means constraints are independent objects that can be added, removed, and reordered at runtime. The default pipeline ships all four constraints, but domain-specific pipelines select only the relevant ones. Adding a new constraint is a single `add_constraint()` call — no factory registration, no configuration files, no restart required.
 
@@ -123,7 +127,7 @@ Why this matters: the dual interface (`is_valid()` returning bool, `check()` ret
 
 **Post-reasoning validation** applies the same constraint pipeline to inferred edges that applies to manually created ones. The `reason()` method produces new edges through multiway expansion; those edges are validated before commitment. This catches over-enthusiastic inference — a rule that produces excessively deep chains or duplicate edges is caught at the gate, preventing inference noise from corrupting the graph.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 **1. Create a boundary navigator with default constraints:**
 
@@ -182,7 +186,7 @@ inferred = [e for e in mem.engine.graph.edges if e.label == "indirect"]
 valid, rejected = nav.validate_and_filter(inferred, mem.engine.graph)
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 This showcase validates edges against heuristic constraints on a 10-node graph. Real-world adoption involves additional considerations:
 
@@ -191,7 +195,7 @@ This showcase validates edges against heuristic constraints on a 10-node graph. 
 - **No cross-graph constraints** — validation is local to a single graph instance. Multi-graph consistency (e.g., ensuring edge labels match across federated graphs) is not addressed.
 - **ProvenanceDepthConstraint requires metadata** — the provenance depth is read from `edge.metadata.custom["provenance_depth"]`. Edges without this metadata field are not filtered by depth.
 
-## 10. Reference
+## 11. Reference
 
 | Method | Purpose |
 |--------|---------|

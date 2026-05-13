@@ -25,7 +25,7 @@ style: |
 
 ---
 
-## 1. The Paradigm Shift
+## 1. The Approach
 
 When a cloud infrastructure health check fails, multiple root causes are possible:
 - database failure

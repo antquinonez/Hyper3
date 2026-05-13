@@ -2,13 +2,17 @@
 
 > Decay, reinforcement, Hebbian learning, and feedback-driven evolution on a small graph
 
-## The Approach
+## 1. The Approach
 
 Most knowledge graph libraries treat the graph as a static data structure: you add nodes and edges, query them, and they stay exactly as you left them. Real knowledge changes. Some connections become stale, frequently-used paths strengthen, and co-occurring concepts form associations. Hyper3 builds self-evolution directly into the graph through four mechanisms: decay (reduce weights on inactive edges), reinforce (strengthen frequently-used paths), Hebbian learning (strengthen edges between co-activated nodes), and feedback-driven evolution (tune evolution parameters based on operation outcomes).
 
 This showcase builds a small 8-node chain graph, runs each evolution mechanism, and shows what changes.
 
-## Key Concepts
+## 2. A Simple Analogy
+
+Think of a garden left untended. Paths you walk every day become worn and clear. Paths nobody uses grow over and eventually disappear. Plants that grow next to each other become intertwined. A gardener who pays attention to which paths get used can decide where to lay gravel and where to let nature take over. Hyper3's evolution mechanisms play the gardener: decay clears unused paths, reinforcement strengthens popular ones, Hebbian learning connects co-occurring ideas, and feedback-driven evolution tunes the whole process based on what actually works.
+
+## 3. Key Concepts
 
 | Term | What it does |
 |------|-------------|
@@ -19,7 +23,7 @@ This showcase builds a small 8-node chain graph, runs each evolution mechanism, 
 | **Hebbian learning** | Strengthens edges between nodes that are co-activated during activation spreading. Named after the neuroscience principle: "neurons that fire together wire together." |
 | **Feedback-driven evolution** | Uses the history of operation outcomes (which recalls succeeded, which failed) to adjust evolution parameters. |
 
-## Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/reasoning/self_evolution/self_evolution.py
@@ -46,7 +50,7 @@ feedback summary:
   correlated nodes: 0
 ```
 
-## Scenario
+## 5. The Scenario
 
 The script constructs an 8-node chain with graded edge weights:
 
@@ -71,7 +75,7 @@ graph LR
 
 A second 4-node graph (x, y, z, w) is used for the Hebbian learning demonstration.
 
-## Analysis Pipeline
+## 6. Analysis Pipeline
 
 ### Section 1: Build the graph
 
@@ -101,12 +105,12 @@ Why this matters: a static knowledge graph treats every traversal identically. R
 
 ### Section 4: Hebbian learning
 
-A fresh 4-node graph (x, y, z, w) demonstrates Hebbian reinforcement:
+The main graph was structurally altered by the Section 2 merges (self-loops, collapsed chains), making it a poor testbed for weight-adjustment mechanisms. A fresh 4-node graph (x, y, z, w) with intact edges demonstrates Hebbian reinforcement cleanly:
 
 1. Nodes `x` and `y` are stimulated, then activation spreads through the graph.
 2. `hebbian_reinforce()` checks which nodes have overlapping activation and strengthens the edges between them.
 
-Result: 3 edges strengthened, 0 weakened, 3 total co-activations, average weight change of 0.2677.
+Result: 3 edges strengthened, 0 weakened, 3 total co-activations, average weight change of 0.2702.
 
 Why this matters: in a static graph, the only way to change edge weights is explicitly. Hebbian learning creates implicit weight adjustments based on usage patterns. Nodes that frequently activate together develop stronger connections, which reflects how real associative memory works.
 
@@ -118,7 +122,7 @@ The neutral result is honest feedback. This is a small graph with limited operat
 
 Why this matters: without feedback, evolution operates on general rules (decay everything uniformly, reinforce what was recalled). Feedback-driven evolution personalizes the decay/reinforcement schedule to the actual usage pattern of the specific graph.
 
-## Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -137,7 +141,7 @@ Why this matters: without feedback, evolution operates on general rules (decay e
 | Feedback overall health | 0.5 |
 | Feedback correlated nodes | 0 |
 
-## What Makes This Different
+## 8. What Makes This Different
 
 **Structural self-modification** is built into the graph itself, not applied as a separate post-processing step. Calling `evolve()` triggers decay, prune, merge, and reinforce in a single pass, and the graph emerges structurally different afterward.
 
@@ -145,7 +149,7 @@ Why this matters: without feedback, evolution operates on general rules (decay e
 
 **Feedback-driven evolution** tracks operation history. The evolution engine does not just apply uniform decay -- it uses which paths succeeded and which failed to make targeted reinforce/suppress decisions. On a small graph with limited history the effect is minimal, but the mechanism scales with usage.
 
-## Code Implementation
+## 9. Code Implementation
 
 Building a graph and running evolution:
 
@@ -191,7 +195,7 @@ summary = mem.feedback_summary()
 print(f"overall health: {summary.overall_health}")
 ```
 
-## Real-World Gap
+## 10. Real-World Gap
 
 - **Scale**: This showcase operates on 8 nodes and 7 edges. Evolution behavior at 10K+ nodes is untested -- merge decisions and decay sweeps take longer as the graph grows.
 - **Data source**: The graph is constructed synthetically. Production use requires ETL from live knowledge sources, and merge thresholds would need tuning for the actual data distribution.
@@ -199,7 +203,7 @@ print(f"overall health: {summary.overall_health}")
 - **Determinism**: Hebbian learning depends on activation spreading, which involves numerical operations. Results should be reproducible given the same operation sequence, but floating-point accumulation may cause minor variation.
 - **Feedback history**: Feedback-driven evolution needs accumulated operation history to be effective. A freshly-loaded graph with no history will produce neutral results until sufficient operations have been recorded.
 
-## Reference
+## 11. Reference
 
 ### API methods
 
@@ -214,5 +218,8 @@ print(f"overall health: {summary.overall_health}")
 
 ### Related examples
 
-- `examples/showcase/` -- other showcases demonstrating different Hyper3 capabilities
-- `evolve_interval` constructor parameter -- enables automatic evolution after every N operations
+| Example | Connection |
+|---------|------------|
+| `examples/showcase/reasoning/knowledge_reasoning/` | Transitive inference on the evolved graph |
+| `examples/showcase/reasoning/advanced_rules/` | Multi-rule reasoning that produces edges requiring evolution |
+| `evolve_interval` constructor parameter | Enables automatic evolution after every N operations |

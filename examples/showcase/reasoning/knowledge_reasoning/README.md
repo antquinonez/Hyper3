@@ -6,7 +6,7 @@
 
 A causal knowledge graph stores facts like "smoking causes lung cancer" and "lung cancer causes death." The value is not in storing these facts — it is in deriving what they imply together. If smoking causes lung cancer, and lung cancer causes death, then smoking indirectly causes death. A human sees this instantly; a graph that cannot derive it is just a database.
 
-This showcase builds a 9-node causal graph and demonstrates four reasoning capabilities:
+This showcase builds a 9-node causal graph and demonstrates six reasoning capabilities:
 
 - **Transitive inference**: Chaining causal edges to discover indirect relationships.
 - **Backward chaining**: Starting from a conclusion (death) and asking "what evidence supports this?"
@@ -17,7 +17,11 @@ This showcase builds a 9-node causal graph and demonstrates four reasoning capab
 
 These capabilities exist because storing facts is insufficient. Real knowledge work requires deriving consequences, justifying conclusions, and maintaining consistency as beliefs change.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a detective's evidence board with strings connecting suspects, motives, and crimes. The strings on the board are given facts. But the detective can also follow the strings to draw conclusions: if the suspect was at the scene (A), and the scene connects to the weapon (B), then the suspect connects to the weapon. That's transitive inference. If two strings point in opposite directions about the same suspect — one says "alibi confirmed" and another says "witness places at scene" — the detective must resolve the contradiction. That's belief revision. And if the detective is asked to justify why they suspect someone, they trace the strings back to the original evidence. That's provenance.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|-----------------------|
@@ -29,7 +33,7 @@ These capabilities exist because storing facts is insufficient. Real knowledge w
 | **Contradiction** | Two edges with opposing semantics (e.g., `causes` and `prevents`) targeting the same node |
 | **Confidence Score** | A raw cumulative score reflecting edge weights and provenance depth (not 0-1 normalized) |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py
@@ -64,6 +68,8 @@ explanation: asbestos indirectly causes death
 
 SECTION 5: BELIEF REVISION (CONTRADICTION DETECTION)
 contradictions detected: 2
+  causes vs prevents between heart_disease-heart_disease
+  causes vs prevents between heart_disease-heart_disease
 revision: 1 edges removed, 1 kept
   total revised: 1
 
@@ -76,7 +82,7 @@ SUMMARY
   6. Confidence scoring identifies knowledge gaps
 ```
 
-## 4. The Scenario
+## 5. The Scenario
 
 A small causal knowledge graph with 9 health-related concepts and 8 factual edges. Two causal pathways lead to death (via lung cancer and heart disease), and one intervention (exercise) prevents heart disease. This creates the conditions for both transitive inference and contradiction detection.
 
@@ -112,7 +118,7 @@ graph TB
 | `prevents` | 2 | Intervention that blocks an outcome |
 | `enables` | 1 | A precondition that makes something possible |
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 ### Section 1: Building the Knowledge Base
 
@@ -157,7 +163,9 @@ Each inferred edge carries a provenance record: the rule that produced it, the i
 
 The `detect_contradictions()` method finds 2 contradictions. The output reports these as `causes vs prevents between heart_disease-heart_disease`. Both contradictions involve edges pointing at the same target node — heart_disease. Smoking causes heart_disease (`causes` label) while exercise prevents heart_disease (`prevents` label). The contradiction detection identifies opposing semantic labels on edges that share a target, reporting the target node on both sides of the "between" pair.
 
-The `revise_beliefs()` method resolves this by removing 1 edge and keeping 1, reducing the total by 1 revised edge. The revision removes the weaker or less-supported edge to restore consistency.
+The `revise_beliefs()` method resolves this by removing 1 edge and keeping 1, reducing the total by 1 revised edge. The revision removes the weaker or less-supported edge to restore consistency. In this run, the `exercise -> heart_disease [prevents]` edge was removed, while the `smoking -> heart_disease [causes]` edge was kept. This means exercise no longer appears as a preventive intervention against heart disease in the graph — a consequence that domain expertise should validate in production use.
+
+> **Note**: Belief revision results can vary between runs. The contradiction detection may report the same pair in either order (`causes vs prevents` or `prevents vs causes`), and the revision engine's choice of which edge to remove may differ. Exact edge counts and downstream confidence values should be treated as run-dependent.
 
 **Why this matters**: Real knowledge bases accumulate contradictions as new information arrives. Without automated detection, contradictory beliefs coexist silently. Belief revision surfaces the conflict and resolves it, keeping the graph internally consistent.
 
@@ -168,7 +176,7 @@ After transitive inference and belief revision, the script adds two `InverseRule
 - `InverseRule(edge_label="causes", inverse_label="caused_by")` — for every A causes B, infer B caused_by A
 - `InverseRule(edge_label="prevents", inverse_label="prevented_by")` — for every A prevents B, infer B prevented_by A
 
-A second reasoning pass with these rules produces 6 new inverse edges: 5 `caused_by` edges (e.g., death caused_by heart_disease, lung_cancer caused_by smoking) and 1 `prevented_by` edge (heart_disease prevented_by exercise). These inverse edges enable backward traversal of causal chains.
+A second reasoning pass with these rules produces 6 new inverse edges: 5 `caused_by` edges (e.g., death caused_by heart_disease, lung_cancer caused_by smoking) and 1 `prevented_by` edge (infection prevented_by immunity). The `exercise -> heart_disease [prevents]` edge was removed during belief revision, so no `heart_disease prevented_by exercise` inverse is created. These inverse edges enable backward traversal of causal chains.
 
 **Why this matters**: Real knowledge graphs are queried from multiple directions. A forward query asks "what does smoking cause?" while a backward query asks "what caused death?" Inverse rules make both directions traversable without duplicating knowledge.
 
@@ -178,7 +186,7 @@ After all reasoning and revision, the confidence subsystem evaluates the quality
 
 The key outputs:
 
-- `all_confidences()` returns aggregate statistics. The "High confidence (>0.8)" count of 9 means all 9 concepts in the graph exceed the 0.8 threshold — the graph has strong evidence throughout. The average confidence is 2.77.
+- `all_confidences()` returns aggregate statistics. The "High confidence (>0.8)" count of 9 means all 9 concepts in the graph exceed the 0.8 threshold — the graph has strong evidence throughout. The average confidence is 2.60 (exact value varies by run due to non-determinism in belief revision).
 - `confidence(concept)` returns a per-concept score. For example, death scores 7.65 because multiple causal chains converge on it, while smoking scores 2.55 because it has fewer incoming supporting edges.
 - `trace_confidence_chain(source, target)` finds the path with the highest cumulative confidence between two concepts. The chain confidence is the product of edge weights along the strongest path. `asbestos -> death` scores 27.0 because the strongest path traverses three edges of weight 3.0 each (3.0 * 3.0 * 3.0 = 27.0), passing through inferred and inverse edges. `smoking -> death` scores 9.0 via a two-edge path (3.0 * 3.0). Chain confidence is a separate metric from per-concept confidence — it measures path strength, not node importance.
 - `low_confidence(threshold)` identifies concepts below a threshold. With threshold=0.5, no concepts qualify — all exceed it.
@@ -189,7 +197,7 @@ The key outputs:
 
 The final summary connects all six demonstrated capabilities back to the knowledge reasoning use case: transitive inference discovers hidden chains, backward chaining proves conclusions, provenance makes inferences auditable, belief revision maintains consistency, inverse rules enable bidirectional queries, and confidence scoring identifies where the knowledge graph needs strengthening.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -204,7 +212,7 @@ The final summary connects all six demonstrated capabilities back to the knowled
 | Contradictions detected | 2 |
 | Edges removed by revision | 1 |
 | Edges kept by revision | 1 |
-| Average confidence | 2.77 (raw cumulative, not 0-1 normalized) |
+| Average confidence | 2.60 (raw cumulative, not 0-1 normalized; varies by run) |
 | Per-concept confidence range | 2.55 -- 7.65 |
 | Chain confidence range | 9.0 -- 27.0 (path product metric, separate from per-concept) |
 | High confidence (>0.8) concepts | 9 (all concepts) |
@@ -212,7 +220,9 @@ The final summary connects all six demonstrated capabilities back to the knowled
 
 Per-concept confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains. Chain confidence (from `trace_confidence_chain`) is a separate metric measuring the product of edge weights along the strongest path between two concepts.
 
-## 7. What Makes This Different
+> **Non-determinism**: Belief revision is sensitive to the order in which contradictions are detected and resolved. The exact number of edges removed/kept, the resulting prevented_by inverses, and downstream confidence values may vary between runs. The contradiction count (2) and the transitive inference results (3 edges) are stable.
+
+## 8. What Makes This Different
 
 **Rule-based inference over labeled edges.** The transitive rule matches on edge labels, not just topology. A causes-chain and a prevents-chain are structurally identical but semantically different, and the rules respect this distinction. This is not path-finding on an unlabeled graph — it is reasoning over the semantics of relationships. When the transitive rule chains `causes` edges, it skips `prevents` and `enables` edges entirely, producing only causally-valid inferences.
 
@@ -224,7 +234,7 @@ Per-concept confidence values are raw cumulative scores derived from edge weight
 
 **Cumulative confidence that reflects evidence strength.** Per-concept confidence scores aggregate incoming edge weights and inference support, while chain confidence (`trace_confidence_chain`) multiplies edge weights along the strongest path. A chain traversing three edges of weight 3.0 scores 27.0 (3.0^3), while one traversing two edges scores 9.0 (3.0^2). This makes confidence directly interpretable: higher scores mean more supporting evidence at higher weights.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 ### Building the causal graph
 
@@ -293,16 +303,17 @@ chain = mem.cognitive.trace_confidence("asbestos", "death")
 print(f"asbestos -> death: confidence={chain.chain_confidence:.4f}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 - **Graph size**: This example uses 9 nodes and 8 edges. Production knowledge graphs contain thousands or millions of facts. Performance at that scale is untested.
 - **Rule coverage**: Only one rule (TransitiveRule) is applied initially, with InverseRules added later. Real reasoning requires abductive rules, contextual substitution rules, and domain-specific rules working together.
-- **Contradiction resolution**: The revision engine removes edges based on structural heuristics. Real knowledge work requires domain expertise to decide which conflicting belief to retain.
+- **Non-determinism in revision**: Belief revision may produce different edge-removal decisions across runs. Production systems should either seed the random state for reproducibility or run revision multiple times and take a consensus.
+- **Contradiction resolution**: The revision engine removes edges based on structural heuristics. Real knowledge work requires domain expertise to decide which conflicting belief to retain. In this showcase, the revision chose to keep the `causes` edge and remove the `prevents` edge — but a domain expert might decide that exercise's preventive effect is the more reliable finding.
 - **Backward chaining scope**: The proof engine works on the base graph edges. Inferred edges from multiway expansion are not automatically available as proof steps.
 - **Confidence interpretation**: Confidence scores are cumulative products of edge weights, not calibrated probabilities. Comparing confidence across graphs with different edge weight distributions requires normalization that the system does not currently provide.
 - **Data pipeline**: The graph is constructed programmatically. Production use requires ingesting facts from databases, literature, or expert input with appropriate schema validation.
 
-## 10. Reference
+## 11. Reference
 
 ### API Methods
 

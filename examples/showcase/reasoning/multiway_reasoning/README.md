@@ -186,7 +186,7 @@ Each leaf state is scored against the 8 observed symptoms using a composite metr
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-**The Discovery:** Multiple leaf states tie at the top score of **0.909**. These top-scoring leaves all trace back to the same set of root causes -- database failure, network partition, and cache stampede -- but reach that score through different rule chains (e.g., `transitive(causes)`, `inverse(causes)`, `abductive(causes)`).
+**The Discovery:** Multiple leaf states tie at the top score of **0.909** (typically 2-3 branches). These top-scoring leaves all trace back to the same set of root causes -- database failure, network partition, and cache stampede -- but reach that score through different rule chains (e.g., `transitive(causes)`, `inverse(causes)`, `abductive(causes)`). A second tier of branches scores 0.900, exploring overlapping but slightly different symptom subsets.
 
 Among the tied top hypotheses, one illustrative causal chain is:
 
