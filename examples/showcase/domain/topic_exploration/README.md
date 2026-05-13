@@ -2,6 +2,15 @@
 
 > Chainable concept exploration on a climate knowledge graph: traversal, causal chains, centrality, coverage gaps, and evidence mapping.
 
+**What you will learn:**
+
+- How to seed a ConceptSet from a single concept and expand through chained `.neighbors()` calls
+- Tracing multi-hop causal paths between any two concepts with `.paths_to()`
+- Using `.centrality()` and `.top()` to rank concepts by structural importance
+- Detecting coverage gaps with set-difference patterns (`all - addressed`)
+- Running `TransitiveRule` to materialize indirect causal relationships
+- Mapping measurement evidence onto phenomena to find unevidenced knowledge gaps
+
 ## 1. What this example teaches
 
 This is the most "analysis notebook" style domain showcase. It shows how to use ConceptSet pipelines to:
@@ -11,6 +20,8 @@ This is the most "analysis notebook" style domain showcase. It shows how to use 
 - rank by centrality
 - detect adaptation and evidence gaps
 - run transitive reasoning to materialize indirect causes
+
+The key insight is that ConceptSet pipelines let you compose graph operations as fluent chains — similar to pandas pipelines — where each method returns a new ConceptSet that can be further filtered, expanded, or scored. This is the idiomatic way to explore a Hyper3 knowledge graph: start with `mem.find()`, chain transformations, and extract results with `.labels` or `.items` at the end.
 
 ## 2. Run
 
@@ -106,6 +117,33 @@ How to read it:
 
 ## 6. How To Use ConceptSet Effectively
 
+### Expected Output
+
+A typical ConceptSet pipeline (Section 3 of the script) produces output like this:
+
+```
+  Seed: ['global_warming']
+  Direct consequences (13):
+    greenhouse_effect [radiative]
+    sea_level_rise [oceanic]
+    ocean_acidification [oceanic]
+    glacier_retreat [cryospheric]
+    ...
+  Second-order consequences (22):
+    coastal_flooding
+    freshwater_contamination
+    coral_bleaching
+    ...
+```
+
+The corresponding pipeline code:
+
+```python
+seed = mem.find("global_warming")
+immediate = seed.neighbors(direction="out")
+second_order = immediate.neighbors(direction="out").exclude("global_warming").unique()
+```
+
 - Keep chains short and inspect intermediate sets; long chains are powerful but can hide where noise enters.
 - Use label-constrained neighbors (`edge_label=...`) when asking causal questions; unconstrained expansion is better for discovery.
 - Pair centrality ranking with domain filters to avoid over-prioritizing structurally large but low-actionability concepts.
@@ -115,26 +153,26 @@ How to read it:
 
 Each ConceptSet method returns a new ConceptSet. The `.labels` property extracts the final list of deduplicated concept names.
 
-| Method | Returns | Chain continues? |
-|--------|---------|-----------------|
-| `.neighbors()` | ConceptSet | Yes |
-| `.paths_to()` | ConceptSet | Yes |
-| `.similar()` | ConceptSet | Yes |
-| `.activate()` | ConceptSet | Yes |
-| `.diffuse()` | ConceptSet | Yes |
-| `.query()` | ConceptSet | Yes |
-| `.top(k)` | ConceptSet | Yes |
-| `.filter(fn)` | ConceptSet | Yes |
-| `.threshold(min)` | ConceptSet | Yes |
-| `.exclude(...)` | ConceptSet | Yes |
-| `.unique()` | ConceptSet | Yes |
-| `.centrality()` | ConceptSet | Yes |
-| `.communities()` | CommunityResult | No (terminal) |
-| `.anomalies()` | list | No (terminal) |
-| `.describe()` | GraphDescription | No (terminal) |
-| `.labels` | list[str] | No (terminal) |
-| `.scores` | dict[str, float] | No (terminal) |
-| `.items` | list[tuple] | No (terminal) |
+| Method | Returns | Chain continues? | Example |
+|--------|---------|-----------------|---------|
+| `.neighbors()` | ConceptSet | Yes | `.neighbors(direction="out")` |
+| `.paths_to()` | ConceptSet | Yes | `.paths_to("coastal_flooding", max_depth=6)` |
+| `.similar()` | ConceptSet | Yes | |
+| `.activate()` | ConceptSet | Yes | |
+| `.diffuse()` | ConceptSet | Yes | |
+| `.query()` | ConceptSet | Yes | |
+| `.top(k)` | ConceptSet | Yes | `.top(10)` |
+| `.filter(fn)` | ConceptSet | Yes | `.filter(lambda l, _: l == "x")` |
+| `.threshold(min)` | ConceptSet | Yes | |
+| `.exclude(...)` | ConceptSet | Yes | |
+| `.unique()` | ConceptSet | Yes | |
+| `.centrality()` | ConceptSet | Yes | `.centrality("degree")` |
+| `.communities()` | CommunityResult | No (terminal) | |
+| `.anomalies()` | list | No (terminal) | |
+| `.describe()` | GraphDescription | No (terminal) | |
+| `.labels` | list[str] | No (terminal) | `cs.labels` |
+| `.scores` | dict[str, float] | No (terminal) | |
+| `.items` | list[tuple] | No (terminal) | |
 
 ### Centrality Score Interpretation
 

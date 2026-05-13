@@ -2,6 +2,15 @@
 
 > Multi-tier supply-chain risk analysis with transitive reasoning, cascade tracing, lead-time exposure, and diversification prioritization.
 
+**What you will learn:**
+
+- How to model a realistic 3-tier supplier network as a hypergraph with typed nodes and labeled edges
+- How transitive rule inference materializes hidden multi-hop risk cascades across dependency chains
+- How centrality metrics (degree, betweenness) identify chokepoints and single points of failure
+- How to trace disruption paths from a geopolitical or natural risk event to a finished product
+- How cumulative lead-time analysis reveals the longest recovery windows in a multi-tier chain
+- How to score and prioritize diversification candidates by reliability deficit, lead time, and backup coverage
+
 ## 1. What this example demonstrates
 
 This script builds a realistic supply-chain graph and answers resilience questions with graph-native analytics:
@@ -12,6 +21,8 @@ This script builds a realistic supply-chain graph and answers resilience questio
 - disruption path tracing to final product
 - cumulative lead-time stress analysis
 - backup coverage and diversification priorities
+
+The key insight is that supply chain resilience is fundamentally a graph problem. Risks do not stay confined to the node they first touch; they propagate through multi-hop dependency chains (supplier → component → assembly → product). Transitive rule inference materializes these hidden connections automatically, turning an explicitly-modeled 2-hop graph into a graph that reveals 3- and 4-hop cascade paths that would otherwise remain invisible until a disruption occurs.
 
 ## 2. Run
 
@@ -92,6 +103,21 @@ Ranks highest-priority diversification candidates by combined score:
 - connected risk exposure
 - backup absence penalty
 
+**Expected Output** (Section 7 diversification priorities):
+
+```
+  Diversification priorities (top 5):
+    1. sup_t3_russia_palladium
+       country=Russia  material=palladium  reliability=0.65
+       lead_time=70d  risk_exposure=0.00  has_backup=NO
+    2. sup_t2_congo_cobalt
+       country=DRC  material=cobalt  reliability=0.72
+       lead_time=50d  risk_exposure=1.75  has_backup=NO
+    3. sup_t2_kazakhstan_uranium
+       country=Kazakhstan  material=uranium  reliability=0.78
+       lead_time=55d  risk_exposure=0.80  has_backup=NO
+```
+
 ## 5. Mermaid (representative)
 
 ```mermaid
@@ -108,7 +134,7 @@ This is a simplified slice; real graph includes 126 nodes and many parallel path
 
 How to read it:
 
-- Follow the chain left-to-right to see risk propagation from event to final product.
+- Follow the chain left-to-right to see risk propagation from event to final product. The mermaid diagram shows a full 6-hop cascade: the `risk_trade_war` geopolitical event hits `sup_t2_china_silicon` (tier-2 silicon supplier), which `supplies_to` `sup_t1_taiwan_semicon` (tier-1 semiconductor fab), which `supplies_to` `prod_semiconductor`, which propagates via `affected_by` to `prod_microcontroller`, then to `prod_ecu`, and finally to `prod_vehicle`. Each hop represents a dependency that can fail independently.
 - Supplier tiers appear in the early middle of the path; product assembly dependencies appear later.
 - The same final product usually has many alternative paths, which is why the full analysis includes centrality, not just one path trace.
 

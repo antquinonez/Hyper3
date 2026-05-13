@@ -2,6 +2,15 @@
 
 > Backward chaining, contradiction handling, confidence propagation, and probabilistic differential diagnosis on a 92-node clinical graph.
 
+**What you will learn:**
+
+- How to construct a typed clinical knowledge graph with diseases, symptoms, labs, imaging, risk factors, and medications
+- How backward chaining from candidate diagnoses to observed evidence exposes missing premises and ranks a differential
+- How a combined coverage + proof-confidence scoring metric separates leading diagnoses from plausible alternatives
+- How contradiction detection and belief revision resolve opposing clinical evidence edges automatically
+- How Born-rule probabilistic sampling represents diagnostic uncertainty as a superposition collapsed by context
+- How structural anomaly detection identifies diagnostic bottleneck symptoms via graph topology
+
 ## 1. The Approach
 
 Clinical diagnosis is fundamentally a graph problem: diseases connect to findings, findings overlap across diseases, and evidence can conflict. This showcase models that structure directly and demonstrates a practical workflow:
@@ -14,6 +23,8 @@ Clinical diagnosis is fundamentally a graph problem: diseases connect to finding
 4. Detect and revise contradictory evidence
 5. Inspect structural ambiguity (diamonds/fan-out/anomalies)
 6. Sample probabilistic diagnoses with Born-rule sampling
+
+The key insight is that clinical diagnosis is fundamentally a graph matching problem. Each disease is a pattern of findings — a subgraph of symptom, lab, and imaging edges — and differential diagnosis is the search for which disease subgraphs best explain the observed patient findings. Overlapping findings (cough, fever, dyspnea) create shared subgraphs that make the matching ambiguous; the scoring and reasoning steps quantify that ambiguity and reduce it.
 
 ## 2. Quick Start
 
@@ -120,6 +131,21 @@ Then samples 15 times via `mem.belief.sample(qs)`. Frequencies vary by run (prob
 
 Runs `mem.analyze.anomalies(concept)` on key symptoms/diseases to identify topology-driven bottlenecks.
 
+### Expected Output
+
+Typical ranked differential diagnosis output from Section 2:
+
+```
+  Ranked differential (coverage-weighted):
+    1. pneumonia                 combined=0.72  coverage=0.83  prove=0.43
+    2. pulmonary_embolism        combined=0.37  coverage=0.33  prove=0.40
+    3. pleural_effusion          combined=0.36  coverage=0.50  prove=0.10
+    4. bronchitis                combined=0.34  coverage=0.33  prove=0.36
+    5. copd_exacerbation         combined=0.30  coverage=0.33  prove=0.22
+```
+
+Exact values vary by run due to probabilistic reasoning, but `pneumonia` consistently ranks first because it covers the majority of the presented findings (fever, cough, productive cough, dyspnea, pleuritic chest pain, tachycardia).
+
 ## 5. Mermaid Topology (Representative Subgraph)
 
 ```mermaid
@@ -142,9 +168,9 @@ Note: this diagram is intentionally a subset for readability; the script graph i
 
 How to read it:
 
-- Start at disease nodes (1-3), then follow `causes` edges into findings.
-- Shared findings (`cough`, `fever`, `dyspnea`) illustrate why differential diagnosis is ambiguous.
-- `increases_risk` edges encode pre-test probability modifiers, while `treats` edges capture intervention paths.
+- Numbered nodes indicate clinical roles: **1) pneumonia** is the leading diagnosis, **2) pulmonary_embolism** is the primary differential, **3) bronchitis** is a secondary differential, **4) amoxicillin** is the first-line treatment, and **5) prolonged_immobility** is a risk-factor modifier.
+- Start at disease nodes (1-3), then follow `causes` edges into findings. Shared findings like **cough** (reached from both pneumonia and bronchitis) and **dyspnea** (reached from pneumonia and pulmonary embolism) are exactly what create diagnostic ambiguity — the script's coverage-weighted scoring resolves this by measuring how much of the patient's finding set each disease explains.
+- `increases_risk` edges (5 → 2) encode pre-test probability modifiers that shift the prior before evidence is evaluated, while `treats` edges (4 → 1) capture intervention paths once the diagnosis is confirmed.
 
 ## 6. Key Metrics (Current Script)
 

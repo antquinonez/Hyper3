@@ -2,6 +2,15 @@
 
 > One-script CTI pipeline: rule inference, alert triage activation, attribution sampling, stale IOC pruning, and centrality ranking.
 
+**What you will learn:**
+
+- How to encode actors, CVEs, malware, and TTPs as labeled hypernodes in a CTI knowledge graph
+- How inverse and abductive inference rules discover reverse lookups and attribution hypotheses
+- How spreading activation from a live alert surface the actors and sectors closest to the threat
+- How Born-rule sampling over complex amplitudes produces probabilistic attribution rankings
+- How self-evolution prunes stale IOCs and reinforces actively accessed threat paths
+- How degree centrality identifies the most structurally dangerous actors and CVEs
+
 ## 1. Why this example is valuable
 
 Most CTI examples isolate one technique. This one composes several on a shared graph:
@@ -12,6 +21,8 @@ Most CTI examples isolate one technique. This one composes several on a shared g
 4. sample attribution hypotheses (Born rule)
 5. evolve graph to remove stale indicators
 6. rank actors/CVEs by connectivity impact
+
+Picture a SOC analyst at 2 AM who just received a Log4j exploitation alert. They need answers fast: which threat actors are known to exploit this CVE, which sectors are in the blast radius, what is the most likely attribution, and which IOCs in the database are stale and should be ignored. This example walks through each of those questions using a single Hyper3 graph, showing how the library's subsystems compose into a realistic analyst workflow.
 
 ## 2. Run
 
@@ -83,6 +94,26 @@ Recalls active nodes via `mem.recall()`, then runs `mem.evolve()` to prune stale
 
 Ranks top actors and CVEs by degree centrality and summarizes APT28 profile subgraph.
 
+### Expected Output
+
+Typical centrality output from Section 6:
+
+```
+  Top 5 most connected threat actors:
+    1. APT28                  centrality=0.2414  exploits=2  targets=2  uses=3
+    2. Volt_Typhoon           centrality=0.2069  exploits=2  targets=2  uses=2
+    3. Sandworm               centrality=0.1379  exploits=2  targets=2  uses=1
+    4. Lazarus                centrality=0.1379  exploits=2  targets=2  uses=1
+    5. APT29                  centrality=0.1379  exploits=2  targets=1  uses=2
+
+  Top 5 most connected CVEs:
+    1. CVE-2023-44228         centrality=0.4138  CVSS=10.0  product=Apache_Log4j2
+    2. CVE-2024-3400          centrality=0.2069  CVSS=10.0  product=PAN-OS
+    3. CVE-2023-20198         centrality=0.1034  CVSS=10.0  product=Cisco_IOS_XE_WebUI
+    4. CVE-2023-34362         centrality=0.0690  CVSS=9.8   product=MOVEit_Transfer
+    5. CVE-2023-22515         centrality=0.0690  CVSS=10.0  product=Atlassian_Confluence
+```
+
 ## 5. Mermaid (representative)
 
 ```mermaid
@@ -98,9 +129,10 @@ The full script includes many more actors/edges than this slice.
 
 How to read it:
 
-- Forward edges (`exploits`, `uses`, `targets`) represent observed campaign behavior.
-- Reverse edge (`exploited_by`) is inferred for analyst-friendly reverse lookup.
-- Activation and centrality sections in the script operate over both observed and inferred structure.
+- **Forward edges** (`exploits`, `uses`, `targets`) represent observed campaign behavior reported in threat intelligence feeds. These are the original relationships entered into the graph — an analyst querying "what does APT28 exploit?" follows forward edges.
+- **Reverse edges** (`exploited_by`) are inferred by `InverseRule`. They serve a different analyst workflow: "who exploits CVE-2023-44228?" — a question that arrives from the vulnerability side, not the actor side. Without reverse edges, the analyst would need to scan every actor's forward edges.
+- Both directions matter because CTI analysts switch between **actor-centric** investigation (start from a known threat group) and **vulnerability-centric** triage (start from a CVE in an alert). The graph's rule-inferred reverse edges make both query patterns equally efficient.
+- Activation and centrality computations in Sections 3 and 6 operate over both observed and inferred structure, meaning reverse edges contribute to energy propagation and centrality scores just like original edges.
 
 ## 6. How To Read CTI Results
 

@@ -2,9 +2,18 @@
 
 > Infer hidden transitive dependencies and blast radius from an 82-node service graph.
 
+**What you will learn:**
+
+- How to build a labeled dependency graph from microservice metadata and relationship edges
+- Why direct dependency maps undercount blast radius and how transitive inference closes the gap
+- How to rank infrastructure nodes by betweenness centrality to surface single points of failure
+- How TransitiveRule discovers hidden A→B→C chains and InverseRule flips direction for impact analysis
+- How to simulate outage scenarios and quantify affected teams, regions, and criticality buckets
+- How to interpret blast-radius ratios and chain-length fragility for operational hardening decisions
+
 ## 1. What this example demonstrates
 
-This script models a realistic microservices environment and answers incident-response questions that direct dependency maps miss:
+At 3 AM the pager goes off for a database outage. The on-call engineer needs to know the blast radius — not just the services that directly connect to that database, but every service transitively affected through the dependency chain — and needs it now. This script models that scenario on a realistic 82-node microservices environment and answers the incident-response questions that direct dependency maps miss:
 
 - direct vs transitive dependency exposure
 - full blast radius per infra node (DB/queue/cache)
@@ -89,6 +98,28 @@ Simulates infra outages and reports:
 - criticality buckets
 - affected teams and regions
 
+### Expected Output
+
+Key blast radius lines from a typical run:
+
+```
+  db-pg-orders
+    Direct dependents:    11
+    Transitive dependents: 4 (discovered by inference)
+    Total blast radius:   15
+    Hidden: ['svc-analytics-dash', 'svc-analytics-reports', 'svc-gateway-admin', 'svc-order-history']
+
+  cache-redis-auth
+    Direct dependents:    7
+    Transitive dependents: 6 (discovered by inference)
+    Total blast radius:   13
+
+  db-mongo-sessions
+    Direct dependents:    6
+    Transitive dependents: 7 (discovered by inference)
+    Total blast radius:   13
+```
+
 ## 5. Mermaid (representative subgraph)
 
 ```mermaid
@@ -107,8 +138,9 @@ This is a simplified slice; the real graph is much denser.
 
 How to read it:
 
+- Numbered nodes call out the three most operationally significant roles: **1)** `svc-gateway-main` is the entry gateway that all external traffic flows through; **2)** `db-pg-orders` is the critical orders database with the highest blast radius; **3)** `svc-pay-processor` is the payment service where failures have direct revenue impact.
 - Start at entry services (`svc-gateway-main`, `svc-pay-processor`) and walk downstream to infra nodes.
-- Any path ending at an infra node contributes to that node's blast radius.
+- Any path ending at an infra node contributes to that node's blast radius. Blast radius propagates through the chain: `svc-gateway-main` depends on `svc-order-api`, which depends on `db-pg-orders` — so the gateway is in the orders database's blast radius even though it has no direct connection to it.
 - Transitive inference effectively adds implied long-range dependencies (for example, gateway-level services depending on deep infra through intermediary services).
 
 ## 6. How To Use the Results Operationally

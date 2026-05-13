@@ -2,6 +2,15 @@
 
 > Build and query a 140-node CTI graph with traversal, ranking, components, communities, anomaly detection, and rule-based inference.
 
+**What you will learn:**
+
+- How to construct a multi-entity CTI hypergraph with typed metadata and semantic edge labels
+- Neighborhood traversal (BFS) and pattern-matching queries for analyst workflows
+- Degree centrality for CVE prioritization and attack-surface ranking
+- Malware variant lineage analysis using `variant_of` edges (Zeus family tree, actor-to-variant mapping)
+- Connected-component decomposition for ecosystem boundary detection
+- Rule-based inference (transitive chains, inverse attribution) and structural anomaly classification
+
 ## 1. What this example focuses on
 
 This showcase is a broad CTI graph exploration demo. It emphasizes:
@@ -12,6 +21,8 @@ This showcase is a broad CTI graph exploration demo. It emphasizes:
 - ecosystem discovery via connected components and communities
 - structural anomaly classification for actor topology
 - reasoning pass for inferred attribution inverses
+
+This example is a **breadth-first** exploration of CTI graph analytics: 13 sections covering traversal, centrality, path tracing, malware lineage, components, modality filtering, communities, and anomalies across the full 140-node dataset. In contrast, `threat_intel_full_chain` is a **depth-first** single-pipeline analysis that chains rule inference, spreading activation, and self-evolution into one continuous workflow focused on a smaller seed set.
 
 ## 2. Run
 
@@ -61,16 +72,20 @@ Current top CVE by centrality: `CVE-2023-44228`.
 - extracts APT28 profile subgraph
 - traces actor-to-sector paths (e.g., Lazarus -> FIN)
 
-### Section 7-8: Isolation and components
+### Section 7: Malware variant lineage
+
+Uses `variant_of` edges to trace the Zeus malware family tree: Emotet, TrickBot, QakBot, and Dridex are all Zeus descendants. The section then cross-references each variant back to the threat actors that deploy it, producing an actor-to-variant mapping (e.g., APT38 uses Zeus, FIN6 and TA505 use Emotet, BlackBasta uses QakBot).
+
+### Section 8-9: Isolation and components
 
 - identifies isolated nodes needing enrichment
 - decomposes graph into connected ecosystems
 
-### Section 9: Modality slices
+### Section 10: Modality slices
 
 Queries the same seed concept via CAUSAL/SENSORY/CONCEPTUAL modalities.
 
-### Section 10: Reasoning
+### Section 11: Reasoning
 
 Registers rules via namespace style (`mem.reason.add_rules(...)`) and runs reasoning.
 
@@ -79,13 +94,30 @@ In current data shape:
 - inverse attribution edges are inferred
 - transitive `exploits_indirectly` / `uses_indirectly` chains may be zero if same-label two-hop structure is absent
 
-### Section 11: Communities
+### Section 12: Communities
 
 Runs label-propagation community detection. Results are useful but not deterministic partitions.
 
-### Section 12: Structural anomalies
+### Section 13: Structural anomalies
 
 Runs anomaly scoring for selected actors and reports low_risk/boundary/anomalous classifications.
+
+### Expected Output (Section 7 — variant lineage)
+
+```
+SECTION 7: Malware Variant Lineage
+======================================================================
+  Known malware variant relationships (8):
+    Emotet (Trojan) --> variant_of --> Zeus
+    TrickBot (Trojan) --> variant_of --> Zeus
+    QakBot (Trojan) --> variant_of --> Zeus
+    Dridex (Trojan) --> variant_of --> Zeus
+    ...
+
+  Zeus malware family tree:
+    Direct descendants: Dridex, Emotet, QakBot, TrickBot
+    Actors using Zeus descendants: APT38, BlackBasta, Carbanak, FIN6, FIN12, Lazarus, TA505
+```
 
 ## 5. Mermaid (representative)
 
@@ -173,7 +205,7 @@ How to read it:
 | `mem.link(source, target, label)` | Create a semantic edge between nodes |
 | `mem.recall(concept, max_depth)` | BFS traversal from a node |
 | `mem.query(concept, modality=, strategy=, max_depth=)` | Modality/strategy-filtered traversal |
-| `mem.pattern_match(edge_label, source_label)` | Find edges matching criteria |
+| `mem.pattern_match(edge_label, source_label, target_label)` | Find edges matching criteria |
 | `mem.analyze.centrality("degree")` | Compute centrality scores for all nodes |
 | `mem.analyze.edges()` | Iterate all edges (for label filtering) |
 | `mem.subgraph(labels)` | Extract a subgraph around specific nodes |

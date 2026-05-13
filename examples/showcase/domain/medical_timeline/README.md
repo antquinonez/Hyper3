@@ -2,6 +2,15 @@
 
 > Temporal reasoning over symptom intervals using Allen relations plus n-ary visit hyperedges.
 
+**What you will learn:**
+
+- How to register symptom intervals with `mem.add_temporal_event()` and query them with Allen interval algebra
+- How to classify every pair of intervals into one of 13 mutually exclusive Allen relations (`overlaps`, `before`, `during`, `contains`, etc.)
+- How to discover multi-step temporal chains that suggest progression patterns
+- How to distinguish co-occurrence in the same clinical visit from mere temporal overlap
+- How to extract quantitative overlap durations (hours) and aggregate relation frequencies
+- How to generate human-readable explanations of why two symptoms have a given temporal relation
+
 ## 1. Why this example
 
 Most medical timeline demos stop at timestamp sorting. This one demonstrates deeper temporal reasoning:
@@ -10,6 +19,8 @@ Most medical timeline demos stop at timestamp sorting. This one demonstrates dee
 - multi-step temporal chain discovery
 - overlap magnitude (hours), not just relation labels
 - n-ary visit representation (`visit -> {symptom_a, symptom_b, ...}`)
+
+Temporal reasoning is critical in clinical settings because the order in which symptoms appear distinguishes disease progression patterns. A fever that *precedes* a cough suggests a different trajectory than one that *overlaps* it. Likewise, two symptoms observed during the same doctor visit carry a stronger clinical association than two that merely overlap on the timeline but were documented in separate encounters.
 
 ## 2. Run
 
@@ -44,11 +55,17 @@ Temporal relations are maintained by the temporal subsystem (event store), not b
 
 `check_temporal_relation(a, b)` uses `mem.allen_relation()` and returns a label.
 
-Typical output includes:
+Typical output:
 
-- `fever <-> cough: overlaps`
-- `headache <-> fatigue: during`
-- `fever <-> headache: before`
+```
+  fever                <-> cough               : overlaps
+  fever                <-> fatigue             : overlaps
+  cough                <-> fatigue             : overlaps
+  headache             <-> fatigue             : during
+  fever                <-> headache            : before
+  nausea               <-> chest_pain          : contains
+  chest_pain           <-> shortness_breath    : contains
+```
 
 ### Section 3: Overlap discovery
 
@@ -82,6 +99,45 @@ Typical distribution:
 ### Section 9: Human-readable explanation
 
 `explain_temporal_relation("fever", "cough")` returns both relation and reason text.
+
+### Expected Output
+
+Running the demo produces the following key sections:
+
+```
+SECTION 1: Building timeline with more data...
+  Added 7 symptoms with time intervals
+  (Registered via mem.add_temporal_event())
+  Added 3 doctor visits
+
+  Total nodes: 10
+  Total edges: 3
+
+SECTION 4: Enhanced causal chain detection (length >= 3)...
+  Found 2 causal chain(s):
+    Length 3: fever -> headache -> shortness_breath
+      fever -> headache, headache -> shortness_breath
+    Length 3: fever -> headache -> chest_pain
+      fever -> headache, headache -> chest_pain
+
+SECTION 5: Temporal relation frequency analysis...
+  Relation frequency (most common first):
+    contains: 8
+    overlaps: 7
+    before: 6
+
+SECTION 8: Overlap matrix (symptom pairs with most overlap)...
+  Top symptom pairs by overlap duration:
+    cough <-> fatigue: 84.0h
+    fever <-> cough: 32.0h
+    cough <-> nausea: 22.0h
+    fever <-> fatigue: 18.0h
+    cough <-> chest_pain: 4.0h
+
+SECTION 9: Explaining temporal relation: fever <-> cough...
+  Relation: overlaps
+  Reason: fever starts before cough and ends after cough starts
+```
 
 ## 5. Mermaid (structural view)
 
@@ -166,3 +222,4 @@ This is still synthetic and local. Production use would need:
 - timezone normalization and missing-data handling
 - larger-scale temporal indexing/windowing
 - clinician-facing interpretation and validation workflows
+- medication interaction timeline analysis (concurrent prescriptions, dosing intervals, and adverse-event correlation across drug schedules)
