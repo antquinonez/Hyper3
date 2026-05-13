@@ -35,11 +35,14 @@ These principles govern the architecture, API design, and implementation pattern
 
 ### DP-1: Compositional Architecture via Mixin Decomposition
 
-Complex facades are decomposed into focused mixins, each owning a coherent domain of responsibility. The `HypergraphMemory` facade composes from six mixins:
+Complex facades are decomposed into focused mixins, each owning a coherent domain of responsibility. The `HypergraphMemory` facade composes from twelve mixins:
 
 ```
-HypergraphMemory(CoreMixin, ReasoningMixin, BeliefMixin, BayesianMixin,
-                AnalyticsMixin, PersistenceMixin, SubsystemMixin)
+HypergraphMemory(
+    CoreMixin, ReasoningMixin, BeliefMixin, BayesianMixin,
+    AnalyticsMixin, PersistenceMixin, RetrievalMixin, TemporalMixin,
+    ProvenanceMixin, CognitiveMixin, StructuralMixin, MonitoringMixin,
+)
 ```
 
 Each mixin lives in its own module (`memory_core.py`, `memory_reasoning.py`, etc.) and operates on shared state declared in `_MemoryBase`. New capabilities are added by creating a new mixin and extending the facade class list, not by expanding existing files.
@@ -54,7 +57,7 @@ class _MemoryBase:
     # ... shared state declarations
 
 class CoreMixin(_MemoryBase):
-    def store(self, concept: str, **kw): ...
+    def add(self, concept: str, **kw): ...
     def recall(self, concept: str, **kw): ...
 
 class ReasoningMixin(_MemoryBase):
@@ -114,7 +117,7 @@ The public API accepts concept labels (human-readable strings) as input and retu
 
 **Pattern**:
 ```python
-def relate(self, source: str, target: str, *, label: str = "related"):
+def link(self, source: str, target: str, *, label: str = "related"):
     source_id = self._resolve(source)   # label -> ID at boundary
     target_id = self._resolve(target)
     edge = self._graph.add_edge(frozenset({source_id}), frozenset({target_id}), label=label)
@@ -152,9 +155,9 @@ All knowledge, reasoning state, and structural relationships are represented as 
 
 **Pattern**:
 ```python
-mem.store("dna_damage", data={"type": "biological_event"})
-mem.store("cancer", data={"type": "disease"})
-mem.relate("dna_damage", "cancer", label="causes")
+mem.add("dna_damage", data={"type": "biological_event"})
+mem.add("cancer", data={"type": "disease"})
+mem.link("dna_damage", "cancer", label="causes")
 ```
 
 These three calls create hypernodes with data payloads and a hyperedge with a semantic label. The `reason()` method applies rules to find new edges. The `evolve()` method performs decay/prune/merge. All of this operates on the same graph.
@@ -240,8 +243,8 @@ The graph continuously evolves its own structure: decaying unused edges, pruning
 **Pattern**:
 ```python
 mem = HypergraphMemory(evolve_interval=10)  # auto-evolve every 10 operations
-mem.store("concept_a")
-mem.relate("concept_a", "concept_b")
+mem.add("concept_a")
+mem.link("concept_a", "concept_b")
 # ... after 10 operations, evolution runs automatically
 ```
 
@@ -270,7 +273,7 @@ The system detects structural anomalies (cycles, high centrality, contradictory 
 
 **Pattern**:
 ```python
-result = mem.detect_structural_anomalies("A")
+result = mem.analyze.anomalies("A")
 if result.anomaly_status == "anomalous":
     print(f"Structural anomaly detected, score={result.boundary_score:.2f}")
 ```
@@ -306,6 +309,39 @@ Modules use naming prefixes to show their subsystem relationships:
 - `embedding_*` — embedding providers and engines
 
 **Why**: With 40+ modules in a flat directory, prefixes provide the navigational structure that sub-packages would otherwise provide. A developer reading `state_clustering.py` immediately knows it is part of the multiway subsystem and related to `multiway.py`, `multiway_causal.py`, and `rule_analytics.py`.
+
+### DP-17: Namespace API for Domain Operations
+
+Domain operations are exposed through namespace attributes on `HypergraphMemory`. When a namespace exists for a subsystem, prefer it over calling mixin methods directly. Namespaces provide shorter method names, group related operations, and shield callers from mixin signature changes.
+
+**Available namespaces:**
+
+| Namespace | Attribute | Purpose |
+|-----------|-----------|---------|
+| `BayesNamespace` | `mem.bayes` | Prior/posterior distributions, MAP estimates, Bayes factors, credible sets |
+| `BeliefNamespace` | `mem.belief` | Born-rule distributions, sampling, correlation, interference |
+| `AnalyzeNamespace` | `mem.analyze` | Centrality, paths, components, communities, confidence scoring |
+| `CognitiveNamespace` | `mem.cognitive` | Backward chaining, Hebbian learning, confidence propagation |
+| `ReasonNamespace` | `mem.reason` | Multiway reasoning, frame analysis |
+| `SearchNamespace` | `mem.search` | Concept search, retrieval, feedback |
+| `TemporalNamespace` | `mem.temporal` | Temporal queries, time-range filtering |
+| `MonitorNamespace` | `mem.monitor` | System health, introspection, metamorphosis |
+
+**Pattern** (preferred):
+```python
+mem.bayes.set_prior("diagnosis", outcomes=["mi", "pe"], weights=[0.3, 0.1])
+mem.bayes.update("diagnosis", evidence="ecg", likelihoods={"mi": 0.9, "pe": 0.1})
+posterior = mem.bayes.get("diagnosis")
+estimate = mem.bayes.map("diagnosis")
+bf = mem.bayes.factor("diagnosis", hyp_a="mi", hyp_b="pe")
+
+cs = mem.cognitive.confidence("concept")
+all_conf = mem.cognitive.all_confidences()
+chain = mem.cognitive.trace_confidence("src", "tgt")
+low = mem.cognitive.low_confidence(threshold=0.5)
+```
+
+**Violations to avoid**: Do not call mixin methods directly when a namespace wrapper exists. `mem.set_prior(...)` should be `mem.bayes.set_prior(...)`, `mem.compute_confidence(...)` should be `mem.cognitive.confidence(...)`, etc.
 
 ## Build & Run
 
@@ -371,8 +407,8 @@ Do not use emojis in code or commit messages unless explicitly asked.
 
 Betweenness centrality is normalized by `1/((n-1)(n-2))` for n >= 3, producing values in [0, 1]. With `max_samples`, normalization is `1/max_samples` and values are raw pairwise dependency counts that can exceed 1.0.
 
-### `has_node()` and `__contains__` for existence checks
-`mem.has_node(concept)` returns `bool`. `concept in mem` also works via `__contains__`. Do not use the private `_find_node()` method in user code or example scripts.
+### `has()` and `__contains__` for existence checks
+`mem.has(concept)` returns `bool`. `concept in mem` also works via `__contains__`. Do not use the private `_find_node()` method in user code or example scripts.
 
 ### `incident_edges()` vs `outgoing_edges()` vs `incoming_edges()`
 Three edge-access methods with distinct semantics:
@@ -383,10 +419,10 @@ Three edge-access methods with distinct semantics:
 The deprecated alias `edges_for()` still works but prefer `incident_edges()` for clarity. When implementing rules or algorithms that traverse the graph directionally, always use `outgoing_edges()` — using `incident_edges()` for directed traversal is a common source of bugs.
 
 ### `ensure()` for idempotent graph construction
-`mem.ensure(concept, data=..., update=False)` creates a node only if absent. Unlike `store()`, it does not reinforce the node or trigger evolution. Use during graph construction to avoid spurious reinforcement of frequently-referenced nodes. Pass `update=True` to merge new data into an existing node's data dict.
+`mem.ensure(concept, data=..., update=False)` creates a node only if absent. Unlike `add()`, it does not reinforce the node or trigger evolution. Use during graph construction to avoid spurious reinforcement of frequently-referenced nodes. Pass `update=True` to merge new data into an existing node's data dict.
 
-### `relate()` accepts `weight` parameter
-`mem.relate(source, target, label=..., weight=5.0)` sets edge importance. Default is 1.0. Weight must be positive (> 0); values <= 0 raise `ValueError`. The weight propagates to networkx algorithms (centrality, shortest path). Bidirectional edges both receive the same weight.
+### `link()` accepts `weight` parameter
+`mem.link(source, target, label=..., weight=5.0)` sets edge importance. Default is 1.0. Weight must be positive (> 0); values <= 0 raise `ValueError`. The weight propagates to networkx algorithms (centrality, shortest path). Bidirectional edges both receive the same weight.
 
 ### `neighbors()` for directed neighbor queries
 `mem.neighbors(concept, edge_label=..., direction="out"|"in"|"any")` returns labels of neighboring nodes. Filters by edge label and direction. Returns `[]` for missing concepts.

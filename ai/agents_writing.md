@@ -27,10 +27,10 @@ After writing or modifying an example, validate it runs:
 
 ```bash
 # Single example
-.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
+.venv/bin/python examples/showcase/domain/threat_intelligence/knowledge_basics.py
 
 # Batch-validate all examples
-for f in examples/showcase/*/*.py; do
+for f in examples/showcase/*/*.py examples/showcase/*/*/*.py; do
   echo "--- Running $f ---"
   .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK" || echo "FAILED"
 done
@@ -119,7 +119,7 @@ Every showcase README must include a section acknowledging what the showcase doe
 
 - **Data pipeline**: The showcase constructs a synthetic graph. Real adoption requires ETL from live systems.
 - **Scale**: The showcase runs on 80-140 nodes. Performance at 10K+ nodes is untested.
-- **Non-determinism**: Some algorithms (label propagation, sampling) are probabilistic. Results may vary across runs.
+- **Non-determinism**: Some algorithms (label propagation, sampling) are probabilistic. Results may vary across runs. Label propagation is non-deterministic even with a fixed `seed` and `PYTHONHASHSEED=0` -- community IDs, counts, and modularity can fluctuate. For affected metrics, present typical outcomes or ranges (e.g., "~10 communities, modularity ~0.34") rather than exact numbers, and add a non-determinism note near the affected section. For code output blocks, show the typical output and note which parts vary. Do not present non-deterministic community assignments as if they are deterministic facts.
 - **External dependencies**: The showcase uses no external services. Production use requires integration work.
 
 Do not describe these gaps as "the community is still building" something. Describe them as out-of-scope integration work that adopters would need to do.

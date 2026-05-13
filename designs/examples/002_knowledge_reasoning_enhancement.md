@@ -1,7 +1,7 @@
 # Enhancement: Knowledge Reasoning -- Belief Revision + Confidence Pipeline
 
 ## Target File
-`examples/showcase/knowledge_reasoning/knowledge_reasoning.py`
+`examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py`
 
 ## Current State
 Demonstrates transitive inference, backward chaining proof, provenance explanation, contradiction detection, and belief revision. The revision output is present but underutilized -- the example detects contradictions and revises beliefs but never re-assesses the resulting graph quality.
@@ -43,7 +43,7 @@ Import and apply InverseRule and AbductiveRule alongside TransitiveRule (current
 - Existing rules already imported but not applied
 
 ## Validation
-- Run: `.venv/bin/python examples/showcase/knowledge_reasoning/knowledge_reasoning.py`
+- Run: `.venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py`
 - Verify confidence scores are computed for all concepts
 - Verify low-confidence concepts are flagged
 - Verify InverseRule and AbductiveRule produce additional edges

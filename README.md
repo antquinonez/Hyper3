@@ -686,22 +686,22 @@ Callable directly: `mem.reason(seeds, *, depth, ...)`.
 ## Examples
 
 ```bash
-.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
-.venv/bin/python examples/showcase/microservices_reasoning/reasoning_walkthrough.py
-.venv/bin/python examples/showcase/retrieval_and_feedback/retrieval_and_feedback.py
-.venv/bin/python examples/showcase/temporal_reasoning/temporal_reasoning.py
-.venv/bin/python examples/showcase/provenance_and_retraction/provenance_and_retraction.py
-.venv/bin/python examples/showcase/network_analytics/graph_analytics.py
-.venv/bin/python examples/showcase/text_enrichment/text_enrichment.py
-.venv/bin/python examples/showcase/overlay_commit_rollback/overlay_commit_rollback.py
-.venv/bin/python examples/showcase/multiway_reasoning/multiway_lateral_insights.py
-.venv/bin/python examples/showcase/hypergraph_native/hypergraph_native.py
-.venv/bin/python examples/showcase/structured_search/structured_search.py
-.venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
-.venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
+.venv/bin/python examples/showcase/domain/threat_intelligence/knowledge_basics.py
+.venv/bin/python examples/showcase/domain/microservices_reasoning/reasoning_walkthrough.py
+.venv/bin/python examples/showcase/retrieval/retrieval_and_feedback/retrieval_and_feedback.py
+.venv/bin/python examples/showcase/workflow/temporal_reasoning/temporal_reasoning.py
+.venv/bin/python examples/showcase/reasoning/provenance_and_retraction/provenance_and_retraction.py
+.venv/bin/python examples/showcase/core/network_analytics/graph_analytics.py
+.venv/bin/python examples/showcase/retrieval/text_enrichment/text_enrichment.py
+.venv/bin/python examples/showcase/workflow/overlay_commit_rollback/overlay_commit_rollback.py
+.venv/bin/python examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py
+.venv/bin/python examples/showcase/workflow/hypergraph_native/hypergraph_native.py
+.venv/bin/python examples/showcase/retrieval/structured_search/structured_search.py
+.venv/bin/python examples/showcase/domain/medical_diagnosis/medical_diagnosis.py
+.venv/bin/python examples/showcase/domain/financial_risk_network/financial_risk_network.py
 ```
 
-See `examples/README.md` for the full index of 51 examples.
+See `examples/README.md` for the full index of 54 examples across six topical groups.
 
 ## Testing
 

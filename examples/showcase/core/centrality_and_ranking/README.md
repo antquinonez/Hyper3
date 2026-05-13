@@ -1,0 +1,391 @@
+# Centrality and Ranking
+
+> Three scripts demonstrating degree, betweenness, PageRank, and Katz centrality on small graphs, plus structural statistics, anomaly detection, community detection, evolution, and abstraction.
+
+## 1. The Approach
+
+Different centrality measures answer different questions about node importance:
+
+- **Degree centrality** asks "who has the most connections?" — a local measure of activity.
+- **Betweenness centrality** asks "who sits on the most shortest paths?" — a structural measure of control over information flow.
+- **PageRank** asks "who is connected to other important nodes?" — a recursive measure that propagates influence through the graph.
+- **Katz centrality** asks "who is reachable via short paths?" — attenuates influence by path length, useful when the graph has structural bottlenecks.
+
+No single measure captures all aspects of importance. A node with high degree may have low betweenness if its connections are peripheral. A node with low degree may have high betweenness if it bridges two clusters. These three scripts demonstrate each measure in isolation and then compare them side-by-side to show where they agree and diverge, then use structural anomaly detection and community detection to explain the patterns.
+
+## 2. Key Concepts
+
+| Concept | What it measures | When to use it |
+|---------|-----------------|----------------|
+| Degree centrality | Fraction of nodes a node connects to (normalized by n-1) | Identifying highly-connected hubs |
+| Betweenness centrality | Fraction of shortest paths passing through a node | Finding bottlenecks and bridges |
+| PageRank | Steady-state probability of a random walk with restart | Ranking nodes by propagated influence |
+| Katz centrality | Weighted sum of paths from a node, attenuated by length | Capturing reachability when PageRank is too diffuse |
+| Weighted centrality | Same measures using edge weights as transition probabilities | When edge importance varies (strong vs weak ties) |
+| `describe()` | One-call structural summary (counts, degrees, density, types) | Quick sanity check on graph structure |
+| Structural anomaly detection | Classifies nodes as low_risk, boundary, or anomalous based on graph structure | Finding cyclic dependencies and structural outliers |
+| Community detection | Groups nodes by connectivity patterns using modularity optimization | Discovering clusters and subgroups |
+| Evolution | Decays, prunes, merges, and reinforces graph structure | Maintaining graph health over time |
+| Abstraction (`collapse_subgraph`) | Replaces a set of nodes with a single summary node | Creating higher-level views of complex subgraphs |
+
+## 3. Quick Start
+
+```bash
+.venv/bin/python examples/showcase/core/centrality_and_ranking/centrality_and_pagerank.py
+.venv/bin/python examples/showcase/core/centrality_and_ranking/centrality_comparison.py
+.venv/bin/python examples/showcase/core/centrality_and_ranking/graph_statistics.py
+```
+
+**Script 1 output** (10-node org chart, centrality + anomaly detection + community detection):
+
+```
+nodes: 10, edges: 15
+
+  concept  deg_centrality
+---------------------------
+    alice          0.5556
+      bob          0.5556
+    carol          0.4444
+     iris          0.4444
+
+  concept   pagerank
+----------------------
+    frank   0.105286
+      bob   0.103567
+    carol   0.103499
+
+pagerank sum (should be ~1.0): 1.000000
+
+alice:
+  anomaly status: anomalous
+  boundary score: 0.3233
+iris:
+  anomaly status: anomalous
+  boundary score: 0.3067
+
+communities detected: 1
+modularity: 0.0000
+coverage: 1.0000
+```
+
+**Script 2 output** (8-node hub-and-chain, four centrality measures + anomalies + communities):
+
+```
+nodes: 8, edges: 11
+
+--- Top node by each measure ---
+        degree: hub (0.714286)
+   betweenness: hub (0.500000, 5-way tie with d, e, f, g)
+       pagerank: d (0.127752)
+           katz: hub (0.378416)
+
+all measures agree on top node: False
+
+hub:
+  anomaly status: anomalous
+  boundary score: 0.4543
+d:
+  anomaly status: anomalous
+  boundary score: 0.3182
+a:
+  anomaly status: low_risk
+  boundary score: 0.2829
+
+communities detected: 1 (non-deterministic; may vary across runs)
+modularity: 0.0000
+```
+
+> Community detection via label propagation is non-deterministic even with a fixed seed. On this graph, results fluctuate between 1 community (all 8 nodes) and 2 communities ({a, b, c, d, hub} and {e, f, g}). The output above shows a typical 1-community result (modularity 0.0000), but 2-community results (modularity 0.2149) are equally valid — the graph's topology sits near a decision boundary.
+
+**Script 3 output** (7-node project graph, statistics + evolution + abstraction):
+
+```
+nodes: 7
+edges: 13
+degree min=2, max=6, mean=3.86, median=3.0
+components: 1
+density: 0.3095
+
+before evolution:
+  nodes: 7, edges: 13, density: 0.3095
+after evolution:
+  nodes: 6, edges: 13, density: 0.4333
+  nodes merged: 1
+
+collapsed eng_team from {alice, bob, dave}
+  summary label: eng_team
+  edges collapsed: 3
+  external connections: 1
+
+after collapse:
+  nodes: 6, edges: 3, density: 0.1000
+```
+
+## 4. Script Walkthroughs
+
+### 4a. Centrality and PageRank (`centrality_and_pagerank.py`)
+
+Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 hyperedge (`project_team`).
+
+```mermaid
+graph LR
+    alice -->|manages| bob
+    alice -->|manages| carol
+    alice -->|collaborates| eve
+    bob -->|collaborates| carol
+    bob -->|reports_to| dave
+    carol -->|collaborates| frank
+    dave -->|collaborates| grace
+    eve -->|collaborates| iris
+    frank -->|collaborates| henry
+    grace -->|collaborates| iris
+    henry -->|collaborates| jack
+    iris -->|coordinates| alice
+    jack -->|collaborates| bob
+    jack -->|collaborates| grace
+```
+
+> The `project_team` hyperedge ({alice, iris, eve} -> {bob, carol, frank}, weight 8.0) is not shown in the mermaid diagram because mermaid only supports pairwise edges. This hyperedge routes additional flow from the product/design side to engineering, contributing to frank's elevated PageRank.
+
+**Degree centrality** ranks alice and bob tied at 0.5556 — both connect to 5 of 9 other nodes. This reflects their roles: alice manages bob and carol, and bob collaborates widely.
+
+**Betweenness centrality** ranks iris highest at 0.3819 — iris connects the product team to engineering via collaborations with eve and grace, and coordinates back to alice. Despite having the same degree as carol (0.4444), iris has 6x higher betweenness than carol (0.3819 vs 0.0625). The difference: iris sits on shortest paths between otherwise disconnected subgroups (product and engineering), acting as a bridge. Carol's connections are more local — she collaborates within her immediate neighborhood without bridging distant clusters. This is the canonical betweenness pattern: a node with modest degree but high brokerage.
+
+**PageRank** ranks frank highest at 0.105286, even though frank's degree (0.3333) is lower than alice's (0.5556). Why this matters: PageRank counts the importance of neighbors, not just their count. Frank receives connections from carol and henry, both of whom are themselves well-connected, and the `project_team` hyperedge routes flow through frank's neighborhood.
+
+**Weighted vs unweighted PageRank**: The default `centrality("pagerank")` call uses edge weights as transition probabilities, making high-weight edges preferred paths for the random walk. With weights enabled, the top-3 is (frank, bob, carol). Without weights (`weighted=False`), every edge is equally likely, producing a different top-3 (iris, grace, frank). The shift: unweighted PageRank favors nodes with many connections (iris has high degree), while weighted PageRank favors nodes connected by strong edges (frank benefits from the weight-5.0 `collaborates` edge from carol).
+
+**Structural anomaly detection** identifies alice, iris, and bob as anomalous (boundary scores 0.3233, 0.3067, 0.3233) due to cyclic dependency structures — alice manages bob, jack collaborates with bob, and iris coordinates back to alice, forming cycles. Eve, on the other hand, is classified as low_risk (0.2900) because her connections are acyclic.
+
+**Community detection** finds a single community covering all 10 nodes (modularity 0.0000, coverage 1.0000). The org chart is densely connected enough that no natural subgroup boundary exists — everyone is reachable from everyone else through short paths.
+
+### 4b. Centrality Comparison (`centrality_comparison.py`)
+
+Builds an 8-node, 11-edge network with a star-like hub and a peripheral chain (a-b-c-d-e-f-g-hub). Runs four centrality measures and checks agreement.
+
+```mermaid
+graph LR
+    hub -->|connects| a
+    hub -->|connects| b
+    hub -->|connects| c
+    hub -->|connects| d
+    a -->|link| b
+    b -->|link| c
+    c -->|link| d
+    d -->|link| e
+    e -->|link| f
+    f -->|link| g
+    g -->|link| hub
+```
+
+**Key finding**: The four measures disagree on the top node. Degree and Katz pick `hub` (0.7143, 0.3784), betweenness ties hub with four chain nodes (0.5000 each — hub, d, e, f, g all sit on the maximum number of shortest paths), and PageRank picks `d` alone (0.127752). Why this happens: `hub` has the most connections and sits on many paths, but PageRank's random-walk model spreads probability mass along the chain. Node `d` sits at the midpoint of the longest chain segment, accumulating steady-state probability from both directions. The betweenness tie is notable: the cycle-closing edge (g -> hub) means the chain's back half (d, e, f, g) and hub all participate equally in shortest-path routing.
+
+**Pairwise agreement** is low — degree vs betweenness agrees on 0/8 positions, degree vs pagerank agrees on 0/8 positions. The highest agreement is degree vs katz and pagerank vs katz, each at 3/8. This illustrates why choosing the right centrality measure matters: they produce genuinely different rankings.
+
+**Structural anomaly detection** classifies hub as anomalous (boundary score 0.4543) — its star topology creates an unusual concentration of connections. Node d is also anomalous (0.3182) due to its betweenness-bridging position. Node a is low_risk (0.2829) because it sits at the periphery with no structural surprises.
+
+**Community detection** results are non-deterministic on this graph, even with seed=42. Across runs, label propagation fluctuates between two outcomes:
+
+| Outcome | Communities | Modularity | Partitions |
+|---------|-------------|------------|------------|
+| A | 1 | 0.0000 | All 8 nodes in one community |
+| B | 2 | 0.2149 | {a, b, c, d, hub} (5) and {e, f, g} (3) |
+
+Why this happens: the hub connects to every chain node, and the closing link (g -> hub) creates a cycle. This puts the graph near a decision boundary where small differences in label initialization order cause label propagation to tip either way. This contrasts with graphs that have clearer structural boundaries (e.g., the three-cluster graph in `communities_and_clustering/community_detection.py`, which achieves modularity 0.6358 consistently).
+
+### 4c. Graph Statistics (`graph_statistics.py`)
+
+Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 project) and labeled edges, including one hyperedge (`team_of` connecting {alice, bob} to {project_x}).
+
+```mermaid
+graph LR
+    alice -->|collaborates| bob
+    alice -->|collaborates| carol
+    bob -->|reports_to| dave
+    carol -->|collaborates| eve
+    alice -->|uses| python
+    bob -->|uses| python
+    eve -->|uses| python
+    alice -->|leads| project_x
+    bob -->|works_on| project_x
+    carol -->|works_on| project_x
+    dave -->|works_on| project_x
+    eve -->|works_on| project_x
+```
+
+> The `team_of` hyperedge ({alice, bob} -> {project_x}) is not shown in the mermaid diagram because mermaid only supports pairwise edges.
+
+**`describe()`** provides a one-call structural snapshot: 7 nodes, 13 edges, density 0.3095, single connected component, no isolated nodes, mean degree 3.86.
+
+**Directional degree** reveals role asymmetry: `project_x` has in-degree 6 and out-degree 0 — everything flows into it, nothing flows out. `alice` has in-degree 0 and out-degree 5 — she initiates all her connections. Without direction, both would show degree 5 and 6 respectively, losing this role information.
+
+**Weighted degree** surfaces another distinction: alice (weighted 26.0) and bob (25.0) have nearly identical raw degree (5 and 5), but alice's weighted degree is slightly higher because her edges carry stronger weights (5.0 on `leads` and `uses`, vs bob's mix of 4.0 and 2.0 edges).
+
+**Edge statistics**: The graph has edges of size 2 and 3 (the `team_of` hyperedge), giving max edge order 2. The degree distribution (1 node at degree 2, 3 at degree 3, 2 at degree 5, 1 at degree 6) shows a right-skewed pattern with `project_x` as the high-degree outlier.
+
+**Evolution impact**: After stimulating alice, bob, and project_x, spreading activation, running Hebbian reinforcement, and evolving, the graph merges 1 node (alice and eve have identical neighbor patterns through project_x and python). The result: 6 nodes, density increases from 0.3095 to 0.4333, degree range shifts to 2-8 with mean 4.17. Evolution reduces redundancy while preserving connectivity.
+
+**Abstraction**: On a separate 5-node graph, `collapse_subgraph` replaces {alice, bob, dave} with a single `eng_team` summary node. The collapse eliminates 3 internal edges (alice-bob collaborates, bob-dave reports_to) and creates 1 external connection (eng_team -> project_x, from the two `works_on` edges). The result: 6 nodes (carol, project_x, eng_team visible; alice, bob, dave hidden but retained), 3 edges, density drops from 0.3000 to 0.1000. The lower density reflects that the 3 hidden detail nodes are still counted in the denominator but contribute no edges. `list_summaries()` confirms 1 active summary mapping eng_team to its detail nodes.
+
+## 5. Key Metrics
+
+| Metric | Script 1 | Script 2 | Script 3 |
+|--------|----------|----------|----------|
+| Nodes | 10 | 8 | 7 |
+| Edges | 15 | 11 | 13 |
+| Density | — | — | 0.3095 |
+| Components | — | — | 1 |
+| Highest degree | alice, bob (0.5556) | hub (0.7143) | project_x (6) |
+| Highest betweenness | iris (0.3819) | hub, d, e, f, g (tie at 0.5000) | — |
+| Highest PageRank | frank (0.105286) | d (0.127752) | — |
+| Highest Katz | — | hub (0.378416) | — |
+| PageRank sum | 1.000000 | — | — |
+| Top-3 agree across measures | No | No | — |
+| Degree vs betweenness agreement | — | 0/8 | — |
+| Degree vs PageRank agreement | — | 0/8 | — |
+| Max edge order | — | — | 2 |
+| Anomaly: alice | anomalous (0.3233) | — | — |
+| Anomaly: iris | anomalous (0.3067) | — | — |
+| Anomaly: bob | anomalous (0.3233) | — | — |
+| Anomaly: eve | low_risk (0.2900) | — | — |
+| Anomaly: hub | — | anomalous (0.4543) | — |
+| Anomaly: d | — | anomalous (0.3182) | — |
+| Anomaly: a | — | low_risk (0.2829) | — |
+| Communities | 1 (modularity 0.0000) | 1 (non-deterministic, may be 2, see note) | — |
+| Evolution: nodes merged | — | — | 1 |
+| Evolution: density before/after | — | — | 0.3095 → 0.4333 |
+| Collapse: edges collapsed | — | — | 3 |
+| Collapse: external connections | — | — | 1 |
+
+## 6. What Makes This Different
+
+**Different measures rank nodes differently, and understanding why is the key insight.** In Script 1, alice has the highest degree but the 4th-lowest betweenness — her connections are local to her direct reports, not bridging distant parts of the graph. In Script 2, hub dominates degree and Katz, ties four chain nodes for betweenness (all at 0.5000 because the cycle-closing edge equalizes shortest-path participation), but loses PageRank to d because the random walk spends time traversing the chain rather than bouncing off the hub. The betweenness tie illustrates that "top node" can be a degenerate concept — five nodes share the maximum betweenness, making the measure less discriminative on this topology.
+
+**Edge weights shift rankings.** Script 1 shows that weighted and unweighted PageRank produce different top-3 lists (frank/bob/carol vs iris/grace/frank). The default `centrality("pagerank")` call uses edge weights as transition probabilities; passing `weighted=False` treats all edges equally. When edge importance varies (e.g., manages=5.0 vs collaborates=3.0), the unweighted view can be misleading.
+
+**Directional degree separates source and sink roles.** Script 3 shows that `project_x` (in-degree 6, out-degree 0) and `alice` (in-degree 0, out-degree 5) play structurally opposite roles. Undirected degree conflates these into single numbers (6 and 5), losing the direction information.
+
+**Structural statistics provide a first-pass sanity check.** `describe()` gives node counts, density, degree range, and component count in one call — enough to verify the graph was built correctly before running more expensive centrality computations.
+
+**Anomaly detection surfaces structural patterns that centrality alone misses.** Script 1 flags alice, iris, and bob as anomalous due to cyclic dependencies — a pattern invisible to degree or PageRank. Script 2 flags hub as the most anomalous node (0.4543), confirming that its star topology is structurally unusual.
+
+**Community detection is sensitive to graph topology and non-deterministic.** Label propagation produces variable results on graphs near a decision boundary. Script 2's hub-and-chain graph fluctuates between 1 and 2 communities even with seed=42, because the hub's star topology and the closing link (g -> hub) create ambiguous structure. Script 1's org chart consistently collapses to one community because it is more densely connected. Community detection is most informative on graphs with clear structural boundaries — see the three-cluster example in `communities_and_clustering/community_detection.py` (modularity 0.6358).
+
+**Evolution compresses graphs while preserving connectivity.** Script 3 shows evolution merging one node and increasing density from 0.3095 to 0.4333, demonstrating that structural maintenance reduces redundancy without losing information.
+
+**Abstraction creates multi-level views.** `collapse_subgraph` replaces 3 engineering nodes with a single `eng_team` summary, reducing edge count from 6 to 3. This enables analysis at different granularity levels without modifying the underlying graph.
+
+## 7. Code Implementation
+
+**Degree, betweenness, and PageRank:**
+
+```python
+from hyper3 import HypergraphMemory
+
+mem = HypergraphMemory(evolve_interval=0)
+mem.add("alice", data={"role": "lead"})
+mem.link("alice", "bob", label="manages", weight=5.0)
+
+deg = mem.analyze.centrality("degree")
+betw = mem.analyze.centrality("betweenness")
+pr = mem.analyze.centrality("pagerank", alpha=0.85, weighted=True, top_k=3)
+```
+
+**Four-way centrality comparison:**
+
+```python
+deg = mem.analyze.centrality("degree")
+betw = mem.analyze.centrality("betweenness")
+pr = mem.analyze.centrality("pagerank", alpha=0.85)
+katz = mem.analyze.centrality("katz", alpha=0.1)
+```
+
+**Structural anomaly detection:**
+
+```python
+anomaly = mem.analyze.anomalies("alice")
+print(f"status: {anomaly.anomaly_status}, score: {anomaly.boundary_score:.4f}")
+```
+
+**Community detection:**
+
+```python
+comm = mem.analyze.communities(seed=42)
+print(f"communities: {comm.community_count}, modularity: {comm.modularity:.4f}")
+for community in comm.communities:
+    print(f"  {sorted(community.member_labels)} ({community.size} nodes)")
+```
+
+**Structural statistics:**
+
+```python
+desc = mem.analyze.describe()
+print(f"nodes: {desc.node_count}, density: {desc.density:.4f}")
+print(f"degree range: {desc.degree_min}-{desc.degree_max}, mean: {desc.degree_mean:.2f}")
+
+deg = mem.degree()
+deg_w = mem.degree(weighted=True)
+in_deg = mem.analyze.centrality("in_degree")
+out_deg = mem.analyze.centrality("out_degree")
+print(f"density: {mem.analyze.describe().density:.4f}")
+print(f"max edge order: {mem.max_edge_order()}")
+```
+
+**Evolution:**
+
+```python
+mem.search.activate("alice", energy=1.0)
+mem.search.activate("bob", energy=1.0)
+mem.search.activate("project_x", energy=1.0)
+mem.cognitive.hebbian_reinforce()
+result = mem.evolve()
+print(f"decayed: {result.decayed}, pruned: {result.pruned}, merged: {result.merged}")
+```
+
+**Abstraction:**
+
+```python
+summary = mem.collapse_subgraph(
+    {"alice", "bob", "dave"},
+    summary_label="eng_team",
+    summary_data={"type": "team", "dept": "eng"},
+)
+print(f"edges collapsed: {summary.edges_collapsed}")
+print(f"external connections: {summary.external_connections}")
+
+for s in mem.list_summaries():
+    print(f"{s.summary_label} -> {sorted(s.detail_labels)}")
+```
+
+## 8. Real-World Gap
+
+- **Scale**: These scripts run on 5-10 nodes. Centrality algorithms (especially betweenness, which is O(nm)) slow down on graphs with thousands of nodes. The `max_samples` parameter on `betweenness_centrality` enables approximation for larger graphs.
+- **Edge semantics**: The scripts use generic labels (`collaborates`, `connects`). Real graphs have heterogeneous edge types with domain-specific meaning that affects interpretation of centrality scores.
+- **Temporal dynamics**: These centrality scores are point-in-time snapshots. In practice, centrality evolves as the graph changes, and tracking it over time requires recomputation or incremental algorithms.
+- **Weight calibration**: The scripts assign integer weights manually. Production use requires deriving weights from interaction frequency, recency, or domain-specific metrics.
+- **Community detection resolution**: Script 1 finds a single community because the org chart is densely connected. Real graphs often have clearer community structure, and resolution parameters may need tuning.
+- **Evolution parameters**: The scripts use default decay and merge thresholds. Production use requires tuning these to the domain — aggressive decay can lose important low-activity nodes, while conservative settings allow redundancy to accumulate.
+
+## 9. Reference
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `mem.analyze.centrality("degree")` | `dict[str, float]` | Normalized degree (degree / n-1) for each node |
+| `mem.analyze.centrality("betweenness")` | `dict[str, float]` | Normalized betweenness centrality |
+| `mem.analyze.centrality("pagerank", alpha, weighted, top_k)` | `dict[str, float]` | Hypergraph PageRank with damping factor |
+| `mem.analyze.centrality("katz", alpha)` | `dict[str, float]` | Katz centrality with attenuation parameter |
+| `mem.analyze.describe()` | `DescribeResult` | Structural summary (nodes, edges, density, degrees, types) |
+| `mem.degree(weighted)` | `dict[str, int\|float]` | Raw or weighted degree per node |
+| `mem.analyze.centrality("in_degree")` | `dict[str, float]` | Incoming edge centrality per node |
+| `mem.analyze.centrality("out_degree")` | `dict[str, float]` | Outgoing edge centrality per node |
+| `mem.analyze.describe().density` | `float` | Edge density of the graph |
+| `mem.unique_edge_sizes()` | `list[int]` | Distinct edge cardinalities present |
+| `mem.max_edge_order()` | `int` | Largest edge order (size - 1) |
+| `mem.degree_distribution()` | `dict[int, int]` | Histogram: degree value to node count |
+| `mem.analyze.anomalies(concept)` | `ExplorationReport` | Anomaly status, boundary score, structural insights |
+| `mem.analyze.communities(seed)` | `CommunityResult` | Communities, modularity, coverage, member labels |
+| `mem.evolve()` | `EvolveResult` | Decayed edges, pruned nodes, merged nodes |
+| `mem.search.activate(concept, energy)` | `list[ActivationHit]` | Injects activation energy into a node and return activated neighbors |
+| `mem.cognitive.hebbian_reinforce()` | `None` | Strengthens edges between co-activated nodes |
+| `mem.collapse_subgraph(nodes, summary_label, summary_data)` | `CollapseResult` | Replaces nodes with summary, returns mapping and edge changes |
+| `mem.list_summaries()` | `list[SummaryMapping]` | Active summary-to-detail mappings |

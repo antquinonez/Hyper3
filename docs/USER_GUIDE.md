@@ -348,15 +348,15 @@ worth the dependency when you need:
 
 ```bash
 # Showcase
-.venv/bin/python examples/showcase/threat_intelligence/knowledge_basics.py
+.venv/bin/python examples/showcase/domain/threat_intelligence/knowledge_basics.py
 
 # Domain examples (most informative)
-.venv/bin/python examples/showcase/threat_intel_full_chain/threat_intel_full_chain.py
-.venv/bin/python examples/showcase/medical_diagnosis/medical_diagnosis.py
-.venv/bin/python examples/showcase/financial_risk_network/financial_risk_network.py
+.venv/bin/python examples/showcase/domain/threat_intel_full_chain/threat_intel_full_chain.py
+.venv/bin/python examples/showcase/domain/medical_diagnosis/medical_diagnosis.py
+.venv/bin/python examples/showcase/domain/financial_risk_network/financial_risk_network.py
 
 # NetworkX comparison (shows what Hyper3 adds over raw networkx)
-.venv/bin/python examples/comparison/nx_threat_intel_full_chain.py
+.venv/bin/python examples/comparison/networkx/nx_threat_intel_full_chain.py
 ```
 
 ## Troubleshooting

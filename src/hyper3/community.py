@@ -57,7 +57,13 @@ class CommunityDetector:
         edge_label: str | None = None,
         weighted_fallback: bool = True,
     ) -> CommunityResult:
-        """Detect communities using label propagation; optionally retries with weighted propagation."""
+        """Detect communities using label propagation; optionally retries with weighted propagation.
+
+        Non-deterministic even with a fixed seed: the initial node iteration order
+        depends on hash-based dict ordering, so community IDs, counts, and modularity
+        may vary across process invocations. The structural partition (which nodes
+        group together) is more stable than the specific IDs assigned.
+        """
         if seed is not None:
             random.seed(seed)
 
