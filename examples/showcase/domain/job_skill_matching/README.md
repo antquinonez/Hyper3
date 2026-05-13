@@ -44,7 +44,7 @@ SECTION 1: Building knowledge base...
   Adding skill substitutions...
   Added 4 skill substitutions
 
-  Total skills in graph: 14
+  Total nodes in graph: 14 (11 skills + 3 job postings)
   Total edges in graph: 7
 
 SECTION 2: Finding substitutes for 'python'...
@@ -93,7 +93,82 @@ SECTION 9: Triggering self-evolution...
   Graph after evolution: 13 nodes, 11 edges
 ```
 
-## 5. Analysis Pipeline
+> Note: Section 4's `discover_transitive_substitutions()` call applies the TransitiveRule, which may materialize transitive chains as direct edges. After reasoning, python→cplusplus has a direct `substitutes_for` edge (created by the rule), so Section 7 reports `Direct edge: True`. The confidence of 1.00 is the default edge weight for inferred edges, not the manually-assigned substitution confidence of 0.80.
+
+## 5. The Scenario
+
+The engine models a skill database with 8 tech skills, 3 non-tech skills, and 3 job postings. Skills are linked by directed `substitutes_for` edges with confidence weights. Job postings are connected to required skills via n-ary `requires` hyperedges.
+
+### Skill Substitution Topology
+
+```mermaid
+graph LR
+    subgraph "Programming Languages"
+        PY["python<br/>category: programming<br/>trending: true"]
+        JA["java<br/>category: programming<br/>trending: true"]
+        CPP["cplusplus<br/>category: programming<br/>trending: false"]
+        JS["javascript<br/>category: programming<br/>trending: true"]
+    end
+
+    subgraph "Other Skills"
+        SQL["sql<br/>category: database"]
+        GIT["git<br/>category: tools"]
+    end
+
+    subgraph "Non-Tech (Isolated)"
+        PIANO["piano<br/>category: music"]
+        COOK["cooking<br/>category: culinary"]
+    end
+
+    PY --"substitutes_for<br/>conf: 0.85"--> JA
+    PY --"substitutes_for<br/>conf: 0.75"--> JS
+    JA --"substitutes_for<br/>conf: 0.80"--> CPP
+    JS --"substitutes_for<br/>conf: 0.70"--> PY
+
+    style PIANO fill:#eee,stroke:#999
+    style COOK fill:#eee,stroke:#999
+```
+
+**What this shows:**
+- **Programming Languages**: Four languages with mutual substitution edges. Python substitutes for Java (0.85) and JavaScript (0.75). Java substitutes for C++ (0.80). JavaScript substitutes for Python (0.70), creating a cycle.
+- **Other Skills**: SQL and Git have no substitution edges — they occupy unique roles with no direct stand-ins.
+- **Non-Tech (Isolated)**: Piano and Cooking sit in separate categories with no `substitutes_for` edges to any tech skill. BFS traversal from python never reaches them because the edge structure itself enforces the category boundary.
+
+### Job-Skill Hyperedge Model
+
+```mermaid
+graph TD
+    subgraph "Job Postings (type='job')"
+        BD["backend_developer<br/>salary: $120,000"]
+        FD["fullstack_developer<br/>salary: $110,000"]
+        JD["java_developer<br/>salary: $115,000"]
+    end
+
+    subgraph "Required Skills"
+        PY["python"]
+        SQL["sql"]
+        GIT["git"]
+        JS["javascript"]
+        JA["java"]
+    end
+
+    BD --"requires"--> PY
+    BD --"requires"--> SQL
+    BD --"requires"--> GIT
+    FD --"requires"--> JS
+    FD --"requires"--> SQL
+    FD --"requires"--> GIT
+    JD --"requires"--> JA
+    JD --"requires"--> SQL
+```
+
+**What this shows:**
+- **backend_developer**: One `requires` hyperedge connecting to {python, sql, git} — three targets in a single edge.
+- **fullstack_developer**: One `requires` hyperedge connecting to {javascript, sql, git}.
+- **java_developer**: One `requires` hyperedge connecting to {java, sql}.
+- Each job is tagged with `type="job"` so `mem.query_nodes(type="job")` identifies them without fragile heuristics like checking for `"salary"` in node data.
+
+## 6. Analysis Pipeline
 
 ### Step 1: Build the knowledge base
 
@@ -127,11 +202,35 @@ After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges
 
 **Why evolution matters**: In a live system with thousands of skills and jobs, stale skills (no recent postings, no substitution edges) should lose weight and eventually be pruned. Trending skills (high posting volume, many substitution edges) should be reinforced. The evolution engine automates this without manual curation.
 
-## 6. Key Metrics
+## Why N-ary Hyperedges?
+
+N-ary hyperedges model job requirements as a single relationship. A `backend_developer` requiring {python, sql, git} is stored as one `requires` hyperedge from the job node to all three skill nodes. This has three advantages over pairwise edges:
+
+1. **Atomic requirements.** Removing the job removes one edge, not three. You cannot accidentally remove only the python requirement while leaving sql and git.
+2. **Collective semantics.** The job requires ALL listed skills together, not any individual skill. A candidate must match all requirements to be fully qualified.
+3. **Efficient queries.** Reading a job's requirements follows one edge, not N. Adding a new requirement adds one target to the existing edge.
+
+## 7. Reading the Output
+
+| Output Field | Meaning |
+|-------------|---------|
+| `confidence: 0.85` | Edge weight on the `substitutes_for` edge. Represents substitution strength — how well skill A can stand in for skill B. Higher values mean stronger substitution. Set manually via `add_skill_substitution(confidence=...)` or inferred by `TransitiveRule` (defaults to 1.0). |
+| `depth: 2` | Number of hops in the substitution chain. Depth 1 = direct edge, depth 2 = one intermediate skill (A→B→C). |
+| `path: python -> java -> cplusplus` | The concrete traversal path from source to target. Shows which intermediate skills connect the chain. |
+| `match: 67%` | Overlap ratio: `matched skills / required skills`. A candidate with {python, sql} against a job requiring {python, sql, git} scores 2/3 = 67%. |
+| `Direct edge: True` | A `substitutes_for` edge exists directly between the two skills in the graph. After `mem.reason()` materializes transitive chains, indirect paths become direct edges. |
+| `Missing: git` | Skills the candidate lacks for full qualification. These are `required_set - candidate_set`. |
+| `Decayed: 0` | Edges that lost weight due to inactivity. Zero in the demo because the graph was freshly constructed with no time-based decay accumulation. |
+| `Pruned: 0` | Nodes removed for falling below the weight threshold. Zero because no nodes decayed enough to trigger removal. |
+| `Merged: 3` | Duplicate or equivalent node pairs merged into single nodes. The demo adds `cobol_legacy` and `flash_legacy` which merge with structurally similar existing nodes. |
+| `Reinforced: 0` | Frequently-traversed edges that gained weight. Zero because the demo does not repeat traversals enough to trigger reinforcement. |
+| `Piano substitutes found: 0` | Non-tech skills have no `substitutes_for` edges to programming skills, so BFS traversal from any tech skill cannot reach them. The edge structure itself enforces the category boundary — no filtering rules needed. |
+
+## 8. Key Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total skills loaded | 14 |
+| Total nodes loaded | 14 (11 skills + 3 job postings) |
 | Total edges after construction | 7 |
 | Non-tech skills added | 3 (piano, cooking, painting) |
 | Job postings created | 3 |
@@ -147,7 +246,7 @@ After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges
 | Nodes after evolution | 13 |
 | Nodes merged by evolution | 3 pairs |
 
-## 7. Distinct Capabilities
+## 9. Distinct Capabilities
 
 **N-ary hyperedges for job requirements**: A single `requires` hyperedge connects a job to all its required skills. This preserves the collective semantics -- the job requires all skills together, not any individual skill in isolation.
 
@@ -161,15 +260,16 @@ After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges
 
 **Local-first with zero external dependencies**: No API keys, no network calls, no database. All computation runs locally using the hypergraph in memory.
 
-## 8. Real-World Gap
+## 10. Real-World Gap
 
 - **Data pipeline**: The demo constructs a synthetic graph with 15 skills. Real adoption requires ETL from job boards, resume databases, or HR systems.
 - **Scale**: The demo runs on 15 nodes. Performance at 10K+ skills and 100K+ job postings is untested.
 - **Confidence calibration**: Substitution confidence values (0.85, 0.75) are manually assigned. Production use requires calibration against real hiring outcomes.
 - **Job matching accuracy**: The current match ratio is a simple overlap count. Real matching systems weight skills by importance, consider proficiency levels, and account for recency.
 - **Evolution tuning**: Decay rates, pruning thresholds, and reinforcement schedules are not tuned for a real skill database. These require experimentation with production data.
+- **Default confidence for unknown edges**: The engine's `_edge_weight()` returns 0.0 for unknown edges (no substitution relationship). Production systems should distinguish between "no edge exists" and "edge exists with unknown confidence" — potentially using a separate lookup or default confidence based on category similarity.
 
-## 9. Usage
+## 11. Usage
 
 ```python
 # The demo uses sys.path manipulation; for library use:
@@ -212,7 +312,7 @@ print(f"Pruned: {result.pruned} nodes")
 print(f"Reinforced: {result.reinforced} edges")
 ```
 
-## 10. Use Cases
+## 12. Use Cases
 
 - **Job Seekers**: Find positions matching your current skill set
 - **Recruiters**: Match candidates to job requirements

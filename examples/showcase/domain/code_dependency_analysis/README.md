@@ -312,12 +312,13 @@ for label, data in all_modules.items():
 
 **Why this matters:** A module with 40% test coverage and 49 dependents is a risk multiplier. Any change to it propagates to 49 other modules with minimal automated verification. The graph combines coverage data (on nodes) with dependency data (edges) to find these risk intersections.
 
-**Result:** 18 modules qualify as at-risk. The highest-impact gaps are:
+**Result:** 18 modules qualify as at-risk. The highest-impact gaps include:
 - `core.encoder` — 40% coverage, 12 dependents
-- `core.graph` — 40% coverage, 29 dependents
-- `core.crypto` — 40% coverage, 31 dependents
+- `core.graph` — 40% coverage, 34 dependents
+- `core.crypto` — 40% coverage, 33 dependents
 - `core.engine` — 46% coverage, 49 dependents (everything depends on it)
-- `core.cache_base` — 46% coverage, 35 dependents
+- `core.cache_base` — 46% coverage, 34 dependents
+- `core.retry` — 52% coverage, 49 dependents
 
 ### Section 9: Subsystem Coupling Analysis
 
@@ -453,6 +454,18 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 | Services -> Services (non-zero) | Inter-service coupling — may indicate missing shared module |
 | Data -> Third-party (high) | Expected: ORM and database driver dependencies |
 
+### Coupling Matrix Interpretation
+
+The coupling matrix counts edges of type `depends_on`, `imports`, and `extends` between module categories. Each cell shows how many edges run FROM the row category TO the column category.
+
+| Pattern | Interpretation |
+|---------|---------------|
+| High diagonal values | Internal coupling within a category (e.g., services depending on other services) |
+| High off-diagonal values | Cross-layer coupling that may indicate missing abstraction boundaries |
+| Zero values | No direct dependency between categories — either isolated or properly layered |
+
+The matrix reveals both intended patterns (services depending on core framework modules) and potential issues (services importing shared utilities 53 times, suggesting utility code should be promoted to core).
+
 ### Subgraph Collapse Interpretation
 
 `collapse_subgraph()` replaces a set of nodes with a summary node. The result reports how many internal edges were collapsed (edges between collapsed nodes) and how many external connections were preserved (edges from collapsed nodes to the rest of the graph).
@@ -568,6 +581,8 @@ The cross-subsystem matrix counts edges of type `depends_on`, `imports`, and `ex
 ## 9. What Makes This Different
 
 **Labeled directed edges encode relationship semantics.** `depends_on`, `imports`, `configures`, `extends`, and `tests` carry different meanings. Cycle detection can target `depends_on` edges specifically (build-order problems), while blast radius traversal can follow all edge types to find the full impact surface.
+
+**Labeled edges enable targeted queries.** An unlabeled dependency graph can answer "does A depend on B?" but cannot distinguish build-order problems (`depends_on`) from test-coverage gaps (`tests`) from configuration relationships (`configures`). The six edge labels in this showcase enable section-specific analyses: cycle detection targets `depends_on` for build deadlocks, blast radius follows all edge types for full impact, and coupling analysis counts `depends_on`/`imports`/`extends` for architectural assessment. Each label is a filter that turns a single graph into six domain-specific views without duplicating data.
 
 **Transitive inference makes hidden dependencies explicit.** The `TransitiveRule` discovers that `svc.auth` indirectly depends on `core.registry` through a two-hop chain. This information exists implicitly in the graph structure, but inference materializes it as a queryable edge.
 

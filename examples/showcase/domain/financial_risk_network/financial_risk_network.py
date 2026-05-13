@@ -99,7 +99,7 @@ REGULATORS = {
     "fed": {"category": "regulator", "jurisdiction": "US"},
     "ecb": {"category": "regulator", "jurisdiction": "EU"},
     "esma": {"category": "regulator", "jurisdiction": "EU"},
-    "boa": {"category": "regulator", "jurisdiction": "UK"},
+    "boe": {"category": "regulator", "jurisdiction": "UK"},
     "fca": {"category": "regulator", "jurisdiction": "UK"},
     "mas": {"category": "regulator", "jurisdiction": "APAC"},
     "fsa_japan": {"category": "regulator", "jurisdiction": "APAC"},
@@ -200,7 +200,7 @@ REGULATORY_EDGES: list[tuple[str, str]] = [
     ("fed", "jp_morgan"), ("fed", "bank_of_america"), ("fed", "citigroup"),
     ("ecb", "deutsche_bank"), ("ecb", "bnpparibas"), ("ecb", "hsbc"),
     ("esma", "barclays"), ("esma", "credit_suisse"), ("esma", "ubs"),
-    ("boa", "barclays"), ("fca", "hsbc"),
+    ("boe", "barclays"), ("fca", "hsbc"),
     ("mas", "icbc"), ("fsa_japan", "nomura"), ("fsa_japan", "mizuho"),
     ("bis", "goldman_sachs"), ("bis", "deutsche_bank"), ("bis", "nomura"),
 ]

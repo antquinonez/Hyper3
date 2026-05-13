@@ -32,8 +32,13 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory
-from hyper3 import TransitiveRule, InverseRule
+from hyper3 import (
+    HypergraphMemory,
+    InverseRule,
+    MultiwayEngine,
+    StateConvergenceEngine,
+    TransitiveRule,
+)
 
 
 SERVERS = {
@@ -392,8 +397,6 @@ def main() -> None:
     print("  reasoning branches converge on the same conclusions. This shows")
     print("  whether multiple rule applications lead to equivalent states.")
     print()
-
-    from hyper3 import MultiwayEngine, StateConvergenceEngine
 
     mw = MultiwayEngine(mem.engine.graph)
     rules = [

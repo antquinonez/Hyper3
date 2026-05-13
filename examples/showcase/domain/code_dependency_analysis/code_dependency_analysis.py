@@ -132,7 +132,7 @@ def main():
     test_modules = {}
     for i, name in enumerate([
         "test.unit_core", "test.unit_services", "test.unit_data",
-        "test.integraton_auth", "test.integration_orders",
+        "test.integration_auth", "test.integration_orders",
         "test.e2e_checkout", "test.e2e_user_flow",
         "test.load_billing", "test.smoke", "test.regression_payments",
     ], start=1):
@@ -337,8 +337,8 @@ def main():
         ("test.unit_services", "svc.payments", "tests"),
         ("test.unit_data", "data.repo_user", "tests"),
         ("test.unit_data", "data.repo_order", "tests"),
-        ("test.integraton_auth", "svc.auth", "tests"),
-        ("test.integraton_auth", "svc.sessions", "tests"),
+        ("test.integration_auth", "svc.auth", "tests"),
+        ("test.integration_auth", "svc.sessions", "tests"),
         ("test.integration_orders", "svc.orders", "tests"),
         ("test.integration_orders", "svc.payments", "tests"),
         ("test.integration_orders", "svc.inventory", "tests"),

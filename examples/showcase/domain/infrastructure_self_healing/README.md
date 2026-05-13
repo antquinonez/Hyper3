@@ -45,6 +45,8 @@ SUMMARY
   Causal merges: 0
 ```
 
+Note: Bias profile metrics, causal chains, and exact edge/node counts are run-dependent. The values below are representative.
+
 ## 4. The Scenario
 
 The showcase models a production infrastructure with three layers:
@@ -167,7 +169,7 @@ Round 1 evolve: decayed=0, pruned=0, merged=1
 
 10 paths from `cdn-edge-01` to `db-pg-primary` exist through the routing and call chain. Positive outcomes are recorded for collapse (auth-svc-01, payment-svc-01, order-svc-01), retrieval (database nodes, cache nodes), and inference (two call chains accepted). The evolution cycle produces 1 merge — the equivalence engine combined two structurally similar nodes.
 
-Why recording positive outcomes matters: without baseline feedback, the system has no reference for what "good" looks like. The first round establishes which nodes produce correct results under normal operation, so the system can detect degradation when outcomes shift.
+The fitness trend after Round 1 shows `insufficient_data` — there have not been enough operations to establish a trend. Positive outcomes are being recorded, but the system needs more signal before it can assess direction. This is expected: the first round establishes which nodes produce correct results under normal operation, so the system can detect degradation when outcomes shift.
 
 ### Section 3: Round 2 — Degradation
 
@@ -220,7 +222,7 @@ Post-recovery:
 
 The health score remains at 0.55 because the feedback history includes both the positive Round 1 outcomes and the negative Round 2 outcomes. The trend stabilized from declining because subsequent positive reinforcement offsets the earlier degradation.
 
-Why the health score does not return to 1.0: the feedback system accumulates a rolling history of all outcomes. Even after recovery, the recorded negative outcomes from Round 2 remain in the history window. The trend (`stable`) reflects that new outcomes are no longer degrading — not that past degradation has been erased.
+Why the health score does not return to 1.0: the health score is a rolling aggregate of all recorded outcomes. Round 2's negative outcomes remain in the history even after Round 3's cleanup. The trend (`stable`) indicates that new outcomes are no longer degrading — it does not erase the historical record. A production system would need a decay window for old feedback records to allow the score to recover.
 
 ### Section 5: Cross-Operation Correlation
 
@@ -247,14 +249,16 @@ After running reasoning on two concept sets, the bias profile summarizes rule ef
 
 ```
 Reasoning style: focused
-Bias score: 0.291
+Bias score: ~0.26
 Rule count: 6
-Average effectiveness: 0.757
+Average effectiveness: ~0.74
 Position trajectory: stable
 Dominant rules: inverse(blocks->blocked_by), transitive(routes_to) + inverse(blocks->blocked_by)
 ```
 
-The "focused" reasoning style (bias score 0.291 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) and the combined transitive+inverse rule are dominant — they produce the most accepted inferences.
+Bias profile metrics are run-dependent because they depend on which rules fire during reasoning, which in turn depends on the graph state after feedback-driven evolution.
+
+The "focused" reasoning style (bias score ~0.26 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) and the transitive rule for `routes_to` are typically dominant — they produce the most accepted inferences.
 
 Why bias tracking matters: in a system with many registered rules, some rules consistently produce useful inferences while others rarely fire or produce low-quality results. The bias profile identifies which rules earn their computational cost, allowing the system to prioritize effective rules during reasoning.
 
@@ -274,7 +278,7 @@ Validated execution:
   improvement=0.000000
 ```
 
-The metamorphosis engine detected a trigger (the system has not discovered new patterns despite sufficient graph structure) and proposed 2 tuning actions with expected improvement of 0.30 and low risk (0.18). The validated execution committed the changes but fitness did not change (improvement: 0.000000). The plan was not rolled back because fitness did not decrease — it simply did not improve.
+The metamorphosis engine detected a trigger (the system has not discovered new patterns despite sufficient graph structure) and proposed 2 tuning actions with expected improvement of 0.30 and low risk (0.18). The validated execution committed the changes but fitness did not change (improvement: 0.000000). The plan was not rolled back because fitness did not decrease — it simply did not improve. The metamorphosis engine proposed parameter tuning based on a structural trigger (no patterns discovered despite sufficient graph structure). However, the tuning actions targeted pattern discovery thresholds, which had no effect on the already-clean post-recovery graph. The validation step correctly identified this neutral outcome and did not roll back.
 
 Why validation matters: without the rollback mechanism, a bad tuning plan would degrade fitness permanently. The validation step captures fitness before execution, applies the plan, checks fitness after, and rolls back if fitness decreased. In this case, the plan was neutral rather than harmful, so it was kept.
 
@@ -289,7 +293,7 @@ Causal invariants found: 0
 
 The expansion produced minimal results because the feedback-driven recovery in Round 3 had already removed most stale nodes and their edges. With a clean graph, the seed nodes' neighborhoods do not contain the transitive chains (A-[label]->B-[label]->C) that the rules need to fire. The call chain from `api-gw-01` through `order-svc-01` to `payment-svc-01` exists, but the intermediate nodes are not in the seed set, so the rules find no two-hop chains starting from the seeds.
 
-Why this result is expected: multiway expansion is sensitive to graph structure. After aggressive cleanup removes stale nodes and their edges, the remaining graph has fewer multi-hop chains matching the registered rules. The 89 edges in the final graph (up from 66 at construction, due to inference edges added during reasoning) are distributed across heterogeneous labels, reducing the density of same-label chains needed for transitive rules.
+Why this result is expected: multiway expansion is sensitive to graph structure. After aggressive cleanup removes stale nodes and their edges, the remaining graph has fewer multi-hop chains matching the registered rules. The 91 edges in the final graph (up from 66 at construction, due to inference edges added during reasoning) are distributed across heterogeneous labels, reducing the density of same-label chains needed for transitive rules.
 
 ### Section 9: Temporal Incident Timeline
 
@@ -301,7 +305,7 @@ Allen interval relations reveal the temporal structure:
 - `api_latency_spike` -> `customer_timeouts`: **overlaps** (latency and timeouts co-occur)
 - `healthy_baseline` -> `stale_config_pushed`: **meets** (baseline ends exactly when degradation begins)
 
-Auto-detected causal chains connect events across the timeline, including a 4-event chain: `healthy_baseline -> stale_config_pushed -> pager_alert_fired -> service_restored`. The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
+Auto-detected causal chains connect events across the timeline, typically connecting the stale config push to downstream events (pool growth, latency spikes, pager alerts). The exact chains vary by run. The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
 
 Why this matters: infrastructure incidents are temporal phenomena. The graph structure models *what* is connected, but temporal reasoning adds *when* things happen and *in what order*. Allen relations provide a precise vocabulary for event ordering that goes beyond simple timestamps, and causal chain detection automatically reconstructs the incident narrative from temporal data.
 
@@ -339,9 +343,9 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Cross-operation correlations | 13 nodes |
 | Top correlated (db-pg-primary) | 5 signals, 1.00 positive rate |
 | Bias reasoning style | focused |
-| Bias score | 0.291 |
+| Bias score | ~0.26 |
 | Rule count | 6 |
-| Average rule effectiveness | 0.757 |
+| Average rule effectiveness | ~0.74 |
 | Metamorphosis triggers | 1 |
 | Metamorphosis urgency | 0.60 |
 | Tuning plan actions | 2 |
@@ -359,7 +363,7 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 
 ## 7. What Makes This Different
 
-**Feedback-driven evolution** does not rely on weight thresholds alone. Standard evolution decays edges uniformly and prunes below a weight floor. Feedback-driven evolution uses recorded operation outcomes to identify which nodes should be reinforced (positive outcomes across collapse, retrieval, and inference) and which should be suppressed (negative outcomes). In this showcase, 5 standard evolution cycles cleaned 0 stale nodes; 4 feedback-driven cycles cleaned 13 of 15.
+**Feedback-driven evolution** does not rely on weight thresholds alone. Standard graph maintenance treats all nodes equally — any node that hasn't been accessed recently gets decayed. Feedback-driven evolution adds a semantic layer: nodes that produce correct results in real operations get reinforced regardless of recency, while nodes that produce incorrect results get suppressed. This mirrors how experienced engineers maintain infrastructure — they don't just remove old services, they remove services that cause problems. In this showcase, 5 standard evolution cycles cleaned 0 stale nodes; 4 feedback-driven cycles cleaned 13 of 15.
 
 **Cross-operation correlation** tracks each node's performance across all operation types. A node that only fails retrieval might need a data update. A node that fails retrieval, collapse, and inference gets suppressed. This multi-signal view prevents premature suppression of nodes with isolated failures while catching nodes with systemic problems.
 

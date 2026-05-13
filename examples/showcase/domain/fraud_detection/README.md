@@ -72,9 +72,11 @@ SECTION 10: Investigation Summary
 ======================================================================
   Graph: 119 nodes, 287 edges
   Cycles detected: 17
-  Funnel accounts: 8
-  Indirect transfers inferred: 50
-```
+   Funnel accounts: 8
+   Indirect transfers inferred: 50
+   ```
+
+Note: Cycle counts, betweenness rankings, and Born-rule sampling draws are run-dependent. The values below are representative.
 
 ## 5. The Scenario
 
@@ -227,7 +229,7 @@ cycles = mem.detect_cycles(max_cycles=10)
 
 **Why this matters:** Circular flows are a hallmark of layering in money laundering. Money cycles through a chain of accounts and returns to (or near) its source, creating the appearance of legitimate business transactions. Without cycle detection, an analyst examining individual transfers sees only legitimate-looking movements.
 
-**Result:** Cycle discovery is run-dependent and now configured with a higher cap; recent runs surface roughly 17-22 circular money flows. A short 3-node loop appears around shell-account transfers, while longer loops span the broader shell-company path through `acct_zenith_holdings`, `acct_alpha_consulting`, `acct_nordic_services`, and mule-linked accounts.
+**Result:** Cycle discovery is run-dependent and now configured with a higher cap; recent runs surface roughly 17-22 circular money flows. A short 3-node loop appears around shell-account transfers, while longer loops span the broader shell-company path through `acct_zenith_holdings`, `acct_alpha_consulting`, `acct_nordic_services`, and mule-linked accounts. The specific cycles found depend on the order in which the cycle detection algorithm explores the graph. The count is stable within a narrow range across runs.
 
 ### Section 5: Funnel Account Identification
 
@@ -280,7 +282,7 @@ ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0)
 
 **Why this matters:** The ringleader (risk=0.95) can have high degree but low betweenness because operations pass through intermediaries. A recruiter or mule bridge node often has the highest betweenness because it connects leadership to transfer operators. Betweenness reveals organizational structure that degree alone obscures: the person who bridges otherwise disconnected groups is operationally critical even if their total connection count is lower.
 
-**Result:** A structural broker ranks highest by betweenness despite lower intrinsic risk score than the ringleader. In the current run, `natasha_mule4` leads, followed by `katya_recruiter` and `boris_mule1`, showing that bridge positions dominate shortest-path traffic.
+**Result:** The betweenness ranking is run-dependent. In recent runs, `katya_recruiter` and `natasha_mule4` alternate as the top-ranked suspect. Both occupy bridge positions between leadership and operational tiers — `katya_recruiter` bridges the ringleader to the mule network, while `natasha_mule4` bridges the mule network to the shell company layer.
 
 ### Section 7: Probabilistic Fraud Scoring
 
@@ -297,7 +299,7 @@ for outcome in qs.outcomes:
 answer = mem.sample(qs)
 ```
 
-**Why this matters:** Traditional risk scoring assigns a fixed number to each suspect. Belief distributions model uncertainty explicitly: each suspect has a probability derived from complex amplitudes, and sampling via the Born rule produces a stochastic draw. This is useful when an analyst needs to prioritize a single lead for the next investigative action -- rather than picking manually from a ranked list, the system samples proportionally to each suspect's probability, with higher-probability suspects drawn more often. Without this, an analyst might fixate on the highest-scoring suspect and neglect alternatives.
+**Why this matters:** Traditional risk scoring assigns a fixed number to each suspect. Fixed scores create a single ranking that encourages investigators to pursue only the top suspect. In practice, fraud rings distribute operations across multiple participants, and the most important suspect to investigate next depends on what evidence has already been gathered. Belief distributions model this uncertainty: each suspect has a probability reflecting their relative involvement, and stochastic sampling draws investigators' attention to different suspects proportionally. Belief distributions model uncertainty explicitly: each suspect has a probability derived from complex amplitudes, and sampling via the Born rule produces a stochastic draw. This is useful when an analyst needs to prioritize a single lead for the next investigative action -- rather than picking manually from a ranked list, the system samples proportionally to each suspect's probability, with higher-probability suspects drawn more often. Without this, an analyst might fixate on the highest-probability suspect and neglect alternatives.
 
 **Result:** The belief state assigns probabilities across 5 suspects with `viktor_kingpin` and `irina_accountant` typically highest, followed by `katya_recruiter`, `lena_lieutenant`, and `pavel_tech`. Born-rule sampling (10 draws) produces a distribution consistent with those probabilities. Note: sampling is probabilistic and results vary across runs.
 
@@ -344,7 +346,7 @@ for suspect in ["viktor_kingpin", "katya_recruiter", "lena_lieutenant"]:
 
 **Why this matters:** An investigation needs to show not just that a suspect is connected to criminal activity, but *how* each piece of evidence links to them. `prove()` attempts to construct a chain from known facts to the target, reporting satisfied premises and missing evidence. Without provenance tracking, an analyst can say "this person is suspicious" but cannot enumerate the specific evidence that supports (or undermines) that conclusion.
 
-**Result:** All three targets return `ACHIEVABLE` with full confidence in the current run because `prove()` can satisfy direct premises from the provided known evidence set. This indicates the current evidence set is broad enough to satisfy backward-chaining requirements for these targets in this schema.
+**Result:** All three targets return `ACHIEVABLE` with full confidence in the current run because `prove()` can satisfy direct premises from the provided known evidence set. This indicates the current evidence set is broad enough to satisfy backward-chaining requirements for these targets in this schema. An `ACHIEVABLE` result with full confidence means the backward chain found a direct edge from a known fact to the target. In this showcase, the evidence set is broad (flagged accounts, unverified entities, VPN/Tor IPs, active alerts, all patterns, all addresses), so direct connections exist for most targets. In a real investigation with a sparser evidence set, `prove()` would return partial chains with missing premises — indicating what additional evidence needs to be collected.
 
 ### Section 10: Investigation Summary
 
@@ -440,11 +442,11 @@ Note: Betweenness values are small because the graph is dense with many short al
 | Reasoning rules applied | 50 |
 | Reasoning max depth | 2 |
 | Top activation from alert_circular_001 | acct_zenith_holdings (1.000) |
-| Highest betweenness suspect | natasha_mule4 (~0.0037 in current run) |
+| Highest betweenness suspect | run-dependent (katya_recruiter or natasha_mule4 typically lead, ~0.003) |
 | Highest risk suspect | viktor_kingpin (0.95) |
 | Largest suspicious subgraph | 91 nodes, 261 edges |
 | Belief distribution suspects | 5 |
-| Highest belief probability | viktor_kingpin (~0.258) |
+| Highest belief probability | viktor_kingpin (~0.257) |
 | Anomalous accounts | 2 (acct_zenith_holdings, acct_global_trading) |
 | Highest anomaly boundary score | acct_zenith_holdings (~0.41) |
 | Provenance targets | 3 (all achievable in current run) |
@@ -465,7 +467,7 @@ Note: Betweenness values are small because the graph is dense with many short al
 
 **Evidence provenance** traces proof chains from known facts to conclusions. With the current schema and known-facts set, `prove()` can establish achievable chains for selected suspects. This capability enables transparent, auditable reasoning chains and highlights where additional evidence-link edges would improve explanatory depth.
 
-**Unified graph representation** stores persons, accounts, transactions, devices, addresses, and alerts in a single structure. Querying across categories (which persons share an address with a flagged account?) requires no joins -- it is a two-hop traversal.
+**Unified graph representation** stores persons, accounts, transactions, devices, addresses, and alerts in a single structure. Financial fraud is inherently relational — the same person opens accounts at different banks, uses shared devices with accomplices, and routes money through chains of intermediaries. A graph model captures these relationships directly, without requiring joins across separate databases. The result is that queries like "which persons share an address with a flagged account?" become simple two-hop traversals rather than multi-table SQL joins.
 
 ## 10. Code Implementation
 
