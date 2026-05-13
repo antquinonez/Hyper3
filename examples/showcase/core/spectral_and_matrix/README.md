@@ -136,13 +136,21 @@ This script applies the matrices from the previous section to a larger graph (12
 
 **Hypergraph Laplacian** — The 12x12 Laplacian's diagonal (degree vector) starts at `[8.75, 8.25, 8.25, 8.25, 9.25]...`, reflecting weighted degrees. The sorted eigenvalues are `[-0., 0.1191, 0.3346, 6., 6., 6.3612]...`. The single zero eigenvalue confirms 1 connected component. The spectral gap between 0.3346 and 6.0 is large — this is the signature of strong cluster structure. In a graph with weak clusters, the small eigenvalues would be more evenly spaced.
 
-**Spectral embedding** — Each node maps to a 3-dimensional vector. Nodes within the same group cluster together: n0 through n3 (alpha) have similar coordinates (first component near 0.31, second near 0.35), n4 through n7 (beta) cluster in a different region (first near 0.31, second near -0.08, third near -0.39), and n8 through n11 (gamma) form a third cluster (first near 0.25, second near -0.34, third near 0.27). The bridge nodes n0 and n4 show coordinates at the boundary of their respective groups.
+**Spectral embedding** — Each node maps to a 3-dimensional vector derived from the Laplacian eigenvectors. The coordinates cluster by group, but the clustering is continuous rather than discrete:
+
+| Group | Typical coordinates (dim 1, dim 2, dim 3) | Interpretation |
+|-------|-------------------------------------------|----------------|
+| alpha (n0–n3) | (~0.31, ~-0.36, ~0.17) | Tight cluster, distinct from beta and gamma in dimension 2 |
+| beta (n4–n7) | (~0.31, ~0.08, ~-0.39) | Tight cluster, separated from alpha/gamma by dimensions 2 and 3 |
+| gamma (n8–n11) | (~0.25, ~0.34, ~0.27) | Tight cluster, closer to alpha than beta in some dimensions |
+
+Alpha and gamma share similar values in dimension 1 (~0.25–0.31) and differ most from beta in dimension 2. This is why the dominant-eigenvector heuristic (picking whichever dimension has the largest absolute value) groups alpha and gamma together while cleanly separating beta — the heuristic sees a 2-way split, not the underlying 3-way structure. The full 3-dimensional coordinates do distinguish all three groups when all dimensions are considered simultaneously. Eigenvectors are sign-ambiguous (defined up to sign), so dimension directions may flip across runs while relative distances remain consistent.
 
 **S-persistence** — At `s=1`, all 12 nodes form 1 component (everything is connected). At `s=2`, this splits into 10 components — the three clusters fragment, with bridge nodes appearing in multiple small components. At `s=3`, there are 22 components — essentially every pair and singleton. The jump from 1 to 10 to 22 shows the three-cluster structure at `s=2` is transitional: the dense intra-cluster edges hold groups together at `s=1`, but the weaker bridge edges dissolve first.
 
-**Community detection validation** — Label propagation finds 3 communities with modularity 0.6303 and coverage 0.9706, recovering the planted cluster structure exactly: one community contains n0–n3 (alpha), one contains n4–n7 (beta), and one contains n8–n11 (gamma). This agreement between spectral embedding (continuous space clustering) and label propagation (discrete label assignment) provides independent validation that the three-cluster structure is real and not an artifact of either method alone. The modularity of 0.6303 is well above the typical significance threshold of 0.3, confirming strong community structure.
+**Community detection validation** — Label propagation finds 3 communities with modularity ~0.63 and coverage ~0.97, recovering the planted cluster structure exactly: one community contains n0–n3 (alpha), one contains n4–n7 (beta), and one contains n8–n11 (gamma). This agreement between spectral embedding (continuous space clustering) and label propagation (discrete label assignment) provides independent validation that the three-cluster structure is real and not an artifact of either method alone. The modularity of ~0.63 is well above the typical significance threshold of 0.3, confirming strong community structure.
 
-The spectral embedding clusters by dominant eigenvector group n4–n7 together cleanly in dimension 2, while the other eight nodes split across dimensions 1 and 2. This partial overlap — rather than a clean three-way split — reflects that the spectral embedding captures continuous proximity rather than discrete boundaries, and the dominant-eigenvector heuristic is a simplification compared to the label propagation result. The embedding coordinates themselves are sign-ambiguous (eigenvectors are defined up to sign), so the direction of each dimension may flip across runs, but the relative distances between nodes in the same cluster remain consistent.
+The spectral embedding coordinates (see table above) show that the 3-dimensional space does separate the groups, but the separation is not equally strong in every dimension. The dominant-eigenvector heuristic used in the script's summary output groups alpha and gamma together because they share similar coordinates in the dimension with the largest absolute values. This illustrates an important lesson: single-dimension heuristics lose information that the full multi-dimensional embedding preserves. Community detection, which operates on the original graph topology rather than a dimensionality reduction, recovers the correct three-way partition regardless.
 
 **What we've established**: The Laplacian's eigenvalues reveal cluster count, spectral embedding places same-cluster nodes near each other, s-persistence confirms the cluster structure is stable across resolutions, and community detection validates the spectral findings with an independent algorithm. The next script asks: what happens to these properties when we transform the graph itself?
 
@@ -197,13 +205,14 @@ Each script operates on a different graph. Metrics are grouped by dataset.
 | Incidence matrix shape | (12, 22) |
 | Incidence non-zeros | 48 |
 | Laplacian shape | (12, 12) |
-| Laplacian eigenvalues (first 6) | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] || Connected components | 1 |
+| Laplacian eigenvalues (first 6) | [0.0, 0.1191, 0.3346, 6.0, 6.0, 6.3612] |
+| Connected components | 1 |
 | S-persistence: s=1 components | 1 |
 | S-persistence: s=2 components | 10 |
 | S-persistence: s=3 components | 22 |
 | Label propagation communities | 3 |
-| Modularity | 0.6303 |
-| Coverage | 0.9706 |
+| Modularity | ~0.63 (range 0.629–0.632) |
+| Coverage | ~0.97 (range 0.964–0.970) |
 | Community A members | n0, n1, n2, n3 (alpha, size=4) |
 | Community B members | n4, n5, n6, n7 (beta, size=4) |
 | Community C members | n8, n9, n10, n11 (gamma, size=4) |

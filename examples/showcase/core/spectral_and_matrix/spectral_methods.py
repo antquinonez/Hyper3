@@ -100,11 +100,15 @@ def main() -> None:
 
     sp = mem.s_persistence(max_s=3)
     print(f"\ns-persistence analysis:")
+    id_to_label = {n.id: n.label for n in g.nodes}
     for entry in sp.levels:
         s_val = entry["s"]
         num_comp = entry["num_components"]
         _ = entry["largest_component_size"]
-        comps = [sorted(c) for c in entry["components"]]
+        comps = [
+            sorted(id_to_label.get(nid, nid[:8]) for nid in comp)
+            for comp in entry["components"]
+        ]
         print(f"  s={s_val}: {num_comp} components -> {comps}")
 
     print("\n" + "=" * 70)

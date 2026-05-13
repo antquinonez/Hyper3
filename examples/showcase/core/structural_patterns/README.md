@@ -256,17 +256,19 @@ Diamonds find convergence: two or more nodes that share a common target. In this
 diamonds = mem.match_diamonds(edge_label="uses", max_matches=10)
 ```
 
-**Result:** 10 technology convergence diamonds. The top 5 all converge on `golang`:
+**Result:** 10 technology convergence diamonds. Diamond ordering varies across runs, but the top-scoring diamonds consistently converge on `postgresql`, `kubernetes`, and shared infrastructure technologies:
 
 | Source A | Source B | Converges On | Score |
 |----------|----------|-------------|-------|
+| `acme_cloud` | `zenith_fintech` | postgresql | 0.38 |
+| `acme_cloud` | `zenith_fintech` | kubernetes | 0.38 |
+| `acme_cloud` | `aurora_energy` | kubernetes | 0.33 |
+| `aurora_energy` | `zenith_fintech` | kubernetes | 0.33 |
 | `acme_cloud` | `orbit_iot` | golang | 0.29 |
-| `acme_cloud` | `terra_logistics` | golang | 0.29 |
-| `cipher_blockchain` | `orbit_iot` | golang | 0.25 |
-| `cipher_blockchain` | `terra_logistics` | golang | 0.25 |
-| `cipher_blockchain` | `acme_cloud` | golang | 0.14 |
 
-**Why this matters:** All 5 displayed diamonds converge on `golang`. This means 4+ companies (`acme_cloud`, `orbit_iot`, `terra_logistics`, `cipher_blockchain`) share a foundational dependency on the Go runtime language. This is a supply-chain risk pattern: a golang runtime CVE (e.g., a memory safety vulnerability in the Go compiler or standard library) would simultaneously affect infrastructure across cloud computing, IoT, logistics, and blockchain companies. The highest-scoring diamonds (0.29) involve `acme_cloud` paired with `orbit_iot` and `terra_logistics` — these companies depend on golang with relatively high weights, making their shared exposure the most significant.
+(Diamond ordering varies; scores are stable.)
+
+**Why this matters:** The highest-scoring diamonds converge on `postgresql` and `kubernetes` — foundational infrastructure dependencies. `acme_cloud` and `zenith_fintech` share dependencies on both postgresql and kubernetes (score 0.38 each), meaning a vulnerability in either technology simultaneously affects both companies. The golang diamonds (score 0.29) involve `acme_cloud`, `orbit_iot`, and `terra_logistics` — a supply-chain risk spanning cloud computing, IoT, and logistics. Diamond scoring is weighted by edge importance: companies that use a technology with higher edge weights produce higher-scoring diamonds, so postgresql (weights 5.0–6.0) and kubernetes (weights 5.0–8.0) score higher than golang (weights 5.0–7.0) when both source companies have strong dependencies.
 
 ### Section 5: Community Detection
 
@@ -361,15 +363,15 @@ The observed modularity of 0.594 indicates strong but not rigid community struct
 | Technology hubs (fan-out >= 3) | 10 |
 | Convergence diamonds | 10 |
 | Communities | 14 |
-| Modularity | 0.595 |
+| Modularity | ~0.594 (range 0.593–0.596) |
 | Coverage | 68.5% |
 | Largest community size | 10 nodes |
 | Cross-community connections (largest) | 13 |
 | Highest fan-out | `acme_cloud` (6 technologies) |
-| Most converged technology | `golang` (5 diamonds) |
-| Highest diamond score | `acme_cloud` + `orbit_iot` → `golang` (0.29), `acme_cloud` + `terra_logistics` → `golang` (0.29) |
+| Most converged technologies | `kubernetes` and `postgresql` (highest diamond scores) |
+| Highest diamond score | `acme_cloud` + `zenith_fintech` → `postgresql` (0.38), `acme_cloud` + `zenith_fintech` → `kubernetes` (0.38) |
 
-Note: Fan-out target ordering varies across runs. Community IDs and exact composition are non-deterministic.
+Note: Fan-out target ordering and diamond ordering vary across runs. Community IDs and exact composition are non-deterministic.
 
 ## 9. What Makes This Different
 
@@ -475,7 +477,7 @@ Compliance Databases
         ↓
 CVE / Advisory Databases
         ↓
-  [Risk Correlation] → "golang diamond affects 4 companies with score 0.29"
+  [Risk Correlation] → "postgresql diamond affects 2 companies with score 0.38"
 ```
 
 Hyper3 provides the graph construction and structural analysis. The data extraction pipeline above is a separate engineering concern.

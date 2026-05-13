@@ -303,4 +303,4 @@ mem.max_edge_order()      # largest edge size minus 1
 | `mem.diff_from_version(version_id)` | `VersionDelta \| None` | Compute changes since a captured version |
 | `mem.evolve()` | `EvolveResult` | Run decay, prune, and merge on the graph |
 | `mem.analyze.communities(seed)` | `CommunityResult` | Detect communities via label propagation |
-| `mem.edges_labeled(edge_label)` | `list[Hyperedge]` | Retrieve all edges with a given label |
+| `mem.analyze.edges(label)` | `list[Hyperedge]` | Retrieve all edges with a given label |

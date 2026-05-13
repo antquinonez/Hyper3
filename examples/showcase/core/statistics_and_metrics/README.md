@@ -142,7 +142,9 @@ A list comprehension selects nodes with degree >= 3, yielding `['b', 'c', 'd']`.
 
 ### Section 6 — Evolution Impact on Statistics
 
-A 7-node graph with strong core edges (weight 8.0) and weak peripheral edges (weight 1.0) is stimulated along the core path, Hebbian-reinforced, then evolved. The `evolve()` call applies decay, pruning, merging, and reinforcement. In this small graph, all edges survive: 0 decayed, 0 pruned, 0 merged. The degrees and density remain unchanged at 0.1667. Why this still matters: on larger graphs with more marginal edges, evolution visibly prunes the periphery and reinforces the core, shifting degree distributions. This section establishes the before/after measurement pattern so you can apply it at scale.
+A 7-node graph with strong core edges (weight 8.0) and weak peripheral edges (weight 1.0) is stimulated along the core path, Hebbian-reinforced, then evolved. The `evolve()` call applies decay, pruning, merging, and reinforcement. In this small graph, all edges survive: 0 decayed, 0 pruned, 0 merged. The degrees and density remain unchanged at 0.1667.
+
+**Why no visible change?** Evolution's decay step reduces edge weights on inactive edges. The peripheral edges (weight 1.0) are the weakest, but even they survive because the graph is too small and too well-connected — every node participates in at least one edge, and no edges fall below the pruning threshold. The Hebbian reinforcement from activating nodes a, b, c strengthens the core edges further, but they were already dominant. On larger graphs with many marginal edges (e.g., weight 0.1 connecting peripheral nodes to a core of 50+ nodes), the same evolution step would visibly prune those marginal connections and reinforce the core, shifting degree distributions. This section establishes the before/after measurement pattern so you can apply it at scale.
 
 ### Section 7 — Community Detection
 

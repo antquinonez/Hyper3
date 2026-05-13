@@ -352,20 +352,21 @@ Community detection groups nodes into clusters based on connection density, inde
 comm_result = mem.analyze.communities(seed=42)
 ```
 
-**Results (non-deterministic; community IDs and exact composition vary across runs):** ~10 communities with modularity ~0.34 and coverage ~0.83.
+**Results (non-deterministic; community IDs and exact composition vary across runs):** ~10-11 communities with modularity ~0.33 (range 0.31–0.37) and coverage ~0.86 (range 0.84–0.90).
 
-Community detection on this graph is non-deterministic even with `seed=42` because the label propagation algorithm is sensitive to hash-based node iteration order. The community count, modularity, and zone-mixing composition fluctuate across process invocations. The structural findings below hold regardless of the specific partition.
+Community detection on this graph is non-deterministic even with `seed=42` and `PYTHONHASHSEED=0` because the label propagation algorithm is sensitive to hash-based node iteration order. The community count, modularity, and zone-mixing composition fluctuate across process invocations. The structural findings below hold regardless of the specific partition.
 
-**Zone-mixing communities** — 3 communities contain hosts from multiple security zones (typical outcome):
+**Zone-mixing communities** — 3–4 communities contain hosts from multiple security zones (typical outcome):
 
 | Community | Typical Size | Host Zone Breakdown | Description |
 |-----------|-------------|---------------------|-------------|
-| Largest | ~70 members | dmz(11), internal(~9), restricted(~6) | DMZ + app servers + databases — cross-zone operational cluster |
-| Second | ~40 members | internal(~12), restricted(~4) | Workstations and domain controllers |
+| Largest | ~60-80 members | dmz(1-11), internal(15-21), restricted(10) | Cross-zone operational cluster spanning app servers, databases, and often some DMZ hosts |
+| Second | ~10-20 members | dmz(10-11), internal(0-4) | Remaining DMZ hosts (sometimes merged with internal workstations) |
 | Third | ~6 members | internal(3) | Kubernetes cluster (master + 2 workers) |
+| Fourth | ~2-3 members | internal(2-3) | Small workstation or CI/runner cluster |
 | Remaining | 1 each | non-host | Isolated entities (seg-wireless, security controls) |
 
-The most significant finding is the **zone-mixing in the two largest communities**. The largest community spans all three zones: DMZ web servers, internal app servers, and restricted databases cluster together because the routing and trust edges create dense cross-zone connections. The second community contains the workstation-to-DC trust chain: `ws-finance-*`, `ws-hr-*`, `ws-engineering-*` workstations cluster with `dc-01`, `dc-02`, and `admin-bastion` through their `trusts` edges. The Kubernetes cluster (master + 2 workers) forms its own small community due to its isolated `seg-k8s-pod` network segment.
+The most significant finding is the **zone-mixing in the largest communities**. The largest community typically spans all three zones: DMZ web servers, internal app servers, and restricted databases cluster together because the routing and trust edges create dense cross-zone connections. The exact composition varies: sometimes the DMZ hosts split across two communities, sometimes they merge with the internal cluster. Regardless of the specific partition, cross-zone coupling is always present. The Kubernetes cluster (master + 2 workers) reliably forms its own small community due to its isolated `seg-k8s-pod` network segment.
 
 **Why this matters:** Zone labels on paper do not guarantee zone isolation in practice. The community detection algorithm has no knowledge of zone assignments — it clusters purely by connection density. The largest community crosses all three security zones, meaning DMZ hosts, internal app servers, and restricted databases form a single densely-connected cluster. This is a stronger signal than the connected components check in Section 4 because it accounts for connection density and reveals *how* zones are coupled, not just *whether* they are connected.
 
@@ -469,10 +470,10 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 | Longest lateral path | dev-server -> db-primary (4 hops) |
 | Inferred indirect trust edges | 19 |
 | Restricted hosts reachable via indirect trust | 6 |
-| Communities detected | ~10 (non-deterministic) |
-| Modularity | ~0.34 (non-deterministic) |
-| Community coverage | ~0.83 (non-deterministic) |
-| Zone-mixing communities | 3 |
+| Communities detected | ~10-11 (non-deterministic) |
+| Modularity | ~0.33, range 0.31–0.37 (non-deterministic) |
+| Community coverage | ~0.86, range 0.84–0.90 (non-deterministic) |
+| Zone-mixing communities | 3-4 |
 | Largest community | ~70 members (DMZ + internal + restricted) |
 | Anomalous hosts | dc-01 (score=0.389) |
 | Highest boundary score (non-anomalous) | db-primary (0.135) |
@@ -544,7 +545,7 @@ for label in host_labels:
 ```python
 mem.add_rules(TransitiveRule(edge_label="trusts", new_label="trusts_indirectly"))
 result = mem.reason(seeds={"admin-jump-01", "dev-server"}, max_depth=4)
-indirect_edges = mem.edges_labeled(edge_label="trusts_indirectly")
+indirect_edges = mem.analyze.edges(label="trusts_indirectly")
 ```
 
 ### Community Detection
@@ -603,7 +604,7 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 | `mem.engine.graph.get_node_by_label(label)` | Get node object by label |
 | `mem.add_rules(rules)` | Register inference rules for reasoning |
 | `mem.reason(seeds, depth)` | Apply rules to expand the graph, producing inferred edges |
-| `mem.edges_labeled(edge_label)` | Return all edges with a given label |
+| `mem.analyze.edges(label)` | Return all edges with a given label |
 | `mem.analyze.communities(seed)` | Detect communities via label propagation; returns `CommunityResult` |
 | `mem.analyze.anomalies(concept)` | Analyze a host's connectivity for structural anomalies |
 
