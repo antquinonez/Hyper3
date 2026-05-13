@@ -12,7 +12,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality, top_k
+from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, top_k
 
 
 def main():

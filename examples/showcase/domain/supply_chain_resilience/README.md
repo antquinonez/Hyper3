@@ -190,8 +190,8 @@ Why this matters: filtering by `single_source=True` alone would flag 11 supplier
 
 Applies `TransitiveRule` to discover multi-hop cascade paths. Two reasoning phases run:
 
-- **Phase 1** (risk cascade): `TransitiveRule` on `affected_by` edges, producing `cascade_affected_by` edges. Explores 51 states, applies 50 rules, produces 50 new edges. Discovers 25 cascade edges linking risks to indirectly affected products.
-- **Phase 2** (indirect supply): `TransitiveRule` on `supplies_to` edges, producing `indirectly_supplies` edges. Discovers 70 indirect supply relationships.
+- **Phase 1** (risk cascade): `TransitiveRule` on `affected_by` edges, producing `cascade_affected_by` edges. Explores 51 states, applies 50 rules, produces 50 new edges. Discovers ~24 cascade edges linking risks to indirectly affected products.
+- **Phase 2** (indirect supply): `TransitiveRule` on `supplies_to` edges, producing `indirectly_supplies` edges. Discovers ~67 indirect supply relationships.
 
 The cascade analysis reveals that `risk_cyber_attack` reaches 2 products (both `prod_semiconductor` through different suppliers), `risk_earthquake_pacific` reaches 2 products (`prod_semiconductor` and `prod_sensor`), and five other risks each reach 1 product through cascade paths. Without transitive reasoning, these multi-hop impacts would remain hidden — the direct `affected_by` edges only connect risks to their immediate targets.
 
@@ -199,12 +199,12 @@ The cascade analysis reveals that `risk_cyber_attack` reaches 2 products (both `
 
 Traces concrete paths from the highest-impact risks to `prod_vehicle` using `find_paths()`:
 
-- **`risk_trade_war`** reaches `prod_vehicle` in 5 hops: `risk_trade_war → sup_t2_china_silicon → prod_ecu → prod_sensor → prod_vehicle` (30-day cumulative lead time)
-- **`risk_geopolitical_tension`** reaches `prod_vehicle` in 4 hops: `risk_geopolitical_tension → sup_t2_china_graphite → prod_battery_pack → prod_vehicle` (32-day cumulative lead time) and in 8 hops through the full component chain
-- **`risk_sanctions`** reaches `prod_vehicle` in 7 hops: `risk_sanctions → sup_t3_russia_palladium → sup_t2_sa_platinum → prod_circuit_board → prod_ecu → prod_sensor → prod_vehicle` (112-day cumulative lead time)
-- **`risk_material_shortage`** reaches `prod_vehicle` in 4 hops through battery cells
+- **`risk_trade_war`** reaches `prod_vehicle` in 6 hops: `risk_trade_war → sup_t2_china_silicon → prod_circuit_board → prod_semiconductor → prod_ecu → prod_vehicle` (30-day cumulative lead time)
+- **`risk_geopolitical_tension`** reaches `prod_vehicle` in 4 hops: `risk_geopolitical_tension → prod_semiconductor → prod_ecu → prod_vehicle` (0-day cumulative lead time, direct product-level exposure)
+- **`risk_sanctions`** reaches `prod_vehicle` in 7 hops: `risk_sanctions → sup_t3_russia_palladium → sup_t1_germany_semicon → prod_circuit_board → prod_semiconductor → prod_ecu → prod_vehicle` (91-day cumulative lead time)
+- **`risk_material_shortage`** reaches `prod_vehicle` in 6 hops: `risk_material_shortage → sup_t2_chile_lithium → prod_battery_pack → prod_rare_earth_magnet → prod_ev_motor → prod_vehicle` (36-day cumulative lead time)
 
-The sanctions path is notable: it spans 3 supplier tiers and 2 product assemblies before reaching the vehicle, with a 112-day cumulative lead time. This means a sanctions event today would take over 3 months to fully propagate through inventory buffers.
+The sanctions path is notable: it spans 3 supplier tiers and 2 product assemblies before reaching the vehicle, with a 91-day cumulative lead time. This means a sanctions event today would take about 3 months to fully propagate through inventory buffers.
 
 The network forms a single connected component of 126 nodes, meaning any disruption can theoretically reach any part of the chain.
 
@@ -274,8 +274,8 @@ The diversification priority score combines:
 | Critical products with <=1 alternate | 9 |
 | Single-source suppliers without backup | 9 |
 | Distribution centers without backup | 5 |
-| Risk cascade edges discovered | 25 |
-| Indirect supply edges discovered | 70 |
+| Risk cascade edges discovered | ~24 |
+| Indirect supply edges discovered | ~67 |
 | States explored (Phase 1) | 51 |
 | Rules applied (Phase 1) | 50 |
 | New edges (Phase 1) | 50 |

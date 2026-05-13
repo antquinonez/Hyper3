@@ -85,7 +85,7 @@ SECTION 1: Building knowledge base...
 SECTION 2: Finding substitutes for 'butter'...
   (Using mem.neighbors() for direct + mem.find_paths() for transitive)
   Found 3 substitute(s):
-  - margarine            (confidence: 0.95, depth: 1, path: butter -> margarine)
+  - margarine            (confidence: 0.85, depth: 1, path: butter -> margarine)
   - coconut_oil          (confidence: 0.85, depth: 1, path: butter -> coconut_oil)
   - applesauce           (confidence: 0.60, depth: 2, path: butter -> coconut_oil -> applesauce)
 
@@ -122,9 +122,15 @@ SECTION 8: Triggering self-evolution...
   Graph after evolution: 13 nodes, 13 edges
 
 SECTION 9: Context-dependent substitution...
-  Vegan context -> flax_eggs (prob=0.2500)
-  Low-fat context -> coconut_oil (prob=0.2500)
-  Baking context -> margarine (prob=0.2500)
+  The same ingredient produces different recommendations under different diets.
+  Vegan context -> coconut_oil (prob=0.2500)
+  Low-fat context -> applesauce (prob=0.2500)
+  Baking context -> coconut_oil (prob=0.2500)
+
+  Note: Context-dependent sampling uses Born-rule sampling (probabilistic).
+  The sampled substitute varies between runs even with the same context weights.
+  All outcomes with equal context weights produce probability 0.25, making
+  each draw uniformly random among candidates.
 
 SECTION 10: Learning from user ratings...
   After 5 ratings, MAP estimate for butter: coconut_oil

@@ -40,19 +40,21 @@ SECTION 2: Rule-Based Reasoning -- Discovering Hidden Relationships
   New edges total:    30
 
 SECTION 3: Spreading Activation -- Alert Triage and Impact Scoring
-  Total activated nodes: 25
+  Total activated nodes: ~10
 
 SECTION 4: Belief Layer -- Competing Attribution Hypotheses
-  Prior distribution (raw Born rule):
-    APT28       probability=0.5636
-    APT29       probability=0.2108
+  Prior distribution (raw Born rule, use_context_field=False):
+    APT28                   probability=~0.59
+    APT29                   probability=~0.20
+    Lazarus                 probability=~0.13
+    Volt_Typhoon            probability=~0.08
 
 SECTION 5: Self-Evolution -- Decay Stale IOCs, Reinforce Active Threats
   Nodes pruned:     3
   Nodes merged:     14
 
 SECTION 6: Pattern Matching and Centrality -- Who Is Most Dangerous?
-  APT28  centrality=0.4182
+  APT28  centrality=~0.45
 ```
 
 Full run takes under 2 seconds. Zero API calls. Zero LLM. Zero cloud.
@@ -179,11 +181,11 @@ After reasoning, the graph contains 39 total inferred edges (30 from this round 
 
 The scenario: a SOC alert fires on `CVE-2023-44228` (Log4j). Energy is injected into that node and spreads along edges for 4 iterations.
 
-Results: 25 nodes activate. Among them:
+Results: ~10 nodes activate. Among them:
 
-- **14 threat actors** — APT28 (energy=0.198), Fancy_Bear (0.173), Conti (0.172), Volt_Typhoon (0.169), LockBit (0.163), Turla (0.159), Lazarus (0.159), APT33 (0.159), and 6 more.
-- **4 sectors** — GOV (0.241), MFG (0.133), MIL (0.120), HC (0.116).
-- **2 related CVEs** — CVE-2024-3400 (0.212), CVE-2023-20198 (0.108).
+- **~4 threat actors** — APT28 (energy ~0.22), Fancy_Bear (~0.18), Volt_Typhoon (~0.17), Turla (~0.16).
+- **~2 sectors** — GOV (~0.25), MIL (~0.18).
+- **~1 related CVE** — CVE-2024-3400 (~0.22).
 
 Why spreading activation matters: Without it, answering "who does this CVE affect?" requires a manual breadth-first traversal and aggregation across multiple edge types. Spreading activation does this in a single call, producing energy scores that reflect both direct connections (depth=1) and indirect reach (depth=2+). The energy values quantify blast radius — GOV scores highest because it is connected to the most Log4j-exploiting actors.
 
@@ -193,14 +195,14 @@ Four suspects (APT28, APT29, Lazarus, Volt_Typhoon) are assigned prior amplitude
 
 | Suspect | Amplitude | \|Amp\|² | Probability |
 |---|---|---|---|
-| APT28 | 0.7 | 0.49 | 0.5636 |
-| APT29 | 0.5 | 0.25 | 0.2108 |
-| Lazarus | 0.4 | 0.16 | 0.1394 |
-| Volt_Typhoon | 0.3 | 0.09 | 0.0863 |
+| APT28 | 0.7 | 0.49 | ~0.59 |
+| APT29 | 0.5 | 0.25 | ~0.20 |
+| Lazarus | 0.4 | 0.16 | ~0.13 |
+| Volt_Typhoon | 0.3 | 0.09 | ~0.08 |
 
-Over 1000 sampling trials, the empirical frequencies match the theoretical distribution: APT28 at 54.5%, APT29 at 22.5%, Lazarus at 13.0%, Volt_Typhoon at 10.0%.
+Over 1000 sampling trials, the empirical frequencies match the theoretical distribution: APT28 at ~59%, APT29 at ~20%, Lazarus at ~14%, Volt_Typhoon at ~8%.
 
-When context weights favor APT28 (weight=3.0) and disfavor Lazarus (weight=0.5), the distribution shifts: APT28 rises to 82.4%, Lazarus drops to 3.5%.
+When context weights favor APT28 (weight=3.0) and disfavor Lazarus (weight=0.5), the distribution shifts: APT28 rises to ~84%, Lazarus drops to ~3%.
 
 **Honest assessment**: The Born-rule sampling with complex amplitudes adds mathematical structure (interference effects between correlated beliefs), but for this specific use case — ranking a small set of discrete suspects with known priors — a simple Bayesian update would produce similar results with less overhead. The belief layer's advantage is composability: the same mechanism handles correlated beliefs across multiple concepts via `create_correlation()`, which simpler Bayesian methods would require custom code to replicate.
 
@@ -230,23 +232,23 @@ Degree centrality measures what fraction of the graph a node connects to directl
 
 | Rank | Actor | Centrality | Exploits | Targets | Uses |
 |---|---|---|---|---|---|
-| 1 | APT28 | 0.4182 | 4 | 3 | 5 |
-| 2 | Volt_Typhoon | 0.3091 | 4 | 3 | 3 |
-| 3 | FIN6 | 0.2545 | 2 | 3 | 4 |
-| 4 | APT33 | 0.2364 | 3 | 3 | 4 |
-| 5 | Turla | 0.2364 | 3 | 4 | 3 |
+| 1 | APT28 | ~0.45 | 4 | 3 | 5 |
+| 2 | Volt_Typhoon | ~0.31 | 4 | 3 | 3 |
+| 3 | Turla | ~0.27 | 3 | 4 | 3 |
+| 4 | FIN6 | ~0.25 | 2 | 3 | 4 |
+| 5 | APT33 | ~0.24 | 3 | 3 | 4 |
 
 **Top 5 CVEs:**
 
 | Rank | CVE | Centrality | CVSS | Product |
 |---|---|---|---|---|
-| 1 | CVE-2023-44228 | 0.5091 | 10.0 | Apache Log4j2 |
-| 2 | CVE-2024-3400 | 0.1818 | 10.0 | PAN-OS |
+| 1 | CVE-2023-44228 | ~0.51 | 10.0 | Apache Log4j2 |
+| 2 | CVE-2024-3400 | ~0.18 | 10.0 | PAN-OS |
 | 3 | CVE-2023-20198 | 0.0727 | 10.0 | Cisco IOS XE WebUI |
 | 4 | CVE-2023-34362 | 0.0727 | 9.8 | MOVEit Transfer |
 | 5 | CVE-2023-22515 | 0.0727 | 10.0 | Atlassian Confluence |
 
-CVE-2023-44228 (Log4j) has the highest centrality of any node in the graph at 0.5091 — it connects to more than half the nodes because 12 threat actors exploit it. APT28's full profile subgraph spans 14 nodes and 21 edges.
+CVE-2023-44228 (Log4j) has the highest centrality of any node in the graph at ~0.51 — it connects to more than half the nodes because 12 threat actors exploit it. APT28's full profile subgraph spans 14 nodes and ~23 edges.
 
 Why centrality matters: CVSS scores rate severity in isolation. Centrality rates impact in context — how many attack paths pass through a vulnerability or actor. CVE-2024-3400 and CVE-2023-20198 both have CVSS 10.0, but CVE-2024-3400 has 2.5x the centrality because it sits on more active exploitation paths. This distinction is invisible without graph analysis.
 
@@ -258,11 +260,11 @@ Energy is a relative measure of graph proximity to the stimulated node. Direct n
 
 ### Born-rule probability vs. context-weighted probability
 
-The raw Born-rule probability is `|amplitude|²` normalized across all outcomes. Context weights scale individual outcome amplitudes before sampling, shifting the distribution. In the showcase, context evidence favoring APT28 shifts its probability from 56% to 82%.
+The raw Born-rule probability is `|amplitude|²` normalized across all outcomes. Context weights scale individual outcome amplitudes before sampling, shifting the distribution. In the showcase, context evidence favoring APT28 shifts its probability from ~59% to ~84%.
 
 ### Centrality scores
 
-Degree centrality = (number of neighbors) / (total nodes - 1). A score of 0.4182 means APT28 connects to 41.82% of all other nodes in the graph. This counts all edge types (exploits, targets, uses, etc.) through `incident_edges()`.
+Degree centrality = (number of neighbors) / (total nodes - 1). A score of ~0.45 means APT28 connects to roughly 45% of all other nodes in the graph. This counts all edge types (exploits, targets, uses, etc.) through `incident_edges()`.
 
 ### Evolution metrics
 
@@ -288,27 +290,27 @@ Degree centrality = (number of neighbors) / (total nodes - 1). A score of 0.4182
 | Rules applied | 30 |
 | New edges from reasoning | 30 |
 | Total inferred edges | 39 |
-| Activated nodes (spreading) | 25 |
-| Activated threat actors | 14 |
-| Affected sectors | 4 |
-| Related CVEs | 2 |
-| APT28 activation energy | 0.198 |
-| GOV activation energy | 0.241 |
-| CVE-2024-3400 activation energy | 0.212 |
-| APT28 prior probability | 0.5636 |
-| APT29 prior probability | 0.2108 |
-| Lazarus prior probability | 0.1394 |
-| Volt_Typhoon prior probability | 0.0863 |
-| APT28 empirical sample rate | 54.5% (1000 trials) |
-| APT28 context-weighted rate | 82.4% |
+| Activated nodes (spreading) | ~10 |
+| Activated threat actors | ~4 |
+| Affected sectors | ~2 |
+| Related CVEs | ~1 |
+| APT28 activation energy | ~0.22 |
+| GOV activation energy | ~0.25 |
+| CVE-2024-3400 activation energy | ~0.22 |
+| APT28 prior probability | ~0.59 |
+| APT29 prior probability | ~0.20 |
+| Lazarus prior probability | ~0.13 |
+| Volt_Typhoon prior probability | ~0.08 |
+| APT28 empirical sample rate | ~59% (1000 trials) |
+| APT28 context-weighted rate | ~84% |
 | Nodes pruned (evolution) | 3 |
 | Nodes merged (evolution) | 14 |
 | Final nodes | 56 |
 | Final edges | 152 |
-| APT28 centrality | 0.4182 |
-| CVE-2023-44228 centrality | 0.5091 |
-| APT28 subgraph | 14 nodes, 21 edges |
-| Event log entries | 4213 |
+| APT28 centrality | ~0.45 |
+| CVE-2023-44228 centrality | ~0.51 |
+| APT28 subgraph | 14 nodes, ~23 edges |
+| Event log entries | ~4214 |
 
 ## 8. What Makes This Different
 

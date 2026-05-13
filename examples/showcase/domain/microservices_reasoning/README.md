@@ -309,13 +309,13 @@ top_spof = top_k(bc, k=15)
 
 | Rank | Node | Betweenness | Interpretation |
 |------|------|-------------|----------------|
-| 1. | `cache-redis-general` | 0.247 | Shared cache — widely depended on across domains |
-| 2. | `queue-kafka-events` | 0.128 | Event bus — critical for async processing |
-| 3. | `svc-order-fulfill` | 0.104 | Order hub — central to fulfillment flow |
-| 4. | `db-pg-orders` | 0.104 | Orders DB — core data store |
-| 5. | `svc-order-cart` | 0.093 | Cart service — links to orders and payments |
+| 1. | `svc-order-api` | ~0.22 | Central order hub — depended on by fulfillment, history, cart, analytics |
+| 2. | `cache-redis-general` | ~0.15 | Shared cache — widely depended on across domains |
+| 3. | `queue-kafka-events` | ~0.13 | Event bus — critical for async processing |
+| 4. | `svc-pay-processor` | ~0.13 | Payment hub — central to payment flow |
+| 5. | `svc-catalog-api` | ~0.09 | Catalog hub — depended on by search, enrichment, reviews |
 
-**Key Insight:** High betweenness centrality means removing this node fragments the graph. `cache-redis-general` has the highest betweenness — it's a shared dependency across multiple service domains.
+**Key Insight:** High betweenness centrality means removing this node fragments the graph. `svc-order-api` has the highest betweenness — it is a central hub connecting orders, inventory, analytics, and catalog domains through the `depends_on` topology.
 
 ### Phase 7: Critical Dependency Chains
 
@@ -437,7 +437,7 @@ Active rules:      2 (TransitiveRule, InverseRule)
 | Rules applied | 300 |
 | Inference edges produced | 300 |
 | Longest chain | 8 hops |
-| Most central node | `cache-redis-general` (betweenness 0.247) |
+| Most central node | `svc-order-api` (betweenness ~0.22) |
 
 ## 9. What Makes This Different
 

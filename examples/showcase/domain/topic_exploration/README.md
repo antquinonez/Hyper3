@@ -68,7 +68,7 @@ SUMMARY
 ======================================================================
   Graph: 77 nodes, 148 edges
   Connected components: 1
-  Indirect causal links inferred: 32
+  Indirect causal links inferred: ~34
   Unaddressed impacts: 12
   Unevidenced phenomena: 10
 
@@ -161,7 +161,7 @@ graph TB
 | `evidence_for` / `measures` / `monitors` / `projects` / `quantifies` | 22 | Measurement supports phenomenon |
 | `complements` / `requires` | 5 | Solution interdependencies |
 | `replaces` / `enables` | 2 | Structural relationships |
-| `indirectly_causes` | 32 | Inferred by TransitiveRule |
+| `indirectly_causes` | ~34 | Inferred by TransitiveRule |
 
 ## 6. The Analysis Pipeline
 
@@ -288,7 +288,7 @@ result = mem.reason(
 
 **Why this matters:** Direct `causes` edges capture first-order relationships. Transitive inference reveals that `co2_emissions` indirectly causes `arctic_amplification` through the chain `co2 → greenhouse_effect → global_warming → arctic_amplification`. These indirect links make implicit chains explicit.
 
-**Result:** 32 indirect causal links discovered across 33 states at depth 2. Examples include `greenhouse_effect → vector_borne_disease`, `crop_yield_decline → economic_displacement`, and `hurricane_intensity → economic_displacement`.
+**Result:** ~34 indirect causal links discovered across ~35 states at depth 2. Examples include `greenhouse_effect → vector_borne_disease`, `crop_yield_decline → economic_displacement`, and `hurricane_intensity → economic_displacement`.
 
 ### Section 10: Cross-Domain Exploration Pipeline
 
@@ -398,8 +398,8 @@ Irreversibility scores range from 0.3 to 0.9 and represent how difficult it is t
 
 | Metric | Value |
 |--------|-------|
-| Indirect causal links | 32 |
-| States explored | 33 |
+| Indirect causal links | ~34 |
+| States explored | ~35 |
 | Max reasoning depth | 2 |
 
 ### Final Graph (Summary)
@@ -407,7 +407,7 @@ Irreversibility scores range from 0.3 to 0.9 and represent how difficult it is t
 | Metric | Value |
 |--------|-------|
 | Total nodes | 77 |
-| Total edges (after inference) | 148 |
+| Total edges (after inference) | ~150 |
 | Connected components | 1 |
 | Most central concept | `global_warming` (degree 0.329) |
 | Downstream influence of `global_warming` | 27 concepts |

@@ -23,9 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from hyper3 import HypergraphMemory, top_k
-from hyper3 import TransitiveRule, InverseRule, AbductiveRule
-from hyper3 import Modality
+from hyper3 import HypergraphMemory, InverseRule, AbductiveRule, Modality, top_k
 
 
 THREAT_ACTORS = [

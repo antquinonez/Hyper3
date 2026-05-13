@@ -258,11 +258,11 @@ class RecipeSubstitutionEngine:
     def _edge_weight(self, from_label: str, to_label: str, edge_label: str) -> float:
         from_node = self.mem.engine.graph.get_node_by_label(from_label)
         if not from_node:
-            return 1.0
+            return 0.0
         to_node = self.mem.engine.graph.get_node_by_label(to_label)
         if not to_node:
-            return 1.0
+            return 0.0
         for edge in self.mem.engine.graph.outgoing_edges(from_node.id):
             if edge.label == edge_label and to_node.id in edge.target_ids:
                 return edge.weight
-        return 1.0
+        return 0.0
