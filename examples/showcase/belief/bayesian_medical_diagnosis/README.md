@@ -138,7 +138,13 @@ Four sequential Bayesian updates:
 
 The posterior after ECG (0.444 to 0.898) is the largest single jump, reflecting the high specificity of ST elevation for MI (likelihood 0.90 for MI vs 0.10 for PE).
 
-### KL Divergence per Evidence Piece
+## 7. Understanding the Output
+
+### Posterior Probability Values
+
+The posterior probabilities are computed via Bayes' rule: `P(hypothesis | evidence) proportional to P(evidence | hypothesis) * P(hypothesis)`. After the ECG update, the numerator for MI is `0.90 * 0.444 = 0.400`, producing the large jump from 0.444 to 0.898. These are exact values, not approximations.
+
+### KL Divergence Column
 
 The KL divergence column shows how much each evidence piece shifts the distribution: chest pain symptoms (0.084 bits), ECG (0.704 bits), troponin (0.100 bits), D-dimer (0.005 bits). The ECG dominates because its likelihood distribution is the most peaked -- it strongly supports MI (0.90) while being near-zero for most alternatives.
 

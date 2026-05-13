@@ -157,7 +157,7 @@ The ambiguous concept "bank" is represented as a Born-rule distribution over thr
 
 ### Section 3: Concept Correlation
 
-Two fresh distributions are created and linked with pairwise correlation coefficients. The "bank" distribution (`financial`, `river_edge`, `billiards`) is correlated with a water-context distribution (`drinking`, `river`, `ocean`). High positive correlation between `river_edge` and `river` (0.9) means that sampling `river_edge` from the bank distribution biases the water distribution toward `river`, and vice versa.
+Two fresh distributions are created and linked with pairwise correlation coefficients. The "bank" distribution (`financial`, `river_edge`, `billiards`) is correlated with a water-context distribution (`drinking`, `river`, `ocean`). A full 3x3 correlation matrix (9 entries) is specified; four notable correlations are highlighted below. High positive correlation between `river_edge` and `river` (0.9) means that sampling `river_edge` from the bank distribution biases the water distribution toward `river`, and vice versa.
 
 Sampling from the bank distribution yields an outcome (probabilistic -- varies across runs). The correlation structure means that if `river_edge` is sampled, the water distribution is biased toward `river`.
 

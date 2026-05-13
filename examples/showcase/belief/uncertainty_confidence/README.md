@@ -16,7 +16,7 @@ Imagine auditing a supply chain. You know directly that widget_alpha comes from 
 
 | Term | Plain English Meaning |
 |------|----------------------|
-| **ConfidenceScore** | Per-node assessment with confidence value, provenance depth, and source type (observed/inferred) |
+| **ConfidenceScore** | Per-node assessment with confidence value, provenance depth, and source type (observed/inferred). Values can exceed 1.0 because confidence accumulates from multiple contributing edge weights -- it is not a probability. |
 | **Provenance depth** | How many inference steps produced this fact (0 = observed, 1 = one rule application, etc.) |
 | **Depth decay** | Multiplicative confidence reduction per inference step (default 0.85) |
 | **Confidence chain** | Highest-confidence path between two nodes, showing cumulative confidence and rules applied |
@@ -47,6 +47,8 @@ supplier_acme:
   confidence: 1.0000, depth: 0, source: observed
 widget_gamma:
   confidence: 2.5500, depth: 1, source: inferred
+  (confidence values exceed 1.0 because they accumulate edge weights,
+   not probabilities -- see Key Concepts)
 
 SECTION 4: FULL UNCERTAINTY ANALYSIS
 average confidence: 1.4233

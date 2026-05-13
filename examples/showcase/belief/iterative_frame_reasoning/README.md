@@ -187,6 +187,8 @@ graph TB
 
 ## 6. Analysis Pipeline
 
+> The script has 4 sections (printed as `SECTION N:` headers). This README describes them as 5 phases to separate graph construction from the four analytical phases. The mapping: script Section 1 = Phase 1, script Section 2 = Phase 2, script Section 3 = Phase 3, script Section 4 = Phase 5. Phase 4 (disagreement analysis) is embedded within script Section 3.
+
 ### Phase 1: Graph Construction and Rule Registration
 
 The 80 nodes and 183 edges are constructed from 6 entity categories. Five inference rules are registered:

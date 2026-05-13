@@ -195,13 +195,15 @@ graph TD
 
 ## 6. Analysis Pipeline
 
-### Section 1: Building the Incident Knowledge Graph
+> The script has 9 pipeline sections, each printed with a `SECTION N:` header. The subsections below correspond to those sections. Top-level README sections are numbered 1-12.
+
+### Pipeline Section 1: Building the Incident Knowledge Graph
 
 The script constructs a 62-node, 104-edge hypergraph representing a production outage. Six root cause hypotheses are stored with severity, MTTR, and frequency metadata. Nine observed symptoms connect to causes via `causes_symptom` edges. Fourteen evidence nodes carry source, timestamp, and confidence fields. The graph includes service dependency chains, responder assignments, timeline events, and impact nodes.
 
 Why this structure matters: the edges provide the connectivity that spreading activation uses to shift initial distribution weights. A root cause with more supporting evidence and symptom connections receives slightly higher activation, producing a non-uniform prior even without explicit amplitudes.
 
-### Section 2: Distribution = Maintaining Competing Hypotheses
+### Pipeline Section 2: Distribution = Maintaining Competing Hypotheses
 
 The script creates a distribution over five root cause hypotheses (excluding `deploy_bad_config`). Without explicit amplitudes, the distribution starts from spreading activation rather than a flat uniform prior:
 
@@ -217,7 +219,7 @@ The probabilities are close to uniform (0.20 each) but `kafka_partition_rebalanc
 
 Why this matters: the distribution maintains all hypotheses simultaneously. No hypothesis is discarded until evidence forces a choice. Without this, an engineer would need to track a mental list of candidates and manually update confidences.
 
-### Section 3: Sample = Evidence-Driven Hypothesis Selection
+### Pipeline Section 3: Sample = Evidence-Driven Hypothesis Selection
 
 Context weights derived from evidence severity are applied during sampling:
 
@@ -233,7 +235,7 @@ The high weight for `certificate_expiry` reflects strong SSL-related evidence (c
 
 Why this matters: sampling converts a multi-valued belief into a concrete decision point. The context mechanism lets you inject evidence without modifying the underlying distribution -- the same distribution can be sampled with different context weights for different evidence scenarios.
 
-### Section 4: Correlation = Correlated Hypotheses
+### Pipeline Section 4: Correlation = Correlated Hypotheses
 
 The script creates a correlation matrix between two groups of hypotheses:
 
@@ -253,7 +255,7 @@ When `certificate_expiry` is observed via `sample_correlated()`, the system retu
 
 Why this matters: real incidents often involve multiple interacting causes. A DNS failure can cascade into a database connection pool exhaustion. The correlation matrix captures these dependencies explicitly, so observing one hypothesis updates expectations about others.
 
-### Section 5: Interference = Evidence Reinforcement and Contradiction
+### Pipeline Section 5: Interference = Evidence Reinforcement and Contradiction
 
 The script creates two distributions with duplicate hypotheses to demonstrate interference:
 
@@ -271,7 +273,7 @@ The interference computation compares `|sum(amplitudes)|^2` against `sum(|amplit
 
 Why this matters: during an incident, you may receive conflicting evidence. The same metric (connection timeouts) could support DNS failure or certificate expiry. Interference detection surfaces this conflict rather than hiding it in an aggregate score.
 
-### Section 6: Density Matrix and Von Neumann Entropy
+### Pipeline Section 6: Density Matrix and Von Neumann Entropy
 
 Entropy values for different belief states:
 
@@ -288,7 +290,7 @@ The pure state caveat: the script creates a distribution with amplitudes `[0.6, 
 
 Why this matters: entropy gives a single number for "how uncertain are we?" A confident diagnosis has low entropy; a wild guess has high entropy. Tracking entropy over time shows whether the investigation is converging.
 
-### Section 7: Bayesian Posterior Updating
+### Pipeline Section 7: Bayesian Posterior Updating
 
 While the belief layer represents uncertainty, the Bayesian subsystem reduces it by applying Bayes' rule as evidence arrives. Starting from a uniform prior over five root causes, three sequential evidence updates converge on certificate_expiry:
 
@@ -303,13 +305,13 @@ After all evidence, certificate_expiry has ~92% posterior probability with a Bay
 
 Why this matters: the Bayesian subsystem provides the same functionality as `sample()` with context weights, but with explicit prior-posterior tracking, KL divergence measurement, and formal hypothesis testing. It is the clearer API for sequential evidence accumulation.
 
-### Section 8: Confidence Assessment and Knowledge Gaps
+### Pipeline Section 8: Confidence Assessment and Knowledge Gaps
 
 After Bayesian analysis identifies the most probable root cause, the confidence subsystem evaluates how reliable each part of the knowledge graph is. Each concept receives a confidence score based on provenance depth and graph structure. The section traces confidence chains from root causes to impact nodes and flags low-confidence areas as knowledge gaps.
 
 Why this matters: even when Bayesian analysis converges on a diagnosis, individual concepts in the knowledge graph may have varying reliability. Confidence scoring surfaces weak areas where additional relationships or evidence would improve diagnostic quality.
 
-### Section 9: Honest Comparison with Bayesian Inference
+### Pipeline Section 9: Honest Comparison with Bayesian Inference
 
 The script explicitly compares the belief layer against Bayesian inference:
 
@@ -446,12 +448,12 @@ ent = mem.belief.correlate(
     },
 )
 
-qs_agg = mem.belief.create(
+qs_constructive = mem.belief.create(
     outcomes=["certificate_expiry", "certificate_expiry"],
     amplitudes=[0.7, 0.5],
     use_context=False,
 )
-patterns = mem.belief.interactions(qs_agg)
+patterns = mem.belief.interactions(qs_constructive)
 for p in patterns:
     print(f"{p.is_constructive}: net={p.net_amplitude:.4f}")
 

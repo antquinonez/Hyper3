@@ -66,7 +66,10 @@ def main() -> None:
     print(f"\nupdated MAP estimate: {mem.bayes.map('patient')}")
 
     bf = mem.bayes.factor("patient", hyp_a="disease_a", hyp_b="disease_b")
-    print(f"Bayes factor (disease_a vs disease_b): {bf:.2f}")
+    if bf is not None:
+        print(f"Bayes factor (disease_a vs disease_b): {bf:.2f}")
+    else:
+        print("Bayes factor (disease_a vs disease_b): N/A")
 
     print("\n" + "=" * 70)
     print("SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS")

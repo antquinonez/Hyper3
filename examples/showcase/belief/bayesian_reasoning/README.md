@@ -225,7 +225,7 @@ All KL divergence values in this showcase use base-2 logarithms (bits). The `Upd
 
 **Information gain ranking identifies the most diagnostic observations.** Knowing that `config_diff_detected` has the highest KL divergence (1.0200 bits) tells you which observation to prioritize collecting first in future incidents. This is actionable: if you can only run one diagnostic check, check for config diffs first.
 
-**Built-in Bayesian API.** This showcase uses Hyper3's Bayesian subsystem directly — `set_prior`, `update_belief`, `map_estimate`, `bayes_factor`, and `credible_set` — rather than implementing Bayes' rule manually. The knowledge graph stores the likelihood network as weighted `indicates` edges for reference, but the actual inference uses the library's `BayesianLayer` engine.
+**Built-in Bayesian API.** This showcase uses Hyper3's Bayesian subsystem directly — `bayes.set_prior`, `bayes.update`, `bayes.map`, `bayes.factor`, and `bayes.credible` — rather than implementing Bayes' rule manually. The knowledge graph stores the likelihood network as weighted `indicates` edges for reference, but the actual inference uses the library's `BayesianLayer` engine.
 
 ## 10. Code Implementation
 

@@ -313,7 +313,7 @@ All six rules show effectiveness 1.00, but this does not mean they are equally g
 
 ### Thompson Sampling Distribution
 
-The selection counts (temporal: 138, pragmatic: 59, linguistic: 2, emotional: 1 over 200 trials) are not deterministic — running the script again may produce slightly different counts. This is intentional. Thompson sampling draws from a Beta distribution parameterized by success/failure counts, so each trial has a random component. The overall shape (temporal dominant, pragmatic secondary, emotional negligible) is stable across runs.
+The selection counts over 200 trials are not deterministic -- running the script again produces different counts. This is intentional. Thompson sampling draws from a Beta distribution parameterized by success/failure counts, so each trial has a random component. The overall shape (temporal dominant, pragmatic secondary, emotional negligible) is stable across runs.
 
 ### Metamorphosis Triggers
 
@@ -384,7 +384,7 @@ Each call to `record_rule_outcome` updates the success/failure counts for that r
 ### Measurement Basis Learning
 
 ```python
-quantum = mem.engine.belief
+quantum = mem.belief_layer
 
 quantum.record_basis_outcome("temporal", True)
 quantum.record_basis_outcome("emotional", False)

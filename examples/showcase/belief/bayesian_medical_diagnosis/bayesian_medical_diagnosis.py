@@ -222,15 +222,13 @@ def main() -> None:
     )
     print("  Chest pain interpretation distribution:")
     for o in qs_pain.outcomes:
-        node = mem.engine.graph.get_node(o.node_id)
-        lbl = node.label if node else o.node_id[:12]
+        lbl = mem.node_label(o.node_id) or o.node_id[:12]
         print(f"    {lbl:30s} amp={o.amplitude:.4f}  prob={o.probability:.4f}")
 
     cardiac_context = {"cardiac_chest_pain": 3.0, "gi_chest_pain": 0.5, "musculoskeletal_chest_pain": 0.3}
     answer = mem.sample(qs_pain, context=cardiac_context)
     if answer:
-        node = mem.engine.graph.get_node(answer.node_id)
-        lbl = node.label if node else answer.node_id[:12]
+        lbl = mem.node_label(answer.node_id) or answer.node_id[:12]
         print(f"\n  Given cardiac risk factors, sampled: {lbl}")
     print()
 

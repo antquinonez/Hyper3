@@ -303,7 +303,7 @@ def main() -> None:
     print("SECTION 3: Measurement Basis Learning (Thompson Sampling)")
     print("=" * 70)
 
-    quantum = mem.engine.belief
+    quantum = mem.belief_layer
 
     training_outcomes = [
         ("pragmatic", True), ("pragmatic", True), ("pragmatic", True),

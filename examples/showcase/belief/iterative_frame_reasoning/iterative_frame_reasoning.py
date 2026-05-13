@@ -344,6 +344,9 @@ def _traverse(
     node_filter=None,
     weight_threshold: float = 0.0,
 ) -> set[str]:
+    """Frame-specific traversal. Uses `mem.engine.graph.incident_edges` for
+    direct edge-type filtering (no public equivalent for this access pattern).
+    """
     seed_ids = set()
     for label in seed_labels:
         nid = mem.resolve_id(label)
@@ -598,10 +601,6 @@ def generate_recommendations(
 def main():
     mem = HypergraphMemory(evolve_interval=0)
 
-    # =====================================================================
-    # SECTION 1: Infrastructure Graph Construction
-    # =====================================================================
-
     print("=" * 70)
     print("SECTION 1: Infrastructure Graph Construction")
     print("=" * 70)
@@ -617,10 +616,6 @@ def main():
         InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
         InverseRule(edge_label="contains", inverse_label="contained_in"),
     )
-
-    # =====================================================================
-    # SECTION 2: Four Analysis Perspectives
-    # =====================================================================
 
     print()
     print("=" * 70)
@@ -642,10 +637,6 @@ def main():
             mem, seeds, frame, label,
         )
 
-    # =====================================================================
-    # SECTION 3: Cross-Perspective Invariants and Disagreements
-    # =====================================================================
-
     print()
     print("=" * 70)
     print("SECTION 3: Cross-Perspective Invariants & Disagreements")
@@ -653,20 +644,12 @@ def main():
 
     find_invariants_and_disagreements(mem, seeds, perspective_results)
 
-    # =====================================================================
-    # SECTION 4: Actionable Recommendations
-    # =====================================================================
-
     print()
     print("=" * 70)
     print("SECTION 4: Actionable Recommendations")
     print("=" * 70)
 
     generate_recommendations(mem, perspective_results)
-
-    # =====================================================================
-    # SUMMARY
-    # =====================================================================
 
     print()
     print("=" * 70)
