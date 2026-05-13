@@ -124,11 +124,12 @@ Key blast radius lines from a typical run:
 
 ```mermaid
 graph LR
-    GW[1) svc-gateway-main] -->|depends_on| ORD[svc-order-api]
-    ORD -->|depends_on| AUTH[svc-auth-gateway]
-    AUTH -->|depends_on| REDIS[cache-redis-auth]
+    GW[1) svc-gateway-main] -->|depends_on| RATE[svc-rate-limiter]
+    RATE -->|depends_on| REDIS[cache-redis-general]
 
-    ORD -->|depends_on| DBORD[2) db-pg-orders]
+    ORD[2) svc-order-api] -->|depends_on| AUTH[svc-auth-gateway]
+    AUTH -->|depends_on| AUTHCACHE[cache-redis-auth]
+    ORD -->|depends_on| DBORD[db-pg-orders]
 
     PAY[3) svc-pay-processor] -->|depends_on| DBPAY[db-pg-payments]
     PAY -->|depends_on| KAFKA[queue-kafka-events]
@@ -138,9 +139,9 @@ This is a simplified slice; the real graph is much denser.
 
 How to read it:
 
-- Numbered nodes call out the three most operationally significant roles: **1)** `svc-gateway-main` is the entry gateway that all external traffic flows through; **2)** `db-pg-orders` is the critical orders database with the highest blast radius; **3)** `svc-pay-processor` is the payment service where failures have direct revenue impact.
+- Numbered nodes call out the three most operationally significant roles: **1)** `svc-gateway-main` is the entry gateway that all external traffic flows through; **2)** `svc-order-api` is the order service with the widest dependency fan-out; **3)** `svc-pay-processor` is the payment service where failures have direct revenue impact.
 - Start at entry services (`svc-gateway-main`, `svc-pay-processor`) and walk downstream to infra nodes.
-- Any path ending at an infra node contributes to that node's blast radius. Blast radius propagates through the chain: `svc-gateway-main` depends on `svc-order-api`, which depends on `db-pg-orders` — so the gateway is in the orders database's blast radius even though it has no direct connection to it.
+- Any path ending at an infra node contributes to that node's blast radius. Blast radius propagates through the chain: `svc-order-api` depends on `svc-auth-gateway`, which depends on `cache-redis-auth` — so the order service is in the auth cache's blast radius even though it has no direct connection to it.
 - Transitive inference effectively adds implied long-range dependencies (for example, gateway-level services depending on deep infra through intermediary services).
 
 ## 6. How To Use the Results Operationally

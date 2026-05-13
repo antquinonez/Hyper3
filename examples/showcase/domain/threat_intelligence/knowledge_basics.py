@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
+from hyper3 import HypergraphMemory, InverseRule, Modality, top_k
 
 THREAT_ACTORS = [
     {"label": "APT28", "data": {"sophistication": "high", "origin": "Russia", "targets": ["government", "military"]}},
@@ -660,12 +660,12 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 11: Indirect Attack Chain Inference")
+    print("SECTION 11: Reverse Lookup Inference")
     print("=" * 70)
 
     mem.reason.add_rules(
-        TransitiveRule(edge_label="exploits", new_label="exploits_indirectly"),
-        TransitiveRule(edge_label="uses", new_label="uses_indirectly"),
+        InverseRule(edge_label="exploits", inverse_label="exploited_by"),
+        InverseRule(edge_label="uses", inverse_label="used_by"),
         InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),
     )
 
@@ -678,27 +678,28 @@ def main() -> None:
     else:
         print(f"  Reasoning error: {reason_result.error}")
 
-    indirect_exploits = mem.pattern_match(edge_label="exploits_indirectly")
-    indirect_uses = mem.pattern_match(edge_label="uses_indirectly")
-    print(f"\n  Indirect exploit chains: {len(indirect_exploits)}")
-    for e in indirect_exploits[:8]:
+    exploited_by = mem.pattern_match(edge_label="exploited_by")
+    used_by = mem.pattern_match(edge_label="used_by")
+    print(f"\n  Reverse exploit edges (exploited_by): {len(exploited_by)}")
+    for e in exploited_by[:8]:
         src = e.source_labels[0] if e.source_labels else "?"
         tgt = e.target_labels[0] if e.target_labels else "?"
-        print(f"    {src} --[exploits_indirectly]--> {tgt}")
-    if len(indirect_exploits) > 8:
-        print(f"    ... and {len(indirect_exploits) - 8} more")
+        print(f"    {src} --[exploited_by]--> {tgt}")
+    if len(exploited_by) > 8:
+        print(f"    ... and {len(exploited_by) - 8} more")
 
-    print(f"\n  Indirect tool-use chains: {len(indirect_uses)}")
-    for e in indirect_uses[:8]:
+    print(f"\n  Reverse tool-use edges (used_by): {len(used_by)}")
+    for e in used_by[:8]:
         src = e.source_labels[0] if e.source_labels else "?"
         tgt = e.target_labels[0] if e.target_labels else "?"
-        print(f"    {src} --[uses_indirectly]--> {tgt}")
-    if len(indirect_uses) > 8:
-        print(f"    ... and {len(indirect_uses) - 8} more")
+        print(f"    {src} --[used_by]--> {tgt}")
+    if len(used_by) > 8:
+        print(f"    ... and {len(used_by) - 8} more")
 
-    print("\n  Indirect chains reveal the full attack surface by propagating")
-    print("  exploit and tool-use relationships through intermediate nodes,")
-    print("  exposing multi-hop attack paths that single-edge queries miss.")
+    print("\n  Reverse lookup edges enable vulnerability-centric and")
+    print("  malware-centric analyst workflows: starting from a CVE")
+    print("  or tool, the analyst can immediately see which actors")
+    print("  are associated with it, without scanning every actor's edges.")
     print()
 
     print("=" * 70)

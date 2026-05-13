@@ -154,7 +154,7 @@ graph TD
     PNEU -->|causes| FEVER[fever]
     PNEU -->|causes| DYSP[dyspnea]
 
-    PE[2) pulmonary_embolism] -->|causes| DYSP
+    PE[2) pulmonary_embolism] -->|causes| SUDDEN_DYSP[sudden_onset_dyspnea]
     PE -->|causes| PLEUR[pleuritic_chest_pain]
 
     BRON[3) bronchitis] -->|causes| COUGH
@@ -169,7 +169,7 @@ Note: this diagram is intentionally a subset for readability; the script graph i
 How to read it:
 
 - Numbered nodes indicate clinical roles: **1) pneumonia** is the leading diagnosis, **2) pulmonary_embolism** is the primary differential, **3) bronchitis** is a secondary differential, **4) amoxicillin** is the first-line treatment, and **5) prolonged_immobility** is a risk-factor modifier.
-- Start at disease nodes (1-3), then follow `causes` edges into findings. Shared findings like **cough** (reached from both pneumonia and bronchitis) and **dyspnea** (reached from pneumonia and pulmonary embolism) are exactly what create diagnostic ambiguity — the script's coverage-weighted scoring resolves this by measuring how much of the patient's finding set each disease explains.
+- Start at disease nodes (1-3), then follow `causes` edges into findings. Shared findings like **cough** (reached from both pneumonia and bronchitis) and **pleuritic_chest_pain** (reached from both pneumonia and pulmonary embolism) are exactly what create diagnostic ambiguity — the script's coverage-weighted scoring resolves this by measuring how much of the patient's finding set each disease explains.
 - `increases_risk` edges (5 → 2) encode pre-test probability modifiers that shift the prior before evidence is evaluated, while `treats` edges (4 → 1) capture intervention paths once the diagnosis is confirmed.
 
 ## 6. Key Metrics (Current Script)

@@ -91,8 +91,9 @@ Registers rules via namespace style (`mem.reason.add_rules(...)`) and runs reaso
 
 In current data shape:
 
-- inverse attribution edges are inferred
-- transitive `exploits_indirectly` / `uses_indirectly` chains may be zero if same-label two-hop structure is absent
+- `exploited_by` reverse edges enable vulnerability-centric analyst workflows (which actors exploit this CVE?)
+- `used_by` reverse edges enable malware-centric queries (which actors use this tool?)
+- `attributed_to_inverse` reverse edges support infrastructure-to-actor tracing
 
 ### Section 12: Communities
 
