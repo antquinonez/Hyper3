@@ -657,7 +657,7 @@ def main():
     print("=" * 70)
     print(f"  Infrastructure: {mem.size[0]} nodes, {mem.size[1]} edges")
     total_new = sum(
-        r["expansion"].get("edges_produced", 0)
+        r["expansion"].edges_produced if r["expansion"] else 0
         for r in perspective_results.values()
     )
     print(f"  Inferred edges across all perspectives: {total_new}")

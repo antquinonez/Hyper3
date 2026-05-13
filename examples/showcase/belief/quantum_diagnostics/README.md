@@ -81,7 +81,7 @@ SECTION 7: Honest Comparison with Bayesian Inference
 
 ## 5. The Scenario
 
-A production outage investigation with 62 nodes and 104 edges across six categories:
+A production outage investigation with 62 nodes and 104 edges across six categories. Six root causes are stored in the graph, but the belief and Bayesian analyses use only five — `deploy_bad_config` is excluded because its evidence (`deploy_last_commit_config_change`, `evidence_recent_deploy_rollback`) was ruled out during triage, leaving five active hypotheses.
 
 | Category | Count | Examples |
 |----------|-------|---------|

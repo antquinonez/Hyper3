@@ -61,7 +61,7 @@ Edge types: `causes_symptom` (diagnosis to symptom), `supports` (test to diagnos
 
 ### Knowledge Graph Topology
 
-Figure 1: Core graph of diagnoses, symptoms, tests, and risk factors (22 nodes, 32 edges). The `differential_diagnosis` node and pain interpretation nodes are added later.
+Figure 1: Core graph of diagnoses, symptoms, tests, and risk factors (22 nodes, 32 edges, simplified). The `differential_diagnosis` node and pain interpretation nodes are added later.
 
 ```mermaid
 graph LR

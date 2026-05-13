@@ -108,7 +108,10 @@ def main() -> None:
         print(f"  depth: {chain.chain_depth}")
         print(f"  cumulative confidence: {chain.chain_confidence:.4f}")
         print(f"  edges in chain: {len(chain.edges)}")
-        print(f"  rules applied: {chain.rule_names}")
+        if chain.rule_names:
+            print(f"  rules applied: {chain.rule_names}")
+        else:
+            print("  rules applied: (none — chain traverses observed edges only)")
     else:
         print("\nno chain found from widget_alpha to supplier_globex")
 

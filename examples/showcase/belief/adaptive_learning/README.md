@@ -31,6 +31,7 @@ Think of a junior on-call engineer who always follows the same troubleshooting c
 | **Metamorphosis trigger** | A condition that signals the system should reconfigure itself (e.g., run rule discovery, expand its seed set). |
 | **Retention rate** | Fraction of a rule's inferred edges that survive graph evolution (not pruned). |
 | **Reinforcement rate** | Fraction of a rule's inferred edges that get strengthened during evolution. |
+| **Useful Apps** | Count of rule applications recorded with a `useful` outcome (excludes `pruned` and `reinforced` outcomes). |
 
 ## 4. Quick Start
 
@@ -189,7 +190,7 @@ The graph is constructed with 111 nodes (55 servers, 26 services, 10 alert types
 
 The script records 34 rule outcomes across 6 rule types. Each outcome is one of `useful`, `pruned`, or `reinforced`. The `RuleAnalytics` engine computes effectiveness metrics:
 
-| Rank | Rule | Effectiveness | Retention | Reinforcement | Applications |
+| Rank | Rule | Effectiveness | Retention | Reinforcement | Useful Apps |
 |------|------|--------------|-----------|---------------|-------------|
 | 1 | TransitiveRule | 1.00 | 0.80 | 0.40 | 5 |
 | 2 | InverseRule | 1.00 | 0.00 | 0.00 | 3 |
@@ -198,7 +199,7 @@ The script records 34 rule outcomes across 6 rule types. Each outcome is one of 
 | 5 | GeneralizationRule | 1.00 | 1.00 | 0.50 | 2 |
 | 6 | AbductiveRule | 1.00 | 1.00 | 0.33 | 3 |
 
-> **Note:** All rules show effectiveness 1.00 because the effectiveness metric measures whether a rule was applied at all (non-zero outcomes). The actual discrimination comes from the **retention** and **reinforcement** columns — retention measures what fraction of a rule's inferred edges survive graph evolution, and reinforcement measures what fraction get strengthened. A rule with effectiveness 1.00 and retention 0.00 (like `InverseRule`) is actively producing edges that the system immediately discards.
+> **Note:** All rules show effectiveness 1.00 because the effectiveness metric measures whether a rule was applied at all (non-zero outcomes). The **Useful Apps** column counts outcomes recorded as `useful` (distinct from total recorded outcomes, which include `pruned` and `reinforced`). The actual discrimination comes from the **retention** and **reinforcement** columns — retention measures what fraction of a rule's inferred edges survive graph evolution, and reinforcement measures what fraction get strengthened. A rule with effectiveness 1.00 and retention 0.00 (like `InverseRule`) is actively producing edges that the system immediately discards.
 
 **What retention rate reveals:** `HubInferenceRule` has retention 1.00 — every edge it produces survives pruning. `InverseRule` has retention 0.00 — all of its edges get pruned. This means `InverseRule` is producing inferences the system considers low-quality and removes. The negative retention for `AnalogicalRule` (-2.00) indicates that more edges were pruned than produced, a strong signal that the rule is not well-suited to this graph's structure.
 

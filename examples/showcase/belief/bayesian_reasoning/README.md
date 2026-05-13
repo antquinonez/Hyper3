@@ -52,7 +52,7 @@ A production outage with 6 candidate root causes and 8 observable evidence types
 
 ### Knowledge Graph Topology
 
-Figure 1: 15 nodes (6 root causes, 8 evidence types, 1 Bayesian analysis node) connected by 48 weighted indicator edges.
+Figure 1: 15 nodes (6 root causes, 8 evidence types, 1 Bayesian analysis node) connected by 48 weighted indicator edges. Diagram shows the highest-weight edge per evidence type (simplified from 48 to 10 edges).
 
 ```mermaid
 graph LR
