@@ -1,8 +1,6 @@
 """
 Complete Workflow: End-to-End Hypergraph Analysis
 ==================================================
-Parallels XGI case_study_zhang2022.
-
 Combines generative models, statistics, centralities, spectral clustering,
 clustering coefficients, and graph transformations into a single workflow.
 
@@ -17,8 +15,8 @@ def main() -> None:
     print("SECTION 1: Generate a Random SBM Hypergraph")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.uniform_HSBM(n=24, k=3, sizes=[8, 8, 8], p=0.6, q=0.05)")
+    print("  random_sbm(24, 3, [8,8,8], p_in=0.6, p_out=0.05) creates a 24-node")
+    print("  graph with 3 planted communities of 8 nodes each.\n")
 
     from hyper3 import random_sbm, CommunityDetector
     from hyper3 import HypergraphMemory
@@ -30,8 +28,7 @@ def main() -> None:
     print("SECTION 2: Compute Statistics")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("H.nodes.degree.asdict(), H.edges.size.asdict()")
+    print("  density(), degree_distribution(), unique_edge_sizes(), is_connected()")
 
     print(f"density: {g.density():.4f}")
     print(f"unique edge sizes: {g.unique_edge_sizes()}")
@@ -46,8 +43,7 @@ def main() -> None:
     print("SECTION 3: Compute Centralities")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.katz_centrality(H), xgi.h_eigenvector_centrality(H)")
+    print("  pagerank(), katz_centrality(), betweenness_centrality()")
 
     import numpy as np
 
@@ -78,8 +74,7 @@ def main() -> None:
     print("SECTION 4: Spectral Clustering")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.spectral_clustering(H, k=3)")
+    print("  spectral_clustering(k) recovers planted communities via Laplacian eigenvectors.")
 
     clusters = g.spectral_clustering(k=3)
     print(f"\nspectral clusters: {len(clusters)}")
@@ -100,8 +95,7 @@ def main() -> None:
     print("SECTION 5: Clustering Coefficients")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.clustering_coefficient(H)")
+    print("  average_clustering_coefficient(), clustering_coefficient(node_id)")
 
     avg_cc = g.average_clustering_coefficient()
     print(f"\naverage clustering coefficient: {avg_cc:.4f}")
@@ -117,8 +111,7 @@ def main() -> None:
     print("SECTION 6: Graph Transformations")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.dual_dict(H), xgi.to_line_graph(H), xgi.to_bipartite_graph(H)")
+    print("  to_dual(), to_line_graph(), to_bipartite_graph()")
 
     dual = g.to_dual()
     print(f"\ndual: nodes={dual.node_count}, edges={dual.edge_count}")

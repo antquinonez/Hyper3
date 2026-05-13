@@ -48,6 +48,24 @@ A routine deployment of config-service:v2.3 pushes a stale configuration (max_co
 
 Components: api_gateway, auth_service, order_service, payment_service, connection_pool, postgres, redis, load_balancer, config_service.
 
+The knowledge graph ultimately contains 20 nodes (9 infrastructure + 11 temporal events) because temporal events are registered as graph nodes. Infrastructure-only queries filter by node data. The 12 dependency edges connect infrastructure components; temporal events are linked separately via `timeline_link` edges.
+
+```mermaid
+graph TB
+    LB[load_balancer] -->|routes_to| API[api_gateway]
+    CFG[config_service] -->|configures| API
+    CFG -->|configures| CP[connection_pool]
+    API -->|routes_to| AUTH[auth_service]
+    API -->|routes_to| ORD[order_service]
+    API -->|routes_to| PAY[payment_service]
+    AUTH -->|uses| CP
+    ORD -->|uses| CP
+    ORD -->|uses| REDIS[redis]
+    PAY -->|writes_to| PG[postgres]
+    AUTH -->|reads_from| REDIS
+    CP -->|connects_to| PG
+```
+
 ## 5. Analysis Pipeline
 
 ### Section 1: Infrastructure Graph Construction
@@ -97,21 +115,38 @@ Shortest path from config_service to payment_service reveals the impact propagat
 ## 8. Code Implementation
 
 ```python
-from hyper3 import HypergraphMemory
+from hyper3 import HypergraphMemory, TransitiveRule
 
 mem = HypergraphMemory(evolve_interval=0)
 
-mem.add("api_gateway", data={"tier": "edge"})
+# Build infrastructure graph
+mem.add("api_gateway", data={"tier": "edge", "team": "platform"})
 mem.link("config_service", "connection_pool", label="configures", weight=3.0)
 
-mem.add_temporal_event("deploy", start=0.0, end=0.5)
+# Register temporal events with intervals and metadata
+mem.add_temporal_event("deploy", start=0.0, end=0.5,
+                       deployer="ci_cd", artifact="config-service:v2.3")
 mem.add_temporal_event("outage", start=2.0, end=10.0)
 
+# Compute Allen relation between two events
 relation = mem.allen_relation("deploy", "outage")
 print(relation.value)  # "before"
 
-chains = mem.detect_temporal_causal_chains(min_chain_length=3)
-issues = mem.check_temporal_constraint_consistency()
+# Link events to enable causal chain detection
+mem.link("deploy", "stale_config_pushed", label="timeline_link", weight=3.0)
+mem.link("stale_config_pushed", "db_pool_growth_begins", label="timeline_link", weight=3.0)
+
+# Detect causal chains through temporal + graph structure
+chains = mem.temporal.detect_causal_chains(min_chain_length=3)
+print(f"Found {len(chains)} chains")
+
+# Check temporal consistency
+constraints = mem.temporal.infer_temporal_constraints()
+issues = mem.temporal.check_constraint_consistency()
+
+# Infrastructure impact analysis
+path = mem.analyze.shortest_path("config_service", "payment_service", weighted=True)
+centrality = mem.analyze.centrality("betweenness", top_k=5)
 ```
 
 ## 9. Real-World Gap

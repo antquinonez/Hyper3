@@ -91,6 +91,16 @@ graph LR
 
 Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges (v1), cross-domain links (v2), and erroneous data that gets rolled back.
 
+```mermaid
+gitGraph
+    commit id: "v0: 12 nodes, 9 edges (baseline)"
+    commit id: "v1: 13 nodes, 14 edges (+collaborations)"
+    commit id: "v2: 13 nodes, 16 edges (+cross-domain)"
+    commit id: "bad: 15 nodes, 19 edges (spurious)"
+    reset v2
+    commit id: "restored: 13 nodes, 16 edges"
+```
+
 ## 5. Analysis Pipeline
 
 **Section 1 — Build initial graph and capture baseline:** 12 nodes and 9 edges are created. Topics (machine_learning, neural_networks, nlp, computer_vision) are tagged with `data={"type": "topic"}`. Authors are tagged with `data={"type": "author"}`. Papers are tagged with `data={"type": "paper"}`. Institutions are tagged with `data={"type": "institution"}`. Nine edges connect authors to papers (`writes`), papers to topics (`cites`), and authors to institutions (`affiliated_with`). `capture_version()` snapshots this as v0 (version_id=0, nodes=12, edges=9). Why this matters: the baseline version establishes the known-good state. Every subsequent change is measured against this snapshot, and rollback to v0 would restore the graph to its original state.
@@ -152,8 +162,8 @@ for p in papers:
 for i in institutions:
     mem.add(i, data={"type": "institution"})
 
-mem.link("alice_chen", "paper_transformer", label="writes")
-mem.link("alice_chen", "mit", label="affiliated_with")
+mem.link("alice_chen", "paper_transformer", label="writes", weight=1.0)
+mem.link("alice_chen", "mit", label="affiliated_with", weight=1.0)
 
 v0 = mem.capture_version()
 print(f"v0: nodes={v0['node_count']}, edges={v0['edge_count']}")
@@ -163,17 +173,26 @@ print(f"v0: nodes={v0['node_count']}, edges={v0['edge_count']}")
 
 ```python
 mem.add("paper_diffusion", data={"type": "paper"})
-mem.link("alice_chen", "carol_wu", label="collaborates_with")
-mem.link("alice_chen", "paper_diffusion", label="writes")
+mem.link("alice_chen", "carol_wu", label="collaborates_with", weight=2.0)
+mem.link("alice_chen", "paper_diffusion", label="writes", weight=1.0)
 
 v1 = mem.capture_version()
-delta = mem.diff_from_version(0)
+delta = mem.diff_from_version(v0["version_id"])
 print(f"total changes: {delta.total_changes}")
-for node in delta.nodes_added:
-    print(f"  +node: {node.label}")
+for nd in delta.nodes_added:
+    print(f"  +node: {nd.node_label}")
+for ed in delta.edges_added:
+    print(f"  +edge: {ed.source_label} -[{ed.new_label}]-> {ed.target_label}")
 ```
 
-**3. View version history:**
+**3. Compare two specific versions:**
+
+```python
+delta_v1_v2 = mem.diff_between_versions(v1["version_id"], v2["version_id"])
+print(f"edges added: {len(delta_v1_v2.edges_added)}")
+```
+
+**4. View version history:**
 
 ```python
 history = mem.version_history()
@@ -181,22 +200,27 @@ for v in history.versions:
     print(f"  v{v.version_id}: nodes={v.node_count}, edges={v.edge_count}")
 ```
 
-**4. Rollback to a previous version:**
+**5. Rollback to a previous version:**
 
 ```python
 mem.add("bad_node_1", data={"type": "error"})
-mem.link("bad_node_1", "alice_chen", label="spurious")
+mem.link("bad_node_1", "alice_chen", label="spurious", weight=0.1)
 
-rollback = mem.rollback_to_version(2)
-print(f"changes undone: {rollback.changes_undone}")
-print(f"nodes after rollback: {mem.describe().node_count}")
+rollback = mem.differ.rollback_to_version(v2["version_id"])
+print(f"nodes after rollback: {mem.size[0]}")
+print(f"bad node gone: {not mem.has('bad_node_1')}")
 ```
 
-**5. Diff from external snapshot:**
+**6. Diff from external snapshot:**
 
 ```python
-snapshot = {"nodes": {"external_ref": {"data": {}}}, "edges": []}
-diff = mem.diff_from_snapshot(snapshot)
+snapshot = {
+    "nodes": {"fake_id": {"label": "external_node", "data": None, "weight": 1.0, "access_count": 0}},
+    "edges": {},
+    "node_count": 1,
+    "edge_count": 0,
+}
+diff = mem.differ.diff_from_snapshot(snapshot)
 print(f"nodes added: {len(diff.nodes_added)}")
 print(f"edges added: {len(diff.edges_added)}")
 ```

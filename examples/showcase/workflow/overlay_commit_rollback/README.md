@@ -393,9 +393,24 @@ for eid in overlay.overlay_edge_ids:
 ```python
 # If hypothesis is correct:
 committed = mem.commit_inferences()
+print(f"committed {committed['committed_edges']} edges")
 
 # If hypothesis is wrong:
 rb = mem.rollback_inferences()
+print(f"rolled back {rb['rolled_back_edges']} edges")
+```
+
+The overlay workflow follows a consistent cycle:
+
+```mermaid
+flowchart LR
+    H["Hypothesis\nSeeds"] --> R["reason()\nauto_commit=False"]
+    R --> O["Overlay\n(30 edges)"]
+    O --> E{"Blast radius\nmatches?"}
+    E -->|Yes| C["commit_inferences()"]
+    E -->|No| RB["rollback_inferences()"]
+    C --> BG["Base Graph\n+30 edges"]
+    RB --> BG2["Base Graph\nunchanged"]
 ```
 
 ## 11. Real-World Gap

@@ -61,7 +61,10 @@ SECTION 4: Computational Bias Profile
   Underused rules: ['inverse(causes->caused_by)']
 
 SECTION 5: Causal Merge Insight Preservation
-  Invariants found: 0
+  Invariants found: 1
+  Merge: d83e53cf + 58746cdf (similarity=0.675)
+    State d83e53cf: rule=transitive, unique_nodes=['delta'], unique_edges=1
+    State 58746cdf: rule=inverse, unique_nodes=[], unique_edges=0
 ```
 
 ## 4. The Scenario
@@ -147,14 +150,23 @@ Why this matters: a focused bias profile reveals that certain rules are producin
 
 ### Section 5: Causal Merge Insight Preservation
 
-The script constructs two multiway states sharing nodes `{node_a, node_b}` but differing in their unique contributions:
+The script constructs two multiway states sharing real graph nodes (`alpha`, `beta`, `gamma`) but differing in their unique contributions:
 
-- **State s1**: rule=`transitive`, unique node=`node_c`, unique edge=`edge_ac`
-- **State s2**: rule=`inverse`, unique node=`node_d`, unique edge=`edge_bd`
+- **State s1**: rule=`transitive`, active nodes={alpha, beta, gamma, delta}, produced edges={alpha-beta, gamma-delta}
+- **State s2**: rule=`inverse`, active nodes={alpha, beta, gamma}, produced edges={alpha-beta}
 
-The `merge_invariant_states()` call finds 0 invariants — the two states share only 2 of their 3 active nodes, and the similarity threshold (0.5) was not met for a merge. In cases where merges do occur, each `ConvergenceRecord` includes `insights` listing each state's unique nodes and edges, preserving the provenance of what each branch contributed.
+The similarity formula is `0.7 * Jaccard(node_ids) + 0.3 * Jaccard(edge_ids)`:
 
-Why this matters: when equivalent multiway states merge, the unique inferences from each branch should not be silently discarded. Insight preservation records what each state contributed so that downstream analysis can trace provenance even after convergence.
+- Node Jaccard: 3/4 = 0.75 (3 shared of 4 total distinct nodes)
+- Edge Jaccard: 1/2 = 0.50 (1 shared of 2 total distinct edges)
+- Similarity: 0.7 * 0.75 + 0.3 * 0.50 = **0.675** (above the 0.5 threshold)
+
+The `merge_invariant_states()` call finds 1 invariant and produces a `ConvergenceRecord` with two `MergeInsight` entries:
+
+- **s1 insight**: unique_nodes=[delta], unique_edges=1 (the gamma-delta edge) -- s1's transitive reasoning contributed a new node and edge beyond the shared baseline
+- **s2 insight**: unique_nodes=[], unique_edges=0 -- s2's inverse reasoning produced only edges already in the shared set
+
+Why this matters: when equivalent multiway states merge, the unique inferences from each branch should not be silently discarded. Insight preservation records what each state contributed so that downstream analysis can trace provenance even after convergence. In this case, the merge correctly identifies that `delta` and its connecting edge were s1's unique contribution, preserved in the `ConvergenceRecord.insights` field.
 
 ## 6. Key Metrics
 
@@ -183,7 +195,10 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 | Position trajectory | stable |
 | Dominant rules | 2 |
 | Underused rules | 1 |
-| Invariant merges found | 0 |
+| Invariant merges found | 1 |
+| Merge similarity | 0.675 |
+| s1 unique nodes (delta) | 1 |
+| s1 unique edges | 1 |
 
 ## 7. What Makes This Different
 
@@ -193,7 +208,7 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 
 **Bias-aware reasoning**: The bias profile quantifies rule utilization skew. Without it, a system could silently over-apply one inference rule while under-using others, producing lopsided knowledge without any indication that this is happening.
 
-**Insight preservation on merge**: Multiway state convergence discards the branch structure but retains each branch's unique contributions. Without this, merging equivalent states would lose the record of which inferences each branch produced.
+**Insight preservation on merge**: Multiway state convergence discards the branch structure but retains each branch's unique contributions. In the demonstrated merge (similarity=0.675), the transitive branch contributed node `delta` and its connecting edge -- this is recorded in the `ConvergenceRecord.insights` field and survives the merge. Without this, merging equivalent states would lose the record of which inferences each branch produced.
 
 ## 8. Code Implementation
 
@@ -208,7 +223,9 @@ mem.operation_feedback.record_evolution_outcome(0.7)
 result = mem.evolve_with_feedback()
 
 # Cross-operation feedback summary
-mem.operation_feedback.record_retrieval_outcome("connects", {"alpha_id"}, {"epsilon_id"})
+mem.operation_feedback.record_retrieval_outcome(
+    "connects", {alpha_id}, {epsilon_id},
+)
 summary = mem.feedback_summary()
 print(summary["overall_health"], summary["fitness_trend"])
 
@@ -223,6 +240,37 @@ if triggers:
 mem.add_rules(TransitiveRule(edge_label="causes"))
 profile = mem.compute_bias_profile()
 print(profile["reasoning_style"], profile["bias_score"])
+
+# Merge insight preservation
+from hyper3 import MultiwayGraph, StateConvergenceEngine, MultiwayState
+
+mw_graph = MultiwayGraph()
+causal = StateConvergenceEngine(mem.engine.graph, mw_graph, threshold=0.5)
+
+s1 = MultiwayState(
+    parent_id=None,
+    active_node_ids=frozenset({alpha_id, beta_id, gamma_id, delta_id}),
+    rule_applied="transitive",
+    depth=1,
+    produced_node_ids=[delta_id],
+    produced_edge_ids=[f"{alpha_id}_{beta_id}", f"{gamma_id}_{delta_id}"],
+)
+s2 = MultiwayState(
+    parent_id="other",
+    active_node_ids=frozenset({alpha_id, beta_id, gamma_id}),
+    rule_applied="inverse",
+    depth=1,
+    produced_node_ids=[],
+    produced_edge_ids=[f"{alpha_id}_{beta_id}"],
+)
+mw_graph.add_state(s1)
+mw_graph.add_state(s2)
+
+invariants = causal.merge_invariant_states()
+for inv in invariants:
+    print(f"similarity={inv.similarity:.3f}")
+    for insight in inv.insights:
+        print(f"  {insight.rule_applied}: unique_nodes={len(insight.unique_nodes)}")
 ```
 
 ## 9. Real-World Gap
@@ -230,7 +278,7 @@ print(profile["reasoning_style"], profile["bias_score"])
 - **Feedback source**: The showcase manually records evolution and inference outcomes. In production, these signals would come from downstream task performance or user interactions, requiring application-specific integration.
 - **Graph size**: The demo uses 19 nodes. Behavior at 10K+ nodes (feedback aggregation overhead, metamorphosis plan generation) is untested.
 - **Tuning actions**: The metamorphosis plan generates actions based on built-in heuristics. Custom tuning strategies (domain-specific merge criteria, application-weighted decay) require extending the tuning engine.
-- **Multiway convergence**: The constructed states do not meet the similarity threshold for merging. Demonstrating actual insight preservation requires graph structures that produce equivalent states — the API surface is shown but the merge path is not exercised with real data.
+- **Multiway convergence**: The constructed states use real graph node IDs and produce an actual merge (similarity=0.675). The insights correctly capture each branch's unique contributions. For more complex scenarios with naturally-occurring equivalent states from deep reasoning chains, the same mechanism applies automatically.
 
 ## 10. Reference
 

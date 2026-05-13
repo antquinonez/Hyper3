@@ -1,8 +1,6 @@
 """
 Generative Models: Building Random Hypergraphs
 ==============================================
-Parallels XGI Tutorial 4 (generative models).
-
 Demonstrates Hyper3's generator functions for creating random, structured,
 and clustered hypergraphs. Each generator produces a Hypergraph with
 reproducible random structure via seed parameters.
@@ -18,8 +16,8 @@ def main() -> None:
     print("SECTION 1: random_hypergraph (Erdos-Renyi)")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.random_hypergraph(n=15, ps={2: 0.3, 3: 0.1})")
+    print("  random_hypergraph(n, ps, seed) creates edges independently with")
+    print("  probability ps[order] for each possible edge of that order.\n")
 
     from hyper3 import random_hypergraph
 
@@ -41,8 +39,8 @@ def main() -> None:
     print("SECTION 2: random_uniform_hypergraph (k-uniform)")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.uniform_erdos_renyi_hypergraph(n=10, m=8, k=3)")
+    print("  random_uniform_hypergraph(n, m, k) creates exactly m edges,")
+    print("  each containing exactly k+1 nodes.\n")
 
     from hyper3 import random_uniform_hypergraph
 
@@ -60,8 +58,8 @@ def main() -> None:
     print("SECTION 3: random_sbm (Stochastic Block Model)")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.uniform_HSBM(n=30, k=2, sizes=[15, 15], p=0.5, q=0.01)")
+    print("  random_sbm(n, k, sizes, p_in, p_out) plants community structure:")
+    print("  high edge probability within blocks, low between blocks.\n")
 
     from hyper3 import random_sbm
 
@@ -116,8 +114,8 @@ def main() -> None:
     print("SECTION 6: random_chung_lu (Configuration Model)")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.chung_lu_hypergraph(k1, k2)")
+    print("  random_chung_lu(n, k1, k2) matches a prescribed degree sequence.")
+    print("  k1=expected node degrees, k2=expected edge sizes.\n")
 
     from hyper3 import random_chung_lu
 

@@ -61,10 +61,10 @@ SECTION 3: Multi-Resolution Structure (s-persistence)
 
 SECTION 4: Spectral Embedding from Hypergraph Laplacian
   Computed 35 embeddings in 4D
-    TP53: magnitude=0.4315  dim0=0.1554
-    BRCA1: magnitude=0.3667  dim0=0.1346
-    KRAS: magnitude=0.4518  dim0=0.1554
-    EGFR: magnitude=0.3425  dim0=0.1554
+    TP53: magnitude=0.4315
+    BRCA1: magnitude=0.3667
+    KRAS: magnitude=0.4518
+    EGFR: magnitude=0.3425
   Cosine similarity(TP53, BRCA1) = 0.9995
   Cosine similarity(TP53, KRAS)  = 0.0464
 
@@ -79,6 +79,8 @@ SECTION 6: Gated Diffusion (AND/OR/majority)
   mode=majority: 1 pathway/disease nodes activated  top: dna_repair=4.250
   mode=and     : 1 pathway/disease nodes activated  top: dna_repair=4.250
 ```
+
+> **Note:** Individual spectral embedding dimension values vary across runs due to eigendecomposition sign ambiguity. The magnitudes and cosine similarities are stable.
 
 ## 5. The Scenario
 
@@ -337,9 +339,15 @@ import math
 emb = mem.spectral_embedding(dimensions=4)
 tp53 = emb["TP53"]
 brca1 = emb["BRCA1"]
-cos = sum(a * b for a, b in zip(tp53, brca1)) / (
-    math.sqrt(sum(a * a for a in tp53)) * math.sqrt(sum(b * b for b in brca1)) + 1e-12
-)
+kras = emb["KRAS"]
+
+def cosine(a, b):
+    return sum(x * y for x, y in zip(a, b)) / (
+        math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)) + 1e-12
+    )
+
+print(f"TP53-BRCA1: {cosine(tp53, brca1):.4f}")  # 0.9995 (shared complex)
+print(f"TP53-KRAS:  {cosine(tp53, kras):.4f}")   # 0.0464 (no shared complex)
 ```
 
 **5. Hyperedge Jaccard similarity:**

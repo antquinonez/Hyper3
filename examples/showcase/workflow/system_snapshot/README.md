@@ -6,7 +6,32 @@
 
 Analysis sessions are stateful — belief distributions accumulate over multiple `create_distribution` and `sample` calls, multiway expansion builds branching state trees, provenance records track every inferred edge back to its source rules, retrieval feedback adjusts future recall rankings, rule analytics measure which rules produce useful edges, and cache entries accelerate repeated lookups. After a session processing thousands of concepts, all this subsystem state represents significant computational investment.
 
-Without snapshotting, restarting the process loses everything. The snapshot subsystem serializes every subsystem into a single immutable `SystemSnapshot` object, enabling checkpoint-restore workflows, session transfer between machines, and audit-compliant state archival. The graph structure is saved separately (via `save/load`), while the snapshot captures the subsystem layer above the graph. This separation means you can restore subsystem state onto a different graph topology if needed — for example, restoring analytics and provenance onto a pruned version of the graph.
+Without snapshotting, restarting the process loses everything. The snapshot subsystem serializes every subsystem into a single immutable `SystemSnapshot` object, enabling checkpoint-restore workflows, session transfer between machines, and audit-compliant state archival. The graph structure is saved separately (via `save/load`), while the snapshot captures the subsystem layer above the graph. This separation means you can restore subsystem state onto a different graph topology if needed -- for example, restoring analytics and provenance onto a pruned version of the graph.
+
+```mermaid
+flowchart LR
+    subgraph "Source Instance"
+        G1[Graph] --> B1[BeliefLayer]
+        G1 --> MW1[MultiwayEngine]
+        G1 --> P1[Provenance]
+        G1 --> R1[Retrieval]
+        G1 --> C1[Cache]
+    end
+    subgraph "SystemSnapshot"
+        SS["Immutable\n(20+ fields)"]
+    end
+    subgraph "Target Instance"
+        G2[Graph] --> B2[BeliefLayer]
+        G2 --> MW2[MultiwayEngine]
+        G2 --> P2[Provenance]
+        G2 --> R2[Retrieval]
+        G2 --> C2[Cache]
+    end
+    B1 & MW1 & P1 & R1 & C1 -->|"capture_snapshot()"| SS
+    SS -->|"to_dict()"| JSON["JSON file"]
+    JSON -->|"from_dict()"| SS
+    SS -->|"restore"| B2 & MW2 & P2 & R2 & C2
+```
 
 ## 2. Key Concepts
 
@@ -118,23 +143,38 @@ from hyper3.snapshot import capture_snapshot
 snapshot = capture_snapshot(
     belief=mem._belief,
     multiway_engine=mem._multiway_engine,
+    state_clustering=mem._state_clustering,
+    rule_analytics=mem._rule_analytics,
     provenance=mem._provenance,
     retrieval=mem._retrieval,
+    perspective=mem._perspective,
+    meta=mem._meta,
     cache=mem._cache,
-    ...
+    feedback=mem._feedback,
 )
 print(f"belief states: {len(snapshot.belief_states)}")
+print(f"multiway states: {len(snapshot.multiway_states)}")
+print(f"provenance records: {len(snapshot.provenance_records)}")
 ```
 
 **3. Save to disk and restore:**
 
 ```python
-mem.save("graph.json")
-mem.save("snapshot.json", full=True)
+import tempfile, os
 
-mem2 = HypergraphMemory(evolve_interval=0, rules=[...])
-mem2.load("graph.json")
-mem2.load("snapshot.json")
+tmpdir = tempfile.mkdtemp()
+graph_path = os.path.join(tmpdir, "graph.json")
+snapshot_path = os.path.join(tmpdir, "snapshot.json")
+
+mem.save(graph_path)
+mem.save(snapshot_path, full=True)
+
+mem2 = HypergraphMemory(evolve_interval=0, rules=[
+    TransitiveRule(edge_label="influences", new_label="indirect_influence"),
+])
+mem2.load(graph_path)
+mem2.load(snapshot_path)
+print(f"restored: nodes={mem2.size[0]}, edges={mem2.size[1]}")
 ```
 
 **4. Serialization round-trip via to_dict/from_dict:**
