@@ -129,7 +129,7 @@ graph TB
 | **Dependency** | `depends_on`, `replicates_to`, `distributes_to` | Service reliance |
 | **Causality** | `causes`, `affects`, `indicates` | Cause-effect relationships |
 | **Observation** | `monitors`, `collects_from`, `traces`, `receives_from` | Telemetry and alerting links |
-| **Resolution** | `resolves`, `deploys`, `triggers` | Remediation pathways |
+| **Resolution** | `resolves`, `deploys`, `triggers`, `configures`, `provides`, `reads` | Remediation, deployment, and configuration pathways |
 | **Security** | `protects`, `secures`, `authenticates` | Security boundaries |
 
 ## 6. The Analysis Pipeline (Narrative Walkthrough)

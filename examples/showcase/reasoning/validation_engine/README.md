@@ -126,13 +126,13 @@ graph LR
     end
 
     CL -.->|"loss=0.75"| QU
-    CL -->|"loss=0.00"| HY
+    CL -->|"loss=0.33"| HY
     CL -->|"loss=0.08"| PR
     QU -->|"loss=0.00"| HY
     HY -.->|"loss=0.50"| QU
 ```
 
-Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Values use the parameters from Section 6 of the code. The classical frame is the most "isolated" — moving to quantum loses 75% of expressible information.
+Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Classical-origin values use Section 6 parameters; cross-frame values use Section 2 matrix parameters. Actual loss depends on parameters passed to `transform()`. The classical frame is the most "isolated" — moving to quantum loses 75% of expressible information.
 
 ## 6. Analysis Pipeline
 

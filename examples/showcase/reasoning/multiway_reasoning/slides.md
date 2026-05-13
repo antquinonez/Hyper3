@@ -234,7 +234,7 @@ Terraform/K8s -> Entity Extraction -> Jaeger/Prometheus -> Relationship Inferenc
 Causal Discovery -> Semantic Labeling -> Entity Resolution -> Hyper3 Graph
 ```
 
-Hyper3 provides the **reasoning engine**; the community builds the **data plumbing**.
+Hyper3 provides the **reasoning engine**; the data engineering pipeline that feeds it is a separate concern.
 
 ---
 
@@ -267,6 +267,6 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 **Hyper3: Multiway Lateral Reasoning for Modern Infrastructure**
 
-> "We do not force the architecture to guess. By establishing structural sovereignty through hyperedges, we allow the intelligence to flow outward in all directions, letting the true narrative emerge effortlessly from the data."
+> Multiway expansion explores multiple hypotheses in parallel, comparing branches to identify the best explanation for observed symptoms.
 
-[View the code ->](examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py)
+[View the code ->](multiway_lateral_insights.py)
