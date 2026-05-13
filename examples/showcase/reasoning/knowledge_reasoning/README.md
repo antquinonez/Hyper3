@@ -72,6 +72,7 @@ contradictions detected: 2
   causes vs prevents between heart_disease-heart_disease
 revision: 1 edges removed, 1 kept
   total revised: 1
+  note: belief revision is non-deterministic; edge removal varies between runs
 
 SUMMARY
   1. Transitive inference discovers hidden causal chains
@@ -161,11 +162,17 @@ Each inferred edge carries a provenance record: the rule that produced it, the i
 
 ### Section 5: Belief Revision
 
-The `detect_contradictions()` method finds 2 contradictions. The output reports these as `causes vs prevents between heart_disease-heart_disease`. Both contradictions involve edges pointing at the same target node — heart_disease. Smoking causes heart_disease (`causes` label) while exercise prevents heart_disease (`prevents` label). The contradiction detection identifies opposing semantic labels on edges that share a target, reporting the target node on both sides of the "between" pair.
+The `detect_contradictions()` method finds 2 contradictions. The output reports these as `causes vs prevents between heart_disease-heart_disease`. Both contradictions involve edges touching the same node — heart_disease. Smoking causes heart_disease (`causes` label) while exercise prevents heart_disease (`prevents` label). The contradiction detection identifies opposing semantic labels on edges that share a target, reporting the target node on both sides of the "between" pair.
 
-The `revise_beliefs()` method resolves this by removing 1 edge and keeping 1, reducing the total by 1 revised edge. The revision removes the weaker or less-supported edge to restore consistency. In this run, the `exercise -> heart_disease [prevents]` edge was removed, while the `smoking -> heart_disease [causes]` edge was kept. This means exercise no longer appears as a preventive intervention against heart disease in the graph — a consequence that domain expertise should validate in production use.
+The `revise_beliefs()` method resolves these contradictions by removing one edge from each conflicting pair. The resolution is non-deterministic: the revision may remove either the `prevents` edge or the `causes` edges. These two outcomes produce different downstream graphs:
 
-> **Note**: Belief revision results can vary between runs. The contradiction detection may report the same pair in either order (`causes vs prevents` or `prevents vs causes`), and the revision engine's choice of which edge to remove may differ. Exact edge counts and downstream confidence values should be treated as run-dependent.
+**Outcome A** (removes the `prevents` edge): `exercise -> heart_disease [prevents]` is removed, while the `causes` edges survive. Downstream: 5 `caused_by` inverses and 1 `prevented_by` inverse are created. The confidence chain `asbestos -> death` reaches 27.0 via a 4-edge path that backtracks through an inverse edge.
+
+**Outcome B** (removes the `causes` edges): `smoking -> heart_disease [causes]` and `heart_disease -> death [causes]` are removed, plus both `smoking -> death [indirectly_causes]` inferred edges that depended on them. Downstream: 3 `caused_by` inverses and 2 `prevented_by` inverses are created. All confidence chains score 9.0 or below.
+
+In both cases, the graph remains internally consistent — the revision eliminates the contradictory edge pair. The choice of which edge to keep has domain implications (exercise's preventive effect vs. smoking's causal effect), which production systems should validate with expert input.
+
+> **Note**: Belief revision results can vary between runs. The contradiction detection may report the same pair in either order (`causes vs prevents` or `prevents vs causes`), and the revision engine's choice of which edge to remove may differ. Exact edge counts, inverse edge counts, and downstream confidence values should be treated as run-dependent. The contradiction count (2) and the transitive inference results (3 edges) are stable across all runs.
 
 **Why this matters**: Real knowledge bases accumulate contradictions as new information arrives. Without automated detection, contradictory beliefs coexist silently. Belief revision surfaces the conflict and resolves it, keeping the graph internally consistent.
 
@@ -176,7 +183,12 @@ After transitive inference and belief revision, the script adds two `InverseRule
 - `InverseRule(edge_label="causes", inverse_label="caused_by")` — for every A causes B, infer B caused_by A
 - `InverseRule(edge_label="prevents", inverse_label="prevented_by")` — for every A prevents B, infer B prevented_by A
 
-A second reasoning pass with these rules produces 6 new inverse edges: 5 `caused_by` edges (e.g., death caused_by heart_disease, lung_cancer caused_by smoking) and 1 `prevented_by` edge (infection prevented_by immunity). The `exercise -> heart_disease [prevents]` edge was removed during belief revision, so no `heart_disease prevented_by exercise` inverse is created. These inverse edges enable backward traversal of causal chains.
+A second reasoning pass with these rules produces new inverse edges. The exact count depends on the belief revision outcome:
+
+- **Outcome A** (prevents edge removed): 6 inverse edges — 5 `caused_by` (e.g., death caused_by heart_disease, lung_cancer caused_by smoking) and 1 `prevented_by` (infection prevented_by immunity). The `exercise -> heart_disease [prevents]` edge was removed during revision, so no `heart_disease prevented_by exercise` inverse is created.
+- **Outcome B** (causes edges removed): 5 inverse edges — 3 `caused_by` (e.g., death caused_by lung_cancer, lung_cancer caused_by smoking) and 2 `prevented_by` (infection prevented_by immunity, heart_disease prevented_by exercise). The `heart_disease -> death` causes edge was removed, so no `death caused_by heart_disease` inverse is created.
+
+In both outcomes, these inverse edges enable backward traversal of causal chains.
 
 **Why this matters**: Real knowledge graphs are queried from multiple directions. A forward query asks "what does smoking cause?" while a backward query asks "what caused death?" Inverse rules make both directions traversable without duplicating knowledge.
 
@@ -188,7 +200,7 @@ The key outputs:
 
 - `all_confidences()` returns aggregate statistics. The "High confidence (>0.8)" count of 9 means all 9 concepts in the graph exceed the 0.8 threshold — the graph has strong evidence throughout. The average confidence is 2.60 (exact value varies by run due to non-determinism in belief revision).
 - `confidence(concept)` returns a per-concept score. For example, death scores 7.65 because multiple causal chains converge on it, while smoking scores 2.55 because it has fewer incoming supporting edges.
-- `trace_confidence_chain(source, target)` finds the path with the highest cumulative confidence between two concepts. The chain confidence is the product of edge weights along the strongest path. `asbestos -> death` scores 27.0 because the strongest path traverses three edges of weight 3.0 each (3.0 * 3.0 * 3.0 = 27.0), passing through inferred and inverse edges. `smoking -> death` scores 9.0 via a two-edge path (3.0 * 3.0). Chain confidence is a separate metric from per-concept confidence — it measures path strength, not node importance.
+- `trace_confidence(source, target)` finds the path with the highest cumulative confidence between two concepts. The chain confidence is the product of edge weights along the strongest path. `smoking -> death` scores 9.0 via a direct two-edge path (3.0 * 3.0). `asbestos -> death` scores 27.0 (in Outcome A) via a 4-edge path that includes a weight-1.0 inverse edge: `asbestos ->[3.0] lung_cancer ->[1.0] smoking ->[3.0] heart_disease ->[3.0] death` (3.0 * 1.0 * 3.0 * 3.0 = 27.0). The `trace_confidence` algorithm picks the highest-product path without penalizing for length, so paths that backtrack through inverse edges can accumulate higher scores than shorter direct paths. In Outcome B, where the heart_disease chain is removed, `asbestos -> death` scores 9.0 via the direct two-edge path. Chain confidence is a separate metric from per-concept confidence — it measures path strength, not node importance.
 - `low_confidence(threshold)` identifies concepts below a threshold. With threshold=0.5, no concepts qualify — all exceed it.
 
 **Why this matters**: After revision removes contradictory edges, the confidence assessment reveals whether the remaining graph is trustworthy. Low-confidence concepts indicate knowledge gaps where additional evidence or relationships are needed.
@@ -207,18 +219,18 @@ The final summary connects all six demonstrated capabilities back to the knowled
 | Transitive reasoning: states created | 4 |
 | Transitive reasoning: edges produced | 3 |
 | Multi-rule reasoning: states created | 7 |
-| Multi-rule reasoning: edges produced | 6 (5 caused_by + 1 prevented_by) |
+| Multi-rule reasoning: edges produced | 5--6 (varies; see revision outcomes above) |
 | Unique inferred conclusions | 2 (asbestos->death, smoking->death) |
 | Contradictions detected | 2 |
-| Edges removed by revision | 1 |
-| Edges kept by revision | 1 |
-| Average confidence | 2.60 (raw cumulative, not 0-1 normalized; varies by run) |
-| Per-concept confidence range | 2.55 -- 7.65 |
-| Chain confidence range | 9.0 -- 27.0 (path product metric, separate from per-concept) |
+| Edges removed by revision | 1 or 4 (varies by run) |
+| Edges kept by revision | 1 or 2 (varies by run) |
+| Average confidence | 2.60 (raw cumulative, not 0-1 normalized; stable across runs) |
+| Per-concept confidence range | 1.0 -- 7.65 (varies by revision outcome) |
+| Chain confidence range | 3.0 -- 27.0 (varies by revision outcome; Outcome A: 9.0--27.0, Outcome B: 3.0--9.0) |
 | High confidence (>0.8) concepts | 9 (all concepts) |
 | Low confidence (<0.3) concepts | 0 |
 
-Per-concept confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains. Chain confidence (from `trace_confidence_chain`) is a separate metric measuring the product of edge weights along the strongest path between two concepts.
+Per-concept confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains. Chain confidence (from `trace_confidence`) is a separate metric measuring the product of edge weights along the strongest path between two concepts. Because the algorithm does not penalize path length, longer paths that traverse inverse or inferred edges can score higher than shorter direct paths.
 
 > **Non-determinism**: Belief revision is sensitive to the order in which contradictions are detected and resolved. The exact number of edges removed/kept, the resulting prevented_by inverses, and downstream confidence values may vary between runs. The contradiction count (2) and the transitive inference results (3 edges) are stable.
 
@@ -232,7 +244,7 @@ Per-concept confidence values are raw cumulative scores derived from edge weight
 
 **Backward chaining with gap identification.** When a proof fails, the depth-0 result indicates no path exists from evidence to conclusion. This failure mode is informative: it tells you exactly which conclusions your knowledge base cannot yet justify, revealing where additional evidence is needed.
 
-**Cumulative confidence that reflects evidence strength.** Per-concept confidence scores aggregate incoming edge weights and inference support, while chain confidence (`trace_confidence_chain`) multiplies edge weights along the strongest path. A chain traversing three edges of weight 3.0 scores 27.0 (3.0^3), while one traversing two edges scores 9.0 (3.0^2). This makes confidence directly interpretable: higher scores mean more supporting evidence at higher weights.
+**Cumulative confidence that reflects evidence strength.** Per-concept confidence scores aggregate incoming edge weights and inference support, while chain confidence (`trace_confidence`) multiplies edge weights along the strongest path. Because the algorithm does not penalize for path length or direction, longer paths that backtrack through inverse edges can accumulate higher products than shorter direct paths — a 4-edge path traversing 3.0, 1.0, 3.0, 3.0 edges scores 27.0, while the direct 2-edge path scores 9.0. This makes confidence directly interpretable: higher scores mean more edges at higher weights, but readers should examine the actual path rather than assuming longer chains are more semantically meaningful.
 
 ## 9. Code Implementation
 
@@ -308,7 +320,7 @@ print(f"asbestos -> death: confidence={chain.chain_confidence:.4f}")
 - **Graph size**: This example uses 9 nodes and 8 edges. Production knowledge graphs contain thousands or millions of facts. Performance at that scale is untested.
 - **Rule coverage**: Only one rule (TransitiveRule) is applied initially, with InverseRules added later. Real reasoning requires abductive rules, contextual substitution rules, and domain-specific rules working together.
 - **Non-determinism in revision**: Belief revision may produce different edge-removal decisions across runs. Production systems should either seed the random state for reproducibility or run revision multiple times and take a consensus.
-- **Contradiction resolution**: The revision engine removes edges based on structural heuristics. Real knowledge work requires domain expertise to decide which conflicting belief to retain. In this showcase, the revision chose to keep the `causes` edge and remove the `prevents` edge — but a domain expert might decide that exercise's preventive effect is the more reliable finding.
+- **Contradiction resolution**: The revision engine removes edges based on structural heuristics. Real knowledge work requires domain expertise to decide which conflicting belief to retain. In this showcase, the revision may remove either the `causes` or `prevents` edge — a domain expert might decide that exercise's preventive effect is more reliable than smoking's causal claim (or vice versa).
 - **Backward chaining scope**: The proof engine works on the base graph edges. Inferred edges from multiway expansion are not automatically available as proof steps.
 - **Confidence interpretation**: Confidence scores are cumulative products of edge weights, not calibrated probabilities. Comparing confidence across graphs with different edge weight distributions requires normalization that the system does not currently provide.
 - **Data pipeline**: The graph is constructed programmatically. Production use requires ingesting facts from databases, literature, or expert input with appropriate schema validation.

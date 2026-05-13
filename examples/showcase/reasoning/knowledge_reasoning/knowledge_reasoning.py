@@ -109,9 +109,15 @@ def main() -> None:
         print(f"  {c.edge_a_label} vs {c.edge_b_label} between {c.source_label}-{c.target_label}")
 
     if contradictions:
+        pre_edges = {e.id for e in mem.engine.graph.edges}
         revision = mem.revise_beliefs()
+        post_edges = {e.id for e in mem.engine.graph.edges}
+        removed_labels = []
+        for eid in pre_edges - post_edges:
+            removed_labels.append(eid[:12] + "...")
         print(f"\nrevision: {revision.edges_removed_count} edges removed, {revision.edges_kept_count} kept")
         print(f"  total revised: {revision.edges_revised}")
+        print(f"  note: belief revision is non-deterministic; edge removal varies between runs")
 
     print("\n" + "=" * 70)
     print("SECTION 6: MULTI-RULE REASONING (INVERSE + ABDUCTIVE)")
@@ -188,6 +194,8 @@ def main() -> None:
         chain = mem.cognitive.trace_confidence(src, tgt)
         if chain:
             print(f"    {src} -> {tgt}: confidence={chain.chain_confidence:.4f}, depth={chain.chain_depth}")
+        else:
+            print(f"    {src} -> {tgt}: no path found (edge may have been removed by revision)")
 
     print("\n" + "=" * 70)
     print("SUMMARY")
