@@ -214,7 +214,7 @@ class BackwardChainEngine:
         rule: Rule,
     ) -> tuple[ProofTree, float]:
         """Evaluate a single rule derivation and build a sub-proof tree."""
-        premise_ids = set(derivation.bindings.values())
+        premise_ids = {pid for pid in derivation.bindings.values() if pid != target_id}
         all_premises_satisfied = True
         sub_trees: list[ProofTree] = []
         sub_confidences: list[float] = []
@@ -283,7 +283,7 @@ class BackwardChainEngine:
                 if edge_label and derivation.context.get("edge_label") != edge_label:
                     continue
 
-                premise_ids = set(derivation.bindings.values())
+                premise_ids = {pid for pid in derivation.bindings.values() if pid != target_id}
                 all_satisfied = all(pid in known_ids for pid in premise_ids)
 
                 rule_score = rule.score_match(derivation, self._graph)
