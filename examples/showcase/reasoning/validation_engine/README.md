@@ -50,9 +50,87 @@ contradictions: 0
 
 Information loss values depend on the parameters passed to `FrameTransformer.transform()`. The matrix structure (which cells are zero vs nonzero) is stable.
 
-## 4. Analysis Pipeline
+## 4. Biomedical Graph Topology
 
-**Section 1 — Build biomedical knowledge graph:** 17 nodes across 6 types — genes (brca1, tp53, egfr, kras), proteins (p53, egfr, kras), diseases (breast_cancer, lung_cancer, pancreatic_cancer), drugs (cisplatin, erlotinib, olaparib), pathways (apoptosis, cell_cycle), and evidence (clinical, preclinical). 15 edges connect them with 6 semantic labels: `regulates` (gene->gene, gene->protein), `activates` (protein->pathway), `associated_with` (pathway->disease, disease->disease), `inhibits` (drug->protein), `targets` (drug->gene), and `evidence_for` (evidence->drug). A `TransitiveRule` is registered for the `regulates` label. Why this matters: the biomedical domain naturally produces multi-hop chains — gene_brca1 regulates gene_tp53, gene_tp53 regulates protein_p53 — making it ideal for testing whether transitive inference produces useful edges (gene_brca1 indirectly regulates protein_p53) or noise.
+The 17-node graph spans genes, proteins, diseases, drugs, pathways, and evidence nodes. The `regulates` label forms the inference chain that the ValidationEngine tests.
+
+```mermaid
+graph TB
+    subgraph "Genes"
+        BRCA1["gene_brca1"]
+        TP53["gene_tp53"]
+        EGFR["gene_egfr"]
+        KRAS["gene_kras"]
+    end
+
+    subgraph "Proteins"
+        P53["protein_p53"]
+        PEGFR["protein_egfr"]
+        PKRAS["protein_kras"]
+    end
+
+    subgraph "Drugs"
+        CIS["drug_cisplatin"]
+        ERL["drug_erlotinib"]
+        OLA["drug_olaparib"]
+    end
+
+    subgraph "Pathways"
+        APO["pathway_apoptosis"]
+        CC["pathway_cell_cycle"]
+    end
+
+    subgraph "Diseases"
+        BC["breast_cancer"]
+        LC["lung_cancer"]
+        PC["pancreatic_cancer"]
+    end
+
+    subgraph "Evidence"
+        EVC["evidence_clinical"]
+        EVP["evidence_preclinical"]
+    end
+
+    BRCA1 -->|"regulates"| TP53
+    TP53 -->|"regulates"| P53
+    EGFR -->|"regulates"| PEGFR
+    KRAS -->|"regulates"| PKRAS
+    P53 -->|"activates"| APO
+    PEGFR -->|"activates"| CC
+    APO -->|"associated_with"| BC
+    CC -->|"associated_with"| LC
+    PKRAS -->|"associated_with"| PC
+    CIS -->|"inhibits"| P53
+    ERL -->|"inhibits"| PEGFR
+    OLA -->|"targets"| BRCA1
+    EVC -->|"evidence_for"| CIS
+    EVP -->|"evidence_for"| OLA
+    BC -->|"associated_with"| LC
+```
+
+The transitive `regulates` chain (gene_brca1 -> gene_tp53 -> protein_p53) is the inference target for the validation comparison.
+
+```mermaid
+graph LR
+    subgraph "Frame Space"
+        CL["Classical<br/>pairwise edges"]
+        QU["Quantum<br/>amplitude superposition"]
+        HY["Hypergraph<br/>n-ary patterns"]
+        PR["Probabilistic<br/>weight distributions"]
+    end
+
+    CL -.->|"loss=0.75"| QU
+    CL -->|"loss=0.00"| HY
+    CL -->|"loss=0.08"| PR
+    QU -->|"loss=0.00"| HY
+    HY -.->|"loss=0.50"| QU
+```
+
+Dashed lines indicate high-loss transitions; solid lines indicate low-loss. Values use the parameters from Section 6 of the code. The classical frame is the most "isolated" — moving to quantum loses 75% of expressible information.
+
+## 5. Analysis Pipeline
+
+**Section 1 — Build biomedical knowledge graph:** 17 nodes across 6 types — genes (brca1, tp53, egfr, kras), proteins (p53, egfr, kras), diseases (breast_cancer, lung_cancer, pancreatic_cancer), drugs (cisplatin, erlotinib, olaparib), pathways (apoptosis, cell_cycle), and evidence (clinical, preclinical). 15 edges connect them with 6 semantic labels (see topology diagram above). A `TransitiveRule` is registered for the `regulates` label. Why this matters: the biomedical domain naturally produces multi-hop chains — gene_brca1 regulates gene_tp53, gene_tp53 regulates protein_p53 — making it ideal for testing whether transitive inference produces useful edges (gene_brca1 indirectly regulates protein_p53) or noise.
 
 **Section 2 — Frame transformations:** The 4x4 information loss matrix reveals which computational perspectives are "close" (low loss) and which require significant assumptions (high loss). Key observations: classical->classical has zero loss (identity transform). Classical->hypergraph has zero loss with the default parameters because pairwise edges are a subset of hyperedges — no information is lost by moving to a more general representation — but note that different parameters can yield different loss values (see Section 6). Quantum->hypergraph has zero loss because multi-source patterns are hypergraph-native. Classical->quantum has the highest loss (0.75) because amplitude superposition introduces phase information that classical pairwise edges cannot represent. Why this matters: the matrix tells you which frame transitions are "safe" (lossless or near-lossless) and which are "expensive" (high information loss requiring assumptions). If your analysis works in the classical frame and you need to move to the quantum frame, expect to lose 75% of the expressible information — the transform preserves reachability but discards weight magnitudes, label semantics, and structural patterns.
 
@@ -64,7 +142,7 @@ Information loss values depend on the parameters passed to `FrameTransformer.tra
 
 **Section 6 — Cross-frame comparison:** Identity transform (classical->classical) has zero information loss, confirming the baseline. Three out-of-classical transforms are detailed: classical->quantum uses "superposition" algorithm with loss 0.75, preserving only reachability. Classical->probabilistic uses "probabilistic" algorithm with loss 0.08, preserving reachability and weight ordering. Classical->hypergraph uses "pattern_match" algorithm with loss 0.33, preserving pairwise edges. Note that this classical->hypergraph loss (0.33) differs from the matrix value (0.00) because the individual transform uses `parameters={"max_arity": 3}` while the matrix uses `parameters={"branching_factor": 4, "amplitudes": [0.5, 0.3, 0.2]}` — information loss is parameter-dependent. Why this matters: the preserved properties tell you what survives the frame transition. Reachability preservation means you can still answer "can A reach B?" after moving to the quantum frame, but not "what is the strongest path from A to B?" Weight ordering preservation in the probabilistic frame means you can still rank paths by strength. Pairwise edge preservation in the hypergraph frame means no edges are lost, but the hypergraph may gain additional structure from higher-arity patterns.
 
-## 5. Key Metrics
+## 6. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -87,7 +165,7 @@ Information loss values depend on the parameters passed to `FrameTransformer.tra
 
 The "Min information loss" value of 0.00 comes from the parameterized matrix in Section 2, which uses `parameters={"branching_factor": 4, "amplitudes": [0.5, 0.3, 0.2]}`. Individual transforms in Section 6 use different parameters per pair (e.g., `{"max_arity": 3}` for classical->hypergraph) and show loss=0.3333 for the same frame pair. Information loss is a property of frames plus parameters, not frames alone.
 
-## 6. What Makes This Different
+## 7. What Makes This Different
 
 **Quantified agreement** provides numeric evidence for or against enhanced reasoning. The ValidationEngine computes node Jaccard (overlap of nodes touched), edge Jaccard (overlap of edges produced), consistency (fraction of shared edges with matching labels), precision (fraction of enhanced edges also found by simple), recall (fraction of simple edges also found by enhanced), and F1 (harmonic mean of precision and recall). These six metrics give a multi-dimensional view of agreement that a single "are they the same?" boolean cannot capture.
 
@@ -97,7 +175,7 @@ The "Min information loss" value of 0.00 comes from the parameterized matrix in 
 
 **Automatic recommendation** evaluates the agreement metrics and outputs "enhanced", "simple", or "equivalent" based on coverage, F1, and contradiction count. Enhanced gets the nod when it produces more coverage with no evidence of harm. Simple wins when enhanced introduces contradictions without coverage gains. Equivalent means both produce the same results. The recommendation is a starting point, not a final answer — the metrics provide the evidence for human judgment.
 
-## 7. Code Implementation
+## 8. Code Implementation
 
 **1. Build a biomedical graph with typed nodes:**
 
@@ -165,7 +243,7 @@ print(f"information_loss: {config.information_loss:.4f}")
 print(f"preserved: {config.preserved_properties}")
 ```
 
-## 8. Real-World Gap
+## 9. Real-World Gap
 
 This showcase validates reasoning on a 17-node biomedical graph with a single TransitiveRule. Real-world adoption involves additional considerations:
 
@@ -174,7 +252,7 @@ This showcase validates reasoning on a 17-node biomedical graph with a single Tr
 - **Frame transforms use fixed parameter mappings** — the `FrameTransformer` maps parameters between frames using predefined rules, not learned mappings. Domain-specific parameter tuning is not addressed.
 - **Scale** — the showcase runs on 17 nodes. Validation overhead (running reasoning twice per test case, computing Jaccard over all edges) scales with graph size and rule count.
 
-## 9. Reference
+## 10. Reference
 
 | Method | Purpose |
 |--------|---------|

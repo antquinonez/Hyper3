@@ -10,14 +10,14 @@ Run: .venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_
 
 from __future__ import annotations
 
+from hyper3 import HypergraphMemory
+from hyper3.rules import InverseRule, TransitiveRule
+
 
 def main() -> None:
     print("=" * 70)
     print("SECTION 1: BUILD A KNOWLEDGE BASE")
     print("=" * 70)
-
-    from hyper3 import HypergraphMemory
-    from hyper3.rules import InverseRule, TransitiveRule
 
     mem = HypergraphMemory(evolve_interval=0)
 

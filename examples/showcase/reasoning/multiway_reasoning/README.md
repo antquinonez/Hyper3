@@ -112,13 +112,13 @@ graph TB
     API_E --> AUTH_E
     API_E --> CACHE_E
     API_E --> DB_RE
-    DB --> DB_RE
-    HC --> API_E
-    HC --> DB
-    PROM --> API_E
-    PROM --> DB
-    PD --> PROM
-    IR --> PD
+    DB -->|"replicates_to"| DB_RE
+    HC -->|"monitors"| API_E
+    HC -->|"monitors"| DB
+    PROM -->|"monitors"| API_E
+    PROM -->|"monitors"| DB
+    PD -->|"receives_from"| PROM
+    IR -->|"receives_from"| PD
 ```
 
 ### Edge Label Taxonomy
@@ -128,7 +128,7 @@ graph TB
 | **Routing** | `routes_to`, `fails_over_to`, `hosts`, `serves` | Network traffic flow |
 | **Dependency** | `depends_on`, `replicates_to`, `distributes_to` | Service reliance |
 | **Causality** | `causes`, `affects`, `indicates` | Cause-effect relationships |
-| **Observation** | `monitors`, `collects_from`, `traces` | Telemetry links |
+| **Observation** | `monitors`, `collects_from`, `traces`, `receives_from` | Telemetry and alerting links |
 | **Resolution** | `resolves`, `deploys`, `triggers` | Remediation pathways |
 | **Security** | `protects`, `secures`, `authenticates` | Security boundaries |
 

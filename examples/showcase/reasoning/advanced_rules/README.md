@@ -101,7 +101,6 @@ graph LR
     GW -->|depends_on| AUTH
     GW -->|depends_on| CAT
     GW -->|depends_on| SEARCH
-    AUTH -->|depends_on| NOTIFY
     ORDER -->|depends_on| PAY
     ORDER -->|depends_on| NOTIFY
     CHECKOUT -->|depends_on| CART
@@ -115,7 +114,7 @@ graph LR
     AUTH -->|deployed_to| H01
 ```
 
-The diagram above shows a subset of the 125-node graph. Key structural features: `svc-api-gateway` is a dependency hub (4 outgoing `depends_on` edges), `alert-cascading-failure` is a convergence point (7 incoming `triggers` edges), and the correlation nodes create multi-labeled bridges between alerts and metrics.
+The diagram above shows a subset of the 125-node graph. Key structural features: `svc-api-gateway` is a dependency hub (4 outgoing `depends_on` edges in the full graph, 3 shown here), `alert-cascading-failure` is a convergence point (7 incoming `triggers` edges), and the correlation nodes create multi-labeled bridges between alerts and metrics.
 
 ## 6. Analysis Pipeline
 

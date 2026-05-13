@@ -174,13 +174,13 @@ A second reasoning pass with these rules produces 6 new inverse edges: 5 `caused
 
 ### Section 7: Post-Revision Confidence Assessment
 
-After all reasoning and revision, the confidence subsystem evaluates the quality of the knowledge graph. Confidence scores are **raw cumulative values**, not normalized to a 0-1 range. They reflect the product of edge weights along inference chains, so a concept with more supporting edges and higher-weight connections accumulates a higher score. In this graph, scores range from 1.0 (a leaf node with no incoming inferred edges) to 27.0 (a node reachable through multiple high-weight inference hops).
+After all reasoning and revision, the confidence subsystem evaluates the quality of the knowledge graph. Confidence scores are **raw cumulative values**, not normalized to a 0-1 range. They reflect the product of edge weights along inference chains, so a concept with more supporting edges and higher-weight connections accumulates a higher score. In this graph, per-concept scores range from 2.55 to 7.65.
 
 The key outputs:
 
-- `all_confidences()` returns aggregate statistics. The "High confidence (>0.8)" count of 9 means all 9 concepts in the graph exceed the 0.8 threshold — the graph has strong evidence throughout. The average confidence is 2.6.
-- `confidence(concept)` returns a per-concept score. For example, death scores 7.65 because multiple causal chains converge on it, while exercise scores 1.0 because it is a leaf node with only one outgoing edge.
-- `trace_confidence_chain(source, target)` finds the path with the highest cumulative confidence between two concepts. The chain confidence is the product of edge weights along the strongest path. This is why `asbestos -> death` scores 27.0 (three hops, each with weight 3.0: 3.0 * 3.0 * 3.0) while `smoking -> death` scores 9.0 (two hops: 3.0 * 3.0). The longer path through inferred edges accumulates a higher product.
+- `all_confidences()` returns aggregate statistics. The "High confidence (>0.8)" count of 9 means all 9 concepts in the graph exceed the 0.8 threshold — the graph has strong evidence throughout. The average confidence is 2.77.
+- `confidence(concept)` returns a per-concept score. For example, death scores 7.65 because multiple causal chains converge on it, while smoking scores 2.55 because it has fewer incoming supporting edges.
+- `trace_confidence_chain(source, target)` finds the path with the highest cumulative confidence between two concepts. The chain confidence is the product of edge weights along the strongest path. `asbestos -> death` scores 27.0 because the strongest path traverses three edges of weight 3.0 each (3.0 * 3.0 * 3.0 = 27.0), passing through inferred and inverse edges. `smoking -> death` scores 9.0 via a two-edge path (3.0 * 3.0). Chain confidence is a separate metric from per-concept confidence — it measures path strength, not node importance.
 - `low_confidence(threshold)` identifies concepts below a threshold. With threshold=0.5, no concepts qualify — all exceed it.
 
 **Why this matters**: After revision removes contradictory edges, the confidence assessment reveals whether the remaining graph is trustworthy. Low-confidence concepts indicate knowledge gaps where additional evidence or relationships are needed.
@@ -204,12 +204,13 @@ The final summary connects all six demonstrated capabilities back to the knowled
 | Contradictions detected | 2 |
 | Edges removed by revision | 1 |
 | Edges kept by revision | 1 |
-| Average confidence | 2.6 (raw cumulative, not 0-1 normalized) |
-| Confidence range | 1.0 -- 27.0 |
+| Average confidence | 2.77 (raw cumulative, not 0-1 normalized) |
+| Per-concept confidence range | 2.55 -- 7.65 |
+| Chain confidence range | 9.0 -- 27.0 (path product metric, separate from per-concept) |
 | High confidence (>0.8) concepts | 9 (all concepts) |
 | Low confidence (<0.3) concepts | 0 |
 
-Confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains.
+Per-concept confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains. Chain confidence (from `trace_confidence_chain`) is a separate metric measuring the product of edge weights along the strongest path between two concepts.
 
 ## 7. What Makes This Different
 
@@ -221,7 +222,7 @@ Confidence values are raw cumulative scores derived from edge weights and proven
 
 **Backward chaining with gap identification.** When a proof fails, the depth-0 result indicates no path exists from evidence to conclusion. This failure mode is informative: it tells you exactly which conclusions your knowledge base cannot yet justify, revealing where additional evidence is needed.
 
-**Cumulative confidence that reflects evidence strength.** Confidence scores are products of edge weights along inference chains, not arbitrary normalized values. A concept reachable through three hops of weight-3.0 edges scores 27.0, while one reachable through two hops scores 9.0. This makes confidence directly interpretable: higher scores mean more supporting evidence at higher weights.
+**Cumulative confidence that reflects evidence strength.** Per-concept confidence scores aggregate incoming edge weights and inference support, while chain confidence (`trace_confidence_chain`) multiplies edge weights along the strongest path. A chain traversing three edges of weight 3.0 scores 27.0 (3.0^3), while one traversing two edges scores 9.0 (3.0^2). This makes confidence directly interpretable: higher scores mean more supporting evidence at higher weights.
 
 ## 8. Code Implementation
 

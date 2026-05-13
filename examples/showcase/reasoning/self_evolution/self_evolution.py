@@ -9,13 +9,13 @@ Run: .venv/bin/python examples/showcase/reasoning/self_evolution/self_evolution.
 
 from __future__ import annotations
 
+from hyper3 import HypergraphMemory
+
 
 def main() -> None:
     print("=" * 70)
     print("SECTION 1: BUILD A GRAPH WITH USAGE PATTERNS")
     print("=" * 70)
-
-    from hyper3 import HypergraphMemory
 
     mem = HypergraphMemory(evolve_interval=0)
 

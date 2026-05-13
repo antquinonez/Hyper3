@@ -10,13 +10,13 @@ Run: .venv/bin/python examples/showcase/reasoning/validation_engine/validation_e
 
 from __future__ import annotations
 
+from hyper3 import FrameTransformer, HypergraphMemory, TransitiveRule, ValidationEngine
+
 
 def main() -> None:
     print("=" * 70)
     print("SECTION 1: BUILD BIOMEDICAL KNOWLEDGE GRAPH")
     print("=" * 70)
-
-    from hyper3 import HypergraphMemory, TransitiveRule
 
     mem = HypergraphMemory(evolve_interval=0, rules=[
         TransitiveRule(edge_label="regulates", new_label="indirect_regulation"),
@@ -66,8 +66,6 @@ def main() -> None:
     print("SECTION 2: FRAME TRANSFORMATIONS")
     print("=" * 70)
 
-    from hyper3 import FrameTransformer
-
     ft = FrameTransformer()
     frames = ["classical", "quantum", "hypergraph", "probabilistic"]
 
@@ -96,8 +94,6 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SECTION 3: SIMPLE VS ENHANCED REASONING COMPARISON")
     print("=" * 70)
-
-    from hyper3 import ValidationEngine
 
     ve = ValidationEngine(mem)
 

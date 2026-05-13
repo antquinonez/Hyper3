@@ -50,13 +50,24 @@ feedback summary:
 
 The script constructs an 8-node chain with graded edge weights:
 
-```
-alpha --5.0--> beta --5.0--> gamma --5.0--> delta --1.0--> epsilon --1.0--> zeta --0.5--> eta --0.3--> theta
-```
+```mermaid
+graph LR
+    subgraph "Core (w=5.0)"
+        A["alpha"] -->|"5.0"| B["beta"]
+        B -->|"5.0"| G["gamma"]
+        G -->|"5.0"| D["delta"]
+    end
 
-- **Core path** (alpha, beta, gamma, delta): weight 5.0
-- **Mid path** (delta, epsilon, zeta): weight 1.0
-- **Peripheral path** (zeta, eta, theta): weight 0.3-0.5
+    subgraph "Mid (w=1.0)"
+        D -->|"1.0"| E["epsilon"]
+        E -->|"1.0"| Z["zeta"]
+    end
+
+    subgraph "Peripheral (w=0.3-0.5)"
+        Z -->|"0.5"| H["eta"]
+        H -->|"0.3"| T["theta"]
+    end
+```
 
 A second 4-node graph (x, y, z, w) is used for the Hebbian learning demonstration.
 
