@@ -7,7 +7,7 @@ Demonstrates spectral clustering on hypergraphs: generating an SBM graph,
 clustering with k-means on Laplacian eigenvectors, and comparing with
 label propagation communities.
 
-Run: .venv/bin/python examples/showcase/core/communities_and_clustering/30_spectral_clustering.py
+Run: .venv/bin/python examples/showcase/core/communities_and_clustering/spectral_clustering.py
 """
 
 from __future__ import annotations

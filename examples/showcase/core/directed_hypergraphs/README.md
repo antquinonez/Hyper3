@@ -182,14 +182,14 @@ mem.link_hyper(
 **2. Degree analysis**
 
 ```python
-in_deg = mem.in_degree()
-out_deg = mem.out_degree()
+in_deg = mem.analyze.centrality("in_degree")
+out_deg = mem.analyze.centrality("out_degree")
 ```
 
 **3. Source/target inspection**
 
 ```python
-for e in mem.edges_labeled():
+for e in mem.analyze.edges():
     print(f"{e.label}: {set(e.source_labels)} -> {set(e.target_labels)}  (tail={e.source_cardinality}, head={e.target_cardinality})")
 ```
 
@@ -218,9 +218,9 @@ result = mem.reason(seeds={"substrate_x"}, max_depth=2)
 |--------|---------|
 | `mem.link(source, target, label, weight)` | Create a binary directed hyperedge |
 | `mem.link_hyper(sources, targets, label, weight)` | Create an n-ary directed hyperedge |
-| `mem.in_degree()` | Return dict mapping concept label to in-degree |
-| `mem.out_degree()` | Return dict mapping concept label to out-degree |
-| `mem.edges_labeled(edge_label)` | Iterate edges with source/target labels and cardinality |
+| `mem.analyze.centrality("in_degree")` | Return dict mapping concept label to in-degree |
+| `mem.analyze.centrality("out_degree")` | Return dict mapping concept label to out-degree |
+| `mem.analyze.edges()` | Iterate edges with source/target labels and cardinality |
 | `mem.hyperedge_neighbors(concept)` | Dict of co-participating concepts and shared edges |
 | `mem.reason(seeds, depth)` | Run multiway expansion from seed nodes |
 | `mem.add_rules(*rules)` | Register inference rules |

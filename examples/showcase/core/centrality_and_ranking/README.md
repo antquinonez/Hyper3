@@ -84,6 +84,12 @@ all measures agree on top node: False
 hub:
   anomaly status: anomalous
   boundary score: 0.4543
+d:
+  anomaly status: anomalous
+  boundary score: 0.3182
+a:
+  anomaly status: low_risk
+  boundary score: 0.2829
 
 communities detected: 1
 modularity: 0.0000
@@ -142,7 +148,7 @@ Builds an 8-node, 11-edge network with a star-like hub and a peripheral chain (a
 
 **Structural anomaly detection** classifies hub as anomalous (boundary score 0.4543) — its star topology creates an unusual concentration of connections. Node d is also anomalous (0.3182) due to its betweenness-bridging position. Node a is low_risk (0.2829) because it sits at the periphery with no structural surprises.
 
-**Community detection** separates the graph into two communities: {a, b, c, d, hub} (5 nodes) and {e, f, g} (3 nodes), with modularity 0.2149. This split reflects the asymmetric topology: the hub anchors one community with its direct neighbors and the first half of the chain, while the far end of the chain forms its own group.
+**Community detection** finds a single community covering all 8 nodes (modularity 0.0000, coverage 1.0000). The hub's connections to every chain node and the closing link (g -> hub) create enough cross-connectivity that label propagation cannot find a natural partition. This contrasts with graphs that have clearer structural boundaries (e.g., the three-cluster graph in `communities_and_clustering/community_detection.py`, which achieves modularity 0.6358). Community detection results are seed-dependent — with seed=1, the same graph produces two communities ({a, b, c, d, hub} and {e, f, g}) at modularity 0.2149 — but seed=42 (used in this script) collapses to one.
 
 ### 4c. Graph Statistics (`graph_statistics.py`)
 
@@ -184,7 +190,7 @@ Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 projec
 | Anomaly: hub | — | anomalous (0.4543) | — |
 | Anomaly: d | — | anomalous (0.3182) | — |
 | Anomaly: a | — | low_risk (0.2829) | — |
-| Communities | 1 (modularity 0.0000) | 2 (modularity 0.2149) | — |
+| Communities | 1 (modularity 0.0000) | 1 (modularity 0.0000) | — |
 | Evolution: nodes merged | — | — | 1 |
 | Evolution: density before/after | — | — | 0.3095 → 0.4333 |
 | Collapse: edges collapsed | — | — | 3 |
@@ -202,7 +208,7 @@ Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 projec
 
 **Anomaly detection surfaces structural patterns that centrality alone misses.** Script 1 flags alice, iris, and bob as anomalous due to cyclic dependencies — a pattern invisible to degree or PageRank. Script 2 flags hub as the most anomalous node (0.4543), confirming that its star topology is structurally unusual.
 
-**Community detection reveals subgroups that explain centrality disagreement.** In Script 2, the two communities ({a, b, c, d, hub} and {e, f, g}) explain why PageRank favors d — d sits at the boundary between the hub-centric community and the chain community, accumulating flow from both.
+**Community detection is sensitive to graph topology and seed.** Script 2 finds a single community (modularity 0.0000) because the hub connects to every chain node and the closing link (g -> hub) makes the graph too densely interlinked for label propagation to partition at seed=42. Script 1's org chart also collapses to one community for the same reason. Community detection is most informative on graphs with clear structural boundaries — see the three-cluster example in `communities_and_clustering/community_detection.py` (modularity 0.6358).
 
 **Evolution compresses graphs while preserving connectivity.** Script 3 shows evolution merging one node and increasing density from 0.3095 to 0.4333, demonstrating that structural maintenance reduces redundancy without losing information.
 
@@ -318,7 +324,7 @@ for s in mem.list_summaries():
 | `mem.analyze.anomalies(concept)` | `ExplorationReport` | Anomaly status, boundary score, structural insights |
 | `mem.analyze.communities(seed)` | `CommunityResult` | Communities, modularity, coverage, member labels |
 | `mem.evolve()` | `EvolveResult` | Decayed edges, pruned nodes, merged nodes |
-| `mem.search.activate(concept, energy)` | `None` | Injects activation energy into a node |
+| `mem.search.activate(concept, energy)` | `list[ActivationHit]` | Injects activation energy into a node and return activated neighbors |
 | `mem.cognitive.hebbian_reinforce()` | `None` | Strengthens edges between co-activated nodes |
 | `mem.collapse_subgraph(nodes, summary_label, summary_data)` | `CollapseResult` | Replaces nodes with summary, returns mapping and edge changes |
 | `mem.list_summaries()` | `list[SummaryMapping]` | Active summary-to-detail mappings |

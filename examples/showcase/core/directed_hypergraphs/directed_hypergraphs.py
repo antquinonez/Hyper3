@@ -9,7 +9,7 @@ Shows directed hyperedge construction, in/out degree,
 source/target access, and extends with Hyper3's semantic
 direction and inference.
 
-Run: .venv/bin/python examples/showcase/core/directed_hypergraphs/17_directed_hypergraphs.py
+Run: .venv/bin/python examples/showcase/core/directed_hypergraphs/directed_hypergraphs.py
 """
 
 from __future__ import annotations

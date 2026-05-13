@@ -6,7 +6,7 @@ Parallels XGI clustering tutorial.
 Demonstrates clustering coefficients on different graph structures
 (triangle, chain, star) and compares average clustering across topologies.
 
-Run: .venv/bin/python examples/showcase/core/communities_and_clustering/33_clustering_coefficient.py
+Run: .venv/bin/python examples/showcase/core/communities_and_clustering/clustering_coefficient.py
 """
 
 from __future__ import annotations

@@ -135,11 +135,11 @@ Solid arrows: pairwise edges (7). Dashed arrows: n-ary hyperedge connections (2 
 
 **Section 1 — Construction:** 8 nodes and 7 pairwise directed edges are created. Each node is stored with an empty data dict, which allows subsequent `ensure(update=True)` calls to merge metadata in later.
 
-**Section 2 — N-ary hyperedges:** Two hyperedges are added. `joint_project` has source cardinality 3 ({alice, bob, carol} -> {dave}), and `team_assignment` has target cardinality 4 ({dave} -> {eve, frank, grace, henry}). The `edges_labeled(min_source_cardinality=2)` filter returns 1 result — only `joint_project` has source cardinality >= 2. Edge count rises from 7 to 9. Why this matters: the `joint_project` edge represents a collective relationship. If Carol leaves the project, the edge still connects Alice and Bob to Dave — the project persists. With three pairwise edges, removing Carol would require finding and updating each edge separately.
+**Section 2 — N-ary hyperedges:** Two hyperedges are added. `joint_project` has source cardinality 3 ({alice, bob, carol} -> {dave}), and `team_assignment` has target cardinality 4 ({dave} -> {eve, frank, grace, henry}). The `analyze.edges(min_source_cardinality=2)` filter returns 1 result — only `joint_project` has source cardinality >= 2. Edge count rises from 7 to 9. Why this matters: the `joint_project` edge represents a collective relationship. If Carol leaves the project, the edge still connects Alice and Bob to Dave — the project persists. With three pairwise edges, removing Carol would require finding and updating each edge separately.
 
 **Section 3 — Basic queries:** `describe()` returns 8 nodes, 9 edges, density 0.1607, 0 isolated nodes, 1 connected component. The edge label distribution shows 5 distinct labels: `collaborates` (5), `reports_to` (1), `mentors` (1), `joint_project` (1), `team_assignment` (1).
 
-**Section 4 — Semantic metadata:** The script calls `ensure(data={...}, update=True)` to merge role, team, and level data into alice, dave, and eve. `query_nodes(data={"role": "engineer"})` returns `['alice']` — the one node with role=engineer. `query_nodes(data={"team": "platform"})` returns `['alice', 'dave']` — both platform team members. This works because nodes were created with `store(name, data={})` giving them an initial empty data dict, and `ensure(update=True)` merges new fields into it.
+**Section 4 — Semantic metadata:** The script calls `ensure(data={...}, update=True)` to merge role, team, and level data into alice, dave, and eve. `query_nodes(data={"role": "engineer"})` returns `['alice']` — the one node with role=engineer. `query_nodes(data={"team": "platform"})` returns `['alice', 'dave']` — both platform team members. This works because nodes were created with `add(name, data={})` giving them an initial empty data dict, and `ensure(update=True)` merges new fields into it.
 
 **Section 5 — Neighborhood queries:** Dave's neighborhood spans 7 nodes total. Direction matters here: Dave's out-neighbors (4 nodes he acts on or manages) are different from his in-neighbors (3 nodes that feed into him). Filtering to `collaborates` edges only returns 3 partners: grace, frank, eve — the people Dave works with, excluding his reports and assignments. This directional filtering is what makes neighborhood queries useful: "who does Dave manage?" and "who does Dave work with?" are different questions answered by the same graph.
 
@@ -279,7 +279,7 @@ This showcase demonstrates Hyper3's core capabilities on a small synthetic graph
 | `mem.analyze.describe()` | Return graph statistics (nodes, edges, density, components) |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 | `mem.query_nodes(data)` | Find nodes matching data attributes |
-| `mem.edges_labeled(min_source_cardinality)` | List labeled edges, optionally filtering by source cardinality |
+| `mem.analyze.edges(min_source_cardinality)` | List labeled edges, optionally filtering by source cardinality |
 | `mem.ensure(concept, data, update)` | Create node if absent; merge data with `update=True` |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
 | `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |

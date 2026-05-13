@@ -37,9 +37,9 @@ nodes: 14, edges: 28
 communities detected: 3
 modularity: 0.6358
 coverage: 0.9848
-  community 0: ['a1', 'a2', 'a3', 'a4', 'a5'] (5 nodes)
-  community 1: ['b1', 'b2', 'b3', 'b4', 'b5'] (5 nodes)
-  community 2: ['c1', 'c2', 'c3', 'c4'] (4 nodes)
+  community 4: ['a1', 'a2', 'a3', 'a4', 'a5'] (5 nodes)
+  community 9: ['b1', 'b2', 'b3', 'b4', 'b5'] (5 nodes)
+  community 11: ['c1', 'c2', 'c3', 'c4'] (4 nodes)
 ```
 
 ```bash
@@ -69,7 +69,7 @@ cluster agreement (greedy match): 100.00%
 community detection on mixed graph:
   communities: 2
   modularity: 0.2392
-  community 2: ['a', 'b', 'c', 'd', 'e', 'f'] (size=6, avg_cc=0.7778)
+  community 5: ['a', 'b', 'c', 'd', 'e', 'f'] (size=6, avg_cc=0.7778)
   community 7: ['g', 'h'] (size=2, avg_cc=0.0000)
 
 stimulating highest-clustering node: 'a' (cc=1.0000)
@@ -139,7 +139,7 @@ Label propagation with `seed=42` detects 2 communities:
 | 2 | [a, b, c, d, e, f] | 6 | 0.7778 | Two triangles connected by the weak bridge (c-d) merge into one community |
 | 7 | [g, h] | 2 | 0.0000 | Isolated pair with no path to the main cluster |
 
-The per-community average clustering reveals a structural split: community 2 has high internal cohesion (avg CC 0.7778) because four of its six nodes sit inside complete triangles, while c and d have lower clustering (0.3333) because each has one extra neighbor (the bridge) whose connections don't close the triangle. Community 7 has zero clustering because g and h have no shared neighbors.
+The per-community average clustering reveals a structural split: the 6-node community (a, b, c, d, e, f) has high internal cohesion (avg CC 0.7778) because four of its six nodes sit inside complete triangles, while c and d have lower clustering (0.3333) because each has one extra neighbor (the bridge) whose connections don't close the triangle. The 2-node community (g, h) has zero clustering because g and h have no shared neighbors.
 
 Modularity is 0.2392 — positive, meaning the partition captures some intra-community structure, but lower than the 14-node graph's 0.6358. The weak bridge pulls the two triangles into one community, reducing the modularity gain.
 
@@ -203,10 +203,10 @@ Why this matters: clustering coefficient identifies structurally central nodes w
 | | Mixed graph nodes | 8 |
 | | Mixed graph communities | 2 |
 | | Mixed graph modularity | 0.2392 |
-| | Community 2 avg CC | 0.7778 |
-| | Community 7 avg CC | 0.0000 |
+| | 6-node community avg CC | 0.7778 |
+| | 2-node community avg CC | 0.0000 |
 | | Activation seed node | a (CC=1.0000) |
-| | Activated nodes (3 iterations) | 5 (a, b, c, d, e, f) |
+| | Activated nodes (3 iterations) | 5 (b, c, d, e, f) |
 | | Max activation (depth 1) | c: 1.0000 |
 
 ## 6. What Makes This Different
@@ -217,7 +217,7 @@ Why this matters: clustering coefficient identifies structurally central nodes w
 
 **Clustering coefficients on hypergraphs.** The clustering coefficient implementation handles graphs that contain both pairwise and n-ary edges. The n-ary edges are excluded from clustering calculations (only pairwise edges form neighbor pairs), so the metric reflects the pairwise substructure. This is a design choice: including n-ary edges in neighbor counting would inflate the coefficient for nodes that participate in large hyperedges, even if their pairwise neighborhood is sparse.
 
-**Community detection complementing clustering analysis.** Running community detection alongside clustering coefficients reveals how local density (CC) and global group structure (communities) interact. In the mixed graph, community 2 has high average clustering (0.7778) because most nodes sit in complete triangles, while the bridge endpoints (c, d) have lower CC (0.3333) due to their extra cross-group neighbor. Community detection identifies the groups; clustering coefficient grades how cohesive each group is. Together they distinguish between tight-knit clusters and loosely-connected aggregations.
+**Community detection complementing clustering analysis.** Running community detection alongside clustering coefficients reveals how local density (CC) and global group structure (communities) interact. In the mixed graph, the 6-node community has high average clustering (0.7778) because most nodes sit in complete triangles, while the bridge endpoints (c, d) have lower CC (0.3333) due to their extra cross-group neighbor. Community detection identifies the groups; clustering coefficient grades how cohesive each group is. Together they distinguish between tight-knit clusters and loosely-connected aggregations.
 
 **Spreading activation as a reachability probe.** Stimulating the highest-clustering node and observing which nodes receive activation reveals the effective neighborhood radius of dense clusters. Activation from node `a` reaches the first triangle (a, b, c) strongly and the second triangle (d, e, f) weakly through the bridge. The isolated pair (g, h) receives no activation. This shows that high local clustering does not imply uniform global reachability — the weak bridge (weight 1.0) attenuates activation, though it does not fully block it.
 
@@ -305,7 +305,7 @@ for act in activated:
 | Method | Class | Returns | Notes |
 |--------|-------|---------|-------|
 | `mem.analyze.communities(seed=)` | `HypergraphMemory` | `CommunityResult` | Label propagation; probabilistic, set seed for reproducibility |
-| `connected_components()` | `HypergraphMemory` | `list[list[str]]` | Labels of nodes in each connected component |
+| `mem.connected_components()` | `HypergraphMemory` | `list[set[str]]` | Labels of nodes in each connected component |
 | `s_persistence(max_s=)` | `HypergraphMemory` | `SPersistenceResult` | Multi-resolution analysis via weight thresholds |
 | `hyperedge_neighbors(concept)` | `HypergraphMemory` | `dict[str, list]` | Nodes sharing n-ary hyperedges with the given concept |
 | `random_sbm(n, k, sizes, p_in, p_out, seed=)` | module-level | `Hypergraph` | Stochastic block model generator |
@@ -326,7 +326,7 @@ for act in activated:
 
 - **Scale**: These scripts run on 3–30 nodes. Performance at 10K+ nodes is untested.
 - **Synthetic data**: All graphs are hand-constructed or generated by SBM. Real graphs have noisy labels, missing edges, and overlapping communities.
-- **Non-determinism**: Label propagation is probabilistic. Different seeds may produce different community assignments, especially on graphs with weak community structure.
+- **Non-determinism**: Label propagation is probabilistic. Different seeds may produce different community assignments, especially on graphs with weak community structure. Community IDs are arbitrary labels from the propagation process and vary between runs even with the same seed.
 - **Hyperedge impact**: The scripts demonstrate that strong cross-community hyperedges can collapse community detection. Production use requires calibrating edge weights to preserve meaningful community boundaries.
 - **Directed edges**: Clustering coefficients and community detection treat the graph as undirected for these computations. Directed community structure (e.g., feed-forward vs feedback groups) is not captured.
 - **Activation spread**: Spreading activation uses fixed iteration count and decay. Production use would require tuning decay rates, iteration depth, and convergence thresholds for the specific graph.

@@ -9,7 +9,7 @@ Parallels:
 Shows community detection via label propagation, connected components,
 modularity scoring, and extends with Hyper3's hyperedge-aware analysis.
 
-Run: .venv/bin/python examples/showcase/core/communities_and_clustering/19_community_detection.py
+Run: .venv/bin/python examples/showcase/core/communities_and_clustering/community_detection.py
 """
 
 from __future__ import annotations
