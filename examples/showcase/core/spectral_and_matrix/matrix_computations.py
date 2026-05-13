@@ -6,7 +6,7 @@ Parallels XGI spectral tutorial.
 Demonstrates Hyper3's matrix APIs: incidence matrix, adjacency matrix,
 hypergraph Laplacian, and normalized Laplacian with eigenvalue analysis.
 
-Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/28_matrix_computations.py
+Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/matrix_computations.py
 """
 
 from __future__ import annotations

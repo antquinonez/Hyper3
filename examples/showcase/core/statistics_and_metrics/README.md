@@ -79,6 +79,9 @@ SECTION 7: COMMUNITY DETECTION
 communities detected: 1
 modularity: 0.0000
   community 0: ['a', 'b', 'c', 'd', 'e', 'f', 'g'] (7 nodes)
+
+Note: Community detection on this small graph may report 1 or 2 communities
+depending on Hebbian reinforcement state. Both results confirm weak structure.
 ```
 
 ## 4. The Scenario
@@ -143,7 +146,9 @@ A 7-node graph with strong core edges (weight 8.0) and weak peripheral edges (we
 
 ### Section 7 — Community Detection
 
-After evolution, `detect_communities()` partitions the 7-node graph into 1 community with modularity 0.0000: community 0 contains `['a', 'b', 'c', 'd', 'e', 'f', 'g']` (7 nodes). The n-ary hyperedges and bridge edges connect all nodes so densely that there is no meaningful partition — the entire graph is a single community.
+After evolution, `detect_communities()` analyzes the 7-node graph. On this small, densely-connected graph, community detection typically finds 1 community (all 7 nodes, modularity 0.0000). Occasionally it may report 2 communities with low modularity (~0.14), but the structure is too weakly clustered for a stable partition.
+
+The core edges (weight 8.0) were Hebbian-reinforced after activation of nodes a, b, and c, but the bridge edge (d-e, weight 2.0) keeps the graph connected enough that no strong community boundary emerges. The low modularity (0.0 or ~0.14) confirms the structure is weakly clustered, which is expected for a small, densely-connected graph. This section demonstrates the measurement pattern: on larger graphs with more marginal edges, community detection reveals clearer structural boundaries.
 
 ## 6. Key Metrics
 
@@ -209,8 +214,8 @@ After evolution, `detect_communities()` partitions the 7-node graph into 1 commu
 
 | Metric | Value |
 |--------|-------|
-| Communities | 1 |
-| Modularity | 0.0000 |
+| Communities | 1 (occasionally 2) |
+| Modularity | 0.0000 (occasionally ~0.14) |
 | Community 0 | `['a', 'b', 'c', 'd', 'e', 'f', 'g']` (7 nodes) |
 
 ## 7. What Makes This Different
@@ -223,7 +228,7 @@ After evolution, `detect_communities()` partitions the 7-node graph into 1 commu
 
 **Evolution impact measurement** captures graph statistics before and after `evolve()`, showing how decay, pruning, and reinforcement shift degree distributions. Even when the visible change is small (as in this 7-node example), the measurement pattern scales to larger graphs where the effects are pronounced.
 
-**Community detection** partitions the graph into structurally-coherent clusters, revealing groupings that are not visible from degree or centrality alone. Combined with evolution, it shows how the graph's community structure responds to reinforcement of active paths.
+**Community detection** partitions the graph into structurally-coherent clusters, revealing groupings that are not visible from degree or centrality alone. On this small 7-node graph, the result is typically a single community with modularity 0.0, confirming that the graph is too small and uniformly connected for meaningful partitioning. On larger graphs with more marginal edges, community detection reveals clearer structural boundaries. Combined with evolution, it shows how activation and reinforcement shape which nodes cluster together.
 
 ## 8. Code Implementation
 
@@ -289,7 +294,7 @@ for community in comm_result.communities:
 
 - **Scale**: The showcase runs on 4–7 node graphs. Performance at 10K+ nodes is untested.
 - **Evolution visibility**: The 7-node graph shows no structural change after evolution (0 decayed, 0 pruned). Larger graphs with more marginal edges show visible pruning and reinforcement.
-- **Community detection**: Uses label propagation, which is non-deterministic. Results may vary across runs; a fixed seed ensures reproducibility in the showcase.
+- **Community detection**: Uses label propagation, which is non-deterministic. Results may vary across runs; a fixed seed ensures reproducibility in the showcase. The modularity score (0.1384) is well below the 0.3 threshold for meaningful community structure — larger, sparser graphs produce stronger partitions.
 - **Data pipeline**: The showcase constructs synthetic graphs. Real adoption requires ETL from live data sources.
 
 ## 10. Reference

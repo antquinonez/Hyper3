@@ -2,13 +2,13 @@
 Network Attack Surface Analysis
 ================================
 
-Build a realistic 120+ node enterprise network topology and analyze it for
+Build a realistic 129-node enterprise network topology and analyze it for
 security risks using graph analytics: degree centrality (exposure),
 betweenness centrality (chokepoints), connected components (segmentation
 violations), cycle detection (circular trust), and composite risk scoring.
 
 Run with:
-    .venv/bin/python examples/showcase/core/network_analytics/06_graph_analytics.py
+    .venv/bin/python examples/showcase/core/network_analytics/graph_analytics.py
 """
 
 from __future__ import annotations
@@ -599,7 +599,7 @@ def main():
     services = build_services(mem)
     vulns = build_vulnerabilities(mem)
     users = build_users(mem)
-    edge_count = build_edges(mem)
+    build_edges(mem)
 
     print(f"  Hosts:             {len(hosts)}")
     print(f"  Network segments:  {len(segments)}")
@@ -668,7 +668,7 @@ def main():
     print("SECTION 4: Connected Components - Segmentation Verification")
     print("=" * 70)
 
-    components = mem.connected_components()
+    components = mem.analyze.components()
     print(f"  Total connected components: {len(components)}")
     for i, comp in enumerate(components):
         zones: dict[str, int] = defaultdict(int)
@@ -700,7 +700,6 @@ def main():
     trust_cycles = []
     for cycle in cycles:
         has_trust = False
-        cycle_set = set(cycle)
         for i in range(len(cycle)):
             src = cycle[i]
             tgt = cycle[(i + 1) % len(cycle)]
@@ -829,7 +828,7 @@ def main():
         ("ws-exec-01", "dc-01", "Exec workstation to domain controller"),
     ]
     for src, tgt, desc in lateral_targets:
-        path = mem.shortest_path(src, tgt)
+        path = mem.analyze.shortest_path(src, tgt)
         if path:
             zones_in_path = []
             for p in path:

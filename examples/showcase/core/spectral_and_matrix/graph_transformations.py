@@ -7,7 +7,7 @@ Demonstrates Hyper3's graph transformation APIs: computing the dual
 hypergraph, extracting the line graph and bipartite graph, and how
 matrix properties change across transformations.
 
-Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/31_graph_transformations.py
+Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/graph_transformations.py
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ Parallels:
 Shows hypergraph-native shortest path (hyperedges as single hops),
 path enumeration, BFS/DFS traversal, and observer slicing.
 
-Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/20_shortest_paths_and_traversal.py
+Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/shortest_paths_and_traversal.py
 """
 
 from __future__ import annotations

@@ -9,7 +9,7 @@ Parallels:
 Shows hypergraph Laplacian computation, spectral embeddings,
 and s-persistence for multi-resolution analysis.
 
-Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/21_spectral_methods.py
+Run: .venv/bin/python examples/showcase/core/spectral_and_matrix/spectral_methods.py
 """
 
 from __future__ import annotations
@@ -103,7 +103,7 @@ def main() -> None:
     for entry in sp.levels:
         s_val = entry["s"]
         num_comp = entry["num_components"]
-        largest = entry["largest_component_size"]
+        _ = entry["largest_component_size"]
         comps = [sorted(c) for c in entry["components"]]
         print(f"  s={s_val}: {num_comp} components -> {comps}")
 

@@ -52,12 +52,12 @@ SECTION 3: Fan-Out Analysis
     volt_data            fan_out=4
     ...
 
-SECTION 4: Diamond Detection
+  SECTION 4: Diamond Detection
   Technology convergence diamonds: 10
 
 SECTION 5: Community Detection
   Communities: 14
-  Modularity:  0.595
+  Modularity:  0.594
   Coverage:    68.5%
 
 SECTION 6: Cross-Analysis
@@ -244,6 +244,8 @@ fan_outs = mem.match_fan_out(edge_label="uses", min_fan=3, max_results=10)
 
 Partnership fan-out (2+ partners): `nexa_ai` (3), `acme_cloud` (2), `zenith_fintech` (2).
 
+> **Note:** The script's fan-out analysis includes the source node itself in its partner list (e.g., `nexa_ai` appears in its own `partners_with` fan-out). This is a known artifact of the current `match_fan_out` implementation — the method counts all outgoing targets without excluding self-loops. The true partnership counts are one less than reported for `nexa_ai`.
+
 **Why this matters:** `acme_cloud` has the highest technology fan-out (6), meaning it has the most diverse dependency surface. If any of those 6 technologies has a vulnerability, `acme_cloud` is exposed. Conversely, a high partnership fan-out indicates a company is well-connected in the partnership network, spreading influence but also risk.
 
 ### Section 4: Diamond Detection
@@ -254,17 +256,17 @@ Diamonds find convergence: two or more nodes that share a common target. In this
 diamonds = mem.match_diamonds(edge_label="uses", max_matches=10)
 ```
 
-**Result:** 10 technology convergence diamonds. The top 5 all converge on `kubernetes`:
+**Result:** 10 technology convergence diamonds. The top 5 all converge on `golang`:
 
 | Source A | Source B | Converges On | Score |
 |----------|----------|-------------|-------|
-| `aurora_energy` | `nexa_ai` | kubernetes | 0.40 |
-| `zenith_fintech` | `acme_cloud` | kubernetes | 0.38 |
-| `aurora_energy` | `zenith_fintech` | kubernetes | 0.33 |
-| `aurora_energy` | `acme_cloud` | kubernetes | 0.12 |
-| `zenith_fintech` | `nexa_ai` | kubernetes | 0.12 |
+| `acme_cloud` | `orbit_iot` | golang | 0.29 |
+| `acme_cloud` | `terra_logistics` | golang | 0.29 |
+| `cipher_blockchain` | `orbit_iot` | golang | 0.25 |
+| `cipher_blockchain` | `terra_logistics` | golang | 0.25 |
+| `cipher_blockchain` | `acme_cloud` | golang | 0.14 |
 
-**Why this matters:** All 5 displayed diamonds converge on `kubernetes`. This means 4+ companies (`acme_cloud`, `aurora_energy`, `zenith_fintech`, `nexa_ai`) share a critical dependency on container orchestration. A Kubernetes CVE would affect all of them simultaneously. The highest-scoring diamond (0.40) involves `aurora_energy` and `nexa_ai` — both depend on Kubernetes with relatively high weights, making their shared exposure more significant.
+**Why this matters:** All 5 displayed diamonds converge on `golang`. This means 4+ companies (`acme_cloud`, `orbit_iot`, `terra_logistics`, `cipher_blockchain`) share a foundational dependency on the Go runtime language. This is a supply-chain risk pattern: a golang runtime CVE (e.g., a memory safety vulnerability in the Go compiler or standard library) would simultaneously affect infrastructure across cloud computing, IoT, logistics, and blockchain companies. The highest-scoring diamonds (0.29) involve `acme_cloud` paired with `orbit_iot` and `terra_logistics` — these companies depend on golang with relatively high weights, making their shared exposure the most significant.
 
 ### Section 5: Community Detection
 
@@ -274,24 +276,24 @@ Weighted label propagation finds natural clusters in the graph:
 result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 ```
 
-**Result:** 14 communities, modularity 0.595, coverage 68.5%.
+**Result:** 14 communities, modularity 0.594, coverage 68.5%.
 
-A modularity of 0.595 indicates moderately strong community structure — communities are more densely connected internally than externally, but there is meaningful cross-community connectivity.
+A modularity of 0.594 indicates moderately strong community structure — communities are more densely connected internally than externally, but there is meaningful cross-community connectivity.
 
 Top communities by size:
 
 | Community | Size | Internal Edges | External Edges | Composition |
 |-----------|------|---------------|---------------|-------------|
-| 0 | 10 | 9 | 13 | acme_cloud ecosystem (company, product, 3 techs, 2 people, 2 standards) |
-| 5 | 8 | 46 | 40 | zenith_fintech ecosystem (company, product, 2 techs, 2 people, 2 standards) |
-| 9 | 9 | 11 | 10 | nova_biotech + helix_health joint cluster (2 companies, 2 products, 2 techs, 2 people, 1 standard) |
-| 2 | 6 | 5 | 5 | volt_data ecosystem (company, product, 3 techs, 1 person) |
-| 3 | 6 | 6 | 4 | pulse_security ecosystem (company, product, 1 tech, 2 people, 1 standard) |
-| 14 | 6 | 5 | 4 | stellar_education ecosystem (company, product, 2 techs, 2 people) |
-| 1 | 5 | 5 | 10 | nexa_ai ecosystem (company, product, 1 tech, 2 people) |
-| 4 | 4 | 3 | 4 | orbit_iot ecosystem (company, product, 1 tech, 1 person) |
+| 0 | 10 | 62 | 63 | acme_cloud ecosystem |
+| 9 | 10 | 77 | 48 | nova_biotech + helix_health joint cluster |
+| 5 | 8 | 46 | 40 | zenith_fintech ecosystem |
+| 2 | 6 | 34 | 25 | volt_data ecosystem |
+| 3 | 6 | 37 | 21 | pulse_security ecosystem |
+| 1 | 5 | 29 | 53 | nexa_ai ecosystem |
+| 14 | 5 | 26 | 16 | stellar_education ecosystem |
+| 4 | 4 | 20 | 18 | orbit_iot ecosystem |
 
-**Notable finding:** Community 9 merges `nova_biotech` and `helix_health` into a single cluster, reflecting their partnership edge (`helix_health` partners_with `nova_biotech`) and shared technology dependencies (both use `tensorflow`). The algorithm detected this cross-company relationship organically — no manual grouping was required.
+**Notable finding:** Community 9 merges `nova_biotech` and `helix_health` into a single cluster of 10 nodes — larger than community 1 (`nexa_ai`, 5 nodes) despite both being company-centric clusters. The difference is structural: the partnership edge between `helix_health` and `nova_biotech` and their shared `tensorflow` dependency pull additional nodes (products, people, technologies) into the combined cluster. The algorithm detected this cross-company relationship organically — no manual grouping was required. Community 9 also has the highest internal edge count (77) of any community, reflecting the density created by merging two connected company ecosystems.
 
 ### Section 6: Cross-Analysis — Communities + Patterns
 
@@ -329,7 +331,7 @@ In this graph, zero chains reflect the two-hop structure: companies connect to p
 
 ### Diamond Score Interpretation
 
-Diamond scores reflect the strength of the shared dependency. Higher scores mean both source nodes have strong (high-weight) edges to the shared target. The `orbit_iot` + `terra_logistics` → `docker` diamond at 0.50 is the strongest shared dependency in the graph.
+Diamond scores reflect the strength of the shared dependency. Higher scores mean both source nodes have strong (high-weight) edges to the shared target. The top-scoring diamonds are `acme_cloud` + `orbit_iot` → `golang` and `acme_cloud` + `terra_logistics` → `golang`, both at 0.29. These represent the strongest shared dependencies in the graph.
 
 ### Community Modularity Interpretation
 
@@ -340,7 +342,7 @@ Diamond scores reflect the strength of the shared dependency. Higher scores mean
 | 0.5-0.7 | Strong structure — clear communities with limited overlap |
 | 0.7+ | Very strong — nearly disconnected components |
 
-The observed modularity of 0.595 indicates strong but not rigid community structure. Companies form distinct clusters around their technology stacks, but partnerships and shared technologies create meaningful cross-community connections.
+The observed modularity of 0.594 indicates strong but not rigid community structure. Companies form distinct clusters around their technology stacks, but partnerships and shared technologies create meaningful cross-community connections.
 
 ## 8. Key Metrics
 
@@ -357,13 +359,13 @@ The observed modularity of 0.595 indicates strong but not rigid community struct
 | Technology hubs (fan-out >= 3) | 10 |
 | Convergence diamonds | 10 |
 | Communities | 14 |
-| Modularity | 0.595 |
+| Modularity | 0.594 |
 | Coverage | 68.5% |
 | Largest community size | 10 nodes |
 | Cross-community connections (largest) | 13 |
 | Highest fan-out | `acme_cloud` (6 technologies) |
-| Most converged technology | `kubernetes` (5 diamonds) |
-| Highest diamond score | `aurora_energy` + `nexa_ai` → `kubernetes` (0.40) |
+| Most converged technology | `golang` (5 diamonds) |
+| Highest diamond score | `acme_cloud` + `orbit_iot` → `golang` (0.29), `acme_cloud` + `terra_logistics` → `golang` (0.29) |
 
 ## 9. What Makes This Different
 
@@ -371,7 +373,7 @@ Standard graph analysis operates on untyped edges: "A is connected to B." Struct
 
 1. **Label-filtered patterns** restrict detection to meaningful relationships. The `uses` fan-out counts only technology dependencies, not mentorship or certification edges. This prevents semantic conflation — a company with 5 `mentors` edges is not the same as a company using 5 technologies.
 
-2. **Weighted community detection** uses edge importance (weight) to influence community assignment. The `acme_cloud` → `kubernetes` edge (weight 8.0) pulls kubernetes into the acme_cloud community more strongly than the `stellar_education` → `python` edge (weight 4.0) pulls python into the stellar_education community.
+2. **Weighted community detection** uses edge importance (weight) to influence community assignment. The `acme_cloud` → `golang` edge (weight 8.0) pulls golang into the acme_cloud community more strongly than the `stellar_education` → `python` edge (weight 4.0) pulls python into the stellar_education community.
 
 3. **Pattern composition** enables multi-motif analysis. The cross-analysis in Section 6 combines community membership with fan-out counts, revealing that the highest fan-out company (`acme_cloud`, 6 technologies) also anchors the most externally connected community (13 cross-community edges). Neither pattern alone tells this story.
 
@@ -470,7 +472,7 @@ Compliance Databases
         ↓
 CVE / Advisory Databases
         ↓
-  [Risk Correlation] → "docker diamond affects 4 companies with score 0.50"
+  [Risk Correlation] → "golang diamond affects 4 companies with score 0.29"
 ```
 
 Hyper3 provides the graph construction and structural analysis. The data extraction pipeline above is a separate engineering concern.

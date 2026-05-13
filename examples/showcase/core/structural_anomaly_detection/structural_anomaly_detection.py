@@ -151,8 +151,10 @@ def main() -> None:
         anomaly = mem.analyze.anomalies(label)
         print(f"  {label}: centrality={score:.4f}, anomaly_status={anomaly.anomaly_status}")
 
-    analysis = detector.analyze()
-    print(f"\nanomaly summary: mapped={analysis.mapped_regions}, low_risk={analysis.low_risk}, boundary={analysis.boundary}, anomalous={analysis.anomalous}")
+    summary_lr = sum(1 for r in regions if r.status == "low_risk")
+    summary_bd = sum(1 for r in regions if r.status == "boundary")
+    summary_an = sum(1 for r in regions if r.status == "anomalous")
+    print(f"\nanomaly summary: mapped={len(regions)}, low_risk={summary_lr}, boundary={summary_bd}, anomalous={summary_an}")
 
     print("\n" + "=" * 70)
     print("DONE")

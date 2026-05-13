@@ -6,7 +6,7 @@ Parallels XGI shortest_path.
 Demonstrates weighted and unweighted shortest paths, all-pairs distance
 matrices, and single-source distance computation from multiple seeds.
 
-Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/35_advanced_paths.py
+Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/advanced_paths.py
 """
 
 from __future__ import annotations
@@ -89,7 +89,7 @@ def main() -> None:
     print("=" * 70)
 
     for seed in ["s", "a", "c", "t"]:
-        dists = mem.single_source_distances(seed, weighted=True)
+        dists = mem.analyze.distances(seed, weighted=True)
         reachable = {k: v for k, v in sorted(dists.items()) if k != seed}
         print(f"\nfrom {seed}: {reachable}")
 
@@ -101,12 +101,12 @@ def main() -> None:
         mem.ensure(c)
     mem.link("x", "y", label="island", weight=5.0)
 
-    dist_s_x = mem.single_source_distances("s", weighted=True)
+    dist_s_x = mem.analyze.distances("s", weighted=True)
     print(f"\nfrom s: reachable={len(dist_s_x)} nodes")
     print(f"  'x' reachable: {'x' in dist_s_x}")
     print(f"  'y' reachable: {'y' in dist_s_x}")
 
-    dist_x = mem.single_source_distances("x", weighted=True)
+    dist_x = mem.analyze.distances("x", weighted=True)
     print(f"\nfrom x: {dist_x}")
 
     print("\n" + "=" * 70)

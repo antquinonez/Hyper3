@@ -127,7 +127,7 @@ def main() -> None:
     mem4.link("d", "e", label="bridge", weight=2.0)
 
     before_deg = mem4.degree()
-    before_density = mem4.density()
+    before_density = mem4.analyze.describe().density
     before_nodes = mem4.size[0]
     before_edges = mem4.size[1]
 
@@ -144,7 +144,7 @@ def main() -> None:
     evolve_result = mem4.evolve()
 
     after_deg = mem4.degree()
-    after_density = mem4.density()
+    after_density = mem4.analyze.describe().density
     after_nodes = mem4.size[0]
     after_edges = mem4.size[1]
 

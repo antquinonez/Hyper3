@@ -51,7 +51,7 @@ SECTION 1: Building Enterprise Network Topology
 
 SUMMARY:
   Network: 129 nodes, 375 edges
-  Components: 8, Cycles: 15, Violations: 18
+  Components: 8, Cycles: ~15-17, Violations: 18
   Most exposed: dc-01
   Highest risk: web-04 (risk=62.4)
 ```
@@ -211,7 +211,7 @@ Cycles in the graph represent circular dependencies or circular trust. A trust c
 cycles = mem.detect_cycles(max_cycles=15)
 ```
 
-**Results:** 15 cycles detected. None are pure trust cycles — the cycles traverse mixed edge types (connects_to, runs, trusts, routes_to). The bidirectional trust between `dc-01` and `dc-02` forms a 2-node loop, but cycle detection finds longer cycles through mixed-edge paths.
+**Results:** ~15-17 cycles detected (count varies slightly across runs). None are pure trust cycles — the cycles traverse mixed edge types (connects_to, runs, trusts, routes_to). The bidirectional trust between `dc-01` and `dc-02` forms a 2-node loop, but cycle detection finds longer cycles through mixed-edge paths.
 
 ### Section 6: Cross-Zone Violations — Segmentation Policy Breaches
 
@@ -349,28 +349,34 @@ Community detection groups nodes into clusters based on connection density, inde
 comm_result = mem.analyze.communities(seed=42)
 ```
 
-**Results:** **11 communities** detected with modularity 0.3616 and coverage 0.8790.
+**Results:** **12 communities** detected with modularity 0.4733 and coverage 0.7839.
 
 | Community | Size | Host Zones | Description |
 |-----------|------|------------|-------------|
-| 33 | 79 | internal:19, restricted:10 | Large mixed community spanning internal and restricted |
+| 33 | 53 | internal:12, restricted:7 | Workstation/DC cluster spanning internal and restricted |
 | 85 | 32 | dmz:11 | DMZ-facing hosts and associated services |
-| 99 | 6 | internal:2 | Monitoring cluster (monitoring-01, log-collector, SIEM) |
-| 43 | 5 | internal:3 | Kubernetes cluster (master + 2 workers) |
+| 68 | 25 | internal:7, restricted:3 | App/database cluster spanning internal and restricted |
+| 31 | 7 | internal:2 | Monitoring cluster (monitoring-01, log-collector + 5 non-host) |
+| 57 | 5 | internal:3 | Kubernetes cluster (master + 2 workers) |
 | 52-82 | 1 each | non-host | Isolated entities (seg-wireless, security controls) |
 
-**4 zone-mixing communities** contain hosts from multiple security zones:
+**5 zone-mixing communities** contain hosts from multiple security zones:
 
 | Community | Zone Breakdown |
 |-----------|---------------|
-| Community 33 | internal(19), restricted(10) |
+| Community 33 | internal(12), restricted(7) |
+| Community 68 | internal(7), restricted(3) |
 | Community 85 | dmz(11) |
-| Community 99 | internal(2) |
-| Community 43 | internal(3) |
+| Community 31 | internal(2) |
+| Community 57 | internal(3) |
 
-The most significant finding is Community 33, which contains 19 internal hosts and 10 restricted hosts in a single cluster. This confirms what the connected components analysis showed: internal and restricted zones are tightly coupled through trust and routing edges. The DMZ (Community 85) forms a separate cluster, but its 11 DMZ hosts are still connected to the main component through routing edges.
+The most significant finding is the **3 zone-mixing communities that cross security boundaries**: Community 33 (workstations and domain controllers), Community 68 (app servers and databases), and Community 85 (DMZ). Community 33 contains 12 internal hosts and 7 restricted hosts — the workstations that trust `dc-01` and `dc-02` are clustered with the domain controllers they trust. Community 68 separates out the app/database tier: `app-01` through `app-04` cluster with `db-primary`, `db-replica`, and their associated services because the inferred `trusts_indirectly` edges (Section 10) create strong intra-group connections between the application and database layers.
 
-**Why this matters:** Zone labels on paper do not guarantee zone isolation in practice. The community detection algorithm has no knowledge of zone assignments — it clusters purely by connection density. The fact that Community 33 naturally groups 19 internal and 10 restricted hosts together means the actual traffic patterns and trust relationships create a unified cluster that ignores the internal/restricted boundary. This is a stronger signal than the connected components check in Section 4 because it accounts for connection density, not just reachability.
+**Why the split between Communities 33 and 68?** The transitive inference in Section 10 added 19 `trusts_indirectly` edges before community detection ran. These inferred edges shift the density landscape: the app-to-database trust chains (`app-01` trusts `db-primary`, `staging-server` indirectly trusts `db-primary`) create a dense subgraph that separates from the workstation-to-DC trust cluster. Without inference, the two groups would likely merge into one large community. The inference step effectively reveals the hidden substructure within what would otherwise be a monolithic internal+restricted cluster.
+
+**Why this matters:** Zone labels on paper do not guarantee zone isolation in practice. The community detection algorithm has no knowledge of zone assignments — it clusters purely by connection density. Three communities cross the internal/restricted boundary from different directions: Community 33 (workstations authenticating to DCs), Community 68 (app servers connecting to databases), and Community 85 (DMZ hosts with their services). Each mixing pattern reflects a different operational dependency: authentication, data access, and external exposure. This is a stronger signal than the connected components check in Section 4 because it accounts for connection density and reveals *how* zones are coupled, not just *whether* they are connected.
+
+A modularity of 0.4733 indicates moderate-to-strong community structure. In practice, modularity values in the 0.3-0.7 range reflect meaningful groupings — below 0.3 the network is essentially uniform, and above 0.7 the communities are so well-separated that the partition is trivially obvious. The 0.4733 value here confirms that the enterprise network has genuine internal structure but also significant cross-zone coupling, which is exactly what the security analysis should surface.
 
 ### Section 12: Structural Anomaly Detection on Critical Hosts
 
@@ -437,8 +443,8 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 
 | Metric | Range | Meaning |
 |--------|-------|---------|
-| Modularity | 0-1 | Higher = clearer community separation; 0.34 indicates moderate structure |
-| Coverage | 0-1 | Fraction of edges within communities; 0.88 means most edges stay within clusters |
+| Modularity | 0-1 | Higher = clearer community separation; 0.3-0.7 indicates moderate-to-strong structure |
+| Coverage | 0-1 | Fraction of edges within communities; 0.78 means most edges stay within clusters |
 | Zone mixing | — | Communities containing hosts from multiple security zones indicate cross-zone coupling |
 
 ## 8. Key Metrics
@@ -457,7 +463,7 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 | Connected components | 8 |
 | Largest component | 122 nodes |
 | Isolated nodes | 7 |
-| Cycles detected | 15 |
+| Cycles detected | ~15-17 (non-deterministic) |
 | Cross-zone violations | 18 |
 | Average degree | 5.5 |
 | Highest degree centrality | dc-01 (0.1875) |
@@ -468,11 +474,11 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 | Longest lateral path | dev-server -> db-primary (4 hops) |
 | Inferred indirect trust edges | 19 |
 | Restricted hosts reachable via indirect trust | 6 |
-| Communities detected | 11 |
-| Modularity | 0.3616 |
-| Community coverage | 0.8790 |
-| Zone-mixing communities | 4 |
-| Largest community | Community 33 (79 members) |
+| Communities detected | 12 |
+| Modularity | 0.4733 |
+| Community coverage | 0.7839 |
+| Zone-mixing communities | 5 |
+| Largest community | Community 33 (53 members) |
 | Anomalous hosts | dc-01 (score=0.389) |
 | Highest boundary score (non-anomalous) | db-primary (0.135) |
 
@@ -484,7 +490,7 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 
 **Cross-zone violation detection** goes beyond simple firewall rule analysis. It traces trust and routing edges through the graph to find paths that violate zone boundaries. 18 violations were found, all trust relationships from internal workstations to restricted domain controllers — expected in Active Directory, but now quantified and visible in a single report.
 
-**Community detection** identifies natural network segments based on connection density rather than administrative labels. The 11 communities reveal that internal and restricted zones form a single large cluster (Community 33, 79 members), confirming the cross-zone coupling that the trust analysis identified. This is a density-based signal that complements the reachability-based connected components analysis.
+**Community detection** identifies natural network segments based on connection density rather than administrative labels. The 12 communities reveal three distinct cross-zone clusters: Community 33 (53 members, workstations and DCs), Community 68 (25 members, apps and databases), and Community 85 (32 members, DMZ). The transitive inference from Section 10 shifted the density landscape enough to split what would otherwise be one large internal+restricted cluster into two meaningful sub-communities. This is a density-based signal that complements the reachability-based connected components analysis.
 
 **Structural anomaly detection** flags hosts whose connectivity patterns deviate from the norm. `dc-01` was identified as anomalous (score 0.389) due to its cyclic dependency with `dc-02`. This surface uses graph structure (cycles, centrality outliers, label contradictions) rather than vulnerability data, providing a complementary risk signal to the composite scoring.
 
@@ -579,7 +585,7 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 
 7. **Transitive inference depth:** The showcase runs transitive inference to depth 4. In large networks with deep trust hierarchies, the number of inferred edges grows combinatorially. Production use requires pruning low-confidence inferred edges or limiting inference to specific seed concepts.
 
-8. **Community detection determinism:** Label propagation (the algorithm behind `mem.analyze.communities`) is probabilistic. Results may vary across runs. The showcase fixes the seed to 42 for reproducibility; production use should run multiple seeds and report consensus communities.
+8. **Community detection determinism:** Label propagation (the algorithm behind `mem.analyze.communities`) is probabilistic. Results may vary across runs. The showcase fixes the seed to 42 for reproducibility, so results are deterministic for a given seed but may change across library versions. Production use should run multiple seeds and report consensus communities.
 
 ## 12. Reference
 

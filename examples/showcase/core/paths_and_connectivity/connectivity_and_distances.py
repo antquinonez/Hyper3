@@ -6,7 +6,7 @@ Parallels XGI Recipes.
 Demonstrates Hyper3's connectivity and distance APIs: connected components,
 shortest path lengths, density, edge size analysis, and component queries.
 
-Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/29_connectivity_and_distances.py
+Run: .venv/bin/python examples/showcase/core/paths_and_connectivity/connectivity_and_distances.py
 """
 
 from __future__ import annotations
@@ -44,16 +44,16 @@ def main() -> None:
     for i, comp in enumerate(components):
         print(f"  component {i}: {sorted(comp)}")
 
-    lcc = mem.largest_connected_component()
+    lcc = mem.analyze.largest_component()
     print(f"\nlargest component: {sorted(lcc)}")
 
-    comp_b = mem.component_of("b")
+    comp_b = mem.analyze.component_of("b")
     print(f"component_of('b'): {sorted(comp_b)}")
 
-    comp_x = mem.component_of("x")
+    comp_x = mem.analyze.component_of("x")
     print(f"component_of('x'): {sorted(comp_x)}")
 
-    comp_iso = mem.component_of("isolated")
+    comp_iso = mem.analyze.component_of("isolated")
     print(f"component_of('isolated'): {sorted(comp_iso)}")
 
     print("\n" + "=" * 70)
@@ -85,10 +85,10 @@ def main() -> None:
             print(f"{d:>8.2f}" if d != float("inf") else f"{'inf':>8}", end="")
         print()
 
-    dists_s0 = mem2.single_source_distances("s0", weighted=True)
+    dists_s0 = mem2.analyze.distances("s0", weighted=True)
     print(f"\nsingle_source_distances('s0'): {dists_s0}")
 
-    dists_s3 = mem2.single_source_distances("s3", weighted=False)
+    dists_s3 = mem2.analyze.distances("s3", weighted=False)
     print(f"single_source_distances('s3', unweighted): {dists_s3}")
 
     print("\n" + "=" * 70)

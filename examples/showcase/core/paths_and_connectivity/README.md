@@ -91,7 +91,7 @@ from t: {}
 
 **Reasoning**: A `TransitiveRule` with `edge_label="train"` infers indirect train routes. The graph contains chains like london -> paris -> berlin (`train`) and prague -> vienna (`train`). The rule finds that berlin connects to prague (`train`) and prague connects to vienna (`train`), producing 1 inferred edge: berlin -[indirect_train]-> vienna. The reasoning expansion creates 2 states, applies 1 rule, and reaches max depth 1.
 
-**Spreading activation**: Stimulating london with energy 1.0 and spreading for 3 iterations activates 6 nodes. Paris and berlin receive the highest activation (1.0000 and 0.9625) at depth 1 because they are directly connected to london via high-weight edges. London itself retains activation 0.8094. Prague reaches 0.7215 at depth 1 (via the hyperedge). Vienna (0.1502) and madrid (0.1060) receive lower activation at depth 2. This reveals which cities are most strongly associated with london in terms of edge weight and connectivity.
+**Spreading activation**: Stimulating london with energy 1.0 and spreading for 3 iterations activates 5 nodes. Berlin and paris receive the highest activation (1.0000 and 0.9894) at depth 1 because they are directly connected to london via high-weight edges. Prague reaches 0.7456 at depth 1 (via the hyperedge). Vienna (0.1614) and madrid (0.1288) receive lower activation at depth 2. London itself does not appear in the result because `activate()` returns only the spread targets, not the seed node. Rome is absent because it sits at depth 4 from london, beyond the 3-iteration spread limit. This reveals which cities are most strongly associated with london in terms of edge weight and connectivity.
 
 ### 4b. Connectivity and Distances (`connectivity_and_distances.py`)
 
@@ -137,7 +137,7 @@ from t: {}
 | Hyperedge 1-hop shortcut | london->prague (1 hop instead of 2) | — | — |
 | Disconnected nodes | madrid->prague: None | isolated node | x, y unreachable from s |
 | Inferred edges (reasoning) | 1 (berlin->vienna indirect_train) | — | — |
-| Activation spread from london | 6 nodes activated | — | — |
+| Activation spread from london | 5 nodes activated | — | — |
 | Evolution merged nodes | — | 4 (8 -> 4 nodes) | — |
 | Communities detected | — | 2 (modularity 0.2778) | — |
 | Version delta edges added | — | — | 2 (9 -> 11 edges) |
@@ -148,7 +148,7 @@ from t: {}
 
 **Rule-based reasoning discovers indirect connections.** The `TransitiveRule` applied to the city network inferred that berlin connects to vienna via an `indirect_train` edge — a relationship not explicitly stored in the graph but logically implied by the train route chain prague -> vienna reachable from berlin. This is path analysis enriched by inference: instead of only computing distances on existing edges, the system discovers new edges that compress multi-hop chains into single-hop connections.
 
-**Spreading activation surfaces weighted proximity.** Stimulating london and spreading activation for 3 iterations ranked all 6 reachable cities by structural proximity. The result (paris 1.0000, berlin 0.9625, prague 0.7215) reflects not just hop distance but edge weight and graph topology. A simple hop count would rank all depth-1 nodes equally; activation captures that paris and berlin are more strongly connected to london than prague.
+**Spreading activation surfaces weighted proximity.** Stimulating london and spreading activation for 3 iterations ranked 5 reachable cities by structural proximity. The result (berlin 1.0000, paris 0.9894, prague 0.7456) reflects not just hop distance but edge weight and graph topology. A simple hop count would rank all depth-1 nodes equally; activation captures that berlin and paris are more strongly connected to london than prague.
 
 **Graph versioning tracks structural changes over time.** `capture_version()` snapshots the graph state, and `diff_from_version()` computes the delta — showing exactly which edges and nodes were added or removed between versions. This is useful for understanding how graph construction or evolution changes path connectivity.
 
@@ -267,7 +267,7 @@ mem.max_edge_order()      # largest edge size minus 1
 ## 8. Real-World Gap
 
 - **Scale**: All three scripts operate on 6-8 node graphs. Performance on graphs with 10K+ nodes and high-arity hyperedges is untested. The underlying algorithms use Dijkstra (O(E log V) per source) and BFS, which should scale, but hyperedge expansion increases the effective branching factor.
-- **Data pipeline**: Graphs are constructed programmatically with `store()` and `relate()`. Loading from external data sources (CSV, graph databases, APIs) requires integration work outside the scope of these examples.
+- **Data pipeline**: Graphs are constructed programmatically with `add()` and `link()`. Loading from external data sources (CSV, graph databases, APIs) requires integration work outside the scope of these examples.
 - **Dynamic graphs**: The evolution demo shows a single evolve step. Continuous evolution with `evolve_interval` over time, and path analysis on graphs that change between queries, is not demonstrated here.
 - **Weight semantics**: Edge weights represent importance (higher = stronger). The `cost = 1/weight` inversion is a convention, not configurable. Applications with different weight semantics (monetary cost, latency) would need to pre-invert weights.
 - **Activation determinism**: Spreading activation results depend on graph structure and iteration count. Different graphs or iteration limits produce different activation rankings.

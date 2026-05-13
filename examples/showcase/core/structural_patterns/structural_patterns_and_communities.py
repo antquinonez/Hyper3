@@ -4,10 +4,10 @@ Structural Pattern Matching and Community Detection
 
 Demonstrates structural pattern detection (chains, diamonds, fan-out) and
 community detection on a knowledge graph modeling a technology ecosystem
-with 100+ nodes covering companies, products, technologies, and people.
+with 76 nodes covering companies, products, technologies, people, and standards.
 
 Run with:
-    .venv/bin/python examples/showcase/core/structural_patterns/13_structural_patterns_and_communities.py
+    .venv/bin/python examples/showcase/core/structural_patterns/structural_patterns_and_communities.py
 """
 
 from __future__ import annotations
@@ -266,7 +266,8 @@ def main() -> None:
     partner_fans = mem.match_fan_out(edge_label="partners_with", min_fan=2, max_results=10)
     print(f"  Companies with 2+ partnerships:")
     for entry in partner_fans:
-        print(f"    {entry['node']:<20} partners={entry['targets']}")
+        targets = [t for t in entry["targets"] if t != entry["node"]]
+        print(f"    {entry['node']:<20} partners={targets}")
     print()
 
     print("=" * 70)
