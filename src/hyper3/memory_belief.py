@@ -248,10 +248,9 @@ class BeliefMixin(_MemoryBase):
             return {}
         raw = self._belief.sample_correlated(qs.id, node.id)
         labeled: dict[str, str] = {}
-        for node_id, predicted_id in raw.items():
-            label = self._node_label(node_id)
-            pred_label = self._node_label(predicted_id)
-            labeled[label] = pred_label
+        for partner_id, prediction in raw.items():
+            partner_label = self._node_label(partner_id)
+            labeled[partner_label] = prediction
         return labeled
 
     def sample_entangled(

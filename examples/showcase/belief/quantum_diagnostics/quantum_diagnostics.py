@@ -431,13 +431,7 @@ def section_4_correlation(mem: HypergraphMemory, hypotheses: list[str]) -> None:
     cascaded = mem.belief.sample_correlated(qs, "certificate_expiry")
     print("\n  Correlated sample (observe certificate_expiry):")
     if cascaded:
-        for partner_key, prediction in cascaded.items():
-            partner_nid = mem.resolve_id(partner_key)
-            if partner_nid:
-                partner_node = mem.engine.graph.get_node(partner_nid)
-                partner_label = partner_node.label if partner_node else partner_key
-            else:
-                partner_label = partner_key
+        for partner_label, prediction in cascaded.items():
             print(f"    {partner_label}: prediction={prediction}")
         print()
         print("  Positive predictions mean the correlated outcome is expected")

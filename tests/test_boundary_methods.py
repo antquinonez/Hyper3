@@ -13,10 +13,15 @@ class TestNodeLabel:
         node = mem.add("concept")
         assert mem.node_label(node.id) == "concept"
 
-    def test_returns_truncated_id_for_unknown(self, mem):
-        result = mem.node_label("nonexistent_id_12345")
+    def test_returns_truncated_hex_id_for_unknown(self, mem):
+        fake_uuid = "abcdef1234567890abcdef1234567890"
+        result = mem.node_label(fake_uuid)
         assert len(result) == 8
-        assert result == "nonexist"
+        assert result == "abcdef12"
+
+    def test_returns_nonhex_string_unchanged(self, mem):
+        result = mem.node_label("nonexistent_id_12345")
+        assert result == "nonexistent_id_12345"
 
 
 class TestNodeData:

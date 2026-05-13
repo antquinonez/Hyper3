@@ -756,7 +756,11 @@ class CoreMixin(_MemoryBase):
     def _node_label(self, node_id: str) -> str:
         """Return the human-readable label for a node ID, or a truncated ID fallback."""
         node = self._graph.get_node(node_id)
-        return node.label if node else node_id[:8]
+        if node:
+            return node.label
+        if len(node_id) >= 16 and all(c in "0123456789abcdef" for c in node_id):
+            return node_id[:8]
+        return node_id
 
     def node_label(self, node_id: str) -> str:
         """Return the human-readable label for an internal node ID."""

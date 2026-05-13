@@ -62,7 +62,7 @@ SECTION 3: Sample = Evidence-Driven Hypothesis Selection
 
 SECTION 4: Correlation = Correlated Hypotheses
   dns_failure <-> db_pool_exhaustion: +0.6
-  cert_expiry <-> memory_leak: +0.2
+  cert_expiry <-> memory_leak:        +0.2
   cert_expiry <-> db_pool_exhaustion: -0.1
 
 SECTION 5: Interference = Evidence Reinforcement and Contradiction
@@ -344,7 +344,7 @@ A sampling frequency matching the expected posterior (e.g., ~41% observed vs 40.
 
 ### Correlation predictions
 
-`sample_correlated()` returns predictions for partner hypotheses when one hypothesis is observed. A prediction value of `certific` (truncated from `certificate_expiry`) or `opposite` reflects the correlated outcome label -- `opposite` means the anti-correlated partner is expected to activate. Prediction labels are truncated by the API; the full label can be recovered via `mem.resolve_id()`.
+`sample_correlated()` returns predictions for partner hypotheses when one hypothesis is observed. For positive correlations, the prediction is the observed outcome label (e.g., `certificate_expiry`). For negative correlations, the prediction is the label of the other outcome in the observed node's group (e.g., `dns_resolution_failure` when observing `certificate_expiry` in a `{certificate_expiry, dns_resolution_failure}` group).
 
 ### Interference classification
 

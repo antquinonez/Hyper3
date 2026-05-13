@@ -29,17 +29,27 @@ class ConceptCorrelation:
     correlation_matrix: dict[tuple[str, str], float] = field(default_factory=dict)
     strength: float = 0.0
 
-    def predict(self, observed_node_id: str, observed_value: str) -> dict[str, str]:
+    def predict(
+        self,
+        observed_node_id: str,
+        observed_value: str,
+        group_labels: dict[str, str] | None = None,
+    ) -> dict[str, str]:
         """Predict values for correlated partners given an observation.
 
         For each correlation entry involving the observed node, returns the
         partner node mapped to the observed value (positive correlation) or
-        ``"opposite"`` (negative correlation). Correlation entries with
-        magnitude below 1e-10 are skipped.
+        the label of the other outcome in the observed node's group
+        (negative correlation). Correlation entries with magnitude below
+        1e-10 are skipped.
 
         Args:
             observed_node_id: ID of the node that was observed.
             observed_value: Label/value of the observed node.
+            group_labels: Optional mapping of node IDs to labels for the
+                observed node's group. Used to resolve negative-correlation
+                predictions. If not provided, ``"opposite"`` is returned
+                for negative correlations.
 
         Returns:
             Mapping of partner node IDs to their predicted values.
@@ -48,7 +58,18 @@ class ConceptCorrelation:
         for (node_a, node_b), corr in self.correlation_matrix.items():
             if abs(corr) < 1e-10:
                 continue
-            scaled = observed_value if corr > 0 else "opposite"
+            if corr > 0:
+                scaled = observed_value
+            else:
+                if group_labels:
+                    others = {
+                        nid: lbl
+                        for nid, lbl in group_labels.items()
+                        if nid != observed_node_id
+                    }
+                    scaled = next(iter(others.values())) if others else "opposite"
+                else:
+                    scaled = "opposite"
             if node_a == observed_node_id and node_b in self.group_b_node_ids:
                 predictions[node_b] = scaled
             elif node_b == observed_node_id and node_a in self.group_a_node_ids:
@@ -693,7 +714,7 @@ class BeliefLayer:
             observed_node_id: Node ID whose observation triggers the sampling.
 
         Returns:
-            Mapping of correlated partner node IDs to their predicted values.
+            Mapping of correlated partner node IDs to their predicted labels.
         """
         qs = self._states.get(qs_id)
         if not qs:
@@ -708,7 +729,18 @@ class BeliefLayer:
                 continue
             node = self._graph.get_node(observed_node_id)
             label = node.label if node else observed_node_id
-            preds = corr.predict(observed_node_id, label)
+            if observed_node_id in corr.group_a_node_ids:
+                group_ids = corr.group_a_node_ids
+            elif observed_node_id in corr.group_b_node_ids:
+                group_ids = corr.group_b_node_ids
+            else:
+                group_ids = frozenset()
+            group_labels: dict[str, str] = {}
+            for gid in group_ids:
+                gnode = self._graph.get_node(gid)
+                if gnode:
+                    group_labels[gid] = gnode.label
+            preds = corr.predict(observed_node_id, label, group_labels=group_labels)
             predictions.update(preds)
         return predictions
 
