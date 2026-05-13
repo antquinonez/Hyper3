@@ -105,11 +105,27 @@ class JobSkillMatchingEngine:
             Dict with reasoning stats and newly discovered chains.
         """
         seeds = set(seed_skills)
-        existing = set()
-        for s in seeds:
-            for path in self.mem.analyze.paths(s, s, label="substitutes_for", max_depth=3, max_paths=20):
-                for node in path:
-                    existing.add(node)
+
+        def _collect_reachable_pairs() -> set[tuple[str, str]]:
+            pairs: set[tuple[str, str]] = set()
+            for src in seeds:
+                if not self.mem.has(src):
+                    continue
+                queue: list[tuple[str, int]] = [(src, 0)]
+                seen: set[str] = {src}
+                while queue:
+                    current, depth = queue.pop(0)
+                    if depth >= 3:
+                        continue
+                    for neighbor in self.mem.neighbors(current, edge_label="substitutes_for", direction="out"):
+                        if neighbor not in seen:
+                            seen.add(neighbor)
+                            queue.append((neighbor, depth + 1))
+                        if neighbor != src:
+                            pairs.add((src, neighbor))
+            return pairs
+
+        existing_pairs = _collect_reachable_pairs()
 
         result = self.mem.reason(
             seeds=seeds,
@@ -118,12 +134,19 @@ class JobSkillMatchingEngine:
             auto_commit=True,
         )
 
+        updated_pairs = _collect_reachable_pairs()
+        new_pairs = sorted(updated_pairs - existing_pairs)
         new_chains = []
-        for s in seeds:
-            for path in self.mem.analyze.paths(s, s, label="substitutes_for", max_depth=3, max_paths=20):
-                new_in_path = [n for n in path if n not in existing]
-                if new_in_path:
-                    new_chains.append({"path": path, "new_nodes": new_in_path})
+        for src, dst in new_pairs:
+            path = self.mem.analyze.paths(
+                src,
+                dst,
+                edge_label="substitutes_for",
+                max_depth=4,
+                max_paths=1,
+            )
+            if path:
+                new_chains.append({"path": path[0], "new_nodes": [dst]})
 
         return {
             "states_created": result.expansion.states_created if result.expansion else 0,

@@ -90,7 +90,7 @@ class ITTroubleshootingEngine:
         Returns:
             Dict with proof result: proven, confidence, chain, evidence_needed.
         """
-        proven = False
+        proven = True
         chain = []
         evidence_needed = []
 
@@ -101,7 +101,6 @@ class ITTroubleshootingEngine:
                 hypothesis, symptom, label="causes", max_depth=6, max_paths=3
             )
             if paths:
-                proven = True
                 path = paths[0]
                 chain.append({
                     "symptom": symptom,
@@ -112,6 +111,10 @@ class ITTroubleshootingEngine:
                 })
             else:
                 evidence_needed.append(symptom)
+                proven = False
+
+        if not observed:
+            proven = False
 
         conf = self.mem.cognitive.confidence(hypothesis)
         confidence = conf.confidence if conf else (0.5 * len(chain) if chain else 0.0)
@@ -145,6 +148,42 @@ class ITTroubleshootingEngine:
             known_facts=known_facts,
             edge_label="causes",
         )
+        if not result.achievable:
+            direct_causes = set(
+                self.mem.neighbors(symptom, edge_label="causes", direction="in")
+            )
+            if direct_causes & known_facts:
+                return {
+                    "goal": symptom,
+                    "achievable": True,
+                    "confidence": 1.0,
+                    "satisfied_premises": 1,
+                    "total_premises_needed": 1,
+                    "missing_premises": [],
+                    "proof_steps": [
+                        {
+                            "rule": "direct_causes_edge",
+                            "target": symptom,
+                            "premises": sorted(direct_causes & known_facts),
+                            "confidence": 1.0,
+                        }
+                    ],
+                }
+        graph = self.mem.engine.graph
+        steps = []
+        for step in result.proof_tree.steps if result.proof_tree else []:
+            target_node = graph.get_node(step.target_id)
+            target_label = target_node.label if target_node else step.target_id[:8]
+            premise_labels = []
+            for pid in step.required_premises:
+                pn = graph.get_node(pid)
+                premise_labels.append(pn.label if pn else pid[:8])
+            steps.append({
+                "rule": step.rule_name,
+                "target": target_label,
+                "premises": premise_labels,
+                "confidence": step.confidence,
+            })
         return {
             "goal": result.goal_label,
             "achievable": result.achievable,
@@ -152,17 +191,7 @@ class ITTroubleshootingEngine:
             "satisfied_premises": result.satisfied_premises,
             "total_premises_needed": result.total_premises_needed,
             "missing_premises": result.missing_premises,
-            "proof_steps": [
-                {
-                    "rule": step.rule_name,
-                    "target": step.target_id[:8],
-                    "premises": step.required_premises[:8]
-                    if isinstance(step.required_premises, list)
-                    else step.required_premises,
-                    "confidence": step.confidence,
-                }
-                for step in (result.proof_tree.steps if result.proof_tree else [])
-            ],
+            "proof_steps": steps,
         }
 
     def find_possible_causes(self, symptom: str) -> list[dict]:

@@ -2,7 +2,7 @@
 Self-Healing Infrastructure Monitoring with Feedback-Driven Evolution
 =====================================================================
 
-Models a production infrastructure with 130+ nodes (servers, services, databases,
+Models a production infrastructure with 47 nodes (servers, services, databases,
 load balancers, caches, monitoring) and demonstrates the full self-evolving feedback
 loop:
 
