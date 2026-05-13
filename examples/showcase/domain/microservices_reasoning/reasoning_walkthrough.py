@@ -21,6 +21,7 @@ Run with:
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import cast
 
 from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
@@ -483,6 +484,7 @@ def main() -> None:
     )
 
     exp = result.expansion
+    assert exp is not None
     print(f"  Seeds:             {len(all_labels)} nodes")
     print(f"  States explored:   {exp.states_created}")
     print(f"  Rules applied:     {exp.rules_applied}")
@@ -519,7 +521,7 @@ def main() -> None:
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = mem.analyze.centrality("betweenness")
+    bc = cast(dict[str, float], mem.analyze.centrality("betweenness"))
     top_spof = top_k(bc, k=15)
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")

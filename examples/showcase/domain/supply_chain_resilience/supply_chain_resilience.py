@@ -13,6 +13,7 @@ Run with:
 from __future__ import annotations
 
 from collections import deque
+from typing import cast
 
 from hyper3 import HypergraphMemory, InverseRule, TransitiveRule, top_k
 
@@ -540,8 +541,8 @@ def main() -> None:
     print("SECTION 2: Centrality Analysis - Critical Nodes & Chokepoints")
     print("=" * 70)
 
-    deg = mem.analyze.centrality("degree")
-    btw = mem.analyze.centrality("betweenness")
+    deg = cast(dict[str, float], mem.analyze.centrality("degree"))
+    btw = cast(dict[str, float], mem.analyze.centrality("betweenness"))
 
     print("\n  Top 10 by degree centrality (most connected / highest ripple):")
     for name, score in top_k(deg, k=10):
@@ -623,6 +624,7 @@ def main() -> None:
         max_total_states=50,
     )
     exp1 = result1.expansion
+    assert exp1 is not None
     print(f"    States explored: {exp1.states_created}")
     print(f"    Rules applied:   {exp1.rules_applied}")
     print(f"    New edges:       {exp1.edges_produced}")
@@ -635,6 +637,7 @@ def main() -> None:
         max_total_states=50,
     )
     exp2 = result2.expansion
+    assert exp2 is not None
     print(f"    States explored: {exp2.states_created}")
     print(f"    Rules applied:   {exp2.rules_applied}")
     print(f"    New edges:       {exp2.edges_produced}")

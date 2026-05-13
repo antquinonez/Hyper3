@@ -18,7 +18,6 @@ from __future__ import annotations
 
 from hyper3 import HypergraphMemory
 
-
 COUNTERPARTIES = {
     "goldman_sachs": {"category": "counterparty", "type": "bank", "credit_rating": "A+", "region": "US"},
     "jp_morgan": {"category": "counterparty", "type": "bank", "credit_rating": "A+", "region": "US"},
@@ -389,7 +388,7 @@ def main() -> None:
         else:
             print(f"    Draw {i + 1:2d}: no result")
     if draw_counts:
-        dominant = max(draw_counts, key=draw_counts.get)
+        dominant = max(draw_counts, key=lambda k: draw_counts[k])
         dominant_prob = sum(abs(o.amplitude) ** 2 for o in qs.outcomes
                            if (mem.engine.graph.get_node(o.node_id).label if mem.engine.graph.get_node(o.node_id) else "") == dominant)
         dominant_prob_norm = dominant_prob / total_prob if total_prob > 0 else 0

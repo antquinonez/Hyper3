@@ -14,10 +14,12 @@ Run with:
 
 from __future__ import annotations
 
+from typing import cast
+
 from hyper3 import (
     HypergraphMemory,
-    TransitiveRule,
     InverseRule,
+    TransitiveRule,
 )
 
 
@@ -553,7 +555,7 @@ def main():
     print("SECTION 5: Funnel Account Identification")
     print("=" * 70)
 
-    degree = mem.analyze.centrality("degree")
+    degree = cast(dict[str, float], mem.analyze.centrality("degree"))
     transferred = mem.pattern_match(edge_label="transferred_to")
 
     in_degree: dict[str, int] = {}
@@ -624,7 +626,7 @@ def main():
             print(f"      IPs/Devices: {', '.join(sorted(ip_in)[:6])}")
     print()
 
-    betweenness = mem.analyze.centrality("betweenness")
+    betweenness = cast(dict[str, float], mem.analyze.centrality("betweenness"))
     suspect_persons = {l: d for l, d in persons.items() if d.get("risk_score", 0) >= 0.50}
     ranked = sorted(suspect_persons.items(), key=lambda x: -betweenness.get(x[0], 0))
     print("  Risk ranking of suspects (by betweenness centrality):")

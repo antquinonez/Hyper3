@@ -22,6 +22,7 @@ Run with:
 from __future__ import annotations
 
 from collections import Counter
+from typing import cast
 
 from hyper3 import AbductiveRule, HypergraphMemory, InverseRule, Modality, top_k
 
@@ -286,9 +287,10 @@ def main() -> None:
     )
 
     new_edges = mem.size[1] - pre_edges
-
-    print(f"  States explored:    {result.expansion.states_created}")
-    print(f"  Rules applied:      {result.expansion.rules_applied}")
+    exp = result.expansion
+    assert exp is not None
+    print(f"  States explored:    {exp.states_created}")
+    print(f"  Rules applied:      {exp.rules_applied}")
     print(f"  New edges total:    {new_edges}")
     print()
 
@@ -443,7 +445,7 @@ def main() -> None:
     print("  how many attack paths pass through it.")
     print()
 
-    centrality = mem.analyze.centrality("degree")
+    centrality = cast(dict[str, float], mem.analyze.centrality("degree"))
     top_actors = top_k({k: v for k, v in centrality.items() if k in actor_set}, k=5)
 
     print("  Top 5 most connected threat actors:")

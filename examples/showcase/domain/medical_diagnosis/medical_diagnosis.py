@@ -403,7 +403,7 @@ def main() -> None:
     print(f"    Raw samples: {', '.join(samples_raw)}")
     print()
     print("  Frequency table:")
-    for concept in sorted(frequency, key=frequency.get, reverse=True):
+    for concept in sorted(frequency, key=lambda k: frequency[k], reverse=True):
         count = frequency[concept]
         bar = "#" * count
         print(f"    {concept:<28} {count:>2}/{n_samples}  {bar}")

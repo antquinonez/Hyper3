@@ -141,7 +141,7 @@ class JobSkillMatchingEngine:
             path = self.mem.analyze.paths(
                 src,
                 dst,
-                edge_label="substitutes_for",
+                label="substitutes_for",
                 max_depth=4,
                 max_paths=1,
             )
@@ -216,7 +216,7 @@ class JobSkillMatchingEngine:
 
         paths = self.mem.analyze.paths(
             from_skill, to_skill,
-            edge_label="substitutes_for",
+            label="substitutes_for",
             max_depth=4,
             max_paths=1,
         )

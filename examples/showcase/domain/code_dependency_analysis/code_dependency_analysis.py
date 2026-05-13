@@ -12,6 +12,8 @@ Run with:
 
 from __future__ import annotations
 
+from typing import cast
+
 from hyper3 import HypergraphMemory, TransitiveRule, top_k
 
 
@@ -453,8 +455,8 @@ def main():
     print("SECTION 3: Most Critical Modules (Centrality)")
     print("=" * 70)
 
-    degree = mem.analyze.centrality("degree")
-    betweenness = mem.analyze.centrality("betweenness")
+    degree = cast(dict[str, float], mem.analyze.centrality("degree"))
+    betweenness = cast(dict[str, float], mem.analyze.centrality("betweenness"))
 
     combined = {}
     for label in all_modules:
@@ -669,7 +671,7 @@ def main():
     summaries = ab_mem.list_summaries()
     print(f"  Active summaries: {[s.summary_label for s in summaries]}")
 
-    abstract_degree = ab_mem.analyze.centrality("degree")
+    abstract_degree = cast(dict[str, float], ab_mem.analyze.centrality("degree"))
     print("  Top 5 modules in abstracted graph:")
     for label, score in top_k(abstract_degree, k=5):
         print(f"    {label:<35s} centrality={score:.3f}")

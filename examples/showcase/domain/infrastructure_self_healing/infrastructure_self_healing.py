@@ -40,7 +40,6 @@ from hyper3 import (
     TransitiveRule,
 )
 
-
 SERVERS = {
     "web-fe-01": {"category": "server", "service": "web_frontend", "zone": "us-east-1", "health": 0.98},
     "web-fe-02": {"category": "server", "service": "web_frontend", "zone": "us-east-1", "health": 0.95},
