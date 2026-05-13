@@ -198,6 +198,8 @@ The script records 34 rule outcomes across 6 rule types. Each outcome is one of 
 | 5 | GeneralizationRule | 1.00 | 1.00 | 0.50 | 2 |
 | 6 | AbductiveRule | 1.00 | 1.00 | 0.33 | 3 |
 
+> **Note:** All rules show effectiveness 1.00 because the effectiveness metric measures whether a rule was applied at all (non-zero outcomes). The actual discrimination comes from the **retention** and **reinforcement** columns — retention measures what fraction of a rule's inferred edges survive graph evolution, and reinforcement measures what fraction get strengthened. A rule with effectiveness 1.00 and retention 0.00 (like `InverseRule`) is actively producing edges that the system immediately discards.
+
 **What retention rate reveals:** `HubInferenceRule` has retention 1.00 — every edge it produces survives pruning. `InverseRule` has retention 0.00 — all of its edges get pruned. This means `InverseRule` is producing inferences the system considers low-quality and removes. The negative retention for `AnalogicalRule` (-2.00) indicates that more edges were pruned than produced, a strong signal that the rule is not well-suited to this graph's structure.
 
 **Why tracking this matters:** Without effectiveness tracking, all rules are treated equally. A rule that consistently produces pruned edges wastes computation and adds noise. Effectiveness ranking lets the system deprioritize `InverseRule` and `AnalogicalRule` while giving more compute budget to `HubInferenceRule` and `GeneralizationRule`.

@@ -91,7 +91,7 @@ def main() -> None:
     print("\n  Born-rule sampling: P = |amplitude|^2")
 
     counts = {"financial": 0, "river_edge": 0, "billiards": 0}
-    n_samples = 100
+    n_samples = 1000
     for _ in range(n_samples):
         sample = mem.belief.sample("financial")
         if sample and sample in counts:
@@ -102,7 +102,7 @@ def main() -> None:
     for outcome, count in sorted(counts.items(), key=lambda x: -x[1]):
         pct = count / total * 100 if total > 0 else 0
         bar = "#" * int(pct / 2)
-        print(f"  {outcome:>12}: {count:>3} ({pct:>5.1f}%) {bar}")
+        print(f"  {outcome:>12}: {count:>4} ({pct:>5.1f}%) {bar}")
 
     print("\n" + "=" * 70)
     print("SECTION 3: CONCEPT CORRELATION (QUANTUM-INSPIRED)")

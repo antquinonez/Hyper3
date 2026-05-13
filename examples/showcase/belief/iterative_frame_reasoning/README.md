@@ -187,9 +187,9 @@ graph TB
 
 ## 6. Analysis Pipeline
 
-> The script has 4 sections (printed as `SECTION N:` headers). This README describes them as 5 phases to separate graph construction from the four analytical phases. The mapping: script Section 1 = Phase 1, script Section 2 = Phase 2, script Section 3 = Phase 3, script Section 4 = Phase 5. Phase 4 (disagreement analysis) is embedded within script Section 3.
+The script has 4 sections (printed as `SECTION N:` headers). The README subsections below correspond 1:1 to those sections, with Section 3 split into invariants (3a) and disagreements (3b).
 
-### Phase 1: Graph Construction and Rule Registration
+### Section 1: Graph Construction and Rule Registration
 
 The 80 nodes and 183 edges are constructed from 6 entity categories. Five inference rules are registered:
 
@@ -201,7 +201,7 @@ The 80 nodes and 183 edges are constructed from 6 entity categories. Five infere
 
 Each frame's `reason_with_frame()` call applies all five rules, producing 30 inferred edges per frame (120 total across four frames). These inferred edges create multi-hop connections that change what each frame's traversal discovers.
 
-### Phase 2: Four-Frame Analysis
+### Section 2: Four-Frame Analysis
 
 Each frame runs the same reasoning rules (producing the same 30 inferred edges) but applies a different traversal strategy to determine which nodes are "reachable" and thus critical. Frame-specific scores (`centrality x criticality`) are non-deterministic because the multiway expansion applies rules in varying order, producing different inferred edge sets per run. The patterns described below are stable.
 
@@ -225,7 +225,7 @@ Filters to `depends_on` and `routes_to` edges (and their inferred variants) but 
 
 Why this matters: the quantum frame reveals **deep operational dependencies** -- chains of 5-6 hops that would cause cascading failure. A shallow traversal stops at the immediate dependents; the depth-6 traversal discovers that `api_gateway` -> `auth_service` -> `config_vault` -> `secrets_store` forms a four-hop chain ending at restricted data.
 
-### Phase 3: Cross-Perspective Invariants
+### Section 3a: Cross-Perspective Invariants
 
 The `RobustReachabilityDetector` identifies nodes reachable from the seeds across all built-in frame traversals (independent of the four showcase frames). The invariant count and confidence vary across runs (typically 37-43 invariants with confidence 0.78-0.95) because the built-in frame traversals are sensitive to the current graph state including inferred edges.
 
@@ -246,7 +246,7 @@ The top invariant assets by criticality are deterministic (based on graph struct
 
 These are the assets to protect first -- every analytical lens agrees they are in the blast radius.
 
-### Phase 4: Disagreement Regions
+### Section 3b: Disagreement Regions
 
 The four showcase frames disagree on 12 out of 32 total reachable nodes (20 are seen by all four). This count and the specific disagreement list are deterministic across runs. The disagreement pattern reveals a clear split:
 
@@ -255,7 +255,7 @@ The four showcase frames disagree on 12 out of 32 total reachable nodes (20 are 
 
 This split has operational implications: the quantum frame's focus on dependency chains means it underestimates data exposure risk. A security team using only the quantum frame would miss 9 datastores including `db_payments` (criticality 10, restricted data).
 
-### Phase 5: Actionable Recommendations
+### Section 4: Actionable Recommendations
 
 The pipeline generates tiered recommendations by counting how many frames flag each asset in their top 8. The specific assets in each tier vary across runs (typically 6-8 assets in the top tier), but the core set is stable:
 

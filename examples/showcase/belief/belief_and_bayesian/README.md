@@ -68,10 +68,10 @@ Bayes factor (disease_a vs disease_b): 6.00
 SECTION 2: BORN-RULE BELIEF DISTRIBUTIONS
 ======================================================================
 ...
-sampling distribution (100 trials):
-     river_edge:  ~52 ( ~52.0%) ...
-      financial:  ~38 ( ~38.0%) ...
-      billiards:  ~10 ( ~10.0%) ...
+sampling distribution (1000 trials):
+     river_edge: ~521 ( ~52.0%) ...
+      financial: ~383 ( ~38.0%) ...
+      billiards:  ~96 ( ~10.0%) ...
 
 ======================================================================
 SECTION 4: CREDIBLE SET
@@ -147,8 +147,8 @@ Second evidence: lab results. Likelihoods: `healthy` = 0.05, `disease_a` = 0.9, 
 
 The ambiguous concept "bank" is represented as a Born-rule distribution over three outcomes: `financial` (amplitude 0.6), `river_edge` (amplitude 0.7), `billiards` (amplitude 0.3). Sampling produces each outcome with probability proportional to |amplitude|^2:
 
-| Outcome | Amplitude | \|Amp\|^2 | Normalized P | Expected frequency (100 samples) |
-|---------|-----------|-----------|--------------|--------------------------------|
+| Outcome | Amplitude | \|Amp\|^2 | Normalized P | Expected frequency (1000 samples) |
+|---------|-----------|-----------|--------------|----------------------------------|
 | `river_edge` | 0.7 | 0.49 | 0.521 | ~52% |
 | `financial` | 0.6 | 0.36 | 0.383 | ~38% |
 | `billiards` | 0.3 | 0.09 | 0.096 | ~10% |
@@ -177,7 +177,7 @@ The posteriors are computed via Bayes' rule: `P(hypothesis | evidence) proportio
 
 ### Born-Rule Sampling Variability
 
-The sampling counts (e.g., river_edge: 53/100) vary across runs because sampling is probabilistic. Over many runs, the counts converge to the normalized probabilities (river_edge: 52.1%, financial: 38.3%, billiards: 9.6%). The rank order is stable: river_edge always dominates.
+The sampling counts (e.g., river_edge: 521/1000) vary across runs because sampling is probabilistic. Over many runs, the counts converge to the normalized probabilities (river_edge: 52.1%, financial: 38.3%, billiards: 9.6%). The rank order is stable: river_edge always dominates.
 
 ### Bayes Factor Interpretation
 
@@ -258,6 +258,8 @@ mem.belief.create(
     outcomes=["financial", "river_edge", "billiards"],
     amplitudes=[0.6, 0.7, 0.3],
 )
+# sample() takes any outcome label; it finds the distribution
+# containing that label and samples one outcome proportional to |amp|^2
 sample = mem.belief.sample("financial")
 
 mem.belief.correlate(
