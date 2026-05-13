@@ -1,8 +1,6 @@
 """
 Clustering Coefficient: Local and Average
 =========================================
-Parallels XGI clustering tutorial.
-
 Demonstrates clustering coefficients on different graph structures
 (triangle, chain, star) and compares average clustering across topologies.
 
@@ -16,10 +14,6 @@ def main() -> None:
     print("=" * 70)
     print("SECTION 1: Graphs with Varying Clustering")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("xgi.clustering_coefficient(H)")
-    print("xgi.local_clustering_coefficient(H)")
 
     from hyper3 import HypergraphMemory
 
@@ -128,7 +122,7 @@ def main() -> None:
     mixed.link("c", "d", label="bridge", weight=1.0)
 
     cr = mixed.analyze.communities(seed=42)
-    print(f"\ncommunity detection on mixed graph:")
+    print("\ncommunity detection on mixed graph:")
     print(f"  communities: {cr.community_count}")
     print(f"  modularity: {cr.modularity:.4f}")
     for comm in cr.communities:
@@ -145,7 +139,7 @@ def main() -> None:
         cc_values[c] = mixed.clustering_coefficient(c)
 
     high_cc_node = max(cc_values, key=cc_values.get)
-    print(f"\nclustering coefficients:")
+    print("\nclustering coefficients:")
     for c, cc in sorted(cc_values.items()):
         print(f"  {c}: {cc:.4f}")
     print(f"\nstimulating highest-clustering node: '{high_cc_node}' (cc={cc_values[high_cc_node]:.4f})")

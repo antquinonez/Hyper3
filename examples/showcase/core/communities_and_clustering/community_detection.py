@@ -1,13 +1,8 @@
 """
-Laminar Comparison: Community Detection & Clustering
-=====================================================
-Parallels:
-  - XGI: "plot_clustering.py" (spectral clustering, HPPM)
-  - HNX: "Modularity and Clustering" (qH modularity, Kumar algorithm)
-  - NetworkX: community detection
-
+Community Detection and Hyperedge-Aware Analysis
+=================================================
 Shows community detection via label propagation, connected components,
-modularity scoring, and extends with Hyper3's hyperedge-aware analysis.
+modularity scoring, s-persistence, and hyperedge-aware community analysis.
 
 Run: .venv/bin/python examples/showcase/core/communities_and_clustering/community_detection.py
 """
@@ -50,16 +45,11 @@ def main() -> None:
     print(f"  cluster_a: {cluster_a} (5 nodes, dense)")
     print(f"  cluster_b: {cluster_b} (5 nodes, dense)")
     print(f"  cluster_c: {cluster_c} (4 nodes, dense)")
-    print(f"  bridges: a1-b1, b5-c1")
+    print("  bridges: a1-b1, b5-c1")
 
     print("\n" + "=" * 70)
     print("SECTION 2: CONNECTED COMPONENTS")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("xgi.connected_components(H)  -> list of frozensets")
-    print("--- NetworkX equivalent ---")
-    print("nx.connected_components(G)")
 
     comp_result = mem.analyze.components()
     print(f"connected components: {len(comp_result)}")
@@ -70,11 +60,6 @@ def main() -> None:
     print("SECTION 3: LABEL PROPAGATION COMMUNITIES")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.spectral_clustering(H, k=3)")
-    print("--- HNX equivalent ---")
-    print("kumar_clusters(h)  -> Kumar algorithm")
-
     result = mem.analyze.communities(seed=42)
     print(f"\ncommunities detected: {result.community_count}")
     print(f"modularity: {result.modularity:.4f}")
@@ -83,20 +68,17 @@ def main() -> None:
         print(f"  community {i}: {sorted(community.member_labels)} ({community.size} nodes)")
 
     print("\n" + "=" * 70)
-    print("SECTION 4: S-PERSISTENCE (Hyper3 advantage)")
+    print("SECTION 4: S-PERSISTENCE ANALYSIS")
     print("=" * 70)
 
-    print("\n--- HNX equivalent ---")
-    print("s-line graphs, s-centrality at different s-levels")
-
     sp = mem.s_persistence(max_s=3)
-    print(f"\ns-persistence analysis:")
+    print("\ns-persistence analysis:")
     for entry in sp.levels:
         print(f"  s={entry['s']}: {entry['num_components']} components, "
               f"largest={entry['largest_component_size']} nodes")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: HYPEREDGE-AWARE COMMUNITIES (Hyper3 advantage)")
+    print("SECTION 5: HYPEREDGE-AWARE COMMUNITIES")
     print("=" * 70)
 
     mem.link_hyper(
@@ -113,7 +95,7 @@ def main() -> None:
     )
 
     h_neighbors = mem.hyperedge_neighbors("a1")
-    print(f"\na1 hyperedge co-participants:")
+    print("\na1 hyperedge co-participants:")
     for neighbor, edges in h_neighbors.items():
         print(f"  {neighbor}: {len(edges)} shared hyperedge(s)")
 

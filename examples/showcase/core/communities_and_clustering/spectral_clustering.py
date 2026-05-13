@@ -1,8 +1,6 @@
 """
 Spectral Clustering: Community Detection via Laplacian Eigenvalues
 ==================================================================
-Parallels XGI spectral_clustering.
-
 Demonstrates spectral clustering on hypergraphs: generating an SBM graph,
 clustering with k-means on Laplacian eigenvectors, and comparing with
 label propagation communities.
@@ -18,9 +16,6 @@ def main() -> None:
     print("SECTION 1: Build a Graph with 3 Natural Clusters (SBM)")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("xgi.uniform_HSBM(n=30, k=3, sizes=[10, 10, 10], p=0.8, q=0.02)")
-
     from hyper3 import random_sbm
 
     g = random_sbm(30, 3, [10, 10, 10], p_in=0.7, p_out=0.03, seed=42)
@@ -34,9 +29,6 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SECTION 2: Spectral Clustering (k=3)")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("xgi.spectral_clustering(H, k=3)")
 
     clusters = g.spectral_clustering(k=3)
     print(f"\nnumber of clusters: {len(clusters)}")
@@ -54,9 +46,6 @@ def main() -> None:
     print("\n" + "=" * 70)
     print("SECTION 3: Compare with Label Propagation Communities")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("(no direct equivalent; XGI has no community detection)")
 
     from hyper3 import CommunityDetector
 

@@ -37,9 +37,9 @@ nodes: 14, edges: 28
 communities detected: 3
 modularity: 0.6358
 coverage: 0.9848
-  community 4: ['a1', 'a2', 'a3', 'a4', 'a5'] (5 nodes)
-  community 9: ['b1', 'b2', 'b3', 'b4', 'b5'] (5 nodes)
-  community 11: ['c1', 'c2', 'c3', 'c4'] (4 nodes)
+  community 0: ['a1', 'a2', 'a3', 'a4', 'a5'] (5 nodes)
+  community 1: ['b1', 'b2', 'b3', 'b4', 'b5'] (5 nodes)
+  community 2: ['c1', 'c2', 'c3', 'c4'] (4 nodes)
 ```
 
 ```bash

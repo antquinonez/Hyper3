@@ -1,13 +1,9 @@
 """
-Laminar Comparison: Directed Hypergraphs
+Directed Hypergraphs with Enzyme Kinetics
 =========================================
-Parallels:
-  - XGI: "Tutorial 7 - Directed Hypergraphs"
-  - HNX: basic directed edges
-
 Shows directed hyperedge construction, in/out degree,
-source/target access, and extends with Hyper3's semantic
-direction and inference.
+source/target access, hyperedge neighbor queries, and
+transitive inference on a biochemical catalysis graph.
 
 Run: .venv/bin/python examples/showcase/core/directed_hypergraphs/directed_hypergraphs.py
 """
@@ -17,17 +13,9 @@ from __future__ import annotations
 
 def main() -> None:
     print("=" * 70)
-    print("SECTION 1: DIRECTED HYPERGRAPH CONSTRUCTION — XGI pattern")
+    print("SECTION 1: DIRECTED HYPERGRAPH CONSTRUCTION")
     print("=" * 70)
 
-    print("\n--- XGI equivalent ---")
-    print("DH = xgi.DiHypergraph()")
-    print("DH.add_edge([{1,2,3}, {3,4}])  # tail={1,2,3}, head={3,4}")
-    print("DH.edges.dimembers()  -> [({1,2,3}, {3,4})]")
-    print("DH.edges.head()       -> [{3,4}]")
-    print("DH.edges.tail()       -> [{1,2,3}]")
-
-    print("\n--- Hyper3 ---")
     from hyper3 import HypergraphMemory
 
     mem = HypergraphMemory(evolve_interval=0)
@@ -51,12 +39,8 @@ def main() -> None:
     print(f"nodes: {mem.size[0]}, edges: {mem.size[1]}")
 
     print("\n" + "=" * 70)
-    print("SECTION 2: IN-DEGREE / OUT-DEGREE — XGI pattern")
+    print("SECTION 2: IN-DEGREE / OUT-DEGREE")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("DH.nodes.in_degree.asdict()")
-    print("DH.nodes.out_degree.asdict()")
 
     in_deg = mem.analyze.centrality("in_degree")
     out_deg = mem.analyze.centrality("out_degree")
@@ -67,28 +51,23 @@ def main() -> None:
         print(f"{label:>14} {out_deg.get(label, 0):>8} {in_deg.get(label, 0):>8} {out_deg.get(label, 0) + in_deg.get(label, 0):>8}")
 
     print("\n" + "=" * 70)
-    print("SECTION 3: SOURCE / TARGET ACCESS — XGI pattern")
+    print("SECTION 3: SOURCE / TARGET ACCESS")
     print("=" * 70)
-
-    print("\n--- XGI equivalent ---")
-    print("DH.edges.dimembers()  -> (tail, head) pairs")
-    print("DH.edges.head_size    -> head cardinality")
-    print("DH.edges.tail_size    -> tail cardinality")
 
     for e in mem.analyze.edges():
         print(f"  {e.label}: {set(e.source_labels)} -> {set(e.target_labels)}  (tail={e.source_cardinality}, head={e.target_cardinality})")
 
     print("\n" + "=" * 70)
-    print("SECTION 4: HYPEREDGE NEIGHBORS (Hyper3 advantage)")
+    print("SECTION 4: HYPEREDGE NEIGHBORS")
     print("=" * 70)
 
     co_neighbors = mem.hyperedge_neighbors("substrate_x")
-    print(f"\nsubstrate_x co-participates in hyperedges with:")
+    print("\nsubstrate_x co-participates in hyperedges with:")
     for neighbor, edges in co_neighbors.items():
         print(f"  {neighbor}: {len(edges)} shared hyperedge(s)")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: SEMANTIC DIRECTION + INFERENCE (Hyper3-only layer)")
+    print("SECTION 5: TRANSITIVE INFERENCE")
     print("=" * 70)
 
     from hyper3 import TransitiveRule
@@ -101,7 +80,7 @@ def main() -> None:
     mem.link("product_y", "downstream_product", label="catalyzes", weight=3.0)
 
     result = mem.reason(seeds={"substrate_x"}, max_depth=2)
-    print(f"\nreasoning from 'substrate_x':")
+    print("\nreasoning from 'substrate_x':")
     print(f"  edges produced: {result.expansion.edges_produced}")
     print(f"  rules applied: {result.expansion.rules_applied}")
 

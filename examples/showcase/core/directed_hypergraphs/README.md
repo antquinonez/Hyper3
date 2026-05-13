@@ -56,7 +56,7 @@ substrate_x co-participates in hyperedges with:
   enzyme_c: 1 shared hyperedge(s)
   enzyme_a: 1 shared hyperedge(s)
 
-SECTION 5: SEMANTIC DIRECTION + INFERENCE
+SECTION 5: TRANSITIVE INFERENCE
 reasoning from 'substrate_x':
   edges produced: 1
   rules applied: 1
@@ -117,7 +117,7 @@ graph LR
 
 ### Section 1: Construction
 
-The script creates 5 nodes and 5 edges. The `relate()` calls produce binary edges (tail=1, head=1), while `relate_hyperedge()` produces the n-ary edge with tail=3, head=1 — the cooperative catalysis relationship where all three enzymes jointly contribute to product formation.
+The script creates 5 nodes and 5 edges. The `link()` calls produce binary edges (tail=1, head=1), while `link_hyper()` produces the n-ary edge with tail=3, head=1 — the cooperative catalysis relationship where all three enzymes jointly contribute to product formation.
 
 ### Section 2: In-Degree / Out-Degree
 
@@ -147,10 +147,10 @@ A `TransitiveRule` on the `catalyzes` label produces a new `enables_production` 
 |--------|-------|
 | Nodes | 5 (initial) + 1 (downstream_product) = 6 total |
 | Edges (initial) | 5 |
-| Edges (after inference) | 6 |
-| Binary edges | 4 (`binds` x3 + `catalyzes` x1) |
+| Edges (after adding downstream) | 6 |
+| Edges (after inference) | 7 (5 initial + 1 downstream + 1 inferred) |
+| Binary edges | 6 (`binds` x3 + `catalyzes` x2 + `enables_production` x1) |
 | N-ary edges | 1 (`cooperative_catalysis`, tail=3, head=1) |
-| Downstream edge | 1 (`catalyzes`, product_y -> downstream_product) |
 | substrate_x total degree | 4 (in=3, out=1) |
 | Inference edges produced | 1 |
 | Rules applied | 1 |
@@ -210,7 +210,14 @@ mem.add_rules(
 result = mem.reason(seeds={"substrate_x"}, max_depth=2)
 ```
 
-## 9. Reference
+## 9. Real-World Gap
+
+- **Scale**: This script runs on 5-6 nodes. Biochemical pathway graphs contain thousands of metabolites and reactions.
+- **Edge weights**: Weights are assigned manually. Real enzyme kinetics use Michaelis-Menten constants, reaction rates, or binding affinities.
+- **Rule selection**: The script uses a single `TransitiveRule`. Real metabolic networks require domain-specific rules for inhibition, activation, and feedback loops.
+- **Hyperedge semantics**: The cooperative catalysis edge treats all three enzymes as equal contributors. In reality, enzymes have different binding affinities and catalytic efficiencies that a single edge weight cannot capture.
+
+## 10. Reference
 
 ### API Methods
 

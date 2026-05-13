@@ -76,8 +76,8 @@ nodes: 8, edges: 11
 --- Top node by each measure ---
         degree: hub (0.714286)
    betweenness: hub (0.500000)
-      pagerank: d (0.127752)
-          katz: hub (0.378416)
+       pagerank: d (0.127752)
+           katz: hub (0.378416)
 
 all measures agree on top node: False
 
@@ -91,10 +91,11 @@ a:
   anomaly status: low_risk
   boundary score: 0.2829
 
-communities detected: 1
-modularity: 0.0000
-  community 0: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'hub'] (8 nodes)
+communities detected: 1 or 2 (non-deterministic)
+modularity: 0.0000 or 0.2149
 ```
+
+> Community detection via label propagation is non-deterministic even with a fixed seed. On this graph, results fluctuate between 1 community (all 8 nodes) and 2 communities ({a, b, c, d, hub} and {e, f, g}). Both outcomes are valid — the graph's topology sits near a decision boundary.
 
 **Script 3 output** (7-node project graph, statistics + evolution + abstraction):
 
@@ -126,6 +127,26 @@ after collapse:
 
 Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 hyperedge (`project_team`).
 
+```mermaid
+graph LR
+    alice -->|manages| bob
+    alice -->|manages| carol
+    alice -.->|collaborates| eve
+    bob -->|collaborates| carol
+    bob -->|reports_to| dave
+    carol -->|collaborates| frank
+    dave -->|collaborates| grace
+    eve -->|collaborates| iris
+    frank -->|collaborates| henry
+    grace -->|collaborates| iris
+    henry -->|collaborates| jack
+    iris -->|coordinates| alice
+    jack -->|collaborates| bob
+    jack -->|collaborates| grace
+```
+
+> The `project_team` hyperedge ({alice, iris, eve} -> {bob, carol, frank}) is not shown in the mermaid diagram because mermaid only supports pairwise edges.
+
 **Degree centrality** ranks alice and bob tied at 0.5556 — both connect to 5 of 9 other nodes. This reflects their roles: alice manages bob and carol, and bob collaborates widely.
 
 **Betweenness centrality** ranks iris highest at 0.3819 — iris connects the product team to engineering via her collaborations with eve and grace, and coordinates back to alice. Despite having the same degree as carol (0.4444), iris has 6x higher betweenness than carol (0.0625). The difference: iris sits on paths between otherwise disconnected subgroups, while carol's connections are more local.
@@ -142,17 +163,57 @@ Builds a 10-node, 15-edge org chart with weighted directed edges and one 3-to-3 
 
 Builds an 8-node, 11-edge network with a star-like hub and a peripheral chain (a-b-c-d-e-f-g-hub). Runs four centrality measures and checks agreement.
 
+```mermaid
+graph LR
+    hub -->|connects| a
+    hub -->|connects| b
+    hub -->|connects| c
+    hub -->|connects| d
+    a -->|link| b
+    b -->|link| c
+    c -->|link| d
+    d -->|link| e
+    e -->|link| f
+    f -->|link| g
+    g -->|link| hub
+```
+
 **Key finding**: The four measures disagree on the top node. Degree, betweenness, and Katz all pick `hub` (0.7143, 0.5000, 0.3784), but PageRank picks `d` (0.127752). Why this happens: `hub` has the most connections and sits on many paths, but PageRank's random-walk model spreads probability mass along the chain. Node `d` sits at the midpoint of the longest chain segment, accumulating steady-state probability from both directions.
 
 **Pairwise agreement** is low — degree vs betweenness agrees on 0/8 positions, degree vs pagerank agrees on 0/8 positions. The highest agreement is degree vs katz and pagerank vs katz, each at 3/8. This illustrates why choosing the right centrality measure matters: they produce genuinely different rankings.
 
 **Structural anomaly detection** classifies hub as anomalous (boundary score 0.4543) — its star topology creates an unusual concentration of connections. Node d is also anomalous (0.3182) due to its betweenness-bridging position. Node a is low_risk (0.2829) because it sits at the periphery with no structural surprises.
 
-**Community detection** finds a single community covering all 8 nodes (modularity 0.0000, coverage 1.0000). The hub's connections to every chain node and the closing link (g -> hub) create enough cross-connectivity that label propagation cannot find a natural partition. This contrasts with graphs that have clearer structural boundaries (e.g., the three-cluster graph in `communities_and_clustering/community_detection.py`, which achieves modularity 0.6358). Community detection results are seed-dependent — with seed=1, the same graph produces two communities ({a, b, c, d, hub} and {e, f, g}) at modularity 0.2149 — but seed=42 (used in this script) collapses to one.
+**Community detection** results are non-deterministic on this graph, even with seed=42. Across runs, label propagation fluctuates between two outcomes:
+
+| Outcome | Communities | Modularity | Partitions |
+|---------|-------------|------------|------------|
+| A | 1 | 0.0000 | All 8 nodes in one community |
+| B | 2 | 0.2149 | {a, b, c, d, hub} (5) and {e, f, g} (3) |
+
+Why this happens: the hub connects to every chain node, and the closing link (g -> hub) creates a cycle. This puts the graph near a decision boundary where small differences in label initialization order cause label propagation to tip either way. This contrasts with graphs that have clearer structural boundaries (e.g., the three-cluster graph in `communities_and_clustering/community_detection.py`, which achieves modularity 0.6358 consistently).
 
 ### 4c. Graph Statistics (`graph_statistics.py`)
 
 Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 project) and labeled edges, including one hyperedge (`team_of` connecting {alice, bob} to {project_x}).
+
+```mermaid
+graph LR
+    alice -->|collaborates| bob
+    alice -->|collaborates| carol
+    bob -->|reports_to| dave
+    carol -->|collaborates| eve
+    alice -->|uses| python
+    bob -->|uses| python
+    eve -->|uses| python
+    alice -->|leads| project_x
+    bob -->|works_on| project_x
+    carol -->|works_on| project_x
+    dave -->|works_on| project_x
+    eve -->|works_on| project_x
+```
+
+> The `team_of` hyperedge ({alice, bob} -> {project_x}) is not shown in the mermaid diagram because mermaid only supports pairwise edges.
 
 **`describe()`** provides a one-call structural snapshot: 7 nodes, 13 edges, density 0.3095, single connected component, no isolated nodes, mean degree 3.86.
 
@@ -190,7 +251,7 @@ Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 projec
 | Anomaly: hub | — | anomalous (0.4543) | — |
 | Anomaly: d | — | anomalous (0.3182) | — |
 | Anomaly: a | — | low_risk (0.2829) | — |
-| Communities | 1 (modularity 0.0000) | 1 (modularity 0.0000) | — |
+| Communities | 1 (modularity 0.0000) | 1 or 2 (non-deterministic, see note) | — |
 | Evolution: nodes merged | — | — | 1 |
 | Evolution: density before/after | — | — | 0.3095 → 0.4333 |
 | Collapse: edges collapsed | — | — | 3 |
@@ -208,7 +269,7 @@ Builds a 7-node, 13-edge graph with typed nodes (5 persons, 1 language, 1 projec
 
 **Anomaly detection surfaces structural patterns that centrality alone misses.** Script 1 flags alice, iris, and bob as anomalous due to cyclic dependencies — a pattern invisible to degree or PageRank. Script 2 flags hub as the most anomalous node (0.4543), confirming that its star topology is structurally unusual.
 
-**Community detection is sensitive to graph topology and seed.** Script 2 finds a single community (modularity 0.0000) because the hub connects to every chain node and the closing link (g -> hub) makes the graph too densely interlinked for label propagation to partition at seed=42. Script 1's org chart also collapses to one community for the same reason. Community detection is most informative on graphs with clear structural boundaries — see the three-cluster example in `communities_and_clustering/community_detection.py` (modularity 0.6358).
+**Community detection is sensitive to graph topology and non-deterministic.** Label propagation produces variable results on graphs near a decision boundary. Script 2's hub-and-chain graph fluctuates between 1 and 2 communities even with seed=42, because the hub's star topology and the closing link (g -> hub) create ambiguous structure. Script 1's org chart consistently collapses to one community because it is more densely connected. Community detection is most informative on graphs with clear structural boundaries — see the three-cluster example in `communities_and_clustering/community_detection.py` (modularity 0.6358).
 
 **Evolution compresses graphs while preserving connectivity.** Script 3 shows evolution merging one node and increasing density from 0.3095 to 0.4333, demonstrating that structural maintenance reduces redundancy without losing information.
 
