@@ -2,8 +2,8 @@
 Medical Diagnosis Knowledge Graph with Backward Chaining and Belief Revision
 ============================================================================
 
-Builds a clinical knowledge graph with 120+ nodes covering diseases, symptoms,
-risk factors, lab findings, and medications. Demonstrates:
+Builds a clinical knowledge graph with 92 nodes covering diseases, symptoms,
+risk factors, lab findings, imaging findings, and medications. Demonstrates:
 
   1. Backward chaining from suspected diagnoses to required evidence
   2. Belief revision when contradictory clinical findings emerge
@@ -16,8 +16,7 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
-
+from hyper3 import HypergraphMemory, InverseRule, TransitiveRule
 
 DISEASES = {
     "pneumonia": {"category": "disease", "severity": "high", "prevalence": 0.02},
@@ -241,7 +240,7 @@ def main() -> None:
     print("SECTION 2: Backward Chaining - Proving a Diagnosis")
     print("=" * 70)
 
-    mem.add_rules(
+    mem.reason.add_rules(
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
         InverseRule(edge_label="causes", inverse_label="caused_by"),
     )
@@ -259,19 +258,38 @@ def main() -> None:
     print(f"  Differential diagnosis workup ({len(ddx)} candidates):")
     print()
 
-    scores: list[tuple[str, float, int, int]] = []
+    scores: list[tuple[str, float, float, float, int, int]] = []
+    coverage_weight = 0.70
+    prove_weight = 0.30
     for dx in ddx:
         result = mem.prove(dx, known_facts=patient_findings)
-        scores.append((dx, result.confidence, result.satisfied_premises, result.total_premises_needed))
+        caused_targets = set(mem.neighbors(dx, edge_label="causes", direction="out"))
+        overlap = len(patient_findings & caused_targets)
+        coverage = overlap / len(patient_findings)
+        composite = (coverage * coverage_weight) + (result.confidence * prove_weight)
+        scores.append(
+            (
+                dx,
+                composite,
+                result.confidence,
+                coverage,
+                result.satisfied_premises,
+                result.total_premises_needed,
+            )
+        )
         status = "PROVEN" if result.achievable else "possible"
-        print(f"    {dx:<28} conf={result.confidence:.2f}  "
-              f"premises={result.satisfied_premises}/{result.total_premises_needed}  [{status}]")
+        print(
+            f"    {dx:<28} prove={result.confidence:.2f}  coverage={coverage:.2f}  "
+            f"combined={composite:.2f}  premises={result.satisfied_premises}/{result.total_premises_needed}  [{status}]"
+        )
         if result.missing_premises:
             print(f"      Missing evidence: {', '.join(result.missing_premises[:5])}")
     print()
 
     scores.sort(key=lambda x: x[1], reverse=True)
-    print(f"  Ranked differential: {' > '.join(s[0] for s in scores)}")
+    print("  Ranked differential (coverage-weighted):")
+    for i, (label, combined, prove_conf, coverage, _, _) in enumerate(scores, 1):
+        print(f"    {i}. {label:<24} combined={combined:.2f}  coverage={coverage:.2f}  prove={prove_conf:.2f}")
     print()
 
     print("=" * 70)
@@ -321,8 +339,8 @@ def main() -> None:
     print("SECTION 5: Structural Pattern Matching - Clinical Pathways")
     print("=" * 70)
 
-    chains = mem.match_chains(edge_label="causes", min_length=3, max_length=6, max_chains=10)
-    print(f"  Disease-to-symptom chains (length 3+): {len(chains)}")
+    chains = mem.match_chains(edge_label="causes", min_length=2, max_length=6, max_chains=10)
+    print(f"  Disease-to-symptom chains (length 2+): {len(chains)}")
     for chain in chains[:5]:
         print(f"    {' -> '.join(chain[:6])}")
     print()
@@ -335,7 +353,7 @@ def main() -> None:
     print()
 
     fans = mem.match_fan_out(edge_label="causes", min_fan=5, max_results=5)
-    print(f"  Diseases with most symptoms (fan-out >= 5):")
+    print("  Diseases with most symptoms (fan-out >= 5):")
     for f in fans:
         print(f"    {f['node']:<28} fan_out={f['fan_out']}  "
               f"symptoms: {', '.join(f['targets'][:4])}...")
@@ -363,9 +381,9 @@ def main() -> None:
 
     qs = mem.belief.create(ddx_concepts, amplitudes=ddx_amplitudes)
 
-    print(f"  Born-rule probability distribution over differential diagnoses:")
+    print("  Born-rule probability distribution over differential diagnoses:")
     total_prob = sum(abs(a) ** 2 for a in ddx_amplitudes)
-    for concept, amp in zip(ddx_concepts, ddx_amplitudes):
+    for concept, amp in zip(ddx_concepts, ddx_amplitudes, strict=True):
         prob = abs(amp) ** 2 / total_prob
         bar = "#" * int(prob * 50)
         print(f"    {concept:<28} |amp|={amp:.2f}  P={prob:.3f}  {bar}")
@@ -375,24 +393,23 @@ def main() -> None:
     frequency: dict[str, int] = {}
     samples_raw: list[str] = []
     for _ in range(n_samples):
-        outcome = mem.sample(qs)
-        if outcome is not None:
-            node = mem.engine.graph.get_node(outcome.node_id)
-            label = node.label if node else outcome.node_id
+        outcome_label = mem.belief.sample(qs)
+        if outcome_label is not None:
+            label = outcome_label
             frequency[label] = frequency.get(label, 0) + 1
             samples_raw.append(label)
 
     print(f"  Sampling {n_samples} times from diagnostic superposition:")
     print(f"    Raw samples: {', '.join(samples_raw)}")
     print()
-    print(f"  Frequency table:")
+    print("  Frequency table:")
     for concept in sorted(frequency, key=frequency.get, reverse=True):
         count = frequency[concept]
         bar = "#" * count
         print(f"    {concept:<28} {count:>2}/{n_samples}  {bar}")
     print()
-    print(f"  Diagnostic uncertainty is naturally represented as a superposition")
-    print(f"  of candidate diagnoses, collapsed by context or further testing.")
+    print("  Diagnostic uncertainty is naturally represented as a superposition")
+    print("  of candidate diagnoses, collapsed by context or further testing.")
     print()
 
     print("=" * 70)
@@ -414,9 +431,9 @@ def main() -> None:
             print(f"      - {insight}")
         print()
 
-    print(f"  Anomalous symptoms are diagnostic bottlenecks: high convergence")
-    print(f"  of disease-causes-symptom edges means additional testing is")
-    print(f"  most needed to disambiguate these critical nodes.")
+    print("  Anomalous symptoms are diagnostic bottlenecks: high convergence")
+    print("  of disease-causes-symptom edges means additional testing is")
+    print("  most needed to disambiguate these critical nodes.")
     print()
 
     print("=" * 70)
@@ -424,7 +441,7 @@ def main() -> None:
     print("=" * 70)
     stats = mem.stats()
     print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
-    print(f"  Top differential: {scores[0][0]} (confidence={scores[0][1]:.2f})")
+    print(f"  Top differential: {scores[0][0]} (combined score={scores[0][1]:.2f})")
     print(f"  Contradictions resolved: {revision.edges_removed_count}")
     print(f"  Low-confidence nodes flagged: {len(low_conf)}")
     print()

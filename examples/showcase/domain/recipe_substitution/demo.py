@@ -101,7 +101,10 @@ def main():
         print(f"  New chains discovered: {len(chains['new_chains'])}")
         for chain in chains["new_chains"][:3]:
             print(f"    Path: {' -> '.join(chain['path'])}")
-            print(f"    New nodes: {chain['new_nodes']}")
+            print(
+                f"    Edge: {chain['source']} -> {chain['target']} "
+                f"[{chain['edge_label']}] (confidence={chain['confidence']:.2f})"
+            )
     else:
         print("  Transitive rules confirmed existing chains")
 
@@ -112,6 +115,7 @@ def main():
     if explanation:
         direct = explanation.get("direct", True)
         print(f"  Direct edge: {direct}")
+        print(f"  Edge label: {explanation.get('edge_label', 'substitutes_for')}")
         if not direct and "path" in explanation:
             print(f"  Transitive path: {' -> '.join(explanation['path'])}")
         print(f"  Confidence: {explanation['confidence']:.2f}")
@@ -149,17 +153,26 @@ def main():
     vegan_context = {"margarine": 3.0, "coconut_oil": 2.5, "applesauce": 2.0, "flax_eggs": 3.0}
     result_vegan = engine.contextual_substitute("butter", vegan_context)
     if result_vegan:
-        print(f"  Vegan context -> {result_vegan['substitute']} (prob={result_vegan['probability']:.4f})")
+        print(
+            f"  Vegan context -> {result_vegan['substitute']} "
+            f"(empirical_prob={result_vegan['probability']:.4f}, trials={result_vegan['trials']})"
+        )
 
     lowfat_context = {"applesauce": 3.0, "coconut_oil": 1.5, "margarine": 1.0, "flax_eggs": 1.0}
     result_lowfat = engine.contextual_substitute("butter", lowfat_context)
     if result_lowfat:
-        print(f"  Low-fat context -> {result_lowfat['substitute']} (prob={result_lowfat['probability']:.4f})")
+        print(
+            f"  Low-fat context -> {result_lowfat['substitute']} "
+            f"(empirical_prob={result_lowfat['probability']:.4f}, trials={result_lowfat['trials']})"
+        )
 
     baking_context = {"margarine": 3.5, "coconut_oil": 2.0, "applesauce": 1.0, "flax_eggs": 0.5}
     result_baking = engine.contextual_substitute("butter", baking_context)
     if result_baking:
-        print(f"  Baking context -> {result_baking['substitute']} (prob={result_baking['probability']:.4f})")
+        print(
+            f"  Baking context -> {result_baking['substitute']} "
+            f"(empirical_prob={result_baking['probability']:.4f}, trials={result_baking['trials']})"
+        )
 
     print("\nSECTION 10: Learning from user ratings...")
     print("  Bayesian updating shifts the MAP estimate based on feedback.")

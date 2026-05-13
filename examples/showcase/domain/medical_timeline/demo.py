@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from engine import MedicalTimelineTracker
 
 
-def main():
+def main() -> None:
     print("=" * 70)
     print("MEDICAL SYMPTOM TIMELINE TRACKER - ENHANCED INSIGHTS")
     print("=" * 70)
@@ -54,7 +54,7 @@ def main():
         tracker.add_visit(visit_id, symptoms_list, **props)
     print(f"  Added {len(visits)} doctor visits")
 
-    print(f"\n  Total symptoms: {tracker.mem.size[0]}")
+    print(f"\n  Total nodes: {tracker.mem.size[0]}")
     print(f"  Total edges: {tracker.mem.size[1]}")
 
     print("\nSECTION 2: Checking temporal relations (Allen Algebra)...")

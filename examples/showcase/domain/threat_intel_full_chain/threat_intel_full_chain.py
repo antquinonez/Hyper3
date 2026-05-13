@@ -4,7 +4,7 @@ Full-Chain Threat Intelligence Analysis
 
 This example demonstrates every major capability of the Hyper3 cognitive
 kernel applied to a realistic threat intelligence scenario. A single script
-builds a 140+ node CTI graph and then applies six different analytical
+builds a 73-node CTI graph and then applies six different analytical
 approaches to answer the questions a SOC analyst needs answered at 2 AM.
 
 Sections:
@@ -23,8 +23,7 @@ from __future__ import annotations
 
 from collections import Counter
 
-from hyper3 import HypergraphMemory, InverseRule, AbductiveRule, Modality, top_k
-
+from hyper3 import AbductiveRule, HypergraphMemory, InverseRule, Modality, top_k
 
 THREAT_ACTORS = [
     {"label": "APT28", "data": {"sophistication": "high", "origin": "Russia", "type": "threat_actor"}},
@@ -226,7 +225,7 @@ def section(n, title):
     print("=" * 70)
 
 
-def main():
+def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     section(1, "Building the Threat Intelligence Knowledge Graph")
@@ -271,7 +270,7 @@ def main():
 
     pre_edges = mem.size[1]
 
-    mem.add_rules(
+    mem.reason.add_rules(
         InverseRule(edge_label="exploits", inverse_label="exploited_by"),
         InverseRule(edge_label="targets", inverse_label="targeted_by"),
         InverseRule(edge_label="uses", inverse_label="used_by"),
@@ -312,11 +311,11 @@ def main():
 
     print(f"  Inferred edges by rules ({inferred_count} total):")
     if exploited_by_examples:
-        print(f"    Reverse lookup edges (exploited_by):")
+        print("    Reverse lookup edges (exploited_by):")
         for ex in exploited_by_examples:
             print(ex)
     if suspected_examples:
-        print(f"    Attribution hypotheses (suspected_attacker):")
+        print("    Attribution hypotheses (suspected_attacker):")
         for ex in suspected_examples:
             print(ex)
 
@@ -357,7 +356,7 @@ def main():
     prior_amplitudes = [0.7, 0.5, 0.4, 0.3]
 
     qs = mem.belief.create(suspects, amplitudes=prior_amplitudes)
-    print(f"  Prior distribution (raw Born rule, use_context_field=False):")
+    print("  Prior distribution (raw Born rule):")
     for interp in qs.outcomes:
         node = mem.engine.graph.get_node(interp.node_id)
         label = node.label if node else interp.node_id
@@ -368,11 +367,9 @@ def main():
     counts: Counter[str] = Counter()
     for _ in range(1000):
         qs_trial = mem.belief.create(suspects, amplitudes=prior_amplitudes)
-        ans = mem.sample(qs_trial)
-        if ans:
-            node = mem.engine.graph.get_node(ans.node_id)
-            if node:
-                counts[node.label] += 1
+        sampled = mem.belief.sample(qs_trial)
+        if sampled:
+            counts[sampled] += 1
 
     print()
     print("  Sample frequency over 1000 trials:")
@@ -387,11 +384,9 @@ def main():
     ctx_counts: Counter[str] = Counter()
     for _ in range(1000):
         qs_ctx = mem.belief.create(suspects, amplitudes=prior_amplitudes)
-        ans_ctx = mem.sample(qs_ctx, context=ctx_weights)
-        if ans_ctx:
-            node = mem.engine.graph.get_node(ans_ctx.node_id)
-            if node:
-                ctx_counts[node.label] += 1
+        sampled_ctx = mem.belief.sample(qs_ctx, context=ctx_weights)
+        if sampled_ctx:
+            ctx_counts[sampled_ctx] += 1
 
     for label in suspects:
         c = ctx_counts.get(label, 0)
@@ -424,7 +419,7 @@ def main():
 
     evo = mem.evolve()
 
-    print(f"  After evolution:")
+    print("  After evolution:")
     print(f"    Edges decayed:    {evo.decayed}")
     print(f"    Nodes pruned:     {evo.pruned}")
     print(f"    Nodes merged:     {evo.merged}")
@@ -439,7 +434,7 @@ def main():
     if surviving_stale:
         print(f"    Stale IOCs surviving: {surviving_stale}")
     else:
-        print(f"    All stale IOCs pruned from the graph.")
+        print("    All stale IOCs pruned from the graph.")
 
     section(6, "Pattern Matching and Centrality -- Who Is Most Dangerous?")
 

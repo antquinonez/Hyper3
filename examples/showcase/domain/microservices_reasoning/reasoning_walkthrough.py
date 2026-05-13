@@ -6,7 +6,7 @@ Infers hidden service dependency chains in a microservices architecture.
 
 Real ops teams maintain dependency maps, but the *transitive* blast radius
 of an infrastructure failure is rarely obvious.  This script builds a
-synthetic 100+ node, 200+ edge graph, applies TransitiveRule and
+synthetic 82-node, 236-edge graph, applies TransitiveRule and
 InverseRule inference, and produces actionable operational reports:
 
   - Full blast radius of each database / message queue
@@ -25,7 +25,7 @@ from collections import defaultdict
 from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
 
-def main():
+def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
@@ -443,8 +443,8 @@ def main():
     print("SECTION 3: Direct vs Transitive Dependencies -- The Tip of the Iceberg")
     print("=" * 70)
 
-    db_labels = mem.query_nodes(data={"type": "database"})
-    queue_labels = mem.query_nodes(data={"type": "queue"})
+    db_labels = sorted(mem.query_nodes(data={"type": "database"}))
+    queue_labels = sorted(mem.query_nodes(data={"type": "queue"}))
 
     direct_dep_map: dict[str, list[str]] = defaultdict(list)
     for le in mem.engine.graph.labeled_edges:
@@ -462,7 +462,7 @@ def main():
     print("SECTION 4: Adding Reasoning Rules")
     print("=" * 70)
 
-    mem.add_rules(
+    mem.reason.add_rules(
         TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"),
         InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
     )
@@ -561,7 +561,7 @@ def main():
             chains.append((len(chain), chain))
     chains.sort(reverse=True)
 
-    print(f"  Longest dependency chains (top 5):")
+    print("  Longest dependency chains (top 5):")
     for i, (length, chain) in enumerate(chains[:5], 1):
         print(f"  Chain {i} (length {length}):")
         print(f"    {' -> '.join(chain[:8])}")

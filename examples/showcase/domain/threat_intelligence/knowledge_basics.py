@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
 
-
 THREAT_ACTORS = [
     {"label": "APT28", "data": {"sophistication": "high", "origin": "Russia", "targets": ["government", "military"]}},
     {"label": "APT29", "data": {"sophistication": "high", "origin": "Russia", "targets": ["government", "think_tanks"]}},
@@ -373,7 +372,7 @@ ACTOR_TO_TTP = [
 ]
 
 
-def main():
+def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
@@ -460,7 +459,7 @@ def main():
                 if cve_lbl and ind_lbl:
                     cve_to_industry.setdefault(cve_lbl, set()).add(ind_lbl)
 
-    print(f"\n  CVEs enabling attacks on the most sectors:")
+    print("\n  CVEs enabling attacks on the most sectors:")
     sorted_cves = sorted(cve_to_industry.items(), key=lambda x: len(x[1]), reverse=True)
     for cve, sectors in sorted_cves[:5]:
         print(f"    {cve}: {len(sectors)} sectors ({', '.join(sorted(sectors))})")
@@ -475,7 +474,7 @@ def main():
     cve_centrality = {k: v for k, v in centrality.items() if k in cve_set}
     top_cves = top_k(cve_centrality, k=5)
 
-    print("  Rank  CVE                  Centality  CVSS   Product")
+    print("  Rank  CVE                  Centrality  CVSS   Product")
     print("  " + "-" * 60)
     for rank, (cve_label, score) in enumerate(top_cves, 1):
         node = mem.engine.graph.get_node_by_label(cve_label)
@@ -501,19 +500,19 @@ def main():
 
     sg = mem.subgraph(apt28_labels)
     print(f"  APT28 profile subgraph: {sg.node_count} nodes, {sg.edge_count} edges")
-    print(f"    CVEs exploited:")
+    print("    CVEs exploited:")
     for e in apt28_exploits:
         tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
-    print(f"    Malware used:")
+    print("    Malware used:")
     for e in apt28_uses:
         tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
-    print(f"    Sectors targeted:")
+    print("    Sectors targeted:")
     for e in apt28_targets:
         tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
-    print(f"    TTPs:")
+    print("    TTPs:")
     for e in apt28_ttps:
         tgt_lbl = e.target_labels[0] if e.target_labels else "?"
         print(f"      {tgt_lbl}")
@@ -630,7 +629,7 @@ def main():
     print("SECTION 10: Indirect Attack Chain Inference")
     print("=" * 70)
 
-    mem.add_rules(
+    mem.reason.add_rules(
         TransitiveRule(edge_label="exploits", new_label="exploits_indirectly"),
         TransitiveRule(edge_label="uses", new_label="uses_indirectly"),
         InverseRule(edge_label="attributed_to", inverse_label="attributed_to_inverse"),

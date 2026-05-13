@@ -23,7 +23,7 @@ class MedicalTimelineTracker:
     intervals using Allen's interval algebra.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.mem = HypergraphMemory(evolve_interval=0)
 
     @staticmethod
@@ -46,6 +46,8 @@ class MedicalTimelineTracker:
         if not self.mem.has(name):
             start_ts = self._iso_to_timestamp(start)
             end_ts = self._iso_to_timestamp(end)
+            if end_ts <= start_ts:
+                raise ValueError(f"end must be after start for symptom '{name}'")
             data = {"start": start, "end": end, **properties}
             self.mem.add(name, data=data)
             self.mem.add_temporal_event(name, start=start_ts, end=end_ts, **properties)
@@ -106,7 +108,7 @@ class MedicalTimelineTracker:
             List of symptom labels that overlap with target.
         """
         matches = self.mem.temporal_query(symptom, relation="overlapping")
-        return [m.label for m in matches]
+        return sorted({m.label for m in matches})
 
     def detect_causal_chains(self) -> list[dict]:
         """Detect potential causal chains: A before B, B before C.
@@ -216,28 +218,21 @@ class MedicalTimelineTracker:
         Returns:
             Dict mapping symptom to list of symptoms that co-occur in visits.
         """
-        cooccurrence = {}
-        symptoms = [n.label for n in self.mem.engine.graph.nodes if "start" in n.data]
-
-        for symptom in symptoms:
-            cooccurring = []
-            for node in self.mem.engine.graph.nodes:
-                if node.label.startswith("visit_"):
-                    edges = self.mem.engine.graph.incident_edges(node.id)
-                    for edge in edges:
-                        if edge.label == "observes":
-                            observed = []
-                            for tid in edge.target_ids:
-                                n = self.mem.engine.graph.get_node(tid)
-                                if n:
-                                    observed.append(n.label)
-                            if symptom in observed and len(observed) > 1:
-                                for other in observed:
-                                    if other != symptom and other not in cooccurring:
-                                        cooccurring.append(other)
-            cooccurrence[symptom] = cooccurring
-
-        return {k: v for k, v in cooccurrence.items() if v}
+        cooccurrence: dict[str, set[str]] = {}
+        for edge in self.mem.engine.graph.edges:
+            if edge.label != "observes":
+                continue
+            observed: list[str] = []
+            for tid in edge.target_ids:
+                node = self.mem.engine.graph.get_node(tid)
+                if node is not None:
+                    observed.append(node.label)
+            for symptom in observed:
+                cooccurrence.setdefault(symptom, set())
+                for other in observed:
+                    if other != symptom:
+                        cooccurrence[symptom].add(other)
+        return {k: sorted(v) for k, v in sorted(cooccurrence.items()) if v}
 
     def get_duration_analysis(self) -> dict:
         """Calculate duration statistics for all symptoms.
@@ -325,7 +320,10 @@ class MedicalTimelineTracker:
 
     def _event_id_to_label(self, event_id: str) -> str:
         event = self.mem.temporal.get_event(event_id)
-        return event.label if event else event_id
+        if event:
+            return event.label
+        node = self.mem.engine.graph.get_node(event_id)
+        return node.label if node else event_id
 
     def _event_ids_to_labels(self, event_ids: list[str]) -> list[str]:
         return [self._event_id_to_label(eid) for eid in event_ids]

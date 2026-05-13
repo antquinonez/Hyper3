@@ -12,10 +12,46 @@ Run with:
 
 from __future__ import annotations
 
-from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, top_k
+from collections import deque
+
+from hyper3 import HypergraphMemory, InverseRule, TransitiveRule, top_k
 
 
-def main():
+def _trace_paths(
+    mem: HypergraphMemory,
+    source: str,
+    target: str,
+    *,
+    max_depth: int,
+    max_paths: int,
+    allowed_labels: set[str],
+) -> list[list[str]]:
+    start = mem.engine.graph.get_node_by_label(source)
+    goal = mem.engine.graph.get_node_by_label(target)
+    if start is None or goal is None:
+        return []
+
+    results: list[list[str]] = []
+    queue: deque[tuple[str, list[str], set[str]]] = deque([(start.id, [source], {source})])
+    while queue and len(results) < max_paths:
+        node_id, path, seen = queue.popleft()
+        if len(path) - 1 > max_depth:
+            continue
+        if node_id == goal.id:
+            results.append(path)
+            continue
+        for edge in mem.engine.graph.outgoing_edges(node_id):
+            if edge.label not in allowed_labels:
+                continue
+            for tgt_id in edge.target_ids:
+                node = mem.engine.graph.get_node(tgt_id)
+                if node is None or node.label in seen:
+                    continue
+                queue.append((tgt_id, path + [node.label], seen | {node.label}))
+    return results
+
+
+def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
@@ -566,11 +602,10 @@ def main():
     print("SECTION 4: Risk Cascade Reasoning")
     print("=" * 70)
 
-    mem.add_rules(
-        TransitiveRule(edge_label="supplies_to", new_label="indirectly_supplies"),
-        TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by"),
-        InverseRule(edge_label="supplies_to", inverse_label="supplied_by"),
-    )
+    supply_rule = TransitiveRule(edge_label="supplies_to", new_label="indirectly_supplies")
+    cascade_rule = TransitiveRule(edge_label="affected_by", new_label="cascade_affected_by")
+    inverse_rule = InverseRule(edge_label="supplies_to", inverse_label="supplied_by")
+    mem.reason.add_rules(supply_rule, cascade_rule, inverse_rule)
 
     cascade_seeds = (
         {"risk_earthquake_pacific", "risk_trade_war", "risk_pandemic",
@@ -583,6 +618,7 @@ def main():
     print("\n  Phase 1: Risk cascade reasoning (affected_by)...")
     result1 = mem.reason(
         seeds=cascade_seeds,
+        rules=[cascade_rule],
         max_depth=3,
         max_total_states=50,
     )
@@ -594,6 +630,7 @@ def main():
     print("\n  Phase 2: Indirect supply chain reasoning (supplies_to)...")
     result2 = mem.reason(
         seeds=cascade_seeds,
+        rules=[supply_rule],
         max_depth=3,
         max_total_states=50,
     )
@@ -614,9 +651,9 @@ def main():
         if src_labels and tgt_labels and src_labels[0].startswith("risk_"):
             risk_impacts.setdefault(src_labels[0], []).append(tgt_labels[0])
 
-    print(f"\n  Risk cascade impact summary:")
+    print("\n  Risk cascade impact summary:")
     for risk_label in sorted(risk_impacts):
-        targets = risk_impacts[risk_label]
+        targets = sorted(set(risk_impacts[risk_label]))
         products_hit = [t for t in targets if t.startswith("prod_")]
         print(f"    {risk_label}:")
         print(f"      Reaches {len(targets)} nodes ({len(products_hit)} products)")
@@ -635,9 +672,17 @@ def main():
 
     high_impact_risks = sorted(risks.items(), key=lambda x: -(x[1].get("probability", 0) * x[1].get("impact", 0)))
     print("\n  Top risk-to-product disruption paths:")
+    trace_labels = {"affected_by", "cascade_affected_by", "supplies_to", "indirectly_supplies", "depends_on"}
     for risk_name, risk_data in high_impact_risks[:4]:
         print(f"\n  {risk_name} (p={risk_data['probability']:.2f}, impact={risk_data['impact']:.2f}):")
-        paths = mem.find_paths(risk_name, "prod_vehicle", max_depth=8, max_paths=3)
+        paths = _trace_paths(
+            mem,
+            risk_name,
+            "prod_vehicle",
+            max_depth=8,
+            max_paths=3,
+            allowed_labels=trace_labels,
+        )
         if paths:
             for i, path in enumerate(paths[:2]):
                 lead_total = 0
@@ -648,7 +693,7 @@ def main():
                 print(f"    Path {i+1} ({len(path)} hops, lead_time_sum={lead_total}d):")
                 print(f"      {' -> '.join(path)}")
         else:
-            print(f"    No direct path to final vehicle")
+            print("    No direct path to final vehicle")
 
     components = mem.connected_components()
     print(f"\n  Connected components: {len(components)}")
@@ -670,16 +715,16 @@ def main():
     print("=" * 70)
 
     tier3_suppliers = [name for name, data in suppliers.items() if data.get("tier") == 3]
-    print(f"\n  Tier 3 raw material suppliers (longest lead times):")
+    print("\n  Tier 3 raw material suppliers (longest lead times):")
     for name in sorted(tier3_suppliers, key=lambda n: -suppliers[n]["lead_time_days"]):
         data = suppliers[name]
         print(f"    {name:35s} lead={data['lead_time_days']:3d}d  "
               f"reliability={data['reliability_score']:.2f}  "
               f"country={data['country']}")
 
-    print(f"\n  Supply chain cumulative lead time by tier:")
+    print("\n  Supply chain cumulative lead time by tier:")
     tier_totals: dict[int, list[int]] = {}
-    for name, data in suppliers.items():
+    for data in suppliers.values():
         tier = data.get("tier", 0)
         tier_totals.setdefault(tier, []).append(data["lead_time_days"])
     for tier in sorted(tier_totals):
@@ -695,7 +740,7 @@ def main():
         if not t3_node:
             continue
         t3_lt = suppliers[t3_name]["lead_time_days"]
-        for e1 in mem.engine.graph.incident_edges(t3_node.id):
+        for e1 in mem.engine.graph.outgoing_edges(t3_node.id):
             if e1.label != "supplies_to":
                 continue
             for t2_id in e1.target_ids:
@@ -703,7 +748,7 @@ def main():
                 if not t2_node or t2_node.data.get("tier") != 2:
                     continue
                 t2_lt = t2_node.data.get("lead_time_days", 0)
-                for e2 in mem.engine.graph.incident_edges(t2_id):
+                for e2 in mem.engine.graph.outgoing_edges(t2_id):
                     if e2.label != "supplies_to":
                         continue
                     for t1_id in e2.target_ids:
@@ -725,7 +770,7 @@ def main():
                 print(f"      {step}: {n.data.get('lead_time_days', '?')}d  "
                       f"[{n.data.get('material', '?')}]")
 
-    print(f"\n  Supplier reliability risk ranking:")
+    print("\n  Supplier reliability risk ranking:")
     supplier_risk = []
     for name, data in suppliers.items():
         risk_factor = (1.0 - data["reliability_score"]) * data["lead_time_days"]
@@ -769,7 +814,7 @@ def main():
         print(f"    {name:35s} reliability={d.get('reliability_score', 0):.2f}  "
               f"country={d.get('country', '?')}")
 
-    print(f"\n  Diversification priorities (top 5):")
+    print("\n  Diversification priorities (top 5):")
     priorities = []
     for name, data in suppliers.items():
         if not data.get("single_source"):
@@ -788,7 +833,7 @@ def main():
         priorities.append((name, priority_score, data, risk_count, has_backup))
 
     priorities.sort(key=lambda x: -x[1])
-    for i, (name, ps, data, rc, hb) in enumerate(priorities[:5]):
+    for i, (name, _ps, data, rc, hb) in enumerate(priorities[:5]):
         print(f"    {i+1}. {name}")
         print(f"       country={data['country']}  material={data['material']}  "
               f"reliability={data['reliability_score']:.2f}")

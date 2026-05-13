@@ -16,7 +16,7 @@ from __future__ import annotations
 from hyper3 import HypergraphMemory, TransitiveRule
 
 
-def main():
+def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     # =====================================================================
@@ -363,20 +363,20 @@ def main():
     causes = mem.find("co2_emissions")
     chain = (causes
              .paths_to("coastal_flooding", label="causes", max_depth=6, max_paths=5))
-    print(f"  Causal paths from co2_emissions to coastal_flooding:")
+    print("  Causal paths from co2_emissions to coastal_flooding:")
     path_concepts = chain.unique().labels
     print(f"    Concepts in causal chain: {path_concepts}")
     print()
 
     methane_paths = (mem.find("methane_emissions")
                      .paths_to("global_warming", max_depth=4, max_paths=3))
-    print(f"  Paths from methane_emissions to global_warming:")
+    print("  Paths from methane_emissions to global_warming:")
     print(f"    Chain concepts: {methane_paths.unique().labels}")
     print()
 
     feedback = (mem.find("permafrost_thaw")
                 .paths_to("global_warming", max_depth=6, max_paths=5))
-    print(f"  Feedback loop via permafrost_thaw -> global_warming:")
+    print("  Feedback loop via permafrost_thaw -> global_warming:")
     print(f"    Chain concepts: {feedback.unique().labels}")
     print()
 
@@ -499,7 +499,7 @@ def main():
                 .neighbors(direction="out")
                 .neighbors(direction="out")
                 .unique())
-        loop_back = loop.filter(lambda l, _: l == concept)
+        loop_back = loop.filter(lambda l, _, c=concept: l == c)
         is_cyclic = len(loop_back) > 0
 
         downstream = [l for l in loop.labels if l != concept][:8]
@@ -516,12 +516,12 @@ def main():
     print("SECTION 9: Transitive Causal Inference")
     print("=" * 70)
 
-    mem.add_rules(TransitiveRule(edge_label="causes", new_label="indirectly_causes"))
+    mem.reason.add_rules(TransitiveRule(edge_label="causes", new_label="indirectly_causes"))
     result = mem.reason(
         seeds={"co2_emissions", "methane_emissions", "deforestation",
                "global_warming", "permafrost_thaw"},
-        depth=4,
-        max_states=80,
+        max_depth=4,
+        max_total_states=80,
     )
 
     indirect_count = sum(1 for e in mem.engine.graph.edges if e.label == "indirectly_causes")
@@ -623,8 +623,9 @@ def main():
     stats = mem.stats()
     print(f"  Graph: {stats.nodes} nodes, {stats.edges} edges")
     print(f"  Connected components: {stats.components}")
-    print(f"  Domains: phenomenon, driver, impact, solution, measurement")
-    print(f"  Direct causal edges: {len([e for e in mem.analyze.edges() if e['label'] == 'causes'])}")
+    print("  Domains: phenomenon, driver, impact, solution, measurement")
+    direct_causal_edges = sum(1 for e in mem.analyze.edges() if e["label"] == "causes")
+    print(f"  Direct causal edges: {direct_causal_edges}")
     print(f"  Indirect causal links inferred: {indirect_count}")
     print(f"  Feedback mechanisms: {len(feedback_concepts.labels)}")
     print(f"  Unaddressed impacts: {len(unaddressed)}")
