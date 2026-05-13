@@ -119,14 +119,30 @@ class TestSemanticEdgeBuilderIntegration:
         assert mem.semantic_layer_dirty() is True
 
     def test_activation_uses_semantic_edges(self):
+        from unittest.mock import patch
+
+        from hyper3.embedding import SimilarityResult
         from hyper3.layered_graph import LayerStack
         from hyper3.retrieval_activation import SpreadingActivation
+
         g = _make_graph("alpha", "beta")
         a_id = g.get_node_by_label("alpha").id
         b_id = g.get_node_by_label("beta").id
         engine = EmbeddingEngine(g, provider=HashEmbeddingProvider())
-        builder = SemanticEdgeBuilder(g, engine)
-        builder.build(top_k=3, threshold=-1.0)
+
+        fixed_sim = [SimilarityResult(
+            node_a_id=a_id,
+            node_b_id=b_id,
+            label_a="alpha",
+            label_b="beta",
+            similarity=0.5,
+            embedding_distance=0.5,
+        )]
+
+        with patch.object(engine, "find_similar", return_value=fixed_sim):
+            builder = SemanticEdgeBuilder(g, engine)
+            builder.build(top_k=3, threshold=-1.0)
+
         stack = LayerStack(g)
         stack.register("semantic", builder.layer)
         sa = SpreadingActivation(stack)  # type: ignore[arg-type]
