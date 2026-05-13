@@ -392,8 +392,14 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` read-only property
 `mem.rules` returns a copy of the currently active inference rules as a list. This is a read-only property; use `add_rules()` to register new rules.
 
-### No comments in code
-Do not add comments unless explicitly asked.
+### No comments in production code (src/)
+Do not add comments in `src/` code unless explicitly asked, with two exceptions:
+- **Navigational section dividers** (e.g., `# -- Terminal: extract results ---`) are acceptable in long files.
+- **"Why" comments** explaining non-obvious design rationale are acceptable. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+
+Do not add comments that explain what the code does -- the code should be self-documenting.
+
+Examples (`examples/`) and tests (`tests/`) may use comments freely for section markers, explanatory notes, and educational annotations.
 
 ### No emojis
 Do not use emojis in code or commit messages unless explicitly asked.
