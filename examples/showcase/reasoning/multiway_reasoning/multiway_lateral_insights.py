@@ -18,11 +18,11 @@ See README.md in this directory for detailed architecture diagrams and explanati
 from __future__ import annotations
 
 from hyper3 import (
+    AbductiveRule,
     HypergraphMemory,
+    InverseRule,
     Modality,
     TransitiveRule,
-    InverseRule,
-    AbductiveRule,
 )
 
 
@@ -384,8 +384,8 @@ def main():
     }
     result = mem.reason(
         seeds=seed,
-        max_depth=3,
-        max_total_states=50,
+        depth=3,
+        max_states=50,
     )
 
     exp = result.expansion
@@ -433,7 +433,7 @@ def main():
         print(f"\n  Branch {i+1}: score={score:.3f}  depth={summary['depth']}  rule={summary['rule']}")
         print(f"    Active: {', '.join(summary['active_nodes'])}")
         if summary["produced_edges"]:
-            print(f"    Inferred edges:")
+            print("    Inferred edges:")
             for pe in summary["produced_edges"]:
                 print(f"      {pe}")
     print()
@@ -469,7 +469,7 @@ def main():
 
         coords = mem.state_clustering.coordinates
         if coords and len(leaves) >= 2:
-            print(f"\n  Pairwise state_clustering distances (top leaves):")
+            print("\n  Pairwise state_clustering distances (top leaves):")
             top_leaves = leaves[:6] if len(leaves) >= 6 else leaves
             for i, la in enumerate(top_leaves):
                 for lb in top_leaves[i+1:]:
@@ -563,7 +563,7 @@ def main():
         else:
             print(f"  No API lateral insights for '{concept}'")
 
-    print(f"\n  Manual lateral comparison across simultaneity groups:")
+    print("\n  Manual lateral comparison across simultaneity groups:")
     if mem.state_clustering and mw_graph:
         for gi, group in enumerate(mem.state_clustering.simultaneity_groups[:4]):
             group_states = [mw_graph.get_state(sid) for sid in group.state_ids]

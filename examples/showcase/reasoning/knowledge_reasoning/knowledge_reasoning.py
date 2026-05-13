@@ -1,11 +1,9 @@
 """
-Laminar Comparison: Knowledge Reasoning (Hyper3-only)
-======================================================
-No direct competitor parallel — XGI, HNX, and NetworkX do not
-provide rule-based inference or reasoning capabilities.
-
-Shows Hyper3's unique value: transitive inference, multiway expansion,
-backward chaining (proof), provenance tracking, and belief revision.
+Knowledge Reasoning Showcase
+=============================
+Demonstrates transitive inference, multiway expansion,
+backward chaining (proof), provenance tracking, belief revision,
+multi-rule reasoning, and confidence assessment on a causal health graph.
 
 Run: .venv/bin/python examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py
 """
@@ -19,7 +17,7 @@ def main() -> None:
     print("=" * 70)
 
     from hyper3 import HypergraphMemory
-    from hyper3.rules import TransitiveRule, InverseRule, AbductiveRule
+    from hyper3.rules import InverseRule, TransitiveRule
 
     mem = HypergraphMemory(evolve_interval=0)
 
@@ -49,15 +47,12 @@ def main() -> None:
     print("SECTION 2: RULE-BASED TRANSITIVE INFERENCE")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
-    print("XGI, HNX, NetworkX: no rule system or inference engine")
-
     mem.add_rules(
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
     )
 
-    result = mem.reason(seeds={"smoking"}, max_depth=3)
-    print(f"\ntransitive reasoning from 'smoking':")
+    result = mem.reason(seeds={"smoking"}, depth=3)
+    print("\ntransitive reasoning from 'smoking':")
     print(f"  states created: {result.expansion.states_created}")
     print(f"  rules applied: {result.expansion.rules_applied}")
     print(f"  edges produced: {result.expansion.edges_produced}")
@@ -70,7 +65,7 @@ def main() -> None:
     print("SECTION 3: BACKWARD CHAINING (PROOF)")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Backward chaining from 'death' ---")
     print("Goal: prove 'smoking' causes 'death'")
 
     proof = mem.prove("death", known_facts={"smoking"})
@@ -86,28 +81,27 @@ def main() -> None:
     print("SECTION 4: PROVENANCE AND EXPLANATION")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Provenance explanation for inferred edges ---")
 
     for e in mem.analyze.edges(label="indirectly_causes"):
-        if e.source_labels and e.target_labels:
-            if e.source_labels[0] == "asbestos" and e.target_labels[0] == "death":
-                explanation = mem.explain(e.source_labels[0], e.target_labels[0])
-                if explanation:
-                    rendered = explanation.render()
-                    lines = rendered.split("\n")
-                    print(f"\nexplanation: {e.source_labels[0]} indirectly causes {e.target_labels[0]}")
-                    for line in lines[:8]:
-                        if line.strip():
-                            print(f"  {line}")
-                    if len(lines) > 8:
-                        print(f"  ...")
-                break
+        if e.source_labels and e.target_labels and e.source_labels[0] == "asbestos" and e.target_labels[0] == "death":
+            explanation = mem.explain(e.source_labels[0], e.target_labels[0])
+            if explanation:
+                rendered = explanation.render()
+                lines = rendered.split("\n")
+                print(f"\nexplanation: {e.source_labels[0]} indirectly causes {e.target_labels[0]}")
+                for line in lines[:8]:
+                    if line.strip():
+                        print(f"  {line}")
+                if len(lines) > 8:
+                    print("  ...")
+            break
 
     print("\n" + "=" * 70)
     print("SECTION 5: BELIEF REVISION (CONTRADICTION DETECTION)")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Detecting opposing-label edge pairs ---")
 
     contradictions = mem.detect_contradictions()
     print(f"\ncontradictions detected: {len(contradictions)}")
@@ -130,15 +124,15 @@ def main() -> None:
         InverseRule(edge_label="prevents", inverse_label="prevented_by"),
     )
 
-    result2 = mem.reason(seeds={"smoking", "exercise"}, max_depth=3)
-    print(f"\nmulti-rule reasoning from 'smoking' and 'exercise':")
+    result2 = mem.reason(seeds={"smoking", "exercise"}, depth=3)
+    print("\nmulti-rule reasoning from 'smoking' and 'exercise':")
     print(f"  states created: {result2.expansion.states_created}")
     print(f"  rules applied: {result2.expansion.rules_applied}")
     print(f"  edges produced: {result2.expansion.edges_produced}")
 
     inverse_edges = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="caused_by") if e.source_labels and e.target_labels]
     if inverse_edges:
-        print(f"\n  inverse edges (caused_by):")
+        print("\n  inverse edges (caused_by):")
         for lbl, src, tgt in sorted(inverse_edges):
             print(f"    {src} -[{lbl}]-> {tgt}")
         print()
@@ -147,7 +141,7 @@ def main() -> None:
 
     prevented_by_edges = [(e.label, e.source_labels[0], e.target_labels[0]) for e in mem.analyze.edges(label="prevented_by") if e.source_labels and e.target_labels]
     if prevented_by_edges:
-        print(f"\n  inverse edges (prevented_by):")
+        print("\n  inverse edges (prevented_by):")
         for lbl, src, tgt in sorted(prevented_by_edges):
             print(f"    {src} -[{lbl}]-> {tgt}")
 
@@ -158,12 +152,12 @@ def main() -> None:
     print("\n--- Evaluating knowledge graph quality after revision ---")
 
     all_conf = mem.cognitive.all_confidences()
-    print(f"\n  Overall confidence statistics:")
+    print("\n  Overall confidence statistics:")
     print(f"    Average confidence: {all_conf.avg_confidence:.4f}")
     print(f"    High confidence (>0.8): {all_conf.high_confidence_count}")
     print(f"    Low confidence (<0.3): {all_conf.low_confidence_count}")
 
-    print(f"\n  Per-concept confidence scores:")
+    print("\n  Per-concept confidence scores:")
     for concept in ["smoking", "lung_cancer", "death", "heart_disease", "exercise", "asbestos"]:
         score = mem.cognitive.confidence(concept)
         if score:
@@ -173,18 +167,18 @@ def main() -> None:
 
     low = mem.cognitive.low_confidence(threshold=0.5)
     if low:
-        print(f"\n  Low-confidence concepts (threshold=0.5):")
+        print("\n  Low-confidence concepts (threshold=0.5):")
         for item in low:
             print(f"    {item.node_label:20s} confidence={item.confidence:.4f} (depth={item.depth})")
     else:
-        print(f"\n  No low-confidence concepts found.")
+        print("\n  No low-confidence concepts found.")
 
     if low:
         print()
         print("  Low-confidence concepts indicate where additional evidence")
         print("  or relationships would strengthen the knowledge graph.")
 
-    print(f"\n  Confidence chains (highest-confidence paths):")
+    print("\n  Confidence chains (highest-confidence paths):")
     chains_to_check = [
         ("smoking", "death"),
         ("asbestos", "death"),

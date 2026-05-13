@@ -21,9 +21,9 @@ from __future__ import annotations
 
 from hyper3 import (
     HypergraphMemory,
-    TransitiveRule,
     InverseRule,
     Modality,
+    TransitiveRule,
 )
 
 
@@ -97,8 +97,8 @@ def main():
 
     result = mem.reason(
         {"study_alpha", "drug_olaparib", "dna_damage"},
-        max_depth=3,
-        max_total_states=40,
+        depth=3,
+        max_states=40,
     )
 
     exp = result.expansion
@@ -134,7 +134,7 @@ def main():
             print(f"\n  {src_label} --[{edge.label}]--> {tgt_label}")
             print(f"    Rule: {explanation.rule_name}")
             print(f"    Depth: {explanation.depth}")
-            print(f"    Explanation:")
+            print("    Explanation:")
             print(f"    {explanation.render(indent=2)}")
     print()
 
@@ -151,14 +151,14 @@ def main():
     # Explain relationship between two concepts
     explanation = mem.explain("drug_olaparib", "breast_cancer")
     if explanation:
-        print(f"  Why is drug_olaparib connected to breast_cancer?")
+        print("  Why is drug_olaparib connected to breast_cancer?")
         print(f"  {explanation.render(indent=2)}")
     else:
         print("  No inferred relationship found")
 
     explanation2 = mem.explain("dna_damage", "ovarian_cancer")
     if explanation2:
-        print(f"\n  Why is dna_damage connected to ovarian_cancer?")
+        print("\n  Why is dna_damage connected to ovarian_cancer?")
         print(f"  {explanation2.render(indent=2)}")
     print()
 
@@ -178,16 +178,21 @@ def main():
     # Retract a specific inference
     # (Note: the exact retractable edges depend on what was inferred)
     retracted = []
-    for edge, src_label, tgt_label in inferred_edges[:1]:
-        retracted_ids = mem.retract_inference(src_label, tgt_label, edge_label=edge.label)
-        retracted.extend(retracted_ids)
-        print(f"\n  Retracted: {src_label} --[{edge.label}]--> {tgt_label}")
-        print(f"  Cascading removals: {len(retracted_ids)}")
-        for rid in retracted_ids:
-            e = mem.engine.graph.get_edge(rid)
-            if e:
-                pass  # edge already removed
-            print(f"    Removed edge {rid[:12]}...")
+    target_edge = None
+    for edge, src_label, tgt_label in inferred_edges:
+        if src_label == "drug_olaparib" and tgt_label == "study_alpha":
+            target_edge = (edge, src_label, tgt_label)
+            break
+    if not target_edge:
+        target_edge = inferred_edges[0]
+
+    edge, src_label, tgt_label = target_edge
+    retracted_ids = mem.retract_inference(src_label, tgt_label, edge_label=edge.label)
+    retracted.extend(retracted_ids)
+    print(f"\n  Retracted: {src_label} --[{edge.label}]--> {tgt_label}")
+    print(f"  Cascading removals: {len(retracted_ids)}")
+    for rid in retracted_ids:
+        print(f"    Removed edge {rid[:12]}...")
 
     print(f"\n  Graph after retraction: {mem.size[1]} edges")
     print(f"  Provenance records: {mem.provenance.record_count}")

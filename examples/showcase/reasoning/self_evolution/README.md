@@ -70,15 +70,21 @@ Eight nodes and seven edges are created. The weight gradient (5.0 down to 0.3) s
 
 `mem.evolve()` runs the full evolution cycle. Result: 0 decays, 0 prunes, 4 merges, 0 reinforced.
 
-The 4 merges are the significant outcome. The equivalence engine identified node pairs with sufficient structural and data similarity and merged them. After merging, the chain collapses — source and target labels on some edges now point to the same merged node (e.g., `alpha->alpha`, `gamma->gamma`).
+**Why 0 decays**: All edge weights in the initial graph are at or above 0.3. The decay mechanism reduces weights on inactive edges, but none of the edges have been inactive long enough (or started low enough) for decay to push them below the threshold. With an older graph or lower starting weights, decay would reduce weights measurably.
 
-Why this matters: without merging, a graph that ingests data from multiple sources accumulates duplicate nodes for the same concept. Merging keeps the graph compact. The trade-off is that merges are based on heuristic similarity — nodes with the same data and overlapping neighborhoods may be merged even when they represent genuinely distinct concepts.
+**The 4 merges** are the significant outcome. The equivalence engine identified node pairs with sufficient structural and data similarity and merged them. After merging, the chain collapses -- source and target labels on some edges now point to the same merged node (e.g., `alpha->alpha`, `gamma->gamma`). These are self-loop edges: the merge combined nodes that were neighbors in the original chain, so the edge that connected node A to node B now connects the merged A+B node to itself. This is expected behavior -- when two adjacent nodes merge, any edge between them becomes self-referential.
+
+**Merge thresholds matter**: Whether these merges happen at all depends on the equivalence engine's similarity threshold. The nodes in this graph share identical data (`{"type": "concept"}`) and have overlapping neighborhoods, so they score high on structural and data similarity. With a higher similarity threshold, fewer or none of these pairs would qualify for merging. With a lower threshold, even more pairs might merge. Production use requires tuning this threshold to match the data distribution -- too aggressive and genuinely distinct concepts get collapsed, too conservative and duplicates accumulate.
+
+Why this matters: without merging, a graph that ingests data from multiple sources accumulates duplicate nodes for the same concept. Merging keeps the graph compact. The trade-off is that merges are based on heuristic similarity -- nodes with the same data and overlapping neighborhoods may be merged even when they represent genuinely distinct concepts.
 
 ### Section 3: Reinforcement
 
 The script calls `mem.recall("alpha", max_depth=2)` and `mem.recall("beta", max_depth=2)` five times each, simulating heavy usage of the core path. After a second `evolve()`: 0 decays, 0 reinforced.
 
-Reinforcement did not fire here because the graph state after the Section 2 merges no longer has the original chain structure to reinforce. In a graph where the original paths survive, repeated recall increases edge weights along the traversed path, making those paths easier to find in future recalls.
+Reinforcement did not fire here because the Section 2 merges fundamentally changed the graph structure. The 4 merges collapsed alpha into beta and gamma into delta, so the `recall("alpha")` calls no longer traverse a chain of distinct nodes. Instead, the traversed paths include self-loop edges (like `alpha->alpha`) where source and target are the same merged node. Self-loops do not count as reinforcement candidates -- reinforcement targets edges along paths between distinct nodes that are frequently recalled. Since the original chain structure no longer exists, there is nothing meaningful to reinforce.
+
+In a graph where the original paths survive intact, repeated recall increases edge weights along the traversed path, making those paths easier to find in future recalls.
 
 Why this matters: a static knowledge graph treats every traversal identically. Reinforcement creates a feedback loop where frequently-queried paths become stronger, improving recall quality for the concepts you actually use.
 
@@ -97,7 +103,7 @@ Why this matters: in a static graph, the only way to change edge weights is expl
 
 `evolve_with_feedback()` uses the history of past operations to decide which edges to reinforce or suppress. Result: 0 reinforced, 0 suppressed. The feedback summary reports overall health of 0.5 and 0 correlated nodes.
 
-The neutral result reflects a small graph with limited operation history. Feedback-driven evolution becomes more impactful on larger graphs with varied usage patterns — it tracks which recall operations succeeded, which edges consistently appear in successful traversals, and which are never used.
+The neutral result is honest feedback. This is a small graph with limited operation history and a structure that has already been flattened by merges. Feedback-driven evolution tracks which recall operations succeeded, which edges consistently appear in successful traversals, and which are never used. With only self-loops and a handful of recent recall calls, there is not enough signal for the feedback mechanism to act on. On a larger graph with varied usage patterns and an intact chain structure, feedback-driven evolution would have meaningful data to work with.
 
 Why this matters: without feedback, evolution operates on general rules (decay everything uniformly, reinforce what was recalled). Feedback-driven evolution personalizes the decay/reinforcement schedule to the actual usage pattern of the specific graph.
 
@@ -126,7 +132,7 @@ Why this matters: without feedback, evolution operates on general rules (decay e
 
 **Hebbian learning** operates on activation state, not explicit weights. The graph must be stimulated and activation must spread before Hebbian reinforcement can identify co-activated node pairs. This is a two-step process (stimulate + spread, then reinforce) rather than a direct weight assignment.
 
-**Feedback-driven evolution** tracks operation history. The evolution engine does not just apply uniform decay — it uses which paths succeeded and which failed to make targeted reinforce/suppress decisions. On a small graph with limited history the effect is minimal, but the mechanism scales with usage.
+**Feedback-driven evolution** tracks operation history. The evolution engine does not just apply uniform decay -- it uses which paths succeeded and which failed to make targeted reinforce/suppress decisions. On a small graph with limited history the effect is minimal, but the mechanism scales with usage.
 
 ## Code Implementation
 
@@ -176,7 +182,7 @@ print(f"overall health: {summary.overall_health}")
 
 ## Real-World Gap
 
-- **Scale**: This showcase operates on 8 nodes and 7 edges. Evolution behavior at 10K+ nodes is untested — merge decisions and decay sweeps take longer as the graph grows.
+- **Scale**: This showcase operates on 8 nodes and 7 edges. Evolution behavior at 10K+ nodes is untested -- merge decisions and decay sweeps take longer as the graph grows.
 - **Data source**: The graph is constructed synthetically. Production use requires ETL from live knowledge sources, and merge thresholds would need tuning for the actual data distribution.
 - **Merge accuracy**: The equivalence engine uses heuristic similarity. On real data with nuanced concepts, false merges are possible. Production use requires discriminative data fields (unique IDs, timestamps) to prevent merging genuinely distinct nodes.
 - **Determinism**: Hebbian learning depends on activation spreading, which involves numerical operations. Results should be reproducible given the same operation sequence, but floating-point accumulation may cause minor variation.
@@ -197,5 +203,5 @@ print(f"overall health: {summary.overall_health}")
 
 ### Related examples
 
-- `examples/showcase/` — other showcases demonstrating different Hyper3 capabilities
-- `evolve_interval` constructor parameter — enables automatic evolution after every N operations
+- `examples/showcase/` -- other showcases demonstrating different Hyper3 capabilities
+- `evolve_interval` constructor parameter -- enables automatic evolution after every N operations

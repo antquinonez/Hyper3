@@ -1,11 +1,8 @@
 """
-Laminar Comparison: Self-Evolution & Feedback (Hyper3-only)
-============================================================
-No direct competitor parallel — no other hypergraph library
-implements self-modifying graph structure with feedback loops.
-
-Shows decay, prune, merge, reinforce, Hebbian learning,
-and feedback-driven evolution.
+Self-Evolution & Feedback Showcase
+====================================
+Demonstrates decay, prune, merge, reinforce, Hebbian learning,
+and feedback-driven evolution on a small graph.
 
 Run: .venv/bin/python examples/showcase/reasoning/self_evolution/self_evolution.py
 """
@@ -40,14 +37,12 @@ def main() -> None:
     print("SECTION 2: DECAY — REDUCE ALL WEIGHTS")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
-    print("XGI, HNX: static hypergraphs, no weight decay")
+    print("\n--- Running evolution cycle (decay, prune, merge, reinforce) ---")
 
     before = {e.id: e.weight for e in mem.analyze.edges()}
     result = mem.evolve()
-    after = {e.id: e.weight for e in mem.analyze.edges()}
 
-    print(f"\nevolve result:")
+    print("\nevolve result:")
     print(f"  decays: {result.decayed}")
     print(f"  prunes: {result.pruned}")
     print(f"  merges: {result.merged}")
@@ -63,14 +58,14 @@ def main() -> None:
     print("SECTION 3: REINFORCEMENT")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Reinforcing frequently-recalled paths ---")
 
     for _ in range(5):
         mem.recall("alpha", max_depth=2)
         mem.recall("beta", max_depth=2)
 
     result2 = mem.evolve()
-    print(f"\nevolve after heavy usage of alpha/beta:")
+    print("\nevolve after heavy usage of alpha/beta:")
     print(f"  decays: {result2.decayed}")
     print(f"  reinforced: {result2.reinforced}")
 
@@ -78,7 +73,7 @@ def main() -> None:
     print("SECTION 4: HEBBIAN LEARNING")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Co-activation and weight adjustment ---")
 
     mem2 = HypergraphMemory(evolve_interval=0)
     for node in ["x", "y", "z", "w"]:
@@ -92,7 +87,7 @@ def main() -> None:
     mem2.search.activate("y", energy=1.0)
 
     hebb_result = mem2.cognitive.hebbian_reinforce()
-    print(f"\nHebbian reinforcement:")
+    print("\nHebbian reinforcement:")
     print(f"  edges strengthened: {hebb_result.edges_strengthened}")
     print(f"  edges weakened: {hebb_result.edges_weakened}")
     print(f"  total co-activations: {hebb_result.total_co_activations}")
@@ -102,15 +97,15 @@ def main() -> None:
     print("SECTION 5: FEEDBACK-DRIVEN EVOLUTION")
     print("=" * 70)
 
-    print("\n--- No competitor equivalent ---")
+    print("\n--- Using operation history to tune evolution ---")
 
     fb_result = mem.evolve_with_feedback()
-    print(f"\nfeedback-driven evolve:")
+    print("\nfeedback-driven evolve:")
     print(f"  reinforced: {fb_result.reinforced}")
     print(f"  suppressed: {fb_result.suppressed}")
 
     summary = mem.feedback_summary()
-    print(f"\nfeedback summary:")
+    print("\nfeedback summary:")
     print(f"  overall health: {summary.overall_health}")
     print(f"  correlated nodes: {len(summary.correlated_nodes)}")
 
