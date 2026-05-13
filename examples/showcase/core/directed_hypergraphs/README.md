@@ -25,7 +25,7 @@ Hyper3 adds semantic direction labels (`binds`, `catalyzes`, `cooperative_cataly
 ## 3. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/core/directed_hypergraphs/17_directed_hypergraphs.py
+.venv/bin/python examples/showcase/core/directed_hypergraphs/directed_hypergraphs.py
 ```
 
 ### What You'll See

@@ -30,7 +30,7 @@ Think of a city's road network. A **chain** is a one-way street where each inter
 ## 4. Quick Start
 
 ```bash
-.venv/bin/python examples/showcase/core/structural_patterns/13_structural_patterns_and_communities.py
+.venv/bin/python examples/showcase/core/structural_patterns/structural_patterns_and_communities.py
 ```
 
 ### What You'll See
@@ -254,17 +254,17 @@ Diamonds find convergence: two or more nodes that share a common target. In this
 diamonds = mem.match_diamonds(edge_label="uses", max_matches=10)
 ```
 
-**Result:** 10 technology convergence diamonds. The top 5 all converge on `docker`:
+**Result:** 10 technology convergence diamonds. The top 5 all converge on `kubernetes`:
 
 | Source A | Source B | Converges On | Score |
 |----------|----------|-------------|-------|
-| `orbit_iot` | `terra_logistics` | docker | 0.50 |
-| `orbit_iot` | `acme_cloud` | docker | 0.29 |
-| `acme_cloud` | `terra_logistics` | docker | 0.29 |
-| `orbit_iot` | `neural_edge` | docker | 0.20 |
-| `acme_cloud` | `neural_edge` | docker | 0.12 |
+| `aurora_energy` | `nexa_ai` | kubernetes | 0.40 |
+| `zenith_fintech` | `acme_cloud` | kubernetes | 0.38 |
+| `aurora_energy` | `zenith_fintech` | kubernetes | 0.33 |
+| `aurora_energy` | `acme_cloud` | kubernetes | 0.12 |
+| `zenith_fintech` | `nexa_ai` | kubernetes | 0.12 |
 
-**Why this matters:** All 5 displayed diamonds converge on `docker`. This means 4+ companies (`acme_cloud`, `orbit_iot`, `terra_logistics`, `neural_edge`) share a critical dependency on containerization. A Docker CVE would affect all of them simultaneously. The highest-scoring diamond (0.50) involves `orbit_iot` and `terra_logistics` — both depend on Docker with relatively high weights, making their shared exposure more significant.
+**Why this matters:** All 5 displayed diamonds converge on `kubernetes`. This means 4+ companies (`acme_cloud`, `aurora_energy`, `zenith_fintech`, `nexa_ai`) share a critical dependency on container orchestration. A Kubernetes CVE would affect all of them simultaneously. The highest-scoring diamond (0.40) involves `aurora_energy` and `nexa_ai` — both depend on Kubernetes with relatively high weights, making their shared exposure more significant.
 
 ### Section 5: Community Detection
 
@@ -283,7 +283,7 @@ Top communities by size:
 | Community | Size | Internal Edges | External Edges | Composition |
 |-----------|------|---------------|---------------|-------------|
 | 0 | 10 | 9 | 13 | acme_cloud ecosystem (company, product, 3 techs, 2 people, 2 standards) |
-| 5 | 9 | 8 | 8 | zenith_fintech ecosystem (company, product, 3 techs, 2 people, 2 standards) |
+| 5 | 8 | 46 | 40 | zenith_fintech ecosystem (company, product, 2 techs, 2 people, 2 standards) |
 | 9 | 9 | 11 | 10 | nova_biotech + helix_health joint cluster (2 companies, 2 products, 2 techs, 2 people, 1 standard) |
 | 2 | 6 | 5 | 5 | volt_data ecosystem (company, product, 3 techs, 1 person) |
 | 3 | 6 | 6 | 4 | pulse_security ecosystem (company, product, 1 tech, 2 people, 1 standard) |
@@ -340,7 +340,7 @@ Diamond scores reflect the strength of the shared dependency. Higher scores mean
 | 0.5-0.7 | Strong structure — clear communities with limited overlap |
 | 0.7+ | Very strong — nearly disconnected components |
 
-The observed modularity of 0.534 indicates strong but not rigid community structure. Companies form distinct clusters around their technology stacks, but partnerships and shared technologies create meaningful cross-community connections.
+The observed modularity of 0.595 indicates strong but not rigid community structure. Companies form distinct clusters around their technology stacks, but partnerships and shared technologies create meaningful cross-community connections.
 
 ## 8. Key Metrics
 
@@ -362,8 +362,8 @@ The observed modularity of 0.534 indicates strong but not rigid community struct
 | Largest community size | 10 nodes |
 | Cross-community connections (largest) | 13 |
 | Highest fan-out | `acme_cloud` (6 technologies) |
-| Most converged technology | `docker` (5 diamonds) |
-| Highest diamond score | `orbit_iot` + `terra_logistics` → `docker` (0.50) |
+| Most converged technology | `kubernetes` (5 diamonds) |
+| Highest diamond score | `aurora_energy` + `nexa_ai` → `kubernetes` (0.40) |
 
 ## 9. What Makes This Different
 

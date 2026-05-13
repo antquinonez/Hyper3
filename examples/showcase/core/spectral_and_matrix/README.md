@@ -292,7 +292,7 @@ dual_cr = CommunityDetector(dual).detect_label_propagation(seed=42)
 | `normalized_laplacian()` | `Hypergraph` | `(ndarray, list[str])` | Degree-normalized Laplacian |
 | `spectral_embedding(dimensions)` | `HypergraphMemory` | `dict[str, ndarray]` | Node label to embedding vector |
 | `s_persistence(max_s)` | `HypergraphMemory` | `SPersistenceResult` | Multi-resolution component analysis |
-| `detect_communities(seed)` | `HypergraphMemory` | `CommunityResult` | Label propagation community detection |
+| `mem.analyze.communities(seed)` | `HypergraphMemory` | `CommunityResult` | Label propagation community detection |
 | `detect_label_propagation(seed)` | `CommunityDetector` | `CommunityResult` | Label propagation on a raw Hypergraph |
 | `to_dual()` | `Hypergraph` | `Hypergraph` | Dual hypergraph (edges become nodes) |
 | `to_line_graph()` | `Hypergraph` | `Graph` | Edge-adjacency graph |

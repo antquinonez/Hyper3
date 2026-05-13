@@ -128,47 +128,45 @@ The hierarchy is: employees -> teams -> departments -> division.
 graph TD
     subgraph dept_engineering
         subgraph team_alpha
-            aaron ---|collaborates_with| alice
-            amy ---|collaborates_with| anna
-            axel ---|collaborates_with| aaron
+            alice -->|collaborates_with| anna
+            aaron -->|collaborates_with| amy
         end
         subgraph team_beta
-            bella ---|collaborates_with| bob
-            betty ---|collaborates_with| brian
-            bruce ---|collaborates_with| bella
+            bob -->|collaborates_with| bella
+            brian -->|collaborates_with| betty
         end
     end
     subgraph dept_product
         subgraph team_gamma
-            carmen ---|collaborates_with| carol
-            charlie ---|collaborates_with| clara
-            craig ---|collaborates_with| carmen
+            carol -->|collaborates_with| charlie
+            clara -->|collaborates_with| craig
         end
         subgraph team_delta
-            dave ---|collaborates_with| diana
-            derek ---|collaborates_with| donna
-            dylan ---|collaborates_with| dave
+            dave -->|collaborates_with| diana
+            derek -->|collaborates_with| donna
         end
     end
-    team_alpha -->|managed_by| dept_engineering
-    team_beta -->|managed_by| dept_engineering
-    team_gamma -->|managed_by| dept_product
-    team_delta -->|managed_by| dept_product
+    alice -->|collaborates_with| carol
+    charlie -->|collaborates_with| dave
+    alice -->|managed_by| dept_engineering
+    carol -->|managed_by| dept_product
+    dept_engineering -->|reports_to| division_tech
+    dept_product -->|reports_to| division_tech
 ```
 
 Internal `collaborates_with` edges (within teams) are removed during collapse. External `managed_by` edges are rewired to summary nodes. Cross-team collaboration edges connect team_alpha to team_gamma and team_gamma to team_delta.
 
 ## 5. Analysis Pipeline
 
-**Section 1 — Build organizational graph:** 23 nodes and 22 edges are created. 20 employees are stored with `data={"team": team_name}`. 2 departments and 1 division are stored with `data={"type": "department"}` and `data={"type": "division"}`. Each team has 4 internal `collaborates_with` edges (e.g., aaron-alice, amy-anna, axel-aaron, alice-amy for team_alpha), totaling 16 internal edges. Each team has 1 `managed_by` edge to its department, totaling 4 department edges. 2 cross-team `collaborates_with` edges connect team_alpha to team_gamma (alice -> carol) and team_gamma to team_delta (charlie -> dave). The division_tech node has no edges yet — it will become relevant at the department collapse level. Why this matters: the graph encodes both the hierarchy (managed_by) and the collaboration network (collaborates_with). Collapsing will hide the internal collaboration edges while preserving the hierarchical and cross-team connections.
+**Section 1 — Build organizational graph:** 23 nodes and 14 edges are created. 20 employees are stored with `data={"team": team_name}`. 2 departments and 1 division are stored with `data={"type": "department"}` and `data={"type": "division"}`. Each team has 2 internal `collaborates_with` edges (pairing members at indices 0-1 and 2-3, with the 5th member unpaired), totaling 8 internal edges. Each team has 1 `managed_by` edge to its department, totaling 4 department edges (alice -> dept_engineering, carol -> dept_product, dept_engineering -> division_tech, dept_product -> division_tech). 2 cross-team `collaborates_with` edges connect team_alpha to team_gamma (alice -> carol) and team_gamma to team_delta (charlie -> dave). The division_tech node has no edges yet — it will become relevant at the department collapse level. Why this matters: the graph encodes both the hierarchy (managed_by) and the collaboration network (collaborates_with). Collapsing will hide the internal collaboration edges while preserving the hierarchical and cross-team connections.
 
-**Section 2 — First-level abstraction — collapse teams:** `collapse_subgraph()` is called 4 times, once per team. For team_alpha: 5 employee nodes are collapsed into the summary node team_alpha. 6 edges are collapsed: 4 internal `collaborates_with` edges (within the team, removed) and 2 external connections (alice -> carol cross-team edge and managed_by edge, rewired to team_alpha). The same process applies to team_beta (5 edges collapsed: 4 internal + 1 external), team_gamma (6 edges collapsed: 4 internal + 2 external), and team_delta (5 edges collapsed: 4 internal + 1 external). After collapse: 27 nodes (20 detail employees + 4 team summaries + 2 departments + 1 division) and 6 edges (4 managed_by edges to departments + 2 cross-team collaboration edges). Active summaries: 4. Why this matters: the collapse operation reduces 16 internal edges to 0 and rewires 6 external edges to summary nodes. The abstracted graph has only 6 edges, making team-level analysis tractable. Detail nodes remain in the graph (counted in the 27 total) but are not connected — they are hidden under their summaries.
+**Section 2 — First-level abstraction — collapse teams:** `collapse_subgraph()` is called 4 times, once per team. For team_alpha: 5 employee nodes are collapsed into the summary node team_alpha. 4 edges are collapsed: 2 internal `collaborates_with` edges (within the team, removed) and 2 external connections (alice -> carol cross-team edge and managed_by edge, rewired to team_alpha). team_beta collapses 2 edges (2 internal + 0 external — no cross-team connections). team_gamma collapses 5 edges (2 internal + 3 external — carol managed_by, charlie -> dave cross-team, carmen internal). team_delta collapses 3 edges (2 internal + 1 external — dave managed_by edge). After collapse: 27 nodes (20 detail employees + 4 team summaries + 2 departments + 1 division) and 6 edges (4 managed_by edges to departments + 2 cross-team collaboration edges). Active summaries: 4. Why this matters: the collapse operation reduces 8 internal edges to 0 and rewires 6 external edges to summary nodes. The abstracted graph has only 6 edges, making team-level analysis tractable. Detail nodes remain in the graph (counted in the 27 total) but are not connected — they are hidden under their summaries.
 
 **Section 3 — Analyze at team level:** Degree centrality is computed on the abstracted graph. team_alpha and team_gamma each have centrality 0.0769 — they are connected to 2 other nodes each (1 department + 1 cross-team collaboration). team_beta and team_delta each have centrality 0.0385 — they are connected to only 1 node (their department). Betweenness centrality is 0.0000 for all teams — no team sits on the shortest path between other teams because the graph is a simple chain with cross-links. Why this matters: the team-level analysis reveals that team_alpha and team_gamma are more connected than team_beta and team_delta. At the employee level, this pattern is invisible — you would need to aggregate 20 individual centrality scores to see it. The abstraction makes the structural difference between teams immediately apparent.
 
-**Section 4 — Second-level abstraction — collapse departments:** `collapse_subgraph()` is called 2 more times, collapsing team_alpha + team_beta into dept_engineering and team_gamma + team_delta into dept_product. dept_engineering collapses 2 edges: 1 internal (the managed_by edges from team_alpha and team_beta to dept_engineering become internal) and 1 external (dept_engineering -> division_tech). dept_product similarly collapses 2 edges. After department collapse: 29 nodes and 4 edges. Total active summaries: 6 (4 team summaries + 2 department summaries). The division_tech node now has edges to both department summaries. Why this matters: the second-level collapse stacks on top of the first. Team summaries become detail nodes under department summaries. The graph is now at department granularity, with only 4 edges connecting the 2 departments to the division and to each other.
+**Section 4 — Second-level abstraction — collapse departments:** `collapse_subgraph()` is called 2 more times, collapsing team_alpha + team_beta into dept_engineering and team_gamma + team_delta into dept_product. dept_engineering collapses 2 edges: 0 internal (the managed_by edges from team_alpha and team_beta to dept_engineering are already rewired through the team summaries and do not become internal at this level) and 2 external (dept_engineering -> division_tech and the cross-team collaboration edge). dept_product collapses 3 edges: 1 internal (the managed_by edge between team_gamma/team_delta and dept_product) and 2 external (dept_product -> division_tech and the cross-team collaboration edge). After department collapse: 29 nodes and 5 edges. Total active summaries: 6 (4 team summaries + 2 department summaries). The division_tech node now has edges to both department summaries. Why this matters: the second-level collapse stacks on top of the first. Team summaries become detail nodes under department summaries. The graph is now at department granularity, with only 5 edges connecting the 2 departments to the division and to each other.
 
-**Section 5 — Expand and drill down:** `expand_summary()` is called on dept_engineering. This restores team_alpha and team_beta as active nodes, recreates the 2 edges that were rewired to dept_engineering, and removes the dept_engineering summary node. After expansion: 28 nodes and 5 edges. Remaining summaries: 5 (4 teams + dept_product). The expansion is precise — only dept_engineering is expanded; all other summaries remain collapsed. Why this matters: expansion is targeted. A user analyzing the department-level graph can expand one department to drill into its teams without affecting the rest of the abstraction. This enables interactive exploration: start at the top, identify the department of interest, expand it, analyze its teams, and expand further if needed.
+**Section 5 — Expand and drill down:** `expand_summary()` is called on dept_engineering. This restores team_alpha and team_beta as active nodes, recreates the 4 edges that were rewired to dept_engineering, and removes the dept_engineering summary node. After expansion: 28 nodes and 7 edges. Remaining summaries: 5 (4 teams + dept_product). The expansion is precise — only dept_engineering is expanded; all other summaries remain collapsed. Why this matters: expansion is targeted. A user analyzing the department-level graph can expand one department to drill into its teams without affecting the rest of the abstraction. This enables interactive exploration: start at the top, identify the department of interest, expand it, analyze its teams, and expand further if needed.
 
 **Section 6 — Cross-level centrality comparison:** Degree centrality is computed on the partially-expanded graph (dept_engineering expanded, dept_product still collapsed). dept_engineering has the highest centrality (0.1111) because it is connected to team_alpha, team_beta, division_tech, and dept_product via the remaining cross-department edges. division_tech follows at 0.0741. dept_product and team_alpha/team_beta each have 0.0370. Individual employees (alice, anna, aaron) have centrality 0.0000 — they are detail nodes with no edges. Why this matters: the mixed-level analysis shows how different abstraction levels coexist in the same graph. dept_engineering (expanded, showing teams) has higher centrality than dept_product (still collapsed) because its internal structure is visible. This is the correct result: dept_engineering is more connected because its teams have external edges that dept_product's collapsed summary hides.
 
@@ -296,7 +294,7 @@ This showcase demonstrates hierarchical abstraction on a small organizational gr
 | `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
 | `mem.add(concept, data)` | Create a node with optional data dict |
 | `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
-| `mem.describe()` | Return graph statistics (nodes, edges, density, components) |
+| `mem.analyze.describe()` | Return graph statistics (nodes, edges, density, components) |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 
 ### Related Examples

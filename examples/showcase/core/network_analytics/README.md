@@ -522,7 +522,7 @@ top_exposed = top_k(degree, k=10)
 ```python
 components = mem.analyze.components()
 cycles = mem.detect_cycles(max_cycles=15)
-path = mem.shortest_path("dev-server", "db-primary")
+path = mem.analyze.shortest_path("dev-server", "db-primary")
 ```
 
 ### Composite Risk Scoring
@@ -579,7 +579,7 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 
 7. **Transitive inference depth:** The showcase runs transitive inference to depth 4. In large networks with deep trust hierarchies, the number of inferred edges grows combinatorially. Production use requires pruning low-confidence inferred edges or limiting inference to specific seed concepts.
 
-8. **Community detection determinism:** Label propagation (the algorithm behind `detect_communities`) is probabilistic. Results may vary across runs. The showcase fixes the seed to 42 for reproducibility; production use should run multiple seeds and report consensus communities.
+8. **Community detection determinism:** Label propagation (the algorithm behind `mem.analyze.communities`) is probabilistic. Results may vary across runs. The showcase fixes the seed to 42 for reproducibility; production use should run multiple seeds and report consensus communities.
 
 ## 12. Reference
 
@@ -593,7 +593,7 @@ This showcase constructs a synthetic network graph from hardcoded data. Real-wor
 | `mem.analyze.centrality("betweenness")` | Compute betweenness centrality for all nodes |
 | `mem.analyze.components()` | Find all connected components |
 | `mem.detect_cycles(max_cycles)` | Detect cycles up to a limit |
-| `mem.shortest_path(source, target)` | Find shortest path between two nodes |
+| `mem.analyze.shortest_path(source, target)` | Find shortest path between two nodes |
 | `mem.degree_distribution()` | Histogram of degree values |
 | `mem.pattern_match(edge_label)` | Find all edges matching a label |
 | `mem.query_nodes(data)` | Find nodes matching data attributes |

@@ -103,9 +103,9 @@ anomalous services:
 
 SECTION 5: EXPLORATION WITH ASSUMPTIONS
 suggested assumptions for 'config_svc': 3
-  bridge_08c2fece: Assume reachability to api_gateway (coverage gain: 0.5000)
-  bridge_f3a1bdb8: Assume reachability to order_svc (coverage gain: 0.3889)
-  bridge_38c96008: Assume reachability to db_primary (coverage gain: 0.2222)
+  bridge_cdee72ce: Assume reachability to api_gateway (coverage gain: 0.5000)
+  bridge_ad13c051: Assume reachability to order_svc (coverage gain: 0.3889)
+  bridge_6d50d637: Assume reachability to db_primary (coverage gain: 0.2222)
 
 config_svc anomaly status: low_risk
   boundary score: 0.0088
@@ -128,9 +128,9 @@ anomaly summary: mapped=0, low_risk=0, boundary=0, anomalous=0
 
 An 18-node microservices service mesh with four node categories:
 
-- **Services** (12): api_gateway, auth_svc, user_svc, order_svc, payment_svc, inventory_svc, search_svc, notification_svc, email_svc, logging_svc, config_svc, cache_svc
+- **Services** (12): api_gateway, auth_svc, user_svc, order_svc, payment_svc, inventory_svc, search_svc, notification_svc, analytics_svc, logging_svc, config_svc, cache_svc
 - **Databases** (3): db_primary, db_analytics, db_cache
-- **Message queues** (2): mq_orders, mq_events
+- **Message queues** (2): queue_orders, queue_notifications
 - **Infrastructure** (1): load_balancer
 
 Planted anomalies: a circular dependency cycle (auth_svc -> user_svc -> order_svc -> auth_svc), a high-centrality api_gateway with 9 outgoing `routes_to` edges, and logging_svc connected to all 3 databases.
@@ -145,28 +145,29 @@ graph LR
     api_gateway -->|routes_to| search_svc
     api_gateway -->|routes_to| inventory_svc
     api_gateway -->|routes_to| notification_svc
-    api_gateway -->|routes_to| cache_svc
+    api_gateway -->|routes_to| analytics_svc
 
     auth_svc -->|calls| user_svc
     user_svc -->|calls| order_svc
     order_svc -->|calls| auth_svc
+    order_svc -->|calls| payment_svc
+    order_svc -->|calls| inventory_svc
 
-    order_svc -->|publishes_to| mq_orders
-    payment_svc -->|publishes_to| mq_events
-    inventory_svc -->|subscribes_to| mq_orders
-    notification_svc -->|subscribes_to| mq_events
+    payment_svc -->|publishes_to| queue_orders
+    notification_svc -->|subscribes_to| queue_orders
+    payment_svc -->|publishes_to| queue_notifications
+    notification_svc -->|subscribes_to| queue_notifications
 
-    auth_svc -->|reads_from| db_primary
-    auth_svc -->|writes_to| db_primary
     user_svc -->|reads_from| db_primary
     order_svc -->|reads_from| db_primary
     order_svc -->|writes_to| db_primary
-    logging_svc -->|reads_from| db_analytics
+    analytics_svc -->|reads_from| db_analytics
+    logging_svc -->|writes_to| db_primary
     logging_svc -->|writes_to| db_analytics
-    logging_svc -->|reads_from| db_cache
-    search_svc -->|reads_from| db_analytics
+    logging_svc -->|writes_to| db_cache
     cache_svc -->|reads_from| db_cache
-    cache_svc -->|writes_to| db_cache
+    config_svc -->|calls| cache_svc
+    search_svc -->|calls| cache_svc
 ```
 
 Solid arrows: service mesh edges (28 total). The auth -> user -> order -> auth cycle is the planted circular dependency. api_gateway routes to 8 downstream services.
@@ -220,10 +221,10 @@ from hyper3 import HypergraphMemory
 mem = HypergraphMemory(evolve_interval=0)
 
 services = ["api_gateway", "auth_svc", "user_svc", "order_svc", "payment_svc",
-            "inventory_svc", "search_svc", "notification_svc", "email_svc",
+            "inventory_svc", "search_svc", "notification_svc", "analytics_svc",
             "logging_svc", "config_svc", "cache_svc"]
 databases = ["db_primary", "db_analytics", "db_cache"]
-queues = ["mq_orders", "mq_events"]
+queues = ["queue_orders", "queue_notifications"]
 infra = ["load_balancer"]
 
 for s in services:

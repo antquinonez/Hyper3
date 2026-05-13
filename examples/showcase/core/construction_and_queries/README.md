@@ -276,15 +276,15 @@ This showcase demonstrates Hyper3's core capabilities on a small synthetic graph
 | `mem.add(concept, data)` | Create a node with optional data dict |
 | `mem.link(source, target, label, weight)` | Add a pairwise directed edge |
 | `mem.link_hyper(sources, targets, label)` | Add an n-ary directed hyperedge |
-| `mem.describe()` | Return graph statistics (nodes, edges, density, components) |
+| `mem.analyze.describe()` | Return graph statistics (nodes, edges, density, components) |
 | `mem.neighbors(concept, direction, edge_label)` | Query neighbors filtered by direction and/or label |
 | `mem.query_nodes(data)` | Find nodes matching data attributes |
 | `mem.edges_labeled(min_source_cardinality)` | List labeled edges, optionally filtering by source cardinality |
 | `mem.ensure(concept, data, update)` | Create node if absent; merge data with `update=True` |
 | `mem.add_rules(*rules)` | Register inference rules for reasoning |
 | `mem.reason(seeds, depth)` | Apply rules via multiway expansion from seed concepts |
-| `mem.activate(concept, energy)` | Inject activation energy into a node |
-| `mem.activate(iterations)` | Propagate activation across edges |
-| `mem.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
+| `mem.search.activate(concept, energy)` | Inject activation energy into a node |
+| `mem.search.diffuse(concept, iterations)` | Propagate activation across edges |
+| `mem.cognitive.hebbian_reinforce()` | Strengthen edges between co-activated nodes |
 | `mem.evolve()` | Run decay/prune/merge evolution cycle |
 | `TransitiveRule(edge_label, new_label)` | Infer A -> C from A -> B -> C chains |

@@ -184,7 +184,7 @@ dists = mem.shortest_path_lengths(weighted=True)
 ### Single-source distances
 
 ```python
-from_a = mem.single_source_distances("a", weighted=True)
+from_a = mem.analyze.distances("a", weighted=True)
 # {'a': 0.0, 'b': 0.2}
 ```
 
@@ -195,8 +195,8 @@ components = mem.analyze.components()
 # [['a', 'b']]
 
 mem.analyze.is_connected()       # True if 1 component
-mem.largest_connected_component()  # largest component as set
-mem.component_of("a")    # component containing 'a'
+mem.analyze.largest_component()  # largest component as set
+mem.analyze.component_of("a")    # component containing 'a'
 ```
 
 ### Hyperedge as single hop
@@ -279,23 +279,23 @@ mem.max_edge_order()      # largest edge size minus 1
 
 | Method | Returns | Description |
 |--------|---------|-------------|
-| `mem.shortest_path(src, tgt, weighted=True)` | `list[str] \| None` | Node labels along the shortest path, or `None` if unreachable |
+| `mem.analyze.shortest_path(src, tgt, weighted=True)` | `list[str] \| None` | Node labels along the shortest path, or `None` if unreachable |
 | `mem.find_paths(src, tgt, max_paths=10)` | `list[list[str]]` | All simple paths between two nodes |
 | `mem.shortest_path_lengths(weighted=True)` | `dict[str, dict[str, float]]` | All-pairs distance matrix |
-| `mem.single_source_distances(src, weighted=True)` | `dict[str, float]` | Distances from one node to all reachable nodes |
+| `mem.analyze.distances(src, weighted=True)` | `dict[str, float]` | Distances from one node to all reachable nodes |
 | `mem.analyze.components()` | `list[set[str]]` | All connected components as label sets |
-| `mem.is_connected()` | `bool` | Whether the graph has exactly one component |
-| `mem.largest_connected_component()` | `set[str]` | Nodes in the largest component |
-| `mem.component_of(concept)` | `set[str]` | Component containing the given concept |
-| `mem.density()` | `float` | Edge-to-maximum-possible-edge ratio |
+| `mem.analyze.is_connected()` | `bool` | Whether the graph has exactly one component |
+| `mem.analyze.largest_component()` | `set[str]` | Nodes in the largest component |
+| `mem.analyze.component_of(concept)` | `set[str]` | Component containing the given concept |
+| `mem.analyze.describe().density` | `float` | Edge-to-maximum-possible-edge ratio |
 | `mem.unique_edge_sizes()` | `list[int]` | Distinct node counts across all edges |
 | `mem.max_edge_order()` | `int` | Largest edge size minus 1 |
 | `mem.recall(concept, depth=N)` | `list[Hypernode]` | BFS-like traversal up to N hops |
 | `mem.link_hyper(sources, targets, label, weight)` | `Hyperedge` | Create an N-ary directed hyperedge |
 | `mem.reason(seeds, depth)` | `ReasoningResult` | Apply inference rules to discover new edges |
 | `mem.add_rules(*rules)` | `None` | Register inference rules for reasoning |
-| `mem.activate(concept, energy)` | `None` | Inject energy into a node for activation |
-| `mem.activate(iterations)` | `list[ActivationResult]` | Spread activation energy through the graph |
+| `mem.search.activate(concept, energy)` | `list[ActivationHit]` | Inject energy into a node for activation |
+| `mem.search.diffuse(concept, iterations)` | `list[ActivationHit]` | Spread activation energy through the graph |
 | `mem.clear_activations()` | `None` | Reset all node activations to zero |
 | `mem.capture_version()` | `dict` | Snapshot current graph state (version_id, node_count, edge_count) |
 | `mem.diff_from_version(version_id)` | `VersionDelta \| None` | Compute changes since a captured version |
