@@ -392,12 +392,14 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` read-only property
 `mem.rules` returns a copy of the currently active inference rules as a list. This is a read-only property; use `add_rules()` to register new rules.
 
-### No comments in production code (src/)
-Do not add comments in `src/` code unless explicitly asked, with two exceptions:
-- **Navigational section dividers** (e.g., `# -- Terminal: extract results ---`) are acceptable in long files.
-- **"Why" comments** explaining non-obvious design rationale are acceptable. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+### Comment and docstring policy in production code (src/)
+Do not add inline comments (`#`) that explain *what* code does — the code should be self-documenting. Three categories are always allowed:
 
-Do not add comments that explain what the code does -- the code should be self-documenting.
+- **Docstrings** on public classes and methods — these describe API contracts (parameters, return types, behavior), not implementation details. Every public method should have a docstring.
+- **"Why" comments** explaining non-obvious design rationale. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+- **Navigational section dividers** in long files (e.g., `# -- Terminal: extract results ---`).
+
+The concern driving this policy is comment decay: inline comments that describe *what* code does go stale whenever the logic changes, often faster than the surrounding code is updated. Docstrings and "why" comments decay at much lower rates because they describe contracts and rationale rather than step-by-step mechanics.
 
 Examples (`examples/`) and tests (`tests/`) may use comments freely for section markers, explanatory notes, and educational annotations.
 
