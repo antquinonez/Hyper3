@@ -2,6 +2,18 @@
 Full integrated demo: store knowledge, reason with multiway rules,
 enforce state convergence, create quantum superpositions, and collapse.
 
+This demo shows the complete pipeline from raw knowledge to inferred conclusions,
+using a weather-impact domain (rain -> flood -> evacuation -> insurance).
+It exercises these subsystems in sequence:
+  1. Knowledge graph construction (weather concepts + causal relationships)
+  2. Multiway reasoning with 5 rule types (transitive, inverse, abductive)
+  3. Inferred knowledge inspection (what the system deduced)
+  4. Lateral insights from state clustering (cross-branch knowledge transfer)
+  5. Belief distributions (superposition of multiple interpretations)
+  6. Amplitude evolution (biasing outcomes with context)
+  7. Sampling (Born-rule collapse to a single interpretation)
+  8. Self-evolution cycle (decay, prune, merge)
+
 Run with: .venv/bin/python demos/demo_integrated.py
 """
 
@@ -18,6 +30,14 @@ def main():
     mem = HypergraphMemory(evolve_interval=0)
 
     # --- 1. BUILD KNOWLEDGE ------------------------------------------------
+    #
+    # Build a causal chain: rain -> heavy_rain -> flood -> {evacuation,
+    # crop_damage, infrastructure_damage} -> insurance_claim.
+    #
+    # The "causes" label creates a transitive chain that the TransitiveRule
+    # can follow: heavy_rain-causes->flood-causes->evacuation lets the system
+    # infer heavy_rain-indirectly_causes->evacuation.
+    #
     print("=" * 70)
     print("1. BUILDING WEATHER-IMPACT KNOWLEDGE DOMAIN")
     print("=" * 70)
@@ -46,6 +66,28 @@ def main():
     print()
 
     # --- 2. MULTIWAY REASONING ---------------------------------------------
+    #
+    # Register 5 rules that explore the graph from different angles:
+    #
+    #   TransitiveRule("causes", "indirectly_causes"):
+    #     A-causes->B-causes->C  ==>  A-indirectly_causes->C
+    #
+    #   TransitiveRule("triggers", "indirectly_triggers"):
+    #     A-triggers->B-triggers->C  ==>  A-indirectly_triggers->C
+    #
+    #   InverseRule("causes", "caused_by"):
+    #     A-causes->B  ==>  B-caused_by->A
+    #
+    #   InverseRule("triggers", "triggered_by"):
+    #     A-triggers->B  ==>  B-triggered_by->A
+    #
+    #   AbductiveRule("causes"):
+    #     Given B and A-causes->B, hypothesize A (backward inference)
+    #
+    # reason() applies all rules simultaneously, creating a multiway graph
+    # where each branch is a different sequence of rule applications.
+    # StateConvergenceEngine merges branches that produce equivalent results.
+    #
     print("=" * 70)
     print("2. MULTIWAY REASONING (6 rules, depth=3)")
     print("=" * 70)
@@ -65,7 +107,11 @@ def main():
         max_depth=3,
         max_total_states=25,
     )
+
+    # The expansion report tells us how many states were explored and how
+    # many new edges were inferred.
     exp = result["expansion"]
+    # State convergence report: how many equivalent branches were merged.
     ci = result["state_convergence"]
     print(f"\n  States created:   {exp['states_created']}")
     print(f"  Rules applied:    {exp['rules_applied']}")
@@ -78,6 +124,14 @@ def main():
     print()
 
     # --- 3. INFERRED KNOWLEDGE ---------------------------------------------
+    #
+    # Walk the graph and display all edges marked as "inferred" by the
+    # reasoning engine. These are new edges that were NOT in the original
+    # graph -- they were deduced by rule application.
+    #
+    # Each inferred edge carries metadata about which rule produced it
+    # (stored in edge.metadata.custom["rule"]).
+    #
     print("=" * 70)
     print("3. INFERRED KNOWLEDGE")
     print("=" * 70)
@@ -92,6 +146,16 @@ def main():
     print()
 
     # --- 4. LATERAL INSIGHTS FROM STATE CLUSTERING -------------------------
+    #
+    # State clustering maps multiway states into a coordinate space based
+    # on which nodes are active in each state. "Lateral insights" are
+    # discoveries that transfer between nearby states -- knowledge found
+    # in one branch that is novel (absent) in another.
+    #
+    # For each concept, lateral_insights() compares the states where that
+    # concept appears active and finds what other states discovered that
+    # the current state did not.
+    #
     print("=" * 70)
     print("4. LATERAL INSIGHTS FROM STATE CLUSTERING")
     print("=" * 70)
@@ -103,6 +167,8 @@ def main():
                 lat = mem.multiway.multiway.get_state(ins["lateral_state"])
                 rule = lat.rule_applied if lat else "?"
                 print(f"    Lateral branch [{rule}], distance={ins.get('state_distance', ins.get('jaccard_distance', 0.0))}")
+                # "novel_in_lateral" lists nodes that the lateral state
+                # discovered but the source state did not.
                 for nid in ins["novel_in_lateral"]:
                     n = mem.engine.graph.get_node(nid)
                     if n:
@@ -110,6 +176,15 @@ def main():
     print()
 
     # --- 5. BELIEF DISTRIBUTIONS --------------------------------------------
+    #
+    # A belief distribution holds multiple interpretations simultaneously,
+    # each with a complex-valued amplitude. The probability of selecting
+    # each interpretation is |amplitude|^2 (the Born rule).
+    #
+    # Here we create a distribution over three possible outcomes of a flood:
+    # the flood itself, crop damage, and infrastructure damage. Initially
+    # all amplitudes are equal (1/sqrt(3) for uniform probability).
+    #
     print("=" * 70)
     print("5. BELIEF DISTRIBUTIONS")
     print("=" * 70)
@@ -124,6 +199,15 @@ def main():
     print()
 
     # --- 6. AMPLITUDE EVOLUTION ----------------------------------------------
+    #
+    # Amplitudes can be manually evolved to reflect new evidence or context.
+    # Here we boost crop_damage (2.0x) and infrastructure_damage (1.5x)
+    # while reducing flood (0.3x), simulating a scenario where the secondary
+    # impacts turn out to be more significant than the flood itself.
+    #
+    # The evolution modifies amplitudes in-place and renormalizes so that
+    # total probability remains <= 1.0.
+    #
     print("=" * 70)
     print("6. EVOLVING AMPLITUDES WITH CONTEXT")
     print("=" * 70)
@@ -141,6 +225,15 @@ def main():
     print()
 
     # --- 7. SAMPLING ----------------------------------------------------------
+    #
+    # sample() collapses the superposition to a single outcome using the
+    # Born rule: probability of each outcome = |amplitude|^2. The sampled
+    # outcome is selected randomly according to these probabilities.
+    #
+    # This is probabilistic -- running the demo multiple times may produce
+    # different results. After boosting crop_damage, it is most likely to
+    # be selected.
+    #
     print("=" * 70)
     print("7. SAMPLING: SELECT DEFINITE STATE")
     print("=" * 70)
@@ -154,6 +247,15 @@ def main():
     print()
 
     # --- 8. SELF-EVOLUTION -------------------------------------------------
+    #
+    # evolve() runs the full maintenance cycle:
+    #   1. decay: reduce weights on inactive edges
+    #   2. prune: remove nodes/edges below the weight threshold
+    #   3. merge: combine equivalent nodes (same data, overlapping neighborhoods)
+    #   4. reinforce: strengthen frequently-used paths
+    #
+    # With evolve_interval=0 (disabled), we call it manually here.
+    #
     print("=" * 70)
     print("8. SELF-EVOLUTION CYCLE")
     print("=" * 70)
@@ -166,6 +268,8 @@ def main():
     print("=" * 70)
     print("9. FINAL SYSTEM STATE")
     print("=" * 70)
+
+    # stats() returns a MemoryStats dataclass with all key metrics.
     stats = mem.stats()
     print()
     for k, v in stats.items():

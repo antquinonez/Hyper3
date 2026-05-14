@@ -2,6 +2,19 @@
 A walk through hyper3 with a real scenario: diagnosing a car that won't start.
 Each section shows what the system is doing and why it matters.
 
+This is the primary pedagogical demo. It covers the full Hyper3 lifecycle:
+  1. Knowledge storage: adding concepts and causal relationships
+  2. Rule discovery: the system finds patterns automatically
+  3. Multiway reasoning: exploring all causal paths simultaneously
+  4. Belief distributions: holding multiple hypotheses with weighted probabilities
+  5. Evidence interference: constructive and destructive evidence combination
+  6. Boundary detection: classifying questions by answerability
+  7. Multi-frame analysis: analyzing problems through different computational lenses
+  8. Rule analytics: the system reflects on its own reasoning patterns
+  9. Backward chaining: proving root causes from observed symptoms
+  10. Meta-cognitive introspection: the system evaluates its own health
+  11. Persistence: saving and restoring knowledge across sessions
+
 Run with: .venv/bin/python demos/demo_walkthrough.py
 """
 
@@ -14,6 +27,9 @@ print("""
 ╚══════════════════════════════════════════════════════════════════════╝
 """)
 
+# Create the memory with evolve_interval=0 (disabled) for deterministic behavior.
+# In a real application, you'd set evolve_interval=10 or higher to let the graph
+# self-optimize by decaying unused edges, pruning dead nodes, and merging equivalents.
 mem = HypergraphMemory(evolve_interval=0)
 
 # ─── STEP 1: Store domain knowledge ──────────────────────────────────
@@ -25,6 +41,9 @@ We tell the system about car components and what they do.
 This is just a knowledge graph — concepts + relationships.
 """)
 
+# Each component becomes a node with a data dict carrying technical specs.
+# The data dict can hold any Python dict -- here we store component type and
+# physical parameters (voltage, current draw, pressure, etc.).
 components = {
     "battery":            {"type": "electrical",  "voltage": 12},
     "starter_motor":      {"type": "electrical",  "draw_amps": 150},
@@ -45,6 +64,9 @@ components = {
 for name, data in components.items():
     mem.add(name, data=data, modalities={Modality.CONCEPTUAL})
 
+# Causal relationships become directed, labeled edges.
+# The label ("powers", "turns", "fires") encodes the semantic relationship.
+# The multiway engine uses these labels to decide which rules apply.
 causal_chain = [
     ("battery",            "starter_motor",      "powers"),
     ("starter_motor",      "crankshaft",         "turns"),
@@ -67,6 +89,8 @@ causal_chain = [
 for src, tgt, label in causal_chain:
     mem.link(src, tgt, label=label)
 
+# Extra chains that share labels with the main chain.
+# These give the rule discovery engine more pattern data to work with.
 extra_chains = [
     ("ignition_coil", "engine_computer", "powers"),
     ("engine_computer", "fuel_injector", "powers"),
@@ -89,6 +113,9 @@ It doesn't need to be told "if A powers B and B turns C, then A affects C"
 — it discovers this from the chain of "powers" and "turns" edges.
 """)
 
+# auto_discover_and_apply() scans the graph for repeating edge-label patterns
+# (transitive chains, inverse pairs, hub nodes) and generates rules from them.
+# Each discovered pattern becomes a concrete Rule subclass instance.
 result = mem.auto_discover_and_apply()
 print(f"Patterns found: {result['total_patterns']}")
 print(f"Rules auto-generated: {result['new_rules_added']}")
@@ -111,6 +138,9 @@ it branches and explores every possibility at once.
 Seed: {battery, fuel_tank, spark_plug} — the three main systems needed.
 """)
 
+# Register explicit rules for the causal-chain labels.
+# TransitiveRule(edge_label=X) finds A-[X]->B-[X]->C and infers A-[X]->C.
+# The new_label defaults to "inferred" unless you override it.
 mem.add_rules(
     TransitiveRule(edge_label="powers"),
     TransitiveRule(edge_label="turns"),
@@ -122,6 +152,9 @@ mem.add_rules(
     TransitiveRule(edge_label="feeds"),
 )
 
+# reason() performs multiway expansion from the seed concepts.
+# max_depth=3: up to 3 levels of rule application.
+# max_total_states=25: cap on total states explored (prevents combinatorial explosion).
 reason = mem.reason(
     {"battery", "fuel_tank", "spark_plug"},
     max_depth=3,
@@ -134,6 +167,8 @@ print(f"Rules applied: {exp['rules_applied']}")
 print(f"Inferred edges (new knowledge): {exp['edges_produced']}")
 print()
 
+# Walk all edges and display those marked as "inferred" by the reasoning engine.
+# Inferred edges are new knowledge -- they weren't in the original graph.
 print("Inferred causal chains the system discovered:")
 for edge in mem.engine.graph.edges:
     if edge.metadata.custom.get("inferred"):
@@ -161,6 +196,9 @@ Instead of guessing, we hold ALL THREE as a belief distribution.
 Each has an amplitude (confidence weight).
 """)
 
+# belief.create() constructs a superposition of multiple interpretations.
+# Each outcome is a concept, and its amplitude determines the probability
+# of being selected when sampled (probability = |amplitude|^2, the Born rule).
 qs = mem.belief.create(
     ["battery", "fuel_pump", "spark_plug"],
     amplitudes=[0.6, 0.3, 0.25],
@@ -171,7 +209,9 @@ print(f"  fuel_pump     amplitude=0.3  probability={0.3**2:.2f}")
 print(f"  spark_plug    amplitude=0.25 probability={0.25**2:.2f}")
 print()
 
-# Correlation: if battery is dead, starter_motor and ignition_coil are also dead
+# Correlation: if battery is dead, starter_motor and ignition_coil are also dead.
+# correlate() creates a ConceptCorrelation that constrains joint sampling:
+# when one outcome is sampled, correlated outcomes shift in probability.
 print("Correlation: battery failure constrains other components")
 ent = mem.belief.correlate(
     ["battery"],
@@ -182,7 +222,9 @@ print(f"  battery ⟷ starter_motor (correlation=0.95)")
 print(f"  battery ⟷ ignition_coil (correlation=0.90)")
 print()
 
-# Now we get new evidence: "headlights are dim" → battery confirmed weak
+# sample() collapses the superposition to a single outcome using the Born rule.
+# The context dict biases the sampling: here {"battery": 3.0} strongly boosts
+# the battery outcome, modeling new evidence ("headlights are dim").
 print("New evidence arrives: 'headlights are dim' → battery is weak")
 answer = mem.sample(qs, context={"battery": 3.0})
 collapsed_node = mem.engine.graph.get_node(answer.node_id)
@@ -200,6 +242,11 @@ Multiple evidence sources can interfere:
 - Destructive: conflicting evidence cancels out
 """)
 
+# Negative amplitudes create destructive interference.
+# The belief system treats amplitudes as complex-valued: sign matters.
+# battery (0.7) and spark_plug (0.4) are positive -- constructive.
+# fuel_pump (-0.3) and alternator (-0.5) are negative -- destructive.
+# The net effect determines whether evidence for a hypothesis accumulates or cancels.
 qs2 = mem.belief.create(
     ["battery", "fuel_pump", "spark_plug", "alternator", "timing_belt"],
     amplitudes=[0.7, -0.3, 0.4, -0.5, 0.2],
@@ -226,6 +273,10 @@ Others approach boundary or anomalous territory — like "is this car's design f
 The system detects this and adapts its reasoning strategy.
 """)
 
+# analyze.anomalies() examines a concept's structural position in the graph.
+# It checks for: cycles, high centrality, contradictory labels, unusual connectivity.
+# The result is a classification: low_risk, boundary, or anomalous.
+# Questions about concepts NOT in the graph are classified by their novelty.
 questions = [
     ("is the battery dead?",                       "low_risk"),
     ("what is the root cause of failure?",         "low_risk"),
@@ -252,6 +303,12 @@ The same diagnostic question can be analyzed in different computational frames.
 Each frame reveals different aspects of the problem.
 """)
 
+# multi_frame_analysis() evaluates a concept through four frames:
+#   - classical: standard graph metrics (degree, path length)
+#   - probabilistic: uncertainty and distribution properties
+#   - hypergraph: structural complexity (n-ary edges, connectivity)
+#   - distributional: embedding/similarity properties
+# Each frame produces its own complexity score and recommended approach.
 concept = "combustion_chamber"
 analyses = mem.multi_frame_analysis(concept)
 print(f"Analyzing '{concept}' across all frames:")
@@ -260,6 +317,8 @@ for frame_name, analysis in analyses.items():
     if analysis.strengths:
         print(f"    strengths: {', '.join(analysis.strengths[:3])}")
 
+# select_optimal_frame() uses Thompson sampling to pick the frame with the
+# best learned effectiveness for this type of problem.
 optimal_name, optimal = mem.select_optimal_frame(concept)
 print(f"\nOptimal frame: {optimal_name} (complexity={optimal.complexity:.3f})")
 print()
@@ -274,6 +333,10 @@ It measures how dense its knowledge is, how diverse its rules are,
 and generates insights — meta-knowledge about its own patterns.
 """)
 
+# rule_analytics tracks which rules fire, how often, and what they produce.
+# update_position() computes the system's current position in "computational space":
+#   - graph_activity_density: how richly interconnected the graph is
+#   - structural_complexity: a composite of spectral entropy and motif diversity
 rule_analytics = mem.rule_analytics
 pos = rule_analytics.update_position()
 print(f"Graph activity density: {pos.graph_activity_density:.3f}")
@@ -283,12 +346,16 @@ print(f"  (how complex the causal structure has become)")
 print(f"Rules explored: {len(rule_analytics.explored_rules)}")
 print()
 
+# find_meta_patterns() discovers recurring patterns in rule application,
+# such as "transitive rules dominate" or "inverse rules are underused."
 patterns = rule_analytics.find_meta_patterns()
 print("Meta-patterns discovered about its own knowledge:")
 for p in patterns:
     print(f"  [{p.pattern_type}] {p.description}")
 print()
 
+# generate_high_level_insights() produces abstract principles from the
+# accumulated rule analytics, such as "diverse rule sets produce richer graphs."
 insights = rule_analytics.generate_high_level_insights()
 print("High-level insights (meta-knowledge):")
 for ins in insights:
@@ -305,6 +372,10 @@ Backward chaining proves what MUST be true given observed symptoms.
 For car diagnostics: given the battery, can we prove the crankshaft turns?
 """)
 
+# prove() starts from the goal concept and works backward through the graph,
+# following edges in reverse to find a chain from known facts to the goal.
+# It returns a proof tree if the goal is reachable, or a list of missing
+# premises if it is not.
 proof = mem.prove(
     "crankshaft",
     known_facts={"battery"},
@@ -321,6 +392,8 @@ else:
     print("  No proof tree -- goal not reachable from known facts")
 print()
 
+# prove_batch() tests multiple targets in one call, accumulating proven facts
+# across proofs. This is efficient for testing several candidate root causes.
 candidates = ["starter_motor", "spark_plug", "combustion_chamber"]
 print("Batch proving multiple component chains from battery:")
 results = mem.prove_batch(
@@ -332,6 +405,8 @@ for r in results:
     print(f"  {r.goal_label:25s} {status}")
 
 print()
+# Confidence assessment: compute_confidence() scores each node by how well
+# it is supported. Observed facts get 1.0; inferred facts decay with depth.
 print("Confidence assessment after reasoning and proof:")
 all_conf = mem.compute_all_confidences()
 print(f"  Average confidence: {all_conf.avg_confidence:.4f}")
@@ -355,6 +430,11 @@ The system monitors its own fitness:
 - Should the architecture be restructured?
 """)
 
+# introspect() returns a comprehensive health report covering:
+#   - system_health: architectural fitness, reasoning mode, meta-level
+#   - graph_health: node/edge counts, average degree, density
+#   - discovery_health: pattern count, active rules
+#   - recommendations: specific actions the system should take
 introspection = mem.introspect()
 cs = introspection["system_health"]
 gh = introspection["graph_health"]
@@ -370,6 +450,8 @@ if "recommendations" in introspection:
     for rec in introspection["recommendations"]:
         print(f"  → {rec}")
 
+# check_metamorphosis() looks for triggers that indicate the system should
+# restructure itself -- e.g., too many pruned nodes, stale rules, etc.
 triggers = mem.check_metamorphosis()
 if triggers:
     print("Metamorphosis triggers:")
@@ -383,6 +465,11 @@ print()
 print("━" * 72)
 print("STEP 11: Save knowledge for next session")
 print("━" * 72)
+
+# save() serializes the full graph state (nodes, edges, metadata) to JSON.
+# load() restores it in a fresh HypergraphMemory instance.
+# Note: constructor args (like evolve_interval) are NOT saved -- the loading
+# instance must specify its own. Event log entries are preserved.
 import tempfile, os
 tmpdir = tempfile.mkdtemp()
 path = os.path.join(tmpdir, "mechanic_knowledge.json")
@@ -404,15 +491,15 @@ print("━" * 72)
 print("SUMMARY: What just happened")
 print("━" * 72)
 print("""
-1. KNOWLEDGE STORAGE    → We stored car components and causal relationships
-2. RULE DISCOVERY       → The system found transitive patterns automatically
-3. MULTIWAY REASONING   → It explored ALL causal paths simultaneously
-4. BELIEF DISTRIBUTIONS → It held multiple failure hypotheses with weighted probabilities
-5. CORRELATION         → Battery failure constrained related components
-6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive)
-7. BOUNDARY DETECTION   → It knew which questions were answerable vs anomalous
-8. RULE ANALYTICS       → It tracked its own position in computational space
-9. BACKWARD CHAINING    → It proved root causes from observed symptoms via backward chaining
-10. META-COGNITION      → It evaluated its own health and recommended improvements
-11. PERSISTENCE         → It saved everything for the next diagnostic session
+ 1. KNOWLEDGE STORAGE    → Stored car components and causal relationships as a directed graph
+ 2. RULE DISCOVERY       → The system found transitive patterns in edge labels automatically
+ 3. MULTIWAY REASONING   → Explored ALL causal paths simultaneously via multiway expansion
+ 4. BELIEF DISTRIBUTIONS → Held multiple failure hypotheses with Born-rule probability weights
+ 5. CORRELATION          → Battery failure constrained related components via correlation links
+ 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive) via amplitude sign
+ 7. BOUNDARY DETECTION   → Classified questions by answerability (low_risk / boundary / anomalous)
+ 8. RULE ANALYTICS       → Tracked the system's position in its own computational space
+ 9. BACKWARD CHAINING    → Proved root causes from observed symptoms via backward proof search
+10. META-COGNITION       → Evaluated system health and recommended structural improvements
+11. PERSISTENCE          → Serialized and restored the full knowledge state across sessions
 """)
