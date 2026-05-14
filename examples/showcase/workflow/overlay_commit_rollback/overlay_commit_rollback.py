@@ -165,27 +165,19 @@ def analyze_hypothesis(
     overlay_details: list[dict] = []
 
     if overlay:
-        for eid in sorted(overlay.overlay_edge_ids):
-            edge = overlay.get_edge(eid)
-            if not edge:
-                continue
-            _src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
-            _tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
-            src_label = _src.label if _src else ""
-            tgt_label = _tgt.label if _tgt else ""
-            conf = overlay.get_confidence(eid)
+        for le in overlay.labeled_edges:
             overlay_details.append({
-                "source": src_label,
-                "target": tgt_label,
-                "label": edge.label,
-                "confidence": conf,
+                "source": le["source_labels"],
+                "target": le["target_labels"],
+                "label": le["label"],
+                "confidence": float(le["confidence"]),
             })
 
         seed_ids: set[str] = set()
         for s in seeds:
-            n = mem.engine.graph.get_node_by_label(s)
-            if n:
-                seed_ids.add(n.id)
+            resolved = mem.resolve_id(s)
+            if resolved:
+                seed_ids.add(resolved)
         adj: dict[str, set[str]] = {}
         for eid in overlay.overlay_edge_ids:
             edge = overlay.get_edge(eid)
@@ -204,9 +196,7 @@ def analyze_hypothesis(
 
         for nid in visited:
             if nid in symptom_ids:
-                node = mem.engine.graph.get_node(nid)
-                if node:
-                    blast_radius.add(node.label)
+                blast_radius.add(mem.node_label(nid))
 
     confidence_map = result.confidence or {}
     avg_conf = (
@@ -291,9 +281,9 @@ def main() -> None:
 
     symptom_ids: set[str] = set()
     for label, _ in SYMPTOMS:
-        node = mem.engine.graph.get_node_by_label(label)
-        if node:
-            symptom_ids.add(node.id)
+        resolved = mem.resolve_id(label)
+        if resolved:
+            symptom_ids.add(resolved)
     print(f"  {len(symptom_ids)} symptom services require explanation")
     print()
 

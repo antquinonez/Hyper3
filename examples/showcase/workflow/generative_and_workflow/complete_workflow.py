@@ -100,7 +100,7 @@ def main() -> None:
     avg_cc = g.average_clustering_coefficient()
     print(f"\naverage clustering coefficient: {avg_cc:.4f}")
 
-    node_ccs = [(nid, g.clustering_coefficient(nid)) for nid in g._nodes]
+    node_ccs = [(n.id, g.clustering_coefficient(n.id)) for n in g.nodes]
     node_ccs.sort(key=lambda x: -x[1])
     print(f"\ntop-5 clustering coefficient:")
     for nid, cc in node_ccs[:5]:

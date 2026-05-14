@@ -84,8 +84,7 @@ def main() -> None:
     for i, chain in enumerate(chains):
         chain_labels = []
         for node_id in chain:
-            n = mem.engine.graph.get_node(node_id)
-            chain_labels.append(n.label if n else node_id)
+            chain_labels.append(mem.node_label(node_id))
         events_str = " -> ".join(chain_labels)
         print(f"  chain {i+1}: {events_str}")
 
@@ -140,8 +139,7 @@ def main() -> None:
     print(f"  number of outcomes: {qs.outcome_count}")
 
     for outcome in qs.outcomes:
-        node = mem.engine.graph.get_node(outcome.node_id)
-        label = node.label if node else outcome.node_id
+        label = mem.node_label(outcome.node_id)
         print(f"  {label}: probability={outcome.probability:.4f}")
 
     sampled = mem.belief.sample(qs)
