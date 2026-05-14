@@ -460,6 +460,8 @@ Additional subsystem-specific conventions (Born rule sampling, rule edge_label, 
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Belief state staleness is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
 - **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.state_convergence`), use attribute access with explicit `if ci:` guards instead of `.get()`.
+- **Shortcut-namespace recursion**: Top-level shortcuts that share a name with a mixin method (e.g., `prove`, `activate`, `introspect`) must call the mixin directly (`CognitiveMixin.prove(self, ...)`) rather than delegating through the namespace (`self.cognitive.prove(...)`). The namespace calls `self._mem.prove()` which would recurse back to the shortcut, causing infinite recursion.
+- **Community detection self-loops**: `CommunityDetector` filters self-loops in `_build_neighbor_map`. Graphs with self-referential edges (a node connecting to itself) will have those edges excluded from community analysis to prevent `frozenset` collapse in modularity calculation.
 
 ## Edit Safety
 
