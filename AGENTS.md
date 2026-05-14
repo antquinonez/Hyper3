@@ -375,7 +375,7 @@ These MUST be run after making code changes:
 .venv/bin/ruff check src/hyper3/ tests/
 ```
 
-The test suite, type checker, and linter are all correctness gates.
+The test suite, type checker, and linter are all correctness gates. Pyright and ruff must report 0 errors. If either tool reports errors — whether introduced by the current session or pre-existing — fix them before proceeding. Do not leave known errors for later.
 
 ## Key Conventions
 
@@ -481,7 +481,7 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 3676 tests must pass.
+2. Run the full test suite after changes. All 3734 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
