@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from hyper3.adaptive_slice import AdaptiveSliceEngine
 from hyper3.event_log import EventLog
+from hyper3.evolution_feedback import FeedbackEvolveResult
 from hyper3.exceptions import ConstraintViolationError, NodeNotFoundError
 from hyper3.kernel import (
     AbstractionLayer,
@@ -48,6 +49,7 @@ class CoreMixin(_MemoryBase):
         max_depth: int = 3,
         max_nodes: int = 50,
         modalities: set[Modality] | None = None,
+        adaptive: bool = False,
     ) -> list[Hypernode]:
         """Recall a concept and its neighborhood from the graph.
 
@@ -59,6 +61,12 @@ class CoreMixin(_MemoryBase):
             max_depth: Maximum traversal depth from the start node.
             max_nodes: Maximum number of nodes in the result.
             modalities: Optional modality filter for the observer slice.
+            adaptive: When True, the AdaptiveSliceEngine recommends
+                ``max_depth``, ``max_nodes``, and ``min_weight`` based on
+                the concept's local graph context and past outcomes.
+                The recommended values override ``max_depth`` and
+                ``max_nodes``.  The outcome is recorded after traversal
+                for future adaptation.
 
         Returns:
             List of Hypernodes in the recalled subgraph, or an empty list
@@ -84,12 +92,39 @@ class CoreMixin(_MemoryBase):
         start = max(candidates, key=lambda n: n.weight)
         if self._prefetch is not None:
             self._prefetch.on_access(start.id)
+
+        adaptive_depth = max_depth
+        adaptive_nodes_limit = max_nodes
+        adaptive_min_weight = 0.0
+        adaptive_engine: AdaptiveSliceEngine | None = None
+
+        if adaptive:
+            if self._adaptive_slice is None:
+                self._adaptive_slice = AdaptiveSliceEngine(self._graph)
+            adaptive_engine = self._adaptive_slice
+            recommended = adaptive_engine.recommend(start.id)
+            adaptive_depth = recommended.max_depth
+            adaptive_nodes_limit = recommended.max_nodes
+            adaptive_min_weight = recommended.min_weight
+
         self._observer.configure(
-            max_depth=max_depth,
-            max_nodes=max_nodes,
+            max_depth=adaptive_depth,
+            max_nodes=adaptive_nodes_limit,
+            min_weight=adaptive_min_weight,
             modalities=modalities,
         )
         result = self._observer.apply(start.id)
+
+        if adaptive_engine is not None:
+            success = len(result) > 1
+            adaptive_engine.record_outcome(
+                start.id,
+                max_depth=adaptive_depth,
+                max_nodes=adaptive_nodes_limit,
+                min_weight=adaptive_min_weight,
+                success=success,
+            )
+
         self._log.record("recall", concept=concept, result_count=len(result))
         return result
 
@@ -681,17 +716,43 @@ class CoreMixin(_MemoryBase):
             convergence=convergence_report,
         )
 
-    def evolve_with_feedback(self) -> EvolveResult:
+    def evolve_with_feedback(self) -> EvolveResult | FeedbackEvolveResult:
         """Run an evolution cycle adapted by operational feedback.
 
         Uses :class:`OperationFeedback` fitness trend, reinforced nodes, and
-        suppressed nodes to adjust evolution behavior. Records fitness outcome
-        back to the feedback system and runs causal enforcement if a causal
-        engine is attached.
+        suppressed nodes to adjust evolution behavior. When a
+        :class:`FeedbackAwareEvolution` engine is attached, additionally
+        consumes signals from activation, rule analytics, and adaptive slicing
+        to apply targeted pruning, reinforcement, and rule demotion.
+
+        Records fitness outcome back to the feedback system and runs causal
+        enforcement if a causal engine is attached.
 
         Returns:
-            EvolveResult with the evolution summary.
+            EvolveResult or FeedbackEvolveResult with the evolution summary.
         """
+        if self._feedback_aware is not None:
+            signals = self._feedback_aware.collect_signals(
+                self._graph,
+                activation=self._activation,
+                rule_analytics=getattr(self, "_rule_analytics", None),
+                feedback=self._feedback,
+                adaptive_slice=getattr(self, "_adaptive_slice", None),
+            )
+            result = self._feedback_aware.evolve(self._graph, signals)
+            self._cache.evict_expired()
+            self._invalidate_frame_cache()
+            convergence_report: MergeReport | None = None
+            if hasattr(self, "_convergence_engine") and self._convergence_engine:
+                convergence_report = self._convergence_engine.enforce()
+            self._log.record("evolve_with_feedback", result=result, convergence=convergence_report)
+            node_count = self._graph.node_count
+            edge_count = self._graph.edge_count
+            total = node_count + edge_count
+            fitness = 1.0 - (result.base_result.pruned / max(total, 1)) * 0.1 if result.base_result is not None else 1.0 - (total / max(total + 1, 1)) * 0.1
+            self._feedback.record_evolution_outcome(fitness)
+            return result
+
         trend = self._feedback.get_fitness_trend()
         reinforced = self._feedback.get_reinforced_nodes()
         suppressed = self._feedback.get_suppressed_nodes()
@@ -702,7 +763,7 @@ class CoreMixin(_MemoryBase):
         )
         self._cache.evict_expired()
         self._invalidate_frame_cache()
-        convergence_report: MergeReport | None = None
+        convergence_report = None
         if hasattr(self, "_convergence_engine") and self._convergence_engine:
             convergence_report = self._convergence_engine.enforce()
         self._log.record("evolve_with_feedback", report=report, convergence=convergence_report)

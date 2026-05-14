@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from hyper3.belief import BeliefState
+from hyper3.causal_learner import CausalLearner, CausalLearningResult
 from hyper3.kernel import Hypergraph
 from hyper3.memory_base import _MemoryBase
 from hyper3.multi_perspective import RobustReachabilityDetector
@@ -919,3 +920,28 @@ class ReasoningMixin(_MemoryBase):
         patterns = self._rule_analytics.meta_patterns
         engine.ingest_analytics(insights, patterns)
         engine.generate_proposals(context="reasoning")
+
+    def learn_causal_patterns(self) -> CausalLearningResult:
+        """Analyze accumulated activation and traversal patterns to learn causal hypotheses.
+
+        Lazily initializes the causal learner on first call.
+
+        Returns:
+            CausalLearningResult with hypothesis creation, update, and pruning counts.
+        """
+        if self._causal_learner is None:
+            self._causal_learner = CausalLearner(self._graph)
+        return self._causal_learner.learn()
+
+    def commit_causal_hypotheses(self, *, min_confidence: float = 0.5) -> list[str]:
+        """Materialize confident causal hypotheses as graph edges.
+
+        Args:
+            min_confidence: Minimum confidence threshold for materialization.
+
+        Returns:
+            List of created edge IDs.
+        """
+        if self._causal_learner is None:
+            return []
+        return self._causal_learner.materialize_hypotheses(min_confidence=min_confidence)

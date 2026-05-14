@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
@@ -18,6 +18,9 @@ from hyper3.results import (
     MonitorStats,
     TuningResult,
 )
+
+if TYPE_CHECKING:
+    from hyper3.consistency import VerificationResult
 from hyper3.rule_analytics import RuleAnalytics
 from hyper3.rules import Rule
 from hyper3.rules_discovery import RuleDiscoveryEngine
@@ -769,6 +772,24 @@ class SystemMonitor:
     def tuning_history(self) -> list[TuningPlan]:
         """A snapshot of all tuning plans ever proposed."""
         return list(self._tuning_history)
+
+    def verify_invariants(self, *, repair: bool = False) -> VerificationResult:
+        """Check graph invariants and optionally repair violations.
+
+        Delegates to :class:`ConsistencyVerifier` with a fresh
+        :class:`InvariantConfig`. All seven invariant checks are enabled.
+
+        Args:
+            repair: When ``True``, repairable violations are fixed automatically.
+
+        Returns:
+            VerificationResult with violation list and repair counts.
+        """
+        from hyper3.consistency import ConsistencyVerifier, InvariantConfig
+
+        config = InvariantConfig(repair=repair)
+        verifier = ConsistencyVerifier(self._graph, config=config)
+        return verifier.verify()
 
     def analyze(self) -> MonitorStats:
         """Return a typed summary of fitness, mode, meta-level, and activity counts."""

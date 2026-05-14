@@ -94,6 +94,15 @@ class Rule(ABC):
             ValueError: If *rule_type* is unknown.
         """
         rule_type = data.get("rule_type", "")
+        if rule_type == "AnalogicalReasoningRule":
+            from hyper3.rules_analogy import AnalogicalReasoningRule
+            return AnalogicalReasoningRule._from_dict(data)
+        if rule_type == "DecompositionRule":
+            from hyper3.rules_decomposition import DecompositionRule
+            return DecompositionRule._from_dict(data)
+        if rule_type == "InductiveGeneralizationRule":
+            from hyper3.rules_inductive import InductiveGeneralizationRule
+            return InductiveGeneralizationRule._from_dict(data)
         rule_classes: dict[str, type[Rule]] = {
             "TransitiveRule": TransitiveRule,
             "InverseRule": InverseRule,

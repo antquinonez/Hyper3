@@ -14,10 +14,12 @@ from hyper3.belief import (
 )
 from hyper3.capabilities import CapabilityLevel
 from hyper3.community import CommunityDetector, CommunityResult, HierarchicalCommunityResult
+from hyper3.consistency import VerificationResult
 from hyper3.embedding import EmbeddingEngine
 from hyper3.enrichment import ExtractionResult, LLMProvider
 from hyper3.graph_diff import GraphDelta, GraphHistoryResult
 from hyper3.memory_reasoning import ReasoningMixin
+from hyper3.modality_fusion import FusionResult
 from hyper3.multi_perspective import PresetAnalysis
 from hyper3.results import (
     ActivationHit,
@@ -1573,6 +1575,35 @@ class AnalyzeNamespace:
         """
         return self._mem.detect_motifs(order=order)
 
+    def cross_modality(
+        self,
+        concept: str,
+        *,
+        modalities: set[str] | None = None,
+        weights: dict[str, float] | None = None,
+        max_depth: int = 3,
+        max_concepts: int = 50,
+    ) -> FusionResult:
+        """Query across multiple modalities with per-modality weighting and RRF fusion.
+
+        Args:
+            concept: Label of the seed concept.
+            modalities: Set of modality name strings. Defaults to all.
+            weights: Per-modality weight dict.
+            max_depth: BFS depth.
+            max_concepts: Maximum results.
+
+        Returns:
+            FusionResult with ranked concepts and cross-modality metrics.
+        """
+        return self._mem.cross_modality(
+            concept,
+            modalities=modalities,
+            weights=weights,
+            max_depth=max_depth,
+            max_concepts=max_concepts,
+        )
+
 
 class TemporalNamespace:
     """Temporal reasoning: Allen interval algebra, causal chains, and text ingestion.
@@ -1834,6 +1865,17 @@ class MonitorNamespace:
             ValidationReport with agreement, precision, and recall.
         """
         return self._mem.validate_reasoning(seeds, rules=rules)
+
+    def verify_invariants(self, *, repair: bool = False) -> VerificationResult:
+        """Check graph structural invariants and optionally repair violations.
+
+        Args:
+            repair: When ``True``, repairable violations are fixed automatically.
+
+        Returns:
+            VerificationResult with violation list and repair counts.
+        """
+        return self._mem.verify_invariants(repair=repair)
 
     def evolve_with_feedback(self) -> Any:
         """Run an evolution cycle adapted by operational feedback.

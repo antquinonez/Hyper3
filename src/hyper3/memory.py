@@ -10,15 +10,18 @@ from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
 from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
+from hyper3.causal_learner import CausalLearner
 from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
+from hyper3.context_compression import ContextCompressionEngine
 from hyper3.embedding import EmbeddingEngine
 from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import GraphMaintenanceEngine
+from hyper3.evolution_feedback import FeedbackAwareEvolution
 from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
@@ -38,6 +41,7 @@ from hyper3.memory_reasoning import ReasoningMixin
 from hyper3.memory_retrieval import RetrievalMixin
 from hyper3.memory_structural import StructuralMixin
 from hyper3.memory_temporal import TemporalMixin
+from hyper3.modality_fusion import ModalityFusionEngine
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
@@ -242,6 +246,10 @@ class HypergraphMemory(
         self._ns_cognitive: CognitiveNamespace | None = None
         self._ns_engine: EngineAccessor | None = None
         self._search_engine: SearchEngine | None = None
+        self._context_compression: ContextCompressionEngine | None = None
+        self._feedback_aware: FeedbackAwareEvolution | None = None
+        self._modality_fusion: ModalityFusionEngine | None = None
+        self._causal_learner: CausalLearner | None = None
 
     @property
     def reason(self) -> ReasonNamespace:
@@ -395,6 +403,36 @@ class HypergraphMemory(
             List of ActivationResult objects with label and activation level.
         """
         return RetrievalMixin.activate(self, concept, energy=energy, top_k=top_k, iterations=iterations)
+
+    def compress_context(self, *, strategy: str = "auto") -> Any:
+        """Compress redundant graph structure using equivalence merging and cluster collapse.
+
+        Args:
+            strategy: ``"merge"``, ``"collapse"``, or ``"auto"`` (default).
+
+        Returns:
+            CompressionResult with before/after statistics.
+        """
+        return StructuralMixin.compress_context(self, strategy=strategy)
+
+    def learn_causal_patterns(self) -> Any:
+        """Analyze activation patterns to learn causal relationships.
+
+        Returns:
+            CausalLearningResult with hypothesis creation, update, and pruning counts.
+        """
+        return ReasoningMixin.learn_causal_patterns(self)
+
+    def verify_invariants(self, *, repair: bool = False) -> Any:
+        """Check graph structural invariants and optionally repair violations.
+
+        Args:
+            repair: When ``True``, repairable violations are fixed automatically.
+
+        Returns:
+            VerificationResult with violation list and repair counts.
+        """
+        return self._meta.verify_invariants(repair=repair)
 
     @property
     def frame_cache_stats(self) -> Any:

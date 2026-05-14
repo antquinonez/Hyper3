@@ -4,6 +4,7 @@ from typing import Any
 
 from hyper3.invariant_detector import InvariantDetector, InvariantReport
 from hyper3.memory_base import _MemoryBase
+from hyper3.modality_fusion import FusionResult, ModalityFusionEngine
 from hyper3.results import (
     PatternMatchInfo,
     SubgraphEdge,
@@ -757,3 +758,42 @@ class AnalyticsMixin(_MemoryBase):
         if self._invariant_detector is None:
             self._invariant_detector = InvariantDetector(self._graph)
         return self._invariant_detector.detect(nid)
+
+    def cross_modality(
+        self,
+        concept: str,
+        *,
+        modalities: set[str] | None = None,
+        weights: dict[str, float] | None = None,
+        max_depth: int = 3,
+        max_concepts: int = 50,
+    ) -> FusionResult:
+        """Query across multiple modalities with per-modality weighting and RRF fusion.
+
+        Args:
+            concept: Label of the seed concept to search from.
+            modalities: Set of modality name strings (e.g. ``{"causal", "temporal"}``).
+                Defaults to all six modalities.
+            weights: Per-modality weight dict keyed by modality value string.
+            max_depth: BFS traversal depth from seed.
+            max_concepts: Maximum ranked concepts to return.
+
+        Returns:
+            FusionResult with ranked concepts, weights, and cross-modality edge count.
+        """
+        concept_id: str | None = None
+        node = self._find_node(concept)
+        if not node:
+            return FusionResult()
+        concept_id = node.id
+        if self._modality_fusion is None:
+            self._modality_fusion = ModalityFusionEngine(self._graph)
+        from hyper3.kernel_types import Modality as _Mod
+        mod_set = {_Mod(m) for m in modalities} if modalities else None
+        return self._modality_fusion.fuse(
+            concept_id,
+            modalities=mod_set,
+            weights=weights,
+            max_depth=max_depth,
+            max_concepts=max_concepts,
+        )

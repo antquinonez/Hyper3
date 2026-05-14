@@ -61,6 +61,12 @@ from hyper3.capabilities import (
     detect_capability_level,
     require_capability,
 )
+from hyper3.causal_learner import (
+    CausalHypothesis,
+    CausalLearner,
+    CausalLearningResult,
+    CoActivationRecord,
+)
 from hyper3.collapse_trigger import CollapseDecision, CollapseTriggerEngine
 from hyper3.community import (
     Community,
@@ -69,12 +75,24 @@ from hyper3.community import (
     HierarchicalCommunityResult,
 )
 from hyper3.concept_set import ConceptSet
+from hyper3.consistency import (
+    ConsistencyVerifier,
+    InvariantConfig,
+    VerificationResult,
+    Violation,
+)
 from hyper3.constraints import (
     BoundaryNavigator,
     ConstraintCheck,
     NoSelfLoopConstraint,
     ProvenanceDepthConstraint,
     WeightInflationConstraint,
+)
+from hyper3.context_compression import (
+    CompressionCandidate,
+    CompressionReport,
+    CompressionResult,
+    ContextCompressionEngine,
 )
 from hyper3.embedding import (
     EmbeddingEngine,
@@ -107,6 +125,11 @@ from hyper3.entanglement import (
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
+from hyper3.evolution_feedback import (
+    EvolutionSignals,
+    FeedbackAwareEvolution,
+    FeedbackEvolveResult,
+)
 from hyper3.exceptions import (
     BeliefStateNotFoundError,
     CollapseError,
@@ -184,6 +207,12 @@ from hyper3.kernel import (
 )
 from hyper3.layered_graph import LayeredGraph, LayerStack
 from hyper3.memory import HypergraphMemory
+from hyper3.modality_fusion import (
+    FusionResult,
+    ModalityFusionEngine,
+    ModalityGap,
+    ModalityProfile,
+)
 from hyper3.multi_perspective import (
     AnalysisPreset,
     ConsensusResult,
@@ -302,6 +331,7 @@ from hyper3.rules import (
 from hyper3.rules_causal_sequence import CausalSequenceRule
 from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
+from hyper3.rules_inductive import InductiveGeneralizationRule
 from hyper3.rules_simultaneity import SimultaneityRule
 from hyper3.search_engine import SearchEngine
 from hyper3.search_facets import FacetedAggregation

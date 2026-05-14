@@ -9,6 +9,7 @@ from hyper3.adaptive_slice import (
 )
 from hyper3.kernel import Hyperedge, Hypergraph, Hypernode
 from hyper3.kernel_types import Modality
+from hyper3.memory import HypergraphMemory
 from hyper3.results import _SimpleResultBase
 
 
@@ -252,3 +253,94 @@ class TestResultTypes:
         rec = SliceOutcomeRecord(max_depth=3, success=True)
         assert isinstance(rec, _SimpleResultBase)
         assert rec["success"] is True
+
+
+class TestAdaptiveRecall:
+    """Tests wiring AdaptiveSliceEngine into CoreMixin.recall()."""
+
+    @staticmethod
+    def _make_mem() -> HypergraphMemory:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("center")
+        for i in range(5):
+            mem.add(f"n{i}")
+            mem.link("center", f"n{i}", label=f"e{i}")
+        return mem
+
+    def test_adaptive_recall_no_history_uses_heuristic(self):
+        """recall(adaptive=True) with no outcome history still works via heuristic recommendation."""
+        mem = self._make_mem()
+        result = mem.recall("center", adaptive=True)
+        assert len(result) >= 1
+        assert result[0].label == "center"
+
+    def test_adaptive_recall_records_success(self):
+        """recall(adaptive=True) records a successful outcome when neighbors are returned."""
+        mem = self._make_mem()
+        mem.recall("center", adaptive=True)
+        assert mem._adaptive_slice is not None
+        assert len(mem._adaptive_slice._outcome_history) == 1
+        record = mem._adaptive_slice._outcome_history[0]
+        assert record.success is True
+
+    def test_adaptive_recall_records_failure(self):
+        """recall(adaptive=True) records failure when only the seed node is returned."""
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("isolated")
+        result = mem.recall("isolated", adaptive=True)
+        assert len(result) == 1
+        assert mem._adaptive_slice is not None
+        record = mem._adaptive_slice._outcome_history[0]
+        assert record.success is False
+
+    def test_adaptive_recall_explicit_config_takes_precedence(self):
+        """recall() without adaptive=True uses explicit max_depth/max_nodes; adaptive engine is not consulted."""
+        mem = self._make_mem()
+        assert mem._adaptive_slice is None
+        result = mem.recall("center", max_depth=1, max_nodes=3)
+        assert mem._adaptive_slice is None
+        assert len(result) <= 4
+
+    def test_adaptive_recall_default_off(self):
+        """recall() without adaptive=True does NOT initialize the adaptive engine."""
+        mem = self._make_mem()
+        mem.recall("center")
+        assert mem._adaptive_slice is None
+
+    def test_adaptive_recall_builds_history(self):
+        """Multiple adaptive recalls accumulate outcome history entries."""
+        mem = self._make_mem()
+        for _ in range(5):
+            mem.recall("center", adaptive=True)
+        assert len(mem._adaptive_slice._outcome_history) == 5
+
+    def test_adaptive_recall_lazy_init(self):
+        """The adaptive slice engine is lazily initialized on first adaptive recall."""
+        mem = self._make_mem()
+        assert mem._adaptive_slice is None
+        mem.recall("center", adaptive=True)
+        assert mem._adaptive_slice is not None
+        assert isinstance(mem._adaptive_slice, AdaptiveSliceEngine)
+
+    def test_adaptive_recall_missing_concept(self):
+        """recall(adaptive=True) on non-existent concept returns empty list without error."""
+        mem = self._make_mem()
+        result = mem.recall("nonexistent", adaptive=True)
+        assert result == []
+
+    def test_adaptive_recall_with_history_uses_thompson(self):
+        """After recording outcomes, subsequent adaptive recall uses Thompson sampling."""
+        mem = self._make_mem()
+        for _ in range(10):
+            mem.recall("center", adaptive=True)
+        node = mem._find_node("center")
+        rec = mem._adaptive_slice.recommend(node.id)
+        assert rec.strategy == "thompson"
+
+    def test_adaptive_recall_uses_recommended_params(self):
+        """Adaptive recall records parameters from the recommended slice."""
+        mem = self._make_mem()
+        mem.recall("center", adaptive=True)
+        rec = mem._adaptive_slice._outcome_history[0]
+        assert rec.max_depth in [1, 2, 3, 5, 7]
+        assert rec.max_nodes in [10, 25, 50, 100, 200]

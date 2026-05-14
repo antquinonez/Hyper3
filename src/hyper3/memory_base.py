@@ -10,15 +10,18 @@ from hyper3.belief import BeliefLayer
 from hyper3.belief_revision import ContradictionResolver
 from hyper3.boundary_reasoning import BoundaryReasoningEngine
 from hyper3.cache import LazyCache
+from hyper3.causal_learner import CausalLearner
 from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
+from hyper3.context_compression import ContextCompressionEngine
 from hyper3.embedding import EmbeddingEngine
 from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import GraphMaintenanceEngine
+from hyper3.evolution_feedback import FeedbackAwareEvolution
 from hyper3.feedback import OperationFeedback
 from hyper3.graph_diff import GraphDiffer
 from hyper3.hebbian import HebbianLearner
@@ -26,6 +29,7 @@ from hyper3.interference_reasoning import InterferenceReasoningEngine
 from hyper3.invariant_detector import InvariantDetector
 from hyper3.kernel import Hypergraph, Hypernode
 from hyper3.layered_graph import LayerStack
+from hyper3.modality_fusion import ModalityFusionEngine
 from hyper3.multi_perspective import MultiPerspectiveAnalyzer
 from hyper3.multiway import MultiwayEngine
 from hyper3.multiway_causal import StateConvergenceEngine
@@ -117,6 +121,10 @@ class _MemoryBase:
     _invariant_detector: InvariantDetector | None
     _prefetch: StructuralPrefetchEngine | None
     _search_engine: SearchEngine | None
+    _modality_fusion: ModalityFusionEngine | None
+    _context_compression: ContextCompressionEngine | None
+    _feedback_aware: FeedbackAwareEvolution | None
+    _causal_learner: CausalLearner | None
 
     def _invalidate_frame_cache(self, *concepts: str) -> None:
         """Invalidate frame cache entries for specific concepts, or clear all if none given."""
