@@ -66,20 +66,7 @@ def main() -> None:
     print("SECTION 2: CAPTURE FULL SYSTEM SNAPSHOT")
     print("=" * 70)
 
-    from hyper3.snapshot import capture_snapshot
-
-    snapshot = capture_snapshot(
-        belief=mem._belief,
-        multiway_engine=mem._multiway_engine,
-        state_clustering=mem._state_clustering,
-        rule_analytics=mem._rule_analytics,
-        provenance=mem._provenance,
-        retrieval=mem._retrieval,
-        perspective=mem._perspective,
-        meta=mem._meta,
-        cache=mem._cache,
-        feedback=mem._feedback,
-    )
+    snapshot = mem.monitor.snapshot()
 
     print("snapshot captured:")
     print(f"  version: {snapshot.version}")

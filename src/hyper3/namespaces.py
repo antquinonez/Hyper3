@@ -1855,6 +1855,63 @@ class MonitorNamespace:
         """
         return self._mem.detect_capability()
 
+    def snapshot(self) -> Any:
+        """Capture a cross-subsystem snapshot of all internal state.
+
+        Serializes belief distributions, multiway expansion trees,
+        provenance chains, retrieval feedback, rule analytics, cache
+        entries, and monitor readings into an immutable
+        ``SystemSnapshot``.
+
+        Returns:
+            SystemSnapshot with all subsystem state.
+        """
+        from hyper3.snapshot import capture_snapshot
+
+        return capture_snapshot(
+            belief=self._mem._belief,
+            multiway_engine=self._mem._multiway_engine,
+            state_clustering=self._mem._state_clustering,
+            rule_analytics=self._mem._rule_analytics,
+            provenance=self._mem._provenance,
+            retrieval=self._mem._retrieval,
+            perspective=self._mem._perspective,
+            meta=self._mem._meta,
+            cache=self._mem._cache,
+            feedback=self._mem._feedback,
+        )
+
+    def restore(self, snapshot: Any) -> None:
+        """Restore subsystem state from a previously captured snapshot.
+
+        Rebuilds belief, multiway, clustering, and analytics engines
+        from the snapshot data and wires them back into the running
+        instance so subsequent operations use the restored state.
+
+        Args:
+            snapshot: A ``SystemSnapshot`` previously returned by
+                ``snapshot()``.
+        """
+        from hyper3.snapshot import restore_snapshot
+
+        multiway_engine, state_clustering, rule_analytics = restore_snapshot(
+            snapshot=snapshot,
+            graph=self._mem._graph,
+            belief=self._mem._belief,
+            provenance=self._mem._provenance,
+            retrieval=self._mem._retrieval,
+            perspective=self._mem._perspective,
+            meta=self._mem._meta,
+            cache=self._mem._cache,
+            rules=self._mem._rules,
+            feedback=self._mem._feedback,
+        )
+        self._mem._multiway_engine = multiway_engine
+        self._mem._state_clustering = state_clustering
+        self._mem._rule_analytics = rule_analytics
+        if rule_analytics is not None:
+            self._mem._meta.set_rule_analytics(rule_analytics)
+
 
 class CognitiveNamespace:
     """Cognitive operations: backward chaining, Hebbian learning, and uncertainty.

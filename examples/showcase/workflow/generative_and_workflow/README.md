@@ -2,13 +2,27 @@
 
 > **Synthetic Hypergraph Generation, Temporal Reasoning, and End-to-End Analysis Pipelines**
 
+---
+
+**Learning Path**
+
+This showcase follows a three-stage progression. Each stage builds on the capabilities of the previous one:
+
+1. **Generative Models** -- Learn to produce hypergraphs with controlled structural properties (random, community-structured, deterministic). These give you reproducible inputs for benchmarking and testing.
+2. **Temporal Reasoning** -- Add time-aware event networks with Allen interval algebra, causal chain detection, and belief distributions. This introduces semantic relationships that go beyond static graph structure.
+3. **Complete Workflow** -- Combine generation with the full analysis stack (statistics, centralities, spectral clustering, coefficients, transformations) in a single reproducible pipeline.
+
+Start with generative models to understand the graph primitives, then see how temporal reasoning layers richer semantics on top, and finally run the complete workflow to see all analysis APIs operating end-to-end.
+
+---
+
 ## 1. The Approach
 
 This group covers three capabilities that form a natural progression:
 
 - **Generative models** produce hypergraphs with known structural properties, giving you controlled inputs for benchmarking, testing, and experimentation.
 - **Temporal reasoning** adds Allen interval algebra to event networks, enabling fine-grained temporal relationship detection beyond simple before/after ordering.
-- **The complete workflow** ties everything together — generate a structured graph, compute statistics, run centralities, cluster spectrally, measure coefficients, and transform — in a single reproducible pipeline.
+- **The complete workflow** ties everything together -- generate a structured graph, compute statistics, run centralities, cluster spectrally, measure coefficients, and transform -- in a single reproducible pipeline.
 
 ## 2. Key Concepts
 
@@ -141,17 +155,23 @@ graph LR
     end
 ```
 
-**Erdos-Renyi (`random_hypergraph`)** -- Each possible edge of each arity is included independently with a given probability. Produces graphs with no planted structure. Use when you need a baseline with no community bias. With 15 nodes and probabilities `{0: 0.3, 1: 0.1}`, the output has 18 edges and degree distribution `{1: 6, 2: 5, 3: 4}` -- a roughly bell-shaped spread. The probability keys are edge *orders* (0 = 1-node edges, 1 = 2-node pairwise edges).
+**Erdos-Renyi (`random_hypergraph`)** -- Each possible edge of each arity is included independently with a given probability. Produces graphs with no planted structure. With 15 nodes and probabilities `{0: 0.3, 1: 0.1}`, the output has 18 edges and degree distribution `{1: 6, 2: 5, 3: 4}` -- a roughly bell-shaped spread. The probability keys are edge *orders* (0 = 1-node edges, 1 = 2-node pairwise edges).
+> **When to use:** Baseline comparisons, stress-testing algorithms on structure-free graphs, Monte Carlo benchmarks.
 
-**k-uniform (`random_uniform_hypergraph`)** -- Every edge has exactly k+1 nodes. The output shows `unique edge sizes: [3]` for k=3, confirming uniformity. Degree distribution ranges from 0 to 5 across 10 nodes with 8 edges. Use when you need strict edge-arity control.
+**k-uniform (`random_uniform_hypergraph`)** -- Every edge has exactly k+1 nodes. The output shows `unique edge sizes: [3]` for k=3, confirming uniformity. Degree distribution ranges from 0 to 5 across 10 nodes with 8 edges.
+> **When to use:** Experiments requiring strict edge-arity control, testing algorithms that assume uniform hyperedge size.
 
-**Stochastic Block Model (`random_sbm`)** -- Plants community structure by using high intra-block edge probability (`p_in=0.6`) and low inter-block probability (`p_out=0.05`). With 20 nodes in two blocks of 10, the result is a single connected component with density 0.1632. Use when you need a graph with known communities for clustering validation.
+**Stochastic Block Model (`random_sbm`)** -- Plants community structure by using high intra-block edge probability (`p_in=0.6`) and low inter-block probability (`p_out=0.05`). With 20 nodes in two blocks of 10, the result is a single connected component with density 0.1632.
+> **When to use:** Clustering algorithm validation, benchmarking community detection against known ground truth.
 
-**Complete and Star** -- Deterministic generators. `complete(5)` produces all 10 pairwise edges among 5 nodes (density 0.5000). `star(7)` produces 6 edges all incident to the center node (degree 6). Use complete graphs for exhaustive connection testing and star graphs for hub analysis.
+**Complete and Star** -- Deterministic generators. `complete(5)` produces all 10 pairwise edges among 5 nodes (density 0.5000). `star(7)` produces 6 edges all incident to the center node (degree 6).
+> **When to use:** Exhaustive connection testing (complete), hub and bottleneck analysis (star).
 
-**Ring lattice (`ring_lattice`)** -- Nodes arranged in a ring, each connected to its d nearest neighbors in edges of size k. `ring(8, d=2, k=3)` yields 8 edges of size 3. `ring(10, d=4, k=2)` is connected. Use for spatial or temporal locality structures.
+**Ring lattice (`ring_lattice`)** -- Nodes arranged in a ring, each connected to its d nearest neighbors in edges of size k. `ring(8, d=2, k=3)` yields 8 edges of size 3. `ring(10, d=4, k=2)` is connected.
+> **When to use:** Modeling spatial or temporal locality, nearest-neighbor structures, transport or communication topologies.
 
-**Chung-Lu (`random_chung_lu`)** -- Matches a prescribed degree sequence. Given expected degrees `[3, 3, 3, 2, 2, 1, 1, 1]` and edge sizes `[2, 2, 3, 3]`, produces 5 edges across 8 nodes. Use when you need a graph whose degree distribution matches a target.
+**Chung-Lu (`random_chung_lu`)** -- Matches a prescribed degree sequence. Given expected degrees `[3, 3, 3, 2, 2, 1, 1, 1]` and edge sizes `[2, 2, 3, 3]`, produces 5 edges across 8 nodes.
+> **When to use:** Reproducing a target degree distribution, realistic graph models with known expected degrees.
 
 **Analysis of Generated Graphs (Section 7)** -- After generation, the script applies community detection to the SBM graph and reasoning to the random hypergraph. Community detection via label propagation finds 2 communities matching the two planted blocks (n0-n9 and n10-n19, modularity 0.4161) -- the SBM's high intra-block probability (0.6) versus low inter-block probability (0.05) produces clear community structure that label propagation successfully recovers. Reasoning with `TransitiveRule` on the Erdos-Renyi graph from seed node `n0` produces 1 new inferred edge via 1 rule application across 2 multiway states. This demonstrates that generated graphs can be used directly as inputs to analysis and reasoning pipelines without manual construction.
 
@@ -218,6 +238,29 @@ graph LR
 
 In the diagram above, yellow nodes are activation seeds and the red node (`economic_impact`) receives the highest activation through converging paths. `recovery_begins` (depth=2) is reached indirectly through the causal chain, demonstrating that spreading activation discovers nodes beyond direct neighbors.
 
+The activation flow through the causal graph follows this pattern:
+
+```mermaid
+graph TD
+    OD[outbreak_detected<br/>seed: 1.0] -->|depth 1<br/>energy flow| QI[quarantine_issued<br/>activation: 0.6292]
+    OD -->|depth 1<br/>energy flow| TB[travel_ban<br/>activation: 0.6292]
+    OD -->|depth 1<br/>via quarantine| SD[supply_disruption<br/>activation: 0.8374]
+    OD -->|depth 1<br/>converging paths| EI[economic_impact<br/>activation: 0.8834]
+    QI --> SD
+    TB --> EI
+    SD --> EI
+    EI -->|depth 2<br/>energy flow| RB[recovery_begins<br/>activation: 0.2543]
+    VD[vaccine_development<br/>seed: 1.0] -.->|independent seed| RB
+    RB -.->|seed: 1.0| RB
+
+    style OD fill:#e6b800
+    style VD fill:#e6b800
+    style EI fill:#ff6b6b
+    style RB fill:#e6b800
+```
+
+Energy from the seed nodes propagates along causal edges. Nodes with multiple incoming paths accumulate more energy: `economic_impact` receives contributions from both `travel_ban` and `supply_disruption`, giving it the highest non-seed activation. `recovery_begins` is reached at depth 2 through the indirect chain, receiving attenuated energy.
+
 ### complete_workflow.py -- End-to-End Pipeline
 
 This script runs the full analysis stack on a single reproducible graph.
@@ -231,6 +274,28 @@ flowchart LR
     E --> F["Transformations"]
     F --> G["Summary Dashboard"]
 ```
+
+The pipeline stages and their data flow:
+
+```mermaid
+flowchart TD
+    GEN["1. Generate<br/>random_sbm(24, 3, [8,8,8])<br/>p_in=0.6, p_out=0.05"] -->|"Hypergraph<br/>24 nodes, 59 edges"| STATS
+    STATS["2. Statistics<br/>density(), degree_distribution()<br/>connected_components()"] -->|"float, dict, list"| CENT
+    STATS -->|"Hypergraph<br/>(unchanged)"| CENT
+    CENT["3. Centralities<br/>pagerank(), katz_centrality()<br/>betweenness_centrality()"] -->|"dict[str, float]<br/>per metric"| SPEC
+    CENT -->|"Hypergraph<br/>(unchanged)"| SPEC
+    SPEC["4. Spectral Clustering<br/>spectral_clustering(k=3)<br/>normalized_laplacian()"] -->|"list[set]<br/>3 clusters of 8"| COEFF
+    SPEC -->|"Hypergraph<br/>(unchanged)"| COEFF
+    COEFF["5. Clustering Coefficients<br/>average_clustering_coefficient()<br/>clustering_coefficient(node)"] -->|"float<br/>avg=0.4213"| TRANS
+    COEFF -->|"Hypergraph<br/>(unchanged)"| TRANS
+    TRANS["6. Transformations<br/>to_dual(), to_line_graph()<br/>to_bipartite_graph()"] -->|"new Hypergraph<br/>or Graph"| DASH
+    DASH["7. Summary Dashboard<br/>aggregate all results"]
+
+    style GEN fill:#4a90d9,color:#fff
+    style DASH fill:#2d8659,color:#fff
+```
+
+Every stage receives the same `Hypergraph` object produced by `random_sbm()`. No data export, format conversion, or intermediate representation is needed between stages.
 
 **Generate** -- `random_sbm(24, 3, [8, 8, 8], p_in=0.6, p_out=0.05)` creates a 24-node, 59-edge hypergraph with three planted communities of 8 nodes each. The SBM ensures within-community edges are more likely than between-community edges.
 
@@ -323,15 +388,20 @@ The three metrics identify different nodes as most central because they measure 
 
 ## 6. What Makes This Different
 
-**Generative models produce hypergraphs with known structure for validation.** Testing a clustering algorithm requires knowing what the correct clusters are. An SBM with three blocks of 8 nodes lets you verify that spectral clustering recovers the planted partition -- which it does, finding exactly 3 clusters of 8. Without generative models, you would need hand-constructed graphs or real data with unknown ground truth. The analysis section goes further: community detection runs directly on the SBM output, and reasoning with `TransitiveRule` runs on the Erdos-Renyi output, demonstrating that generated graphs feed directly into analysis pipelines.
+**Generative models produce hypergraphs with known structure for validation.** An SBM with three blocks of 8 nodes lets you verify that spectral clustering recovers the planted partition -- which it does, finding exactly 3 clusters of 8. Without generative models, you need hand-constructed graphs or real data with unknown ground truth.
+> **Takeaway:** Generated graphs feed directly into analysis pipelines -- community detection on SBM output and reasoning on Erdos-Renyi output work without manual construction.
 
-**Allen interval algebra captures temporal relationships beyond simple before/after ordering.** Two events can meet (boundary-to-boundary handoff), overlap (concurrent with partial intersection), or contain one another (one entirely within the other). These distinctions matter in event-driven systems: a response that meets a trigger is a direct handoff, while overlapping events have concurrent effects that may interact. The 48 causal chains detected in the pandemic scenario emerge from the combination of temporal intervals and causal edge labels -- neither alone would produce the same result.
+**Allen interval algebra captures temporal relationships beyond simple before/after ordering.** Two events can meet (boundary-to-boundary handoff), overlap (concurrent with partial intersection), or contain one another (one entirely within the other). The 48 causal chains detected in the pandemic scenario emerge from the combination of temporal intervals and causal edge labels -- neither alone would produce the same result.
+> **Takeaway:** Overlapping events have concurrent effects; meeting events represent direct handoffs -- distinctions that matter in event-driven systems.
 
-**Belief distributions represent uncertainty as full probability distributions, not single scores.** Three uncertain policy outcomes (`lockdown_possible`, `travel_restriction`, `vaccine_mandate`) are modeled as a belief distribution with equal probability (0.3333 each). Sampling via the Born rule collapses this to a single outcome. This enables probabilistic reasoning about uncertain futures -- the system holds multiple interpretations simultaneously and commits only when forced.
+**Belief distributions represent uncertainty as full probability distributions, not single scores.** Three uncertain policy outcomes are modeled as a belief distribution with equal probability (0.3333 each). Sampling via the Born rule collapses this to a single outcome. The system holds multiple interpretations simultaneously and commits only when forced.
+> **Takeaway:** Probabilistic reasoning over uncertain futures requires distributions, not scalar confidence values.
 
-**Spreading activation surfaces structurally important nodes that are not directly connected to seeds.** Stimulating three key events activates 5 additional nodes. `economic_impact` achieves the highest activation (0.8834) despite not being a seed, because it receives energy from multiple converging causal paths. This identifies convergence points that matter for understanding cascade dynamics.
+**Spreading activation surfaces structurally important nodes that are not directly connected to seeds.** Stimulating three key events activates 5 additional nodes. `economic_impact` achieves the highest activation (0.8834) despite not being a seed, because it receives energy from multiple converging causal paths.
+> **Takeaway:** Convergence points with multiple incoming paths are discovered automatically -- no manual path tracing needed.
 
-**The complete workflow demonstrates that all analysis APIs operate on the same graph object.** No data export, format conversion, or intermediate representation is needed. The same `Hypergraph` produced by `random_sbm()` is passed directly to `density()`, `pagerank()`, `spectral_clustering()`, `average_clustering_coefficient()`, `to_dual()`, and `to_line_graph()`. This eliminates the glue code that typically connects generation, analysis, and transformation steps.
+**The complete workflow demonstrates that all analysis APIs operate on the same graph object.** The same `Hypergraph` produced by `random_sbm()` is passed directly to `density()`, `pagerank()`, `spectral_clustering()`, `average_clustering_coefficient()`, `to_dual()`, and `to_line_graph()`.
+> **Takeaway:** No glue code or format conversion between generation, analysis, and transformation steps.
 
 ## 7. Code Implementation
 

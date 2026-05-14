@@ -63,7 +63,7 @@ SECTION 6: DIFF FROM ARBITRARY SNAPSHOT
 nodes added: 13, edges added: 16
 ```
 
-> Output is deterministic — version IDs and change counts are stable across runs.
+> Output is deterministic — version IDs and change counts are stable across runs. Node and edge IDs are assigned sequentially, so the same script always produces the same delta contents and metrics.
 
 ## 4. The Scenario
 
@@ -76,17 +76,61 @@ A research knowledge graph with four node categories:
 
 Three editing sessions add collaborations and cross-domain links, then a fourth session introduces erroneous edges that get rolled back.
 
+### v0 Baseline Research Graph
+
 ```mermaid
 graph LR
-    alice_chen -->|writes| paper_transformer
-    bob_smith -->|writes| paper_cnn
-    carol_wu -->|writes| paper_gan
-    alice_chen -->|affiliated_with| mit
-    bob_smith -->|affiliated_with| stanford
-    carol_wu -->|affiliated_with| mit
-    paper_transformer -->|cites| nlp
-    paper_cnn -->|cites| computer_vision
-    paper_gan -->|cites| computer_vision
+    subgraph Topics
+        ML[machine_learning]
+        NN[neural_networks]
+        NLP[nlp]
+        CV[computer_vision]
+    end
+    subgraph Authors
+        AC[alice_chen]
+        BS[bob_smith]
+        CW[carol_wu]
+    end
+    subgraph Papers
+        PT[paper_transformer]
+        PC[paper_cnn]
+        PG[paper_gan]
+    end
+    subgraph Institutions
+        MIT[mit]
+        STANFORD[stanford]
+    end
+
+    AC -->|writes| PT
+    BS -->|writes| PC
+    CW -->|writes| PG
+    AC -->|affiliated_with| MIT
+    BS -->|affiliated_with| STANFORD
+    CW -->|affiliated_with| MIT
+    PT -->|cites| NLP
+    PC -->|cites| CV
+    PG -->|cites| CV
+```
+
+### Editing Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Graph as Knowledge Graph
+    participant Differ as GraphDiffer
+
+    User->>Graph: build (12 nodes, 9 edges)
+    User->>Differ: capture_version() -> v0
+    User->>Graph: edit (add collaborations)
+    User->>Differ: capture_version() -> v1
+    User->>Differ: diff_from_version(v0) -> 6 changes
+    User->>Graph: edit (add cross-domain links)
+    User->>Differ: capture_version() -> v2
+    User->>Graph: bad edit (spurious nodes and edges)
+    Note over Graph: now 15 nodes, 19 edges
+    User->>Differ: rollback_to_version(v2)
+    Note over Graph: restored to 13 nodes, 16 edges
 ```
 
 Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges (v1), cross-domain links (v2), and erroneous data that gets rolled back.
@@ -138,6 +182,18 @@ gitGraph
 **Structural rollback** restores the actual graph by removing extra nodes/edges and re-adding missing ones. It does not flag nodes as "soft-deleted" or revert metadata — it physically reconstructs the graph to match the target version. After rollback, the graph is identical to the target version, with no residual state from the undone changes. This makes post-rollback editing safe: new changes build on a clean foundation.
 
 **Arbitrary snapshot comparison** via `diff_from_snapshot()` enables comparison against any externally stored graph state. The external state is provided as a dict (not a Hyper3 instance), making it compatible with any persistence mechanism — JSON files, databases, or other graph systems. This bridges Hyper3's version control with external tooling.
+
+**Familiar version-control semantics** that map naturally from git:
+
+| git concept | Graph versioning equivalent | What it does |
+|-------------|---------------------------|--------------|
+| `git add` (staging area) | `capture_version()` snapshot | Lock in the current graph state as a named version |
+| `git commit` | `capture_version()` returning `GraphVersion` | Create an immutable point-in-time record with metadata |
+| `git diff` | `diff_from_version()` / `diff_between_versions()` | Produce a typed delta listing every structural change |
+| `git revert` | `rollback_to_version()` | Structurally restore the graph to a previous version |
+| `git log` | `version_history()` | Return the full timeline of captured versions |
+
+The key distinction is granularity: git tracks line-level changes in text files, while GraphDiffer tracks node and edge-level changes in graph structure. A delta does not contain line numbers — it contains typed `NodeDelta` and `EdgeDelta` records with old and new values for every field (label, weight, data dict, source/target sets). This makes graph diffs semantically richer than text diffs, because each change carries the full before/after context of the graph elements involved.
 
 ## 8. Code Implementation
 

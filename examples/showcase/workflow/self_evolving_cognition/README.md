@@ -69,12 +69,15 @@ SECTION 5: Causal Merge Insight Preservation
 
 ## 4. The Scenario
 
-The script builds a small graph in stages:
+The script constructs a 19-node graph designed to exercise specific inference rules and produce measurable bias in the reasoning output. Each subgraph exists for a reason:
 
-- **5-node chain**: `alpha -> beta -> gamma -> delta -> epsilon` (label `"connects"`)
-- **3-node extension**: `zeta`, `eta`, `theta` with `epsilon -> zeta` (label `"connects"`)
-- **8-node causal cluster**: `a -> b -> c` (label `"causes"`), `d -> e -> f` (label `"prevents"`), plus `g`, `h`
-- **3-node test cluster**: `x -> y -> z` (label `"link"`)
+**5-node chain** (`alpha -> beta -> gamma -> delta -> epsilon`, label `"connects"`): This is the longest linear path in the graph. It provides the multi-hop chains that `TransitiveRule` needs to fire -- transitive inference requires at least two consecutive edges sharing the same label (A connects B, B connects C), and the chain provides three such overlapping pairs. Without this structure, the transitive rule would have nothing to match.
+
+**3-node extension** (`epsilon -> zeta`, plus isolated nodes `eta` and `theta`): The edge from `epsilon` to `zeta` extends the chain to six nodes, giving the transitive rule additional reach. The isolated nodes `eta` and `theta` serve as control points -- they exist in the graph but have no edges, so they should never appear in any inference output. If they do, something is wrong.
+
+**8-node causal cluster** (`a -> b -> c` with label `"causes"`, `d -> e -> f` with label `"prevents"`, plus isolated `g` and `h`): This cluster serves double duty. The `"causes"` chain activates `TransitiveRule(edge_label="causes")`, producing inferences like "a causes c". The `"prevents"` chain activates `InverseRule(edge_label="prevents")`, which generates the inverse relationship `"prevented_by"`. The coexistence of two labeled edge groups in one cluster tests whether the rule engine respects label boundaries -- the transitive rule on `"causes"` must not cross over into the `"prevents"` edges, and vice versa.
+
+**3-node test cluster** (`x -> y -> z`, label `"link"`): A minimal chain with its own label, providing a third edge group. Because no rule is registered for `"link"`, these edges should produce zero inferences. This group acts as a negative control: if rules are leaking across labels, this is where it would show up.
 
 Total: 19 nodes, multiple labeled edge groups, 3 inference rules (TransitiveRule on `"causes"`, InverseRule on `"prevents"`, InverseRule on `"causes"`).
 
@@ -103,9 +106,22 @@ graph LR
 
 ### Section 1: Feedback-Driven Evolution
 
-The script records three declining evolution outcomes (0.8, 0.7, 0.6), producing a `declining` fitness trend. It then calls `evolve_with_feedback()`, which adapts its behavior based on this recorded history. The result shows zero decayed/pruned/reinforced/suppressed — the graph is healthy and the declining trend was from recorded feedback signals, not from actual graph degradation.
+The script records three declining evolution outcomes (0.8, 0.7, 0.6), producing a `declining` fitness trend. It then calls `evolve_with_feedback()`, which adapts its behavior based on this recorded history. The result shows zero decayed/pruned/reinforced/suppressed -- the graph is healthy and the declining trend was from recorded feedback signals, not from actual graph degradation.
 
 Next, the script records inference outcomes (2 accepted, 1 rejected) for three edges, producing a 0.67 inference acceptance rate.
+
+The feedback-driven evolution cycle is a closed loop:
+
+```mermaid
+stateDiagram-v2
+    [*] --> RecordOutcomes
+    RecordOutcomes --> ComputeTrend: outcomes recorded
+    ComputeTrend --> AdaptRates: trend identified
+    AdaptRates --> Evolve: rates adjusted
+    Evolve --> Measure: evolution complete
+    Measure --> RecordOutcomes: fitness delta fed back
+    Measure --> [*]: cycle ends
+```
 
 Why this matters: without feedback-driven evolution, the system applies the same decay rates regardless of whether past evolution cycles helped or harmed. Recording outcomes and adapting rates lets the system self-correct.
 
@@ -119,13 +135,13 @@ The script records two retrieval outcomes for the `"connects"` label and calls `
 - **Retrieval precision**: 0.67
 - **Inference acceptance**: 0.67
 
-The summary also identifies correlated nodes — nodes appearing in multiple operation types — along with their positive rates and signal types.
+The summary also identifies correlated nodes -- nodes appearing in multiple operation types -- along with their positive rates and signal types.
 
 Why this matters: each subsystem (evolution, inference, retrieval) operates semi-independently, but a node causing problems in one subsystem often affects others. Cross-operation feedback reveals these connections that single-subsystem monitoring cannot.
 
 ### Section 3: Metamorphosis with Validation and Rollback
 
-The script first checks for metamorphosis triggers with a healthy graph — none are found. It then forces architectural fitness to 0.3 to demonstrate the metamorphosis pipeline:
+The script first checks for metamorphosis triggers with a healthy graph -- none are found. It then forces architectural fitness to 0.3 to demonstrate the metamorphosis pipeline:
 
 1. `check_metamorphosis()` detects triggers (low fitness)
 2. `propose_tuning(triggers)` generates a plan with actions, expected improvement, and risk level
@@ -133,7 +149,21 @@ The script first checks for metamorphosis triggers with a healthy graph — none
 
 Result: `rolled_back=False`, fitness remained at 0.784. The tuning plan did not degrade fitness further, so no rollback was needed.
 
-Why this matters: self-modifying systems without validation can enter death spirals — each change degrades fitness, triggering more changes, degrading further. Rollback provides a safety net: if a proposed change does not improve fitness, the system reverts to the previous state.
+The metamorphosis pipeline is a guarded execution flow:
+
+```mermaid
+flowchart TD
+    A[check_metamorphosis] -->|triggers found| B[propose_tuning]
+    A -->|no triggers| Z[no action needed]
+    B --> C[execute_tuning_validated]
+    C --> D{fitness improved?}
+    D -->|yes| E[commit changes]
+    D -->|no| F[rollback to pre-tuning state]
+    E --> G[return result: rolled_back=False]
+    F --> H[return result: rolled_back=True]
+```
+
+Why this matters: self-modifying systems without validation can enter death spirals -- each change degrades fitness, triggering more changes, degrading further. Rollback provides a safety net: if a proposed change does not improve fitness, the system reverts to the previous state.
 
 ### Section 4: Computational Bias Profile
 
@@ -155,7 +185,13 @@ The script constructs two multiway states sharing real graph nodes (`alpha`, `be
 - **State s1**: rule=`transitive`, active nodes={alpha, beta, gamma, delta}, produced edges={alpha-beta, gamma-delta}
 - **State s2**: rule=`inverse`, active nodes={alpha, beta, gamma}, produced edges={alpha-beta}
 
-The similarity formula is `0.7 * Jaccard(node_ids) + 0.3 * Jaccard(edge_ids)`:
+> **Similarity formula**
+>
+> ```
+> similarity = 0.7 * Jaccard(node_ids) + 0.3 * Jaccard(edge_ids)
+> ```
+>
+> where `Jaccard(X, Y) = |X intersection Y| / |X union Y|`
 
 - Node Jaccard: 3/4 = 0.75 (3 shared of 4 total distinct nodes)
 - Edge Jaccard: 1/2 = 0.50 (1 shared of 2 total distinct edges)
@@ -300,4 +336,4 @@ for inv in invariants:
 
 ### Related Examples
 
-- `examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py` — same script in the showcase directory
+- `examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py` -- same script in the showcase directory
