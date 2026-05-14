@@ -1,3 +1,5 @@
+from collections import Counter
+
 from hyper3.kernel import Hypergraph
 from hyper3.kernel_types import Hypernode
 from hyper3.search_facets import FacetedAggregation
@@ -56,14 +58,45 @@ class TestFacetedAggregation:
         assert suggestions == []
 
     def test_facet_score_single_value(self):
-        from collections import Counter
         score = FacetedAggregation._facet_score(Counter({"a": 10}))
         assert score == 0.0
 
     def test_facet_score_good_distribution(self):
-        from collections import Counter
         score = FacetedAggregation._facet_score(Counter({"a": 5, "b": 3, "c": 2}))
         assert score > 0.0
+
+    def test_aggregate_with_filter_returns_empty_for_no_candidates(self):
+        result = self.agg.aggregate_with_filter(set(), ["type"], {"type": "movie"})
+        assert result == {}
+
+    def test_aggregate_with_filter_returns_empty_for_no_fields(self):
+        result = self.agg.aggregate_with_filter(self.all_ids, [], {"type": "movie"})
+        assert result == {}
+
+    def test_aggregate_with_filter_non_filtered_field_uses_candidates(self):
+        result = self.agg.aggregate_with_filter(
+            self.all_ids, ["type", "genre"], active_filters={"type": "movie"},
+        )
+        assert "genre" in result
+        genre_buckets = {b.value: b.count for b in result["genre"].buckets}
+        assert genre_buckets["action"] == 2
+
+    def test_aggregate_field_skips_non_dict_data(self):
+        bare = Hypernode(label="bare")
+        bare.data = "not a dict"
+        self.graph.add_node(bare)
+        ids = {n.id for n in self.graph.nodes}
+        result = self.agg.aggregate(ids, ["type"])
+        assert result["type"].total == len(ids)
+
+    def test_suggest_facets_skips_non_dict_and_none_values(self):
+        bare = Hypernode(label="bare")
+        bare.data = "not a dict"
+        self.graph.add_node(bare)
+        self.graph.add_node(_make_node("has_null", {"type": None}))
+        ids = {n.id for n in self.graph.nodes}
+        suggestions = self.agg.suggest_facets(ids)
+        assert "type" in suggestions
 
 
 class TestFacetedAggregationWithIndex:
@@ -84,3 +117,68 @@ class TestFacetedAggregationWithIndex:
         buckets = {b.value: b.count for b in result["type"].buckets}
         assert buckets["movie"] == 2
         assert buckets["book"] == 1
+
+    def test_aggregate_with_filter_uses_index_for_remaining_filters(self):
+        all_ids = {n.id for n in self.graph.nodes}
+        result = self.agg.aggregate_with_filter(
+            all_ids, ["genre"], active_filters={"genre": "action", "type": "movie"},
+        )
+        buckets = {b.value: b.count for b in result["genre"].buckets}
+        assert "action" in buckets
+
+    def test_get_unfiltered_candidates_with_only_excluded_field(self):
+        all_ids = {n.id for n in self.graph.nodes}
+        result = self.agg.aggregate_with_filter(
+            all_ids, ["type"], active_filters={"type": "movie"},
+        )
+        assert result["type"].total == len(all_ids)
+
+
+class TestFacetedAggregationScanFallback:
+    """Cover _scan_candidates when no index is available."""
+
+    def test_scan_candidates_without_index(self):
+        graph = Hypergraph()
+        graph.add_node(_make_node("a", {"type": "movie", "genre": "action"}))
+        graph.add_node(_make_node("b", {"type": "book", "genre": "scifi"}))
+        agg = FacetedAggregation(graph)
+        result = agg.aggregate_with_filter(
+            {n.id for n in graph.nodes},
+            ["genre"],
+            active_filters={"genre": "action", "type": "movie"},
+        )
+        buckets = {b.value: b.count for b in result["genre"].buckets}
+        assert "action" in buckets
+
+    def test_scan_candidates_skips_non_dict_data(self):
+        graph = Hypergraph()
+        graph.add_node(_make_node("good", {"type": "movie"}))
+        bare = Hypernode(label="bare")
+        bare.data = "not a dict"
+        graph.add_node(bare)
+        agg = FacetedAggregation(graph)
+        result = agg.aggregate_with_filter(
+            {n.id for n in graph.nodes},
+            ["type"],
+            active_filters={"type": "movie"},
+        )
+        buckets = {b.value: b.count for b in result["type"].buckets}
+        assert buckets["movie"] == 1
+
+
+class TestFacetScoreEdgeCases:
+    """Cover _facet_score edge cases: empty counter, high cardinality."""
+
+    def test_facet_score_empty_counter(self):
+        score = FacetedAggregation._facet_score(Counter())
+        assert score == 0.0
+
+    def test_facet_score_high_cardinality_returns_zero(self):
+        counts = Counter({str(i): 1 for i in range(101)})
+        score = FacetedAggregation._facet_score(counts)
+        assert score == 0.0
+
+    def test_facet_score_balanced_distribution_highest(self):
+        balanced = Counter({"a": 5, "b": 5, "c": 5})
+        skewed = Counter({"a": 13, "b": 1, "c": 1})
+        assert FacetedAggregation._facet_score(balanced) > FacetedAggregation._facet_score(skewed)
