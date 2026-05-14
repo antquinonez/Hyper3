@@ -438,6 +438,15 @@ The deprecated alias `edges_for()` still works but prefer `incident_edges()` for
 ### `query_nodes()` for data-attribute filtering
 `mem.query_nodes(type="movie")` or `mem.query_nodes(data={"ecosystem": "pypi"})` returns concept labels matching data attributes. The `type` parameter is shorthand for `data={"type": value}`. Supports `labels` set filter and `limit`.
 
+### Top-level shortcuts bypass namespace to avoid recursion
+Shortcuts like `mem.prove()`, `mem.introspect()`, and `mem.activate()` call the mixin directly (e.g., `CognitiveMixin.prove(self, ...)`) instead of going through the namespace (e.g., `self.cognitive.prove(...)`). This is necessary because the namespace calls `self._mem.method()` which would recurse back to the shortcut. New shortcuts that share a name with a mixin method must follow this pattern.
+
+### `activate()` accepts `iterations`
+The `mem.activate()` shortcut passes `iterations` through to the underlying `RetrievalMixin.activate()`. This controls the number of spreading steps.
+
+### `prove()` accepts dual parameter names
+`mem.prove()` accepts both `facts`/`depth` (namespace style) and `known_facts`/`max_depth` (mixin style). The mixin-style parameters take precedence when both are provided.
+
 Additional subsystem-specific conventions (Born rule sampling, rule edge_label, community detection, etc.) are in `ai/agents_conventions.md`.
 
 ## Common Pitfalls

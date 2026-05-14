@@ -381,18 +381,20 @@ class HypergraphMemory(
         """
         return MonitoringMixin.introspect(self)
 
-    def activate(self, concept: str, *, energy: float = 1.0, top_k: int = 10) -> list:
+    def activate(self, concept: str, *, energy: float = 1.0, top_k: int = 10,
+                 iterations: int | None = None) -> list:
         """Shortcut for spreading activation via search.activate().
 
         Args:
             concept: Source concept label to activate.
             energy: Initial activation energy.
             top_k: Maximum results to return.
+            iterations: Number of spreading iterations (default: engine default).
 
         Returns:
             List of ActivationResult objects with label and activation level.
         """
-        return RetrievalMixin.activate(self, concept, energy=energy, top_k=top_k)
+        return RetrievalMixin.activate(self, concept, energy=energy, top_k=top_k, iterations=iterations)
 
     @property
     def frame_cache_stats(self) -> Any:
