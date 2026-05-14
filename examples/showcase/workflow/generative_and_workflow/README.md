@@ -24,7 +24,15 @@ This group covers three capabilities that form a natural progression:
 - **Temporal reasoning** adds Allen interval algebra to event networks, enabling fine-grained temporal relationship detection beyond simple before/after ordering.
 - **The complete workflow** ties everything together -- generate a structured graph, compute statistics, run centralities, cluster spectrally, measure coefficients, and transform -- in a single reproducible pipeline.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a test kitchen. **Generative models** are recipe generators — you specify parameters (serves 4, high protein, 30 minutes) and get a reproducible meal plan. Change the parameters, get a different plan. The stochastic block model is like specifying "two cuisine traditions, mostly traditional ingredients within each, occasional fusion between them." The resulting menu has a known structure you can test your restaurant reviewers against.
+
+**Temporal reasoning** adds a cooking timeline to each dish. "Preheat oven" meets "roast vegetables" (one ends exactly when the other begins). "Prepare sauce" overlaps "roast vegetables" (both active simultaneously). If you ask "what caused the delayed service?", the timeline plus the dependency graph (sauce depends on reduction, reduction depends on heat) together reveal the critical path. Temporal proximity alone would blame the wrong dish.
+
+**The complete workflow** runs the whole evening: generate the menu, cook every dish, measure cooking times, cluster recipes by technique, check which ingredients appear together most often, and transform the menu into a shopping list. Every stage uses the same kitchen — no moving ingredients between rooms.
+
+## 3. Key Concepts
 
 | Term | Meaning |
 |------|---------|
@@ -36,7 +44,7 @@ This group covers three capabilities that form a natural progression:
 | **Spreading activation** | An iterative process that propagates stimulation energy from seed nodes outward through the graph |
 | **Complete workflow** | An end-to-end pipeline: generate -> statistics -> centralities -> spectral clustering -> coefficients -> transformations |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/generative_and_workflow/generative_models.py
@@ -126,7 +134,7 @@ SECTION 7: Summary Dashboard
     Line graph edges:   262
 ```
 
-## 4. Script Walkthroughs
+## 5. Script Walkthroughs
 
 ### generative_models.py -- Random and Structured Hypergraphs
 
@@ -317,7 +325,7 @@ The three metrics identify different nodes as most central because they measure 
 - Line graph: 59 nodes, 262 edges -- each pair of edges sharing a node becomes a connection.
 - Bipartite graph: 83 nodes (24 original + 59 edge nodes), 118 edges -- the incidence structure as a bipartite network.
 
-## 5. Key Metrics
+## 6. Key Metrics
 
 ### Generative Models
 
@@ -386,7 +394,7 @@ The three metrics identify different nodes as most central because they measure 
 | Bipartite graph nodes | 83 |
 | Bipartite graph edges | 118 |
 
-## 6. What Makes This Different
+## 7. What Makes This Different
 
 **Generative models produce hypergraphs with known structure for validation.** An SBM with three blocks of 8 nodes lets you verify that spectral clustering recovers the planted partition -- which it does, finding exactly 3 clusters of 8. Without generative models, you need hand-constructed graphs or real data with unknown ground truth.
 > **Takeaway:** Generated graphs feed directly into analysis pipelines -- community detection on SBM output and reasoning on Erdos-Renyi output work without manual construction.
@@ -403,7 +411,7 @@ The three metrics identify different nodes as most central because they measure 
 **The complete workflow demonstrates that all analysis APIs operate on the same graph object.** The same `Hypergraph` produced by `random_sbm()` is passed directly to `density()`, `pagerank()`, `spectral_clustering()`, `average_clustering_coefficient()`, `to_dual()`, and `to_line_graph()`.
 > **Takeaway:** No glue code or format conversion between generation, analysis, and transformation steps.
 
-## 7. Code Implementation
+## 8. Code Implementation
 
 **Generate an SBM with planted communities:**
 
@@ -485,7 +493,7 @@ dual = g.to_dual()
 lg = g.to_line_graph()
 ```
 
-## 8. Real-World Gap
+## 9. Real-World Gap
 
 The generative models produce pairwise (size-2) edges in most configurations. Real hypergraphs often contain higher-arity edges (size 3+), and the generators that support them -- `random_uniform_hypergraph` and `complete_hypergraph(order=...)` -- produce uniform arities. Mixed-arity random generation (some size-2, some size-3, some size-5 edges with realistic distributions) is not yet available.
 
@@ -497,7 +505,7 @@ Belief distributions in this showcase use uniform initial probabilities. Real-wo
 
 Spreading activation parameters (energy, iterations, decay) require manual tuning. Adaptive parameter selection based on graph structure is not yet implemented.
 
-## 9. Reference
+## 10. Reference
 
 ### API Methods
 

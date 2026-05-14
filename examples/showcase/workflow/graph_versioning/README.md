@@ -8,7 +8,15 @@ Knowledge graphs evolve through editing sessions, and mistakes happen. A batch i
 
 The GraphDiffer provides version control for knowledge graphs: every change is tracked, every version is restorable, and any two versions can be compared. `capture_version()` snapshots the current graph state. `diff_from_version()` produces a typed delta listing every node and edge that was added, removed, or modified. `rollback_to_version()` restores the graph to a previous version by structurally undoing all changes since that version. `diff_from_snapshot()` enables comparison against externally stored state. This is git-for-knowledge-graphs — enabling collaborative curation with the safety net of rollback.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Think of a shared Google Doc. Every edit is tracked automatically — who changed what, when, and what the document looked like before. If someone accidentally deletes a section, you open the version history, find the last good version, and restore it. The document reverts to exactly that state, with no trace of the accidental deletion.
+
+Graph versioning works the same way, but instead of lines of text, the tracked units are nodes and edges. `capture_version()` is like creating a named revision. `diff_from_version()` shows what changed between two revisions — not in prose, but as typed records listing every node and edge that was added, removed, or modified. `rollback_to_version()` restores the graph to a previous revision by physically undoing the changes.
+
+The key difference from document version control: graph changes are structural, not textual. A delta does not contain line numbers — it contains `NodeDelta` and `EdgeDelta` records with old and new values for every field (label, weight, data dict, source/target sets). This makes graph diffs semantically richer: you know not just that something changed, but which graph elements changed and exactly how.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -21,7 +29,7 @@ The GraphDiffer provides version control for knowledge graphs: every change is t
 | **Snapshot dict** | External graph state (dict of node/edge data) for comparison without stored versions |
 | **Capture** | Snapshot the current graph into the version history |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/graph_versioning/graph_versioning.py
@@ -65,7 +73,7 @@ nodes added: 13, edges added: 16
 
 > Output is deterministic — version IDs and change counts are stable across runs. Node and edge IDs are assigned sequentially, so the same script always produces the same delta contents and metrics.
 
-## 4. The Scenario
+## 5. The Scenario
 
 A research knowledge graph with four node categories:
 
@@ -145,7 +153,7 @@ gitGraph
     commit id: "restored: 13 nodes, 16 edges"
 ```
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 **Section 1 — Build initial graph and capture baseline:** 12 nodes and 9 edges are created. Topics (machine_learning, neural_networks, nlp, computer_vision) are tagged with `data={"type": "topic"}`. Authors are tagged with `data={"type": "author"}`. Papers are tagged with `data={"type": "paper"}`. Institutions are tagged with `data={"type": "institution"}`. Nine edges connect authors to papers (`writes`), papers to topics (`cites`), and authors to institutions (`affiliated_with`). `capture_version()` snapshots this as v0 (version_id=0, nodes=12, edges=9). Why this matters: the baseline version establishes the known-good state. Every subsequent change is measured against this snapshot, and rollback to v0 would restore the graph to its original state.
 
@@ -159,7 +167,7 @@ gitGraph
 
 **Section 6 — Diff from arbitrary snapshot:** The script creates an external snapshot dict (a single node "external_ref" with no edges) and calls `diff_from_snapshot(snapshot)`. The result shows 13 nodes added and 16 edges added — everything in the current graph that is not in the external snapshot. This enables comparison against externally stored state without requiring the external graph to use Hyper3. Why this matters: `diff_from_snapshot()` enables integration with external systems. A curator can export a graph to a dict, store it externally, and later compare the current graph against that stored state. This is the bridge between Hyper3's version control and external persistence mechanisms.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -175,7 +183,7 @@ gitGraph
 | Snapshot diff nodes added | 13 |
 | Snapshot diff edges added | 16 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Typed deltas** provide complete change records, not just counts. Each change is a NodeDelta or EdgeDelta with old and new values. The v0 -> v1 delta shows not just "1 node added" but specifically that paper_diffusion was added with its data dict. This enables precise audit trails where every change can be reviewed, approved, or reverted individually.
 
@@ -195,7 +203,7 @@ gitGraph
 
 The key distinction is granularity: git tracks line-level changes in text files, while GraphDiffer tracks node and edge-level changes in graph structure. A delta does not contain line numbers — it contains typed `NodeDelta` and `EdgeDelta` records with old and new values for every field (label, weight, data dict, source/target sets). This makes graph diffs semantically richer than text diffs, because each change carries the full before/after context of the graph elements involved.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 **1. Build initial graph and capture version:**
 
@@ -281,7 +289,7 @@ print(f"nodes added: {len(diff.nodes_added)}")
 print(f"edges added: {len(diff.edges_added)}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 This showcase demonstrates version control on a small research knowledge graph. Real-world adoption involves additional work:
 
@@ -292,7 +300,7 @@ This showcase demonstrates version control on a small research knowledge graph. 
 - **Persistence:** Version history is in-memory. Production use requires persisting versions to disk or a database, with efficient lookup by version_id.
 - **Access control:** The showcase has no access control. Real collaborative systems need permissions (who can capture, who can rollback, who can view diffs).
 
-## 10. Reference
+## 11. Reference
 
 | Method | Purpose |
 |--------|---------|

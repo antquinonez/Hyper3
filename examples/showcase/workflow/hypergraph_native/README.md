@@ -17,7 +17,7 @@ The six capabilities demonstrated in this showcase:
 5. **Hyperedge similarity** — Jaccard overlap between node sets of edges sharing a protein
 6. **Gated diffusion** — AND/OR/majority modes control how activation flows through n-ary edges
 
-## 2. Analogy
+## 2. A Simple Analogy
 
 Imagine a committee that votes on a proposal. A pairwise graph would record "Alice knows Bob," "Bob knows Carol" — individual relationships. A hypergraph records "Alice, Bob, and Carol together voted yes on Proposal 7." The committee membership is a single n-ary fact. Gated diffusion asks: does the proposal pass if every member must agree (AND), if any member can trigger it (OR), or if a simple majority suffices?
 
@@ -106,7 +106,7 @@ The 14 edges divide into two types:
 
 ### Network Topology
 
-Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups. Five additional proteins (ATR, CHEK1, CHEK2, MYC, VEGFA) are present in the graph but not shown in edges — they participate in pairwise `participates_in` connections.
+Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups. Five additional proteins (ATR, CHEK1, CHEK2, MYC, VEGFA) are stored as nodes with no connecting edges — they represent proteins present in the knowledge base but not yet linked to any complex or pathway.
 
 ```mermaid
 graph LR

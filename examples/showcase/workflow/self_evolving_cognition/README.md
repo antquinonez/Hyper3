@@ -14,7 +14,15 @@ This showcase exercises five capabilities on a small 19-node graph:
 4. **Computational bias profiling** — `compute_bias_profile()` reveals which rules dominate reasoning and which are underused.
 5. **Causal merge insight preservation** — `merge_invariant_states()` tracks which unique contributions each merged state contributed, preventing knowledge loss during state convergence.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a gardener tending a large garden. Every week, the gardener prunes dead branches, removes weeds, and waters healthy plants. But the gardener does not follow a fixed schedule — they watch how the garden responds. If last week's pruning left a bare patch, this week they prune less aggressively. If a section is overgrown, they intensify. The gardener keeps a notebook recording what they did and how the garden looked afterward, adjusting future decisions based on past outcomes.
+
+Now imagine the gardener has a safety rule: before making any major change (rearranging an entire bed, removing a tree), they take a photo, make the change, then compare the garden to the photo. If it looks worse, they undo it and restore the garden to how it was. This is metamorphosis validation with rollback.
+
+Finally, the gardener notices they always use the same tool (hedge trimmer) and rarely use another (pruning shears). This bias means some plants get uniform trimming while others are neglected. The bias profile reveals this imbalance so the gardener can diversify their approach.
+
+## 3. Key Concepts
 
 | Term | Plain English |
 |------|--------------|
@@ -25,7 +33,7 @@ This showcase exercises five capabilities on a small 19-node graph:
 | Bias profile | A snapshot of which inference rules dominate, which are neglected, and how skewed the distribution is |
 | Insight preservation | When merging equivalent multiway states, recording each state's unique contributions so no derived knowledge is lost |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py
@@ -67,7 +75,7 @@ SECTION 5: Causal Merge Insight Preservation
     State 58746cdf: rule=inverse, unique_nodes=[], unique_edges=0
 ```
 
-## 4. The Scenario
+## 5. The Scenario
 
 The script constructs a 19-node graph designed to exercise specific inference rules and produce measurable bias in the reasoning output. Each subgraph exists for a reason:
 
@@ -102,7 +110,7 @@ graph LR
     y -->|link| z
 ```
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 ### Section 1: Feedback-Driven Evolution
 
@@ -204,7 +212,7 @@ The `merge_invariant_states()` call finds 1 invariant and produces a `Convergenc
 
 Why this matters: when equivalent multiway states merge, the unique inferences from each branch should not be silently discarded. Insight preservation records what each state contributed so that downstream analysis can trace provenance even after convergence. In this case, the merge correctly identifies that `delta` and its connecting edge were s1's unique contribution, preserved in the `ConvergenceRecord.insights` field.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -236,7 +244,7 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 | s1 unique nodes (delta) | 1 |
 | s1 unique edges | 1 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Validated self-modification**: The system proposes structural changes, measures their effect, and reverts if fitness degrades. Without this, any automated tuning is a one-way bet on correctness.
 
@@ -246,7 +254,7 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 
 **Insight preservation on merge**: Multiway state convergence discards the branch structure but retains each branch's unique contributions. In the demonstrated merge (similarity=0.675), the transitive branch contributed node `delta` and its connecting edge -- this is recorded in the `ConvergenceRecord.insights` field and survives the merge. Without this, merging equivalent states would lose the record of which inferences each branch produced.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 ```python
 from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
@@ -309,14 +317,14 @@ for inv in invariants:
         print(f"  {insight.rule_applied}: unique_nodes={len(insight.unique_nodes)}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 - **Feedback source**: The showcase manually records evolution and inference outcomes. In production, these signals would come from downstream task performance or user interactions, requiring application-specific integration.
 - **Graph size**: The demo uses 19 nodes. Behavior at 10K+ nodes (feedback aggregation overhead, metamorphosis plan generation) is untested.
 - **Tuning actions**: The metamorphosis plan generates actions based on built-in heuristics. Custom tuning strategies (domain-specific merge criteria, application-weighted decay) require extending the tuning engine.
 - **Multiway convergence**: The constructed states use real graph node IDs and produce an actual merge (similarity=0.675). The insights correctly capture each branch's unique contributions. For more complex scenarios with naturally-occurring equivalent states from deep reasoning chains, the same mechanism applies automatically.
 
-## 10. Reference
+## 11. Reference
 
 ### API Methods
 

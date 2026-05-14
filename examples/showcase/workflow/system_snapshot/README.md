@@ -33,7 +33,15 @@ flowchart LR
     SS -->|"monitor.restore()"| B2 & MW2 & P2 & R2 & C2
 ```
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine you have spent hours setting up a complex simulation: model parameters tuned, intermediate results cached, analysis history recorded, and a dashboard displaying live metrics. If the computer crashes, everything is lost — you would have to re-run the entire simulation from scratch.
+
+A system snapshot is like a "Save Game" button that freezes every piece of state into a single file. When you load the save, the simulation resumes exactly where you left off — same parameters, same cache, same dashboard. The graph structure (nodes and edges) is saved separately, like the game world map, while the snapshot captures the computational layer (beliefs, reasoning history, analytics), like your character's inventory and quest progress.
+
+The separation matters: you can restore the computational layer onto a different graph, just as you could load your character's inventory into a modified game world. This enables workflows like "restore the analytics and provenance onto a pruned version of the graph for focused analysis."
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -47,7 +55,7 @@ flowchart LR
 | **ProvenanceTracker state** | Edge-to-rule-to-seed inference chains |
 | **RetrievalEngine state** | Feedback signals and relevance rankings |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/system_snapshot/system_snapshot.py
@@ -76,7 +84,7 @@ edges match: True
 
 File sizes vary by OS tempfile location. The snapshot JSON is typically 44-46 KB for a 12-node enriched graph.
 
-## 4. Analysis Pipeline
+## 5. Analysis Pipeline
 
 **Section 1 — Build and enrich the knowledge graph:** 12 quantum computing research concepts are stored and connected with 12 `influences` edges. A `TransitiveRule` on the `influences` label is registered at construction, and `reason()` produces 6 inferred edges via multiway expansion (7 states created). A belief distribution is created over three concepts (`quantum_computing`, `machine_learning`, `cryptography`). Two nodes are stimulated with activation energy and activation is spread for 2 iterations. Retrieval feedback is recorded for `machine_learning` and `cryptography`. The graph ends at 12 nodes, 18 edges (12 base + 6 inferred). Why this matters: the snapshot must capture the state of every subsystem that contributed to this enriched graph — not just the nodes and edges, but the belief amplitudes, multiway expansion tree, provenance chains, retrieval rankings, and cache entries. Missing any one of these produces a restored system that silently disagrees with the original.
 
@@ -90,7 +98,7 @@ File sizes vary by OS tempfile location. The snapshot JSON is typically 44-46 KB
 
 **Section 6 — Serialization round-trip:** `snapshot.to_dict()` produces a dict with 32 keys. `SystemSnapshot.from_dict(data_dict)` reconstructs the snapshot. Belief states (1), multiway states (7), and provenance records (6) counts are preserved through the round-trip. Why this matters: `to_dict`/`from_dict` enables custom storage backends — you can write the dict to a database, send it over a network, or store it in an object store. The round-trip guarantee means no information is lost through JSON serialization, even for complex nested structures like multiway expansion trees and belief amplitude arrays.
 
-## 5. Key Metrics
+## 6. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -107,7 +115,7 @@ File sizes vary by OS tempfile location. The snapshot JSON is typically 44-46 KB
 | Snapshot JSON size | ~45 KB |
 | Snapshot dict keys | 32 |
 
-## 6. What Makes This Different
+## 7. What Makes This Different
 
 **Cross-subsystem completeness** means `mem.monitor.snapshot()` captures state from every subsystem in a single call: belief amplitudes and correlations, multiway expansion states and leaves, provenance edge-to-rule chains, retrieval feedback and rankings, rule analytics counters, cache entries and TTL, perspective frame outcomes, system monitor readings, and feedback signals. `mem.monitor.restore(snapshot)` rebuilds all of these into operational engines that produce identical results to the original session.
 
@@ -115,7 +123,7 @@ File sizes vary by OS tempfile location. The snapshot JSON is typically 44-46 KB
 
 **Separate graph/snapshot** serialization reflects the architectural separation between the structural substrate (nodes and edges) and the computational layer (belief, reasoning, analytics). The graph is restored via `save/load` using the graph's own serialization format. The snapshot is restored via `save_state/load_state` using the subsystem serialization format. This separation means you can restore subsystem state onto a different graph topology if needed — for example, restoring analytics and provenance onto a pruned version of the graph for a focused analysis session.
 
-## 7. Code Implementation
+## 8. Code Implementation
 
 **1. Build and enrich the graph:**
 
@@ -183,7 +191,7 @@ assert len(restored.belief_states) == len(snapshot.belief_states)
 assert len(restored.multiway_states) == len(snapshot.multiway_states)
 ```
 
-## 8. Real-World Gap
+## 9. Real-World Gap
 
 This showcase snapshots a 12-node enriched graph. Real-world adoption involves additional considerations:
 
@@ -192,7 +200,7 @@ This showcase snapshots a 12-node enriched graph. Real-world adoption involves a
 - **No incremental snapshots** — each `mem.monitor.snapshot()` is a full capture. For large states, incremental or differential snapshots would reduce storage and transfer costs.
 - **Rule objects are not serialized** — rules are code (Python classes), not data. The restored instance must be constructed with the same rules list for reasoning behavior to match.
 
-## 9. Reference
+## 10. Reference
 
 | Method | Purpose |
 |--------|---------|

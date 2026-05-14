@@ -8,11 +8,13 @@ When a production outage hits, an on-call team often has multiple theories about
 
 **The Hyper3 Approach:** Use overlays. An overlay is a temporary copy of the graph where inference rules operate in isolation. Each hypothesis gets its own overlay. After testing, you either commit the overlay (merge the inferred edges into the base graph) or roll it back (discard the edges entirely). Only the correct hypothesis persists.
 
-**Why this matters:** In incident response, applying a wrong hypothesis should not pollute the knowledge graph. Without overlays, testing hypotheses B and C would inject 56 incorrect inference edges alongside the 28 correct ones from hypothesis A — making the graph unreliable for future investigations.
+**Why this matters:** In incident response, applying a wrong hypothesis should not pollute the knowledge graph. Without overlays, testing hypotheses B and C would inject ~60 incorrect inference edges alongside the ~30 correct ones from hypothesis A — making the graph unreliable for future investigations.
 
 ## 2. A Simple Analogy
 
 Think of overlays like a database transaction. You open a transaction (create an overlay), make changes (run inference), inspect the results (check blast radius), and then either commit (the hypothesis was correct) or rollback (the hypothesis was wrong). The underlying data is untouched until you commit.
+
+Alternatively, think of it like a whiteboard in a war room. Each team member proposes a theory on their own whiteboard. Everyone can see the base facts (the infrastructure graph on the wall), but each whiteboard is private. When the team agrees on the right theory, they copy that whiteboard's conclusions onto the wall. The other whiteboards get erased.
 
 ## 3. Key Concepts
 
@@ -27,6 +29,7 @@ Think of overlays like a database transaction. You open a transaction (create an
 | **Hypothesis seeds** | The set of nodes that form the suspected root cause for a given hypothesis |
 | **TransitiveRule** | Discovers chains: A depends_on B, B depends_on C -> A indirectly_depends_on C |
 | **Directed BFS reachability** | Traversing overlay edges forward from seeds to discover which nodes the hypothesis can explain |
+| **Seed-dependent reachability** | The key discriminator: different seed sets reach different symptom nodes, even though all hypotheses produce similar overlay edges |
 
 ## 4. Quick Start
 
@@ -51,6 +54,8 @@ SECTION 1: Building Infrastructure Graph
     routes_to:       4
     publishes_to:    5
 ```
+
+> **Note on non-determinism:** The multiway expansion engine explores states in an order influenced by Python hash randomization. Overlay edge counts vary slightly across runs (typically 29-31). Hypothesis A always matches 4/6 symptoms and Hypothesis B always matches 0/6. Hypothesis C varies between 1-2/6 symptoms. The conclusions are stable; exact edge counts are not.
 
 ## 5. The Scenario
 
@@ -158,6 +163,36 @@ graph TB
     Q3 -->|"publishes_to"| I5
 ```
 
+### Hypothesis Seed Sets
+
+The three seed sets and their blast radius characteristics:
+
+```mermaid
+graph LR
+    subgraph "Hyp A: Redis Cache Auth"
+        HA1["redis_cache_auth"] --- HA2["auth_service"]
+        HA2 --- HA3["user_service"]
+        HA3 --- HA4["api_gateway"]
+        HA4 --- HA5["payment_service"]
+    end
+
+    subgraph "Hyp B: Network DMZ"
+        HB1["network_segment_dmz"] --- HB2["lb_web"]
+        HB2 --- HB3["lb_api"]
+        HB3 --- HB4["dns_primary"]
+        HB4 --- HB5["vpn_gateway"]
+    end
+
+    subgraph "Hyp C: Kafka Cluster"
+        HC1["kafka_ingestion"] --- HC2["kafka_analytics"]
+        HC2 --- HC3["kafka_events"]
+    end
+
+    HA1 -->|"reaches 4 symptoms"| SYM["Symptom\nServices"]
+    HB1 -.->|"reaches 0 symptoms"| SYM
+    HC1 -->|"reaches 1-2 symptoms"| SYM
+```
+
 ### Edge Label Taxonomy
 
 | Label | Count | Meaning |
@@ -189,35 +224,11 @@ The example walks through 9 sections that demonstrate the overlay commit/rollbac
 Create 29 nodes across 4 categories and wire them with 38 semantic edges:
 
 ```python
-SERVICES = {
-    "api_gateway": {"type": "service", "team": "platform", "criticality": 9},
-    "auth_service": {"type": "service", "team": "identity", "criticality": 10},
-    "user_service": {"type": "service", "team": "identity", "criticality": 8},
-    "payment_service": {"type": "service", "team": "commerce", "criticality": 10},
-    "search_service": {"type": "service", "team": "catalog", "criticality": 6},
-    "reporting_service": {"type": "service", "team": "data", "criticality": 5},
-    "order_service": {"type": "service", "team": "commerce", "criticality": 9},
-    "catalog_service": {"type": "service", "team": "catalog", "criticality": 8},
-    "web_frontend": {"type": "service", "team": "platform", "criticality": 8},
-    "mobile_bff": {"type": "service", "team": "platform", "criticality": 7},
-    "notification_service": {"type": "service", "team": "platform", "criticality": 4},
-    "email_service": {"type": "service", "team": "platform", "criticality": 4},
-}
-
 for label, data in all_nodes.items():
     mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
 
 for src, tgt in DEPENDS_ON:
     mem.link(src, tgt, label="depends_on")
-
-for src, tgt in CONNECTS_TO:
-    mem.link(src, tgt, label="connects_to")
-
-for src, tgt in PUBLISHES_TO:
-    mem.link(src, tgt, label="publishes_to")
-
-for src, tgt in ROUTES_TO:
-    mem.link(src, tgt, label="routes_to")
 ```
 
 **Result:** 29 nodes, 38 edges across 4 edge label types.
@@ -256,11 +267,11 @@ result = mem.reason(
 )
 ```
 
-**Result:** 28 inference edges in the overlay. The blast radius is computed via directed BFS from the seed nodes through the overlay adjacency. Because the seeds are embedded in the `depends_on` graph, transitive expansion produces `indirectly_depends_on` edges that reach other services. Blast radius matches 4 of 6 symptoms (67%): `auth_service`, `user_service`, `api_gateway`, `payment_service`. Average confidence 0.84.
+**Result:** ~30 inference edges in the overlay (varies slightly across runs). The blast radius is computed via directed BFS from the seed nodes through the overlay adjacency. Because the seeds include service nodes (api_gateway, auth_service, user_service, payment_service) that sit in the core of the `depends_on` graph, directed BFS from these seeds reaches other services through transitive dependency chains. Blast radius matches 4 of 6 symptoms (67%): `auth_service`, `user_service`, `api_gateway`, `payment_service`. Average confidence 0.84.
 
-**Why 4/6 and not 6/6:** The seeds sit in the `depends_on` layer. Transitive closure through `depends_on` chains reaches services connected by dependency edges, but `search_service` and `reporting_service` are not reachable from these seeds via `depends_on` paths. Those two services depend on `elastic_search_idx` and `mongo_analytics` respectively, which are not connected to the redis/auth cluster.
+**Why 4/6 and not 6/6:** `search_service` and `reporting_service` are reachable from the seeds only through `publishes_to` paths (kafka -> elastic_search/mongo_analytics -> search/reporting). These paths may or may not be explored depending on the multiway expansion order. Even when explored, the directed BFS from the redis/auth seeds must traverse through multiple intermediate nodes to reach these services, which the `max_total_states=30` cap may truncate. The core auth/payment/user symptoms are directly reachable via short dependency chains.
 
-**Rollback:** The overlay is discarded. 28 edges rolled back. Base graph stays at 38 edges.
+**Rollback:** The overlay is discarded. ~30 edges rolled back. Base graph stays at 38 edges.
 
 ```python
 rb = mem.rollback_inferences()
@@ -270,40 +281,65 @@ rb = mem.rollback_inferences()
 
 Seeds: `{network_segment_dmz, lb_web, lb_api, dns_primary, vpn_gateway}`. The theory is that the DMZ network segment has a partition or misconfiguration, blocking external traffic.
 
-**Result:** 28 inference edges. The seeds sit entirely within the `connects_to` layer. Transitive expansion produces `indirectly_connects_to` edges that chain through network nodes — but all of these edges stay within the network topology. None of the 6 symptom services are network nodes, so directed BFS from seeds through overlay edges reaches zero symptoms. Blast radius matches 0 of 6 symptoms (0%).
+**Result:** ~30 inference edges. All four `TransitiveRule` instances fire on the full graph regardless of which seeds are chosen — the expansion explores every edge label layer. However, the blast radius depends on which nodes the directed BFS can reach from the seeds. The network seeds (network_segment_dmz, lb_web, etc.) have outgoing `routes_to` edges that reach api_gateway and web_frontend, but the overlay's directed BFS starts from the seed node IDs. The key difference: none of the network seeds are themselves symptom services, and the directed BFS from network nodes through overlay edges does not traverse into the symptom service set. Blast radius matches 0 of 6 symptoms (0%).
 
-**Rollback:** 28 edges discarded. Base graph remains at 38 edges.
+**Rollback:** ~30 edges discarded. Base graph remains at 38 edges.
 
-**Why this matters:** This is where the layered edge taxonomy creates a natural blast radius boundary. The `connects_to` edges form a self-contained network layer. Transitive inference within that layer produces edges that connect network nodes to other network nodes, but never cross into the service layer. The hypothesis is cleanly eliminated because its inferred edges cannot reach any failing service.
+**Why this matters:** The seed set determines blast radius, not the edge label layer. All hypotheses produce edges across all four layers (depends_on, connects_to, publishes_to, routes_to). The differentiation comes entirely from which starting points the BFS explores. Network-only seeds cannot reach symptom services through directed BFS because the seeds are topologically distant from the failing services in the directed graph.
 
 ### Section 5: Hypothesis C — Kafka Ingestion Cluster Issue
 
 Seeds: `{kafka_ingestion, kafka_analytics, kafka_events}`. The theory is that the Kafka ingestion cluster is degraded, causing downstream data pipeline failures.
 
-**Result:** 28 inference edges. The seeds sit in the `publishes_to` layer. Transitive expansion produces `indirectly_publishes_to` edges that follow the data pipeline: `kafka_ingestion` -> `kafka_analytics` -> `reporting_service` and `kafka_ingestion` -> `kafka_events` -> `search_service`. Directed BFS reaches 2 symptom services. Blast radius matches 2 of 6 symptoms (33%).
+**Result:** ~30 inference edges. The kafka seeds connect to `reporting_service` and `search_service` via `publishes_to` chains (kafka_ingestion -> kafka_analytics -> reporting_service; kafka_ingestion -> kafka_events -> search_service). Directed BFS reaches 1-2 symptom services depending on expansion order (17-33% match score). Average confidence 0.84.
 
-**Rollback:** 28 edges discarded. Base graph remains at 38 edges.
+**Rollback:** ~30 edges discarded. Base graph remains at 38 edges.
 
-**Why this matters:** The `publishes_to` layer crosses from queues into services (specifically `reporting_service` and `search_service`), so this hypothesis explains some symptoms. But it cannot explain the core auth/payment failures that dominate the incident.
+**Why this matters:** The kafka seeds can explain pipeline-related symptoms (reporting, search) but not the core auth/payment failures. The match score is lower than Hypothesis A because the kafka cluster is not in the dependency path of the critical services.
 
 ### Section 6: Comparative Analysis
 
-All three hypotheses produce 28 overlay edges but with clearly differentiated blast radii:
+All three hypotheses produce ~30 overlay edges with clearly differentiated blast radii:
 
 | Metric | Hyp A | Hyp B | Hyp C |
 |--------|-------|-------|-------|
-| Overlay edges | 28 | 28 | 28 |
-| Symptoms matched | 4 | 0 | 2 |
-| Match score | 67% | 0% | 33% |
+| Overlay edges | ~30 | ~30 | ~30 |
+| Symptoms matched | 4 | 0 | 1-2 |
+| Match score | 67% | 0% | 17-33% |
 | Avg confidence | 0.84 | 0.84 | 0.84 |
 
-The differentiation comes from the layered edge taxonomy. Each hypothesis seeds into a different edge label layer:
+The differentiation comes from **seed-dependent BFS reachability**. Each hypothesis triggers the same 4 `TransitiveRule` instances across the same graph, producing similar overlay edges across all four label layers. The blast radius differs because:
 
-- **Hypothesis A** seeds into `depends_on` (redis_cache_auth, auth_service, user_service, api_gateway, payment_service). The transitive closure of dependency chains reaches 4 of 6 symptom services.
-- **Hypothesis B** seeds into `connects_to` (network_segment_dmz, lb_web, lb_api, dns_primary, vpn_gateway). The transitive closure stays within the network layer, reaching 0 symptom services.
-- **Hypothesis C** seeds into `publishes_to` (kafka_ingestion, kafka_analytics, kafka_events). The transitive closure follows data pipelines to 2 of 6 symptom services.
+- **Hypothesis A** seeds include service nodes (api_gateway, auth_service) that sit in the core of the dependency graph. Directed BFS from these seeds reaches 4 of 6 symptom services through short chains.
+- **Hypothesis B** seeds are all network nodes. Directed BFS from network nodes does not traverse into the symptom service set because the seeds are topologically distant from failing services in the directed graph.
+- **Hypothesis C** seeds are kafka queues. Directed BFS reaches 1-2 symptom services through data pipeline paths, but cannot reach the critical auth/payment services.
 
-The identical edge counts and confidence scores reflect that each hypothesis triggers the same 4 `TransitiveRule` instances across the same graph. The blast radius differs because directed BFS reachability is seed-dependent: starting from different layers produces different reachable sets.
+```mermaid
+graph TD
+    subgraph "How Seed Sets Produce Different Blast Radii"
+        SA["Hyp A seeds<br/>(redis_cache_auth,<br/>auth_service, ...)"]
+        SB["Hyp B seeds<br/>(network_segment_dmz,<br/>lb_web, ...)"]
+        SC["Hyp C seeds<br/>(kafka_ingestion,<br/>kafka_events, ...)"]
+    end
+
+    subgraph "All 4 TransitiveRules Fire on Full Graph"
+        R1["indirectly_depends_on"]
+        R2["indirectly_connects_to"]
+        R3["indirectly_publishes_to"]
+        R4["indirectly_routes_to"]
+    end
+
+    subgraph "Directed BFS from Seeds"
+        BA["4/6 symptoms<br/>(auth, user, api, payment)"]
+        BB["0/6 symptoms"]
+        BC["1-2/6 symptoms<br/>(reporting, search)"]
+    end
+
+    SA --> R1 & R2 & R3 & R4
+    SB --> R1 & R2 & R3 & R4
+    SC --> R1 & R2 & R3 & R4
+    R1 & R2 & R3 & R4 --> BA & BB & BC
+```
 
 ### Section 7: Committing the Correct Hypothesis
 
@@ -314,22 +350,22 @@ analysis_final = analyze_hypothesis(mem, seeds_a, symptom_ids)
 committed = mem.commit_inferences()
 ```
 
-**Result:** 28 edges merged from the overlay into the base graph. The overlay is destroyed after commit.
+**Result:** ~30 edges merged from the overlay into the base graph. The overlay is destroyed after commit.
 
 ### Section 8: Before / After Comparison
 
 | State | Edge Count |
 |-------|------------|
 | Base graph before | 38 |
-| Base graph after commit | 66 |
-| Inference edges added | 28 |
+| Base graph after commit | ~68 |
+| Inference edges added | ~30 |
 | Overlay active after commit | No |
 
-The 28 committed edges include transitive dependency chains like `order_service --[indirectly_depends_on]--> redis_cache_auth` and `web_frontend --[indirectly_depends_on]--> user_service`, which are now available for future reasoning operations.
+The committed edges include transitive dependency chains like `order_service --[indirectly_depends_on]--> redis_cache_auth` and `web_frontend --[indirectly_depends_on]--> user_service`, which are now available for future reasoning operations.
 
 ### Section 9: Why Overlay Matters
 
-Without the overlay mechanism, testing hypotheses B and C would have injected 56 incorrect inference edges into the base graph (28 from each). These edges would be indistinguishable from the 28 correct edges from hypothesis A, making the graph unreliable.
+Without the overlay mechanism, testing hypotheses B and C would have injected ~60 incorrect inference edges into the base graph (~30 from each). These edges would be indistinguishable from the ~30 correct edges from hypothesis A, making the graph unreliable.
 
 The overlay provides:
 - **Isolation:** Each hypothesis explored on its own scratchpad
@@ -350,11 +386,13 @@ Confidence decays with chain length via the `confidence_decay=0.9` parameter. A 
 
 ### Blast Radius via Directed BFS
 
-The blast radius is computed by building a directed adjacency map from overlay edges, then running BFS from seed node IDs through that map. This is a directed traversal — only forward edges from seeds are followed, which matters because:
+The blast radius is computed by building a directed adjacency map from overlay edges, then running BFS from seed node IDs through that map. This is a directed traversal — only forward edges from seeds are followed. The critical insight: **all hypotheses produce edges across all four label layers**, but the seeds determine which nodes the BFS starts from, and therefore which symptoms are reachable.
 
-- **Hyp A** seeds point *into* the `depends_on` graph (seeds are themselves service nodes with outgoing dependency edges), so BFS follows those edges to downstream services.
-- **Hyp B** seeds point *into* the `connects_to` graph only, so BFS follows network edges and stays within the network layer.
-- **Hyp C** seeds point *into* the `publishes_to` graph, so BFS follows pipeline edges to `reporting_service` and `search_service`.
+**Why seed choice matters more than layer choice:**
+
+- **Hyp A** seeds include `api_gateway` and `auth_service` — nodes with many outgoing dependency edges. BFS from these nodes quickly reaches the core failing services.
+- **Hyp B** seeds are network nodes. Even though the overlay contains `indirectly_depends_on` edges, BFS starting from network seeds cannot traverse those edges because they don't originate from network nodes.
+- **Hyp C** seeds are kafka nodes. BFS follows `indirectly_publishes_to` edges from kafka nodes to reach reporting and search services.
 
 ### Match Score Interpretation
 
@@ -378,7 +416,7 @@ The blast radius is computed by building a directed adjacency map from overlay e
 |--------|-------|
 | Graph nodes | 29 |
 | Graph edges (initial) | 38 |
-| Graph edges (after commit) | 66 |
+| Graph edges (after commit) | ~68 |
 | Symptom services | 6 |
 | Non-symptom services | 6 |
 | Infrastructure nodes | 6 |
@@ -387,12 +425,12 @@ The blast radius is computed by building a directed adjacency map from overlay e
 | Edge label types | 4 |
 | Hypotheses tested | 3 |
 | Inference rules | 4 (TransitiveRule per edge label) |
-| Overlay edges per hypothesis | 28 |
-| Incorrect edges avoided | 56 (from hypotheses B + C) |
-| Committed edges | 28 (from hypothesis A) |
-| Match score Hyp A | 67% (4/6 symptoms) |
-| Match score Hyp B | 0% (0/6 symptoms) |
-| Match score Hyp C | 33% (2/6 symptoms) |
+| Overlay edges per hypothesis | ~30 |
+| Incorrect edges avoided | ~60 (from hypotheses B + C) |
+| Committed edges | ~30 (from hypothesis A) |
+| Match score Hyp A | 67% (4/6 symptoms) — deterministic |
+| Match score Hyp B | 0% (0/6 symptoms) — deterministic |
+| Match score Hyp C | 17-33% (1-2/6 symptoms) — varies |
 | Average confidence | 0.84 |
 
 ## 9. What Makes This Different
@@ -406,11 +444,11 @@ The blast radius is computed by building a directed adjacency map from overlay e
 3. **Provenance preservation** — committed edges retain their confidence scores and rule-of-origin. Future reasoning can distinguish between observed edges (`depends_on`) and inferred edges (`indirectly_depends_on`).
 4. **Base graph integrity** — the shared knowledge graph stays clean. Wrong hypotheses leave no residue. This is critical for long-running systems where the graph accumulates knowledge over months or years.
 
-**What the layered edge taxonomy adds:**
+**What seed-dependent reachability adds:**
 
-1. **Natural blast radius boundaries** — the 4 edge label layers (`depends_on`, `connects_to`, `publishes_to`, `routes_to`) create distinct connectivity regions. A hypothesis seeded in one layer produces inference edges that stay primarily within that layer's transitive closure, making blast radius computation meaningful rather than trivially reaching all nodes.
+1. **Topology-driven discrimination** — the blast radius depends on which nodes the BFS starts from, not on which edge labels the seeds belong to. Seeds in the dependency core reach more symptoms; seeds at the network periphery reach none.
 2. **Directed reachability through overlay edges** — blast radius is not computed by counting incident edges on seeds. Instead, a directed adjacency map is built from overlay edges and BFS is run from seeds forward. This means the direction of inferred edges determines which symptoms are reachable, not just proximity.
-3. **Clear numerical differentiation** — the three hypotheses produce 67%, 0%, and 33% match scores. The SRE team does not need to apply domain knowledge to break a tie. The graph structure itself discriminates between hypotheses.
+3. **Clear numerical differentiation** — the three hypotheses produce 67%, 0%, and 17-33% match scores. The SRE team does not need to apply domain knowledge to break a tie. The graph structure itself discriminates between hypotheses.
 
 **The `auto_commit=False` parameter** is the control point. By default, `reason()` commits inference edges immediately. Setting `auto_commit=False` keeps them in the overlay, giving the caller the choice of when (or whether) to persist them.
 
@@ -458,11 +496,19 @@ result = mem.reason(
 )
 ```
 
-**4. Compute Blast Radius via Directed BFS**
+**4. Inspect Overlay Edges with Labeled Details**
 
 ```python
 overlay = mem.overlay
-seed_ids = {mem.resolve_id(s) for s in seeds}
+for le in overlay.labeled_edges:
+    print(f"  {le['source_labels']} --[{le['label']}]--> {le['target_labels']}"
+          f"  (confidence={le['confidence']})")
+```
+
+**5. Compute Blast Radius via Directed BFS**
+
+```python
+seed_ids = {mem.resolve_id(s) for s in seeds if mem.resolve_id(s)}
 
 adj: dict[str, set[str]] = {}
 for eid in overlay.overlay_edge_ids:
@@ -480,10 +526,10 @@ while queue:
             visited.add(neighbor)
             queue.append(neighbor)
 
-blast_radius = {nid for nid in visited if nid in symptom_ids}
+blast_radius = {mem.node_label(nid) for nid in visited if nid in symptom_ids}
 ```
 
-**5. Commit or Rollback**
+**6. Commit or Rollback**
 
 ```python
 if hypothesis_is_correct:
@@ -497,22 +543,24 @@ The overlay workflow follows a consistent cycle:
 ```mermaid
 flowchart LR
     H["Hypothesis\nSeeds"] --> R["reason()\nauto_commit=False"]
-    R --> O["Overlay\n(28 edges)"]
+    R --> O["Overlay\n(~30 edges)"]
     O --> E{"Blast radius\nmatches?"}
     E -->|Yes| C["commit_inferences()"]
     E -->|No| RB["rollback_inferences()"]
-    C --> BG["Base Graph\n+28 edges"]
+    C --> BG["Base Graph\n+~30 edges"]
     RB --> BG2["Base Graph\nunchanged"]
 ```
 
 ## 11. Real-World Gap
 
-**Hypothesis discrimination.** In this showcase, the layered edge taxonomy produces clearly differentiated match scores (67%, 0%, 33%). Real incident response requires additional discriminators beyond blast radius match count:
+**Hypothesis discrimination.** In this showcase, seed-dependent reachability produces clearly differentiated match scores (67%, 0%, 17-33%). Real incident response requires additional discriminators beyond blast radius match count:
 
 - **Temporal correlation:** When did each symptom start relative to the suspected root cause?
 - **Severity gradient:** Are symptoms closer to the root cause more severe than distant ones?
 - **Direct vs indirect paths:** Does the hypothesis explain symptoms via direct dependencies or only through long transitive chains?
 - **Service health data:** Real-time metrics (error rates, latency percentiles) from monitoring systems.
+
+**Non-determinism.** The multiway expansion explores states in an order influenced by Python hash randomization. This causes slight variation in overlay edge counts and Hypothesis C's match score. For production use, consider increasing `max_total_states` to reduce truncation effects, or running multiple trials and taking the consensus.
 
 **Data pipeline.** The showcase constructs a synthetic graph from hardcoded dictionaries. Real adoption requires:
 
@@ -540,6 +588,7 @@ flowchart LR
 | **Match score** | Fraction of symptoms explained by a hypothesis |
 | **auto_commit** | Parameter controlling whether `reason()` immediately commits edges |
 | **Directed BFS reachability** | Forward traversal from seeds through overlay edge adjacency |
+| **Seed-dependent reachability** | The key discriminator: different seed sets reach different symptom nodes |
 
 ### Key API Methods
 
@@ -549,9 +598,12 @@ flowchart LR
 | `mem.commit_inferences()` | Merge overlay edges into base graph |
 | `mem.rollback_inferences()` | Discard overlay edges |
 | `mem.overlay` | Access the current overlay (None if inactive) |
+| `overlay.labeled_edges` | List of overlay edges with resolved source/target labels |
 | `overlay.overlay_edge_ids` | Set of edge IDs in the overlay |
 | `overlay.get_confidence(edge_id)` | Get confidence score for an overlay edge |
 | `overlay.get_edge(edge_id)` | Retrieve an overlay edge by ID |
+| `mem.resolve_id(concept)` | Resolve a concept label to its internal node ID |
+| `mem.node_label(node_id)` | Resolve an internal node ID to its label |
 
 ### Related Examples
 

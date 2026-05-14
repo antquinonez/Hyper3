@@ -10,7 +10,15 @@ The graph contains 20 nodes total: 9 infrastructure components (api_gateway, aut
 
 This is the first Hyper3 example demonstrating the temporal namespace API: `mem.temporal.events`, `mem.temporal.detect_causal_chains()`, `mem.temporal.infer_constraints()`, and `mem.temporal.check_constraint_consistency()`.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a detective reconstructing a crime timeline. They pin photos of events to a corkboard and connect them with red string. Two events that happened at the same time get a special label ("overlaps"). Two where one ended exactly when the other began get a different label ("meets"). This is Allen interval algebra — 13 possible relationships between two time intervals, each capturing a distinct temporal pattern.
+
+Now the detective asks: "Did event A cause event B?" The corkboard alone cannot answer this — temporal proximity is not causation. The detective must add causal assertions ("the broken lock caused the theft") as separate pieces of evidence. Only then can they trace chains: broken lock -> unauthorized entry -> theft -> police response. This is the two-phase approach: temporal events establish *when*, causal edges assert *why*.
+
+The infrastructure graph is the building's floor plan. When the detective asks "how did the intruder get from the lobby to the vault?", shortest-path analysis traces the route through doors and corridors (dependency edges). The combination of floor plan and timeline is what makes forensic reconstruction possible.
+
+## 3. Key Concepts
 
 | Term | What it does |
 |------|-------------|
@@ -20,13 +28,13 @@ This is the first Hyper3 example demonstrating the temporal namespace API: `mem.
 | **Temporal constraint** | An inferred Allen relation between two events |
 | **Constraint consistency** | Checking the inferred constraint network for contradictions |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/temporal_incident_forensics/temporal_incident_forensics.py
 ```
 
-## 4. The Scenario
+## 5. The Scenario
 
 A routine deployment of config-service:v2.3 pushes a stale configuration (max_connections=50 instead of 500). Over the next 10 minutes, the connection pool fills, API latency spikes, customers experience timeouts, and the incident response team intervenes with a rollback.
 
@@ -79,7 +87,7 @@ graph TB
     CP -->|connects_to| PG
 ```
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 ### Section 1: Infrastructure Graph Construction
 Creates 9 infrastructure nodes and 12 dependency edges. The dependency graph enables impact propagation analysis.
@@ -112,7 +120,7 @@ This two-phase approach is intentional: it shows that causal chain detection req
 ### Section 6: Infrastructure Impact Analysis
 Shortest path from config_service to payment_service reveals the impact propagation route: `config_service -> api_gateway -> payment_service`. Betweenness centrality identifies api_gateway as the primary bottleneck.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -125,7 +133,7 @@ Shortest path from config_service to payment_service reveals the impact propagat
 | Temporal constraints | 55 |
 | Consistency violations | 0 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Allen interval algebra** provides a precise vocabulary for temporal relationships that goes beyond simple "before/after" timestamps. The 13 relations capture nuances like "overlaps" (both events active simultaneously) and "meets" (one ends exactly when the other begins) that reveal incident dynamics.
 
@@ -133,7 +141,7 @@ Shortest path from config_service to payment_service reveals the impact propagat
 
 **Infrastructure-temporal integration** bridges structural analysis (which components are affected) with temporal analysis (when they were affected). Because temporal events are graph nodes, a single shortest-path query can traverse from an infrastructure component to a temporal event and back, enabling forensic reconstruction of how a single config error cascaded through the system.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 ```python
 from hyper3 import HypergraphMemory, TransitiveRule
@@ -177,14 +185,14 @@ path = mem.analyze.shortest_path("config_service", "payment_service", weighted=T
 centrality = mem.analyze.centrality("betweenness", top_k=5)
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 - **Manual event registration.** Events are registered programmatically. A production system would ingest events from monitoring systems (Prometheus, Datadog) and incident management tools (PagerDuty, Jira).
 - **Fixed time intervals.** Real incident timestamps are imprecise. The system assumes exact start/end times.
 - **No probabilistic ordering.** Allen relations are deterministic. Real forensic analysis requires probabilistic ordering when timestamps are uncertain.
 - **Causal chains are topological.** The detected chains are based on temporal ordering and graph connectivity, not proven causation. Correlation is not causation.
 
-## 10. Reference
+## 11. Reference
 
 ### API Methods
 
