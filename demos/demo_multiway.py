@@ -2,6 +2,24 @@
 Multiway expansion demo: the hypergraph reasons about a legal domain,
 branching through multiple rule applications simultaneously.
 
+This demo uses the LOW-LEVEL API (Hypergraph, MultiwayEngine, rules)
+instead of the high-level HypergraphMemory facade. It shows how the
+multiway expansion engine works under the hood:
+
+  1. Build a legal knowledge graph using raw Hypergraph/Hypernode/Hyperedge
+  2. Define 6 reasoning rules (transitive, inverse, abductive, property propagation)
+  3. Run multiway expansion: all rules applied simultaneously, branching into
+     a tree of computational states
+  4. Examine state clustering: which branches are similar to each other
+  5. Extract lateral insights: what one branch learned that another didn't
+  6. Inspect inferred knowledge: the new edges produced by reasoning
+  7. Display the full multiway state tree
+
+Key concept: "multiway" means the system doesn't commit to a single inference
+path. Instead, it explores ALL possible rule applications in parallel, creating
+a tree of states. Each state is a snapshot of the graph after applying a rule.
+Equivalent states are merged by the StateConvergenceEngine.
+
 Run with: .venv/bin/python demos/demo_multiway.py
 """
 
@@ -21,11 +39,17 @@ from hyper3 import (
 
 
 def label_of(graph, node_id):
+    """Resolve a node ID to its human-readable label, with fallback."""
     n = graph.get_node(node_id)
     return n.label if n else node_id[:8]
 
 
 def print_state_tree(mw, graph, state_id, indent=0):
+    """
+    Recursively print the multiway state tree.
+    Each state shows which nodes are active, which rule was applied to
+    produce it, and what new nodes/edges it generated.
+    """
     state = mw.get_state(state_id)
     if not state:
         return
@@ -44,6 +68,16 @@ def print_state_tree(mw, graph, state_id, indent=0):
 
 
 # --- BUILD KNOWLEDGE GRAPH -------------------------------------------------
+#
+# This demo uses the raw Hypergraph API instead of HypergraphMemory.
+# We create Hypernode instances directly with explicit IDs (using the label
+# as the ID for simplicity) and add edges with frozenset source/target IDs.
+#
+# The domain is intellectual property law: patentability requires novelty
+# and non-obviousness; prior art defeats novelty; inventions seek patents.
+# A hypergraph system is an invention (is_an edge), implementing dynamic
+# instantiation and achieving token independence.
+#
 print("=" * 70)
 print("1. BUILDING LEGAL KNOWLEDGE DOMAIN")
 print("=" * 70)
@@ -67,6 +101,8 @@ for label, mod in concepts.items():
         metadata=Metadata(modality_tags={mod}, custom={"domain": "ip_law"}),
     ))
 
+# Each edge is a directed relationship with a semantic label.
+# frozenset({...}) is required because edges use frozensets as IDs internally.
 g.add_edge(Hyperedge(source_ids=frozenset({"patentability"}), target_ids=frozenset({"novelty"}), label="requires"))
 g.add_edge(Hyperedge(source_ids=frozenset({"patentability"}), target_ids=frozenset({"non_obviousness"}), label="requires"))
 g.add_edge(Hyperedge(source_ids=frozenset({"prior_art"}), target_ids=frozenset({"novelty"}), label="defeats"))
@@ -80,6 +116,34 @@ print(f"  Nodes: {g.node_count}, Edges: {g.edge_count}")
 print()
 
 # --- DEFINE RULES -----------------------------------------------------------
+#
+# Rules are pure pattern matchers with a find_matches() method (side-effect-free)
+# and an apply() method that mutates the graph. The multiway engine calls
+# find_matches() to discover applicable rules, then apply() to produce new edges.
+#
+# Six rules are registered:
+#
+#   TransitiveRule("requires", "implies"):
+#     If A-requires->B and B-requires->C, infer A-implies->C
+#     (patentability requires novelty, novelty requires... -> transitive implication)
+#
+#   TransitiveRule("seeks", "implies"):
+#     If A-seeks->B and B-requires->C, infer A-implies->C
+#     (invention seeks patentability, patentability requires novelty -> implication chain)
+#
+#   InverseRule("requires", "required_by"):
+#     If A-requires->B, infer B-required_by->A
+#
+#   InverseRule("defeats", "defeated_by"):
+#     If A-defeats->B, infer B-defeated_by->A
+#
+#   PropertyPropagationRule("domain"):
+#     If A has property "domain" and A-requires->B, propagate "domain" to B
+#
+#   AbductiveRule("requires"):
+#     If B is observed and A-requires->B, hypothesize A
+#     (backward inference: "novelty is required" -> "patentability may exist")
+#
 print("=" * 70)
 print("2. DEFINING REASONING RULES")
 print("=" * 70)
@@ -98,6 +162,19 @@ for rule in rules:
 print()
 
 # --- MULTIWAY EXPANSION -----------------------------------------------------
+#
+# The MultiwayEngine takes a graph and a set of rules. expand() performs:
+#
+#   1. Start with a root state containing the seed nodes as "active"
+#   2. For each state, try applying every rule to the current graph
+#   3. Each successful rule application creates a child state
+#   4. Repeat until max_depth or max_total_states is reached
+#   5. Merge equivalent states (same set of active nodes + same edges)
+#
+# The result is a tree of states, where each path from root to leaf
+# represents a sequence of rule applications. Different paths represent
+# different inference strategies explored in parallel.
+#
 print("=" * 70)
 print("3. MULTIWAY EXPANSION")
 print("=" * 70)
@@ -109,6 +186,7 @@ seed = {"patentability", "novelty", "non_obviousness", "prior_art", "invention",
 print(f"\n  Seed nodes: {len(seed)}")
 print(f"  Rules: {len(rules)}")
 
+# expand() returns an ExpansionReport with counts of states, rules, and products.
 report = engine.expand(seed, rules, max_depth=3, max_total_states=30)
 
 print(f"\n  Expansion report:")
@@ -122,6 +200,15 @@ print(f"\n  Graph after expansion: {g.node_count} nodes, {g.edge_count} edges")
 print()
 
 # --- STATE CLUSTERING ------------------------------------------------------
+#
+# After expansion, the multiway graph (the state tree) can be analyzed.
+# get_children() returns the direct children of the root -- each represents
+# a different rule applied to the initial state.
+#
+# get_state_relations() computes pairwise distances between states based
+# on which nodes are active in each. States with high overlap are "close"
+# and may represent complementary inference strategies.
+#
 print("=" * 70)
 print("4. STATE CLUSTERING: SIMULTANEOUS STATES")
 print("=" * 70)
@@ -136,6 +223,8 @@ for child in children:
     produced = [label_of(g, nid) for nid in child.produced_node_ids]
     print(f"    Branch [{child.rule_applied}]: produced {produced or 'edges only'}")
 
+# State relations are pairwise distance measures between multiway states.
+# High distance = very different conclusions; low distance = similar conclusions.
 relations = mw.get_state_relations()
 if relations:
     print(f"\n  State relations ({len(relations)}):")
@@ -148,6 +237,17 @@ if relations:
 print()
 
 # --- LATERAL INSIGHTS -------------------------------------------------------
+#
+# Lateral insights compare pairs of sibling states and identify knowledge
+# that one branch discovered but the other didn't. This is "lateral
+# reasoning" -- transferring insights across parallel inference paths.
+#
+# For each direct child of the root, get_lateral_insights() compares it
+# against its siblings and reports:
+#   - novel_in_source: nodes the source found that the lateral didn't
+#   - novel_in_lateral: nodes the lateral found that the source didn't
+#   - state_distance: how different the two states are
+#
 print("=" * 70)
 print("5. LATERAL INSIGHTS: WHAT BRANCHES DISCOVER FROM EACH OTHER")
 print("=" * 70)
@@ -166,6 +266,11 @@ for child in children:
 print()
 
 # --- NEW EDGES DISCOVERED ---------------------------------------------------
+#
+# After expansion, the graph contains new edges marked as "inferred".
+# These are the concrete knowledge produced by the reasoning process.
+# Each carries the rule name that produced it in its metadata.
+#
 print("=" * 70)
 print("6. INFERRED KNOWLEDGE (NEW EDGES)")
 print("=" * 70)
@@ -179,6 +284,15 @@ for edge in g.edges:
 print()
 
 # --- STATE TREE -------------------------------------------------------------
+#
+# The full multiway state tree shows the complete branching structure.
+# The root is the initial state (all seed nodes active, no rules applied).
+# Each child is a state after one rule application. Deeper levels represent
+# sequences of rule applications.
+#
+# This tree is the "multiway graph" -- the system's record of all the
+# inference paths it explored simultaneously.
+#
 print("=" * 70)
 print("7. FULL MULTIWAY STATE TREE")
 print("=" * 70)

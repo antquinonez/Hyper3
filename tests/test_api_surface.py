@@ -213,6 +213,7 @@ class TestDirSurface:
         "get", "set", "has", "info", "size",
         "centrality", "paths", "communities", "anomalies",
         "similar", "edges",
+        "describe", "prove", "introspect", "activate",
         "evolve",
         "save", "load",
         "export_json", "import_json", "export_edgelist", "import_edgelist",
@@ -243,7 +244,7 @@ class TestDirSurface:
         public = {x for x in dir(mem) if not x.startswith("_")}
         hidden = {
             "store", "relate", "relate_hyperedge", "has_node", "recall",
-            "describe", "stats", "introspect",
+            "stats",
             "create_distribution", "sample", "sample_correlated",
             "correlate", "detect_structural_anomalies",
             "set_prior", "update_belief", "revise_beliefs",
@@ -257,7 +258,7 @@ class TestDirSurface:
             "density", "diameter", "pagerank",
             "betweenness_centrality",
             "commit_inferences", "rollback_inferences",
-            "prove", "hebbian_reinforce",
+            "hebbian_reinforce",
             "edges_labeled",
             "belief_layer", "temporal_engine",
             "operation_feedback", "provenance", "retrieval", "enricher",

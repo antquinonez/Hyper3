@@ -120,6 +120,7 @@ class HypergraphMemory(
         "get", "set", "has", "info", "size",
         "centrality", "paths", "communities", "anomalies",
         "similar", "edges",
+        "describe", "prove", "introspect", "activate",
         "evolve",
         "save", "load",
         "export_json", "import_json", "export_edgelist", "import_edgelist",
@@ -344,6 +345,56 @@ class HypergraphMemory(
     def edges(self, **kwargs) -> Any:
         """Shortcut delegate to analyze.edges()."""
         return self.analyze.edges(**kwargs)
+
+    def describe(self) -> Any:
+        """Shortcut delegate to analyze.describe()."""
+        return self.analyze.describe()
+
+    # Shortcuts below call the mixin directly (e.g. CognitiveMixin.prove(self, ...))
+    # instead of going through the namespace (e.g. self.cognitive.prove(...)) because
+    # the namespace calls self._mem.prove() which would recurse back to this shortcut.
+    def prove(self, concept: str, *, facts: set[str] | None = None, depth: int = 5,
+              known_facts: set[str] | None = None, max_depth: int | None = None,
+              edge_label: str | None = None) -> Any:
+        """Shortcut for backward chaining proof via cognitive.prove().
+
+        Args:
+            concept: Target concept to prove.
+            facts: Known fact labels (alias for known_facts).
+            depth: Maximum proof depth (alias for max_depth).
+            known_facts: Known fact labels (overrides facts if both given).
+            max_depth: Maximum proof depth (overrides depth if both given).
+            edge_label: Restrict proof traversal to edges with this label.
+
+        Returns:
+            BackwardChainResult with proof tree and status.
+        """
+        kf = known_facts if known_facts is not None else facts
+        md = max_depth if max_depth is not None else depth
+        return CognitiveMixin.prove(self, concept, known_facts=kf, max_depth=md, edge_label=edge_label)
+
+    def introspect(self) -> Any:
+        """Shortcut for system health introspection via monitor.health().
+
+        Returns:
+            HealthReport with system and graph health metrics.
+        """
+        return MonitoringMixin.introspect(self)
+
+    def activate(self, concept: str, *, energy: float = 1.0, top_k: int = 10,
+                 iterations: int | None = None) -> list:
+        """Shortcut for spreading activation via search.activate().
+
+        Args:
+            concept: Source concept label to activate.
+            energy: Initial activation energy.
+            top_k: Maximum results to return.
+            iterations: Number of spreading iterations (default: engine default).
+
+        Returns:
+            List of ActivationResult objects with label and activation level.
+        """
+        return RetrievalMixin.activate(self, concept, energy=energy, top_k=top_k, iterations=iterations)
 
     @property
     def frame_cache_stats(self) -> Any:

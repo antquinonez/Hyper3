@@ -392,12 +392,14 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` read-only property
 `mem.rules` returns a copy of the currently active inference rules as a list. This is a read-only property; use `add_rules()` to register new rules.
 
-### No comments in production code (src/)
-Do not add comments in `src/` code unless explicitly asked, with two exceptions:
-- **Navigational section dividers** (e.g., `# -- Terminal: extract results ---`) are acceptable in long files.
-- **"Why" comments** explaining non-obvious design rationale are acceptable. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+### Comment and docstring policy in production code (src/)
+Do not add inline comments (`#`) that explain *what* code does — the code should be self-documenting. Three categories are always allowed:
 
-Do not add comments that explain what the code does -- the code should be self-documenting.
+- **Docstrings** on public classes and methods — these describe API contracts (parameters, return types, behavior), not implementation details. Every public method should have a docstring.
+- **"Why" comments** explaining non-obvious design rationale. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+- **Navigational section dividers** in long files (e.g., `# -- Terminal: extract results ---`).
+
+The concern driving this policy is comment decay: inline comments that describe *what* code does go stale whenever the logic changes, often faster than the surrounding code is updated. Docstrings and "why" comments decay at much lower rates because they describe contracts and rationale rather than step-by-step mechanics.
 
 Examples (`examples/`) and tests (`tests/`) may use comments freely for section markers, explanatory notes, and educational annotations.
 
@@ -436,6 +438,15 @@ The deprecated alias `edges_for()` still works but prefer `incident_edges()` for
 ### `query_nodes()` for data-attribute filtering
 `mem.query_nodes(type="movie")` or `mem.query_nodes(data={"ecosystem": "pypi"})` returns concept labels matching data attributes. The `type` parameter is shorthand for `data={"type": value}`. Supports `labels` set filter and `limit`.
 
+### Top-level shortcuts bypass namespace to avoid recursion
+Shortcuts like `mem.prove()`, `mem.introspect()`, and `mem.activate()` call the mixin directly (e.g., `CognitiveMixin.prove(self, ...)`) instead of going through the namespace (e.g., `self.cognitive.prove(...)`). This is necessary because the namespace calls `self._mem.method()` which would recurse back to the shortcut. New shortcuts that share a name with a mixin method must follow this pattern.
+
+### `activate()` accepts `iterations`
+The `mem.activate()` shortcut passes `iterations` through to the underlying `RetrievalMixin.activate()`. This controls the number of spreading steps.
+
+### `prove()` accepts dual parameter names
+`mem.prove()` accepts both `facts`/`depth` (namespace style) and `known_facts`/`max_depth` (mixin style). The mixin-style parameters take precedence when both are provided.
+
 Additional subsystem-specific conventions (Born rule sampling, rule edge_label, community detection, etc.) are in `ai/agents_conventions.md`.
 
 ## Common Pitfalls
@@ -449,6 +460,8 @@ Additional subsystem-specific conventions (Born rule sampling, rule edge_label, 
 - **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
 - **Belief state staleness is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
 - **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.state_convergence`), use attribute access with explicit `if ci:` guards instead of `.get()`.
+- **Shortcut-namespace recursion**: Top-level shortcuts that share a name with a mixin method (e.g., `prove`, `activate`, `introspect`) must call the mixin directly (`CognitiveMixin.prove(self, ...)`) rather than delegating through the namespace (`self.cognitive.prove(...)`). The namespace calls `self._mem.prove()` which would recurse back to the shortcut, causing infinite recursion.
+- **Community detection self-loops**: `CommunityDetector` filters self-loops in `_build_neighbor_map`. Graphs with self-referential edges (a node connecting to itself) will have those edges excluded from community analysis to prevent `frozenset` collapse in modularity calculation.
 
 ## Edit Safety
 

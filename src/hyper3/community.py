@@ -557,12 +557,14 @@ class CommunityDetector:
                 if edge_label and edge.label != edge_label:
                     continue
                 for tgt in edge.target_ids:
-                    neighbor_map.setdefault(node_id, []).append((tgt, edge.weight))
+                    if tgt != node_id:
+                        neighbor_map.setdefault(node_id, []).append((tgt, edge.weight))
             for edge in self._graph.incoming_edges(node_id):
                 if edge_label and edge.label != edge_label:
                     continue
                 for src in edge.source_ids:
-                    neighbor_map.setdefault(node_id, []).append((src, edge.weight))
+                    if src != node_id:
+                        neighbor_map.setdefault(node_id, []).append((src, edge.weight))
         return neighbor_map
 
     def _update_node_label(
