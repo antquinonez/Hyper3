@@ -6,6 +6,10 @@
 
 Traditional graph queries return nodes that match a filter. Hyper3 retrieves related concepts by propagating energy through edges (spreading activation), computing embedding-based similarity, and fusing both signals via Reciprocal Rank Fusion. This matters because graph topology and semantic similarity capture different aspects of relatedness — a concept can be structurally close (many shared edges) but semantically distant, or vice versa. RRF fusion combines both rankings without requiring weight tuning.
 
+## A Simple Analogy
+
+Imagine two librarians helping you find related books. The first traces physical connections between books (citations, cross-references, same shelf) -- this is spreading activation. The second reads the titles and descriptions to find books about similar topics, even if they're shelved far apart -- this is embedding similarity. RRF fusion takes both librarians' recommendations and merges them by rank position, so a book recommended highly by both librarians surfaces above one recommended by only one.
+
 ## Key Concepts
 
 | Term | What it does |
@@ -30,7 +34,6 @@ concepts: 14, edges: 18
 
 SECTION 2: SPREADING ACTIVATION RETRIEVAL
 spreading activation from 'python':
-           python: 1.0000 ####################
            web_dev: 0.6855 #############
                 ml: 0.5587 ###########
             django: 0.4794 #########
@@ -40,6 +43,7 @@ spreading activation from 'python':
       data_science: 0.3710 #######
         javascript: 0.2484 ####
              react: 0.2484 ####
+          postgres: 0.1454 ##
 
 SECTION 5: HYPEREDGE SIMILARITY
   ('used_for', 0.3333)
@@ -117,12 +121,11 @@ Python is the central hub — it connects to 3 fields and 4 frameworks, making i
 
 ### 2. Spreading Activation from Python
 
-`mem.search.activate("python")` injects energy at the python node and propagates it outward along edges. The top-10 results:
+`mem.search.activate("python")` injects energy at the python node and propagates it outward along edges. The top-10 results (seed node excluded from namespace API):
 
 | Concept | Activation | Why |
 |---------|-----------|-----|
-| python | 1.0000 | Seed node |
-| web_dev | 0.6855 | Reached via 3 edges from python (flask, django, javascript) plus 1 direct edge |
+| web_dev | 0.6855 | Reached via 3 paths from python (flask, django, javascript) plus 1 direct edge |
 | ml | 0.5587 | Direct edge from python |
 | django | 0.4794 | Direct edge from python |
 | flask | 0.4794 | Direct edge from python |
@@ -131,14 +134,25 @@ Python is the central hub — it connects to 3 fields and 4 frameworks, making i
 | data_science | 0.3710 | Direct edge from python |
 | javascript | 0.2484 | Reached via web_dev (python -> web_dev <- javascript) |
 | react | 0.2484 | Reached via web_dev (python -> web_dev <- react) |
+| postgres | 0.1454 | Reached via data_science (python -> data_science -> postgres) |
 
 Why this matters: activation reveals *indirect* connections. Javascript and react have no direct edge to python, yet they rank in the top 10 because they share the `web_dev` neighbor. A simple neighbor query would miss these.
 
 ### 3. Semantic Similarity via `find_similar`
 
-`find_similar("python", top_k=5)` and `find_similar("rust", top_k=5)` both return empty results in this showcase. The embedding provider for this graph does not produce discriminative vectors for these 14 short-label nodes — their embedding representations are not sufficiently distinct to rank above the similarity threshold.
+`find_similar("python", top_k=5)` returns concepts whose embedding vectors are closest to python's. The default `FastEmbedProvider` uses the `BAAI/bge-small-en-v1.5` ONNX model, which produces semantically meaningful similarity scores from concept labels:
 
-Why this matters: embedding similarity depends on the quality and dimensionality of the underlying vectors. With short, generic labels and no textual descriptions, the embedding signal is weak. This is why RRF fusion is valuable — it does not rely on a single signal.
+| Concept | Similarity |
+|---------|-----------|
+| sql | 0.7414 |
+| django | 0.7304 |
+| javascript | 0.7202 |
+| data_science | 0.7156 |
+| tensorflow | 0.7123 |
+
+The top results are all programming languages (sql, javascript) or Python-associated tools (django, tensorflow, data_science) -- semantically coherent groupings. Note that `find_similar("rust", top_k=5)` may return empty because rust has fewer semantically close neighbors in this small graph.
+
+Why this matters: embedding similarity captures relatedness independent of graph topology. "sql" has only one edge to "data_science" but ranks as the most similar to "python" because both are programming languages. This is a signal that graph traversal alone cannot provide. See `examples/showcase/retrieval/semantic_knowledge_graph/` for an example using `sentence-transformers` with richer node descriptions.
 
 ### 4. Combined Retrieval via RRF Fusion
 
@@ -146,16 +160,16 @@ Why this matters: embedding similarity depends on the quality and dimensionality
 
 | Concept | RRF score | Activation | Similarity |
 |---------|-----------|-----------|------------|
-| pytorch | 0.0320 | 0.4859 | 0.1393 |
-| ml | 0.0315 | 0.5887 | 0.0190 |
-| tensorflow | 0.0315 | 0.4859 | 0.0283 |
-| data_science | 0.0308 | 0.3831 | 0.0796 |
-| web_dev | 0.0303 | 0.6469 | -0.1841 |
-| postgres | 0.0302 | 0.1319 | 0.1374 |
-| django | 0.0301 | 0.4859 | -0.0430 |
-| flask | 0.0301 | 0.4859 | -0.0242 |
+| django | 0.0320 | 0.4859 | 0.7304 |
+| tensorflow | 0.0310 | 0.4859 | 0.7123 |
+| ml | 0.0308 | 0.5887 | 0.6747 |
+| javascript | 0.0306 | 0.1902 | 0.7202 |
+| data_science | 0.0306 | 0.3831 | 0.7156 |
+| flask | 0.0305 | 0.4859 | 0.7008 |
+| sql | 0.0305 | 0.1319 | 0.7414 |
+| web_dev | 0.0303 | 0.6469 | 0.6230 |
 
-Why this matters: web_dev has the highest activation (0.6469) but a negative similarity score. Postgres has low activation (0.1319) but positive similarity (0.1374). RRF ranks them by combined vote strength rather than by either signal alone — postgres appears in the results despite being two hops from python because the similarity signal gives it a ranking boost.
+Why this matters: `web_dev` has the highest activation (0.6469) but moderate similarity (0.6230). `sql` has low activation (0.1319) but the highest similarity (0.7414). RRF ranks them by combined vote strength rather than by either signal alone -- `sql` appears in the results despite being two hops from python because the similarity signal gives it a ranking boost. This is the core value of multi-signal retrieval: neither graph topology nor embedding similarity alone captures the full picture.
 
 ### 5. Hyperedge Similarity
 
@@ -184,11 +198,12 @@ Each of python's edges has one endpoint `{python}` and one unique target. Two ed
 | Python activation (seed) | 1.0000 |
 | Top non-seed activation | web_dev: 0.6855 |
 | Lowest activation shown | react: 0.2484 |
-| Top RRF score | pytorch: 0.0320 |
+| Top RRF score | django: 0.0320 |
 | Highest activation in retrieve | web_dev: 0.6469 |
-| Lowest activation in retrieve | postgres: 0.1319 |
+| Lowest activation in retrieve | sql: 0.1319 |
+| Highest similarity in retrieve | sql: 0.7414 |
 | Hyperedge Jaccard (all pairs) | 0.3333 |
-| `find_similar` results | empty (embedding signal insufficient for short labels) |
+| `find_similar` top result | sql: 0.7414 |
 
 ## What Makes This Different
 
@@ -221,7 +236,7 @@ edge_sim = mem.analyze.hyperedge_similarity("python", metric="jaccard")
 
 - **Synthetic data.** The 14-node graph uses short string labels with no textual descriptions. Production knowledge graphs would have richer node data (documents, metadata, embeddings from actual text), producing stronger embedding similarity signals.
 - **Scale.** Spreading activation and RRF retrieval run on 14 nodes here. Performance characteristics at 10K+ nodes are untested — activation propagation cost grows with graph diameter and density.
-- **Embedding provider.** `find_similar` depends on the configured embedding provider. This showcase uses the default provider, which does not produce discriminative vectors for short generic labels. A production deployment would use domain-specific embeddings trained on actual content.
+- **Embedding provider.** This showcase uses the default `FastEmbedProvider` with `BAAI/bge-small-en-v1.5`, which produces reasonable similarity from concept labels alone. A production deployment with domain-specific fine-tuned models or richer node descriptions would produce more discriminative similarity rankings. See `semantic_knowledge_graph/` for an example with `sentence-transformers`.
 - **Non-determinism.** Spreading activation involves numerical propagation that may vary slightly across runs due to floating-point ordering. RRF scores are deterministic given fixed rank lists, but the underlying activation and similarity values may differ.
 
 ## Reference

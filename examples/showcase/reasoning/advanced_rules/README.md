@@ -45,7 +45,7 @@ SUMMARY
   Transitive chains:  55 hidden dependency paths
   Causal links:       8 co-occurrence patterns
   Abstractions:       22 similar-service pairs
-  Analogies:          9 structural (A:B::C:D)
+  Analogies:          ~5-10 structural (A:B::C:D)  [varies by run]
   Final graph:        130 nodes, 284 edges
 ```
 
@@ -101,7 +101,6 @@ graph LR
     GW -->|depends_on| AUTH
     GW -->|depends_on| CAT
     GW -->|depends_on| SEARCH
-    AUTH -->|depends_on| NOTIFY
     ORDER -->|depends_on| PAY
     ORDER -->|depends_on| NOTIFY
     CHECKOUT -->|depends_on| CART
@@ -115,9 +114,11 @@ graph LR
     AUTH -->|deployed_to| H01
 ```
 
-The diagram above shows a subset of the 125-node graph. Key structural features: `svc-api-gateway` is a dependency hub (4 outgoing `depends_on` edges), `alert-cascading-failure` is a convergence point (7 incoming `triggers` edges), and the correlation nodes create multi-labeled bridges between alerts and metrics.
+The diagram above shows a subset of the 125-node graph. Key structural features: `svc-api-gateway` is a dependency hub (4 outgoing `depends_on` edges in the full graph, 3 shown here), `alert-cascading-failure` is a convergence point (7 incoming `triggers` edges), and the correlation nodes create multi-labeled bridges between alerts and metrics.
 
 ## 6. Analysis Pipeline
+
+> **Note on hash embeddings and structural analogies**: The StructuralProjectionRule uses embedding arithmetic to find topological analogies — pairs of node relationships that share similar graph structure. The `HashEmbeddingProvider` generates embeddings from node degree and connectivity features, so the analogies it finds reflect *topological* similarity (similar neighbor patterns, degree distributions), not semantic meaning. A service and a metric may appear as analogies because they occupy similar structural positions in the graph, not because they are conceptually related. Results vary between runs due to hash-based initialization. Production deployments would benefit from sentence-transformer or domain-trained embeddings for semantically meaningful analogies.
 
 ### Section 1: Graph Construction
 
@@ -194,29 +195,17 @@ The groups by team:
 
 ### Section 6: StructuralProjectionRule — Structural Analogies
 
-`StructuralProjectionRule(similarity_threshold=0.7)` with `HashEmbeddingProvider(dim=32)` finds **9 structural analogies**. These are subgraph pairs where the embedding arithmetic `emb(A) - emb(B) ≈ emb(C) - emb(D)`, meaning the relationship between A and B structurally resembles the relationship between C and D.
+`StructuralProjectionRule(similarity_threshold=0.7)` with `HashEmbeddingProvider(dim=32)` typically finds **5--15 structural analogies** (exact count varies between runs). These are subgraph pairs where the embedding arithmetic `emb(A) - emb(B) ≈ emb(C) - emb(D)`, meaning the relationship between A and B structurally resembles the relationship between C and D.
 
-**Why structural analogies matter**: An analogy like `svc-subscription : host-prod-12 :: corr-notification-push-fail : deploy-v2.5.0` suggests that the structural relationship pattern between a subscription service and its host mirrors a pattern between a correlation node and a deployment. These parallels can reveal unexpected operational similarities — the same class of structural pattern may apply to both subgraphs, suggesting transferable monitoring or incident response strategies.
+**What these analogies represent**: The analogies found by `HashEmbeddingProvider` reflect topological similarity, not causal or semantic relationships. Two node pairs appear as analogies because they occupy similar structural positions in the graph — comparable degree distributions, neighbor counts, or connectivity patterns. A service-to-host edge and a correlation-to-deployment edge may appear analogous because both connect nodes with similar fan-in/fan-out profiles, not because they share operational meaning.
 
-The 9 analogies (scores 0.707–0.789):
+**Typical results**: Across runs, the rule finds 5--10 analogies with scores in the 0.70--0.75 range. The specific pairs vary because `HashEmbeddingProvider` uses hash-based initialization that changes between runs. Analogies commonly pair nodes across categories (e.g., a service with a host, a metric with an external dependency) because nodes in different categories can share similar topological profiles despite having unrelated semantics.
 
-| Analogy | Score |
-|---|---|
-| `svc-subscription:host-prod-12 :: corr-notification-push-fail:deploy-v2.5.0` | 0.789 |
-| `deploy-v3.1.0:metric-cache-miss-rate :: ext-sendgrid:metric-error-burst-payment` | 0.739 |
-| `svc-review:host-prod-07 :: svc-payment:svc-notification` | 0.731 |
-| `deploy-v3.1.0:metric-cache-miss-rate :: svc-api-gateway:metric-error-burst-payment` | 0.725 |
-| `metric-cpu-spike-prod-01:alert-cpu-critical :: corr-search-index-delay:deploy-hotfix-001` | 0.723 |
-| `metric-error-burst-payment:alert-payment-declines :: ext-elasticsearch:ext-cloudflare` | 0.717 |
-| `deploy-hotfix-001:alert-high-latency-api :: host-prod-18:svc-cache` | 0.715 |
-| `svc-checkout:svc-payment :: host-prod-05:ext-twilio` | 0.708 |
-| `svc-order:svc-notification :: host-prod-19:metric-external-api-slow` | 0.707 |
+**Why structural analogies still matter**: Even topological analogies can reveal useful structural patterns. An analogy between two node pairs suggests that the same class of graph structure appears in multiple places — which may indicate shared operational characteristics even when the node types differ. Production deployments using sentence-transformer or domain-trained embeddings would find semantically meaningful analogies that go beyond topology.
 
-Note: Hash embeddings produce structural analogies based on topology, not semantic meaning. Production deployments using sentence-transformer embeddings would find semantically meaningful analogies.
+## 7. Full Reasoning with All Rules Combined
 
-### Section 7: Full Reasoning with All Rules Combined
-
-All rules are registered and `reason()` is called with 7 seed concepts (chosen to form `depends_on` chains), `depth=3`, and `max_total_states=50`:
+All rules are registered and `reason()` is called with 7 seed concepts (chosen to form `depends_on` chains), `depth=3`, and `max_states=50`:
 
 | Metric | Value |
 |---|---|
@@ -232,7 +221,7 @@ The graph grows from 130 nodes / 234 edges to 130 nodes / 284 edges — a net ga
 
 55 total inferred edges are present in the final graph (the 5 from the earlier direct application plus 50 from reasoning).
 
-## 7. Understanding Output
+## 8. Understanding Output
 
 ### Match Counts
 
@@ -241,13 +230,13 @@ The graph grows from 130 nodes / 234 edges to 130 nodes / 284 edges — a net ga
 | TransitiveRule | 55 chains | 55 pairs of services where a hidden dependency exists through an intermediate service |
 | HubInferenceRule | 8 links | 8 correlation nodes with statistically significant co-occurrence (support >= 2, confidence >= 0.6) |
 | GeneralizationRule | 22 pairs | 22 node pairs with data attribute similarity >= 0.8 |
-| StructuralProjectionRule | 9 analogies | 9 subgraph pairs where embedding arithmetic yields analogy score >= 0.7 |
+| StructuralProjectionRule | ~5--15 analogies | Subgraph pairs where embedding arithmetic yields analogy score >= 0.7 (varies by run) |
 
 ### Auto-Discovery Output
 
 The 18 discovered patterns break into 3 transitive patterns (edge labels with enough two-hop chains), 4 inverse patterns (pairs of edge labels with mutual connections), and 11 hub patterns (nodes with high fan-out on a single edge label). The 7 rules added to the active set are the unique rules generated from these patterns — some patterns produce the same rule type (e.g., multiple hub nodes produce a single HubInferenceRule).
 
-## 8. Key Metrics
+## 9. Key Metrics
 
 | Metric | Value |
 |---|---|
@@ -273,7 +262,7 @@ The 18 discovered patterns break into 3 transitive patterns (edge labels with en
 | Top transitive target | `svc-inventory` (9 chains) |
 | Causal links found | 8 (all support=3, confidence=0.75) |
 | Service abstraction pairs | 22 (threshold >= 0.8) |
-| Structural analogies | 9 (scores 0.707–0.789) |
+| Structural analogies | ~5--15 (varies by run, scores ~0.70--0.78) |
 | Category nodes created | 5 |
 | Reasoning states created | 51 |
 | Rules applied during reasoning | 50 |
@@ -282,17 +271,19 @@ The 18 discovered patterns break into 3 transitive patterns (edge labels with en
 | Final edges | 284 |
 | Inferred edges | 55 (50 `inferred_depends_on`, 5 `generalizes`) |
 
-## 9. What Makes This Different
+## 10. What Makes This Different
 
 **Auto-discovery of applicable rules** — The `auto_discover_and_apply()` method inspects edge structure and registers rules that match the data, rather than requiring manual specification of which rules apply to which edge labels. The graph's 10 edge types produce 18 structural patterns automatically.
 
 **Multi-strategy inference** — Four rule types operate simultaneously on the same graph. Transitive chains find paths, hub inference finds causal bottlenecks, generalization finds operational groupings, and structural projection finds topological parallels. Each strategy surfaces a different kind of hidden relationship.
 
+**Non-determinism in structural projection** — The `StructuralProjectionRule` relies on embedding arithmetic, and its results depend on the embedding provider. With `HashEmbeddingProvider`, results vary between runs due to hash-based initialization. This is by design: the rule finds topological analogies, and the specific pairs it surfaces shift as embeddings change. Production use with deterministic embedding providers (e.g., sentence-transformers) would yield stable, semantically meaningful results.
+
 **Composable rule pipeline** — Rules are pure queries (`find_matches()`) that the multiway engine applies to produce expansions. Adding a new rule type means implementing the `Rule` interface — no changes to the engine are needed. The `reason()` call applies all registered rules in a single pass.
 
 **Typed result dataclasses** — Every rule produces typed match objects with bindings and context, not unstructured dicts. The `HubInferenceRule` matches carry `support` and `confidence` in their context; the `GeneralizationRule` matches carry `similarity` and `label_a`/`label_b`. This makes downstream processing and filtering deterministic.
 
-## 10. Code Implementation
+## 11. Code Implementation
 
 ### Auto-discovery
 
@@ -363,20 +354,20 @@ mem.add_rules(transitive, causal, gen, analogical,
 result = mem.reason(
     seeds={"svc-api-gateway", "svc-auth", "svc-order"},
     depth=3,
-    max_total_states=50,
+    max_states=50,
 )
 ```
 
-## 11. Real-World Gap
+## 12. Real-World Gap
 
 - **Alert correlation is synthetic**: The 15 correlation nodes were placed manually with multi-labeled edges. In production, correlations would need to be discovered from time-series co-occurrence of metric anomalies, requiring a streaming data pipeline and statistical correlation engine.
 - **Metric time-series integration**: This graph uses single-point metric representations (e.g., `metric-latency-spike-api` with `severity: high`). Real infrastructure metrics are continuous time-series. Integrating time-series data would require a windowing and aggregation layer between the monitoring system and the graph.
 - **Static service profiles**: Service attributes (response time, error rate, throughput) are fixed at construction. In production, these change continuously and would need periodic refresh from observability systems.
-- **Hash embeddings for analogies**: The `HashEmbeddingProvider` produces structural analogies based on topology, not semantic meaning. Production use would benefit from sentence-transformer or domain-trained embeddings for semantically meaningful analogies.
+- **Hash embeddings for analogies**: The `HashEmbeddingProvider` produces structural analogies based on topology, not semantic meaning. Results vary between runs. Production use would benefit from sentence-transformer or domain-trained embeddings for semantically meaningful, deterministic analogies.
 - **Scale**: The graph has 125 nodes. Performance at 10K+ nodes (typical for large microservices deployments) is untested.
 - **Causal confidence is uniform**: All 8 causal links have identical support and confidence because the correlation nodes were constructed symmetrically. Real operational data would produce varying confidence levels reflecting actual co-occurrence rates.
 
-## 12. Reference
+## 13. Reference
 
 ### API Methods
 
@@ -384,7 +375,7 @@ result = mem.reason(
 |---|---|
 | `mem.auto_discover_and_apply()` | Inspects edge structure, discovers transitive/inverse/hub patterns, registers matching rules |
 | `mem.add_rules(*rules)` | Registers inference rules for use by `reason()` |
-| `mem.reason(seeds, depth, max_total_states)` | Applies all registered rules via multiway expansion from seed concepts |
+| `mem.reason(seeds, depth, max_states)` | Applies all registered rules via multiway expansion from seed concepts |
 | `mem.set_embedding_provider(provider)` | Sets the embedding provider for vector-based operations |
 | `mem.discovery.get_discovered_rules()` | Returns list of `DiscoveredRule` objects from the last auto-discovery |
 | `TransitiveRule(edge_label, new_label)` | Finds two-hop chains with matching edge labels |

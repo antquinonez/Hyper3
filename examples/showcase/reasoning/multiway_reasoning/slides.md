@@ -25,7 +25,7 @@ style: |
 
 ---
 
-## 1. The Paradigm Shift
+## 1. The Approach
 
 When a cloud infrastructure health check fails, multiple root causes are possible:
 - database failure
@@ -53,11 +53,10 @@ Each "branch" of reasoning represents a different diagnosis, and Hyper3 compares
 |------|----------------------|
 | **Multiway Expansion** | Exploring multiple "what if" scenarios at the same time |
 | **State** | One possible version of the truth |
-| **Branch** | A chain of reasoning from seed → conclusion |
 | **Leaf State** | A final conclusion after applying rules |
-| **Convergence** | When different paths lead to the same conclusion |
+| **State Convergence** | Merging equivalent states from different paths |
 | **Simultaneity Group** | Hypotheses at the same "depth" that can be compared directly |
-| **Lateral Insights** | Knowledge from one branch that applies to another |
+| **Lateral Comparison** | Identifying differences between states in the same group |
 
 ---
 
@@ -69,7 +68,7 @@ Run the flagship showcase:
 .venv/bin/python examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py
 ```
 
-**What You'll See:** 66 different hypothesis branches from a single failed health check.
+**What You'll See:** 66 leaf states (distinct terminal hypotheses) from a single failed health check. Note: the expansion report shows `branches=46` (pre-convergence terminals); the full leaf count of 66 is after the state convergence engine merges equivalents.
 
 ---
 
@@ -119,7 +118,7 @@ graph TB
 
 ## 6. The Physics of Expansion
 
-Ten inference rules operate simultaneously, creating a branching DAG of 66 leaf states.
+Ten inference rules operate simultaneously, creating a branching DAG of 66 leaf states (after convergence).
 
 **10 Rules:**
 - 5 Transitive (causes, depends_on, affects, indicates, routes_to)
@@ -142,63 +141,64 @@ graph TD
     B1 --> LEAF["Leaf States: 66 total"]
     B2 --> LEAF
     B3 --> LEAF
-    LEAF --> SCORE["Branch Scoring vs Symptoms"]
+    LEAF --> SCORE["Leaf Scoring vs Symptoms"]
 ```
 
 ---
 
-## 7. The Top Hypothesis
+## 7. Tied Top Hypotheses
 
-Each branch is scored against 8 observed symptoms using a composite metric:
+Each leaf state is scored against 8 observed symptoms using a composite metric:
 
 ```
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-**The Discovery:** The top hypothesis (score **0.909**) is a database failure.
+**The Discovery:** Multiple leaf states tie at score **0.909**. These trace back to three root causes through different rule chains.
 
-**The Causal Chain:** `db-primary-down` → `db-replication-lag` → `slow-query` → `latency-spike` → `failed-health-check`
+**One illustrative chain:** `db-primary-down` -> `db-replication-lag` -> `slow-query` -> `latency-spike` -> `failed-health-check`
 
-**Key Insight:** The replication lag (`db-replication-lag`) is the smoking gun — it causes slow queries, which cause latency spikes, which trigger the health check failure.
-
----
-
-## 8. Simultaneity Groups & Convergence
-
-States at the same depth form **Simultaneity Groups** — hypotheses that can be directly compared.
-
-| Group | Dominant Rule | Hypothesis |
-|-------|---------------|-----------|
-| Group 1-3 | `transitive(causes)` | Database failure cascade |
-| Group 4 | `transitive(depends_on)` | Dependency chain failure |
-| Group 5 | `transitive(routes_to)` | Network routing issue |
-
-**The Convergence Signal:** 20 causal invariants found. Both forward-chaining and inverse rules converge on `connection-refused` as the critical intermediate symptom.
+**Key Insight:** The tied scores across db-primary-down, network-partition, and cache-stampede suggest the symptoms cannot discriminate between these root causes -- pointing to a possible multi-causal incident.
 
 ---
 
-## 9. Lateral Insights
+## 8. Two Kinds of Convergence
 
-By comparing branches within the same simultaneity group, the engine transfers knowledge horizontally.
+**State convergence (automatic):** The engine merges structurally equivalent states. In this example, 20 states were merged, reducing redundancy in the state space.
+
+**Cross-rule convergence (manual):** Checking whether different rule types independently reached overlapping target nodes. In this example, **no strong cross-rule convergence was detected** -- the rules explore genuinely different regions of the graph.
+
+This is consistent with a multi-causal incident: each rule family explains a different subset of symptoms.
+
+| Type | Result |
+|------|--------|
+| State convergence | 20 states merged |
+| Cross-rule convergence | None detected |
+
+---
+
+## 9. Lateral Comparison
+
+By comparing states within the same simultaneity group, the engine identifies structural differences.
 
 **The Hidden Connection:**
-- Branch A: `cache-stampede` → `cache-miss-rate` → `latency-spike`
-- Branch B: `network-partition` → `dns-resolution-failure` → `timeout-error`
+- State A: `cache-stampede` -> `cache-miss-rate` -> `latency-spike`
+- State B: `network-partition` -> `dns-resolution-failure` -> `timeout-error`
 
-**The Synthesis:** The lateral insight reveals that **cache-stampede and network-partition both cause latency-spike through different paths**.
+**The Synthesis:** Multiple root causes produce latency-spike through different paths.
 
-The true incident is a **combination of factors** that linear reasoning would have missed.
+Note: `mem.lateral_insights(concept)` returns empty for the seed concepts in this example because it operates on the multiway state space, not on graph node labels directly. The showcase script performs manual comparison across simultaneity groups to demonstrate the concept.
 
 ---
 
-## 10. Branch Score Interpretation
+## 10. Leaf Score Interpretation
 
 | Score Range | Meaning |
 |------------|---------|
-| 0.9+ | Branch explains most symptoms — strong candidate |
-| 0.7-0.9 | Branch explains a subset — partial match |
-| 0.5-0.7 | Branch touches some symptoms — weak signal |
-| < 0.5 | Branch largely irrelevant |
+| 0.9+ | Leaf explains most symptoms -- strong candidate |
+| 0.7-0.9 | Leaf explains a subset -- partial match |
+| 0.5-0.7 | Leaf touches some symptoms -- weak signal |
+| < 0.5 | Leaf largely irrelevant |
 
 ---
 
@@ -210,17 +210,18 @@ The true incident is a **combination of factors** that linear reasoning would ha
 | Graph edges (initial) | 203 |
 | Seed concepts | 16 |
 | States created | 51 |
-| Leaf states | 66 |
+| Leaf states (post-convergence) | 66 |
 | Inference edges produced | 50 |
-| Causal invariants merged | 20 |
-| Lateral insights discovered | 6 |
-| Best branch score | 0.909 |
+| Causal invariants merged (state convergence) | 20 |
+| Cross-rule convergent pairs | 0 |
+| Cross-branch edge differences (manual) | 6 |
+| Best leaf score | 0.909 (tied) |
 
 ---
 
 ## 12. The Observability Gap
 
-Hyper3 reasons flawlessly once the semantic graph exists. The real-world challenge is the data engineering pipeline:
+Hyper3 reasons once the semantic graph exists. The real-world challenge is the data engineering pipeline:
 
 1. **Relationship Extraction:** Converting raw Terraform/K8s telemetry into semantic edges
 2. **Causal Discovery:** Using Granger causality to separate true causation from correlation
@@ -229,11 +230,11 @@ Hyper3 reasons flawlessly once the semantic graph exists. The real-world challen
 
 **The Pipeline:**
 ```
-Terraform/K8s → Entity Extraction → Jaeger/Prometheus → Relationship Inference → 
-Causal Discovery → Semantic Labeling → Entity Resolution → Hyper3 Graph
+Terraform/K8s -> Entity Extraction -> Jaeger/Prometheus -> Relationship Inference ->
+Causal Discovery -> Semantic Labeling -> Entity Resolution -> Hyper3 Graph
 ```
 
-Hyper3 provides the **reasoning engine**; the community builds the **data plumbing**.
+Hyper3 provides the **reasoning engine**; the data engineering pipeline that feeds it is a separate concern.
 
 ---
 
@@ -241,12 +242,12 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 | Method | Purpose |
 |--------|---------|
-| `mem.reason(seed_concepts, max_depth, max_total_states)` | Run multiway expansion |
+| `mem.reason(seeds, depth, max_states)` | Run multiway expansion |
 | `mem.lateral_insights(concept)` | Find knowledge transferable across branches |
 | `mem.state_clustering.simultaneity_groups` | Get groups of states at the same depth |
 | `result.clustering` | State clustering report from reasoning |
 | `result.state_convergence` | Merge report from state convergence |
-| `result.expansion` | Expansion statistics (states, rules, edges) |
+| `result.expansion` | Expansion statistics (states, rules, edges, branches) |
 
 ---
 
@@ -266,6 +267,6 @@ Hyper3 provides the **reasoning engine**; the community builds the **data plumbi
 
 **Hyper3: Multiway Lateral Reasoning for Modern Infrastructure**
 
-> "We do not force the architecture to guess. By establishing structural sovereignty through hyperedges, we allow the intelligence to flow outward in all directions, letting the true narrative emerge effortlessly from the data."
+> Multiway expansion explores multiple hypotheses in parallel, comparing branches to identify the best explanation for observed symptoms.
 
-[View the code →](examples/showcase/reasoning/multiway_reasoning/multiway_lateral_insights.py)
+[View the code ->](multiway_lateral_insights.py)

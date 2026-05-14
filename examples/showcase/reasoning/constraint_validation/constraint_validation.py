@@ -15,6 +15,7 @@ from hyper3 import (
     HypergraphMemory,
     NoSelfLoopConstraint,
     ProvenanceDepthConstraint,
+    TransitiveRule,
     WeightInflationConstraint,
 )
 from hyper3.constraints import DuplicateEdgeConstraint
@@ -194,10 +195,8 @@ def main() -> None:
     print("SECTION 6: INTEGRATION WITH REASONING")
     print("=" * 70)
 
-    from hyper3 import TransitiveRule
-
     mem.add_rules(TransitiveRule(edge_label="relates_to", new_label="indirect"))
-    mem.reason(seeds={"concept_a"}, max_depth=3)
+    mem.reason(seeds={"concept_a"}, depth=3)
 
     inferred_edges = [e for e in mem.engine.graph.edges if e.label == "indirect"]
 

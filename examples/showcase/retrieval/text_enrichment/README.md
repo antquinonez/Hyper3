@@ -80,6 +80,42 @@ The 9 categories of technical indicators present across all reports:
 | email | 1 | 1 |
 | url | 1 | 1 |
 
+### Enrichment Pipeline
+
+The two-stage extraction process:
+
+```mermaid
+graph LR
+    R1["Report 1:<br/>CVE-2024-3094, 10.0.1.50"]
+    R2["Report 2:<br/>T1059.001, 192.168.45.100"]
+    R3["Report 3:<br/>T1053.005, evil-cdn.net"]
+
+    subgraph "Stage 1: Built-in RegexExtractor"
+        E1["Noun phrases,<br/>relation patterns"]
+    end
+
+    subgraph "Stage 2: Domain-Specific Regex"
+        E2["IPs, CVEs, hashes,<br/>MITRE techniques, paths"]
+    end
+
+    G["Knowledge Graph<br/>(98 nodes, 19 edges)"]
+
+    R1 --> E1
+    R2 --> E1
+    R3 --> E1
+    R1 --> E2
+    R2 --> E2
+    R3 --> E2
+    E1 --> G
+    E2 --> G
+
+    style E1 fill:#fff2cc,stroke:#cc9900
+    style E2 fill:#d9f2d9,stroke:#339933
+    style G fill:#e6f3ff,stroke:#0066cc
+```
+
+Stage 1 catches general English patterns but misses structured indicators. Stage 2 fills the gap with domain-specific regex patterns. Both contribute to the same graph.
+
 ## 6. Analysis Pipeline
 
 ### Section 1: Load Reports

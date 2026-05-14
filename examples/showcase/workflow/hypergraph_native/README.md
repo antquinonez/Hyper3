@@ -17,9 +17,13 @@ The six capabilities demonstrated in this showcase:
 5. **Hyperedge similarity** — Jaccard overlap between node sets of edges sharing a protein
 6. **Gated diffusion** — AND/OR/majority modes control how activation flows through n-ary edges
 
-## 2. Analogy
+## 2. A Simple Analogy
 
 Imagine a committee that votes on a proposal. A pairwise graph would record "Alice knows Bob," "Bob knows Carol" — individual relationships. A hypergraph records "Alice, Bob, and Carol together voted yes on Proposal 7." The committee membership is a single n-ary fact. Gated diffusion asks: does the proposal pass if every member must agree (AND), if any member can trigger it (OR), or if a simple majority suffices?
+
+S-persistence extends the analogy to quorum thresholds. Imagine raising the minimum number of co-sponsors required for a subcommittee to be recognized. At a low threshold (s=1), most members cluster into a few large coalitions — anyone who has ever co-sponsored anything with someone else ends up in the same bloc. Raise the bar (s=2), and those coalitions fragment into smaller, tighter alliances — only members with overlapping committee assignments stay together. Raise it again (s=3), and only the most tightly-knit teams, those who consistently work across multiple shared proposals, remain connected. The fragmentation pattern reveals the hierarchy of alliances: broad ideological blocs at the top, specific working groups in the middle, individual partnerships at the bottom.
+
+Spectral embedding is like seating committee members in a room based on their voting patterns. Members who frequently co-sponsor the same proposals get placed near each other; those whose voting records never overlap end up on opposite sides. The room becomes a map where physical proximity reflects political alignment — you can glance at the seating chart and immediately see which members form voting blocs, without reading individual roll calls. Members who sit next to each other (cosine similarity near 1.0) always work together; members on opposite sides (cosine similarity near 0.0) have no shared agenda.
 
 ## 3. Key Concepts
 
@@ -61,10 +65,10 @@ SECTION 3: Multi-Resolution Structure (s-persistence)
 
 SECTION 4: Spectral Embedding from Hypergraph Laplacian
   Computed 35 embeddings in 4D
-    TP53: magnitude=0.4315  dim0=0.1554
-    BRCA1: magnitude=0.3667  dim0=0.1346
-    KRAS: magnitude=0.4518  dim0=0.1554
-    EGFR: magnitude=0.3425  dim0=0.1554
+    TP53: magnitude=0.4315
+    BRCA1: magnitude=0.3667
+    KRAS: magnitude=0.4518
+    EGFR: magnitude=0.3425
   Cosine similarity(TP53, BRCA1) = 0.9995
   Cosine similarity(TP53, KRAS)  = 0.0464
 
@@ -79,6 +83,8 @@ SECTION 6: Gated Diffusion (AND/OR/majority)
   mode=majority: 1 pathway/disease nodes activated  top: dna_repair=4.250
   mode=and     : 1 pathway/disease nodes activated  top: dna_repair=4.250
 ```
+
+> **Note:** Individual spectral embedding dimension values vary across runs due to eigendecomposition sign ambiguity. The magnitudes and cosine similarities are stable.
 
 ## 5. The Scenario
 
@@ -100,7 +106,7 @@ The 14 edges divide into two types:
 
 ### Network Topology
 
-Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups. Five additional proteins (ATR, CHEK1, CHEK2, MYC, VEGFA) are present in the graph but not shown in edges — they participate in pairwise `participates_in` connections.
+Figure 1: Five protein complexes regulate pathways and four complexes associate with diseases. Proteins that appear in multiple complexes (TP53, BRCA1, KRAS, EGFR) serve as bridges between functional groups. Five additional proteins (ATR, CHEK1, CHEK2, MYC, VEGFA) are stored as nodes with no connecting edges — they represent proteins present in the knowledge base but not yet linked to any complex or pathway.
 
 ```mermaid
 graph LR
@@ -164,17 +170,23 @@ graph LR
 
 ### Section 1: N-ary Hyperedge Construction
 
+> **Prerequisite:** None. This section builds the graph from scratch and is self-contained.
+
 The script stores 26 proteins, 5 pathways, and 4 diseases, then creates 9 n-ary hyperedges (`relate_hyperedge()`) and 5 pairwise edges (`relate()`). The result is 14 total edges with 9 classified as n-ary (source cardinality 2 or more).
 
 Why n-ary edges matter: the `{TP53, MDM2, ATM} -> {p53_signaling}` edge is a single object. It means the three-protein complex jointly regulates the pathway. Decomposing this into three pairwise edges would lose the collective semantics — removing ATM would require finding and updating individual edges, rather than modifying one hyperedge's source set.
 
 ### Section 2: Hyperedge Querying
 
+> **Prerequisite:** Section 1. You need n-ary hyperedges stored in the graph before querying by membership or cardinality.
+
 `query_hyperedges(containing="TP53")` returns 4 edges — two `complex_regulates` and two `complex_associated_with` edges that include TP53 in their source set, plus the pairwise `participates_in` edge. This shows TP53 participates in multiple functional contexts: p53 signaling regulation, breast cancer association, and glioblastoma association.
 
 `query_hyperedges(min_source_cardinality=3)` returns all 9 n-ary edges. This filter distinguishes complex-level relationships from individual protein interactions, which is useful when you want to analyze only multi-protein behaviors.
 
 ### Section 3: Multi-Resolution Structure (s-persistence)
+
+> **Prerequisite:** Understanding of connected components in a graph. S-persistence repeatedly recomputes components at increasing resolution thresholds.
 
 S-persistence varies a resolution parameter `s` that controls how aggressively nodes are grouped:
 
@@ -184,11 +196,30 @@ S-persistence varies a resolution parameter `s` that controls how aggressively n
 | 2 | 15 | 10 nodes | Complexes fragment into pathway-specific groups |
 | 3 | 19 | 6 nodes | Fine-grained — individual complexes and small clusters |
 
+```mermaid
+graph LR
+    G["Input Graph<br/>35 nodes, 14 edges"]
+    S1["s=1 Coarse<br/>7 components<br/>largest: 25 nodes"]
+    S2["s=2 Medium<br/>15 components<br/>largest: 10 nodes"]
+    S3["s=3 Fine<br/>19 components<br/>largest: 6 nodes"]
+
+    G -->|"low threshold:<br/>broad connectivity"| S1
+    S1 -->|"higher threshold:<br/>pathway-aligned groups"| S2
+    S2 -->|"strict threshold:<br/>individual complexes"| S3
+
+    style G fill:#e8f4e8,stroke:#2d7d2d
+    style S1 fill:#d4e6f1,stroke:#2874a6
+    style S2 fill:#d5dbdb,stroke:#5d6d7e
+    style S3 fill:#f9e2d2,stroke:#c0392b
+```
+
 The fragmentation from 7 to 15 to 19 components shows the network has multi-scale structure. At s=1, the 25-node cluster spans multiple pathways (connected through bridge proteins like TP53 and KRAS that appear in multiple complexes). At s=2, this cluster breaks into pathway-aligned groups of roughly 10 nodes. At s=3, the structure is near-atomic — individual complexes with their member proteins.
 
 Why this matters: a single clustering run at a fixed resolution would show one view. S-persistence reveals that the protein interaction network is organized hierarchically — pathways at one scale, individual complexes at another.
 
 ### Section 4: Spectral Embedding
+
+> **Prerequisite:** Familiarity with matrix eigenvectors and cosine similarity. The hypergraph Laplacian is constructed from the edge incidence structure; its eigenvectors provide coordinate positions.
 
 The hypergraph Laplacian produces 35 node embeddings in 4 dimensions. The cosine similarity between protein embeddings reveals structural relationships:
 
@@ -202,6 +233,8 @@ TP53 and BRCA1 have near-identical spectral coordinates (0.9995) because they co
 Why this matters: spectral embedding converts graph topology into geometric proximity. Proteins that participate in shared complexes map to nearby coordinates, enabling similarity search, clustering, and visualization without manually defining similarity measures.
 
 ### Section 5: Hyperedge Similarity
+
+> **Prerequisite:** Understanding of Jaccard index (intersection over union of two sets). Each hyperedge has a node set; similarity measures overlap between these sets.
 
 `hyperedge_similarity(protein, metric="jaccard")` computes node-set overlap (Jaccard index) between edges sharing the given protein:
 
@@ -217,6 +250,8 @@ Why this matters: Jaccard similarity between hyperedge node sets quantifies func
 
 ### Section 6: Gated Diffusion (AND/OR/majority)
 
+> **Prerequisite:** Understanding of directed hyperedge source/target sets. A multi-source edge fires only when its gate condition on the source nodes is met.
+
 `spread_hyperedge("TP53", mode=...)` propagates activation from TP53 through n-ary edges. The gating mode controls when a multi-source edge activates its target:
 
 | Mode | Gate condition | Pathway/disease nodes activated | Top activation |
@@ -225,6 +260,42 @@ Why this matters: Jaccard similarity between hyperedge node sets quantifies func
 | `or` | Any source active | 4 | p53_signaling=4.250 |
 | `majority` | More than half of sources active | 1 | dna_repair=4.250 |
 | `and` | All sources must be active | 1 | dna_repair=4.250 |
+
+```mermaid
+graph TD
+    subgraph "Source Proteins"
+        A["Protein A"]
+        B["Protein B"]
+        C["Protein C"]
+    end
+
+    subgraph "Gate Modes"
+        OR_G["OR"]
+        MAJ_G["Majority"]
+        AND_G["AND"]
+    end
+
+    T["Target Pathway"]
+
+    A --> OR_G
+    B --> OR_G
+    C --> OR_G
+    OR_G -->|"any one active<br/>activates target"| T
+
+    A --> MAJ_G
+    B --> MAJ_G
+    C --> MAJ_G
+    MAJ_G -->|"2 of 3 active<br/>activates target"| T
+
+    A --> AND_G
+    B --> AND_G
+    C --> AND_G
+    AND_G -->|"all 3 active<br/>activates target"| T
+
+    style OR_G fill:#d4e6f1,stroke:#2874a6
+    style MAJ_G fill:#d5dbdb,stroke:#5d6d7e
+    style AND_G fill:#f9e2d2,stroke:#c0392b
+```
 
 The key difference: `linear` and `or` modes activate 4 pathway/disease nodes, while `majority` and `and` modes activate only 1. In `or` mode, spreading from TP53 activates p53_signaling (because TP53 is in its source set), and then reaches additional nodes through subsequent edges. In `and` mode, only the pairwise `participates_in` edge (where TP53 is the sole source) fires — the n-ary edges require all source proteins to be simultaneously active, which does not happen when starting from TP53 alone.
 
@@ -337,9 +408,15 @@ import math
 emb = mem.spectral_embedding(dimensions=4)
 tp53 = emb["TP53"]
 brca1 = emb["BRCA1"]
-cos = sum(a * b for a, b in zip(tp53, brca1)) / (
-    math.sqrt(sum(a * a for a in tp53)) * math.sqrt(sum(b * b for b in brca1)) + 1e-12
-)
+kras = emb["KRAS"]
+
+def cosine(a, b):
+    return sum(x * y for x, y in zip(a, b)) / (
+        math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b)) + 1e-12
+    )
+
+print(f"TP53-BRCA1: {cosine(tp53, brca1):.4f}")  # 0.9995 (shared complex)
+print(f"TP53-KRAS:  {cosine(tp53, kras):.4f}")   # 0.0464 (no shared complex)
 ```
 
 **5. Hyperedge Jaccard similarity:**

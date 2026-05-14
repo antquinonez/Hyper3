@@ -712,7 +712,7 @@ See `examples/README.md` for the full index of 54 examples across six topical gr
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-3675 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
+3734 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
@@ -722,7 +722,7 @@ See `examples/README.md` for the full index of 54 examples across six topical gr
 .venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12       # Specific suites
 ```
 
-10 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 19 equivalence test suites (784 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, clustering, DAG/tree algorithms, flow/matching, coloring, and basic metrics. 54 documented gaps serve as a prioritized feature backlog.
+15 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 24 equivalence test suites (913 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, clustering, DAG/tree algorithms, flow/matching, coloring, and basic metrics. 54 documented gaps serve as a prioritized feature backlog.
 
 ## Performance
 

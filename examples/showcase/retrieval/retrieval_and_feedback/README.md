@@ -156,33 +156,38 @@ gdpr                  0.2552  depth=2
 
 ### Section 3: Embedding Similarity
 
-The `HashEmbeddingProvider` generates deterministic vectors from label hashes. This is a placeholder — it produces similarity scores that are not semantically meaningful:
+The default `FastEmbedProvider` uses the `BAAI/bge-small-en-v1.5` ONNX model to produce semantically meaningful similarity scores:
 
 ```
-gdpr               0.2472
-ddos               0.2412
-escalate_to_tier2  0.2255
-terraform_state    0.2097
-aws_s3_data        0.1957
+phishing                    0.7190
+alert_malware_detected      0.7022
+ddos                        0.6968
+alert_vulnerability_scan    0.6880
+cve_2021_44228              0.6865
+data_exfiltration           0.6820
+alert_ddos_spike            0.6767
+alert_privilege_escalation  0.6733
+cve_2022_22965              0.6727
+ssh                         0.6712
 ```
 
-These results illustrate the limitation: "ransomware" is most similar to "gdpr" and "ddos" under the hash embedding, which reflects hash collisions rather than semantic relationships. In production, a real embedding provider (sentence-transformers, OpenAI embeddings) would produce semantically coherent similarity rankings.
+The similarity rankings are semantically coherent: "phishing" and "ddos" are attack types related to "ransomware"; "alert_malware_detected" is a detection alert triggered by ransomware-like activity. Note that these scores come from concept labels alone, without leveraging the graph structure. The embedding signal is orthogonal to activation, which is why RRF fusion improves retrieval.
 
 ### Section 4: Reciprocal Rank Fusion
 
 RRF merges the activation and similarity ranked lists into a single ranking:
 
 ```
-gdpr                   0.0315
-aws_s3_data            0.0303
-yara                   0.0280
-dlp                    0.0279
-data_retention_policy  0.0252
-backup_vault           0.0230
-encryption_at_rest     0.0221
+data_exfiltration       0.0294  (act rank 10, sim rank 6)
+encryption_at_rest      0.0289  (act rank 1, sim rank 20)
+alert_data_leak         0.0278  (act rank 11, sim rank 13)
+insider_threat          0.0275  (act rank 9, sim rank 17)
+backup_vault            0.0272  (act rank 2, sim rank 30)
+data_retention_policy   0.0259  (act rank 13, sim rank 22)
+phishing                0.0164  (act rank 14, sim rank 1)
 ```
 
-15 results returned. Items that rank well in both lists (e.g., `gdpr` at activation rank 6, similarity rank 1) score highest. Items strong in only one signal (e.g., `encryption_at_rest` at activation rank 1 but similarity rank 114) appear lower.
+15 results returned. Items that appear in both ranked lists score highest via RRF's `1/(k+rank)` summation. `encryption_at_rest` tops the activation list (rank 1) but has moderate similarity (rank 20), so it appears second. `phishing` tops similarity (rank 1) but has zero activation (not graph-reachable from ransomware), so it appears lower. Items present in both signals -- like `data_exfiltration` (activation rank 10, similarity rank 6) -- score highest overall.
 
 ### Section 5: Recording Relevance Feedback
 
@@ -206,13 +211,13 @@ The LTR model learns feature weights from the 60 feedback samples:
 Trained: True
 Samples: 60
 Learned feature weights:
-  activation           +0.3971
-  inverse_depth        +0.3182
-  degree               +0.2130
-  similarity           +0.0717
+  activation           +0.3410
+  inverse_depth        +0.3179
+  degree               +0.2115
+  similarity           +0.1296
 ```
 
-Activation (+0.40) and inverse_depth (+0.32) dominate — the model learned that graph-topology signals predict relevance better than hash-based embedding similarity (+0.07). The hash embedding produces nonsensical similarity rankings (ransomware ~ gdpr, ddos), so the model correctly downweights it relative to graph structure.
+Activation (+0.34) and inverse_depth (+0.32) dominate, but similarity (+0.13) contributes meaningfully -- the embedding model recognizes that threats like "phishing" and "ddos" are semantically related to "ransomware" even without direct graph edges. The model learned that graph topology is the strongest relevance predictor for this domain, while embedding similarity provides a useful complementary signal. This balance reflects the `FastEmbedProvider`'s semantically coherent embeddings.
 
 ### Section 7: Retrieval Comparison (Before vs After LTR)
 
@@ -220,12 +225,12 @@ Comparing top-5 relevant hits between RRF (untrained) and LTR (trained):
 
 | Query | RRF Hits | LTR Hits | Change |
 |-------|----------|----------|--------|
-| ransomware | 2/5 | 4/5 | +2 (promoted dlp, backup_vault) |
-| phishing | 2/5 | 2/5 | 0 (swapped: promoted apache_access_log, internal_wiki; demoted iam, password_policy) |
-| ddos | 3/5 | 3/5 | 0 (swapped: promoted ips; demoted alert_ddos_spike) |
-| zero_day | 2/5 | 3/5 | +1 (promoted alert_privilege_escalation, xdr; demoted siem, buffer_overflow) |
+| ransomware | 2/5 | 3/5 | +1 (promoted dlp, forensic_capture; demoted data_exfiltration, insider_threat) |
+| phishing | 0/5 | 2/5 | +2 (promoted mfa, apache_access_log, open_redirect, internal_wiki) |
+| ddos | 3/5 | 4/5 | +1 (promoted cdn_edge, flow_log; demoted cve_2023_44487, log_aggregator) |
+| zero_day | 3/5 | 4/5 | +1 (promoted alert_malware_detected, alert_privilege_escalation) |
 
-LTR improved top-5 precision for 2 of 4 queries. The phishing and ddos queries show rank swaps without net improvement — the LTR model's learned weights produced different but equally effective top-5 sets. With only 60 training samples, per-query variation is expected.
+LTR improved top-5 precision for all 4 queries. The phishing query shows the largest improvement (0 to 2 relevant hits) because the initial RRF ranking was dominated by semantically similar but structurally distant concepts. The LTR model learned to prioritize graph-connected results (mfa, open_redirect) over similarity-only matches.
 
 ### Section 8: Activation vs Embedding by Query Type
 
@@ -235,11 +240,11 @@ Comparing the top-5 results from activation and embedding for 5 different query 
 |-------|------|---------|
 | ransomware | threat-focused | 0/5 |
 | db_primary | infrastructure-focused | 0/5 |
-| severity_critical | classification-focused | 0/5 |
+| severity_critical | classification-focused | 1/5 (severity_high) |
 | soc_team | organizational-focused | 0/5 |
 | oauth2 | protocol-focused | 0/5 |
 
-Zero overlap across all query types. The hash embedding produces completely disjoint results from graph activation. This confirms the two signals capture orthogonal information — which is what RRF fusion exploits — but also confirms the hash embedding is not capturing semantic relationships a real embedding provider would.
+Near-zero overlap across all query types. Activation surfaces graph neighbors (controls, alerts, infrastructure). Similarity surfaces semantically related concepts (other threats, related alerts). The two signals capture orthogonal information, which is exactly what RRF fusion exploits. The one overlap (`severity_high` for `severity_critical`) occurs because severity levels are both graph-connected (via `subclass_of` edges) and semantically similar (similar labels).
 
 ### Section 9: Threat Chain Discovery via Reasoning
 
@@ -260,14 +265,15 @@ Community detection groups related threats with their mitigations and detection 
 
 ```
 Communities detected: 25
-Modularity: 0.6827
-Coverage: 0.8008
-  Cluster (36 nodes): buffer_overflow, rootkit, keylogger, zero_day, apt, supply_chain_attack
-  Cluster (23 nodes): ransomware, insider_threat, data_exfiltration, misconfig_s3_bucket, dlp, encryption_at_rest
-  Cluster (16 nodes): ddos, brute_force, credential_stuffing, cve_2023_44487, weak_tls, default_credentials
+Modularity: 0.6528
+Coverage: 0.7927
+  Cluster (50 nodes): buffer_overflow, ransomware, rootkit, keylogger, zero_day, apt
+  Cluster (16 nodes): app_server_01, app_server_02, db_primary, api_gateway_node, internal_network
+  Cluster (14 nodes): web_server_01, web_server_02, edge_router, load_balancer, ansible_inventory
+  Cluster (13 nodes): ddos, brute_force, credential_stuffing, cve_2023_44487, default_credentials
 ```
 
-The largest cluster (36 nodes) groups advanced persistent threats with their detection tools. The second largest (23 nodes) clusters data-related threats with their defensive controls (DLP, encryption). These clusters reveal whether the knowledge base has adequate detection and mitigation coverage for each threat family.
+The largest cluster (50 nodes) groups threats with their controls, detection tools, and incident response actions. The infrastructure clusters (16 and 14 nodes) group servers with their networks and monitoring. These clusters reveal whether the knowledge base has adequate detection and mitigation coverage for each threat family.
 
 **Why this matters:** A threat without mitigation or detection tools in its cluster represents a defense gap. Community detection surfaces these gaps by showing which threats are isolated from their controls.
 
@@ -310,10 +316,10 @@ All threats classify as low_risk because the knowledge base models them with typ
 
 | Weight | Interpretation |
 |--------|----------------|
-| activation +0.40 | Graph topology is the strongest relevance predictor |
+| activation +0.34 | Graph topology is the strongest relevance predictor |
 | inverse_depth +0.32 | Shallower (closer) nodes are more relevant |
 | degree +0.21 | Better-connected nodes are moderately more relevant |
-| similarity +0.07 | Hash embedding contributes minimally — not semantically meaningful |
+| similarity +0.13 | Embedding similarity contributes meaningfully as a complement |
 
 ## 7. Key Metrics
 
@@ -328,23 +334,23 @@ All threats classify as low_risk because the knowledge base models them with typ
 | Activation results (ransomware) | 13 |
 | Top activation score | encryption_at_rest 0.8273 |
 | RRF results (ransomware) | 15 |
-| Top RRF score | gdpr 0.0315 |
+| Top RRF score | data_exfiltration 0.0294 |
 | Feedback queries | 4 |
 | Judgments per query | 15 |
 | Relevant per query | 9 |
 | Total feedback records | 60 |
 | LTR training samples | 60 |
-| LTR weight: activation | +0.3971 |
-| LTR weight: inverse_depth | +0.3182 |
-| LTR weight: degree | +0.2130 |
-| LTR weight: similarity | +0.0717 |
-| Activation/embedding overlap (5 queries) | 0/5 for all |
-| Event log entries | 457 |
+| LTR weight: activation | +0.3410 |
+| LTR weight: inverse_depth | +0.3179 |
+| LTR weight: degree | +0.2115 |
+| LTR weight: similarity | +0.1296 |
+| Activation/embedding overlap (5 queries) | 0/5 for 4 queries, 1/5 for severity_critical |
+| Event log entries | 458 |
 | Threat reasoning: states created | 1 |
 | Threat reasoning: edges inferred | 0 |
 | Threat communities detected | 25 |
-| Threat community modularity | 0.6827 |
-| Threat community coverage | 0.8008 |
+| Threat community modularity | 0.6528 |
+| Threat community coverage | 0.7927 |
 | Anomaly detection: all threats | low_risk |
 
 ## 8. What Makes This Different
@@ -359,7 +365,7 @@ A keyword search for "ransomware" returns only nodes containing the word "ransom
 4. **Relevance feedback** records which results users mark as relevant
 5. **Learning-to-rank** trains a model that weights each signal based on what actually predicts relevance
 
-The feedback loop is the key difference from static retrieval. After 60 judgments across 4 queries, the LTR model learned that activation (+0.40) matters more than hash-based similarity (+0.07) for this domain. With a real embedding provider, the balance might shift — the model adapts to whatever signals are available.
+The feedback loop is the key difference from static retrieval. After 60 judgments across 4 queries, the LTR model learned that activation (+0.34) matters more than similarity (+0.13) for this domain, but both signals contribute. The model adapts to whatever signals are available -- with different embedding models or graph structures, the balance would shift automatically.
 
 ## 9. Code Implementation
 
@@ -415,11 +421,11 @@ results_after = mem.search.query("ransomware", top_k=15, iterations=3, use_ltr=T
 
 ## 10. Real-World Gap
 
-**HashEmbeddingProvider is a placeholder.** It generates deterministic vectors from label hashes, producing similarity scores that reflect hash collisions rather than semantic relationships. The zero overlap between activation and embedding top-5 results (Section 8) and the LTR model's low similarity weight (+0.12) both reflect this limitation.
+**Default embedding provider uses general-purpose models.** The `FastEmbedProvider` with `BAAI/bge-small-en-v1.5` produces reasonable similarity scores from concept labels, but it is not trained on cybersecurity vocabulary. Domain-specific fine-tuning would improve similarity quality for specialized terms (CVE identifiers, MITRE technique codes).
 
-Production deployment would require:
+Production deployment would benefit from:
 
-1. **Real embeddings:** Replace `HashEmbeddingProvider` with sentence-transformers, OpenAI embeddings, or domain-specific models via `mem.set_embedding_provider(provider)`
+1. **Domain-specific embeddings:** Fine-tune on security text, or use a provider trained on cybersecurity corpora via `mem.set_embedding_provider(provider)`
 2. **Larger feedback corpus:** 60 samples is minimal. Production LTR models benefit from thousands of relevance judgments across diverse query types
 3. **Query expansion:** The current system retrieves from single seed concepts. Real retrieval often involves multi-concept queries with query expansion
 4. **Evaluation framework:** This showcase uses per-query relevance sets. Production needs held-out test sets, MAP/NDCG metrics, and statistical significance testing

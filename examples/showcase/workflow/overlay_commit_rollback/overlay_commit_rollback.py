@@ -17,219 +17,76 @@ Run with:
 
 from __future__ import annotations
 
+from collections import deque
+
 from hyper3 import (
     HypergraphMemory,
     TransitiveRule,
-    InverseRule,
     Modality,
 )
 
 SERVICES: dict[str, dict] = {
-    "web_frontend": {"type": "service", "team": "platform", "criticality": 8},
-    "mobile_bff": {"type": "service", "team": "platform", "criticality": 7},
     "api_gateway": {"type": "service", "team": "platform", "criticality": 9},
     "auth_service": {"type": "service", "team": "identity", "criticality": 10},
     "user_service": {"type": "service", "team": "identity", "criticality": 8},
-    "order_service": {"type": "service", "team": "commerce", "criticality": 9},
     "payment_service": {"type": "service", "team": "commerce", "criticality": 10},
-    "inventory_service": {"type": "service", "team": "commerce", "criticality": 7},
-    "notification_service": {"type": "service", "team": "platform", "criticality": 4},
     "search_service": {"type": "service", "team": "catalog", "criticality": 6},
-    "analytics_service": {"type": "service", "team": "data", "criticality": 6},
     "reporting_service": {"type": "service", "team": "data", "criticality": 5},
-    "recommendation_engine": {"type": "service", "team": "catalog", "criticality": 5},
-    "pricing_service": {"type": "service", "team": "commerce", "criticality": 7},
-    "shipping_service": {"type": "service", "team": "commerce", "criticality": 6},
-    "email_service": {"type": "service", "team": "platform", "criticality": 4},
-    "sms_service": {"type": "service", "team": "platform", "criticality": 3},
-    "file_service": {"type": "service", "team": "platform", "criticality": 5},
-    "config_service": {"type": "service", "team": "platform", "criticality": 8},
-    "scheduler_service": {"type": "service", "team": "platform", "criticality": 4},
-    "graphql_gateway": {"type": "service", "team": "platform", "criticality": 7},
+    "order_service": {"type": "service", "team": "commerce", "criticality": 9},
     "catalog_service": {"type": "service", "team": "catalog", "criticality": 8},
-    "cart_service": {"type": "service", "team": "commerce", "criticality": 7},
-    "review_service": {"type": "service", "team": "catalog", "criticality": 5},
-    "coupon_service": {"type": "service", "team": "commerce", "criticality": 4},
+    "web_frontend": {"type": "service", "team": "platform", "criticality": 8},
+    "mobile_bff": {"type": "service", "team": "platform", "criticality": 7},
+    "notification_service": {"type": "service", "team": "platform", "criticality": 4},
+    "email_service": {"type": "service", "team": "platform", "criticality": 4},
 }
 
-DATABASES: dict[str, dict] = {
-    "postgres_users": {"type": "database", "team": "data", "criticality": 9},
-    "postgres_orders": {"type": "database", "team": "data", "criticality": 9},
-    "postgres_payments": {"type": "database", "team": "data", "criticality": 10},
-    "postgres_inventory": {"type": "database", "team": "data", "criticality": 8},
-    "postgres_products": {"type": "database", "team": "data", "criticality": 8},
-    "mongo_analytics": {"type": "database", "team": "data", "criticality": 7},
-    "elastic_search_idx": {"type": "database", "team": "data", "criticality": 7},
-    "cassandra_events": {"type": "database", "team": "data", "criticality": 8},
-    "timescale_metrics": {"type": "database", "team": "sre", "criticality": 7},
-    "redis_sessions": {"type": "database", "team": "platform", "criticality": 8},
-    "postgres_configs": {"type": "database", "team": "platform", "criticality": 8},
-    "postgres_reviews": {"type": "database", "team": "data", "criticality": 6},
-}
-
-CACHES: dict[str, dict] = {
+INFRASTRUCTURE: dict[str, dict] = {
     "redis_cache_auth": {"type": "cache", "team": "platform", "criticality": 9},
-    "redis_cache_products": {"type": "cache", "team": "platform", "criticality": 7},
-    "redis_cache_search": {"type": "cache", "team": "platform", "criticality": 7},
-    "memcached_sessions": {"type": "cache", "team": "platform", "criticality": 6},
-    "redis_cache_recommendations": {"type": "cache", "team": "platform", "criticality": 5},
-    "redis_cache_cart": {"type": "cache", "team": "platform", "criticality": 6},
+    "postgres_users": {"type": "database", "team": "data", "criticality": 9},
+    "postgres_payments": {"type": "database", "team": "data", "criticality": 10},
+    "elastic_search_idx": {"type": "database", "team": "data", "criticality": 7},
+    "mongo_analytics": {"type": "database", "team": "data", "criticality": 7},
+    "redis_sessions": {"type": "cache", "team": "platform", "criticality": 8},
 }
 
 QUEUES: dict[str, dict] = {
     "kafka_ingestion": {"type": "queue", "team": "platform", "criticality": 8},
     "kafka_analytics": {"type": "queue", "team": "data", "criticality": 7},
-    "rabbitmq_notifications": {"type": "queue", "team": "platform", "criticality": 6},
-    "rabbitmq_orders": {"type": "queue", "team": "commerce", "criticality": 8},
-    "sqs_payments": {"type": "queue", "team": "commerce", "criticality": 8},
     "kafka_events": {"type": "queue", "team": "platform", "criticality": 7},
-}
-
-LOAD_BALANCERS: dict[str, dict] = {
-    "lb_web": {"type": "load_balancer", "team": "infra", "criticality": 9},
-    "lb_api": {"type": "load_balancer", "team": "infra", "criticality": 9},
-    "lb_internal": {"type": "load_balancer", "team": "infra", "criticality": 8},
-    "lb_analytics": {"type": "load_balancer", "team": "infra", "criticality": 6},
-    "lb_search": {"type": "load_balancer", "team": "infra", "criticality": 6},
-}
-
-MONITORING: dict[str, dict] = {
-    "prometheus": {"type": "monitoring", "team": "sre", "criticality": 7},
-    "grafana": {"type": "monitoring", "team": "sre", "criticality": 6},
-    "pagerduty": {"type": "monitoring", "team": "sre", "criticality": 8},
-    "datadog": {"type": "monitoring", "team": "sre", "criticality": 7},
-    "sentry": {"type": "monitoring", "team": "sre", "criticality": 6},
 }
 
 NETWORK: dict[str, dict] = {
     "network_segment_dmz": {"type": "network", "team": "network", "criticality": 9},
-    "network_segment_internal": {"type": "network", "team": "network", "criticality": 9},
-    "network_segment_database": {"type": "network", "team": "network", "criticality": 10},
-    "network_segment_cache": {"type": "network", "team": "network", "criticality": 9},
-    "vpn_gateway": {"type": "network", "team": "network", "criticality": 8},
+    "lb_web": {"type": "load_balancer", "team": "infra", "criticality": 9},
+    "lb_api": {"type": "load_balancer", "team": "infra", "criticality": 9},
+    "dns_primary": {"type": "network", "team": "network", "criticality": 10},
     "firewall_core": {"type": "network", "team": "network", "criticality": 10},
     "cdn_edge": {"type": "network", "team": "network", "criticality": 7},
-    "dns_primary": {"type": "network", "team": "network", "criticality": 10},
-}
-
-INFRASTRUCTURE: dict[str, dict] = {
-    "k8s_cluster_prod": {"type": "infrastructure", "team": "platform", "criticality": 10},
-    "k8s_cluster_staging": {"type": "infrastructure", "team": "platform", "criticality": 5},
-    "docker_registry": {"type": "infrastructure", "team": "platform", "criticality": 8},
-    "ci_runner": {"type": "infrastructure", "team": "platform", "criticality": 6},
-    "artifact_storage": {"type": "infrastructure", "team": "platform", "criticality": 7},
-    "consul_service_mesh": {"type": "infrastructure", "team": "platform", "criticality": 8},
-    "istio_sidecar": {"type": "infrastructure", "team": "platform", "criticality": 7},
-    "cert_manager": {"type": "infrastructure", "team": "platform", "criticality": 8},
-    "vault_secrets": {"type": "infrastructure", "team": "security", "criticality": 10},
-    "log_aggregator": {"type": "infrastructure", "team": "sre", "criticality": 7},
-    "tracing_jaeger": {"type": "infrastructure", "team": "sre", "criticality": 6},
-    "backup_storage": {"type": "infrastructure", "team": "data", "criticality": 9},
-    "storage_s3": {"type": "infrastructure", "team": "platform", "criticality": 8},
-    "storage_nfs": {"type": "infrastructure", "team": "platform", "criticality": 6},
-    "service_discovery": {"type": "infrastructure", "team": "platform", "criticality": 8},
+    "vpn_gateway": {"type": "network", "team": "network", "criticality": 8},
+    "lb_internal": {"type": "load_balancer", "team": "infra", "criticality": 8},
 }
 
 DEPENDS_ON: list[tuple[str, str]] = [
-    ("web_frontend", "api_gateway"),
-    ("mobile_bff", "api_gateway"),
     ("api_gateway", "auth_service"),
     ("api_gateway", "user_service"),
     ("api_gateway", "order_service"),
     ("api_gateway", "search_service"),
-    ("api_gateway", "catalog_service"),
-    ("api_gateway", "cart_service"),
-    ("api_gateway", "review_service"),
     ("api_gateway", "payment_service"),
     ("auth_service", "redis_cache_auth"),
     ("auth_service", "postgres_users"),
-    ("auth_service", "redis_sessions"),
-    ("auth_service", "vault_secrets"),
     ("user_service", "postgres_users"),
     ("user_service", "auth_service"),
     ("user_service", "redis_cache_auth"),
-    ("order_service", "postgres_orders"),
-    ("order_service", "inventory_service"),
-    ("order_service", "payment_service"),
-    ("order_service", "rabbitmq_orders"),
-    ("order_service", "user_service"),
     ("payment_service", "postgres_payments"),
-    ("payment_service", "sqs_payments"),
     ("payment_service", "redis_cache_auth"),
-    ("payment_service", "vault_secrets"),
-    ("inventory_service", "postgres_inventory"),
-    ("inventory_service", "postgres_products"),
-    ("notification_service", "rabbitmq_notifications"),
-    ("notification_service", "email_service"),
-    ("notification_service", "sms_service"),
+    ("order_service", "payment_service"),
+    ("order_service", "user_service"),
+    ("web_frontend", "api_gateway"),
+    ("mobile_bff", "api_gateway"),
     ("search_service", "elastic_search_idx"),
-    ("search_service", "redis_cache_search"),
-    ("search_service", "catalog_service"),
-    ("search_service", "kafka_events"),
-    ("analytics_service", "mongo_analytics"),
-    ("analytics_service", "kafka_analytics"),
-    ("analytics_service", "cassandra_events"),
-    ("reporting_service", "postgres_orders"),
-    ("reporting_service", "analytics_service"),
-    ("recommendation_engine", "redis_cache_recommendations"),
-    ("recommendation_engine", "cassandra_events"),
-    ("recommendation_engine", "user_service"),
-    ("pricing_service", "postgres_products"),
-    ("pricing_service", "redis_cache_products"),
-    ("shipping_service", "postgres_orders"),
-    ("shipping_service", "inventory_service"),
-    ("email_service", "file_service"),
-    ("sms_service", "config_service"),
-    ("cart_service", "redis_cache_cart"),
-    ("cart_service", "catalog_service"),
-    ("cart_service", "pricing_service"),
-    ("review_service", "postgres_reviews"),
-    ("review_service", "user_service"),
-    ("coupon_service", "postgres_products"),
-    ("coupon_service", "cart_service"),
-    ("scheduler_service", "config_service"),
-    ("scheduler_service", "rabbitmq_notifications"),
-    ("graphql_gateway", "api_gateway"),
-    ("graphql_gateway", "analytics_service"),
-    ("catalog_service", "postgres_products"),
-    ("catalog_service", "redis_cache_products"),
     ("catalog_service", "search_service"),
-    ("file_service", "storage_s3"),
-    ("file_service", "storage_nfs"),
-    ("lb_web", "dns_primary"),
-    ("lb_api", "dns_primary"),
-    ("k8s_cluster_prod", "docker_registry"),
-    ("k8s_cluster_prod", "consul_service_mesh"),
-    ("k8s_cluster_prod", "cert_manager"),
-    ("k8s_cluster_prod", "vault_secrets"),
-    ("k8s_cluster_prod", "istio_sidecar"),
-    ("k8s_cluster_prod", "service_discovery"),
-    ("k8s_cluster_staging", "docker_registry"),
-    ("ci_runner", "docker_registry"),
-    ("ci_runner", "artifact_storage"),
-    ("log_aggregator", "tracing_jaeger"),
-    ("tracing_jaeger", "elastic_search_idx"),
-    ("config_service", "vault_secrets"),
-    ("config_service", "postgres_configs"),
-]
-
-ROUTES_TO: list[tuple[str, str]] = [
-    ("lb_web", "web_frontend"),
-    ("lb_web", "cdn_edge"),
-    ("lb_api", "api_gateway"),
-    ("lb_api", "graphql_gateway"),
-    ("lb_internal", "auth_service"),
-    ("lb_internal", "user_service"),
-    ("lb_internal", "order_service"),
-    ("lb_internal", "payment_service"),
-    ("lb_internal", "inventory_service"),
-    ("lb_analytics", "analytics_service"),
-    ("lb_analytics", "reporting_service"),
-    ("lb_search", "search_service"),
-    ("lb_search", "elastic_search_idx"),
-    ("cdn_edge", "web_frontend"),
-    ("vpn_gateway", "lb_internal"),
-    ("dns_primary", "lb_web"),
+    ("reporting_service", "mongo_analytics"),
+    ("notification_service", "email_service"),
 ]
 
 CONNECTS_TO: list[tuple[str, str]] = [
@@ -237,76 +94,26 @@ CONNECTS_TO: list[tuple[str, str]] = [
     ("network_segment_dmz", "lb_api"),
     ("network_segment_dmz", "vpn_gateway"),
     ("network_segment_dmz", "firewall_core"),
-    ("network_segment_internal", "lb_internal"),
-    ("network_segment_internal", "network_segment_dmz"),
-    ("network_segment_internal", "k8s_cluster_prod"),
-    ("network_segment_database", "postgres_users"),
-    ("network_segment_database", "postgres_orders"),
-    ("network_segment_database", "postgres_payments"),
-    ("network_segment_database", "postgres_inventory"),
-    ("network_segment_database", "postgres_products"),
-    ("network_segment_database", "mongo_analytics"),
-    ("network_segment_database", "cassandra_events"),
-    ("network_segment_database", "elastic_search_idx"),
-    ("network_segment_database", "timescale_metrics"),
-    ("network_segment_database", "postgres_configs"),
-    ("network_segment_database", "postgres_reviews"),
-    ("network_segment_cache", "redis_cache_auth"),
-    ("network_segment_cache", "redis_cache_products"),
-    ("network_segment_cache", "redis_cache_search"),
-    ("network_segment_cache", "redis_cache_recommendations"),
-    ("network_segment_cache", "memcached_sessions"),
-    ("network_segment_cache", "redis_cache_cart"),
-    ("network_segment_cache", "redis_sessions"),
-    ("firewall_core", "network_segment_internal"),
+    ("firewall_core", "cdn_edge"),
+    ("vpn_gateway", "lb_internal"),
+    ("lb_internal", "dns_primary"),
+    ("lb_web", "cdn_edge"),
+    ("lb_api", "cdn_edge"),
 ]
 
-MONITORS_EDGES: list[tuple[str, str]] = [
-    ("prometheus", "api_gateway"),
-    ("prometheus", "auth_service"),
-    ("prometheus", "user_service"),
-    ("prometheus", "order_service"),
-    ("prometheus", "payment_service"),
-    ("prometheus", "search_service"),
-    ("grafana", "prometheus"),
-    ("datadog", "k8s_cluster_prod"),
-    ("datadog", "network_segment_internal"),
-    ("sentry", "api_gateway"),
-    ("sentry", "auth_service"),
-    ("sentry", "user_service"),
-    ("pagerduty", "prometheus"),
-    ("log_aggregator", "k8s_cluster_prod"),
-]
-
-CACHES_FOR: list[tuple[str, str]] = [
-    ("redis_cache_auth", "postgres_users"),
-    ("redis_cache_auth", "auth_service"),
-    ("redis_cache_products", "postgres_products"),
-    ("redis_cache_search", "elastic_search_idx"),
-    ("redis_cache_recommendations", "cassandra_events"),
-    ("memcached_sessions", "redis_sessions"),
-    ("redis_cache_cart", "postgres_orders"),
-]
-
-REPLICATES_TO: list[tuple[str, str]] = [
-    ("postgres_users", "backup_storage"),
-    ("postgres_orders", "backup_storage"),
-    ("postgres_payments", "backup_storage"),
-    ("postgres_inventory", "backup_storage"),
-    ("redis_cache_auth", "redis_cache_search"),
-    ("redis_cache_products", "redis_cache_search"),
-    ("cassandra_events", "backup_storage"),
+ROUTES_TO: list[tuple[str, str]] = [
+    ("lb_web", "web_frontend"),
+    ("lb_api", "api_gateway"),
+    ("lb_internal", "order_service"),
+    ("lb_api", "mobile_bff"),
 ]
 
 PUBLISHES_TO: list[tuple[str, str]] = [
     ("kafka_ingestion", "kafka_analytics"),
     ("kafka_ingestion", "kafka_events"),
-    ("kafka_events", "analytics_service"),
-    ("rabbitmq_orders", "shipping_service"),
-    ("rabbitmq_orders", "notification_service"),
-    ("sqs_payments", "notification_service"),
     ("kafka_analytics", "reporting_service"),
-    ("scheduler_service", "kafka_events"),
+    ("kafka_events", "search_service"),
+    ("kafka_events", "mongo_analytics"),
 ]
 
 SYMPTOMS: list[tuple[str, str]] = [
@@ -322,24 +129,17 @@ SYMPTOMS: list[tuple[str, str]] = [
 def build_infrastructure(mem: HypergraphMemory) -> None:
     all_nodes: dict[str, dict] = {}
     all_nodes.update(SERVICES)
-    all_nodes.update(DATABASES)
-    all_nodes.update(CACHES)
-    all_nodes.update(QUEUES)
-    all_nodes.update(LOAD_BALANCERS)
-    all_nodes.update(MONITORING)
-    all_nodes.update(NETWORK)
     all_nodes.update(INFRASTRUCTURE)
+    all_nodes.update(QUEUES)
+    all_nodes.update(NETWORK)
 
     for label, data in all_nodes.items():
         mem.add(label, data=data, modalities={Modality.CONCEPTUAL})
 
     edge_groups: list[tuple[list[tuple[str, str]], str]] = [
         (DEPENDS_ON, "depends_on"),
-        (ROUTES_TO, "routes_to"),
         (CONNECTS_TO, "connects_to"),
-        (MONITORS_EDGES, "monitors"),
-        (CACHES_FOR, "caches_for"),
-        (REPLICATES_TO, "replicates_to"),
+        (ROUTES_TO, "routes_to"),
         (PUBLISHES_TO, "publishes_to"),
     ]
     for edges, label in edge_groups:
@@ -365,26 +165,38 @@ def analyze_hypothesis(
     overlay_details: list[dict] = []
 
     if overlay:
-        for eid in sorted(overlay.overlay_edge_ids):
-            edge = overlay.get_edge(eid)
-            if not edge:
-                continue
-            _src = mem.engine.graph.get_node(next(iter(edge.source_ids)))
-            _tgt = mem.engine.graph.get_node(next(iter(edge.target_ids)))
-            src_label = _src.label if _src else ""
-            tgt_label = _tgt.label if _tgt else ""
-            conf = overlay.get_confidence(eid)
+        for le in overlay.labeled_edges:
             overlay_details.append({
-                "source": src_label,
-                "target": tgt_label,
-                "label": edge.label,
-                "confidence": conf,
+                "source": le["source_labels"],
+                "target": le["target_labels"],
+                "label": le["label"],
+                "confidence": float(le["confidence"]),
             })
-            for nid in edge.source_ids | edge.target_ids:
-                if nid in symptom_ids:
-                    node = mem.engine.graph.get_node(nid)
-                    if node:
-                        blast_radius.add(node.label)
+
+        seed_ids: set[str] = set()
+        for s in seeds:
+            resolved = mem.resolve_id(s)
+            if resolved:
+                seed_ids.add(resolved)
+        adj: dict[str, set[str]] = {}
+        for eid in overlay.overlay_edge_ids:
+            edge = overlay.get_edge(eid)
+            if edge:
+                for src in edge.source_ids:
+                    adj.setdefault(src, set()).update(edge.target_ids)
+
+        visited = set(seed_ids)
+        queue = deque(seed_ids)
+        while queue:
+            node = queue.popleft()
+            for neighbor in adj.get(node, set()):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    queue.append(neighbor)
+
+        for nid in visited:
+            if nid in symptom_ids:
+                blast_radius.add(mem.node_label(nid))
 
     confidence_map = result.confidence or {}
     avg_conf = (
@@ -410,7 +222,6 @@ def print_hypothesis_report(
     analysis: dict,
 ) -> None:
     exp = analysis["result"].expansion
-    overlay_info = analysis["result"].overlay or {}
 
     print(f"  Hypothesis: {name}")
     print(f"  Description: {description}")
@@ -418,8 +229,6 @@ def print_hypothesis_report(
     print(f"  Expansion: {exp.states_created} states, "
           f"{exp.rules_applied} rules applied, "
           f"{exp.edges_produced} edges produced")
-    print(f"  Overlay: {overlay_info.get('edge_count', 0)} edges, "
-          f"{overlay_info.get('node_count', 0)} new nodes")
     print()
 
     if analysis["overlay_details"]:
@@ -445,47 +254,23 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     print("=" * 70)
-    print("SECTION 1: Building Microservices Infrastructure Graph")
+    print("SECTION 1: Building Infrastructure Graph")
     print("=" * 70)
 
     build_infrastructure(mem)
 
-    service_count = len(SERVICES)
-    db_count = len(DATABASES)
-    cache_count = len(CACHES)
-    queue_count = len(QUEUES)
-    lb_count = len(LOAD_BALANCERS)
-    mon_count = len(MONITORING)
-    net_count = len(NETWORK)
-    infra_count = len(INFRASTRUCTURE)
-    total_nodes = (service_count + db_count + cache_count + queue_count
-                   + lb_count + mon_count + net_count + infra_count)
-
-    print(f"  Services:       {service_count:>3}")
-    print(f"  Databases:      {db_count:>3}")
-    print(f"  Caches:         {cache_count:>3}")
-    print(f"  Queues:         {queue_count:>3}")
-    print(f"  Load balancers: {lb_count:>3}")
-    print(f"  Monitoring:     {mon_count:>3}")
-    print(f"  Network:        {net_count:>3}")
-    print(f"  Infrastructure: {infra_count:>3}")
-    print(f"  -------------------")
-    print(f"  Total nodes:    {total_nodes:>3}")
-    print(f"  Total edges:    {mem.size[1]:>3}")
+    print(f"  Nodes:        {mem.size[0]:>3}")
+    print(f"  Edges:        {mem.size[1]:>3}")
     print()
-
     print("  Edge types:")
     print(f"    depends_on:    {len(DEPENDS_ON):>3}")
-    print(f"    routes_to:     {len(ROUTES_TO):>3}")
     print(f"    connects_to:   {len(CONNECTS_TO):>3}")
-    print(f"    monitors:      {len(MONITORS_EDGES):>3}")
-    print(f"    caches_for:    {len(CACHES_FOR):>3}")
-    print(f"    replicates_to: {len(REPLICATES_TO):>3}")
+    print(f"    routes_to:     {len(ROUTES_TO):>3}")
     print(f"    publishes_to:  {len(PUBLISHES_TO):>3}")
     print()
 
     print("=" * 70)
-    print("SECTION 2: Observed Symptoms")
+    print("SECTION 2: Recording Observed Symptoms")
     print("=" * 70)
 
     print("  On-call has identified the following production errors:")
@@ -496,18 +281,16 @@ def main() -> None:
 
     symptom_ids: set[str] = set()
     for label, _ in SYMPTOMS:
-        node = mem.engine.graph.get_node_by_label(label)
-        if node:
-            symptom_ids.add(node.id)
+        resolved = mem.resolve_id(label)
+        if resolved:
+            symptom_ids.add(resolved)
     print(f"  {len(symptom_ids)} symptom services require explanation")
     print()
 
     base_edge_count = mem.size[1]
 
-    mem.add_rules(
-        TransitiveRule(edge_label="depends_on", new_label="indirectly_depends_on"),
-        InverseRule(edge_label="depends_on", inverse_label="depended_on_by"),
-    )
+    for lbl in ["depends_on", "connects_to", "publishes_to", "routes_to"]:
+        mem.add_rules(TransitiveRule(edge_label=lbl, new_label=f"indirectly_{lbl}"))
 
     print("=" * 70)
     print("SECTION 3: Hypothesis A - Redis Cache Auth Failure (CORRECT)")
@@ -516,7 +299,7 @@ def main() -> None:
     seeds_a = {"redis_cache_auth", "auth_service", "user_service", "api_gateway", "payment_service"}
     analysis_a = analyze_hypothesis(mem, seeds_a, symptom_ids)
     print_hypothesis_report(
-        "A", "redis_cache_auth authentication cache failure", seeds_a, analysis_a
+        "A", "Redis cache auth failure", seeds_a, analysis_a
     )
 
     print("  Verdict: STRONG MATCH - blast radius covers most symptoms")
@@ -527,10 +310,10 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 4: Hypothesis B - Network Segment DMZ Issue (INCORRECT)")
+    print("SECTION 4: Hypothesis B - Network Segment DMZ (INCORRECT)")
     print("=" * 70)
 
-    seeds_b = {"network_segment_dmz", "lb_web", "lb_api", "dns_primary"}
+    seeds_b = {"network_segment_dmz", "lb_web", "lb_api", "dns_primary", "vpn_gateway"}
     analysis_b = analyze_hypothesis(mem, seeds_b, symptom_ids)
     print_hypothesis_report(
         "B", "DMZ network segment partition or misconfiguration", seeds_b, analysis_b
@@ -544,14 +327,13 @@ def main() -> None:
     print()
 
     print("=" * 70)
-    print("SECTION 5: Hypothesis C - Kafka Ingestion Cluster Issue (PARTIAL)")
+    print("SECTION 5: Hypothesis C - Kafka Ingestion (PARTIAL)")
     print("=" * 70)
 
-    seeds_c = {"kafka_ingestion", "kafka_analytics", "kafka_events",
-               "analytics_service", "reporting_service", "search_service"}
+    seeds_c = {"kafka_ingestion", "kafka_analytics", "kafka_events"}
     analysis_c = analyze_hypothesis(mem, seeds_c, symptom_ids)
     print_hypothesis_report(
-        "C", "Kafka ingestion cluster degradation or partition", seeds_c, analysis_c
+        "C", "Kafka cluster degradation or partition", seeds_c, analysis_c
     )
 
     print("  Verdict: PARTIAL MATCH - explains some symptoms but not critical ones")
@@ -598,7 +380,6 @@ def main() -> None:
     if mem.overlay:
         print(f"  Overlay contains {len(mem.overlay.overlay_edge_ids)} inference edges")
         print()
-
         print("  Committing overlay to base graph...")
         committed = mem.commit_inferences()
         print(f"  Committed: {committed['committed_nodes']} nodes, "
@@ -617,7 +398,6 @@ def main() -> None:
     print()
     print(f"  Overlay active: {mem.overlay is not None}")
     print()
-
     print("  Committed inferences now in the base graph:")
     for d in analysis_final["overlay_details"]:
         print(f"    {d['source']} --[{d['label']}]--> {d['target']}")

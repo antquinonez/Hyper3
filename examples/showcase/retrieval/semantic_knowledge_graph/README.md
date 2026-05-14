@@ -80,7 +80,7 @@ A 13-node technology knowledge graph with four node types and 16 directed edges:
 | framework | 4 | PyTorch, TensorFlow, Django, Flask |
 | domain | 2 | web development, data science |
 
-Edge labels: `used_for` (6), `language_of` (6), `enables` (2), `includes` (1), `used_for` (1) -- totaling 16 edges.
+Edge labels: `used_for` (9), `language_of` (4), `enables` (2), `includes` (1) -- totaling 16 edges.
 
 ```mermaid
 graph LR
@@ -126,6 +126,8 @@ graph LR
 
 Python is the central hub with 7 outgoing edges spanning fields and frameworks.
 
+**Comparison with `retrieval_and_similarity/`:** Both examples use a technology knowledge graph, but this one uses `sentence-transformers` for real semantic embeddings, while `retrieval_and_similarity/` uses the default `HashEmbeddingProvider` which produces hash-derived (not semantically meaningful) similarity scores. Use `retrieval_and_similarity/` for a zero-dependency introduction; use this example for realistic embedding behavior.
+
 ## 6. Analysis Pipeline
 
 ### Semantic Similarity
@@ -158,6 +160,8 @@ The COMBINED section merges activation scores with similarity scores. For each a
 | 0.5-0.8 | Moderately similar (related concepts) |
 | 0.0-0.5 | Weakly similar or unrelated |
 
+These thresholds assume a real embedding model. With `sentence-transformers`, scores above 0.5 generally indicate meaningful relatedness.
+
 ### Activation score interpretation
 
 | Score range | Meaning |
@@ -166,6 +170,10 @@ The COMBINED section merges activation scores with similarity scores. For each a
 | 0.5-1.0 | Directly connected to seed |
 | 0.2-0.5 | 1-2 hops away |
 | < 0.2 | Distant or indirectly connected |
+
+### Key difference
+
+Similarity and activation measure fundamentally different things. Two concepts can have high similarity but zero activation (semantically related but no graph path between them), or high activation but low similarity (structurally connected but describing different abstractions). The COMBINED section shows both metrics side by side to illustrate this orthogonality.
 
 ## 8. Key Metrics
 

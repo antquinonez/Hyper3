@@ -6,7 +6,7 @@
 
 In a knowledge graph built from scientific literature, an inferred relationship is only as reliable as the evidence chain supporting it. When a source study is retracted or a premise is disproven, every conclusion that depends on it becomes unreliable.
 
-**The Manual Approach:** When a paper is retracted, researchers must manually trace every citation and downstream claim, then逐一 remove or flag each affected conclusion. This is error-prone at scale — a single retracted meta-analysis might invalidate dozens of downstream inferences across multiple research groups.
+**The Manual Approach:** When a paper is retracted, researchers must manually trace every citation and downstream claim, then individually remove or flag each affected conclusion. This is error-prone at scale — a single retracted meta-analysis might invalidate dozens of downstream inferences across multiple research groups.
 
 **The Hyper3 Approach:** Every inferred edge records its **provenance**: which rule produced it, which input edges it used, and at what depth. When a premise is retracted via `retract_inference()`, the engine traces all dependent inferences and removes them in a single cascading operation, maintaining graph consistency.
 
@@ -33,35 +33,27 @@ Think of this like a house of cards. Each card (inference) rests on other cards 
 ### What You'll See
 
 ```
-======================================================================
 SECTION 1: Building Research Knowledge Graph
-======================================================================
   12 entities, 13 relationships
 
-======================================================================
 SECTION 2: Reasoning with Provenance
-======================================================================
   States explored: 3
   Rules applied: 2
   Edges inferred: 2
   Provenance records: 2
 
-======================================================================
 SECTION 3: Explaining Inferences
-======================================================================
   2 inferred edges. Explaining each:
-
-  drug_olaparib --[was_investigated_by]--> study_alpha
-    Rule: inverse(investigated->was_investigated_by)
-    Depth: 1
 
   breast_cancer --[was_investigated_by]--> study_alpha
     Rule: inverse(investigated->was_investigated_by)
     Depth: 1
 
-======================================================================
+  drug_olaparib --[was_investigated_by]--> study_alpha
+    Rule: inverse(investigated->was_investigated_by)
+    Depth: 1
+
 SECTION 5: Cascading Retraction
-======================================================================
   Graph before retraction: 15 edges
   Provenance records: 2
 
@@ -187,7 +179,7 @@ retracted_ids = mem.retract_inference(
 )
 ```
 
-The retraction removes 1 edge (the targeted inference). In scenarios with deeper chains, a single retraction can cascade through multiple dependent inferences — each one that relied on the retracted edge is also removed.
+The retraction removes exactly 1 edge (the targeted inference itself). No further cascading occurs because the retracted edge had no dependent inferences — no other derived edges were built on top of `drug_olaparib --[was_investigated_by]--> study_alpha`. In a deeper inference chain, where edge A was derived from edge B, which was derived from edge C, retracting C would cascade through B to A, removing all three. Here the chain is only one level deep, so the retraction is limited to the single targeted edge.
 
 After retraction: 14 edges remain, and 1 provenance record persists (for the `breast_cancer --[was_investigated_by]--> study_alpha` inference, which was not retracted).
 
@@ -251,7 +243,7 @@ mem.add_rules(
 )
 
 result = mem.reason(
-    {"study_alpha", "drug_olaparib"}, max_depth=3, max_total_states=40
+    {"study_alpha", "drug_olaparib"}, depth=3, max_states=40
 )
 ```
 
@@ -289,7 +281,7 @@ print(f"Removed {len(retracted_ids)} edges")
 
 | Method | Purpose |
 |--------|---------|
-| `mem.reason(seeds, depth, max_total_states)` | Run inference, creating provenance records |
+| `mem.reason(seeds, depth, max_states)` | Run inference, creating provenance records |
 | `mem.provenance.explain(edge_id, graph)` | Get derivation chain for an inferred edge |
 | `mem.explain(source_label, target_label)` | High-level explain between two concepts |
 | `mem.retract_inference(source, target, edge_label)` | Retract inference and all dependents |

@@ -375,7 +375,7 @@ These MUST be run after making code changes:
 .venv/bin/ruff check src/hyper3/ tests/
 ```
 
-The test suite, type checker, and linter are all correctness gates.
+The test suite, type checker, and linter are all correctness gates. Pyright and ruff must report 0 errors. If either tool reports errors — whether introduced by the current session or pre-existing — fix them before proceeding. Do not leave known errors for later.
 
 ## Key Conventions
 
@@ -392,8 +392,14 @@ Edge `source_ids` and `target_ids` are `frozenset[str]`, not `list` or `set`. Al
 ### `rules` read-only property
 `mem.rules` returns a copy of the currently active inference rules as a list. This is a read-only property; use `add_rules()` to register new rules.
 
-### No comments in code
-Do not add comments unless explicitly asked.
+### No comments in production code (src/)
+Do not add comments in `src/` code unless explicitly asked, with two exceptions:
+- **Navigational section dividers** (e.g., `# -- Terminal: extract results ---`) are acceptable in long files.
+- **"Why" comments** explaining non-obvious design rationale are acceptable. These explain *why*, not *what*. Example: `# Frozenset required because edges serve as dict keys and must be hashable`.
+
+Do not add comments that explain what the code does -- the code should be self-documenting.
+
+Examples (`examples/`) and tests (`tests/`) may use comments freely for section markers, explanatory notes, and educational annotations.
 
 ### No emojis
 Do not use emojis in code or commit messages unless explicitly asked.
@@ -475,7 +481,7 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 ## Making Changes
 
 1. Read the relevant module(s) before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 3490 tests must pass.
+2. Run the full test suite after changes. All 3734 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
@@ -483,3 +489,23 @@ If the count decreased, a test was accidentally deleted. Run `git checkout tests
 7. **Do not commit unless the user explicitly asks.** Stage changes and report readiness, but let the user decide when to commit.
 
 For the post-change validation checklist, see `ai/agents_housekeeping.md`.
+
+## API Reference Documentation
+
+Auto-generated API reference lives in `docs/api/` (gitignored, regenerated on demand).
+
+**Structure**:
+- `docs/api/index.md` — concise index of all modules, classes, and one-line summaries (~55KB)
+- `docs/api/<module>.md` — full docstrings, args, returns per module
+
+**When to use it**: Read `docs/api/index.md` to discover relevant classes/methods, then read the specific module file for detail. This is faster than reading source files directly and avoids loading all 97 modules into context.
+
+**How to regenerate**:
+```bash
+.venv/bin/python scripts/generate_api_docs.py
+```
+Or type `/update-docs` in OpenCode.
+
+**When to regenerate**: After adding, removing, or renaming public classes, methods, or exported symbols. The docs are not auto-updated on commit.
+
+**Docstring standard**: Google-style (`Args:`, `Returns:`). Core modules have 100% coverage; newer subsystems (search, sqlite, embedding) have gaps that produce signature-only entries. When adding public methods, include a docstring so the next regeneration picks it up.

@@ -174,8 +174,6 @@ from hyper3.invariant_detector import (
     InvariantReport,
     PropertyInvariant,
 )
-from hyper3.layered_graph import LayerStack
-from hyper3.layered_graph import LayeredGraph
 from hyper3.kernel import (
     AbstractionLayer,
     Hyperedge,
@@ -184,6 +182,7 @@ from hyper3.kernel import (
     Metadata,
     Modality,
 )
+from hyper3.layered_graph import LayeredGraph, LayerStack
 from hyper3.memory import HypergraphMemory
 from hyper3.multi_perspective import (
     AnalysisPreset,

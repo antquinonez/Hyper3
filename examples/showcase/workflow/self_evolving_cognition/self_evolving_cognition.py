@@ -20,8 +20,8 @@ def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
 
     def _id(label: str) -> str:
-        n = mem.engine.graph.get_node_by_label(label)
-        return n.id if n else label
+        resolved = mem.resolve_id(label)
+        return resolved if resolved else label
 
     print("=" * 70)
     print("SECTION 1: Feedback-Driven Evolution")
@@ -50,7 +50,7 @@ def main() -> None:
         mem.add(concept)
     mem.link("epsilon", "zeta", label="connects")
 
-    _sample_edges = list(mem.engine.graph.edges)[:3]
+    _sample_edges = list(mem.graph.edges)[:3]
     mem.operation_feedback.record_inference_outcome(_sample_edges[0].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[1].id, accepted=True)
     mem.operation_feedback.record_inference_outcome(_sample_edges[2].id, accepted=False)
@@ -83,8 +83,7 @@ def main() -> None:
     if correlated:
         print(f"  Nodes appearing across multiple operations: {len(correlated)}")
         for nid, info in list(correlated.items())[:3]:
-            n = mem.engine.graph.get_node(nid)
-            label = n.label if n else nid[:8]
+            label = mem.node_label(nid)
             print(f"    {label}: positive_rate={info['positive_rate']:.2f}, "
                   f"types={info['signal_types']}")
 
@@ -167,28 +166,35 @@ def main() -> None:
     print("SECTION 5: Causal Merge Insight Preservation")
     print("=" * 70)
 
-    from hyper3 import MultiwayEngine, MultiwayGraph, StateConvergenceEngine, MultiwayState
+    from hyper3 import MultiwayGraph, StateConvergenceEngine, MultiwayState
 
-    graph = mem.engine.graph
+    graph = mem.graph
     mw_graph = MultiwayGraph()
     causal = StateConvergenceEngine(graph, mw_graph, threshold=0.5)
 
-    shared_nodes = {"node_a", "node_b"}
+    alpha_id = _id("alpha")
+    beta_id = _id("beta")
+    gamma_id = _id("gamma")
+    delta_id = _id("delta")
+
+    shared = frozenset({alpha_id, beta_id, gamma_id})
+    shared_edge = f"{alpha_id}_{beta_id}"
+
     s1 = MultiwayState(
         parent_id=None,
-        active_node_ids=frozenset(shared_nodes | {"node_c"}),
+        active_node_ids=shared | frozenset({delta_id}),
         rule_applied="transitive",
         depth=1,
-        produced_node_ids=["node_c"],
-        produced_edge_ids=["edge_ac"],
+        produced_node_ids=[delta_id],
+        produced_edge_ids=[shared_edge, f"{gamma_id}_{delta_id}"],
     )
     s2 = MultiwayState(
-        parent_id=None,
-        active_node_ids=frozenset(shared_nodes | {"node_d"}),
+        parent_id="other",
+        active_node_ids=shared,
         rule_applied="inverse",
         depth=1,
-        produced_node_ids=["node_d"],
-        produced_edge_ids=["edge_bd"],
+        produced_node_ids=[],
+        produced_edge_ids=[shared_edge],
     )
     mw_graph.add_state(s1)
     mw_graph.add_state(s2)
@@ -199,9 +205,13 @@ def main() -> None:
         print(f"  Merge: {inv.state_a_id[:8]} + {inv.state_b_id[:8]} "
               f"(similarity={inv.similarity:.3f})")
         for insight in inv.insights:
+            label_lookup = {}
+            for nid in insight.unique_nodes:
+                n = graph.get_node(nid)
+                label_lookup[nid] = n.label if n else nid[:8]
             print(f"    State {insight.state_id[:8]}: "
                   f"rule={insight.rule_applied}, "
-                  f"unique_nodes={len(insight.unique_nodes)}, "
+                  f"unique_nodes={[label_lookup.get(n, n[:8]) for n in insight.unique_nodes]}, "
                   f"unique_edges={len(insight.unique_edges)}")
 
     print()

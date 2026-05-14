@@ -1,13 +1,11 @@
 """
-Laminar Comparison: Temporal Reasoning
-=======================================
-Parallels:
-  - HNX: "Temporal Paths" tutorial (temporal shortest/quickest paths)
-  - XGI: temporal hypergraph concepts
+Temporal Reasoning: Allen Interval Algebra, Causal Chains, Belief, and Activation
+==================================================================================
 
-Shows Allen interval algebra, temporal event ordering, causal chain
-detection, and constraint checking -- capabilities unique to Hyper3
-in this comparison space.
+Models a pandemic scenario with 9 temporal events, computes Allen interval
+relations, detects causal chains, checks temporal consistency, runs
+TransitiveRule inference, creates belief distributions over uncertain
+outcomes, and performs spreading activation from key event seeds.
 
 Run: .venv/bin/python examples/showcase/workflow/generative_and_workflow/temporal_reasoning.py
 """
@@ -59,9 +57,9 @@ def main() -> None:
     print("SECTION 2: ALLEN INTERVAL RELATIONS")
     print("=" * 70)
 
-    print("\n--- HNX equivalent ---")
-    print("Temporal paths on time-ordered hypergraphs")
-    print("--- Hyper3: Full Allen interval algebra (13 relations) ---")
+    print("  Allen interval algebra defines 13 mutually exclusive relations")
+    print("  between two time intervals (before, meets, overlaps, contains, etc.)")
+    print()
 
     test_pairs = [
         ("outbreak_detected", "quarantine_issued"),
@@ -86,8 +84,7 @@ def main() -> None:
     for i, chain in enumerate(chains):
         chain_labels = []
         for node_id in chain:
-            n = mem.engine.graph.get_node(node_id)
-            chain_labels.append(n.label if n else node_id)
+            chain_labels.append(mem.node_label(node_id))
         events_str = " -> ".join(chain_labels)
         print(f"  chain {i+1}: {events_str}")
 
@@ -104,7 +101,7 @@ def main() -> None:
         print("  no temporal contradictions detected")
 
     print("\n" + "=" * 70)
-    print("SECTION 5: TEMPORAL + REASONING (Hyper3-only layer)")
+    print("SECTION 5: TEMPORAL + REASONING (INFERRING INDIRECT CAUSES)")
     print("=" * 70)
 
     from hyper3.rules import TransitiveRule
@@ -142,8 +139,7 @@ def main() -> None:
     print(f"  number of outcomes: {qs.outcome_count}")
 
     for outcome in qs.outcomes:
-        node = mem.engine.graph.get_node(outcome.node_id)
-        label = node.label if node else outcome.node_id
+        label = mem.node_label(outcome.node_id)
         print(f"  {label}: probability={outcome.probability:.4f}")
 
     sampled = mem.belief.sample(qs)

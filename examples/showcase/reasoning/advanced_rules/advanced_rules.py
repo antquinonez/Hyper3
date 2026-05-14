@@ -22,13 +22,12 @@ from __future__ import annotations
 from collections import Counter
 
 from hyper3 import (
-    StructuralProjectionRule,
-    HubInferenceRule,
-    HypergraphMemory,
     GeneralizationRule,
     HashEmbeddingProvider,
+    HubInferenceRule,
+    HypergraphMemory,
     InverseRule,
-    Modality,
+    StructuralProjectionRule,
     TransitiveRule,
 )
 
@@ -390,8 +389,8 @@ def main() -> None:
     initial_nodes = mem.size[0]
     initial_edges = mem.size[1]
     print(f"  Nodes: {initial_nodes}, Edges: {initial_edges}")
-    print(f"    35 services | 20 hosts | 15 metrics | 15 alerts")
-    print(f"    15 deployments | 10 external deps | 15 correlations")
+    print("    35 services | 20 hosts | 15 metrics | 15 alerts")
+    print("    15 deployments | 10 external deps | 15 correlations")
     edge_counter: Counter[str] = Counter()
     for edge in mem.engine.graph.edges:
         if edge.label:
@@ -446,7 +445,7 @@ def main() -> None:
     t_matches = transitive.find_matches(mem.engine.graph, all_ids)
 
     print(f"  Found {len(t_matches)} transitive dependency chains")
-    print(f"  (A depends_on B depends_on C => A inferred_depends_on C)")
+    print("  (A depends_on B depends_on C => A inferred_depends_on C)")
     print()
 
     seen_targets: Counter[str] = Counter()
@@ -512,10 +511,7 @@ def main() -> None:
         lb = m.context["label_b"]
         sim = m.context["similarity"]
         node_a = mem.engine.graph.get_node_by_label(la)
-        if node_a and node_a.data:
-            team = node_a.data.get("team", "unknown")
-        else:
-            team = "unknown"
+        team = node_a.data.get("team", "unknown") if node_a and node_a.data else "unknown"
         team_groups.setdefault(team, []).append((la, lb, sim))
 
     for team, pairs in sorted(team_groups.items()):
@@ -590,15 +586,15 @@ def main() -> None:
 
     result = mem.reason(
         seeds=seeds,
-        max_depth=3,
-        max_total_states=50,
+        depth=3,
+        max_states=50,
     )
 
     expansion = result.expansion
     overlay = result.overlay or {}
 
     print(f"  Seeds: {sorted(seeds)}")
-    print(f"  (chosen to form depends_on chains for transitive inference)")
+    print("  (chosen to form depends_on chains for transitive inference)")
     print(f"  States created:     {expansion.states_created if expansion else 0}")
     print(f"  Rules applied:      {expansion.rules_applied if expansion else 0}")
     print(f"  Max depth reached:  {expansion.max_depth if expansion else 0}")
@@ -608,7 +604,7 @@ def main() -> None:
     post_nodes = mem.size[0]
     post_edges = mem.size[1]
     print()
-    print(f"  Graph growth:")
+    print("  Graph growth:")
     print(f"    Before reasoning: {pre_nodes} nodes, {pre_edges} edges")
     print(f"    After reasoning:  {post_nodes} nodes, {post_edges} edges")
     print(f"    Delta:            +{post_nodes - pre_nodes} nodes, +{post_edges - pre_edges} edges")

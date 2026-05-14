@@ -16,7 +16,7 @@ from __future__ import annotations
 
 
 def main() -> None:
-    from hyper3 import HypergraphMemory, TransitiveRule
+    from hyper3 import HypergraphMemory
 
     mem = HypergraphMemory(evolve_interval=0)
 
@@ -55,8 +55,9 @@ def main() -> None:
     for src, tgt, label, weight in deps:
         mem.link(src, tgt, label=label, weight=weight)
 
-    print(f"  Components: {mem.size[0]}")
-    print(f"  Dependencies: {mem.size[1]}")
+    infra_nodes = len(components)
+    print(f"  Infrastructure components: {infra_nodes}")
+    print(f"  Dependency edges: {mem.size[1]}")
     print()
 
     print("=" * 70)
@@ -81,7 +82,7 @@ def main() -> None:
     for name, start, end, meta in temporal_events:
         mem.add_temporal_event(name, start=start, end=end, **meta)
 
-    events = mem.list_temporal_events()
+    events = mem.temporal.events
     print(f"  Temporal events registered: {len(events)}")
     for ev in sorted(events, key=lambda e: e.interval.start):
         dur = ev.interval.end - ev.interval.start
@@ -127,7 +128,7 @@ def main() -> None:
     print("  analyzing temporal ordering and graph connectivity.")
     print()
 
-    chains = mem.detect_temporal_causal_chains(min_chain_length=3)
+    chains = mem.temporal.detect_causal_chains(min_chain_length=3)
     if chains:
         print(f"  Detected {len(chains)} causal chain(s):")
         for i, chain in enumerate(chains[:5]):
@@ -153,7 +154,7 @@ def main() -> None:
         for src, tgt in timeline_links:
             mem.link(src, tgt, label="timeline_link", weight=3.0)
 
-        chains = mem.detect_temporal_causal_chains(min_chain_length=3)
+        chains = mem.temporal.detect_causal_chains(min_chain_length=3)
         if chains:
             print(f"  After adding timeline links, detected {len(chains)} chain(s):")
             for i, chain in enumerate(chains[:5]):
@@ -164,10 +165,10 @@ def main() -> None:
     print("SECTION 5: Temporal Constraint Consistency")
     print("=" * 70)
 
-    constraints = mem.infer_temporal_constraints()
+    constraints = mem.temporal.infer_constraints()
     print(f"\n  Inferred temporal constraints: {len(constraints)}")
 
-    issues = mem.check_temporal_constraint_consistency()
+    issues = mem.temporal.check_constraint_consistency()
     if issues:
         print(f"  Consistency issues: {len(issues)}")
         for issue in issues[:3]:
@@ -205,8 +206,10 @@ def main() -> None:
     print("=" * 70)
     print("SUMMARY")
     print("=" * 70)
-    print(f"  Infrastructure: {mem.size[0]} nodes, {mem.size[1]} edges")
-    print(f"  Temporal events: {len(events)}")
+    print(f"  Infrastructure components: {infra_nodes}")
+    print(f"  Temporal events (registered as nodes): {len(events)}")
+    print(f"  Total graph nodes: {mem.size[0]} ({infra_nodes} infra + {len(events)} temporal)")
+    print(f"  Total graph edges: {mem.size[1]}")
     print(f"  Allen relations: {len(allen_pairs)} pairs analyzed")
     print(f"  Causal chains: {len(chains) if chains else 0}")
     print(f"  Temporal constraints: {len(constraints)}")

@@ -110,14 +110,14 @@ def main() -> None:
     print(f"  Hyperedges containing TP53: {len(tp53_hyperedges)}")
     for he in tp53_hyperedges:
         src_labels = sorted(
-            mem.engine.graph.get_node(sid).label
+            mem.node_label(sid)
             for sid in he.source_ids
-            if mem.engine.graph.get_node(sid)
+            if mem.graph.get_node(sid)
         )
         tgt_labels = sorted(
-            mem.engine.graph.get_node(tid).label
+            mem.node_label(tid)
             for tid in he.target_ids
-            if mem.engine.graph.get_node(tid)
+            if mem.graph.get_node(tid)
         )
         print(f"    [{', '.join(src_labels)}] --[{he.label}]--> [{', '.join(tgt_labels)}]")
 

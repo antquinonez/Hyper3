@@ -8,7 +8,15 @@ Knowledge graphs evolve through editing sessions, and mistakes happen. A batch i
 
 The GraphDiffer provides version control for knowledge graphs: every change is tracked, every version is restorable, and any two versions can be compared. `capture_version()` snapshots the current graph state. `diff_from_version()` produces a typed delta listing every node and edge that was added, removed, or modified. `rollback_to_version()` restores the graph to a previous version by structurally undoing all changes since that version. `diff_from_snapshot()` enables comparison against externally stored state. This is git-for-knowledge-graphs — enabling collaborative curation with the safety net of rollback.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Think of a shared Google Doc. Every edit is tracked automatically — who changed what, when, and what the document looked like before. If someone accidentally deletes a section, you open the version history, find the last good version, and restore it. The document reverts to exactly that state, with no trace of the accidental deletion.
+
+Graph versioning works the same way, but instead of lines of text, the tracked units are nodes and edges. `capture_version()` is like creating a named revision. `diff_from_version()` shows what changed between two revisions — not in prose, but as typed records listing every node and edge that was added, removed, or modified. `rollback_to_version()` restores the graph to a previous revision by physically undoing the changes.
+
+The key difference from document version control: graph changes are structural, not textual. A delta does not contain line numbers — it contains `NodeDelta` and `EdgeDelta` records with old and new values for every field (label, weight, data dict, source/target sets). This makes graph diffs semantically richer: you know not just that something changed, but which graph elements changed and exactly how.
+
+## 3. Key Concepts
 
 | Term | Plain English Meaning |
 |------|----------------------|
@@ -21,7 +29,7 @@ The GraphDiffer provides version control for knowledge graphs: every change is t
 | **Snapshot dict** | External graph state (dict of node/edge data) for comparison without stored versions |
 | **Capture** | Snapshot the current graph into the version history |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/graph_versioning/graph_versioning.py
@@ -63,9 +71,9 @@ SECTION 6: DIFF FROM ARBITRARY SNAPSHOT
 nodes added: 13, edges added: 16
 ```
 
-> Output is deterministic — version IDs and change counts are stable across runs.
+> Output is deterministic — version IDs and change counts are stable across runs. Node and edge IDs are assigned sequentially, so the same script always produces the same delta contents and metrics.
 
-## 4. The Scenario
+## 5. The Scenario
 
 A research knowledge graph with four node categories:
 
@@ -76,22 +84,76 @@ A research knowledge graph with four node categories:
 
 Three editing sessions add collaborations and cross-domain links, then a fourth session introduces erroneous edges that get rolled back.
 
+### v0 Baseline Research Graph
+
 ```mermaid
 graph LR
-    alice_chen -->|writes| paper_transformer
-    bob_smith -->|writes| paper_cnn
-    carol_wu -->|writes| paper_gan
-    alice_chen -->|affiliated_with| mit
-    bob_smith -->|affiliated_with| stanford
-    carol_wu -->|affiliated_with| mit
-    paper_transformer -->|cites| nlp
-    paper_cnn -->|cites| computer_vision
-    paper_gan -->|cites| computer_vision
+    subgraph Topics
+        ML[machine_learning]
+        NN[neural_networks]
+        NLP[nlp]
+        CV[computer_vision]
+    end
+    subgraph Authors
+        AC[alice_chen]
+        BS[bob_smith]
+        CW[carol_wu]
+    end
+    subgraph Papers
+        PT[paper_transformer]
+        PC[paper_cnn]
+        PG[paper_gan]
+    end
+    subgraph Institutions
+        MIT[mit]
+        STANFORD[stanford]
+    end
+
+    AC -->|writes| PT
+    BS -->|writes| PC
+    CW -->|writes| PG
+    AC -->|affiliated_with| MIT
+    BS -->|affiliated_with| STANFORD
+    CW -->|affiliated_with| MIT
+    PT -->|cites| NLP
+    PC -->|cites| CV
+    PG -->|cites| CV
+```
+
+### Editing Workflow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Graph as Knowledge Graph
+    participant Differ as GraphDiffer
+
+    User->>Graph: build (12 nodes, 9 edges)
+    User->>Differ: capture_version() -> v0
+    User->>Graph: edit (add collaborations)
+    User->>Differ: capture_version() -> v1
+    User->>Differ: diff_from_version(v0) -> 6 changes
+    User->>Graph: edit (add cross-domain links)
+    User->>Differ: capture_version() -> v2
+    User->>Graph: bad edit (spurious nodes and edges)
+    Note over Graph: now 15 nodes, 19 edges
+    User->>Differ: rollback_to_version(v2)
+    Note over Graph: restored to 13 nodes, 16 edges
 ```
 
 Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges (v1), cross-domain links (v2), and erroneous data that gets rolled back.
 
-## 5. Analysis Pipeline
+```mermaid
+gitGraph
+    commit id: "v0: 12 nodes, 9 edges (baseline)"
+    commit id: "v1: 13 nodes, 14 edges (+collaborations)"
+    commit id: "v2: 13 nodes, 16 edges (+cross-domain)"
+    commit id: "bad: 15 nodes, 19 edges (spurious)"
+    reset v2
+    commit id: "restored: 13 nodes, 16 edges"
+```
+
+## 6. Analysis Pipeline
 
 **Section 1 — Build initial graph and capture baseline:** 12 nodes and 9 edges are created. Topics (machine_learning, neural_networks, nlp, computer_vision) are tagged with `data={"type": "topic"}`. Authors are tagged with `data={"type": "author"}`. Papers are tagged with `data={"type": "paper"}`. Institutions are tagged with `data={"type": "institution"}`. Nine edges connect authors to papers (`writes`), papers to topics (`cites`), and authors to institutions (`affiliated_with`). `capture_version()` snapshots this as v0 (version_id=0, nodes=12, edges=9). Why this matters: the baseline version establishes the known-good state. Every subsequent change is measured against this snapshot, and rollback to v0 would restore the graph to its original state.
 
@@ -105,7 +167,7 @@ Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges 
 
 **Section 6 — Diff from arbitrary snapshot:** The script creates an external snapshot dict (a single node "external_ref" with no edges) and calls `diff_from_snapshot(snapshot)`. The result shows 13 nodes added and 16 edges added — everything in the current graph that is not in the external snapshot. This enables comparison against externally stored state without requiring the external graph to use Hyper3. Why this matters: `diff_from_snapshot()` enables integration with external systems. A curator can export a graph to a dict, store it externally, and later compare the current graph against that stored state. This is the bridge between Hyper3's version control and external persistence mechanisms.
 
-## 6. Key Metrics
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -121,7 +183,7 @@ Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges 
 | Snapshot diff nodes added | 13 |
 | Snapshot diff edges added | 16 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Typed deltas** provide complete change records, not just counts. Each change is a NodeDelta or EdgeDelta with old and new values. The v0 -> v1 delta shows not just "1 node added" but specifically that paper_diffusion was added with its data dict. This enables precise audit trails where every change can be reviewed, approved, or reverted individually.
 
@@ -129,7 +191,19 @@ Initial graph (v0): 12 nodes, 9 edges. Editing sessions add collaboration edges 
 
 **Arbitrary snapshot comparison** via `diff_from_snapshot()` enables comparison against any externally stored graph state. The external state is provided as a dict (not a Hyper3 instance), making it compatible with any persistence mechanism — JSON files, databases, or other graph systems. This bridges Hyper3's version control with external tooling.
 
-## 8. Code Implementation
+**Familiar version-control semantics** that map naturally from git:
+
+| git concept | Graph versioning equivalent | What it does |
+|-------------|---------------------------|--------------|
+| `git add` (staging area) | `capture_version()` snapshot | Lock in the current graph state as a named version |
+| `git commit` | `capture_version()` returning `GraphVersion` | Create an immutable point-in-time record with metadata |
+| `git diff` | `diff_from_version()` / `diff_between_versions()` | Produce a typed delta listing every structural change |
+| `git revert` | `rollback_to_version()` | Structurally restore the graph to a previous version |
+| `git log` | `version_history()` | Return the full timeline of captured versions |
+
+The key distinction is granularity: git tracks line-level changes in text files, while GraphDiffer tracks node and edge-level changes in graph structure. A delta does not contain line numbers — it contains typed `NodeDelta` and `EdgeDelta` records with old and new values for every field (label, weight, data dict, source/target sets). This makes graph diffs semantically richer than text diffs, because each change carries the full before/after context of the graph elements involved.
+
+## 9. Code Implementation
 
 **1. Build initial graph and capture version:**
 
@@ -152,8 +226,8 @@ for p in papers:
 for i in institutions:
     mem.add(i, data={"type": "institution"})
 
-mem.link("alice_chen", "paper_transformer", label="writes")
-mem.link("alice_chen", "mit", label="affiliated_with")
+mem.link("alice_chen", "paper_transformer", label="writes", weight=1.0)
+mem.link("alice_chen", "mit", label="affiliated_with", weight=1.0)
 
 v0 = mem.capture_version()
 print(f"v0: nodes={v0['node_count']}, edges={v0['edge_count']}")
@@ -163,17 +237,26 @@ print(f"v0: nodes={v0['node_count']}, edges={v0['edge_count']}")
 
 ```python
 mem.add("paper_diffusion", data={"type": "paper"})
-mem.link("alice_chen", "carol_wu", label="collaborates_with")
-mem.link("alice_chen", "paper_diffusion", label="writes")
+mem.link("alice_chen", "carol_wu", label="collaborates_with", weight=2.0)
+mem.link("alice_chen", "paper_diffusion", label="writes", weight=1.0)
 
 v1 = mem.capture_version()
-delta = mem.diff_from_version(0)
+delta = mem.diff_from_version(v0["version_id"])
 print(f"total changes: {delta.total_changes}")
-for node in delta.nodes_added:
-    print(f"  +node: {node.label}")
+for nd in delta.nodes_added:
+    print(f"  +node: {nd.node_label}")
+for ed in delta.edges_added:
+    print(f"  +edge: {ed.source_label} -[{ed.new_label}]-> {ed.target_label}")
 ```
 
-**3. View version history:**
+**3. Compare two specific versions:**
+
+```python
+delta_v1_v2 = mem.diff_between_versions(v1["version_id"], v2["version_id"])
+print(f"edges added: {len(delta_v1_v2.edges_added)}")
+```
+
+**4. View version history:**
 
 ```python
 history = mem.version_history()
@@ -181,27 +264,32 @@ for v in history.versions:
     print(f"  v{v.version_id}: nodes={v.node_count}, edges={v.edge_count}")
 ```
 
-**4. Rollback to a previous version:**
+**5. Rollback to a previous version:**
 
 ```python
 mem.add("bad_node_1", data={"type": "error"})
-mem.link("bad_node_1", "alice_chen", label="spurious")
+mem.link("bad_node_1", "alice_chen", label="spurious", weight=0.1)
 
-rollback = mem.rollback_to_version(2)
-print(f"changes undone: {rollback.changes_undone}")
-print(f"nodes after rollback: {mem.describe().node_count}")
+rollback = mem.differ.rollback_to_version(v2["version_id"])
+print(f"nodes after rollback: {mem.size[0]}")
+print(f"bad node gone: {not mem.has('bad_node_1')}")
 ```
 
-**5. Diff from external snapshot:**
+**6. Diff from external snapshot:**
 
 ```python
-snapshot = {"nodes": {"external_ref": {"data": {}}}, "edges": []}
-diff = mem.diff_from_snapshot(snapshot)
+snapshot = {
+    "nodes": {"fake_id": {"label": "external_node", "data": None, "weight": 1.0, "access_count": 0}},
+    "edges": {},
+    "node_count": 1,
+    "edge_count": 0,
+}
+diff = mem.differ.diff_from_snapshot(snapshot)
 print(f"nodes added: {len(diff.nodes_added)}")
 print(f"edges added: {len(diff.edges_added)}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 This showcase demonstrates version control on a small research knowledge graph. Real-world adoption involves additional work:
 
@@ -212,7 +300,7 @@ This showcase demonstrates version control on a small research knowledge graph. 
 - **Persistence:** Version history is in-memory. Production use requires persisting versions to disk or a database, with efficient lookup by version_id.
 - **Access control:** The showcase has no access control. Real collaborative systems need permissions (who can capture, who can rollback, who can view diffs).
 
-## 10. Reference
+## 11. Reference
 
 | Method | Purpose |
 |--------|---------|

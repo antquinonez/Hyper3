@@ -14,7 +14,15 @@ This showcase exercises five capabilities on a small 19-node graph:
 4. **Computational bias profiling** — `compute_bias_profile()` reveals which rules dominate reasoning and which are underused.
 5. **Causal merge insight preservation** — `merge_invariant_states()` tracks which unique contributions each merged state contributed, preventing knowledge loss during state convergence.
 
-## 2. Key Concepts
+## 2. A Simple Analogy
+
+Imagine a gardener tending a large garden. Every week, the gardener prunes dead branches, removes weeds, and waters healthy plants. But the gardener does not follow a fixed schedule — they watch how the garden responds. If last week's pruning left a bare patch, this week they prune less aggressively. If a section is overgrown, they intensify. The gardener keeps a notebook recording what they did and how the garden looked afterward, adjusting future decisions based on past outcomes.
+
+Now imagine the gardener has a safety rule: before making any major change (rearranging an entire bed, removing a tree), they take a photo, make the change, then compare the garden to the photo. If it looks worse, they undo it and restore the garden to how it was. This is metamorphosis validation with rollback.
+
+Finally, the gardener notices they always use the same tool (hedge trimmer) and rarely use another (pruning shears). This bias means some plants get uniform trimming while others are neglected. The bias profile reveals this imbalance so the gardener can diversify their approach.
+
+## 3. Key Concepts
 
 | Term | Plain English |
 |------|--------------|
@@ -25,7 +33,7 @@ This showcase exercises five capabilities on a small 19-node graph:
 | Bias profile | A snapshot of which inference rules dominate, which are neglected, and how skewed the distribution is |
 | Insight preservation | When merging equivalent multiway states, recording each state's unique contributions so no derived knowledge is lost |
 
-## 3. Quick Start
+## 4. Quick Start
 
 ```bash
 .venv/bin/python examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py
@@ -61,17 +69,23 @@ SECTION 4: Computational Bias Profile
   Underused rules: ['inverse(causes->caused_by)']
 
 SECTION 5: Causal Merge Insight Preservation
-  Invariants found: 0
+  Invariants found: 1
+  Merge: d83e53cf + 58746cdf (similarity=0.675)
+    State d83e53cf: rule=transitive, unique_nodes=['delta'], unique_edges=1
+    State 58746cdf: rule=inverse, unique_nodes=[], unique_edges=0
 ```
 
-## 4. The Scenario
+## 5. The Scenario
 
-The script builds a small graph in stages:
+The script constructs a 19-node graph designed to exercise specific inference rules and produce measurable bias in the reasoning output. Each subgraph exists for a reason:
 
-- **5-node chain**: `alpha -> beta -> gamma -> delta -> epsilon` (label `"connects"`)
-- **3-node extension**: `zeta`, `eta`, `theta` with `epsilon -> zeta` (label `"connects"`)
-- **8-node causal cluster**: `a -> b -> c` (label `"causes"`), `d -> e -> f` (label `"prevents"`), plus `g`, `h`
-- **3-node test cluster**: `x -> y -> z` (label `"link"`)
+**5-node chain** (`alpha -> beta -> gamma -> delta -> epsilon`, label `"connects"`): This is the longest linear path in the graph. It provides the multi-hop chains that `TransitiveRule` needs to fire -- transitive inference requires at least two consecutive edges sharing the same label (A connects B, B connects C), and the chain provides three such overlapping pairs. Without this structure, the transitive rule would have nothing to match.
+
+**3-node extension** (`epsilon -> zeta`, plus isolated nodes `eta` and `theta`): The edge from `epsilon` to `zeta` extends the chain to six nodes, giving the transitive rule additional reach. The isolated nodes `eta` and `theta` serve as control points -- they exist in the graph but have no edges, so they should never appear in any inference output. If they do, something is wrong.
+
+**8-node causal cluster** (`a -> b -> c` with label `"causes"`, `d -> e -> f` with label `"prevents"`, plus isolated `g` and `h`): This cluster serves double duty. The `"causes"` chain activates `TransitiveRule(edge_label="causes")`, producing inferences like "a causes c". The `"prevents"` chain activates `InverseRule(edge_label="prevents")`, which generates the inverse relationship `"prevented_by"`. The coexistence of two labeled edge groups in one cluster tests whether the rule engine respects label boundaries -- the transitive rule on `"causes"` must not cross over into the `"prevents"` edges, and vice versa.
+
+**3-node test cluster** (`x -> y -> z`, label `"link"`): A minimal chain with its own label, providing a third edge group. Because no rule is registered for `"link"`, these edges should produce zero inferences. This group acts as a negative control: if rules are leaking across labels, this is where it would show up.
 
 Total: 19 nodes, multiple labeled edge groups, 3 inference rules (TransitiveRule on `"causes"`, InverseRule on `"prevents"`, InverseRule on `"causes"`).
 
@@ -96,13 +110,26 @@ graph LR
     y -->|link| z
 ```
 
-## 5. Analysis Pipeline
+## 6. Analysis Pipeline
 
 ### Section 1: Feedback-Driven Evolution
 
-The script records three declining evolution outcomes (0.8, 0.7, 0.6), producing a `declining` fitness trend. It then calls `evolve_with_feedback()`, which adapts its behavior based on this recorded history. The result shows zero decayed/pruned/reinforced/suppressed — the graph is healthy and the declining trend was from recorded feedback signals, not from actual graph degradation.
+The script records three declining evolution outcomes (0.8, 0.7, 0.6), producing a `declining` fitness trend. It then calls `evolve_with_feedback()`, which adapts its behavior based on this recorded history. The result shows zero decayed/pruned/reinforced/suppressed -- the graph is healthy and the declining trend was from recorded feedback signals, not from actual graph degradation.
 
 Next, the script records inference outcomes (2 accepted, 1 rejected) for three edges, producing a 0.67 inference acceptance rate.
+
+The feedback-driven evolution cycle is a closed loop:
+
+```mermaid
+stateDiagram-v2
+    [*] --> RecordOutcomes
+    RecordOutcomes --> ComputeTrend: outcomes recorded
+    ComputeTrend --> AdaptRates: trend identified
+    AdaptRates --> Evolve: rates adjusted
+    Evolve --> Measure: evolution complete
+    Measure --> RecordOutcomes: fitness delta fed back
+    Measure --> [*]: cycle ends
+```
 
 Why this matters: without feedback-driven evolution, the system applies the same decay rates regardless of whether past evolution cycles helped or harmed. Recording outcomes and adapting rates lets the system self-correct.
 
@@ -116,13 +143,13 @@ The script records two retrieval outcomes for the `"connects"` label and calls `
 - **Retrieval precision**: 0.67
 - **Inference acceptance**: 0.67
 
-The summary also identifies correlated nodes — nodes appearing in multiple operation types — along with their positive rates and signal types.
+The summary also identifies correlated nodes -- nodes appearing in multiple operation types -- along with their positive rates and signal types.
 
 Why this matters: each subsystem (evolution, inference, retrieval) operates semi-independently, but a node causing problems in one subsystem often affects others. Cross-operation feedback reveals these connections that single-subsystem monitoring cannot.
 
 ### Section 3: Metamorphosis with Validation and Rollback
 
-The script first checks for metamorphosis triggers with a healthy graph — none are found. It then forces architectural fitness to 0.3 to demonstrate the metamorphosis pipeline:
+The script first checks for metamorphosis triggers with a healthy graph -- none are found. It then forces architectural fitness to 0.3 to demonstrate the metamorphosis pipeline:
 
 1. `check_metamorphosis()` detects triggers (low fitness)
 2. `propose_tuning(triggers)` generates a plan with actions, expected improvement, and risk level
@@ -130,7 +157,21 @@ The script first checks for metamorphosis triggers with a healthy graph — none
 
 Result: `rolled_back=False`, fitness remained at 0.784. The tuning plan did not degrade fitness further, so no rollback was needed.
 
-Why this matters: self-modifying systems without validation can enter death spirals — each change degrades fitness, triggering more changes, degrading further. Rollback provides a safety net: if a proposed change does not improve fitness, the system reverts to the previous state.
+The metamorphosis pipeline is a guarded execution flow:
+
+```mermaid
+flowchart TD
+    A[check_metamorphosis] -->|triggers found| B[propose_tuning]
+    A -->|no triggers| Z[no action needed]
+    B --> C[execute_tuning_validated]
+    C --> D{fitness improved?}
+    D -->|yes| E[commit changes]
+    D -->|no| F[rollback to pre-tuning state]
+    E --> G[return result: rolled_back=False]
+    F --> H[return result: rolled_back=True]
+```
+
+Why this matters: self-modifying systems without validation can enter death spirals -- each change degrades fitness, triggering more changes, degrading further. Rollback provides a safety net: if a proposed change does not improve fitness, the system reverts to the previous state.
 
 ### Section 4: Computational Bias Profile
 
@@ -147,16 +188,31 @@ Why this matters: a focused bias profile reveals that certain rules are producin
 
 ### Section 5: Causal Merge Insight Preservation
 
-The script constructs two multiway states sharing nodes `{node_a, node_b}` but differing in their unique contributions:
+The script constructs two multiway states sharing real graph nodes (`alpha`, `beta`, `gamma`) but differing in their unique contributions:
 
-- **State s1**: rule=`transitive`, unique node=`node_c`, unique edge=`edge_ac`
-- **State s2**: rule=`inverse`, unique node=`node_d`, unique edge=`edge_bd`
+- **State s1**: rule=`transitive`, active nodes={alpha, beta, gamma, delta}, produced edges={alpha-beta, gamma-delta}
+- **State s2**: rule=`inverse`, active nodes={alpha, beta, gamma}, produced edges={alpha-beta}
 
-The `merge_invariant_states()` call finds 0 invariants — the two states share only 2 of their 3 active nodes, and the similarity threshold (0.5) was not met for a merge. In cases where merges do occur, each `ConvergenceRecord` includes `insights` listing each state's unique nodes and edges, preserving the provenance of what each branch contributed.
+> **Similarity formula**
+>
+> ```
+> similarity = 0.7 * Jaccard(node_ids) + 0.3 * Jaccard(edge_ids)
+> ```
+>
+> where `Jaccard(X, Y) = |X intersection Y| / |X union Y|`
 
-Why this matters: when equivalent multiway states merge, the unique inferences from each branch should not be silently discarded. Insight preservation records what each state contributed so that downstream analysis can trace provenance even after convergence.
+- Node Jaccard: 3/4 = 0.75 (3 shared of 4 total distinct nodes)
+- Edge Jaccard: 1/2 = 0.50 (1 shared of 2 total distinct edges)
+- Similarity: 0.7 * 0.75 + 0.3 * 0.50 = **0.675** (above the 0.5 threshold)
 
-## 6. Key Metrics
+The `merge_invariant_states()` call finds 1 invariant and produces a `ConvergenceRecord` with two `MergeInsight` entries:
+
+- **s1 insight**: unique_nodes=[delta], unique_edges=1 (the gamma-delta edge) -- s1's transitive reasoning contributed a new node and edge beyond the shared baseline
+- **s2 insight**: unique_nodes=[], unique_edges=0 -- s2's inverse reasoning produced only edges already in the shared set
+
+Why this matters: when equivalent multiway states merge, the unique inferences from each branch should not be silently discarded. Insight preservation records what each state contributed so that downstream analysis can trace provenance even after convergence. In this case, the merge correctly identifies that `delta` and its connecting edge were s1's unique contribution, preserved in the `ConvergenceRecord.insights` field.
+
+## 7. Key Metrics
 
 | Metric | Value |
 |--------|-------|
@@ -183,9 +239,12 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 | Position trajectory | stable |
 | Dominant rules | 2 |
 | Underused rules | 1 |
-| Invariant merges found | 0 |
+| Invariant merges found | 1 |
+| Merge similarity | 0.675 |
+| s1 unique nodes (delta) | 1 |
+| s1 unique edges | 1 |
 
-## 7. What Makes This Different
+## 8. What Makes This Different
 
 **Validated self-modification**: The system proposes structural changes, measures their effect, and reverts if fitness degrades. Without this, any automated tuning is a one-way bet on correctness.
 
@@ -193,9 +252,9 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 
 **Bias-aware reasoning**: The bias profile quantifies rule utilization skew. Without it, a system could silently over-apply one inference rule while under-using others, producing lopsided knowledge without any indication that this is happening.
 
-**Insight preservation on merge**: Multiway state convergence discards the branch structure but retains each branch's unique contributions. Without this, merging equivalent states would lose the record of which inferences each branch produced.
+**Insight preservation on merge**: Multiway state convergence discards the branch structure but retains each branch's unique contributions. In the demonstrated merge (similarity=0.675), the transitive branch contributed node `delta` and its connecting edge -- this is recorded in the `ConvergenceRecord.insights` field and survives the merge. Without this, merging equivalent states would lose the record of which inferences each branch produced.
 
-## 8. Code Implementation
+## 9. Code Implementation
 
 ```python
 from hyper3 import HypergraphMemory, TransitiveRule, InverseRule
@@ -208,7 +267,9 @@ mem.operation_feedback.record_evolution_outcome(0.7)
 result = mem.evolve_with_feedback()
 
 # Cross-operation feedback summary
-mem.operation_feedback.record_retrieval_outcome("connects", {"alpha_id"}, {"epsilon_id"})
+mem.operation_feedback.record_retrieval_outcome(
+    "connects", {alpha_id}, {epsilon_id},
+)
 summary = mem.feedback_summary()
 print(summary["overall_health"], summary["fitness_trend"])
 
@@ -223,16 +284,47 @@ if triggers:
 mem.add_rules(TransitiveRule(edge_label="causes"))
 profile = mem.compute_bias_profile()
 print(profile["reasoning_style"], profile["bias_score"])
+
+# Merge insight preservation
+from hyper3 import MultiwayGraph, StateConvergenceEngine, MultiwayState
+
+mw_graph = MultiwayGraph()
+causal = StateConvergenceEngine(mem.engine.graph, mw_graph, threshold=0.5)
+
+s1 = MultiwayState(
+    parent_id=None,
+    active_node_ids=frozenset({alpha_id, beta_id, gamma_id, delta_id}),
+    rule_applied="transitive",
+    depth=1,
+    produced_node_ids=[delta_id],
+    produced_edge_ids=[f"{alpha_id}_{beta_id}", f"{gamma_id}_{delta_id}"],
+)
+s2 = MultiwayState(
+    parent_id="other",
+    active_node_ids=frozenset({alpha_id, beta_id, gamma_id}),
+    rule_applied="inverse",
+    depth=1,
+    produced_node_ids=[],
+    produced_edge_ids=[f"{alpha_id}_{beta_id}"],
+)
+mw_graph.add_state(s1)
+mw_graph.add_state(s2)
+
+invariants = causal.merge_invariant_states()
+for inv in invariants:
+    print(f"similarity={inv.similarity:.3f}")
+    for insight in inv.insights:
+        print(f"  {insight.rule_applied}: unique_nodes={len(insight.unique_nodes)}")
 ```
 
-## 9. Real-World Gap
+## 10. Real-World Gap
 
 - **Feedback source**: The showcase manually records evolution and inference outcomes. In production, these signals would come from downstream task performance or user interactions, requiring application-specific integration.
 - **Graph size**: The demo uses 19 nodes. Behavior at 10K+ nodes (feedback aggregation overhead, metamorphosis plan generation) is untested.
 - **Tuning actions**: The metamorphosis plan generates actions based on built-in heuristics. Custom tuning strategies (domain-specific merge criteria, application-weighted decay) require extending the tuning engine.
-- **Multiway convergence**: The constructed states do not meet the similarity threshold for merging. Demonstrating actual insight preservation requires graph structures that produce equivalent states — the API surface is shown but the merge path is not exercised with real data.
+- **Multiway convergence**: The constructed states use real graph node IDs and produce an actual merge (similarity=0.675). The insights correctly capture each branch's unique contributions. For more complex scenarios with naturally-occurring equivalent states from deep reasoning chains, the same mechanism applies automatically.
 
-## 10. Reference
+## 11. Reference
 
 ### API Methods
 
@@ -252,4 +344,4 @@ print(profile["reasoning_style"], profile["bias_score"])
 
 ### Related Examples
 
-- `examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py` — same script in the showcase directory
+- `examples/showcase/workflow/self_evolving_cognition/self_evolving_cognition.py` -- same script in the showcase directory

@@ -33,9 +33,11 @@ class SearchQuery(_SimpleResultBase):
             errors.append("top_k must be > 0")
         if self.offset < 0:
             errors.append("offset must be >= 0")
-        for b in self.boosts:
-            if b.factor <= 0:
-                errors.append(f"boost factor for field {b.field!r} must be > 0")
+        errors.extend(
+            f"boost factor for field {b.field!r} must be > 0"
+            for b in self.boosts
+            if b.factor <= 0
+        )
         if self.min_score < 0:
             errors.append("min_score must be >= 0")
         return errors

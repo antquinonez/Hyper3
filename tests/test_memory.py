@@ -2712,3 +2712,134 @@ class TestReasonFused:
         for contrib in result.frame_contributions:
             assert contrib.unique_edges <= contrib.edges_produced
 
+
+class TestMemoryBeliefSampleEntangled:
+    def test_sample_entangled_returns_outcome_label(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        qs = mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        result = mem.sample_entangled(qs)
+        assert result == "cat"
+
+    def test_sample_entangled_with_correlation(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("bird")
+        mem.add("fish")
+        qs_ab = mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        mem.create_distribution(["bird", "fish"], amplitudes=[1.0, 0.0], use_context_field=False)
+        mem.correlate(["cat"], ["bird"], {("cat", "bird"): 0.9})
+        result = mem.sample_entangled(qs_ab)
+        assert result is not None
+
+
+class TestMemoryBeliefContextField:
+    def test_create_distribution_with_context_field(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.add("bird")
+        mem.link("cat", "dog", label="related")
+        mem.link("cat", "bird", label="related")
+        qs = mem.create_distribution(["cat", "dog", "bird"], use_context_field=True)
+        assert qs.outcome_count == 3
+        assert len(qs.outcomes) == 3
+        amps = [o.amplitude for o in qs.outcomes]
+        assert all(a >= 0.0 for a in amps)
+
+
+class TestMemoryBeliefInterference:
+    def test_analyze_interference_returns_empty_for_single_distribution(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        result = mem.analyze_interference(["cat", "dog"])
+        assert result == []
+
+    def test_interference_report_returns_report(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        report = mem.interference_report()
+        assert report is not None
+
+
+class TestMemoryBeliefCollapse:
+    def test_should_collapse_with_no_distribution(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        result = mem.should_collapse("cat")
+        assert result is not None
+
+    def test_should_collapse_with_distribution(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        result = mem.should_collapse("cat")
+        assert result is not None
+
+    def test_collapse_report_returns_list(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.collapse_report()
+        assert isinstance(result, list)
+
+
+class TestMemoryBeliefAdaptiveAndBlended:
+    def test_sample_adaptive_returns_outcome(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        qs = mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        result = mem.sample_adaptive(qs)
+        assert result is not None
+        assert result.label == "cat"
+
+    def test_sample_blended_returns_outcome(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        qs = mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        result = mem.sample_blended(qs)
+        assert result is not None
+        assert result.label == "cat"
+
+    def test_list_basis_effectiveness_returns_dict(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.create_distribution(["cat", "dog"], amplitudes=[1.0, 0.0], use_context_field=False)
+        eff = mem.list_basis_effectiveness()
+        assert isinstance(eff, dict)
+        for rate in eff.values():
+            assert 0.0 <= rate <= 1.0
+
+
+class TestMemoryBeliefBoundaryReasoning:
+    def test_assess_boundary_returns_none_for_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.assess_boundary("nonexistent")
+        assert result is None
+
+    def test_assess_boundary_returns_assessment(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.link("cat", "dog", label="related")
+        result = mem.assess_boundary("cat")
+        assert result is not None
+
+    def test_navigate_boundary_returns_none_for_missing(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        result = mem.navigate_boundary("nonexistent")
+        assert result is None
+
+    def test_navigate_boundary_returns_report(self):
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("cat")
+        mem.add("dog")
+        mem.link("cat", "dog", label="related")
+        result = mem.navigate_boundary("cat")
+        assert result is not None
+
