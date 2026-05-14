@@ -51,7 +51,7 @@ for f in examples/showcase/*/*.py examples/showcase/*/*/*.py; do [ "$(basename "
 for f in examples/projects/*/pipeline.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 5. All demos (must complete without error)
-for f in demos/demo*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
+for f in demos/*/*.py; do .venv/bin/python "$f" > /dev/null 2>&1 && echo "OK $f" || echo "FAIL $f"; done
 
 # 6. Benchmarks (must complete without error)
 .venv/bin/python benchmarks/run_all.py

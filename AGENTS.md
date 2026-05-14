@@ -362,7 +362,7 @@ low = mem.cognitive.low_confidence(threshold=0.5)
 .venv/bin/python -m pytest tests/test_kernel.py -v
 
 # Run demos
-.venv/bin/python demos/demo_walkthrough.py
+.venv/bin/python demos/walkthrough/demo_walkthrough.py
 ```
 
 ## Test & Lint Commands

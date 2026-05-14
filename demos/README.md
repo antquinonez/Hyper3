@@ -10,34 +10,36 @@ subsystems in a narrative sequence, unlike the single-topic examples in
 
 If you're new to Hyper3, start here:
 
-1. **`demo_walkthrough.py`** — The primary pedagogical demo. Uses a car
-   diagnostics scenario to walk through all 11 major subsystems: knowledge
-   storage, rule discovery, multiway reasoning, belief distributions,
+1. **`basics/demo.py`** -- Getting started in 5 minutes. A marine food web
+   domain shows the core lifecycle: building a knowledge graph, exploring it
+   (recall, neighbors, query by attributes), self-evolution, and basic
+   transitive reasoning. All public API, no internals.
+
+2. **`walkthrough/demo_walkthrough.py`** -- The primary pedagogical demo. Uses
+   a car diagnostics scenario to walk through all 11 major subsystems:
+   knowledge storage, rule discovery, multiway reasoning, belief distributions,
    interference, boundary detection, multi-frame analysis, rule analytics,
    backward chaining, introspection, and persistence.
 
-2. **`demo.py`** — The core lifecycle: building a knowledge graph, observer
-   slices, equivalence merging (deduplication), weight decay (forgetting),
-   reinforcement (strengthening), and dimensional traversal. Uses a patent
-   law + hypergraph CS domain.
+3. **`discovery/demo_discovery.py`** -- Rule discovery and cross-session
+   persistence. Shows how the system examines its own graph to find transitive,
+   inverse, and hub patterns, generates rules from them, and saves/restores
+   the full state across sessions. Session 2 adds a cooling subsystem that
+   creates new transitive chains for the discovered rules to exploit.
 
-3. **`demo_discovery.py`** — Rule discovery and cross-session persistence.
-   Shows how the system examines its own graph to find transitive, inverse,
-   and hub patterns, generates rules from them, and saves/restores the full
-   state across sessions.
+4. **`integrated/demo_integrated.py`** -- The complete pipeline from raw
+   knowledge to inferred conclusions. Uses a weather-impact domain (rain,
+   floods, insurance claims) with state clustering and lateral insights.
 
-4. **`demo_integrated.py`** — The complete pipeline from raw knowledge to
-   inferred conclusions. Uses a weather-impact domain (rain, floods,
-   insurance claims) with state clustering and lateral insights.
+5. **`full/demo_full.py`** -- All subsystems in a single run, framed around
+   an engine overheating scenario: rule discovery, reasoning, state clustering,
+   rule analytics, belief distributions, anomaly detection, multi-frame
+   analysis, and meta-cognitive introspection.
 
-5. **`demo_full.py`** — All subsystems in a single run: rule discovery,
-   reasoning, state clustering, rule analytics, belief distributions,
-   anomaly detection, multi-frame analysis, and meta-cognitive introspection.
-
-6. **`demo_multiway.py`** — Low-level multiway expansion API. Uses the raw
-   `Hypergraph` and `MultiwayEngine` classes directly (no `HypergraphMemory`
-   facade), showing how the state tree, state relations, and lateral insights
-   work under the hood.
+6. **`multiway/demo_multiway.py`** -- Low-level multiway expansion API. Uses
+   the raw `Hypergraph` and `MultiwayEngine` classes directly (no
+   `HypergraphMemory` facade), showing how the state tree, state relations,
+   and lateral insights work under the hood. IP law domain.
 
 ## Folder-Based Demos (Structured)
 
@@ -70,8 +72,13 @@ entry point.
 ## Running
 
 ```bash
-# Original single-file demos
-.venv/bin/python demos/demo_walkthrough.py
+# Single-file demos (now in dedicated folders)
+.venv/bin/python demos/basics/demo.py
+.venv/bin/python demos/walkthrough/demo_walkthrough.py
+.venv/bin/python demos/discovery/demo_discovery.py
+.venv/bin/python demos/integrated/demo_integrated.py
+.venv/bin/python demos/full/demo_full.py
+.venv/bin/python demos/multiway/demo_multiway.py
 
 # Folder-based demos
 .venv/bin/python demos/demo_bayesian/run.py
