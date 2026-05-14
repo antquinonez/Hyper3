@@ -3,6 +3,12 @@
 ## Target File
 `examples/showcase/domain/financial_risk_network/financial_risk_network.py`
 
+## Implementation Status
+- **Contagion Flow (max_flow, min_cut global, shortest_path)**: DONE (Section 8)
+- **Self-Evolution (`evolve_with_feedback()`)**: DONE (Section 8)
+- **`min_cut_st(source, target)` (source-target specific cut)**: MISSING
+- **Value of remaining work**: LOW -- adding `min_cut_st` is a 3-line call. The global min_cut already identifies the weakest partition. Source-target cut is a minor refinement.
+
 ## Current State
 130+ node financial network with community detection, Hebbian learning, belief distributions, multi-frame analysis, and hierarchical abstraction. Uses clustering and centrality but never answers "how much risk can flow from A to B?"
 

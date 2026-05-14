@@ -3,6 +3,11 @@
 ## Target File
 `examples/showcase/belief/quantum_diagnostics/quantum_diagnostics.py`
 
+## Implementation Status
+- **Bayesian Posterior Updating**: DONE (Section 7)
+- **Backward Chaining Proof (`mem.prove()`)**: MISSING
+- **Value of remaining work**: LOW -- a single `mem.prove()` call; the example already demonstrates backward chaining extensively in its confidence section. The API call is well-covered by other examples (007, 009, 010).
+
 ## Current State
 Demonstrates belief distributions for competing outage hypotheses with Born-rule sampling, correlation, interference, and von Neumann entropy. Stops at *representing* uncertainty without *reducing* it through evidence.
 

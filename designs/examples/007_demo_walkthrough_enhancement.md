@@ -3,6 +3,12 @@
 ## Target File
 `demos/demo_walkthrough.py`
 
+## Implementation Status
+- **Backward Chaining Proof (`prove`, `prove_batch`)**: DONE (Step 9)
+- **Confidence Assessment (`compute_all_confidences`, `flag_low_confidence`)**: DONE (Step 9)
+- **`trace_confidence_chain(source, target)`**: MISSING
+- **Value of remaining work**: LOW -- a single API call. The example already demonstrates backward chaining and confidence assessment comprehensively.
+
 ## Current State
 Educational walkthrough using a car diagnostic assistant. Covers 10 steps including rule discovery, multiway reasoning, belief distributions, interference, anomaly detection, multi-frame analysis, rule analytics, and persistence. Uses forward reasoning (transitive inference) but never backward chaining, despite being explicitly a diagnostic scenario.
 

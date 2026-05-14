@@ -4,6 +4,14 @@
 - `examples/showcase/domain/recipe_substitution/demo.py`
 - `examples/showcase/domain/recipe_substitution/engine.py`
 
+## Implementation Status
+- **`contextual_substitute()`**: DONE (engine.py line 250)
+- **`learn_from_rating()` (equiv to `rate_substitution`)**: DONE (engine.py line 287)
+- **Context-Dependent Substitution section**: DONE (demo.py Section 9)
+- **Learning from User Feedback section**: DONE (demo.py Section 10)
+- **`get_substitute_confidence(ingredient)` via `compute_confidence()`**: MISSING
+- **Value of remaining work**: LOW -- a single method wrapper around `mem.cognitive.confidence()`. The example already shows Bayesian feedback and context-dependent substitution comprehensively.
+
 ## Current State
 Demonstrates ingredient substitution via graph traversal and transitive reasoning. Treats substitution as a deterministic graph problem without considering dietary context or user preferences.
 

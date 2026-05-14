@@ -3,6 +3,12 @@
 ## Target File
 `examples/showcase/reasoning/knowledge_reasoning/knowledge_reasoning.py`
 
+## Implementation Status
+- **Post-Revision Confidence Assessment**: DONE (Section 7)
+- **Multi-Rule Reasoning (InverseRule)**: DONE (Section 6)
+- **AbductiveRule integration**: MISSING
+- **Value of remaining work**: LOW -- adding `AbductiveRule` is a 5-line addition (import + add_rules). The rule is already tested in `test_rules.py`. Low novelty for the example since the multi-rule reasoning section already demonstrates InverseRule.
+
 ## Current State
 Demonstrates transitive inference, backward chaining proof, provenance explanation, contradiction detection, and belief revision. The revision output is present but underutilized -- the example detects contradictions and revises beliefs but never re-assesses the resulting graph quality.
 
