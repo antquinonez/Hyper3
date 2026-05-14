@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "pytest-cov>=5.0", "pyright>=1.1", "ruff>=0.8", "xgi>=0.10", "hypergraphx>=1.7"]
+docs = ["sphinx>=7.0", "sphinx-rtd-theme>=3.0"]
 viz = ["matplotlib>=3.8"]
 faiss = ["faiss-cpu>=1.7"]
 embed = ["fastembed>=0.4"]

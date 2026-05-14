@@ -703,6 +703,24 @@ Callable directly: `mem.reason(seeds, *, depth, ...)`.
 
 See `examples/README.md` for the full index of 54 examples across six topical groups.
 
+## Documentation
+
+```bash
+.venv/bin/pip install -e ".[docs]"                                    # Install Sphinx + theme
+.venv/bin/python scripts/generate_api_docs.py                         # AI-consumable Markdown (docs/api/)
+.venv/bin/python scripts/generate_sphinx_docs.py                      # Generate .rst stubs from PUBLIC_MODULES
+.venv/bin/sphinx-build -b html docs/sphinx/source docs/sphinx/build/html  # Build HTML
+```
+
+Both doc sets share the same `PUBLIC_MODULES` list (defined in `scripts/generate_api_docs.py`). To document a new module, add it to `PUBLIC_MODULES` and regenerate.
+
+| Output | Audience | Location |
+|--------|----------|----------|
+| Per-module Markdown | AI agents, scripts | `docs/api/` |
+| Full HTML site | Humans (search, navigation, source links) | `docs/sphinx/build/html/` |
+
+Regenerate both with the `/update-docs` command.
+
 ## Testing
 
 ```bash

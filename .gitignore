@@ -23,3 +23,5 @@ designs/*
 inspiration/*
 roadmap/*
 docs/api/
+docs/sphinx/build/
+docs/sphinx/source/api/
