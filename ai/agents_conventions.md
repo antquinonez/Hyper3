@@ -146,3 +146,17 @@ Nodes with matching `data` values that share a connecting edge will merge during
 
 ### `hyperedge_similarity` with unknown metric defaults to jaccard
 Passing an unrecognized metric string falls through to the `else` branch which computes `intersection / union` — identical to the jaccard formula. No error is raised.
+
+## Common Pitfalls
+
+- **Wrong Python**: The system Python is not the project Python. Always use `.venv/bin/python`.
+- **Label vs ID**: Hypernodes have both `id` (auto-generated UUID hex) and `label` (human-readable). Most APIs take labels; internal engines use IDs.
+- **`load()` resets thresholds**: `HypergraphMemory.load()` restores graph structure but constructor args (like `merge_threshold`) are set at construction time, not from the saved file. Tests must pass matching constructor args to the loading instance.
+- **Fitness never drops below 0.9**: The architectural fitness formula in `SystemMonitor` is `1.0 - (prunes/(total+1)) * 0.1`, which stays above 0.9 even with 100% prunes. Tests should set `_state.architectural_fitness` directly instead of trying to lower it via evolution metrics.
+- **Multiway expansion needs chains**: `TransitiveRule` only matches when there is a two-hop chain (A->B, B->C). Starting from a root node with no outgoing edges produces zero matches.
+- **EquivalenceEngine structural similarity**: Two nodes with no edges get structural score 0.0 (no evidence of equivalence). Two nodes with no overlapping neighbors also get structural score 0.0. Data similarity alone can still exceed the threshold if all shared dict keys have matching values. Provide discriminative data (unique names, IDs) to prevent false merges.
+- **ValidationEngine mutates then reverts**: `_run_simple()` applies rules to the graph, collects results, then removes newly added edges. It does NOT clone the graph. Do not call it from inside a running `reason()` call.
+- **Belief state staleness is timing-dependent**: `decay_stale_states()` reduces amplitudes based on `time.time() - qs.created_at`. Tests with very short `coherence_time` values may see probabilistic collapse instead of amplitude reduction. Use `<=` comparisons, not strict `<`.
+- **`_SimpleResultBase.get()` and `None` fields**: `.get("field", fallback)` returns the fallback when the field value is `None`, matching `dict.get()` semantics. For fields that may legitimately be `None` (e.g., `result.state_convergence`), use attribute access with explicit `if ci:` guards instead of `.get()`.
+- **Shortcut-namespace recursion**: Top-level shortcuts that share a name with a mixin method (e.g., `prove`, `activate`, `introspect`) must call the mixin directly (`CognitiveMixin.prove(self, ...)`) rather than delegating through the namespace (`self.cognitive.prove(...)`). The namespace calls `self._mem.prove()` which would recurse back to the shortcut, causing infinite recursion.
+- **Community detection self-loops**: `CommunityDetector` filters self-loops in `_build_neighbor_map`. Graphs with self-referential edges (a node connecting to itself) will have those edges excluded from community analysis to prevent `frozenset` collapse in modularity calculation.

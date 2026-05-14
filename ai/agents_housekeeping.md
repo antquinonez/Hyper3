@@ -100,3 +100,84 @@ Current project metrics (update after changes):
 - **Examples**: 68 showcase + 5 project pipelines + 53 comparison = 126 total
 - **Equiv battery**: 871 pass / 17 diverge / 0 fail / 24 gap / 1 skip (24 suites, HGX + XGI + NX)
 - **Benchmarks**: 15 (10 original + 5 new: bayesian, backward_chain, community, belief_distributions, multi_frame)
+
+## Edit Safety
+
+### ES-1: Verify match uniqueness before editing
+
+The `Edit` tool replaces exact string matches. When `oldString` appears multiple times in a file, the edit fails with a "found multiple matches" error. To resolve this, include more surrounding context in `oldString` to make it unique.
+
+**Critical hazard**: In test files, common patterns like `assert g.edge_count == 2` or `rule.apply(g, match)` can appear dozens of times. If you narrow `oldString` to include the *last* occurrence of such a pattern (e.g., the last few lines of the file), the edit will replace from that match point to the end of the file — **silently deleting everything after it** if `newString` is shorter than `oldString`.
+
+**Prevention steps** (mandatory before every edit to a file with 200+ lines):
+1. **Count matches**: Use `grep -c "your oldString pattern" <file>` to verify it appears exactly once. If it appears more than once, include more surrounding lines until it is unique.
+2. **Prefer appending**: When adding new test classes to the end of a file, use a multi-line `oldString` that includes the *final* `def test_` method body plus its closing assert, and a `newString` that reproduces that method body *and* appends the new class. This avoids any risk of truncation.
+3. **Verify after edit**: Immediately run `wc -l <file>` or `git diff --stat` after editing to confirm the file has *grown*, not shrunk. If the line count decreased unexpectedly, run `git checkout <file>` immediately and retry.
+4. **Never match on generic patterns**: Do not use `assert g.edge_count == N` or `rule.apply(g, match)` alone as `oldString` in files like `test_multiway.py` or `test_rules.py` where these patterns repeat. Always include the surrounding `def test_` method signature to make the match unique.
+
+### ES-2: Verify test count after editing existing test files
+
+After editing any test file that already existed (not newly created), immediately compare the test count before and after:
+
+```bash
+# Before editing
+grep -cE '^\s+def test_' tests/test_X.py
+
+# After editing — must be >= before count
+grep -cE '^\s+def test_' tests/test_X.py
+```
+
+If the count decreased, a test was accidentally deleted. Run `git checkout tests/test_X.py` and retry the edit.
+
+## API Reference Documentation
+
+Two auto-generated documentation pipelines share the same `PUBLIC_MODULES` list (defined in `scripts/generate_api_docs.py`). Both are gitignored and regenerated on demand.
+
+### docs/api/ — AI-consumable Markdown (docstrings only)
+
+Per-module Markdown files produced by `inspect`/`importlib`. Lightweight, no external tools required.
+
+**Structure**:
+- `docs/api/index.md` — concise index of all modules, classes, and one-line summaries (~55KB)
+- `docs/api/<module>.md` — full docstrings, args, returns per module
+
+**When to use it**: Read `docs/api/index.md` to discover relevant classes/methods, then read the specific module file for detail. This is faster than reading source files directly and avoids loading all 97 modules into context.
+
+**How to regenerate**:
+```bash
+.venv/bin/python scripts/generate_api_docs.py
+```
+
+### docs/sphinx/ — Multi-format Sphinx documentation (full API with type resolution)
+
+Sphinx builds from the same module list, using `autodoc` + `napoleon` to render Google-style docstrings with full type resolution, inherited members, cross-references, and intersphinx links to numpy/scipy/networkx.
+
+**How to regenerate**:
+```bash
+.venv/bin/pip install -e ".[docs]"
+.venv/bin/python scripts/generate_sphinx_docs.py
+```
+
+This generates `.rst` stubs then builds all three output formats:
+
+| Format | Location | Use case |
+|--------|----------|----------|
+| HTML | `docs/sphinx/build/html/` | Human browsing (search, navigation, source links) |
+| Plaintext | `docs/sphinx/build/text/` | AI context windows — clean `.txt` files, no markup, token-efficient (~1.5MB total) |
+| JSON | `docs/sphinx/build/json/` | Programmatic traversal — structured `.fjson` per page with toctree, sections, cross-refs |
+
+**Sphinx text output vs docs/api/ Markdown**: The Sphinx text format includes everything `docs/api` has plus inherited members, resolved cross-references, napoleon-rendered parameter/return types, and intersphinx links. For AI agents that need maximum API detail in minimal tokens, prefer `docs/sphinx/build/text/`.
+
+**Hand-written source files** (tracked in git):
+- `docs/sphinx/source/conf.py` — Sphinx configuration (autodoc, napoleon, viewviewcode, intersphinx)
+- `docs/sphinx/source/index.rst` — Master toctree
+- `docs/sphinx/source/user_guide.rst` — User guide
+- `docs/sphinx/source/examples.rst` — Examples index
+
+**Gitignored** (regenerated): `docs/sphinx/source/api/*.rst`, `docs/sphinx/build/`
+
+**Regenerate both pipelines at once**: Type `/update-docs` in OpenCode.
+
+**When to regenerate**: After adding, removing, or renaming public classes, methods, or exported symbols. The docs are not auto-updated on commit. To add a new module, append it to `PUBLIC_MODULES` in `scripts/generate_api_docs.py` and both pipelines will pick it up.
+
+**Docstring standard**: Google-style (`Args:`, `Returns:`). Core modules have 100% coverage; newer subsystems (search, sqlite, embedding) have gaps that produce signature-only entries. When adding public methods, include a docstring so the next regeneration picks it up.
