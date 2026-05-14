@@ -34,7 +34,7 @@ class AttributeIndex:
                 if self._indexed_fields is not None and field not in self._indexed_fields:
                     continue
                 self._index_entry(node.id, field, value)
-        for field, entries in self._range_index.items():
+        for entries in self._range_index.values():
             entries.sort(key=lambda x: x[0])
         self._dirty = False
 
