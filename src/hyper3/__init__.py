@@ -11,6 +11,12 @@ from hyper3.adaptive_slice import (
     SliceContext,
     SliceOutcomeRecord,
 )
+from hyper3.auto_abstraction import (
+    AbstractionAction,
+    AbstractionCandidate,
+    AbstractionResult,
+    AutoAbstractionEngine,
+)
 from hyper3.backward_chain import (
     BackwardChainEngine,
     BackwardChainResult,
@@ -93,6 +99,13 @@ from hyper3.context_compression import (
     CompressionReport,
     CompressionResult,
     ContextCompressionEngine,
+)
+from hyper3.efficiency import (
+    CacheEfficiency,
+    EfficiencyReport,
+    EfficiencyTracker,
+    OperationStats,
+    OperationType,
 )
 from hyper3.embedding import (
     EmbeddingEngine,
@@ -244,6 +257,10 @@ from hyper3.provenance import (
     ProvenanceRecord,
     ProvenanceTracker,
 )
+from hyper3.recency import (
+    RecencyStats,
+    RecencyTracker,
+)
 from hyper3.results import (
     ActivationHit,
     AdjacencyTensorResult,
@@ -360,6 +377,13 @@ from hyper3.structural_anomaly import (
     ExplorationReport,
     StructuralAnomalyDetector,
 )
+from hyper3.structural_impact import (
+    CentralityShift,
+    ComponentChange,
+    CycleChange,
+    ImpactResult,
+    StructuralImpactEngine,
+)
 from hyper3.structural_match import (
     PatternEdge,
     PatternNode,
@@ -394,6 +418,12 @@ from hyper3.transcendental import (
     TransferablePattern,
 )
 from hyper3.traversal import ObserverSlice, SliceConfig, TraversalEngine
+from hyper3.traversal_selector import (
+    StrategyRecommendation,
+    StrategyReport,
+    TraversalStrategy,
+    TraversalStrategySelector,
+)
 from hyper3.types_api import (
     CentralityMethod,
     CommunityMethod,

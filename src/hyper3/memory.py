@@ -4,6 +4,11 @@ from typing import Any
 
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.adaptive_slice import AdaptiveSliceEngine
+from hyper3.auto_abstraction import (
+    AbstractionCandidate,
+    AbstractionResult,
+    AutoAbstractionEngine,
+)
 from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
@@ -15,6 +20,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.context_compression import ContextCompressionEngine
+from hyper3.efficiency import EfficiencyReport, EfficiencyTracker
 from hyper3.embedding import EmbeddingEngine
 from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
@@ -59,6 +65,7 @@ from hyper3.namespaces import (
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import ProvenanceTracker
+from hyper3.recency import RecencyStats, RecencyTracker
 from hyper3.retrieval_activation import SpreadingActivation
 from hyper3.retrieval_engine import RetrievalEngine
 from hyper3.rule_analytics import RuleAnalytics
@@ -67,12 +74,14 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.structural_impact import StructuralImpactEngine
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.structural_prefetch import StructuralPrefetchEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
 from hyper3.transcendental import TranscendentalInferenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
+from hyper3.traversal_selector import TraversalStrategySelector
 from hyper3.uncertainty import UncertaintyEngine
 
 
@@ -250,6 +259,11 @@ class HypergraphMemory(
         self._feedback_aware: FeedbackAwareEvolution | None = None
         self._modality_fusion: ModalityFusionEngine | None = None
         self._causal_learner: CausalLearner | None = None
+        self._recency: RecencyTracker | None = None
+        self._efficiency: EfficiencyTracker | None = None
+        self._structural_impact: StructuralImpactEngine | None = None
+        self._strategy_selector: TraversalStrategySelector | None = None
+        self._auto_abstraction: AutoAbstractionEngine | None = None
 
     @property
     def reason(self) -> ReasonNamespace:
@@ -433,6 +447,188 @@ class HypergraphMemory(
             VerificationResult with violation list and repair counts.
         """
         return self._meta.verify_invariants(repair=repair)
+
+    def enable_recency(
+        self,
+        *,
+        decay_rate: float = 0.9,
+        stale_threshold: float = 0.1,
+        max_score: float = 10.0,
+    ) -> RecencyTracker:
+        """Enable access recency tracking for graph nodes.
+
+        Args:
+            decay_rate: Exponential decay multiplier applied on each touch.
+            stale_threshold: Score below which a node is considered stale.
+            max_score: Asymptotic ceiling for recency scores.
+
+        Returns:
+            The newly created RecencyTracker instance.
+        """
+        self._recency = RecencyTracker(
+            self._graph,
+            decay_rate=decay_rate,
+            stale_threshold=stale_threshold,
+            max_score=max_score,
+        )
+        return self._recency
+
+    def enable_efficiency(
+        self,
+        *,
+        degradation_window: int = 50,
+        degradation_threshold: float = 2.0,
+        max_records: int = 1000,
+    ) -> EfficiencyTracker:
+        """Enable operation efficiency tracking.
+
+        Args:
+            degradation_window: Number of recent records to check for degradation.
+            degradation_threshold: Latency multiplier that triggers an alert.
+            max_records: Maximum number of operation records to retain.
+
+        Returns:
+            The newly created EfficiencyTracker instance.
+        """
+        self._efficiency = EfficiencyTracker(
+            degradation_window=degradation_window,
+            degradation_threshold=degradation_threshold,
+            max_records_per_type=max_records,
+        )
+        return self._efficiency
+
+    def enable_structural_impact(
+        self,
+        *,
+        hub_degree_threshold: float = 0.8,
+        track_cycles: bool = True,
+        track_components: bool = True,
+    ) -> StructuralImpactEngine:
+        """Enable structural impact assessment for add/link operations.
+
+        Args:
+            hub_degree_threshold: Centrality value above which a node is a hub.
+            track_cycles: Whether to run cycle detection during assessment.
+            track_components: Whether to track component changes.
+
+        Returns:
+            The newly created StructuralImpactEngine instance.
+        """
+        self._structural_impact = StructuralImpactEngine(
+            self._graph,
+            hub_degree_threshold=hub_degree_threshold,
+            track_cycles=track_cycles,
+            track_components=track_components,
+        )
+        return self._structural_impact
+
+    def enable_strategy_selector(
+        self,
+        *,
+        exploration_rate: float = 0.2,
+        context_bins: int = 10,
+    ) -> TraversalStrategySelector:
+        """Enable adaptive traversal strategy selection.
+
+        Args:
+            exploration_rate: Fraction of recommendations that explore randomly.
+            context_bins: Number of discretization bins for context features.
+
+        Returns:
+            The newly created TraversalStrategySelector instance.
+        """
+        self._strategy_selector = TraversalStrategySelector(
+            self._graph,
+            exploration_rate=exploration_rate,
+            context_bins=context_bins,
+        )
+        return self._strategy_selector
+
+    def enable_auto_abstraction(
+        self,
+        *,
+        promote_threshold: float = 0.6,
+        demote_threshold: float = 2.0,
+        min_cluster_size: int = 3,
+        max_cluster_density: float = 0.7,
+        auto_execute: bool = False,
+    ) -> AutoAbstractionEngine:
+        """Enable automatic abstraction layer promotion and demotion.
+
+        Args:
+            promote_threshold: Score threshold for group promotion.
+            demote_threshold: Access count below which a summary is demoted.
+            min_cluster_size: Minimum members for a promotion candidate group.
+            max_cluster_density: Internal edge density ceiling for candidates.
+            auto_execute: Whether to auto-execute during assess_and_execute().
+
+        Returns:
+            The newly created AutoAbstractionEngine instance.
+        """
+        self._auto_abstraction = AutoAbstractionEngine(
+            self._graph,
+            promote_threshold=promote_threshold,
+            demote_threshold=demote_threshold,
+            min_cluster_size=min_cluster_size,
+            max_cluster_density=max_cluster_density,
+            auto_execute=auto_execute,
+        )
+        return self._auto_abstraction
+
+    def recency_report(self) -> RecencyStats:
+        """Return aggregate recency statistics for all tracked nodes.
+
+        Returns:
+            RecencyStats with total/active/stale counts and top-recent list,
+            or an empty RecencyStats if recency tracking is not enabled.
+        """
+        if self._recency is None:
+            from hyper3.recency import RecencyStats
+            return RecencyStats()
+        return self._recency.get_stats()
+
+    def efficiency_report(self) -> EfficiencyReport:
+        """Return a full efficiency report covering all tracked operations.
+
+        Returns:
+            EfficiencyReport with per-operation statistics, cache efficiency,
+            and degradation alerts.  Returns an empty report if efficiency
+            tracking is not enabled.
+        """
+        if self._efficiency is None:
+            from hyper3.efficiency import EfficiencyReport
+            return EfficiencyReport()
+        return self._efficiency.get_report()
+
+    def assess_abstraction(self) -> list[AbstractionCandidate]:
+        """Identify abstraction layer promotion and demotion candidates.
+
+        Returns:
+            List of AbstractionCandidate describing recommended transitions.
+            Returns an empty list if auto-abstraction is not enabled.
+        """
+        if self._auto_abstraction is None:
+            return []
+        return self._auto_abstraction.assess()
+
+    def execute_abstraction(
+        self, candidates: list[AbstractionCandidate] | None = None,
+    ) -> AbstractionResult:
+        """Execute abstraction transitions for identified candidates.
+
+        Args:
+            candidates: Specific candidates to execute.  If ``None``,
+                runs a fresh assessment and executes all recommendations.
+
+        Returns:
+            AbstractionResult summarising actions taken.
+        """
+        if self._auto_abstraction is None:
+            from hyper3.auto_abstraction import AbstractionResult as AR
+            return AR()
+        if candidates is None:
+            return self._auto_abstraction.assess_and_execute()
+        return self._auto_abstraction.execute(candidates)
 
     @property
     def frame_cache_stats(self) -> Any:

@@ -4,6 +4,7 @@ from typing import Any
 
 from hyper3.abstraction import AbstractionNavigator
 from hyper3.adaptive_slice import AdaptiveSliceEngine
+from hyper3.auto_abstraction import AutoAbstractionEngine
 from hyper3.backward_chain import BackwardChainEngine
 from hyper3.basis_selector import BasisSelector
 from hyper3.belief import BeliefLayer
@@ -15,6 +16,7 @@ from hyper3.collapse_trigger import CollapseTriggerEngine
 from hyper3.community import CommunityDetector
 from hyper3.constraints import BoundaryNavigator
 from hyper3.context_compression import ContextCompressionEngine
+from hyper3.efficiency import EfficiencyTracker
 from hyper3.embedding import EmbeddingEngine
 from hyper3.embedding_graph import SemanticEdgeBuilder
 from hyper3.enrichment import LLMEnricher
@@ -36,6 +38,7 @@ from hyper3.multiway_causal import StateConvergenceEngine
 from hyper3.overlay import HypergraphOverlay
 from hyper3.persistence import Serializer
 from hyper3.provenance import ProvenanceTracker
+from hyper3.recency import RecencyTracker
 from hyper3.results import (
     BulkResult,
     CommitResult,
@@ -58,12 +61,14 @@ from hyper3.rules_discovery import RuleDiscoveryEngine
 from hyper3.search_engine import SearchEngine
 from hyper3.state_clustering import StateClusteringEngine
 from hyper3.structural_anomaly import StructuralAnomalyDetector
+from hyper3.structural_impact import StructuralImpactEngine
 from hyper3.structural_match import StructuralPatternEngine
 from hyper3.structural_prefetch import StructuralPrefetchEngine
 from hyper3.system_monitor import SystemMonitor
 from hyper3.temporal import TemporalReasoner
 from hyper3.transcendental import TranscendentalInferenceEngine
 from hyper3.traversal import ObserverSlice, TraversalEngine
+from hyper3.traversal_selector import TraversalStrategySelector
 from hyper3.uncertainty import UncertaintyEngine
 
 
@@ -125,6 +130,11 @@ class _MemoryBase:
     _context_compression: ContextCompressionEngine | None
     _feedback_aware: FeedbackAwareEvolution | None
     _causal_learner: CausalLearner | None
+    _recency: RecencyTracker | None
+    _efficiency: EfficiencyTracker | None
+    _structural_impact: StructuralImpactEngine | None
+    _strategy_selector: TraversalStrategySelector | None
+    _auto_abstraction: AutoAbstractionEngine | None
 
     def _invalidate_frame_cache(self, *concepts: str) -> None:
         """Invalidate frame cache entries for specific concepts, or clear all if none given."""
