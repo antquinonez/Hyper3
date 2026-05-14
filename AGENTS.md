@@ -492,7 +492,11 @@ For the post-change validation checklist, see `ai/agents_housekeeping.md`.
 
 ## API Reference Documentation
 
-Auto-generated API reference lives in `docs/api/` (gitignored, regenerated on demand).
+Two auto-generated documentation pipelines share the same `PUBLIC_MODULES` list (defined in `scripts/generate_api_docs.py`). Both are gitignored and regenerated on demand.
+
+### docs/api/ — AI-consumable Markdown (docstrings only)
+
+Per-module Markdown files produced by `inspect`/`importlib`. Lightweight, no external tools required.
 
 **Structure**:
 - `docs/api/index.md` — concise index of all modules, classes, and one-line summaries (~55KB)
@@ -504,8 +508,37 @@ Auto-generated API reference lives in `docs/api/` (gitignored, regenerated on de
 ```bash
 .venv/bin/python scripts/generate_api_docs.py
 ```
-Or type `/update-docs` in OpenCode.
 
-**When to regenerate**: After adding, removing, or renaming public classes, methods, or exported symbols. The docs are not auto-updated on commit.
+### docs/sphinx/ — Multi-format Sphinx documentation (full API with type resolution)
+
+Sphinx builds from the same module list, using `autodoc` + `napoleon` to render Google-style docstrings with full type resolution, inherited members, cross-references, and intersphinx links to numpy/scipy/networkx.
+
+**How to regenerate**:
+```bash
+.venv/bin/pip install -e ".[docs]"
+.venv/bin/python scripts/generate_sphinx_docs.py
+```
+
+This generates `.rst` stubs then builds all three output formats:
+
+| Format | Location | Use case |
+|--------|----------|----------|
+| HTML | `docs/sphinx/build/html/` | Human browsing (search, navigation, source links) |
+| Plaintext | `docs/sphinx/build/text/` | AI context windows — clean `.txt` files, no markup, token-efficient (~1.5MB total) |
+| JSON | `docs/sphinx/build/json/` | Programmatic traversal — structured `.fjson` per page with toctree, sections, cross-refs |
+
+**Sphinx text output vs docs/api/ Markdown**: The Sphinx text format includes everything `docs/api` has plus inherited members, resolved cross-references, napoleon-rendered parameter/return types, and intersphinx links. For AI agents that need maximum API detail in minimal tokens, prefer `docs/sphinx/build/text/`.
+
+**Hand-written source files** (tracked in git):
+- `docs/sphinx/source/conf.py` — Sphinx configuration (autodoc, napoleon, viewcode, intersphinx)
+- `docs/sphinx/source/index.rst` — Master toctree
+- `docs/sphinx/source/user_guide.rst` — User guide
+- `docs/sphinx/source/examples.rst` — Examples index
+
+**Gitignored** (regenerated): `docs/sphinx/source/api/*.rst`, `docs/sphinx/build/`
+
+**Regenerate both pipelines at once**: Type `/update-docs` in OpenCode.
+
+**When to regenerate**: After adding, removing, or renaming public classes, methods, or exported symbols. The docs are not auto-updated on commit. To add a new module, append it to `PUBLIC_MODULES` in `scripts/generate_api_docs.py` and both pipelines will pick it up.
 
 **Docstring standard**: Google-style (`Args:`, `Returns:`). Core modules have 100% coverage; newer subsystems (search, sqlite, embedding) have gaps that produce signature-only entries. When adding public methods, include a docstring so the next regeneration picks it up.
