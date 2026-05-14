@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
-"""Generate Sphinx .rst source files from the PUBLIC_MODULES list.
+"""Generate Sphinx .rst source files and build multi-format documentation.
 
 Reuses the same module list as generate_api_docs.py so that the AI-consumable
 docs (docs/api/) and the Sphinx docs (docs/sphinx/) stay in sync.
+
+Produces three output formats:
+  - html: Full rendered site for human browsing
+  - text: Plaintext for AI context windows (token-efficient, no markup)
+  - json: Structured JSON per page (toctree, sections, cross-refs)
 
 Run with: .venv/bin/python scripts/generate_sphinx_docs.py
 """
 import importlib
 import inspect
+import subprocess
 import sys
 from pathlib import Path
 
@@ -116,6 +122,31 @@ def generate_module_rst(module_name: str) -> None:
     (api_dir / f"{short}.rst").write_text("".join(lines))
 
 
+BUILDERS = {
+    "html": "docs/sphinx/build/html",
+    "text": "docs/sphinx/build/text",
+    "json": "docs/sphinx/build/json",
+}
+
+
+def _run_sphinx(builder: str, output_dir: Path) -> bool:
+    result = subprocess.run(
+        [
+            sys.executable, "-m", "sphinx",
+            "-b", builder,
+            "-q",
+            str(SOURCE_DIR),
+            str(output_dir),
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(f"  Sphinx {builder} FAILED:\n{result.stderr}", file=sys.stderr)
+        return False
+    return True
+
+
 def generate() -> None:
     api_dir = SOURCE_DIR / "api"
     api_dir.mkdir(parents=True, exist_ok=True)
@@ -130,7 +161,25 @@ def generate() -> None:
     generate_api_index()
 
     count = len(list(api_dir.glob("*.rst")))
-    print(f"\nGenerated docs/sphinx/source/api/: {count} .rst files")
+    print(f"\nGenerated docs/sphinx/source/api/: {count} .rst files", file=sys.stderr)
+
+    for builder, rel_out in BUILDERS.items():
+        out_dir = ROOT / rel_out
+        print(f"  Building {builder}...", file=sys.stderr)
+        ok = _run_sphinx(builder, out_dir)
+        if not ok:
+            continue
+        if builder == "text":
+            files = list(out_dir.rglob("*.txt"))
+            kb = sum(f.stat().st_size for f in files) // 1024
+            print(f"    {builder}: {len(files)} .txt files ({kb}KB)")
+        elif builder == "json":
+            files = list(out_dir.rglob("*.fjson"))
+            kb = sum(f.stat().st_size for f in files) // 1024
+            print(f"    {builder}: {len(files)} .fjson files ({kb}KB)")
+        else:
+            kb = sum(f.stat().st_size for f in out_dir.rglob("*") if f.is_file()) // 1024
+            print(f"    {builder}: {kb}KB total")
 
 
 if __name__ == "__main__":
