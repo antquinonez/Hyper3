@@ -209,15 +209,21 @@ class TransitiveRule(Rule):
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create an inferred edge from A to C.
 
+        A live existence check is performed immediately before adding the edge
+        so that sibling matches applied to the same shared graph in the same
+        expansion round cannot produce duplicate edges.
+
         Args:
             graph: The hypergraph to modify.
             match: A match with ``A`` and ``C`` bindings.
 
         Returns:
-            ``( [], [new_edge_id] )``.
+            ``( [], [new_edge_id] )`` or ``( [], [] )`` when the edge already exists.
         """
         a, c = match.bindings["A"], match.bindings["C"]
         label = self._new_label or "inferred"
+        if self._edge_exists(graph, a, c):
+            return [], []
         edge = Hyperedge(
             source_ids=frozenset({a}),
             target_ids=frozenset({c}),

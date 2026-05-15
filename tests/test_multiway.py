@@ -82,6 +82,30 @@ class TestTransitiveRule:
         matches = rule.find_matches(g, frozenset({"a", "b", "c"}))
         assert len(matches) == 1
 
+    def test_apply_no_duplicate_edge_on_shared_graph(self):
+        # Legacy-mode (_expand_state with use_per_branch=False) previously
+        # allowed A->D to be written twice when two sibling branches both
+        # inferred it.  TransitiveRule.apply now performs a live existence
+        # check and returns ([], []) when the edge already exists.
+        g = Hypergraph()
+        ids: dict[str, str] = {}
+        for n in ["A", "B", "C", "D"]:
+            node = g.add_node(Hypernode(label=n))
+            ids[n] = node.id
+        for s, t in [("A", "B"), ("B", "C"), ("C", "D")]:
+            g.add_edge(Hyperedge(source_ids=frozenset({ids[s]}), target_ids=frozenset({ids[t]}), label="causes"))
+        rule = TransitiveRule(edge_label="causes", new_label="causes")
+        mw = MultiwayEngine(g)
+        mw.expand(set(ids.values()), [rule], max_depth=4, max_total_states=200, use_per_branch=False)
+        # Count (src_label, tgt_label) pairs -- each must appear exactly once
+        from collections import Counter
+        pairs = Counter(
+            (g.get_node(next(iter(e.source_ids))).label, g.get_node(next(iter(e.target_ids))).label)
+            for e in g.edges
+        )
+        duplicates = {pair: count for pair, count in pairs.items() if count > 1}
+        assert not duplicates, f"Duplicate edges found in shared graph: {duplicates}"
+
 
 class TestInverseRule:
     def test_finds_inverse_match(self):
@@ -407,7 +431,7 @@ class TestMultiwayGraph:
         leaves = mw.get_leaves()
         assert len(leaves) == 2
 
-    def test_jaccard_distance(self):
+    def test_tree_distance(self):
         mw = MultiwayGraph()
         root = MultiwayState(id="r")
         c1 = MultiwayState(id="c1", parent_id="r")
@@ -415,8 +439,10 @@ class TestMultiwayGraph:
         mw.add_state(root)
         mw.add_state(c1)
         mw.add_state(c2)
-        assert mw.jaccard_distance("c1", "c2") == 2.0
-        assert mw.jaccard_distance("c1", "c1") == 0.0
+        # Two siblings: each is 1 hop from their common ancestor (root),
+        # so tree_distance = 1 + 1 = 2
+        assert mw.tree_distance("c1", "c2") == 2.0
+        assert mw.tree_distance("c1", "c1") == 0.0
 
     def test_common_ancestor(self):
         mw = MultiwayGraph()

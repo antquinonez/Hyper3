@@ -280,6 +280,7 @@ class ReasoningMixin(_MemoryBase):
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
         exhaustive: bool = False,
+        max_matches_per_rule: int = 0,
     ) -> ReasonResult:
         """Expand the multiway DAG from seed concepts using inference rules.
 
@@ -299,6 +300,10 @@ class ReasoningMixin(_MemoryBase):
             exhaustive: If True, disable ``max_total_states`` bounding so that
                 every applicable rule is explored.  Useful for small graphs
                 where completeness matters more than performance.
+            max_matches_per_rule: When > 0, each rule contributes at most this
+                many matches per state expansion.  Use this when multiple rules
+                are registered but a single high-productivity rule would
+                otherwise consume the entire ``max_branches_per_state`` budget.
 
         Returns:
             ReasonResult with expansion, causal, clustering, rule analytics reports and
@@ -322,14 +327,19 @@ class ReasoningMixin(_MemoryBase):
 
         assert self._multiway_engine is not None
         effective_max_states = max_total_states if not exhaustive else 10_000_000
+        # When a per-rule cap is active, scale max_branches_per_state so that
+        # every registered rule gets at least max_matches_per_rule slots per state.
+        effective_branches = max(10, len(active_rules) * max_matches_per_rule) if max_matches_per_rule > 0 else 10
         all_node_ids = {n.id for n in self._graph.nodes}
         report = self._multiway_engine.expand(
             all_node_ids,
             active_rules,
             max_depth=max_depth,
             max_total_states=effective_max_states,
+            max_branches_per_state=effective_branches,
             overlay=self._overlay if use_overlay else None,
             confidence_decay=confidence_decay,
+            max_matches_per_rule=max_matches_per_rule,
         )
 
         if report.rules_applied > 0:
