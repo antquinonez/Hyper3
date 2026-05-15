@@ -1,3 +1,5 @@
+"""AbstractionNavigator: hierarchical collapse and expansion of subgraphs."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

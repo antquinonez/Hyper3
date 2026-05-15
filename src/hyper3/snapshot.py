@@ -1,3 +1,5 @@
+"""SystemSnapshot: cross-session state capture and restore."""
+
 from __future__ import annotations
 
 import json
@@ -180,6 +182,12 @@ def capture_snapshot(
 
 
 def _capture_belief(belief: BeliefLayer, snap: SystemSnapshot) -> None:
+    """Serialize belief layer states, correlations, and basis statistics into the snapshot.
+
+    Args:
+        belief: Belief layer whose internal state to serialize.
+        snap: Snapshot to populate with serialized belief data.
+    """
     for qs in belief._states.values():
         interps = [
             {
@@ -218,6 +226,12 @@ def _capture_belief(belief: BeliefLayer, snap: SystemSnapshot) -> None:
 
 
 def _capture_multiway(multiway_engine: MultiwayEngine | None, snap: SystemSnapshot) -> None:
+    """Serialize the multiway expansion DAG (states and root reference) into the snapshot.
+
+    Args:
+        multiway_engine: Multiway engine whose DAG to serialize, or ``None`` to skip.
+        snap: Snapshot to populate with serialized multiway data.
+    """
     if multiway_engine is None:
         return
     mw = multiway_engine.multiway
@@ -241,6 +255,12 @@ def _capture_multiway(multiway_engine: MultiwayEngine | None, snap: SystemSnapsh
 
 
 def _capture_state_clustering(state_clustering: StateClusteringEngine | None, snap: SystemSnapshot) -> None:
+    """Serialize state clustering coordinates, distance cache, and clusters into the snapshot.
+
+    Args:
+        state_clustering: State clustering engine to serialize, or ``None`` to skip.
+        snap: Snapshot to populate with serialized clustering data.
+    """
     if state_clustering is None:
         return
     for sid, coords in state_clustering._coordinates.items():
@@ -275,6 +295,12 @@ def _capture_state_clustering(state_clustering: StateClusteringEngine | None, sn
 
 
 def _capture_rule_analytics(rule_analytics: RuleAnalytics | None, snap: SystemSnapshot) -> None:
+    """Serialize rule analytics position, history, outcomes, meta-patterns, and insights into the snapshot.
+
+    Args:
+        rule_analytics: Rule analytics engine to serialize, or ``None`` to skip.
+        snap: Snapshot to populate with serialized analytics data.
+    """
     if rule_analytics is None:
         return
     pos = rule_analytics._position
@@ -324,6 +350,12 @@ def _capture_rule_analytics(rule_analytics: RuleAnalytics | None, snap: SystemSn
 
 
 def _capture_provenance(provenance: ProvenanceTracker, snap: SystemSnapshot) -> None:
+    """Serialize provenance records and edge-to-dependents mapping into the snapshot.
+
+    Args:
+        provenance: Provenance tracker whose records to serialize.
+        snap: Snapshot to populate with serialized provenance data.
+    """
     for record in provenance._records.values():
         snap.provenance_records.append(
             {
@@ -341,6 +373,12 @@ def _capture_provenance(provenance: ProvenanceTracker, snap: SystemSnapshot) -> 
 
 
 def _capture_retrieval(retrieval: RetrievalEngine, snap: SystemSnapshot) -> None:
+    """Serialize retrieval engine feedback records and learning-to-rank weights into the snapshot.
+
+    Args:
+        retrieval: Retrieval engine whose feedback and LTR state to serialize.
+        snap: Snapshot to populate with serialized retrieval data.
+    """
     if hasattr(retrieval, "_feedback") and retrieval._feedback is not None:
         for rec in retrieval._feedback.records:
             snap.retrieval_feedback.append(
@@ -357,11 +395,24 @@ def _capture_retrieval(retrieval: RetrievalEngine, snap: SystemSnapshot) -> None
 
 
 def _capture_perspective(perspective: MultiPerspectiveAnalyzer, belief: BeliefLayer, snap: SystemSnapshot) -> None:
+    """Serialize multi-perspective frame outcomes and belief basis statistics into the snapshot.
+
+    Args:
+        perspective: Multi-perspective analyzer whose frame outcomes to serialize.
+        belief: Belief layer whose basis stats to include.
+        snap: Snapshot to populate with serialized perspective data.
+    """
     snap.frame_outcomes = {k: dict(v) for k, v in perspective._frame_outcomes.items()}
     snap.basis_stats = {k: dict(v) for k, v in belief._basis_stats.items()}
 
 
 def _capture_monitor(meta: SystemMonitor, snap: SystemSnapshot) -> None:
+    """Serialize system monitor health state, introspection log, and tuning history into the snapshot.
+
+    Args:
+        meta: System monitor whose internal state to serialize.
+        snap: Snapshot to populate with serialized monitor data.
+    """
     state = meta._state
     snap.monitor_state = {
         "architectural_fitness": state.architectural_fitness,
@@ -395,6 +446,14 @@ def _capture_monitor(meta: SystemMonitor, snap: SystemSnapshot) -> None:
 
 
 def _capture_cache(cache: LazyCache, snap: SystemSnapshot) -> None:
+    """Serialize live cache entries with their remaining TTL into the snapshot.
+
+    Only entries whose TTL has not yet expired are included.
+
+    Args:
+        cache: LazyCache whose current items to serialize.
+        snap: Snapshot to populate with serialized cache entries.
+    """
     now = time.time()
     for key, (cached_at, value) in cache._cache.items():
         remaining_ttl = cache._ttl - (now - cached_at)
@@ -403,6 +462,12 @@ def _capture_cache(cache: LazyCache, snap: SystemSnapshot) -> None:
 
 
 def _capture_feedback(feedback: OperationFeedback | None, snap: SystemSnapshot) -> None:
+    """Serialize operation feedback signals, per-operation stats, and evolution fitness history into the snapshot.
+
+    Args:
+        feedback: Operation feedback tracker to serialize, or ``None`` to skip.
+        snap: Snapshot to populate with serialized feedback data.
+    """
     if feedback is None:
         return
     for signal in feedback._signals:
@@ -488,6 +553,15 @@ def restore_snapshot(
 
 
 def _restore_belief(snapshot: SystemSnapshot, belief: BeliefLayer) -> None:
+    """Repopulate belief layer states, correlations, and basis statistics from snapshot data.
+
+    Handles legacy field names (``interpretations`` -> ``outcomes``, ``collapsed`` -> ``resolved``)
+    for backward compatibility with older snapshots.
+
+    Args:
+        snapshot: Snapshot containing serialized belief data.
+        belief: Belief layer to repopulate (must be pre-cleared by the caller).
+    """
     for state_data in snapshot.belief_states:
         interps = [
             Outcome(
@@ -528,6 +602,16 @@ def _restore_belief(snapshot: SystemSnapshot, belief: BeliefLayer) -> None:
 
 
 def _restore_multiway(snapshot: SystemSnapshot, graph: Hypergraph) -> MultiwayEngine | None:
+    """Reconstruct the multiway expansion DAG from snapshot data.
+
+    Args:
+        snapshot: Snapshot containing serialized multiway states and root reference.
+        graph: Live hypergraph to attach the engine to.
+
+    Returns:
+        A reconstructed :class:`MultiwayEngine`, or ``None`` if the snapshot
+        contains no multiway state data.
+    """
     if not snapshot.multiway_states:
         return None
     me = MultiwayEngine(graph)
@@ -553,6 +637,20 @@ def _restore_multiway(snapshot: SystemSnapshot, graph: Hypergraph) -> MultiwayEn
 
 
 def _restore_state_clustering(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> StateClusteringEngine | None:
+    """Reconstruct the state clustering engine from snapshot data.
+
+    Requires both snapshot coordinates and a live multiway engine. Returns
+    ``None`` if either is absent.
+
+    Args:
+        snapshot: Snapshot containing serialized clustering data.
+        graph: Live hypergraph to attach the engine to.
+        multiway_engine: Restored multiway engine providing the underlying DAG.
+
+    Returns:
+        A reconstructed :class:`StateClusteringEngine`, or ``None`` if the
+        snapshot has no coordinates or no multiway engine is available.
+    """
     if not snapshot.state_coordinates or multiway_engine is None:
         return None
     bs = StateClusteringEngine(graph, multiway_engine.multiway)
@@ -589,6 +687,17 @@ def _restore_state_clustering(snapshot: SystemSnapshot, graph: Hypergraph, multi
 
 
 def _restore_rule_analytics(snapshot: SystemSnapshot, graph: Hypergraph, multiway_engine: MultiwayEngine | None) -> RuleAnalytics | None:
+    """Reconstruct the rule analytics engine from snapshot data.
+
+    Args:
+        snapshot: Snapshot containing serialized analytics data.
+        graph: Live hypergraph to attach the engine to.
+        multiway_engine: Restored multiway engine (may be ``None``).
+
+    Returns:
+        A reconstructed :class:`RuleAnalytics`, or ``None`` if the snapshot
+        has no position data.
+    """
     if not snapshot.rule_analytics_position:
         return None
     rs = RuleAnalytics(graph, multiway_engine)
@@ -640,6 +749,14 @@ def _restore_rule_analytics(snapshot: SystemSnapshot, graph: Hypergraph, multiwa
 
 
 def _restore_provenance(snapshot: SystemSnapshot, provenance: ProvenanceTracker) -> None:
+    """Repopulate provenance records and edge-to-dependents mapping from snapshot data.
+
+    Clears existing records before restoring.
+
+    Args:
+        snapshot: Snapshot containing serialized provenance data.
+        provenance: Provenance tracker to repopulate.
+    """
     provenance._records.clear()
     provenance._edge_to_dependents.clear()
     for rec_data in snapshot.provenance_records:
@@ -658,6 +775,14 @@ def _restore_provenance(snapshot: SystemSnapshot, provenance: ProvenanceTracker)
 
 
 def _restore_retrieval(snapshot: SystemSnapshot, retrieval: RetrievalEngine) -> None:
+    """Repopulate retrieval engine feedback records and learning-to-rank weights from snapshot data.
+
+    Only restores if the retrieval engine has feedback and LTR subsystems attached.
+
+    Args:
+        snapshot: Snapshot containing serialized retrieval data.
+        retrieval: Retrieval engine to repopulate.
+    """
     if hasattr(retrieval, "_feedback") and retrieval._feedback is not None:
         retrieval._feedback._records.clear()
         for fb_data in snapshot.retrieval_feedback:
@@ -676,10 +801,22 @@ def _restore_retrieval(snapshot: SystemSnapshot, retrieval: RetrievalEngine) -> 
 
 
 def _restore_perspective(snapshot: SystemSnapshot, perspective: MultiPerspectiveAnalyzer) -> None:
+    """Repopulate multi-perspective frame outcomes from snapshot data.
+
+    Args:
+        snapshot: Snapshot containing serialized frame outcomes.
+        perspective: Multi-perspective analyzer to repopulate.
+    """
     perspective._frame_outcomes = {k: dict(v) for k, v in snapshot.frame_outcomes.items()}
 
 
 def _restore_monitor(snapshot: SystemSnapshot, meta: SystemMonitor) -> None:
+    """Reconstruct system monitor health state and introspection log from snapshot data.
+
+    Args:
+        snapshot: Snapshot containing serialized monitor state.
+        meta: System monitor to repopulate.
+    """
     meta_state = snapshot.monitor_state
     meta._state = SystemHealthModel(
         architectural_fitness=meta_state.get("architectural_fitness", 1.0),
@@ -694,6 +831,15 @@ def _restore_monitor(snapshot: SystemSnapshot, meta: SystemMonitor) -> None:
 
 
 def _restore_cache(snapshot: SystemSnapshot, cache: LazyCache) -> None:
+    """Repopulate cache entries from snapshot data with backdated insertion timestamps.
+
+    Each entry is inserted with a timestamp that preserves its original remaining
+    TTL, so items expire at the correct relative wall-clock time.
+
+    Args:
+        snapshot: Snapshot containing serialized cache entries.
+        cache: LazyCache to repopulate.
+    """
     cache.clear()
     now = time.time()
     for key, value, remaining_ttl in snapshot.cache_items:
@@ -702,6 +848,12 @@ def _restore_cache(snapshot: SystemSnapshot, cache: LazyCache) -> None:
 
 
 def _restore_feedback(snapshot: SystemSnapshot, feedback: OperationFeedback | None) -> None:
+    """Repopulate operation feedback signals, per-operation stats, and fitness history from snapshot data.
+
+    Args:
+        snapshot: Snapshot containing serialized feedback data.
+        feedback: Operation feedback tracker to repopulate, or ``None`` to skip.
+    """
     if feedback is None:
         return
     from hyper3.feedback import FeedbackSignal

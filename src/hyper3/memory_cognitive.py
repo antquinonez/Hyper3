@@ -1,3 +1,4 @@
+"""CognitiveMixin: backward chaining, Hebbian learning, confidence propagation."""
 from __future__ import annotations
 
 from hyper3.backward_chain import BackwardChainEngine, BackwardChainResult

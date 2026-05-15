@@ -1,3 +1,5 @@
+"""Automatic abstraction engine for identifying and executing graph collapse/expansion."""
+
 from __future__ import annotations
 
 from collections import defaultdict
@@ -15,6 +17,17 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class AbstractionCandidate(_SimpleResultBase):
+    """A node recommended for promotion or demotion between abstraction layers.
+
+    Attributes:
+        node_id: Internal ID of the candidate node.
+        node_label: Human-readable label of the candidate node.
+        current_layer: The node's current abstraction layer.
+        recommended_layer: The proposed target abstraction layer.
+        reason: Categorization of why the transition is recommended.
+        score: Confidence score for the recommendation in [0, 1].
+        group_members: Labels of other nodes in the same promotion group.
+    """
     node_id: str = ""
     node_label: str = ""
     current_layer: str = "intermediate"
@@ -26,6 +39,16 @@ class AbstractionCandidate(_SimpleResultBase):
 
 @dataclass
 class AbstractionAction(_SimpleResultBase):
+    """Records a single promotion or demotion action that was executed.
+
+    Attributes:
+        action: Either ``"promote"`` or ``"demote"``.
+        node_label: Label of the node that was acted upon.
+        summary_label: Label of the summary node created or removed.
+        layer: Target abstraction layer after the action.
+        members_collapsed: Number of nodes collapsed into the summary.
+        members_expanded: Number of nodes restored from the summary.
+    """
     action: str = ""
     node_label: str = ""
     summary_label: str = ""
@@ -36,6 +59,15 @@ class AbstractionAction(_SimpleResultBase):
 
 @dataclass
 class AbstractionResult(_SimpleResultBase):
+    """Summary of an assessment-and-execution cycle.
+
+    Attributes:
+        assessed_nodes: Total number of nodes in the graph at assessment time.
+        promotions: Number of promotion actions executed.
+        demotions: Number of demotion actions executed.
+        actions: Ordered list of actions that were performed.
+        candidates: All candidates identified during assessment.
+    """
     assessed_nodes: int = 0
     promotions: int = 0
     demotions: int = 0
@@ -74,6 +106,21 @@ class AutoAbstractionEngine:
         max_cluster_density: float = 0.7,
         auto_execute: bool = False,
     ) -> None:
+        """Initialize the auto-abstraction engine.
+
+        Args:
+            graph: The hypergraph to monitor and operate on.
+            promote_threshold: Minimum composite score for a promotion
+                recommendation. Defaults to 0.6.
+            demote_threshold: Access count below which a summary node is
+                a demotion candidate. Defaults to 2.0.
+            min_cluster_size: Minimum members in a promotion candidate group.
+                Defaults to 3.
+            max_cluster_density: Internal edge density ceiling for candidate
+                groups. Defaults to 0.7.
+            auto_execute: Whether ``assess_and_execute()`` automatically
+                applies transitions. Defaults to False.
+        """
         self._graph = graph
         self._promote_threshold = promote_threshold
         self._demote_threshold = demote_threshold
@@ -210,6 +257,16 @@ class AutoAbstractionEngine:
         )
 
     def _find_promotion_candidates(self) -> list[AbstractionCandidate]:
+        """Identify node groups suitable for promotion to the summary layer.
+
+        Uses community detection to find clusters, then scores them on
+        internal density, access density, and label homogeneity. Also
+        delegates to :meth:`_find_hub_promotion_candidates` for hub-based
+        discovery.
+
+        Returns:
+            Candidates whose composite score meets the promote threshold.
+        """
         g = self._graph
         candidates: list[AbstractionCandidate] = []
 
@@ -254,6 +311,15 @@ class AutoAbstractionEngine:
         return candidates
 
     def _find_hub_promotion_candidates(self) -> list[AbstractionCandidate]:
+        """Find high-degree nodes whose neighborhoods form promotion groups.
+
+        A node whose degree centrality exceeds twice the average is treated
+        as a hub. Its neighborhood is scored the same way as community-based
+        candidates.
+
+        Returns:
+            Candidates derived from hub neighborhoods.
+        """
         g = self._graph
         candidates: list[AbstractionCandidate] = []
         if g.node_count < self._min_cluster_size:
@@ -304,6 +370,16 @@ class AutoAbstractionEngine:
         return candidates
 
     def _find_demotion_candidates(self) -> list[AbstractionCandidate]:
+        """Identify summary-layer nodes with low access for demotion.
+
+        A summary node is a demotion candidate when its access count is
+        below ``demote_threshold`` and its relative access (compared to the
+        busiest summary node) exceeds 0.8, indicating it is rarely used
+        relative to peers.
+
+        Returns:
+            Candidates recommended for demotion to the detail layer.
+        """
         candidates: list[AbstractionCandidate] = []
         summary_nodes = self._navigator.nodes_at_layer(AbstractionLayer.SUMMARY)
 
@@ -336,6 +412,17 @@ class AutoAbstractionEngine:
         return candidates
 
     def _compute_internal_density(self, labels: list[str]) -> float:
+        """Compute the ratio of internal edges to the maximum possible.
+
+        An edge is internal when both its source and target node sets are
+        fully contained within the group identified by *labels*.
+
+        Args:
+            labels: Node labels defining the group.
+
+        Returns:
+            Density value in [0, 1]. Returns 0.0 for groups smaller than 2.
+        """
         if len(labels) < 2:
             return 0.0
 
@@ -358,6 +445,15 @@ class AutoAbstractionEngine:
         return internal_edges / max_edges if max_edges > 0 else 0.0
 
     def _compute_access_density(self, labels: list[str]) -> float:
+        """Compute the average-to-max ratio of access counts for a group.
+
+        Args:
+            labels: Node labels defining the group.
+
+        Returns:
+            Ratio in [0, 1]. Returns 0.0 when the group is empty or all
+            access counts are zero.
+        """
         if not labels:
             return 0.0
 
@@ -378,6 +474,16 @@ class AutoAbstractionEngine:
         return min(avg / max_count, 1.0)
 
     def _compute_label_homogeneity(self, labels: list[str]) -> float:
+        """Compute Jaccard similarity of outgoing edge labels across a group.
+
+        Args:
+            labels: Node labels defining the group.
+
+        Returns:
+            ``|intersection| / |union|`` of outgoing edge label sets.
+            Returns 1.0 for groups smaller than 2 or when all label sets
+            are empty.
+        """
         if len(labels) < 2:
             return 1.0
 
@@ -403,6 +509,15 @@ class AutoAbstractionEngine:
         return len(intersection) / len(union) if union else 0.0
 
     def _get_member_layers(self, labels: list[str]) -> dict[str, str]:
+        """Resolve the abstraction layer for each label in the group.
+
+        Args:
+            labels: Node labels to look up.
+
+        Returns:
+            Dict mapping each resolved label to its abstraction layer value.
+            Labels that do not resolve to a node are omitted.
+        """
         result: dict[str, str] = {}
         for lbl in labels:
             node = self._graph.get_node_by_label(lbl)
@@ -411,12 +526,32 @@ class AutoAbstractionEngine:
         return result
 
     def _label_to_id(self, label: str) -> str | None:
+        """Resolve a concept label to its internal node ID.
+
+        Args:
+            label: The concept label to resolve.
+
+        Returns:
+            The node ID, or ``None`` if the label does not exist.
+        """
         node = self._graph.get_node_by_label(label)
         return node.id if node else None
 
     def _group_promotion_candidates(
         self, candidates: list[AbstractionCandidate],
     ) -> dict[str, list[AbstractionCandidate]]:
+        """Group promotion candidates by their member set.
+
+        Candidates targeting the summary layer are keyed by the sorted,
+        pipe-delimited membership labels so that overlapping candidates
+        for the same group are co-located.
+
+        Args:
+            candidates: All candidates from an assessment run.
+
+        Returns:
+            Dict mapping group key to the candidates that share that group.
+        """
         groups: dict[str, list[AbstractionCandidate]] = defaultdict(list)
         for cand in candidates:
             if cand.recommended_layer != "summary":
@@ -426,6 +561,14 @@ class AutoAbstractionEngine:
         return groups
 
     def _record_assessment(self, candidates: list[AbstractionCandidate]) -> None:
+        """Append the current assessment to the rolling history.
+
+        Keeps up to 20 historical entries. Only promotion candidates
+        (those targeting the summary layer) are recorded.
+
+        Args:
+            candidates: The candidates produced by the current assessment.
+        """
         promoted_labels: list[str] = []
         for cand in candidates:
             if cand.recommended_layer == "summary":

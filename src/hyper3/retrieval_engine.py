@@ -1,3 +1,4 @@
+"""RetrievalEngine: Reciprocal Rank Fusion of activation and semantic signals."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

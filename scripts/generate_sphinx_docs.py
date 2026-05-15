@@ -13,6 +13,7 @@ Run with: .venv/bin/python scripts/generate_sphinx_docs.py
 """
 import importlib
 import inspect
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -167,6 +168,9 @@ def generate() -> None:
         out_dir = ROOT / rel_out
         print(f"  Building {builder}...", file=sys.stderr)
         ok = _run_sphinx(builder, out_dir)
+        doctrees = out_dir / ".doctrees"
+        if doctrees.exists():
+            shutil.rmtree(doctrees)
         if not ok:
             continue
         if builder == "text":

@@ -1,3 +1,10 @@
+"""Query planning for search execution strategy selection.
+
+Selects an optimal execution strategy (index scan, spreading activation,
+embedding similarity, or a combination) based on the query characteristics
+and available subsystems.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,6 +21,19 @@ if TYPE_CHECKING:
 
 @dataclass
 class SearchPlan(_SimpleResultBase):
+    """Execution plan describing how a search query should be carried out.
+
+    Attributes:
+        strategy: Name of the chosen execution strategy.
+        candidate_ids: Node IDs pre-filtered by index or scan.
+        use_index: Whether to use the attribute index.
+        use_activation: Whether to use spreading activation.
+        use_embedding: Whether to use embedding similarity.
+        activation_iterations: Number of spreading activation iterations.
+        embedding_top_k: Number of top embedding results to consider.
+        estimated_selectivity: Estimated fraction of nodes passing filters.
+    """
+
     strategy: str = "activate_only"
     candidate_ids: set[str] = field(default_factory=set)
     use_index: bool = False
@@ -25,6 +45,8 @@ class SearchPlan(_SimpleResultBase):
 
 
 class QueryPlanner:
+    """Selects a search execution strategy based on query and available subsystems."""
+
     def __init__(
         self,
         graph: Hypergraph,
@@ -32,11 +54,30 @@ class QueryPlanner:
         *,
         embedding: EmbeddingEngine | None = None,
     ) -> None:
+        """Initialize the planner with optional subsystems.
+
+        Args:
+            graph: The hypergraph to search over.
+            index: Optional attribute index for fast filter lookups.
+            embedding: Optional embedding engine for semantic similarity.
+        """
         self._graph = graph
         self._index = index
         self._embedding = embedding
 
     def plan(self, query: SearchQuery) -> SearchPlan:
+        """Choose an execution strategy for the given search query.
+
+        Inspects query text, filters, and available subsystems to select
+        the most appropriate plan.  When ``query.strategy`` is not
+        ``"auto"``, the requested strategy is used directly.
+
+        Args:
+            query: The search query to plan execution for.
+
+        Returns:
+            A ``SearchPlan`` describing the chosen strategy and parameters.
+        """
         has_text = bool(query.text)
         has_filters = bool(query.filters)
         strategy_override = query.strategy != "auto"
@@ -68,6 +109,17 @@ class QueryPlanner:
         return self._plan_hybrid(query, selectivity)
 
     def _estimate_selectivity(self, query: SearchQuery) -> float:
+        """Estimate what fraction of nodes pass the query filters.
+
+        Returns the ratio of filtered nodes to total nodes using the
+        attribute index when available, or a heuristic of 0.5 otherwise.
+
+        Args:
+            query: The search query whose filters are estimated.
+
+        Returns:
+            A float in [0, 1] representing estimated selectivity.
+        """
         if not query.filters:
             return 1.0
         total = self._graph.node_count
@@ -79,9 +131,22 @@ class QueryPlanner:
         return len(filtered) / total
 
     def _has_embedding(self) -> bool:
+        """Return whether an embedding engine is available."""
         return self._embedding is not None
 
     def _get_candidates(self, query: SearchQuery) -> set[str]:
+        """Resolve candidate node IDs that match the query filters.
+
+        Uses the attribute index when it is available and not dirty;
+        otherwise falls back to a linear scan.
+
+        Args:
+            query: The search query whose filters define the candidate set.
+
+        Returns:
+            A set of node IDs matching all filters, or an empty set if
+            the query has no filters.
+        """
         if not query.filters:
             return set()
         if self._index is not None and not self._index.dirty:
@@ -89,6 +154,14 @@ class QueryPlanner:
         return self._scan_candidates(query)
 
     def _scan_candidates(self, query: SearchQuery) -> set[str]:
+        """Linearly scan all graph nodes to find those matching filters.
+
+        Args:
+            query: The search query whose filters are checked.
+
+        Returns:
+            A set of node IDs whose data dicts satisfy every filter.
+        """
         result: set[str] = set()
         for node in self._graph.nodes:
             if not isinstance(node.data, dict):
@@ -99,6 +172,18 @@ class QueryPlanner:
 
     @staticmethod
     def _node_matches_filter(data: dict, f: SearchFilter) -> bool:
+        """Check whether a single node data dict satisfies one filter.
+
+        Supports value-set matching, numeric range matching, and
+        equality matching, each with optional negation.
+
+        Args:
+            data: The node's data dictionary.
+            f: The filter to evaluate against the data.
+
+        Returns:
+            True if the data satisfies the filter.
+        """
         if f.field not in data:
             return False
         val = data[f.field]
@@ -116,6 +201,15 @@ class QueryPlanner:
         return not match if f.negated else match
 
     def _plan_browse(self, query: SearchQuery, selectivity: float) -> SearchPlan:
+        """Build a browse-only plan (filters, no text search).
+
+        Args:
+            query: The search query.
+            selectivity: Estimated filter selectivity.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="browse"``.
+        """
         candidates = self._get_candidates(query)
         return SearchPlan(
             strategy="browse",
@@ -127,6 +221,15 @@ class QueryPlanner:
         )
 
     def _plan_index_only(self, query: SearchQuery, selectivity: float) -> SearchPlan:
+        """Build an index-only plan for highly selective filters.
+
+        Args:
+            query: The search query.
+            selectivity: Estimated filter selectivity.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="index_only"``.
+        """
         candidates = self._get_candidates(query)
         return SearchPlan(
             strategy="index_only",
@@ -138,6 +241,15 @@ class QueryPlanner:
         )
 
     def _plan_index_then_activate(self, query: SearchQuery, selectivity: float) -> SearchPlan:
+        """Build a plan that filters by index then refines via activation.
+
+        Args:
+            query: The search query.
+            selectivity: Estimated filter selectivity.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="index_then_activate"``.
+        """
         candidates = self._get_candidates(query)
         return SearchPlan(
             strategy="index_then_activate",
@@ -150,6 +262,15 @@ class QueryPlanner:
         )
 
     def _plan_index_then_embed(self, query: SearchQuery, selectivity: float) -> SearchPlan:
+        """Build a plan that filters by index then ranks via embedding similarity.
+
+        Args:
+            query: The search query.
+            selectivity: Estimated filter selectivity.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="index_then_embed"``.
+        """
         candidates = self._get_candidates(query)
         return SearchPlan(
             strategy="index_then_embed",
@@ -162,6 +283,14 @@ class QueryPlanner:
         )
 
     def _plan_activate_only(self, query: SearchQuery) -> SearchPlan:
+        """Build a plan that uses only spreading activation (no filters).
+
+        Args:
+            query: The search query.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="activate_only"``.
+        """
         return SearchPlan(
             strategy="activate_only",
             candidate_ids=set(),
@@ -173,6 +302,14 @@ class QueryPlanner:
         )
 
     def _plan_embed_only(self, query: SearchQuery) -> SearchPlan:
+        """Build a plan that uses only embedding similarity (no filters).
+
+        Args:
+            query: The search query.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="embed_only"``.
+        """
         return SearchPlan(
             strategy="embed_only",
             candidate_ids=set(),
@@ -184,6 +321,17 @@ class QueryPlanner:
         )
 
     def _plan_hybrid(self, query: SearchQuery, selectivity: float) -> SearchPlan:
+        """Build a hybrid plan combining index, activation, and embedding.
+
+        Used as the fallback when no single strategy dominates.
+
+        Args:
+            query: The search query.
+            selectivity: Estimated filter selectivity.
+
+        Returns:
+            A ``SearchPlan`` with ``strategy="hybrid"``.
+        """
         candidates = self._get_candidates(query)
         return SearchPlan(
             strategy="hybrid",
@@ -197,6 +345,18 @@ class QueryPlanner:
         )
 
     def _plan_strategy(self, strategy: str, query: SearchQuery) -> SearchPlan:
+        """Build a plan for an explicitly requested strategy name.
+
+        Infers which subsystems to enable by checking whether the
+        strategy string contains ``"index"``, ``"activate"``, or ``"embed"``.
+
+        Args:
+            strategy: The user-requested strategy name.
+            query: The search query.
+
+        Returns:
+            A ``SearchPlan`` using the requested strategy.
+        """
         candidates = self._get_candidates(query) if query.filters else set()
         return SearchPlan(
             strategy=strategy,

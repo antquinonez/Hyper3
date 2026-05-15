@@ -1,3 +1,9 @@
+"""SQLite-backed persistence for Hyper3 hypergraphs.
+
+Provides a full-featured relational store with FTS5 full-text search,
+faceted filtering, autocomplete suggestions, and neighbor queries.
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -71,7 +77,25 @@ END;
 
 
 class SqliteStore:
+    """Persistent SQLite store for hypergraph nodes and edges.
+
+    Manages a relational database with tables for nodes, edges, adjacency,
+    and a full-text search index. Supports context-manager usage for safe
+    resource cleanup.
+
+    Args:
+        path: Filesystem path to the SQLite database file.
+        wal: If True, enable WAL journal mode for concurrent read/write
+            performance. If False, use the default DELETE journal mode.
+    """
+
     def __init__(self, path: str, *, wal: bool = True) -> None:
+        """Initialize the SQLite store.
+
+        Args:
+            path: File path for the SQLite database.
+            wal: Use WAL journal mode for concurrent reads.
+        """
         self._path = path
         self._conn = sqlite3.connect(path)
         self._conn.execute("PRAGMA journal_mode=WAL" if wal else "PRAGMA journal_mode=DELETE")
@@ -81,18 +105,34 @@ class SqliteStore:
 
     @property
     def path(self) -> str:
+        """Return the filesystem path of the underlying database file.
+
+        Returns:
+            The database path string.
+        """
         return self._path
 
     def close(self) -> None:
+        """Close the underlying SQLite connection."""
         self._conn.close()
 
     def __enter__(self) -> SqliteStore:
+        """Return self for use as a context manager."""
         return self
 
     def __exit__(self, *args: Any) -> None:
+        """Close the database connection on context exit."""
         self.close()
 
     def save_graph(self, graph: Hypergraph) -> None:
+        """Persist an entire hypergraph to the database.
+
+        Clears all existing data and replaces it with the nodes and edges
+        from the given graph. The operation runs in a single transaction.
+
+        Args:
+            graph: The Hypergraph instance to persist.
+        """
         with self._conn:
             self._conn.execute("DELETE FROM adjacency")
             self._conn.execute("DELETE FROM edges")
@@ -103,6 +143,15 @@ class SqliteStore:
                 self._insert_edge(edge)
 
     def load_graph(self) -> Hypergraph:
+        """Load a hypergraph from the database.
+
+        Reconstructs all nodes and edges including their metadata, and
+        rebuilds the in-memory label, edge-label, node-to-edge, outgoing,
+        and incoming indexes.
+
+        Returns:
+            A fully reconstructed Hypergraph instance.
+        """
         graph = Hypergraph()
         rows = self._conn.execute(
             "SELECT id, label, data, weight, access_count, "
@@ -165,26 +214,60 @@ class SqliteStore:
         return graph
 
     def upsert_node(self, node: Hypernode) -> None:
+        """Insert or replace a single node in the database.
+
+        Args:
+            node: The Hypernode to persist.
+        """
         with self._conn:
             self._insert_node(node)
 
     def upsert_edge(self, edge: Hyperedge) -> None:
+        """Insert or replace a single edge and its adjacency entries.
+
+        Args:
+            edge: The Hyperedge to persist.
+        """
         with self._conn:
             self._insert_edge(edge)
 
     def delete_node(self, node_id: str) -> None:
+        """Delete a node by its internal ID.
+
+        Cascading foreign keys will also remove related adjacency rows.
+
+        Args:
+            node_id: The internal node ID to delete.
+        """
         with self._conn:
             self._conn.execute("DELETE FROM nodes WHERE id = ?", (node_id,))
 
     def delete_edge(self, edge_id: str) -> None:
+        """Delete an edge by its internal ID.
+
+        Cascading foreign keys will also remove related adjacency rows.
+
+        Args:
+            edge_id: The internal edge ID to delete.
+        """
         with self._conn:
             self._conn.execute("DELETE FROM edges WHERE id = ?", (edge_id,))
 
     def node_count(self) -> int:
+        """Return the total number of stored nodes.
+
+        Returns:
+            The node count.
+        """
         row = self._conn.execute("SELECT COUNT(*) AS c FROM nodes").fetchone()
         return row["c"] if row else 0
 
     def edge_count(self) -> int:
+        """Return the total number of stored edges.
+
+        Returns:
+            The edge count.
+        """
         row = self._conn.execute("SELECT COUNT(*) AS c FROM edges").fetchone()
         return row["c"] if row else 0
 
@@ -196,6 +279,28 @@ class SqliteStore:
         top_k: int = 20,
         offset: int = 0,
     ) -> list[dict[str, Any]]:
+        """Query nodes by data-field filters and/or full-text search.
+
+        Filters are applied against the JSON ``data`` column using
+        ``json_extract``. Supported filter value types:
+
+        - Scalar: exact match (``{"type": "movie"}``).
+        - List/tuple: IN-clause match (``{"genre": ["action", "comedy"]}``).
+        - Dict with ``min``/``max``: range filter (``{"year": {"min": 2000}}``).
+
+        When ``text`` is provided, the FTS5 index is used for label matching
+        and combined with data filters via AND.
+
+        Args:
+            filters: Optional dict mapping data field names to filter values.
+            text: Optional FTS5 query string for label matching.
+            top_k: Maximum number of results to return.
+            offset: Number of results to skip.
+
+        Returns:
+            List of dicts with keys ``id``, ``label``, ``data``, ``weight``,
+            ``access_count``, ``created_at``, ``last_accessed``.
+        """
         where_clauses: list[str] = []
         params: list[Any] = []
         if filters:
@@ -243,6 +348,22 @@ class SqliteStore:
         fields: list[str],
         filters: dict[str, Any] | None = None,
     ) -> dict[str, list[dict[str, Any]]]:
+        """Compute faceted value counts for data fields on the nodes table.
+
+        For each field name in ``fields``, returns the distinct values found
+        in ``data[field]`` along with their occurrence counts. Filters can
+        constrain the candidate set; each faceted field automatically excludes
+        itself from the filter set to avoid self-filtering.
+
+        Args:
+            fields: Data field names to facet on.
+            filters: Optional data-field filters (same semantics as
+                ``find_nodes``).
+
+        Returns:
+            Dict mapping each field name to a list of ``{"value": ..., "count": ...}``
+            dicts sorted by descending count.
+        """
         result: dict[str, list[dict[str, Any]]] = {}
         for f in fields:
             where_clauses: list[str] = []
@@ -277,6 +398,15 @@ class SqliteStore:
         return result
 
     def search_text(self, query: str, *, top_k: int = 10) -> list[dict[str, Any]]:
+        """Full-text search over node labels using the FTS5 index.
+
+        Args:
+            query: An FTS5 query expression (e.g. ``"hypergraph"``).
+            top_k: Maximum number of results to return.
+
+        Returns:
+            List of dicts with keys ``id``, ``label``, ``data``, ``weight``.
+        """
         rows = self._conn.execute(
             "SELECT nodes.id, nodes.label, nodes.data, nodes.weight "
             "FROM nodes JOIN nodes_fts ON nodes.rowid = nodes_fts.rowid "
@@ -296,6 +426,16 @@ class SqliteStore:
     def suggest(
         self, field: str, prefix: str, *, top_k: int = 10,
     ) -> list[str]:
+        """Return autocomplete suggestions for a data field matching a prefix.
+
+        Args:
+            field: The JSON data field to query.
+            prefix: The prefix string to match against.
+            top_k: Maximum number of suggestions to return.
+
+        Returns:
+            List of distinct string values matching the prefix.
+        """
         rows = self._conn.execute(
             f"SELECT DISTINCT json_extract(data, '$.{field}') AS val "
             f"FROM nodes WHERE json_extract(data, '$.{field}') LIKE ? "
@@ -311,6 +451,22 @@ class SqliteStore:
         direction: str = "any",
         edge_label: str | None = None,
     ) -> list[dict[str, Any]]:
+        """Retrieve neighboring nodes of a given node by label.
+
+        Traverses the adjacency table to find all nodes that share an edge
+        with the specified node, optionally filtered by traversal direction
+        and edge label.
+
+        Args:
+            label: The label of the node whose neighbors to retrieve.
+            direction: ``"out"`` for neighbors reachable via outgoing edges,
+                ``"in"`` for neighbors via incoming edges, ``"any"`` for both.
+            edge_label: If provided, only consider edges with this label.
+
+        Returns:
+            List of dicts with keys ``id``, ``label``, ``data``, ``weight``.
+            Returns an empty list if no node matches the given label.
+        """
         node_row = self._conn.execute(
             "SELECT id FROM nodes WHERE label = ?", (label,)
         ).fetchone()
@@ -351,6 +507,11 @@ class SqliteStore:
         ]
 
     def _insert_node(self, node: Hypernode) -> None:
+        """Insert or replace a node row and synchronize the FTS index.
+
+        Args:
+            node: The Hypernode to insert.
+        """
         meta = node.metadata
         self._conn.execute(
             "INSERT OR REPLACE INTO nodes "
@@ -373,6 +534,11 @@ class SqliteStore:
         )
 
     def _insert_edge(self, edge: Hyperedge) -> None:
+        """Insert or replace an edge row and populate the adjacency table.
+
+        Args:
+            edge: The Hyperedge to insert.
+        """
         meta = edge.metadata
         self._conn.execute(
             "INSERT OR REPLACE INTO edges "
@@ -410,6 +576,17 @@ class SqliteStore:
         abstraction_str: str | None,
         custom_json: str | None,
     ) -> Metadata:
+        """Reconstruct a Metadata instance from serialized database columns.
+
+        Args:
+            temporal_json: JSON-encoded temporal tags, or None.
+            modality_json: JSON-encoded list of modality string values, or None.
+            abstraction_str: Abstraction layer enum value string, or None.
+            custom_json: JSON-encoded custom metadata dict, or None.
+
+        Returns:
+            A Metadata instance with deserialized fields.
+        """
         from hyper3.kernel_types import AbstractionLayer, Modality
 
         temporal_tags = json.loads(temporal_json) if temporal_json else {}

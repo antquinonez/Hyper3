@@ -1,3 +1,5 @@
+"""Hyper3: self-evolving hypergraph knowledge graph library."""
+
 from hyper3 import visualization
 from hyper3.abstraction import (
     AbstractionMapping,

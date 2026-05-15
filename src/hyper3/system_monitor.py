@@ -1,3 +1,5 @@
+"""SystemMonitor: introspection and metamorphosis trigger detection."""
+
 from __future__ import annotations
 
 import time

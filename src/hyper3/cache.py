@@ -1,3 +1,4 @@
+"""LazyCache: LRU cache with TTL and optional Markov-model prefetching."""
 from __future__ import annotations
 
 import time
@@ -152,10 +153,12 @@ class LazyCache:
                     self._cache.popitem(last=False)
 
     def _remove(self, key: str) -> None:
+        """Remove a key from both the LRU cache and the context-tag mapping."""
         self._cache.pop(key, None)
         self._context_tags.pop(key, None)
 
     def _evict_for_capacity(self) -> None:
+        """Evict entries until the cache is within capacity, preferring out-of-context keys."""
         if len(self._cache) <= self._max_size:
             return
 

@@ -1,3 +1,4 @@
+"""Simultaneity rules for detecting concurrent patterns."""
 from __future__ import annotations
 
 from itertools import combinations

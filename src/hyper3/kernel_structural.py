@@ -1,3 +1,5 @@
+"""Structural analysis utilities for hypergraphs."""
+
 from __future__ import annotations
 
 import networkx as nx
@@ -9,8 +11,12 @@ from hyper3.kernel_base import _GraphBase
 
 
 class StructuralMixin(_GraphBase):
+    """Structural graph algorithms delegated to networkx via pairwise clique projection.
 
-    """Structural graph algorithms (cliques, dominating sets, independent sets, chordality) delegated to networkx via pairwise clique projection of the hypergraph."""
+    Provides dominating sets, independent sets, vertex covers, clique
+    detection, and chordality checks.
+    """
+
     def dominating_set(self) -> set[str]:
         """Find a dominating set (every node is either in the set or adjacent to a member). Delegates to networkx via pairwise projection."""
         G = self._pairwise_undirected_nx()

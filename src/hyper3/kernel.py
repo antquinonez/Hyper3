@@ -1,3 +1,4 @@
+"""Thin composition facade for the Hypergraph hypergraph engine."""
 from __future__ import annotations
 
 from hyper3.kernel_base import CoreMixin

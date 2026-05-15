@@ -1,3 +1,9 @@
+"""Inverted indexes for attribute-based node lookup on a Hypergraph.
+
+Provides exact-match, range, multi-value, and full-text lookup over node
+data fields, plus autocomplete-style value suggestions.
+"""
+
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
@@ -7,7 +13,31 @@ from hyper3.kernel import Hypergraph
 
 
 class AttributeIndex:
+    """Maintains inverted indexes over node data fields for fast filtering.
+
+    Three index structures are kept in sync with the underlying graph:
+
+    * **exact index** — maps ``(field, value)`` to the set of node IDs whose
+      ``data[field] == value``.
+    * **range index** — sorted ``(numeric_value, node_id)`` pairs per field,
+      enabling bisection-based range queries.
+    * **text index** — maps lowercased tokens to node IDs for full-text
+      intersection queries.
+
+    The index is marked dirty on creation and must be explicitly rebuilt via
+    ``build()`` after graph mutations.
+
+    Args:
+        indexed_fields: If provided, only these field names are indexed.
+            ``None`` indexes every field found in node data.
+    """
+
     def __init__(self, indexed_fields: set[str] | None = None) -> None:
+        """Initialize the attribute index.
+
+        Args:
+            indexed_fields: Set of field names to index. None indexes all fields.
+        """
         self._index: dict[str, dict[str, set[str]]] = {}
         self._range_index: dict[str, list[tuple[float, str]]] = {}
         self._text_index: dict[str, dict[str, set[str]]] = {}
@@ -17,12 +47,22 @@ class AttributeIndex:
 
     @property
     def dirty(self) -> bool:
+        """Whether the index is out-of-date relative to the graph."""
         return self._dirty
 
     def mark_dirty(self) -> None:
+        """Flag the index as needing a rebuild."""
         self._dirty = True
 
     def build(self, graph: Hypergraph) -> None:
+        """Rebuild all indexes from the current graph state.
+
+        Clears existing entries and re-indexes every node whose ``data`` is a
+        dict.  Range indexes are sorted on completion.
+
+        Args:
+            graph: The hypergraph whose nodes to index.
+        """
         self._index.clear()
         self._range_index.clear()
         self._text_index.clear()
@@ -39,6 +79,17 @@ class AttributeIndex:
         self._dirty = False
 
     def _index_entry(self, node_id: str, field: str, value: Any) -> None:
+        """Add a single field value for a node into all applicable indexes.
+
+        Booleans and numerics are stored in the exact index (as strings) and
+        numerics are additionally added to the range index.  Strings are stored
+        in the exact index and tokenised into the text index.
+
+        Args:
+            node_id: Internal ID of the node.
+            field: Data field name.
+            value: The field value to index.
+        """
         if isinstance(value, bool):
             str_val = str(value)
             self._index.setdefault(field, {}).setdefault(str_val, set()).add(node_id)
@@ -57,10 +108,31 @@ class AttributeIndex:
                 self._text_index.setdefault(field, {}).setdefault(token, set()).add(node_id)
 
     def lookup(self, field: str, value: Any) -> set[str]:
+        """Return node IDs whose ``data[field]`` exactly matches *value*.
+
+        Args:
+            field: Data field name.
+            value: Value to match.  Non-string values are coerced via ``str()``.
+
+        Returns:
+            Set of matching node IDs (empty if no matches).
+        """
         str_val = str(value) if not isinstance(value, str) else value
         return set(self._index.get(field, {}).get(str_val, set()))
 
     def lookup_range(self, field: str, min_val: float | None = None, max_val: float | None = None) -> set[str]:
+        """Return node IDs whose numeric ``data[field]`` falls within a range.
+
+        Uses bisection on the sorted range index for O(log n) lookups.
+
+        Args:
+            field: Data field name.
+            min_val: Inclusive lower bound.  ``None`` means no lower bound.
+            max_val: Inclusive upper bound.  ``None`` means no upper bound.
+
+        Returns:
+            Set of matching node IDs.
+        """
         entries = self._range_index.get(field, [])
         if not entries:
             return set()
@@ -69,12 +141,33 @@ class AttributeIndex:
         return {node_id for _, node_id in entries[lo:hi]}
 
     def lookup_multi(self, field: str, values: list[Any]) -> set[str]:
+        """Return node IDs whose ``data[field]`` matches any of the given values.
+
+        Args:
+            field: Data field name.
+            values: List of values to match (OR semantics).
+
+        Returns:
+            Union of all matching node IDs.
+        """
         result: set[str] = set()
         for v in values:
             result |= self.lookup(field, v)
         return result
 
     def lookup_text(self, field: str, tokens: list[str]) -> set[str]:
+        """Return node IDs whose string ``data[field]`` contains all tokens.
+
+        Tokens are matched case-insensitively against the text index.  All
+        tokens must be present (AND semantics).
+
+        Args:
+            field: Data field name.
+            tokens: List of search tokens.
+
+        Returns:
+            Intersection of node IDs matching every token.
+        """
         if not tokens:
             return set()
         field_index = self._text_index.get(field, {})
@@ -87,6 +180,16 @@ class AttributeIndex:
         return set(result)
 
     def lookup_filters(self, filters: list[SearchFilter]) -> set[str]:
+        """Apply multiple filters with AND semantics and return matching node IDs.
+
+        Short-circuits on the first filter that yields an empty set.
+
+        Args:
+            filters: List of ``SearchFilter`` instances to apply.
+
+        Returns:
+            Node IDs satisfying all filters.
+        """
         if not filters:
             return set()
         all_node_ids: set[str] | None = None
@@ -101,6 +204,18 @@ class AttributeIndex:
         return all_node_ids or set()
 
     def _apply_filter(self, f: SearchFilter) -> set[str]:
+        """Evaluate a single filter and return matching node IDs.
+
+        Dispatches to the appropriate lookup method based on whether the
+        filter specifies multiple values, a numeric range, or a single value.
+        Negated filters compute the complement within the field's known IDs.
+
+        Args:
+            f: The filter to evaluate.
+
+        Returns:
+            Set of node IDs matching (or excluded by) the filter.
+        """
         if f.values is not None:
             ids = self.lookup_multi(f.field, f.values)
         elif f.min_value is not None or f.max_value is not None:
@@ -115,6 +230,18 @@ class AttributeIndex:
         return ids
 
     def suggest_values(self, field: str, prefix: str, top_k: int = 10) -> list[str]:
+        """Suggest indexed values for a field that start with *prefix*.
+
+        Matching is case-insensitive.  Results are sorted alphabetically.
+
+        Args:
+            field: Data field name.
+            prefix: Prefix string to match.
+            top_k: Maximum number of suggestions to return.
+
+        Returns:
+            List of matching values, sorted alphabetically.
+        """
         values = self._value_registry.get(field, set())
         prefix_lower = prefix.lower()
         matches = sorted(
@@ -124,9 +251,23 @@ class AttributeIndex:
         return matches[:top_k]
 
     def field_values(self, field: str) -> list[str]:
+        """Return all distinct indexed values for a field, sorted.
+
+        Args:
+            field: Data field name.
+
+        Returns:
+            Sorted list of unique string values.
+        """
         return sorted(self._value_registry.get(field, set()))
 
     def stats(self) -> dict[str, Any]:
+        """Return summary statistics about the index.
+
+        Returns:
+            Dict with keys ``field_count``, ``value_count``, ``entry_count``,
+            ``range_fields``, ``text_fields``, and ``dirty``.
+        """
         total_entries = sum(
             len(ids) for field_map in self._index.values() for ids in field_map.values()
         )
@@ -142,6 +283,19 @@ class AttributeIndex:
 
 
 class SearchFilter:
+    """Declarative filter specification for attribute lookups.
+
+    Supports exact match, multi-value IN match, numeric range, and negation.
+
+    Args:
+        field: Node data field to filter on.
+        value: Single value for exact match.
+        min_value: Inclusive lower bound for range queries.
+        max_value: Inclusive upper bound for range queries.
+        values: List of values for multi-value (IN) matching.
+        negated: If ``True``, the match set is complemented.
+    """
+
     __slots__ = ("field", "value", "min_value", "max_value", "values", "negated")
 
     def __init__(
@@ -154,6 +308,16 @@ class SearchFilter:
         values: list[Any] | None = None,
         negated: bool = False,
     ) -> None:
+        """Initialize a search filter.
+
+        Args:
+            field: The node data field to filter on.
+            value: Exact value to match.
+            min_value: Range lower bound (inclusive).
+            max_value: Range upper bound (inclusive).
+            values: List of values for multi-value match.
+            negated: Invert the filter condition.
+        """
         self.field = field
         self.value = value
         self.min_value = min_value
@@ -162,6 +326,7 @@ class SearchFilter:
         self.negated = negated
 
     def __repr__(self) -> str:
+        """Return a human-readable representation of the filter."""
         if self.values is not None:
             op = "NOT IN" if self.negated else "IN"
             return f"SearchFilter({self.field!r} {op} {self.values!r})"

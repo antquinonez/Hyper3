@@ -1,3 +1,4 @@
+"""EfficiencyTracker: operation timing and performance metrics."""
 from __future__ import annotations
 
 import time
@@ -94,6 +95,7 @@ class EfficiencyTracker:
         degradation_window: int = 50,
         degradation_threshold: float = 2.0,
     ) -> None:
+        """Initialize the efficiency tracker with recording and degradation parameters."""
         self._max_records = max_records_per_type
         self._degradation_window = degradation_window
         self._degradation_threshold = degradation_threshold

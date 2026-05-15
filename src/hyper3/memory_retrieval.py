@@ -1,3 +1,4 @@
+"""RetrievalMixin: spreading activation, semantic search, RRF retrieval."""
 from __future__ import annotations
 
 from hyper3.cache import LazyCache

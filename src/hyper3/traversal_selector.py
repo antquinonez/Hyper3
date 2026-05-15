@@ -1,3 +1,4 @@
+"""TraversalStrategySelector: adaptive traversal strategy selection."""
 from __future__ import annotations
 
 import random
@@ -75,6 +76,7 @@ class TraversalStrategySelector:
         context_bins: int = 5,
         max_history: int = 500,
     ) -> None:
+        """Initialize the traversal strategy selector."""
         self._graph = graph
         self._exploration_rate = exploration_rate
         self._context_bins = context_bins

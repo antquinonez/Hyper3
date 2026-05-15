@@ -1,3 +1,4 @@
+"""ConsistencyVerifier: graph integrity validation and repair."""
 from __future__ import annotations
 
 import time
@@ -432,6 +433,7 @@ class ConsistencyVerifier:
             if len(group) <= 1:
                 continue
             def _weight(v: Violation) -> float:
+                """Return the edge weight for a violation, used as the sort key."""
                 e = self._graph.get_edge(v.edge_id) if v.edge_id else None
                 return e.weight if e is not None else 0.0
 

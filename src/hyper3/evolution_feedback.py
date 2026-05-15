@@ -1,3 +1,4 @@
+"""Feedback-driven evolution with fitness trend detection."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

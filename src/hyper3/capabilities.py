@@ -1,3 +1,4 @@
+"""CapabilityLevel: staged implementation detection and gating."""
 from __future__ import annotations
 
 from collections.abc import Callable

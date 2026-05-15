@@ -1,3 +1,4 @@
+"""RecencyTracker: temporal recency weighting for concept access."""
 from __future__ import annotations
 
 import time
@@ -46,6 +47,7 @@ class RecencyTracker:
         max_score: float = 1000.0,
         update_interval: float = 3600.0,
     ) -> None:
+        """Initialize the recency tracker with decay and threshold parameters."""
         self._graph = graph
         self._decay_rate = decay_rate
         self._stale_threshold = stale_threshold

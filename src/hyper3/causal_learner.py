@@ -1,3 +1,4 @@
+"""CausalLearner: learns causal relationships from graph patterns."""
 from __future__ import annotations
 
 import time

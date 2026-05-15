@@ -1,3 +1,4 @@
+"""ProvenanceMixin: inference explanation and retraction."""
 from __future__ import annotations
 
 from hyper3.memory_base import _MemoryBase

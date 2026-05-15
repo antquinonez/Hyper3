@@ -1,3 +1,4 @@
+"""CommunityDetector: label propagation and connected-components clustering."""
 from __future__ import annotations
 
 import random
@@ -35,6 +36,16 @@ class CommunityResult(_SimpleResultBase):
 
 @dataclass
 class HierarchicalCommunityResult(_SimpleResultBase):
+    """Result of hierarchical community detection via agglomerative clustering.
+
+    Attributes:
+        communities: Flat list of communities at the chosen cut level.
+        community_count: Number of communities at the cut level.
+        dendrogram: Linkage matrix from scipy hierarchical clustering.
+        edge_labels: Mapping of observation index to community label assignment.
+        linkage_method: Agglomerative linkage method used (e.g. ``"average"``).
+    """
+
     communities: list[Community] = field(default_factory=list)
     community_count: int = 0
     dendrogram: list[list[float]] = field(default_factory=list)

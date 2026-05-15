@@ -1,3 +1,4 @@
+"""MultiwayEngine: multiway expansion state graph and evolution."""
 from __future__ import annotations
 
 import time
@@ -7,6 +8,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from hyper3.kernel import Hypergraph
+from hyper3.overlay import HypergraphOverlay
 from hyper3.rules import Rule, RuleMatch
 
 
@@ -24,6 +26,7 @@ class MultiwayState:
     produced_edge_ids: list[str] = field(default_factory=list)
     children_ids: list[str] = field(default_factory=list)
     timestamp: float = 0.0
+    overlay: HypergraphOverlay | None = None
 
     @property
     def is_root(self) -> bool:
@@ -249,6 +252,7 @@ class MultiwayEngine:
         max_total_states: int = 100,
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
+        use_per_branch: bool = True,
     ) -> ExpansionReport:
         """Expand the multiway graph breadth-first from seed nodes.
 
@@ -258,8 +262,13 @@ class MultiwayEngine:
             max_depth: Maximum expansion depth.
             max_branches_per_state: Maximum child branches per state.
             max_total_states: Hard cap on total states created.
-            overlay: Optional overlay graph for inference edges.
+            overlay: Optional overlay graph for inference edges.  Ignored
+                when *use_per_branch* is True.
             confidence_decay: Multiplicative decay per depth level.
+            use_per_branch: When True (default), each child state receives
+                its own overlay inheriting from the parent, providing branch
+                isolation.  When False, falls back to the legacy shared-graph
+                behavior.
 
         Returns:
             An ExpansionReport summarizing the expansion.
@@ -290,6 +299,7 @@ class MultiwayEngine:
                     report,
                     overlay=overlay,
                     confidence_decay=confidence_decay,
+                    use_per_branch=use_per_branch,
                 )
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
@@ -311,6 +321,7 @@ class MultiwayEngine:
         max_total_states: int = 100,
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
+        use_per_branch: bool = True,
     ) -> Generator[tuple[str, int, int], None, None]:
         """Expand lazily, yielding (state_id, depth, sibling_count) tuples.
 
@@ -359,13 +370,15 @@ class MultiwayEngine:
                     ExpansionReport(),
                     overlay=overlay,
                     confidence_decay=confidence_decay,
+                    use_per_branch=use_per_branch,
                 )
                 for new_id in new_states:
                     total_created += 1
                     new_state = self._multiway.get_state(new_id)
                     priority = 1.0
                     if new_state:
-                        produced_edges = [self._graph.get_edge(eid) for eid in new_state.produced_edge_ids]
+                        view = self._resolve_branch_graph(new_state)
+                        produced_edges = [view.get_edge(eid) for eid in new_state.produced_edge_ids]
                         produced_edges = [e for e in produced_edges if e is not None]
                         if produced_edges:
                             conf = produced_edges[0].metadata.custom.get("confidence", 1.0)
@@ -408,6 +421,7 @@ class MultiwayEngine:
         max_depth: int = 2,
         max_branches_per_state: int = 10,
         max_total_states: int = 50,
+        use_per_branch: bool = True,
     ) -> ExpansionReport:
         """Continue expansion from leaves affected by new nodes or edges.
 
@@ -418,6 +432,7 @@ class MultiwayEngine:
             max_depth: Maximum additional expansion depth.
             max_branches_per_state: Branching cap per state.
             max_total_states: Hard cap on total new states.
+            use_per_branch: When True (default), use per-branch overlay isolation.
 
         Returns:
             An ExpansionReport for the incremental expansion.
@@ -442,7 +457,7 @@ class MultiwayEngine:
                 state = self._multiway.get_state(state_id)
                 if not state:
                     continue
-                new_states = self._expand_state(state, rules, max_branches_per_state, report)
+                new_states = self._expand_state(state, rules, max_branches_per_state, report, use_per_branch=use_per_branch)
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
             frontier = next_frontier
@@ -507,13 +522,12 @@ class MultiwayEngine:
         state: MultiwayState,
         rule: Rule,
         match: RuleMatch,
-        target_graph: Any,
+        branch_overlay: HypergraphOverlay,
         report: ExpansionReport,
-        overlay: Any | None = None,
         confidence_decay: float = 0.9,
     ) -> str:
         """Apply a single rule match to create a new multiway state."""
-        new_nodes, new_edges = rule.apply(target_graph, match)
+        new_nodes, new_edges = rule.apply(branch_overlay, match)  # type: ignore[arg-type]
         new_active = state.active_node_ids | frozenset(new_nodes)
         child = MultiwayState(
             parent_id=state.id,
@@ -524,20 +538,25 @@ class MultiwayEngine:
             produced_node_ids=new_nodes,
             produced_edge_ids=new_edges,
             timestamp=time.time(),
+            overlay=branch_overlay,
         )
         self._multiway.add_state(child)
         report.rules_applied += 1
         report.nodes_produced += len(new_nodes)
         report.edges_produced += len(new_edges)
-        if overlay is not None and hasattr(overlay, "set_confidence"):
-            parent_conf = 1.0
-            for eid in state.produced_edge_ids:
-                if hasattr(overlay, "get_confidence"):
-                    parent_conf = min(parent_conf, overlay.get_confidence(eid))
-            for eid in new_edges:
-                overlay.set_confidence(eid, parent_conf * confidence_decay)
-            report.confidence_map.update({eid: overlay.get_confidence(eid) for eid in new_edges})
+        parent_conf = 1.0
+        for eid in state.produced_edge_ids:
+            parent_conf = min(parent_conf, branch_overlay.get_confidence(eid))
+        for eid in new_edges:
+            branch_overlay.set_confidence(eid, parent_conf * confidence_decay)
+            report.confidence_map[eid] = branch_overlay.get_confidence(eid)
         return child.id
+
+    def _resolve_branch_graph(self, state: MultiwayState) -> HypergraphOverlay | Hypergraph:
+        """Return the graph view for a state: its overlay if present, else the base graph."""
+        if state.overlay is not None:
+            return state.overlay
+        return self._graph
 
     def _expand_state(
         self,
@@ -547,6 +566,7 @@ class MultiwayEngine:
         report: ExpansionReport,
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
+        use_per_branch: bool = True,
     ) -> list[str]:
         """Apply all matching rules to a state and create child states.
 
@@ -555,17 +575,23 @@ class MultiwayEngine:
             rules: Candidate rules.
             max_branches: Maximum number of matches to apply.
             report: Report to accumulate statistics into.
-            overlay: Optional overlay for confidence tracking.
+            overlay: Legacy shared overlay (used when use_per_branch is False).
             confidence_decay: Multiplicative confidence decay factor.
+            use_per_branch: When True, each child state gets its own overlay
+                inheriting from the parent state's overlay, providing branch
+                isolation.
 
         Returns:
             List of newly created child state IDs.
         """
-        target_graph = overlay if overlay is not None else self._graph
+        if use_per_branch:
+            parent_view = self._resolve_branch_graph(state)
+        else:
+            parent_view = overlay if overlay is not None else self._graph
         sorted_rules = self._sort_rules_by_effectiveness(rules)
         all_matches: list[tuple[Rule, RuleMatch]] = []
         for rule in sorted_rules:
-            matches = rule.find_matches(target_graph, state.active_node_ids)
+            matches = rule.find_matches(parent_view, state.active_node_ids)  # type: ignore[arg-type]
             for match in matches:
                 all_matches.append((rule, match))
                 if len(all_matches) >= max_branches:
@@ -578,8 +604,39 @@ class MultiwayEngine:
 
         new_state_ids: list[str] = []
         for rule, match in all_matches:
-            child_id = self._apply_single_match(
-                state, rule, match, target_graph, report, overlay, confidence_decay
-            )
+            if use_per_branch:
+                branch_overlay = HypergraphOverlay(self._graph, copy_on_read=True)
+                if state.overlay is not None:
+                    branch_overlay.inherit_from(state.overlay)
+                child_id = self._apply_single_match(
+                    state, rule, match, branch_overlay, report, confidence_decay
+                )
+            else:
+                shared = overlay if overlay is not None else self._graph
+                new_nodes, new_edges = rule.apply(shared, match)
+                new_active = state.active_node_ids | frozenset(new_nodes)
+                child = MultiwayState(
+                    parent_id=state.id,
+                    active_node_ids=new_active,
+                    rule_applied=rule.name,
+                    match_bindings=match.bindings,
+                    depth=state.depth + 1,
+                    produced_node_ids=new_nodes,
+                    produced_edge_ids=new_edges,
+                    timestamp=time.time(),
+                )
+                self._multiway.add_state(child)
+                report.rules_applied += 1
+                report.nodes_produced += len(new_nodes)
+                report.edges_produced += len(new_edges)
+                if overlay is not None and hasattr(overlay, "set_confidence"):
+                    parent_conf = 1.0
+                    for eid in state.produced_edge_ids:
+                        if hasattr(overlay, "get_confidence"):
+                            parent_conf = min(parent_conf, overlay.get_confidence(eid))
+                    for eid in new_edges:
+                        overlay.set_confidence(eid, parent_conf * confidence_decay)
+                        report.confidence_map[eid] = overlay.get_confidence(eid)
+                child_id = child.id
             new_state_ids.append(child_id)
         return new_state_ids

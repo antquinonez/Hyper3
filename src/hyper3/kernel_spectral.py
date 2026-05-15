@@ -1,3 +1,4 @@
+"""SpectralMixin: incidence/Laplacian/adjacency matrices, eigenvalues, spectral embedding."""
 from __future__ import annotations
 
 from typing import Any
@@ -7,6 +8,14 @@ from hyper3.results import AdjacencyTensorResult, SpectralEmbeddingResult
 
 
 class SpectralMixin(_GraphBase):
+    """Spectral analysis: incidence/Laplacian matrices, embeddings, random walks, and topology.
+
+    Provides incidence and adjacency matrices, hypergraph Laplacian,
+    algebraic connectivity, Fiedler vector, spectral bisection,
+    bipartivity, Bethe-Hessian matrix, spectral embedding, transition
+    matrix, multiorder Laplacian, Hodge Laplacian, Betti numbers,
+    persistence diagrams, and random walk simulation.
+    """
 
     def algebraic_connectivity(self) -> float:
         """Compute the algebraic connectivity (Fiedler value) of the hypergraph.

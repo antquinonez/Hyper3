@@ -1,3 +1,4 @@
+"""OperationFeedback: outcome tracking across sampling, retrieval, inference."""
 from __future__ import annotations
 
 import time

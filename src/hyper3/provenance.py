@@ -1,3 +1,4 @@
+"""ProvenanceTracker: inference derivation recording with explain/retract."""
 from __future__ import annotations
 
 import time

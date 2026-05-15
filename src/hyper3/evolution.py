@@ -1,3 +1,4 @@
+"""GraphMaintenanceEngine: decay, prune, merge, and reinforce cycles."""
 from __future__ import annotations
 
 from dataclasses import dataclass

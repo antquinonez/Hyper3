@@ -1,3 +1,4 @@
+"""InterferenceReasoning: interference pattern detection in reasoning."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

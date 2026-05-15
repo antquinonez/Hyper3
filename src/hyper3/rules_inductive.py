@@ -1,3 +1,4 @@
+"""Inductive reasoning rules for generalization from examples."""
 from __future__ import annotations
 
 from collections import defaultdict

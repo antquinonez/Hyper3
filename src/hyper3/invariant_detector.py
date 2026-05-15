@@ -1,3 +1,4 @@
+"""InvariantDetector: detects structural invariants in the graph."""
 from __future__ import annotations
 
 from collections import Counter
@@ -30,6 +31,7 @@ class InvariantReport(_SimpleResultBase):
 
 
 def _bucket(value: float) -> str:
+    """Classify a float in [0, 1] into a discrete category: ``"high"``, ``"medium"``, or ``"low"``."""
     if value > 0.7:
         return "high"
     if value >= 0.3:

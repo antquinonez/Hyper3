@@ -1,3 +1,4 @@
+"""Analogical reasoning rules for structural and relational transfer."""
 from __future__ import annotations
 
 from itertools import combinations

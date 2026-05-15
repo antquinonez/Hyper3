@@ -1,3 +1,5 @@
+"""Boundary reasoning engine for detecting negation cycles and infinite regress."""
+
 from __future__ import annotations
 
 import re
@@ -175,6 +177,7 @@ class BoundaryReasoningEngine:
         cycles: list[list[str]] = []
 
         def dfs(current: str, path: list[str], path_edges: set[tuple[str, str, str]], current_label: str) -> None:
+            """Recursively follow negation-paired edges to detect cycles back to the origin."""
             if len(path) > max_depth:
                 return
             if current == concept_id and len(path) > 1:
@@ -201,6 +204,7 @@ class BoundaryReasoningEngine:
         chains: list[list[str]] = []
 
         def dfs(current: str, path: list[str], edge_label: str) -> None:
+            """Recursively extend same-labeled chains, recording those exceeding the minimum length."""
             if len(path) >= min_chain_length:
                 chains.append(list(path))
             if len(path) > 8:

@@ -1,3 +1,4 @@
+"""QueryMixin: edge lookups, neighbors, degree, density, and graph statistics."""
 from __future__ import annotations
 
 import copy
@@ -13,6 +14,12 @@ if TYPE_CHECKING:
 
 
 class QueryMixin(_GraphBase):
+    """Graph queries: edge lookups, neighbor discovery, degree statistics, and density.
+
+    Provides incident/outgoing/incoming edge access, neighbor discovery
+    (with lazy caching), degree distributions, density, hashing, and
+    assortativity measures.
+    """
 
     def incident_edges(self, node_id: str) -> list[Hyperedge]:
         """Return all edges incident to the given node (both source and target).

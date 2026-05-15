@@ -1,3 +1,5 @@
+"""HypergraphOverlay: temporary inference layer with commit/rollback."""
+
 from __future__ import annotations
 
 from hyper3.kernel import (
@@ -15,13 +17,17 @@ class HypergraphOverlay:
     commit/rollback to merge or discard the overlay.
     """
 
-    def __init__(self, base: Hypergraph) -> None:
+    def __init__(self, base: Hypergraph, *, copy_on_read: bool = False) -> None:
         """Initialize an overlay on top of the given base graph.
 
         Args:
             base: The underlying hypergraph to wrap.
+            copy_on_read: When True, ``get_node`` deep-copies base-graph
+                nodes into the overlay before returning them, preventing
+                in-place mutations from leaking into the base graph.
         """
         self._base = base
+        self._copy_on_read = copy_on_read
         self._overlay_nodes: dict[str, Hypernode] = {}
         self._overlay_edges: dict[str, Hyperedge] = {}
         self._overlay_node_to_edges: dict[str, set[str]] = {}
@@ -54,7 +60,17 @@ class HypergraphOverlay:
         Returns:
             The hypernode, or None if not found in either layer.
         """
-        return self._overlay_nodes.get(node_id) or self._base.get_node(node_id)
+        node = self._overlay_nodes.get(node_id)
+        if node:
+            return node
+        base_node = self._base.get_node(node_id)
+        if base_node and self._copy_on_read:
+            import copy
+
+            node = copy.deepcopy(base_node)
+            self._overlay_nodes[node_id] = node
+            return node
+        return base_node
 
     def get_node_by_label(self, label: str) -> Hypernode | None:
         """Retrieve a node by label from the overlay, falling back to the base graph.
@@ -151,6 +167,65 @@ class HypergraphOverlay:
         overlay_ids = self._overlay_node_to_edges.get(node_id, set())
         overlay_edges = [self._overlay_edges[eid] for eid in overlay_ids if eid in self._overlay_edges]
         return base_edges + overlay_edges
+
+    def outgoing_edges(self, node_id: str) -> list[Hyperedge]:
+        """Return edges where node_id is in source_ids, from both base and overlay.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges where node_id appears in source_ids.
+        """
+        base_out = self._base.outgoing_edges(node_id)
+        overlay_ids = self._overlay_node_to_edges.get(node_id, set())
+        overlay_out = [
+            self._overlay_edges[eid]
+            for eid in overlay_ids
+            if eid in self._overlay_edges and node_id in self._overlay_edges[eid].source_ids
+        ]
+        return base_out + overlay_out
+
+    def incoming_edges(self, node_id: str) -> list[Hyperedge]:
+        """Return edges where node_id is in target_ids, from both base and overlay.
+
+        Args:
+            node_id: The ID of the node.
+
+        Returns:
+            List of hyperedges where node_id appears in target_ids.
+        """
+        base_in = self._base.incoming_edges(node_id)
+        overlay_ids = self._overlay_node_to_edges.get(node_id, set())
+        overlay_in = [
+            self._overlay_edges[eid]
+            for eid in overlay_ids
+            if eid in self._overlay_edges and node_id in self._overlay_edges[eid].target_ids
+        ]
+        return base_in + overlay_in
+
+    def inherit_from(self, other: HypergraphOverlay) -> None:
+        """Copy all nodes, edges, and indexes from another overlay into this one.
+
+        Existing entries in this overlay are not overwritten.  Used to
+        create a child branch overlay that inherits its parent's additions.
+
+        Args:
+            other: The overlay whose contents to copy.
+        """
+        for nid, node in other._overlay_nodes.items():
+            if nid not in self._overlay_nodes:
+                self._overlay_nodes[nid] = node
+        for eid, edge in other._overlay_edges.items():
+            if eid not in self._overlay_edges:
+                self._overlay_edges[eid] = edge
+        for nid, edge_ids in other._overlay_node_to_edges.items():
+            self._overlay_node_to_edges.setdefault(nid, set()).update(edge_ids)
+        for label, nid in other._overlay_label_index.items():
+            if label not in self._overlay_label_index:
+                self._overlay_label_index[label] = nid
+        for eid, conf in other._confidence.items():
+            self._confidence[eid] = conf
 
     def edges_for(self, node_id: str) -> list[Hyperedge]:
         """Alias for ``incident_edges``. Prefer ``incident_edges`` for clarity."""

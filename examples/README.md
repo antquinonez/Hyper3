@@ -60,6 +60,7 @@ Showcase examples are organized by topic into six groups:
 | `knowledge_reasoning/` | `knowledge_reasoning.py` | Transitive inference, backward chaining, provenance, belief revision |
 | `advanced_rules/` | `advanced_rules.py` | HubInferenceRule, GeneralizationRule, StructuralProjectionRule, auto-discovery |
 | `multiway_reasoning/` | `multiway_lateral_insights.py` | Multi-hypothesis exploration, state clustering, lateral insights (81 nodes, 10 rules, 66 branches) |
+| `multiway_diversity/` | `multiway_diverse_hypotheses.py` | Diverse rule firing, cross-rule lateral comparison (21 nodes, 8 rules, 271 branches) |
 | `provenance_and_retraction/` | `provenance_and_retraction.py` | Provenance tracking, explain(), cascading retraction, impact analysis |
 | `constraint_validation/` | `constraint_validation.py` | Constraint validation rules |
 | `validation_engine/` | `validation_engine.py` | Validation engine for rule verification |

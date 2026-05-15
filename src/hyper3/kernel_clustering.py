@@ -1,9 +1,16 @@
+"""ClusteringMixin: clustering coefficient, spectral clustering, transitivity."""
 from __future__ import annotations
 
 from hyper3.kernel_base import _GraphBase
 
 
 class ClusteringMixin(_GraphBase):
+    """Clustering coefficients and spectral clustering for hypergraphs.
+
+    Computes local and average clustering coefficients, transitivity,
+    square clustering, triangle counts, and spectral clustering via
+    Laplacian eigenvectors and k-means.
+    """
 
     def clustering_coefficient(self, node_id: str) -> float:
         """Compute the local clustering coefficient for a node.

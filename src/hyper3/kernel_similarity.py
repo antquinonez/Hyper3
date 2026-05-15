@@ -1,3 +1,4 @@
+"""SimilarityMixin: hyperedge similarity metrics."""
 from __future__ import annotations
 
 import networkx as nx
@@ -7,6 +8,12 @@ from hyper3.results import HyperedgeSimilarityResult
 
 
 class SimilarityMixin(_GraphBase):
+    """Node and hyperedge similarity measures.
+
+    Provides hyperedge similarity via node-set overlap (Jaccard,
+    Sorensen-Dice, overlap coefficient) and node similarity via SimRank
+    and PANTHER approximation.
+    """
 
     def hyperedge_similarity(
         self,

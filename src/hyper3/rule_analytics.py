@@ -1,3 +1,4 @@
+"""RuleAnalytics: rule effectiveness tracking and meta-pattern detection."""
 from __future__ import annotations
 
 import math

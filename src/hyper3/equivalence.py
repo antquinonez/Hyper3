@@ -1,3 +1,4 @@
+"""EquivalenceEngine: node similarity detection with data and structural matching."""
 from __future__ import annotations
 
 from hyper3.kernel import Hypergraph, Hypernode

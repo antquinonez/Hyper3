@@ -1,3 +1,4 @@
+"""StateClusteringEngine: multiway state coordinate mapping and clustering."""
 from __future__ import annotations
 
 import math

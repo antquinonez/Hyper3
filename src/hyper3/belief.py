@@ -1,3 +1,4 @@
+"""BeliefLayer: complex-amplitude belief distributions with Born-rule sampling."""
 from __future__ import annotations
 
 import math

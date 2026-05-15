@@ -1,3 +1,4 @@
+"""TemporalReasoner: Allen interval algebra, causal chains, temporal queries."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -192,6 +193,7 @@ def _dfs_causal_paths(
 
 
 def _deduplicate_chains(chains: list[list[str]]) -> list[list[str]]:
+    """Remove duplicate chains, preserving first-occurrence order."""
     unique: list[list[str]] = []
     seen: set[tuple[str, ...]] = set()
     for chain in chains:

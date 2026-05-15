@@ -1,13 +1,15 @@
+"""ValidationEngine: A/B comparison of simple vs enhanced reasoning."""
+
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from hyper3.results import _SimpleResultBase
+
 if TYPE_CHECKING:
     from hyper3.rules import Rule
-
-from hyper3.results import _SimpleResultBase
 
 
 @dataclass

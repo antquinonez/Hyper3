@@ -1,3 +1,4 @@
+"""ContextCompression: compresses context windows for efficient reasoning."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

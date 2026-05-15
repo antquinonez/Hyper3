@@ -1,3 +1,5 @@
+"""StructuralMixin: abstraction, community detection, graph diff."""
+
 from __future__ import annotations
 
 from typing import Any

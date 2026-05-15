@@ -1,3 +1,4 @@
+"""BayesianMixin: prior/posterior distributions, MAP estimates, Bayes factors."""
 from __future__ import annotations
 
 from hyper3.bayesian import BayesianLayer, CategoricalDistribution, Evidence, UpdateResult

@@ -1,3 +1,4 @@
+"""TransformMixin: networkx/dual/line-graph/bipartite projections, clique expansion."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -12,6 +13,12 @@ if TYPE_CHECKING:
 
 
 class TransformMixin(_GraphBase):
+    """Graph transformations: projections, duals, line graphs, and bipartite conversions.
+
+    Provides clique projection, networkx conversion (directed, undirected,
+    bipartite), dual hypergraph, line graphs, simplicial complex
+    construction, bipartite projections, and isomorphism testing.
+    """
 
     def clique_projection(self) -> Any:
         """Expand every hyperedge into a clique of pairwise edges.

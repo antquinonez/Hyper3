@@ -1,3 +1,4 @@
+"""EmbeddingEngine: semantic similarity via pluggable embedding providers."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -103,6 +104,7 @@ class FastEmbedProvider(EmbeddingProvider):
         self._native_dim: int | None = None
 
     def _ensure_model(self) -> None:
+        """Lazily load the fastembed TextEmbedding model on first use."""
         if self._model is not None:
             return
         try:
@@ -116,12 +118,26 @@ class FastEmbedProvider(EmbeddingProvider):
         self._native_dim = self._model.embedding_size
 
     def dimension(self) -> int:
+        """Return the output embedding dimensionality.
+
+        Returns:
+            The user-overridden dimension if provided, otherwise the model's
+            native dimension (defaults to 384 if the model hasn't been loaded).
+        """
         if self._dim_override is not None:
             return self._dim_override
         self._ensure_model()
         return self._native_dim or 384
 
     def embed(self, text: str) -> np.ndarray:
+        """Embed a single text string into a normalized vector.
+
+        Args:
+            text: The text to embed.
+
+        Returns:
+            L2-normalized embedding vector as a float64 numpy array.
+        """
         self._ensure_model()
         results = list(self._model.embed([text]))
         vec = np.array(results[0], dtype=np.float64)
@@ -131,6 +147,15 @@ class FastEmbedProvider(EmbeddingProvider):
         return vec
 
     def embed_batch(self, texts: list[str]) -> np.ndarray:
+        """Embed multiple text strings into normalized vectors.
+
+        Args:
+            texts: List of strings to embed.
+
+        Returns:
+            2D float64 numpy array of shape ``(len(texts), dimension)`` with
+            each row L2-normalized.
+        """
         self._ensure_model()
         results = list(self._model.embed(texts))
         mat = np.array(results, dtype=np.float64)

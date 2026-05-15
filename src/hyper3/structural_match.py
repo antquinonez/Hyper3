@@ -1,3 +1,4 @@
+"""StructuralPatternEngine: subgraph pattern matching with templates."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
