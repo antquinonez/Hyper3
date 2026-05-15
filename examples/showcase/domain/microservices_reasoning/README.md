@@ -7,10 +7,10 @@
 - How to build a labeled dependency graph from microservice metadata and relationship edges
 - Why direct dependency maps undercount blast radius and how transitive inference closes the gap
 - How to rank infrastructure nodes by betweenness centrality to surface single points of failure
-- How TransitiveRule discovers hidden A→B→C chains and InverseRule flips direction for impact analysis
+- How TransitiveRule discovers hidden A->B->C chains and InverseRule flips direction for impact analysis
 - How to simulate outage scenarios and quantify affected teams, regions, and criticality buckets
 - How to use EfficiencyTracker to measure latency of reasoning, centrality, and retrieval operations
-- How to interpret blast-radius ratios and chain-length fragility for operational hardening decisions
+- How per-branch overlay deduplication collapses duplicate inferences across multiway branches
 
 ## 1. What this example demonstrates
 
@@ -37,7 +37,7 @@ From current runtime:
   - 17 infrastructure nodes
   - 12 external services
 - Initial edges: 236
-- After reasoning: 536 edges (300 inferred)
+- After reasoning: 248 edges (12 unique inferred from 300 raw productions)
 
 Inference configuration:
 
@@ -48,7 +48,10 @@ Reasoning run:
 
 - states explored: 301
 - rules applied: 300
-- inferred edges: 300
+- raw edges produced: 300 (across all multiway branches)
+- unique edges after dedup: 12
+
+The 300-to-12 deduplication ratio (96% duplicates) occurs because the multiway engine explores branches independently with per-branch overlays. Many branches independently discover the same transitive chains through the shared `depends_on` network. After overlay collection, only the unique (source, target, label) triples are committed to the graph.
 
 ## 4. Walkthrough
 
@@ -72,23 +75,26 @@ For each DB/queue, computes:
 - transitive dependents (newly inferred)
 - total blast radius
 
-Examples from current run:
+Typical results (specific transitive dependents vary across runs):
 
-- `db-pg-orders`: 11 direct + 4 indirect = 15 total
-- `cache-redis-auth`: 7 direct + 6 indirect = 13 total
-- `db-mongo-sessions`: 6 direct + 7 indirect = 13 total
+- `db-pg-orders`: 11 direct + 0-1 indirect = 11-12 total
+- `queue-kafka-events`: 13 direct + 0 indirect = 13 total
+- `cache-redis-auth`: 7 direct + 0-1 indirect = 7-8 total
+
+Note: which specific transitive dependents are discovered is non-deterministic. The 12 unique inferred edges are the same set each run, but which edges map to `indirectly_depends_on` vs `depended_on_by` can vary. Most infra nodes show 0 transitive dependents because the 12 unique edges are distributed across the graph and only a few target infrastructure nodes.
 
 ### Section 7: SPOF ranking
 
-Betweenness centrality surfaces bridge nodes. In current run, top entries include:
+Betweenness centrality surfaces bridge nodes. Top entries typically include:
 
-- `cache-redis-general`
-- `svc-order-api`
-- `queue-kafka-events`
+- `svc-order-api` (~0.022)
+- `svc-pay-processor` (~0.013)
+- `svc-analytics-ingest` (~0.012)
+- `svc-auth-gateway` (~0.010)
 
 ### Section 8: Critical chains
 
-Finds longest dependency chains. Current longest chains are 8 hops.
+Finds longest dependency chains. Longest chains are typically 8 hops.
 
 ### Section 9: Outage scenarios
 
@@ -107,7 +113,7 @@ Tracks latency of key operations using `EfficiencyTracker`:
 - Reports per-operation statistics: count, avg, P50, P95, max duration
 - Shows cache hit/miss ratios and degradation detection
 
-Typical output shows reasoning as the slowest operation (single invocation, ~300-400ms for 82-node graph), while centrality and search operations complete in under 100ms.
+Typical output shows reasoning as the slowest operation (single invocation, ~250-300ms for 82-node graph), while centrality and search operations complete in under 100ms.
 
 ### Expected Output
 
@@ -116,19 +122,18 @@ Key blast radius lines from a typical run:
 ```
   db-pg-orders
     Direct dependents:    11
-    Transitive dependents: 4 (discovered by inference)
-    Total blast radius:   15
-    Hidden: ['svc-analytics-dash', 'svc-analytics-reports', 'svc-gateway-admin', 'svc-order-history']
+    Transitive dependents: 0 (discovered by inference)
+    Total blast radius:   11
+
+  queue-kafka-events
+    Direct dependents:    13
+    Transitive dependents: 0 (discovered by inference)
+    Total blast radius:   13
 
   cache-redis-auth
     Direct dependents:    7
-    Transitive dependents: 6 (discovered by inference)
-    Total blast radius:   13
-
-  db-mongo-sessions
-    Direct dependents:    6
-    Transitive dependents: 7 (discovered by inference)
-    Total blast radius:   13
+    Transitive dependents: 1 (discovered by inference)
+    Total blast radius:   8
 ```
 
 ## 5. Mermaid (representative subgraph)
@@ -198,6 +203,8 @@ How to read it:
 | **Blast Radius** | All services affected by an infrastructure failure |
 | **Betweenness Centrality** | Measure of how many paths pass through a node |
 | **Critical Path** | Longest dependency chain from service to infrastructure |
+| **Per-Branch Overlay** | Each multiway state gets its own overlay for branch isolation |
+| **Overlay Deduplication** | Same logical edge from multiple branches appears only once after commit |
 
 ## 8. API Methods
 
@@ -233,5 +240,7 @@ This remains a synthetic snapshot. Production requires upstream graph feeding fr
 - infra discovery metadata
 - deployment/change streams
 - health and incident systems
+
+The blast radius analysis here is limited by the per-branch overlay deduplication: with 300 raw productions across multiway branches, only 12 unique transitive chains survive dedup. In a production system, the `indirectly_depends_on` edges would be computed once via a dedicated transitive closure algorithm (not through multiway expansion), producing the full set of unique transitive dependencies. The multiway approach here demonstrates the concept but is not the most efficient method for computing a complete transitive closure.
 
 Hyper3 solves the reasoning layer; observability ingestion is a separate pipeline.

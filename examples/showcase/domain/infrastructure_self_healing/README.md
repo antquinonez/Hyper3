@@ -36,16 +36,16 @@ Expected output (excerpt):
 ======================================================================
 SUMMARY
 ======================================================================
-  Final graph: 41 nodes, 91 edges
+  Final graph: 41 nodes, 82-86 edges
   Stale nodes cleaned: 13/15
   Healthy nodes preserved: 31
   Fitness journey: declining -> stable
   Cross-operation correlations: 13 nodes tracked
-  Multiway states explored: 1
+  Multiway states explored: 1-5
   Causal merges: 0
 ```
 
-Note: Bias profile metrics, causal chains, and exact edge/node counts are run-dependent. The values below are representative.
+Note: Multiway expansion results, bias profile metrics, causal chains, and exact edge counts are run-dependent (multiway expansion is sensitive to branch ordering during per-branch overlay collection). The values below are representative ranges.
 
 ## 4. The Scenario
 
@@ -287,13 +287,11 @@ Why validation matters: without the rollback mechanism, a bad tuning plan would 
 The multiway engine expands from 4 seed nodes (`api-gw-01`, `order-svc-01`, `payment-svc-01`, `db-pg-primary`) with 4 rules:
 
 ```
-Multiway expansion: 1 states, 0 edges produced, 0 rules applied
+Multiway expansion: 1-5 states, 0-4 edges produced, 0-4 rules applied
 Causal invariants found: 0
 ```
 
-The expansion produced minimal results because the feedback-driven recovery in Round 3 had already removed most stale nodes and their edges. With a clean graph, the seed nodes' neighborhoods do not contain the transitive chains (A-[label]->B-[label]->C) that the rules need to fire. The call chain from `api-gw-01` through `order-svc-01` to `payment-svc-01` exists, but the intermediate nodes are not in the seed set, so the rules find no two-hop chains starting from the seeds.
-
-Why this result is expected: multiway expansion is sensitive to graph structure. After aggressive cleanup removes stale nodes and their edges, the remaining graph has fewer multi-hop chains matching the registered rules. The 91 edges in the final graph (up from 66 at construction, due to inference edges added during reasoning) are distributed across heterogeneous labels, reducing the density of same-label chains needed for transitive rules.
+The expansion produces minimal results because the feedback-driven recovery in Round 3 removed most stale nodes and their edges. With a clean graph, the seed nodes' neighborhoods contain few same-label transitive chains (A-[label]->B-[label]->C) that the rules need to fire. The exact count varies by run because per-branch overlay collection depends on the order states are processed during expansion. Most runs produce 1 state (root only, no matches) or a small number of states (1-5) with 0-4 inferred edges.
 
 ### Section 9: Temporal Incident Timeline
 
@@ -337,15 +335,15 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Feedback suppressed (first cycle) | 2 |
 | Stale nodes cleaned | 13/15 |
 | Healthy nodes preserved | 31 |
-| Final graph | 41 nodes, 91 edges |
+| Final graph | 41 nodes, 82-86 edges |
 | Post-recovery health | 0.55 |
 | Post-recovery fitness trend | stable |
 | Cross-operation correlations | 13 nodes |
 | Top correlated (db-pg-primary) | 5 signals, 1.00 positive rate |
 | Bias reasoning style | focused |
-| Bias score | ~0.26 |
-| Rule count | 6 |
-| Average rule effectiveness | ~0.74 |
+| Bias score | ~0.45 |
+| Rule count | 3 |
+| Average rule effectiveness | ~0.75 |
 | Metamorphosis triggers | 1 |
 | Metamorphosis urgency | 0.60 |
 | Tuning plan actions | 2 |
@@ -353,8 +351,8 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Plan risk | 0.18 |
 | Rolled back | False |
 | Fitness before/after | 0.7840 / 0.7840 |
-| Multiway states created | 1 |
-| Multiway edges produced | 0 |
+| Multiway states created | 1-5 |
+| Multiway edges produced | 0-4 |
 | Causal invariant merges | 0 |
 | Temporal events | 8 |
 | Allen relations computed | 6 pairs |
