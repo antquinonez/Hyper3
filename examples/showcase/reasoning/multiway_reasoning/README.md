@@ -70,20 +70,20 @@ SECTION 3: Branch-by-Branch Hypothesis Analysis
 
   Top branches by symptom explanation power (one per rule type):
 
-  Branch 1: score=0.900  depth=1  rule=inverse(causes->caused_by)
+  Branch 1: score=0.900  depth=1  rule=abductive(causes)
     Inferred edges:
-      failed-health-check-[caused_by]->bad-deploy
+      hypothesis:queue-backlog-[possible_cause]->high-cpu-usage
 
-  Branch 2: score=0.900  depth=1  rule=abductive(causes)
+  Branch 2: score=0.818  depth=1  rule=inverse(causes->caused_by) + transitive(causes)
     Inferred edges:
-      hypothesis:connection-refused-[possible_cause]->failed-health-check
+      slow-query-[caused_by]->disk-io-saturation
 
-  Branch 3: score=0.900  depth=2  rule=transitive(causes)
+  Branch 3: score=0.818  depth=2  rule=inverse(affects->affected_by) + transitive(causes)
     Inferred edges:
       db-primary-down-[indirectly_causes]->failed-health-check
 ```
 
-> **Why two node counts?** The graph starts with 81 nodes. `mem.reason()` commits the overlay after expansion. The AbductiveRule creates hypothesis nodes (`hypothesis:bad-deploy`, `hypothesis:connection-refused`, `hypothesis:timeout-error`), so the summary shows 108 nodes and 254 edges after inference.
+> **Why two node counts?** The graph starts with 81 nodes. `mem.reason()` commits the overlay after expansion. The AbductiveRule creates hypothesis nodes (`hypothesis:bad-deploy`, `hypothesis:cache-miss-rate`, `hypothesis:queue-backlog`), so the summary shows 108 nodes and 254 edges after inference.
 
 ## 5. The Scenario & Topology
 
@@ -131,7 +131,7 @@ graph TB
         IR["Incident Response"]
     end
 
-    CDN --> LB_G
+    CDN -.->|"routes_to (illustrative)"| LB_G
     LB_G --> LB_E
     LB_G --> LB_W
     LB_E --> API_E
@@ -218,19 +218,19 @@ Each leaf state is scored against 8 observed symptoms:
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-With `max_matches_per_rule=3` and 200 state budget, all 8 rule types contribute branches. The top-scoring leaf (0.900) comes from `InverseRule(causes)`, which directly infers `failed-health-check -[caused_by]-> bad-deploy` -- the reverse of the causal edge already in the graph. `AbductiveRule` creates hypothesis nodes (`hypothesis:connection-refused`) as possible causes for observed effects.
+With `max_matches_per_rule=3` and 200 state budget, all 8 rule types contribute branches. The top-scoring leaf (0.900) comes from `AbductiveRule(causes)`, which creates a hypothesis node (`hypothesis:queue-backlog`) as a possible cause for the observed `high-cpu-usage` symptom. `InverseRule` branches score 0.818, inferring reverse-causality edges like `slow-query -[caused_by]-> disk-io-saturation`.
 
 Each rule type produces structurally different inferences:
 
 | Rule | Sample Inferred Edge | Score |
 |------|---------------------|-------|
-| `inverse(causes->caused_by)` | `failed-health-check -[caused_by]-> bad-deploy` | 0.900 |
-| `abductive(causes)` | `hypothesis:connection-refused -[possible_cause]-> failed-health-check` | 0.900 |
-| `transitive(causes)` | `db-primary-down -[indirectly_causes]-> failed-health-check` | 0.900 |
-| `transitive(routes_to)` | `lb-global -[indirectly_routes]-> us-west-web` | 0.800 |
-| `inverse(depends_on)` | `iam-service -[depended_on_by]-> us-east-auth` | 0.800 |
-| `inverse(monitors)` | `lb-global -[monitored_by]-> health-checker` | 0.800 |
-| `transitive(depends_on)` | `us-east-auth -[cascade_depends]-> cache-replica-us-east` | 0.800 |
+| `abductive(causes)` | `hypothesis:queue-backlog -[possible_cause]-> high-cpu-usage` | 0.900 |
+| `inverse(causes) + transitive(causes)` | `slow-query -[caused_by]-> disk-io-saturation` | 0.818 |
+| `inverse(affects) + transitive(causes)` | `db-primary-down -[indirectly_causes]-> failed-health-check` | 0.818 |
+| `transitive(routes_to)` | (no single inferred edge shown at top-k) | 0.800 |
+| `inverse(depends_on)` | (no single inferred edge shown at top-k) | 0.800 |
+| `inverse(monitors)` | (no single inferred edge shown at top-k) | 0.800 |
+| `transitive(depends_on)` | (no single inferred edge shown at top-k) | 0.800 |
 
 ### Phase 3: State Clustering and Convergence
 
@@ -242,25 +242,25 @@ The `StateConvergenceEngine` merged 84 structurally equivalent states -- states 
 
 ### Phase 4: Lateral Comparison Across Branches
 
-The simultaneity groups contain states from different rule types. In Group 1, comparing `transitive(causes)` vs `transitive(routes_to)`:
+The simultaneity groups contain states from different rule types. In Group 1, comparing `inverse(affects)` vs `inverse(causes)`:
 
 ```
-[transitive(causes)] vs [transitive(routes_to)]:
-  Unique to causes branch:    bad-deploy -indirectly_causes-> error-rate-spike
-  Unique to routes_to branch: lb-global -indirectly_routes-> us-west-web
+[inverse(affects->affected_by)] vs [inverse(causes->caused_by)]:
+  Unique to first:  db-primary-affected_by->disk-io-saturation
+  Unique to second: error-rate-spike-caused_by->auth-failure-rate
 ```
 
-These are structurally different inferences: the causes branch is tracing the fault propagation path; the routes_to branch is tracing the network delivery path. At depth 1, these represent competing hypotheses about what the health check failure "means" at the infrastructure level.
+These are structurally different inferences: the affects branch traces which infrastructure components are impacted (db-primary affecting disk-io-saturation), while the causes branch traces the causal chain (error-rate-spike caused by auth-failure-rate). Both are valid perspectives on the same incident.
 
-The AbductiveRule hypothesis nodes (`hypothesis:bad-deploy`, `hypothesis:connection-refused`, `hypothesis:timeout-error`) produce lateral insights via the `mem.lateral_insights()` API: each hypothesis node appears in exactly one abductive leaf, and `lateral_inference()` compares that leaf to its simultaneity-group peers. With 23 peer comparisons per hypothesis node, the analysis confirms that the abductive branch is structurally novel -- none of the other 22 peers in the group produced a hypothesis node for the same observed effect.
+The AbductiveRule hypothesis nodes (`hypothesis:bad-deploy`, `hypothesis:cache-miss-rate`, `hypothesis:queue-backlog`) produce lateral insights via the `mem.lateral_insights()` API: each hypothesis node appears in exactly one abductive leaf, and `lateral_inference()` compares that leaf to its simultaneity-group peers. With 23 peer comparisons per hypothesis node, the analysis confirms that the abductive branch is structurally novel -- none of the other 22 peers in the group produced a hypothesis node for the same observed effect.
 
 ### The Conclusion
 
 The showcase produces:
 
 - **8 distinct rule types** all contributing branches at `max_states=200, max_matches_per_rule=3`
-- **Top score 0.900** from three different rule types independently, confirming the symptom set is well-explained by multiple causal paths
-- **3 hypothesis nodes** from AbductiveRule, identifying `bad-deploy`, `connection-refused`, and `timeout-error` as abductively inferred root causes
+- **Top score 0.900** from `abductive(causes)`, with `inverse` and `transitive` branches scoring 0.818, confirming the symptom set is well-explained by multiple causal paths
+- **3 hypothesis nodes** from AbductiveRule, identifying `bad-deploy`, `cache-miss-rate`, and `queue-backlog` as abductively inferred root causes
 - **84 causal invariants** merged by state convergence
 - **84 lateral insights** discovered via simultaneity group comparison
 
@@ -292,9 +292,9 @@ Without a per-rule cap, a single rule with many matching edges (e.g., `Transitiv
 
 | Type | Description | Example |
 |------|-------------|---------|
-| **Unique edges in state A** | Inference unique to this branch | `bad-deploy -indirectly_causes-> error-rate-spike` |
-| **Unique edges in state B** | Inference unique to the peer branch | `lb-global -indirectly_routes-> us-west-web` |
-| **Novel hypothesis nodes** | Abductive hypotheses present in some branches but not others | `hypothesis:connection-refused` |
+| **Unique edges in state A** | Inference unique to this branch | `db-primary -affected_by-> disk-io-saturation` |
+| **Unique edges in state B** | Inference unique to the peer branch | `error-rate-spike -caused_by-> auth-failure-rate` |
+| **Novel hypothesis nodes** | Abductive hypotheses present in some branches but not others | `hypothesis:queue-backlog` |
 
 ## 8. Key Metrics
 
@@ -320,7 +320,7 @@ Without a per-rule cap, a single rule with many matching edges (e.g., `Transitiv
 | Causal invariants merged (state convergence) | 84 |
 | Cross-rule convergent pairs | 0 |
 | Hypothesis nodes created | 3 |
-| Best leaf score | 0.900 (three rule types tied) |
+| Best leaf score | 0.900 (abductive(causes)) |
 | Lateral insights discovered | 84 |
 | Per-branch vs legacy (4-node chain) | 13 states / 12 rules vs 4 states / 3 rules |
 

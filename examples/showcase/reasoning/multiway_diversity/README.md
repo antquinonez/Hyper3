@@ -66,7 +66,8 @@ Note: exact lateral comparison examples vary across runs due to dict iteration o
 The example models a river contamination investigation with **21 nodes and 22 edges** across four relationship categories:
 
 - **3 Root Causes:** industrial discharge, agricultural runoff, thermal pollution
-- **4 Contaminants:** heavy metals, pesticides, algae bloom, ammonia
+- **3 Contaminants:** heavy metals, pesticides, ammonia
+- **1 Biological agent:** algae bloom
 - **4 Effects:** toxicity, oxygen depletion, fish kill, water discoloration
 - **2 Ecosystem impacts:** ecosystem damage, biodiversity loss
 - **3 Monitoring/response:** sensor station, lab analysis, field sample
@@ -162,6 +163,8 @@ graph TD
     LEAF --> COMPARE["Lateral Comparison<br/>440 differences"]
 ```
 
+Note: The diagram shows all 8 registered rules, but only the 4 TransitiveRules produce leaf states. The 3 InverseRules and 1 AbductiveRule register matches but their expansions are pruned or merged away before reaching the leaf level. The 7 distinct rule-type signatures among leaves are all compounds of `transitive(causes)`, `transitive(depends_on)`, and `transitive(affects)`.
+
 **Result:** 201 states created, 200 rules applied, 181 branches (pre-convergence), 91 leaf states (post-convergence), max depth 3.
 
 **Why this works here but not in the infrastructure showcase:** The infrastructure graph has ~70 `depends_on` edges that dominate the `max_states=50` budget. Here, the largest label (`causes` with 10 edges) is small enough that the expansion budget accommodates all rule types.
@@ -242,13 +245,13 @@ The 90 merged states create new leaves when their children are merged away, rais
 
 ### Leaf Score Interpretation
 
-All top-scoring leaves tie at 0.600. The scoring formula is:
+Only `transitive(affects)` leaves reach the top score of 0.600; the other 6 rule types top out at 0.500. The scoring formula is:
 
 ```
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-With 3 observed symptoms and 1-2 produced edges per leaf, the maximum achievable score is 0.600. The tied scores indicate all three symptom nodes are reachable through multiple rule paths equally well.
+With 3 observed symptoms and 1-2 produced edges per leaf, 0.600 is the maximum achievable score. The `transitive(affects)` leaves achieve it because their two-hop `affects` chains align more closely with the observed symptoms. The remaining rule types score 0.500, indicating partial symptom coverage.
 
 ### Simultaneity Groups
 
@@ -278,7 +281,7 @@ Groups with more rule types (e.g., Group 3 with 5 types) produce richer lateral 
 | Causal invariants merged | 90 |
 | Cross-rule convergent pairs | 0 |
 | Lateral differences (cross-rule) | 440 |
-| Best leaf score | 0.600 (tied) |
+| Best leaf score | 0.600 (`transitive(affects)` only; other types score 0.500) |
 
 ## 9. What Makes This Different
 

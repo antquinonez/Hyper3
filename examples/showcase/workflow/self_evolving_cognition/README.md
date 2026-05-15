@@ -53,9 +53,13 @@ SECTION 2: Cross-Operation Feedback Summary
   Overall health: 0.61
   Fitness trend: improving
   Signal distribution: {'evolution': 4, 'inference': 3, 'retrieval': 3}
+  Collapse accuracy: 0.50
+  Retrieval precision: 0.67
+  Inference acceptance: 0.67
   Total signals recorded: 10
 
 SECTION 3: Metamorphosis with Validation and Rollback
+  No metamorphosis triggers (system healthy)
   Forced metamorphosis (fitness was 0.3):
     rolled_back=False
     fitness_before=0.784
@@ -70,9 +74,9 @@ SECTION 4: Computational Bias Profile
 
 SECTION 5: Causal Merge Insight Preservation
   Invariants found: 1
-  Merge: d83e53cf + 58746cdf (similarity=0.675)
-    State d83e53cf: rule=transitive, unique_nodes=['delta'], unique_edges=1
-    State 58746cdf: rule=inverse, unique_nodes=[], unique_edges=0
+  Merge: <state-id-1> + <state-id-2> (similarity=0.675)
+    State <state-id-1>: rule=transitive, unique_nodes=['delta'], unique_edges=1
+    State <state-id-2>: rule=inverse, unique_nodes=[], unique_edges=0
 ```
 
 ## 5. The Scenario
