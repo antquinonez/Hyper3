@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import cast
 
-from hyper3 import HypergraphMemory, TransitiveRule, top_k
+from hyper3 import AutoAbstractionEngine, HypergraphMemory, StructuralImpactEngine, TransitiveRule, top_k
 
 
 def main():
@@ -720,6 +720,158 @@ def main():
         print(f"    Edges added: {len(delta.edges_added)}")
         print(f"    Edges removed: {len(delta.edges_removed)}")
         print(f"    Total changes: {delta.total_changes}")
+    print()
+
+    # =====================================================================
+    # SECTION 12: Structural Impact Assessment
+    # =====================================================================
+
+    print("=" * 70)
+    print("SECTION 12: Structural Impact of New Dependencies")
+    print("=" * 70)
+
+    impact_mem = HypergraphMemory(evolve_interval=0)
+    populate_graph(impact_mem)
+
+    impact_engine = impact_mem.enable_structural_impact(
+        hub_degree_threshold=0.3,
+    )
+
+    pre_stats = impact_mem.stats()
+    print(f"  Before changes: {pre_stats.nodes} nodes, {pre_stats.edges} edges, "
+          f"{pre_stats.components} components")
+    print()
+
+    new_service_edges = [
+        ("svc.graphql", "core.engine", "depends_on"),
+        ("svc.graphql", "core.pipeline", "depends_on"),
+        ("svc.graphql", "svc.auth", "depends_on"),
+        ("svc.graphql", "util.tracing", "imports"),
+    ]
+
+    impact_engine.before_snapshot()
+    impact_mem.add("svc.graphql", data={
+        "category": "service",
+        "api_version": "v1",
+        "team": "platform",
+        "endpoint_count": 6,
+        "latency_p95": 55,
+    })
+    add_result = impact_engine.assess_add(
+        impact_mem.graph.get_node_by_label("svc.graphql").id,
+    )
+    print(f"  Adding svc.graphql node:")
+    print(f"    Severity: {add_result.severity}")
+    print(f"    Components: {add_result.component_change.component_count_before} -> "
+          f"{add_result.component_change.component_count_after}")
+    print(f"    Density: {add_result.density_before:.6f} -> {add_result.density_after:.6f}")
+    print()
+
+    print("  Adding dependency edges:")
+    for src, tgt, label in new_service_edges:
+        impact_engine.before_snapshot()
+        impact_mem.link(src, tgt, label=label)
+        link_node = impact_mem.graph.get_node_by_label(src)
+        link_result = impact_engine.assess_link(
+            link_node.id,
+            impact_mem.graph.get_node_by_label(tgt).id,
+            "",
+        )
+        flags = []
+        if link_result.component_change.bridged:
+            flags.append("bridged-components")
+        if link_result.cycle_change.cycle_created:
+            flags.append(f"new-cycle(len={link_result.cycle_change.cycle_length})")
+        if link_result.centrality_shifts:
+            flags.append(f"centrality-shift({len(link_result.centrality_shifts)})")
+        flag_str = f" [{', '.join(flags)}]" if flags else ""
+        print(f"    {src} --{label}--> {tgt}: "
+              f"severity={link_result.severity}{flag_str}")
+
+    print()
+    print("  Impact history (most recent first):")
+    for entry in impact_engine.get_history(limit=5):
+        print(f"    {entry.operation}: severity={entry.severity}, "
+              f"nodes={entry.node_count_before}->{entry.node_count_after}, "
+              f"edges={entry.edge_count_before}->{entry.edge_count_after}")
+    print()
+
+    # =====================================================================
+    # SECTION 13: Automatic Abstraction Discovery
+    # =====================================================================
+
+    print("=" * 70)
+    print("SECTION 13: Automatic Abstraction Discovery")
+    print("=" * 70)
+
+    dense_mem = HypergraphMemory(evolve_interval=0)
+
+    auth_modules = ["auth.oauth", "auth.saml", "auth.jwt", "auth.session", "auth.mfa"]
+    for name in auth_modules:
+        dense_mem.add(name, data={"category": "auth", "team": "security"})
+    for i, src in enumerate(auth_modules):
+        for tgt in auth_modules[i + 1:]:
+            dense_mem.link(src, tgt, label="shares_secret")
+
+    store_modules = ["store.postgres", "store.redis", "store.mongo", "store.elastic", "store.s3"]
+    for name in store_modules:
+        dense_mem.add(name, data={"category": "store", "team": "data"})
+    for i, src in enumerate(store_modules):
+        for tgt in store_modules[i + 1:]:
+            dense_mem.link(src, tgt, label="shares_pool")
+
+    dense_mem.add("svc.platform", data={"category": "service"})
+    dense_mem.link("svc.platform", "auth.oauth", label="depends_on")
+    dense_mem.link("svc.platform", "store.postgres", label="depends_on")
+
+    print(f"  Dense subgraph: {dense_mem.graph.node_count} nodes, {dense_mem.graph.edge_count} edges")
+    print(f"  Auth cluster: {len(auth_modules)} fully-interconnected modules")
+    print(f"  Store cluster: {len(store_modules)} fully-interconnected modules")
+    print()
+
+    auto_engine = AutoAbstractionEngine(
+        dense_mem.graph,
+        promote_threshold=0.5,
+        min_cluster_size=3,
+    )
+
+    candidates = auto_engine.assess()
+    promotion_candidates = [c for c in candidates if c.recommended_layer == "summary"]
+    print(f"  Assessment found {len(promotion_candidates)} promotion candidates")
+    for cand in promotion_candidates:
+        members = cand.group_members
+        prefixes: dict[str, int] = {}
+        for m in members:
+            prefix = m.split(".")[0] if "." in m else m
+            prefixes[prefix] = prefixes.get(prefix, 0) + 1
+        print(f"    score={cand.score:.3f}, reason={cand.reason}, members={len(members)}")
+        print(f"    group: {sorted(members)[:6]}{'...' if len(members) > 6 else ''}")
+        if prefixes:
+            print(f"    prefixes: {prefixes}")
+
+    if promotion_candidates:
+        result = auto_engine.execute(promotion_candidates)
+        print(f"\n  Executed {result.promotions} promotions")
+        for action in result.actions:
+            if action.action == "promote":
+                print(f"    {action.summary_label}: collapsed {action.members_collapsed} modules")
+        print(f"  After abstraction: {dense_mem.graph.node_count} nodes, {dense_mem.graph.edge_count} edges")
+        print()
+        print("  Two dense clusters were detected: a 5-node auth module group")
+        print("  and a 6-node storage module group (5 stores + the platform")
+        print("  service that connects to them). After collapse, the graph")
+        print("  shrinks from 11 nodes to a simpler abstracted view.")
+    else:
+        print("  No candidates found -- dense clusters require strong internal")
+        print("  connectivity with relatively few external connections.")
+
+    print()
+    print("  On the full 129-node monorepo graph, automatic detection is harder:")
+    print("  services depend heavily on shared core libraries, creating cross-")
+    print("  module coupling that prevents clean community boundaries. Manual")
+    print("  abstraction (Section 10) works because developers know the package")
+    print("  layout explicitly, while automatic detection thrives on graphs where")
+    print("  internal density significantly exceeds inter-cluster coupling.")
     print()
 
     # =====================================================================
