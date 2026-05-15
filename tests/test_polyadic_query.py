@@ -150,7 +150,8 @@ class TestPolyadicNeighbors:
         nbrs_1 = g.neighbors(ids["A"])
         _add_nary(g, ["A"], ["D"], label="e2", ids=ids)
         nbrs_2 = g.neighbors(ids["A"])
-        assert len(nbrs_2) > len(nbrs_1)
+        assert len(nbrs_1) == 2
+        assert len(nbrs_2) == 3
 
 
 class TestPolyadicHyperedgeNeighbors:
@@ -309,7 +310,7 @@ class TestPolyadicDegreeCorrelation:
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["D", "E"], ["F"], label="e2", ids=ids)
         corr = g.degree_correlation()
-        assert -1.0 <= corr <= 1.0
+        assert corr == 0.0
 
     def test_degree_correlation_single_nary_edge(self) -> None:
         g = Hypergraph()
@@ -323,7 +324,7 @@ class TestPolyadicDegreeAssortativity:
         g = Hypergraph()
         _add_nary(g, ["A", "B"], ["C", "D"])
         assort = g.degree_assortativity()
-        assert -1.0 <= assort <= 1.0
+        assert assort == 0.0
 
     def test_assortativity_nary_cross_pairs(self) -> None:
         g = Hypergraph()
@@ -387,16 +388,17 @@ class TestPolyadicEdgesByLabel:
 class TestPolyadicPairwiseProjection:
     def test_average_neighbor_degree_with_nary(self) -> None:
         g = Hypergraph()
-        ids = _add_nary(g, ["A", "B", "C"], ["D"])
+        _add_nary(g, ["A", "B", "C"], ["D"])
         andeg = g.average_neighbor_degree()
-        assert ids["A"] in andeg
-        assert all(v >= 0 for v in andeg.values())
+        assert len(andeg) == 4
+        for v in andeg.values():
+            assert v == 3.0
 
     def test_s_metric_with_nary(self) -> None:
         g = Hypergraph()
         _add_nary(g, ["A", "B"], ["C", "D"])
         s = g.s_metric()
-        assert s > 0.0
+        assert s == 54.0
 
     def test_onion_layers_with_nary(self) -> None:
         g = Hypergraph()
@@ -408,16 +410,16 @@ class TestPolyadicPairwiseProjection:
         g = Hypergraph()
         _add_nary(g, ["A", "B"], ["C", "D"])
         w = g.wiener_index()
-        assert w > 0.0
+        assert w == 6.0
 
     def test_node_connectivity_with_nary(self) -> None:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D", "E"])
         nc = g.node_connectivity()
-        assert nc >= 0
+        assert nc == 4
 
     def test_edge_connectivity_with_nary(self) -> None:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D", "E"])
         ec = g.edge_connectivity()
-        assert ec >= 0
+        assert ec == 4

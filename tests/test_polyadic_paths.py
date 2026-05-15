@@ -52,7 +52,7 @@ class TestPolyadicFindPaths:
         ids = _add_nary(g, ["A", "B"], ["C", "D"], label="hop1")
         ids = _add_nary(g, ["C", "D"], ["E"], label="hop2", ids=ids)
         paths = g.find_paths(ids["A"], ids["E"])
-        assert len(paths) >= 1
+        assert len(paths) == 2
         assert paths[0][0] == ids["A"]
         assert paths[0][-1] == ids["E"]
 
@@ -137,8 +137,7 @@ class TestPolyadicEccentricityDiameterRadius:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C", "D"])
         ecc = g.eccentricity(ids["A"])
-        assert isinstance(ecc, int)
-        assert ecc >= 1
+        assert ecc == 1
 
     def test_diameter_nary(self) -> None:
         g = Hypergraph()
@@ -153,21 +152,21 @@ class TestPolyadicEccentricityDiameterRadius:
         ids = _add_nary(g, ["B", "C"], ["D"], label="e2", ids=ids)
         ids = _add_nary(g, ["D"], ["A"], label="e3", ids=ids)
         r = g.radius()
-        assert r >= 1
+        assert r == 2
 
     def test_periphery_nary(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["C", "D"], ["E"], label="e2", ids=ids)
         periph = g.periphery()
-        assert len(periph) > 0
+        assert len(periph) == 2
 
     def test_center_nary(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["C", "D"], ["E"], label="e2", ids=ids)
         c = g.center()
-        assert len(c) > 0
+        assert len(c) == 1
 
 
 class TestPolyadicDAG:
@@ -220,13 +219,13 @@ class TestPolyadicFlow:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C", "D"], weight=3.0)
         flow_val, flow_dict = g.max_flow(ids["A"], ids["D"])
-        assert flow_val > 0
+        assert flow_val == 3.0
 
     def test_min_cut_st_nary(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C", "D"], weight=5.0)
         cut_val, (source_side, sink_side) = g.min_cut_st(ids["A"], ids["D"])
-        assert cut_val > 0
+        assert cut_val == 5.0
         assert ids["A"] in source_side
         assert ids["D"] in sink_side or ids["D"] in source_side
 
@@ -235,7 +234,7 @@ class TestPolyadicFlow:
         ids = _add_nary(g, ["A", "B"], ["C", "D"], weight=3.0)
         ids = _add_nary(g, ["C", "D"], ["E"], weight=1.0, ids=ids)
         cut_val, (side_a, side_b) = g.min_cut_global()
-        assert cut_val >= 0
+        assert cut_val == 2.0
 
 
 class TestPolyadicMatching:
@@ -243,10 +242,7 @@ class TestPolyadicMatching:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D"], weight=5.0)
         matching = g.max_weight_matching()
-        matched_nodes = set()
-        for pair in matching:
-            matched_nodes.update(pair)
-        assert len(matched_nodes) > 0
+        assert len(matching) == 2
 
     def test_bipartite_matching_nary(self) -> None:
         g = Hypergraph()
@@ -254,7 +250,7 @@ class TestPolyadicMatching:
         left = {ids[l] for l in "AB"}
         right = {ids[l] for l in "CD"}
         matching = g.bipartite_maximum_matching(left, right)
-        assert len(matching) >= 1
+        assert len(matching) == 2
 
     def test_min_edge_cover_nary(self) -> None:
         g = Hypergraph()
@@ -263,7 +259,7 @@ class TestPolyadicMatching:
         covered_nodes = set()
         for pair in cover:
             covered_nodes.update(pair)
-        assert len(covered_nodes) > 0
+        assert len(covered_nodes) == 3
 
 
 class TestPolyadicSWalk:
@@ -283,7 +279,7 @@ class TestPolyadicSWalk:
         e1 = g.edges_by_label("e1")[0]
         e2 = g.edges_by_label("e2")[0]
         d = g.s_walk_shortest_path_length(e1.id, e2.id, s=1)
-        assert d < float("inf")
+        assert d == 1.0
 
 
 class TestPolyadicSpanningTree:
@@ -293,11 +289,11 @@ class TestPolyadicSpanningTree:
         ids = _add_nary(g, ["A"], ["D"], weight=2.0, label="e2", ids=ids)
         ids = _add_nary(g, ["C", "D"], ["E"], weight=3.0, label="e3", ids=ids)
         mst_edges = g.minimum_spanning_edges()
-        assert len(mst_edges) >= 2
+        assert len(mst_edges) == 3
 
     def test_spanning_tree_count_nary(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["A"], ["D"], label="e2", ids=ids)
         count = g.spanning_tree_count()
-        assert count >= 0
+        assert count == 3

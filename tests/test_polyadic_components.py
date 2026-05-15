@@ -111,14 +111,16 @@ class TestPolyadicSComponents:
         ids = _add_nary(g, ["A", "B", "C"], ["D"], label="e1")
         ids = _add_nary(g, ["D", "E"], ["F"], label="e2", ids=ids)
         comps = g.connected_components(s=2)
-        assert len(comps) >= 2
+        assert len(comps) == 2
+        sizes = sorted(len(c) for c in comps)
+        assert sizes == [3, 4]
 
     def test_s3_higher_than_overlap_splits_all(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["C", "D"], ["E"], label="e2", ids=ids)
         comps = g.connected_components(s=3)
-        assert len(comps) >= 2
+        assert len(comps) == 2
 
     def test_s_connected_components_method(self) -> None:
         g = Hypergraph()
@@ -133,15 +135,16 @@ class TestPolyadicSPersistence:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B", "C"], ["D"], label="e1")
         ids = _add_nary(g, ["D", "E"], ["F"], label="e2", ids=ids)
-        result = g.s_persistence(max_s=3)
-        assert len(result.levels) == 3
-        assert result.levels[0].num_components <= result.levels[-1].num_components
+        result = g.s_persistence(max_s=5)
+        assert len(result.levels) == 5
+        assert result.levels[0].num_components == 1
+        assert result.levels[1].num_components == 2
+        assert result.levels[-1].num_components == 2
 
     def test_persistence_nary_single_edge(self) -> None:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D", "E"])
         result = g.s_persistence()
-        assert len(result.levels) >= 1
         assert result.levels[0].num_components == 1
 
 
@@ -166,7 +169,10 @@ class TestPolyadicSCCs:
         ids = _add_nary(g, ["C"], ["A"], label="back", ids=ids)
         sccs = g.strongly_connected_components()
         scc_sizes = sorted(len(s) for s in sccs)
-        assert 2 in scc_sizes
+        assert scc_sizes == [1, 2]
+        scc_2 = [s for s in sccs if len(s) == 2][0]
+        assert ids["A"] in scc_2
+        assert ids["C"] in scc_2
 
     def test_nary_two_cycles_separate(self) -> None:
         g = Hypergraph()
@@ -176,6 +182,8 @@ class TestPolyadicSCCs:
         ids = _add_nary(g, ["D"], ["C"], label="bwd2", ids=ids)
         sccs = g.strongly_connected_components()
         assert len(sccs) == 2
+        sizes = sorted(len(s) for s in sccs)
+        assert sizes == [2, 2]
 
 
 class TestPolyadicBiconnected:
@@ -183,10 +191,8 @@ class TestPolyadicBiconnected:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D"])
         bicomp = g.biconnected_components()
-        assert len(bicomp) >= 1
-        all_nodes = set()
-        for bc in bicomp:
-            all_nodes.update(bc)
+        assert len(bicomp) == 1
+        all_nodes = set().union(*bicomp)
         assert len(all_nodes) == 4
 
     def test_nary_two_edges_shared_node(self) -> None:
@@ -194,7 +200,9 @@ class TestPolyadicBiconnected:
         ids = _add_nary(g, ["A", "B"], ["C"], label="e1")
         ids = _add_nary(g, ["C", "D"], ["E"], label="e2", ids=ids)
         bicomp = g.biconnected_components()
-        assert len(bicomp) >= 2
+        assert len(bicomp) == 2
+        sizes = sorted(len(bc) for bc in bicomp)
+        assert sizes == [3, 3]
 
 
 class TestPolyadicArticulation:
@@ -204,6 +212,7 @@ class TestPolyadicArticulation:
         ids = _add_nary(g, ["C", "D"], ["E"], label="e2", ids=ids)
         art = g.articulation_points()
         assert ids["C"] in art
+        assert len(art) == 1
 
     def test_nary_no_articulation_in_clique(self) -> None:
         g = Hypergraph()
@@ -222,13 +231,16 @@ class TestPolyadicModularity:
         ids = _add_nary(g, ["D", "E"], ["F"], label="right2", weight=10.0, ids=ids)
         ids = _add_nary(g, ["C"], ["D"], label="bridge", weight=0.01, ids=ids)
         communities = g.greedy_modularity_communities()
-        assert len(communities) >= 2
+        assert len(communities) == 2
+        sizes = sorted(len(c) for c in communities)
+        assert sizes == [3, 3]
 
     def test_nary_single_cluster(self) -> None:
         g = Hypergraph()
         _add_nary(g, ["A", "B", "C"], ["D", "E"])
         communities = g.greedy_modularity_communities()
         assert len(communities) == 1
+        assert len(communities[0]) == 5
 
 
 class TestPolyadicSComponentsBySize:
@@ -237,12 +249,13 @@ class TestPolyadicSComponentsBySize:
         ids = _add_nary(g, ["A", "B"], ["C", "D"], label="big")
         ids = _add_nary(g, ["E"], ["F"], label="small", ids=ids)
         result = g.s_components_by_size(min_size=3)
-        assert all(len(c) >= 3 for c in result)
         assert len(result) == 1
+        assert len(result[0]) == 4
 
     def test_max_size_filter(self) -> None:
         g = Hypergraph()
         ids = _add_nary(g, ["A", "B"], ["C", "D"], label="big")
         ids = _add_nary(g, ["E"], ["F"], label="small", ids=ids)
         result = g.s_components_by_size(max_size=2)
-        assert all(len(c) <= 2 for c in result)
+        assert len(result) == 1
+        assert len(result[0]) == 2
