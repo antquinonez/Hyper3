@@ -24,6 +24,8 @@ Think of this like a doctor who simultaneously explores multiple possible diagno
 | **State Convergence** | When the engine merges equivalent states (same conclusions from different paths) |
 | **Simultaneity Group** | Hypotheses at the same "depth" that can be compared directly |
 | **Lateral Insights** | Knowledge from one branch that applies to another |
+| **Per-Branch Overlay** | Each state gets its own overlay, isolating branch inferences from each other |
+| **Overlay Deduplication** | Same logical edge produced by multiple branches appears only once after commit |
 
 ## 4. Quick Start
 
@@ -44,7 +46,22 @@ SECTION 2: Multiway Expansion from Failed Health Check
   States created:    51
   Rules applied:     50
   New edges:         50
-  Branches:          46
+  Branches (leaves): 46
+
+======================================================================
+SECTION 2B: Per-Branch Overlay Isolation
+======================================================================
+  Total multiway states:        71
+  States with per-branch overlay: 50
+  Root/merged states (no overlay): 21
+
+  Total overlay edges across all branches: 90
+  Unique (source, target, label) triples:   11
+  Deduplication removed 79 duplicate logical edges
+
+  --- Comparison on 4-node chain (TransitiveRule, new_label=causes) ---
+  Legacy shared graph:    5 states, 4 rules
+  Per-branch overlays:    13 states, 12 rules
 
 ======================================================================
 SECTION 3: Branch-by-Branch Hypothesis Analysis
@@ -52,7 +69,7 @@ SECTION 3: Branch-by-Branch Hypothesis Analysis
   Total leaf states: 66
 ```
 
-> **Why two different numbers?** `exp.branches` (46) counts terminal states immediately after expansion. `get_leaves()` (66) returns all leaf states in the multiway graph after the state convergence engine has merged equivalent states. Convergence can cause previously internal (non-leaf) states to become leaves when their children are merged away. The 66 count is the post-convergence total and the more complete picture of distinct hypotheses. See Section 7 for a fuller explanation.
+> **Why two different numbers?** `exp.branches` (46) counts terminal states immediately after expansion. `get_leaves()` (66) returns all leaf states in the multiway graph after the state convergence engine has merged equivalent states. Convergence can cause previously internal (non-leaf) states to become leaves when their children are merged away. The 66 count is the post-convergence total and the more complete picture of distinct hypotheses.
 
 ## 5. The Scenario & Topology
 
@@ -178,6 +195,20 @@ graph TD
 
 **Result:** 51 states created, 50 rules applied, 50 inference edges produced, 66 leaf states (after convergence).
 
+### Phase 1B: Per-Branch Overlay Isolation
+
+Each child state in the multiway DAG receives its own overlay inheriting from its parent. This means branches cannot contaminate each other during expansion -- each branch independently accumulates inference edges. After expansion completes, the engine collects all branch overlays and deduplicates by (source_ids, target_ids, label) before committing to the base graph.
+
+**Why this matters:** Without isolation, a shared overlay means edge existence checks in one branch can block matches in another. With per-branch overlays, each branch chains through its own accumulated edges independently, discovering more transitive paths.
+
+In the infrastructure example:
+- 50 of 71 multiway states carry per-branch overlays
+- 90 total overlay edges exist across all branches
+- After deduplication, only 11 unique logical edges remain -- 79 were duplicates produced by multiple branches independently discovering the same inferences
+- On a simple 4-node chain with `TransitiveRule(edge_label="causes", new_label="causes")`, per-branch mode produces 13 states and 12 rule applications vs. 5 states and 4 rules in legacy mode
+
+The chain comparison demonstrates the isolation benefit: with `new_label="causes"` (same as the base label), each branch independently discovers transitive chains through its own accumulated `A->C`, `B->D`, and `A->D` edges. Legacy mode only finds these once because the shared graph makes edge existence visible to all branches simultaneously, preventing independent rediscovery.
+
 ### Phase 2: Leaf Scoring and the Tied Top Hypotheses
 
 Each leaf state is scored against the 8 observed symptoms using a composite metric:
@@ -186,17 +217,16 @@ Each leaf state is scored against the 8 observed symptoms using a composite metr
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-**The Discovery:** Multiple leaf states tie at the top score of **0.909** (typically 2-3 branches). These top-scoring leaves all trace back to the same set of root causes -- database failure, network partition, and cache stampede -- but reach that score through different rule chains (e.g., `transitive(causes)`, `inverse(causes)`, `abductive(causes)`). A second tier of branches scores 0.900, exploring overlapping but slightly different symptom subsets.
-
-Among the tied top hypotheses, one illustrative causal chain is:
+**The Discovery:** Multiple leaf states tie at the top score of **0.800** (typically 8-10 branches). With the current `max_states=50` budget, only `TransitiveRule(depends_on)` produces matches -- the graph has far more `depends_on` edges than any other transitive label, so this rule fills the state cap before the other nine rules get a chance. Each top-scoring leaf produces a single `cascade_depends` edge representing a two-hop dependency chain:
 
 ```
-db-primary-down -> db-replication-lag -> slow-query -> latency-spike -> failed-health-check
+eu-west-scheduler -[depends_on]-> queue-consumer-eu-west (direct)
+eu-west-scheduler -[cascade_depends]-> queue-consumer-eu-west (inferred 2-hop)
 ```
 
-This chain is notable because it connects a concrete root cause (`db-primary-down`) to the observed health check failure through intermediate symptoms that are all present in the original graph edges. However, it is not THE answer -- it shares the top score with leaves arising from `network-partition` and `cache-stampede` chains.
+**Why only one rule fires:** The graph contains ~70 `depends_on` edges (one per service-to-service dependency, three regions). Each pair of adjacent edges produces a transitive match, and per-branch overlay isolation means each branch independently discovers these chains. With 50 states budgeted, the expansion exhausts the cap on `depends_on` chains alone. Increasing `max_states` to 200+ would allow the other rules (`causes`, `affects`, `inverse`, `abductive`) to contribute, producing genuinely diverse hypothesis types.
 
-**Key insight:** The tied scores are themselves informative. When multiple root causes produce the same explanatory power against the observed symptoms, it suggests either (a) the symptoms are insufficient to discriminate between causes, or (b) multiple root causes are contributing simultaneously. Both are realistic incident scenarios.
+**Key insight:** The tied scores at 0.800 indicate that multiple dependency chains explain the observed symptoms equally well. Per-branch overlay deduplication (90 total overlay edges reduced to 11 unique) confirms that many branches independently discover the same chains, reinforcing confidence in those inferences.
 
 ### Phase 3: State Clustering and Convergence
 
@@ -207,91 +237,84 @@ Figure 3: States at the same depth form groups that can be directly compared.
 ```mermaid
 stateDiagram-v2
     [*] --> Root: Seed {failed-health-check, ...}
-    Root --> S1: TransitiveRule(causes) depth=1
-    Root --> S2: InverseRule(causes) depth=1
+    Root --> S1: TransitiveRule(depends_on) depth=1
+    Root --> S2: TransitiveRule(depends_on) depth=1
     Root --> S3: TransitiveRule(depends_on) depth=1
 
-    S1 --> S1a: TransitiveRule(causes) depth=2
-    S1 --> S1b: InverseRule(depends_on) depth=2
-    S2 --> S2a: TransitiveRule(causes) depth=2
-    S3 --> S3a: TransitiveRule(causes) depth=2
+    S1 --> S1a: TransitiveRule(depends_on) depth=2
+    S2 --> S2a: TransitiveRule(depends_on) depth=2
+    S3 --> S3a: TransitiveRule(depends_on) depth=2
 
     note right of S1a
         Simultaneity Group:
-        All states at depth=2
+        All states at same depth
         are compared together
     end note
 ```
 
-The 66 leaf states cluster into 5 simultaneity groups:
+With `max_states=50`, only `TransitiveRule(depends_on)` produces matches. All 66 leaf states are `transitive(depends_on)` expansions at depth 1 or 2, organized into 5 simultaneity groups:
 
-| Group | Dominant Rule | Hypothesis |
-|-------|---------------|-----------|
-| Group 1-3 | `transitive(causes)` | Database failure cascade |
-| Group 4 | `transitive(depends_on)` | Dependency chain failure |
-| Group 5 | `transitive(routes_to)` | Network routing issue |
+| Group | States | Depth | Content |
+|-------|--------|-------|---------|
+| Group 1 | 16 | 1 | First-wave dependency chains |
+| Group 2 | 14 | 2 | Second-wave chains from Group 1 states |
+| Group 3 | 16 | 2 | Second-wave chains from Group 1 states |
+| Group 4 | 14 | 2 | Second-wave chains from Group 1 states |
+| Group 5 | 10 | 2 | Second-wave chains from Group 1 states |
 
-#### Two Kinds of Convergence
+#### State Convergence
 
-This example reveals an important distinction between two types of convergence analysis:
+The `StateConvergenceEngine` merges structurally equivalent states -- states that reached the same set of graph nodes through different expansion paths. In this example, 20 states were merged (reported as "causal invariants"). Since only one rule type fires, convergence happens between different `depends_on` chains that happen to activate the same set of nodes.
 
-**State convergence (automatic):** The `StateConvergenceEngine` merges structurally equivalent states -- states that reached the same set of graph nodes through different rule paths. This reduces redundancy in the state space. In this example, 20 states were merged. The engine reports this as "causal invariants" because each merge represents a conclusion that is invariant across different expansion paths.
-
-**Cross-rule convergence (manual):** The showcase script also checks whether states produced by *different rule types* overlap in their target nodes. This asks: "did the `transitive(causes)` rule and the `inverse(causes)` rule independently arrive at the same conclusions?" In this example, the answer is **no** -- no pair of states from different rule types shared 2 or more target nodes. The rules explore genuinely different regions of the graph.
-
-This is not a failure. It means the three root cause hypotheses (database, network, cache) explain *different* subsets of the observed symptoms, which is consistent with a multi-causal incident.
+Because all branches use the same rule, cross-rule convergence (checking whether different rule types independently reach overlapping conclusions) is not applicable at this state budget. With `max_states=200+`, the other nine rules would contribute branches, making cross-rule comparison meaningful.
 
 ### Phase 4: Lateral Comparison Across Branches
 
 By comparing states within the same simultaneity group, the engine identifies nodes and edges unique to each state, highlighting where hypotheses diverge.
 
-Figure 4: Comparing states within the same group reveals unique knowledge.
+Figure 4: Comparing states within the same group reveals unique knowledge (when branches differ).
 
 ```mermaid
 graph TB
-    subgraph "Branch A: depends_on chain"
-        A1["us-west-scheduler -[cascade_depends]-> us-west-storage"]
+    subgraph "All branches: transitive(depends_on)"
+        A1["us-west-web -[cascade_depends]-> us-west-ratelimiter"]
+        A2["us-west-web -[cascade_depends]-> us-west-cache"]
+        A3["us-west-web -[cascade_depends]-> us-west-auth"]
     end
 
-    subgraph "Branch B: causes chain"
-        B1["cache-stampede -[indirectly_causes]-> latency-spike"]
-        B2["network-partition -[indirectly_causes]-> timeout-error"]
-    end
-
-    A1 -.unique to A.-> L{"Lateral comparison:\nBranch A has unique\ndependency edge;\nBranch B has unique\ncausal edge"}
-    B1 -.unique to B.-> L
+    A1 -.-> L{"States within same group<br/>differ in which dependency<br/>chain they discover,<br/>but activate the same<br/>seed nodes overall"}
+    A2 -.-> L
+    A3 -.-> L
 ```
 
-#### The High-Level API vs. Manual Comparison
+#### Lateral Comparison Results
 
-The `mem.lateral_insights(concept)` API returns **empty** for all four seed concepts tested in this example (`failed-health-check`, `db-primary-down`, `network-partition`, `bad-deploy`). This is because the API operates on the multiway state space and requires the concept to correspond to a state with sufficient clustering and coordinate data for distance-based neighbor lookup. Seed concepts are graph nodes, not multiway states -- the multiway states reference those nodes but are not themselves labeled by concept names. When the API cannot find a multiway state associated with the concept label, it returns no results.
+The `mem.lateral_insights(concept)` API returns **empty** for all four seed concepts tested (`failed-health-check`, `db-primary-down`, `network-partition`, `bad-deploy`). This is because the API operates on the multiway state space and requires the concept to correspond to a state with sufficient clustering and coordinate data. Seed concepts are graph nodes, not multiway states.
 
-The showcase script works around this with **manual lateral comparison** code that directly compares states within each simultaneity group. This manual comparison does produce meaningful differences:
+The **manual lateral comparison** within each simultaneity group also produces **no unique edges** between states. This is expected given that all branches use the same rule (`transitive(depends_on)`) and the top-scoring leaves share the same active node set. The branches differ only in which specific `cascade_depends` edge they produce, but within each simultaneity group the accumulated overlay edges are structurally similar enough that no unique differences emerge.
 
-- Some states produce `cache-stampede -> latency-spike` edges while others produce `network-partition -> timeout-error` edges
-- These differences highlight which causal mechanisms each hypothesis state explores
-- States within the same group that use different rules reveal genuinely distinct reasoning paths
-
-**The Hidden Connection:** The manual comparison reveals that `cache-stampede` and `network-partition` both cause `latency-spike` through different paths. This suggests multiple root causes may be contributing simultaneously -- a pattern that linear, single-hypothesis reasoning would miss.
+This outcome reflects the state budget constraint rather than a limitation of the lateral comparison mechanism. With `max_states=200+` and multiple rule types contributing, the simultaneity groups would contain states from different rule types with genuinely different overlay edges, making lateral comparison productive.
 
 ### The Conclusion
 
-The evidence supports **multiple tied hypotheses** at score 0.909:
+The evidence supports **multiple tied hypotheses** at score 0.800, all produced by `TransitiveRule(depends_on)`:
 
-- **db-primary-down**: Causal chain through replication lag to observed symptoms, all present in original graph edges
-- **network-partition**: Causal chain through DNS resolution failure to timeout errors
-- **cache-stampede**: Causal chain through cache miss rate to latency spikes
+- **Dependency cascades** across multiple regions and services, each producing a single `cascade_depends` edge (e.g., `us-west-web -> us-west-ratelimiter`, `eu-west-scheduler -> queue-consumer-eu-west`)
+- **20 causal invariants** merged by the convergence engine, indicating many expansion paths reach the same node sets
+- **Per-branch overlay deduplication** reduces 90 overlay edges to 11 unique, confirming that multiple branches independently discover the same dependency chains
+- **No lateral differences** within simultaneity groups, because all branches use the same rule
 
-No single hypothesis is THE answer. The tied scores and the structural differences across branches suggest this may be a multi-causal incident.
+At `max_states=50`, the showcase demonstrates per-branch overlay isolation and deduplication effectively. For genuine multi-hypothesis diversity (database vs. network vs. cache), increase `max_states` to 200+ to allow the other nine rules to contribute.
 
 ### Why This Matters
 
-If we had pursued only the network-partition hypothesis, we'd have missed the database replication signal. If we had pursued only the database, we'd have missed the cache stampede path.
+The multiway engine explores multiple dependency chains in parallel. At `max_states=50`, all chains happen to be `depends_on` transitive closures, but the infrastructure still produces useful findings:
 
-The multiway approach produces **multiple hypotheses ranked by evidence strength**, plus structural differences across branches. This means:
-1. Start with the top-scoring hypotheses (database, network, cache -- all tied)
-2. Investigate in parallel rather than sequentially
-3. Use lateral comparison to watch for cascade effects between hypotheses
+1. **Per-branch isolation works:** 90 overlay edges across branches collapse to 11 unique, showing independent rediscovery of the same inferences
+2. **State convergence works:** 20 structurally equivalent states are merged, reducing redundancy
+3. **Leaf scoring works:** Multiple branches tie at 0.800, indicating several dependency chains explain the symptoms equally well
+
+The key limitation is the state budget. With `max_states=200+`, the expansion would also produce `causes` chains (indirectly_causes), `inverse` edges (depended_on_by, caused_by), `affects` chains (indirectly_affects), and `abductive` inferences (possible_cause). These would create genuinely diverse hypothesis branches where lateral comparison across simultaneity groups would identify complementary explanations.
 
 ## 7. Understanding the Output
 
@@ -303,6 +326,7 @@ The expansion report (`result.expansion`) includes a `branches` field and the mu
 |--------|-------|---------------|---------|
 | `exp.branches` | 46 | Immediately after expansion, before convergence | Count of terminal states in the raw expansion DAG |
 | `get_leaves()` | 66 | After state convergence engine has merged equivalents | Count of all leaf states in the converged multiway graph |
+| States with overlay | 50 | After per-branch expansion | States that carry their own overlay (non-root, non-merged) |
 
 The state convergence engine merges equivalent states (states that reached the same graph nodes via different rule paths). When a state is merged away, its parent may become a new leaf. This is why the post-convergence leaf count (66) is higher than the pre-convergence terminal count (46). The 66 count is the more complete picture of distinct hypotheses.
 
@@ -311,18 +335,18 @@ The state convergence engine merges equivalent states (states that reached the s
 | Type | What It Detects | Output in This Example |
 |------|-----------------|----------------------|
 | **State convergence** (automatic) | Structurally equivalent states produced by different expansion paths | 20 states merged (causal invariants) |
-| **Cross-rule convergence** (manual) | Different rule types arriving at overlapping target nodes | No strong convergence detected |
+| **Cross-rule convergence** (manual) | Different rule types arriving at overlapping target nodes | Not applicable (only one rule type fires at max_states=50) |
 
-State convergence reduces redundancy. Cross-rule convergence would indicate that different reasoning strategies independently reached the same conclusion. Both are informative but measure different things.
+State convergence reduces redundancy. Cross-rule convergence would indicate that different reasoning strategies independently reached the same conclusion, but this requires `max_states=200+` to activate multiple rule types.
 
 ### Leaf Score Interpretation
 
 | Score Range | Meaning |
 |------------|---------|
-| 0.9+ | Leaf explains most symptoms -- strong candidate root cause |
-| 0.7-0.9 | Leaf explains a subset of symptoms -- partial match |
-| 0.5-0.7 | Leaf touches some symptoms -- weak signal |
-| < 0.5 | Leaf largely irrelevant to observed symptoms |
+| 0.8+ | Leaf explains most symptoms -- strong candidate dependency chain |
+| 0.6-0.8 | Leaf explains a subset of symptoms -- partial match |
+| 0.4-0.6 | Leaf touches some symptoms -- weak signal |
+| < 0.4 | Leaf largely irrelevant to observed symptoms |
 
 ### Simultaneity Groups
 
@@ -342,18 +366,22 @@ States in the same simultaneity group are **at the same depth** in the multiway 
 |--------|-------|
 | Graph nodes | 81 |
 | Graph edges (initial) | 203 |
-| Graph edges (after reasoning) | 253 |
+| Graph edges (after reasoning) | 214 |
 | Seed concepts | 16 |
 | Inference rules | 10 |
 | States created | 51 |
 | Rules applied | 50 |
 | Inference edges produced | 50 |
+| States with per-branch overlay | 50 |
+| Total overlay edges (all branches) | 90 |
+| Unique logical edges (after dedup) | 11 |
+| Duplicate edges removed by dedup | 79 |
 | Leaf states (post-convergence) | 66 |
 | Simultaneity groups | 5 |
 | Causal invariants merged (state convergence) | 20 |
 | Cross-rule convergent pairs | 0 |
-| Cross-branch edge differences (manual) | 6 |
-| Best leaf score | 0.909 (tied across multiple leaves) |
+| Best leaf score | 0.800 (tied across multiple leaves) |
+| Per-branch vs legacy (4-node chain) | 13 states / 12 rules vs 5 states / 4 rules |
 
 ## 9. What Makes This Different
 
@@ -363,7 +391,7 @@ Traditional diagnostic systems follow a **single path**: pick the most likely hy
 2. **Which expansion paths converge on the same conclusions** (state convergence)
 3. **What knowledge from one branch applies to another** (lateral comparison)
 
-This approach is useful in incident response where the root cause is unknown -- instead of pursuing one hypothesis at a time, you get a ranked set of candidates with structural comparisons across branches.
+**Per-branch overlay isolation** ensures that each branch's inferences don't contaminate other branches during expansion. Each state gets its own overlay inheriting from its parent, so branches independently accumulate edges and discover transitive chains that would be invisible in a shared-graph model. After expansion, duplicate logical edges (same source, target, and label) are collapsed to a single edge before committing to the base graph. In this example, 90 branch overlay edges deduplicate to 11 unique edges.
 
 ## 10. The 10 Inference Rules
 
@@ -488,6 +516,8 @@ Hyper3 provides the **reasoning engine**; the data engineering pipeline that fee
 | `result.clustering` | State clustering report from reasoning |
 | `result.state_convergence` | Merge report from state convergence |
 | `result.expansion` | Expansion statistics (states, rules, edges, branches) |
+| `state.overlay` | Per-branch overlay on a multiway state (None for root/merged states) |
+| `state.overlay._overlay_edges` | Edges accumulated by this branch (accessed after expansion, before commit) |
 
 ### Related Examples
 

@@ -154,26 +154,24 @@ Each leaf state is scored against 8 observed symptoms using a composite metric:
 score = (edge_hits + symptom_overlap) / (total_symptoms + produced_edges + 1)
 ```
 
-**The Discovery:** Multiple leaf states tie at score **0.909**. These trace back to three root causes through different rule chains.
+**The Discovery:** Multiple leaf states tie at score **0.800**. All are produced by `TransitiveRule(depends_on)` -- with `max_states=50`, the ~70 `depends_on` edges in the graph fill the state cap before other rules contribute.
 
-**One illustrative chain:** `db-primary-down` -> `db-replication-lag` -> `slow-query` -> `latency-spike` -> `failed-health-check`
+**One illustrative chain:** `us-west-web` -[depends_on]-> `us-west-ratelimiter` -[depends_on]-> `cache-replica-eu-west` yields `us-west-web -[cascade_depends]-> cache-replica-eu-west`
 
-**Key Insight:** The tied scores across db-primary-down, network-partition, and cache-stampede suggest the symptoms cannot discriminate between these root causes -- pointing to a possible multi-causal incident.
+**Key Insight:** The tied scores indicate multiple dependency chains explain the observed symptoms equally well. Increasing `max_states` to 200+ would allow other rules (causes, inverse, abductive) to contribute, producing genuinely diverse hypothesis branches.
 
 ---
 
-## 8. Two Kinds of Convergence
+## 8. State Convergence
 
 **State convergence (automatic):** The engine merges structurally equivalent states. In this example, 20 states were merged, reducing redundancy in the state space.
 
-**Cross-rule convergence (manual):** Checking whether different rule types independently reached overlapping target nodes. In this example, **no strong cross-rule convergence was detected** -- the rules explore genuinely different regions of the graph.
-
-This is consistent with a multi-causal incident: each rule family explains a different subset of symptoms.
+**Cross-rule convergence:** Not applicable at `max_states=50` since only `TransitiveRule(depends_on)` produces matches. With a higher state budget, checking whether different rule types independently reach overlapping conclusions would be meaningful.
 
 | Type | Result |
 |------|--------|
 | State convergence | 20 states merged |
-| Cross-rule convergence | None detected |
+| Cross-rule convergence | Not applicable (single rule type at this budget) |
 
 ---
 
@@ -181,11 +179,9 @@ This is consistent with a multi-causal incident: each rule family explains a dif
 
 By comparing states within the same simultaneity group, the engine identifies structural differences.
 
-**The Hidden Connection:**
-- State A: `cache-stampede` -> `cache-miss-rate` -> `latency-spike`
-- State B: `network-partition` -> `dns-resolution-failure` -> `timeout-error`
+**In this example**, manual lateral comparison across all 4 simultaneity groups produces no unique edges between states. All branches use `TransitiveRule(depends_on)` and activate the same seed nodes, so states within each group are structurally similar.
 
-**The Synthesis:** Multiple root causes produce latency-spike through different paths.
+**With a higher state budget** (`max_states=200+`), multiple rule types would contribute, and lateral comparison would identify complementary explanations across rule families (e.g., `depends_on` chains vs. `causes` chains).
 
 Note: `mem.lateral_insights(concept)` returns empty for the seed concepts in this example because it operates on the multiway state space, not on graph node labels directly. The showcase script performs manual comparison across simultaneity groups to demonstrate the concept.
 
@@ -213,9 +209,10 @@ Note: `mem.lateral_insights(concept)` returns empty for the seed concepts in thi
 | Leaf states (post-convergence) | 66 |
 | Inference edges produced | 50 |
 | Causal invariants merged (state convergence) | 20 |
-| Cross-rule convergent pairs | 0 |
-| Cross-branch edge differences (manual) | 6 |
-| Best leaf score | 0.909 (tied) |
+| Cross-rule convergent pairs | Not applicable (single rule type) |
+| Manual lateral differences | 0 (all branches use same rule) |
+| Best leaf score | 0.800 (tied, transitive(depends_on)) |
+| Per-branch overlay edges | 90 total, 11 unique after dedup |
 
 ---
 

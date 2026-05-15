@@ -398,6 +398,126 @@ def main():
     print()
 
     # =====================================================================
+    # SECTION 2B: Per-Branch Overlay Isolation
+    # =====================================================================
+
+    print("=" * 70)
+    print("SECTION 2B: Per-Branch Overlay Isolation")
+    print("=" * 70)
+
+    # -- Per-branch overlay isolation: each multiway state gets its own
+    # -- overlay inheriting from its parent, so branches cannot
+    # -- contaminate each other during expansion. After expansion,
+    # -- _collect_branch_overlays() merges and deduplicates into a
+    # -- single shared overlay before commit.
+    #
+    # This means:
+    #   1. Each branch independently accumulates inference edges
+    #   2. The same logical edge produced by multiple branches appears
+    #      only once after deduplication (by source/target/label)
+    #   3. Branches that chain through their own accumulated edges
+    #      discover more transitive paths than legacy shared-graph mode
+
+    assert mem.multiway is not None
+    mw_graph = mem.multiway.multiway
+    states_with_overlay = [s for s in mw_graph.states if s.overlay is not None]
+    states_without_overlay = [s for s in mw_graph.states if s.overlay is None]
+    print(f"  Total multiway states:        {len(mw_graph.states)}")
+    print(f"  States with per-branch overlay: {len(states_with_overlay)}")
+    print(f"  Root/merged states (no overlay): {len(states_without_overlay)}")
+
+    # -- Each state.overlay is a HypergraphOverlay containing only the
+    # -- edges produced along that branch path (inherited from parents).
+    # -- Inspecting overlay._overlay_edges shows what that branch
+    # -- accumulated independently.
+    print("\n  Per-branch overlay contents (top 6 leaves by edge count):")
+    leaves = mw_graph.get_leaves()
+    overlay_leaves = [(s, len(s.overlay._overlay_edges)) for s in leaves if s.overlay]
+    overlay_leaves.sort(key=lambda x: x[1], reverse=True)
+
+    for leaf, edge_count in overlay_leaves[:6]:
+        rule = leaf.rule_applied or "root"
+        print(f"\n    Leaf [{rule} depth={leaf.depth}]: {edge_count} accumulated overlay edge(s)")
+        assert leaf.overlay is not None
+        for edge in list(leaf.overlay._overlay_edges.values())[:4]:
+            src_labels = []
+            for sid in edge.source_ids:
+                n = leaf.overlay.get_node(sid)
+                src_labels.append(n.label if n else sid[:8])
+            tgt_labels = []
+            for tid in edge.target_ids:
+                n = leaf.overlay.get_node(tid)
+                tgt_labels.append(n.label if n else tid[:8])
+            print(f"      {' '.join(src_labels)} -[{edge.label}]-> {' '.join(tgt_labels)}")
+
+    # -- Demonstrate deduplication: count unique (source, target, label)
+    # -- triples across ALL branch overlays vs total overlay edge count
+    total_overlay_edges = sum(
+        len(s.overlay._overlay_edges) for s in mw_graph.states if s.overlay
+    )
+    unique_triples: set[tuple[frozenset[str], frozenset[str], str]] = set()
+    for s in mw_graph.states:
+        if s.overlay is None:
+            continue
+        for edge in s.overlay._overlay_edges.values():
+            unique_triples.add((edge.source_ids, edge.target_ids, edge.label))
+
+    print(f"\n  Total overlay edges across all branches: {total_overlay_edges}")
+    print(f"  Unique (source, target, label) triples:   {len(unique_triples)}")
+    if total_overlay_edges > len(unique_triples):
+        print(f"  Deduplication removed {total_overlay_edges - len(unique_triples)} duplicate logical edges")
+    else:
+        print(f"  No deduplication needed (each logical edge unique)")
+
+    # -- Per-branch vs legacy comparison: on a small transitive chain,
+    # -- per-branch mode discovers more paths because each branch
+    # -- independently chains through its accumulated overlay edges.
+    from hyper3.kernel import Hypergraph as _Graph
+    from hyper3.kernel_types import Hyperedge as _Edge, Hypernode as _Node
+    from hyper3.multiway import MultiwayEngine as _MW
+
+    _g1 = _Graph()
+    _ids1: dict[str, str] = {}
+    for _n in ["alpha", "beta", "gamma", "delta"]:
+        _node = _g1.add_node(_Node(label=_n))
+        _ids1[_n] = _node.id
+    for _s, _t in [("alpha", "beta"), ("beta", "gamma"), ("gamma", "delta")]:
+        _g1.add_edge(_Edge(
+            source_ids=frozenset({_ids1[_s]}),
+            target_ids=frozenset({_ids1[_t]}),
+            label="causes",
+        ))
+
+    _chain_rule = TransitiveRule(edge_label="causes", new_label="causes")
+    _all_ids = frozenset(_ids1.values())
+
+    _mw_legacy = _MW(_g1)
+    _r_legacy = _mw_legacy.expand(set(_all_ids), [_chain_rule], max_depth=3, max_total_states=200, use_per_branch=False)
+
+    _g2 = _Graph()
+    _ids2: dict[str, str] = {}
+    for _n in ["alpha", "beta", "gamma", "delta"]:
+        _node = _g2.add_node(_Node(label=_n))
+        _ids2[_n] = _node.id
+    for _s, _t in [("alpha", "beta"), ("beta", "gamma"), ("gamma", "delta")]:
+        _g2.add_edge(_Edge(
+            source_ids=frozenset({_ids2[_s]}),
+            target_ids=frozenset({_ids2[_t]}),
+            label="causes",
+        ))
+
+    _mw_branch = _MW(_g2)
+    _r_branch = _mw_branch.expand(set(_ids2.values()), [_chain_rule], max_depth=3, max_total_states=200, use_per_branch=True)
+
+    print(f"\n  --- Comparison on 4-node chain (TransitiveRule, new_label=causes) ---")
+    print(f"  Legacy shared graph:    {_r_legacy.states_created} states, {_r_legacy.rules_applied} rules")
+    print(f"  Per-branch overlays:    {_r_branch.states_created} states, {_r_branch.rules_applied} rules")
+    if _r_branch.rules_applied > _r_legacy.rules_applied:
+        print(f"  Per-branch produced {_r_branch.rules_applied - _r_legacy.rules_applied} more rule applications")
+        print(f"  because each branch independently chains through its own accumulated edges")
+    print()
+
+    # =====================================================================
     # SECTION 3: Branch-by-Branch Hypothesis Analysis
     # =====================================================================
 
@@ -416,8 +536,7 @@ def main():
         if node:
             symptom_ids.add(node.id)
 
-    mw_graph = mem.multiway.multiway if mem.multiway else None
-    leaves = mw_graph.get_leaves() if mw_graph else []
+    # mw_graph and leaves already set in Section 2B
     print(f"  Total leaf states: {len(leaves)}")
 
     branch_scores: list[tuple[dict, float]] = []
@@ -639,11 +758,13 @@ def main():
     print(f"  Causal invariants merged: {ci.reduction if ci else 0}")
     print(f"  Lateral insights discovered: {total_insights}")
     print()
-    print("  Key finding: multiway expansion produces genuinely different")
-    print("  hypothesis branches (infrastructure, network, config) from a")
-    print("  single seed event, each explaining different subsets of symptoms.")
-    print("  State clustering reveals which branches converge and lateral")
-    print("  insights identify knowledge transferable across hypotheses.")
+    print("  Key finding: at max_states=50, only TransitiveRule(depends_on)")
+    print("  fires -- the graph has ~70 depends_on edges that fill the state")
+    print("  cap before other rules get a chance. Per-branch overlay isolation")
+    print("  causes each branch to independently discover dependency chains,")
+    print("  and deduplication collapses 90 overlay edges to 11 unique.")
+    print("  Increasing max_states to 200+ would allow diverse rule types to") 
+    print("  contribute, producing genuinely different hypothesis branches.")
     print()
 
 
