@@ -66,7 +66,7 @@ SECTION 2: Multiway Expansion from Failed Health Check
 ======================================================================
 SECTION 3: Branch-by-Branch Hypothesis Analysis
 ======================================================================
-  Total leaf states: 292
+  Total leaf states: 124
 
   Top branches by symptom explanation power (one per rule type):
 
@@ -177,7 +177,7 @@ graph TD
     MW -->|"InverseRule<br/>monitors"| B8["monitored_by edges"]
     MW -->|"AbductiveRule<br/>causes"| B10["hypothesis nodes"]
 
-    B1 --> LEAF["Leaf States: 292"]
+    B1 --> LEAF["Leaf States: 124"]
     B2 --> LEAF
     B6 --> LEAF
     B8 --> LEAF
@@ -189,7 +189,7 @@ graph TD
     LEAF --> LATERAL["Lateral Comparison<br/>84 Insights Found"]
 ```
 
-**Result:** 217 states created, 216 rules applied, 8 distinct rule types fired, 292 leaf states after convergence.
+**Result:** 217 states created, 216 rules applied, 8 distinct rule types fired, 124 leaf states after convergence.
 
 ### Phase 1B: Per-Branch Overlay Isolation
 
@@ -271,9 +271,9 @@ The showcase produces:
 | Metric | Value | When Computed | Meaning |
 |--------|-------|---------------|---------|
 | `exp.branches` | 208 | Immediately after expansion | Terminal states in the raw expansion DAG |
-| `get_leaves()` | 292 | After state convergence merges equivalents | All leaf states in the converged graph |
+| `get_leaves()` | 124 | After state convergence merges equivalents | All leaf states in the converged graph |
 
-The post-convergence leaf count (292) exceeds the pre-convergence terminal count (208) because merging a state causes its parent to become a new leaf.
+The post-convergence leaf count (124) is lower than the pre-convergence terminal count (208) because the convergence engine merges equivalent states and marks consumed states as excluded from `get_leaves()`. Each merge removes two consumed leaves and creates one merged state.
 
 ### `max_matches_per_rule` and Rule Diversity
 
@@ -315,7 +315,7 @@ Without a per-rule cap, a single rule with many matching edges (e.g., `Transitiv
 | Total overlay edges (all branches) | 408 |
 | Unique logical edges (after dedup) | 51 |
 | Duplicate edges removed | 357 |
-| Leaf states (post-convergence) | 292 |
+| Leaf states (post-convergence) | 124 |
 | Simultaneity groups | 9 |
 | Causal invariants merged (state convergence) | 84 |
 | Cross-rule convergent pairs | 0 |

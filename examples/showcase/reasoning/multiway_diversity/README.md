@@ -8,7 +8,7 @@ A fish kill event is detected in a river system. Three root causes could explain
 
 **The problem:** With a large graph and limited state budget, a single rule type dominates (e.g., `TransitiveRule(depends_on)` fills the entire cap). The infrastructure showcase demonstrates this -- 81 nodes, `max_states=50`, and only one rule fires.
 
-**This showcase's approach:** A deliberately compact graph (21 nodes, 22 edges) with balanced edge labels and a generous state budget (`max_states=200`) allows multiple rule types to fire simultaneously. The result: 7 distinct rule categories produce 271 leaf states, and lateral comparison finds 440 structural differences across hypothesis branches.
+**This showcase's approach:** A deliberately compact graph (21 nodes, 22 edges) with balanced edge labels and a generous state budget (`max_states=200`) allows multiple rule types to fire simultaneously. The result: 7 distinct rule categories produce 91 leaf states, and lateral comparison finds 440 structural differences across hypothesis branches.
 
 ## 2. A Simple Analogy
 
@@ -48,14 +48,14 @@ SECTION 1: River Contamination Investigation Graph
 ======================================================================
 SECTION 4: Branch Analysis by Rule Type
 ======================================================================
-  Total leaf states: 271
+  Total leaf states: 91
   Unique rule types: 7
-    transitive(affects): 33 leaves
+    transitive(affects): 6 leaves
     transitive(affects) + transitive(causes): 9 leaves
     transitive(affects) + transitive(depends_on): 8 leaves
-    transitive(causes): 172 leaves
+    transitive(causes): 51 leaves
     transitive(causes) + transitive(depends_on): 1 leaves
-    transitive(depends_on): 39 leaves
+    transitive(depends_on): 7 leaves
     transitive(depends_on) + transitive(causes): 9 leaves
 ```
 
@@ -139,16 +139,16 @@ graph TD
     SEED["Seed: fish_kill, oxygen_depletion,<br/>water_discoloration, toxicity"]
     SEED --> MW{"Multiway Engine<br/>max_states=200"}
 
-    MW -->|"TransitiveRule<br/>causes"| B1["Branch: indirectly_causes<br/>172 leaves"]
-    MW -->|"TransitiveRule<br/>depends_on"| B2["Branch: cascade_depends<br/>39 leaves"]
-    MW -->|"TransitiveRule<br/>affects"| B3["Branch: indirectly_affects<br/>33 leaves"]
+    MW -->|"TransitiveRule<br/>causes"| B1["Branch: indirectly_causes<br/>51 leaves"]
+    MW -->|"TransitiveRule<br/>depends_on"| B2["Branch: cascade_depends<br/>7 leaves"]
+    MW -->|"TransitiveRule<br/>affects"| B3["Branch: indirectly_affects<br/>6 leaves"]
     MW -->|"TransitiveRule<br/>indicates"| B6["Branch: correlates_with"]
     MW -->|"InverseRule<br/>causes"| B4["Branch: caused_by"]
     MW -->|"InverseRule<br/>depends_on"| B7["Branch: depended_on_by"]
     MW -->|"InverseRule<br/>affects"| B8["Branch: affected_by"]
     MW -->|"AbductiveRule<br/>causes"| B5["Branch: possible_cause"]
 
-    B1 --> LEAF["271 Leaf States"]
+    B1 -->     LEAF["91 Leaf States"]
     B2 --> LEAF
     B3 --> LEAF
     B4 --> LEAF
@@ -162,7 +162,7 @@ graph TD
     LEAF --> COMPARE["Lateral Comparison<br/>440 differences"]
 ```
 
-**Result:** 201 states created, 200 rules applied, 181 branches (pre-convergence), 271 leaf states (post-convergence), max depth 3.
+**Result:** 201 states created, 200 rules applied, 181 branches (pre-convergence), 91 leaf states (post-convergence), max depth 3.
 
 **Why this works here but not in the infrastructure showcase:** The infrastructure graph has ~70 `depends_on` edges that dominate the `max_states=50` budget. Here, the largest label (`causes` with 10 edges) is small enough that the expansion budget accommodates all rule types.
 
@@ -183,9 +183,9 @@ Seven distinct rule-type combinations produce leaf states:
 
 | Rule Type | Leaves | Sample Inference |
 |-----------|--------|-----------------|
-| `transitive(causes)` | 172 | `industrial_discharge` -[indirectly_causes]-> `toxicity` |
-| `transitive(depends_on)` | 39 | `containment` -[cascade_depends]-> `field_sample` |
-| `transitive(affects)` | 33 | `heavy_metals` -[indirectly_affects]-> `biodiversity_loss` |
+| `transitive(causes)` | 51 | `industrial_discharge` -[indirectly_causes]-> `toxicity` |
+| `transitive(depends_on)` | 7 | `containment` -[cascade_depends]-> `field_sample` |
+| `transitive(affects)` | 6 | `heavy_metals` -[indirectly_affects]-> `biodiversity_loss` |
 | `transitive(affects) + transitive(causes)` | 9 | Both affect and cause chains |
 | `transitive(depends_on) + transitive(causes)` | 9 | Both dependency and cause chains |
 | `transitive(affects) + transitive(depends_on)` | 8 | Both affect and dependency chains |
@@ -235,10 +235,10 @@ Note: specific examples vary across runs due to dict iteration order. The counts
 | Metric | Value | Meaning |
 |--------|-------|---------|
 | `exp.branches` | 181 | Terminal states immediately after expansion |
-| `get_leaves()` | 271 | All leaf states after convergence engine merges equivalents |
+| `get_leaves()` | 91 | All leaf states after convergence engine merges equivalents |
 | States with overlay | 200 | States carrying their own per-branch overlay |
 
-The 90 merged states create new leaves when their children are merged away, raising the leaf count from 181 to 271.
+The 90 merged states create new leaves when their children are merged away, raising the leaf count from 181 to 91.
 
 ### Leaf Score Interpretation
 
@@ -268,7 +268,7 @@ Groups with more rule types (e.g., Group 3 with 5 types) produce richer lateral 
 | Rules applied | 200 |
 | Max depth reached | 3 |
 | Branches (pre-convergence) | 181 |
-| Leaf states (post-convergence) | 271 |
+| Leaf states (post-convergence) | 91 |
 | Total multiway states | 291 |
 | States with per-branch overlay | 200 |
 | Total overlay edges | 480 |
@@ -367,7 +367,7 @@ Hyper3 provides the reasoning engine; the graph construction pipeline that feeds
 | `max_states` | 50 | 200 |
 | Rules registered | 10 | 8 |
 | Rule types that fired | 1 | 7 |
-| Leaf states | 66 | 271 |
+| Leaf states | 66 | 91 |
 | Lateral differences | 0 | 440 |
 | Overlay dedup | 90 to 11 (88%) | 480 to 12 (97%) |
 | Use case | Realistic scale, single-rule deep dive | Diverse firing, cross-rule comparison |

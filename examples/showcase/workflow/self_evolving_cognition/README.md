@@ -62,11 +62,11 @@ SECTION 3: Metamorphosis with Validation and Rollback
     fitness_after=0.784
 
 SECTION 4: Computational Bias Profile
-  Reasoning style: focused
-  Bias score: 0.444
-  Rule count: 3
-  Dominant rules: ['inverse(prevents->prevented_by)', 'inverse(causes->caused_by)']
-  Underused rules: ['inverse(causes->caused_by)']
+  Reasoning style: balanced
+  Bias score: 1.000
+  Rule count: 1
+  Average effectiveness: 0.500
+  Position trajectory: stable
 
 SECTION 5: Causal Merge Insight Preservation
   Invariants found: 1
@@ -175,14 +175,13 @@ Why this matters: self-modifying systems without validation can enter death spir
 
 ### Section 4: Computational Bias Profile
 
-After running reasoning on the graph with 3 registered rules, the script calls `compute_bias_profile()`:
+After running reasoning on the graph, the script calls `compute_bias_profile()`:
 
-- **Reasoning style**: `focused` (rules are unevenly applied)
-- **Bias score**: 0.444 (moderate skew)
-- **Rule count**: 3
+- **Reasoning style**: `balanced` (rules are evenly applied)
+- **Bias score**: 1.000 (no skew)
+- **Rule count**: 1
+- **Average effectiveness**: 0.500
 - **Position trajectory**: `stable` (skew is not increasing)
-- **Dominant rules**: `inverse(prevents->prevented_by)`, `inverse(causes->caused_by)`
-- **Underused rules**: `inverse(causes->caused_by)`
 
 Why this matters: a focused bias profile reveals that certain rules are producing most of the inferences while others contribute little. In a production system, this could indicate missing graph structure that would activate underused rules, or rules that are too specific for the current domain.
 
@@ -232,13 +231,11 @@ Why this matters: when equivalent multiway states merge, the unique inferences f
 | Metamorphosis rolled back | False |
 | Fitness before tuning | 0.784 |
 | Fitness after tuning | 0.784 |
-| Reasoning style | focused |
-| Bias score | 0.444 |
-| Rule count | 3 |
-| Average effectiveness | 0.444 |
+| Reasoning style | balanced |
+| Bias score | 1.000 |
+| Rule count | 1 |
+| Average effectiveness | 0.500 |
 | Position trajectory | stable |
-| Dominant rules | 2 |
-| Underused rules | 1 |
 | Invariant merges found | 1 |
 | Merge similarity | 0.675 |
 | s1 unique nodes (delta) | 1 |

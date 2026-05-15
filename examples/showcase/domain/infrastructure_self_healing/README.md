@@ -249,16 +249,16 @@ After running reasoning on two concept sets, the bias profile summarizes rule ef
 
 ```
 Reasoning style: focused
-Bias score: ~0.26
-Rule count: 6
-Average effectiveness: ~0.74
+Bias score: ~0.77
+Rule count: 2
+Average effectiveness: ~0.57
 Position trajectory: stable
-Dominant rules: inverse(blocks->blocked_by), transitive(routes_to) + inverse(blocks->blocked_by)
+Dominant rules: inverse(blocks->blocked_by)
 ```
 
 Bias profile metrics are run-dependent because they depend on which rules fire during reasoning, which in turn depends on the graph state after feedback-driven evolution.
 
-The "focused" reasoning style (bias score ~0.26 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) and the transitive rule for `routes_to` are typically dominant — they produce the most accepted inferences.
+The "focused" reasoning style (bias score ~0.77 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) is dominant — it produces the most accepted inferences.
 
 Why bias tracking matters: in a system with many registered rules, some rules consistently produce useful inferences while others rarely fire or produce low-quality results. The bias profile identifies which rules earn their computational cost, allowing the system to prioritize effective rules during reasoning.
 
@@ -341,9 +341,9 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Cross-operation correlations | 13 nodes |
 | Top correlated (db-pg-primary) | 5 signals, 1.00 positive rate |
 | Bias reasoning style | focused |
-| Bias score | ~0.45 |
-| Rule count | 3 |
-| Average rule effectiveness | ~0.75 |
+| Bias score | ~0.77 |
+| Rule count | 2 |
+| Average rule effectiveness | ~0.57 |
 | Metamorphosis triggers | 1 |
 | Metamorphosis urgency | 0.60 |
 | Tuning plan actions | 2 |
@@ -367,7 +367,7 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 
 **Metamorphosis validation** captures a graph version snapshot before applying tuning changes and rolls back if fitness decreases. Without validation, a tuning plan that seems reasonable (low risk score of 0.18) could degrade fitness. The validation step converts parameter tuning from an irreversible change into a test-and-commit operation.
 
-**Computational bias profiling** tracks which inference rules produce accepted results. A system with 6 registered rules could spend computation on rules that rarely fire or produce low-quality inferences. The bias profile identifies dominant rules (inverse rule for `blocks`/`blocked_by`) and underused rules, allowing targeted rule management.
+**Computational bias profiling** tracks which inference rules produce accepted results. A system with 2 registered rules could spend computation on rules that rarely fire or produce low-quality inferences. The bias profile identifies dominant rules (inverse rule for `blocks`/`blocked_by`) and underused rules, allowing targeted rule management.
 
 ## 8. Code Implementation
 
