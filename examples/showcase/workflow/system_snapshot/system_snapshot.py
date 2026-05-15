@@ -48,7 +48,9 @@ def main() -> None:
     mem.link("error_correction", "cryptography", label="influences", weight=2.0)
 
     result = mem.reason(seeds={"quantum_computing", "machine_learning"}, max_depth=3)
+    overlay_edges = result.overlay.get("edge_count", 0) if result.overlay else 0
     print(f"reasoning: edges_produced={result.expansion.edges_produced}, states_created={result.expansion.states_created}")
+    print(f"unique inferred edges: {overlay_edges} (deduplicated from {result.expansion.edges_produced} raw productions)")
 
     mem.belief.create(["quantum_computing", "machine_learning", "cryptography"])
 
@@ -60,7 +62,8 @@ def main() -> None:
     retrieve_results2 = mem.search.query("cryptography", top_k=3)
     mem.record_feedback("cryptography", retrieve_results2, relevant_labels={"cryptography"})
 
-    print(f"graph: nodes={mem.size[0]}, edges={mem.size[1]}")
+    inferred_edges = mem.size[1] - 12
+    print(f"graph: nodes={mem.size[0]}, edges={mem.size[1]} (12 base + {inferred_edges} inferred)")
 
     print("\n" + "=" * 70)
     print("SECTION 2: CAPTURE FULL SYSTEM SNAPSHOT")
@@ -71,7 +74,7 @@ def main() -> None:
     print("snapshot captured:")
     print(f"  version: {snapshot.version}")
     print(f"  belief states: {len(snapshot.belief_states)}")
-    print(f"  multiway states: {len(snapshot.multiway_states)}")
+    print(f"  multiway states: {len(snapshot.multiway_states)} (cumulative)")
     print(f"  provenance records: {len(snapshot.provenance_records)}")
     print(f"  retrieval feedback: {len(snapshot.retrieval_feedback)}")
     print(f"  frame outcomes: {len(snapshot.frame_outcomes)}")
