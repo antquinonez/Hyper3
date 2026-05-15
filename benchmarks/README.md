@@ -17,7 +17,7 @@ Equivalence Battery
     .venv/bin/python benchmarks/equiv/run_equiv.py              # all suites
     .venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12     # specific suites
 
-22 equivalence test suites comparing Hyper3 against HGX (HypergraphX), XGI,
+24 equivalence test suites comparing Hyper3 against HGX (HypergraphX), XGI,
 and NetworkX. Each suite builds the same graph in multiple libraries and
 asserts numerical equivalence within tolerance. Results are reported as
 PASS/FAIL/GAP/SKIP per test. GAPs document features present in competitor
@@ -35,8 +35,10 @@ libraries but not yet in Hyper3, serving as a prioritized feature backlog.
 | 08 | `equiv_08_community.py` | Community detection, modularity | HGX, XGI, NX |
 | 09 | `equiv_09_transforms.py` | Dual, line graph, bipartite transformations | XGI |
 | 10 | `equiv_10_directed.py` | Directed hypergraph degrees, source/target | HGX |
+| 11 | `equiv_11_dag_trees.py` | Topological sort, transitive reduction, MST | NX |
 | 11 | `equiv_11_generative.py` | Random graph generators | XGI |
 | 12 | `equiv_12_clustering.py` | Clustering coefficient | NX |
+| 12 | `equiv_12_flow_matching.py` | Max-flow, min-cut, bipartite matching | NX |
 | 13 | `equiv_13_gaps_hgx.py` | HGX features not in Hyper3 | HGX |
 | 14 | `equiv_14_gaps_nx.py` | NX features not in Hyper3 | NX |
 | 15 | `equiv_15_basic_metrics.py` | Diameter, radius, eccentricity, assortativity | NX |
@@ -48,7 +50,7 @@ libraries but not yet in Hyper3, serving as a prioritized feature backlog.
 | 21 | `equiv_21_community.py` | Girvan-Newman, spectral clustering, hyperlink | NX, HGX |
 | 22 | `equiv_22_pairwise_delegation.py` | Centrality, link prediction, Eulerian, similarity | NX |
 
-Current results: 788 pass / 0 fail / 54 gap / 1 skip.
+Current results: 871 pass / 17 diverge / 0 fail / 24 gap / 1 skip.
 
 Performance Benchmarks
 ----------------------
