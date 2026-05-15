@@ -709,3 +709,237 @@ class TestOverlayLabeledEdges:
         assert le[0]["source_labels"] == fake_src[:8]
         assert le[0]["target_labels"] == fake_tgt[:8]
 
+
+class TestOutgoingEdges:
+    def test_outgoing_edges_base_only(self):
+        g, a, b = _make_base_graph()
+        ov = HypergraphOverlay(g)
+        result = ov.outgoing_edges(a.id)
+        assert len(result) == 1
+        assert result[0].label == "base_edge"
+        assert a.id in result[0].source_ids
+
+    def test_outgoing_edges_overlay_only(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="base"))
+        ov = HypergraphOverlay(g)
+        ov.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({c.id}), label="overlay"))
+        result = ov.outgoing_edges(a.id)
+        assert len(result) == 2
+        labels = {e.label for e in result}
+        assert labels == {"base", "overlay"}
+
+    def test_outgoing_edges_excludes_incoming(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        ov = HypergraphOverlay(g)
+        ov.add_edge(Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({a.id}), label="into_a"))
+        assert ov.outgoing_edges(a.id) == []
+
+    def test_outgoing_edges_empty(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        g.add_node(a)
+        ov = HypergraphOverlay(g)
+        assert ov.outgoing_edges(a.id) == []
+
+
+class TestIncomingEdges:
+    def test_incoming_edges_base_only(self):
+        g, a, b = _make_base_graph()
+        ov = HypergraphOverlay(g)
+        result = ov.incoming_edges(b.id)
+        assert len(result) == 1
+        assert result[0].label == "base_edge"
+        assert b.id in result[0].target_ids
+
+    def test_incoming_edges_overlay_only(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        g.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="base"))
+        ov = HypergraphOverlay(g)
+        ov.add_edge(Hyperedge(source_ids=frozenset({c.id}), target_ids=frozenset({b.id}), label="overlay"))
+        result = ov.incoming_edges(b.id)
+        assert len(result) == 2
+        labels = {e.label for e in result}
+        assert labels == {"base", "overlay"}
+
+    def test_incoming_edges_excludes_outgoing(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        ov = HypergraphOverlay(g)
+        ov.add_edge(Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="from_a"))
+        assert ov.incoming_edges(a.id) == []
+
+    def test_incoming_edges_empty(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        g.add_node(a)
+        ov = HypergraphOverlay(g)
+        assert ov.incoming_edges(a.id) == []
+
+
+class TestInheritFrom:
+    def test_inherit_copies_edges_and_nodes(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        parent = HypergraphOverlay(g)
+        parent.add_node(Hypernode(label="h1"))
+        e = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="inferred")
+        parent.add_edge(e)
+        parent.set_confidence(e.id, 0.8)
+
+        child = HypergraphOverlay(g)
+        child.inherit_from(parent)
+
+        assert len(child.overlay_edge_ids) == 1
+        assert e.id in child.overlay_edge_ids
+        assert len(child.overlay_node_ids) == 1
+        assert child.get_confidence(e.id) == 0.8
+
+    def test_inherit_does_not_overwrite_existing(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        g.add_node(a)
+        g.add_node(b)
+        e1 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="first")
+        e2 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="second")
+
+        parent = HypergraphOverlay(g)
+        parent.add_edge(e1)
+
+        child = HypergraphOverlay(g)
+        child.add_edge(e2)
+        child.inherit_from(parent)
+
+        assert len(child.overlay_edge_ids) == 2
+        child_edge = child.get_edge(e2.id)
+        assert child_edge is not None
+        assert child_edge.label == "second"
+
+    def test_inherit_empty_overlay(self):
+        g = Hypergraph()
+        parent = HypergraphOverlay(g)
+        child = HypergraphOverlay(g)
+        child.inherit_from(parent)
+        assert child.overlay_node_ids == set()
+        assert child.overlay_edge_ids == set()
+
+    def test_inherit_accumulates_across_generations(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        b = Hypernode(label="b")
+        c = Hypernode(label="c")
+        g.add_node(a)
+        g.add_node(b)
+        g.add_node(c)
+        e1 = Hyperedge(source_ids=frozenset({a.id}), target_ids=frozenset({b.id}), label="gen0")
+        e2 = Hyperedge(source_ids=frozenset({b.id}), target_ids=frozenset({c.id}), label="gen1")
+
+        gen0 = HypergraphOverlay(g)
+        gen0.add_edge(e1)
+
+        gen1 = HypergraphOverlay(g)
+        gen1.inherit_from(gen0)
+        gen1.add_edge(e2)
+
+        assert len(gen1.overlay_edge_ids) == 2
+        assert gen1.get_edge(e1.id) is not None
+        assert gen1.get_edge(e2.id) is not None
+        all_incident = gen1.incident_edges(b.id)
+        overlay_incident = [e for e in all_incident if e.id in gen1.overlay_edge_ids]
+        assert len(overlay_incident) == 2
+
+    def test_inherit_preserves_label_index(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        g.add_node(a)
+        h = Hypernode(label="hypothesis")
+        parent = HypergraphOverlay(g)
+        parent.add_node(h)
+
+        child = HypergraphOverlay(g)
+        child.inherit_from(parent)
+
+        assert child.get_node_by_label("hypothesis") is not None
+
+
+class TestCopyOnRead:
+    def test_copy_on_read_prevents_base_mutation(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", data={"x": 1})
+        g.add_node(a)
+        ov = HypergraphOverlay(g, copy_on_read=True)
+
+        node = ov.get_node(a.id)
+        assert node is not None
+        assert node is not a
+        node.data["x"] = 999
+
+        base_node = g.get_node(a.id)
+        assert base_node.data["x"] == 1
+
+    def test_copy_on_read_false_allows_mutation(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", data={"x": 1})
+        g.add_node(a)
+        ov = HypergraphOverlay(g, copy_on_read=False)
+
+        node = ov.get_node(a.id)
+        assert node is a
+        node.data["x"] = 999
+
+        base_node = g.get_node(a.id)
+        assert base_node.data["x"] == 999
+
+    def test_copy_on_read_returns_overlay_node_directly(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", data={"x": 1})
+        g.add_node(a)
+        ov = HypergraphOverlay(g, copy_on_read=True)
+        overlay_node = Hypernode(id=a.id, label="a_overlay", data={"x": 2})
+        ov.add_node(overlay_node)
+
+        node = ov.get_node(a.id)
+        assert node is overlay_node
+
+    def test_copy_on_read_caches_copied_node(self):
+        g = Hypergraph()
+        a = Hypernode(label="a", data={"x": 1})
+        g.add_node(a)
+        ov = HypergraphOverlay(g, copy_on_read=True)
+
+        first = ov.get_node(a.id)
+        second = ov.get_node(a.id)
+        assert first is second
+
+    def test_default_is_no_copy_on_read(self):
+        g = Hypergraph()
+        a = Hypernode(label="a")
+        g.add_node(a)
+        ov = HypergraphOverlay(g)
+        assert ov.get_node(a.id) is a
+

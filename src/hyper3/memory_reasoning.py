@@ -1,3 +1,5 @@
+"""ReasoningMixin: multiway reasoning, derivation, commit/rollback of inferences."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -84,18 +86,29 @@ class ReasoningMixin(_MemoryBase):
         """Record provenance entries for all multiway states that produced edges."""
         if not self._multiway_engine:
             return
+        known_ids: set[str] | None = None
+        if isinstance(target_graph, HypergraphOverlay):
+            known_ids = set(target_graph.overlay_edge_ids)
+            for e in target_graph._base.edges:
+                known_ids.add(e.id)
         for state in self._multiway_engine.multiway.states:
             if not state.rule_applied or not state.produced_edge_ids:
                 continue
+            if known_ids is not None:
+                produced_in_target = [eid for eid in state.produced_edge_ids if eid in known_ids]
+                if not produced_in_target:
+                    continue
+            else:
+                produced_in_target = list(state.produced_edge_ids)
             prov_input_edges: list[str] = []
             if state.match_bindings:
                 bvals = set(state.match_bindings.values())
                 prov_input_edges.extend(
                     edge.id
                     for edge in target_graph.edges
-                    if edge.id not in state.produced_edge_ids and edge.source_ids & bvals and edge.target_ids & bvals
+                    if edge.id not in set(produced_in_target) and edge.source_ids & bvals and edge.target_ids & bvals
                 )
-            for edge_id in state.produced_edge_ids:
+            for edge_id in produced_in_target:
                 self._provenance.record_inference(
                     edge_id=edge_id,
                     rule_name=state.rule_applied,
@@ -103,6 +116,40 @@ class ReasoningMixin(_MemoryBase):
                     input_node_ids=list(state.active_node_ids),
                     depth=state.depth,
                 )
+
+    def _collect_branch_overlays(self) -> None:
+        """Merge per-branch overlay edges and nodes into the shared overlay.
+
+        Deduplicates by (source_ids, target_ids, label) so that the same
+        logical edge produced independently by multiple branches appears
+        only once in the shared overlay.
+        """
+        if not self._multiway_engine or not self._overlay:
+            return
+        seen_edge_ids: set[str] = set(self._overlay.overlay_edge_ids)
+        seen_node_ids: set[str] = set(self._overlay.overlay_node_ids)
+        seen_logical: set[tuple[frozenset[str], frozenset[str], str]] = set()
+        for edge in self._overlay._overlay_edges.values():
+            seen_logical.add((edge.source_ids, edge.target_ids, edge.label))
+        for state in self._multiway_engine.multiway.states:
+            if state.overlay is None:
+                continue
+            for node in state.overlay._overlay_nodes.values():
+                if node.id not in seen_node_ids:
+                    self._overlay.add_node(node)
+                    seen_node_ids.add(node.id)
+            for edge in state.overlay._overlay_edges.values():
+                if edge.id in seen_edge_ids:
+                    continue
+                key = (edge.source_ids, edge.target_ids, edge.label)
+                if key in seen_logical:
+                    continue
+                self._overlay.add_edge(edge)
+                seen_edge_ids.add(edge.id)
+                seen_logical.add(key)
+            for eid, conf in state.overlay._confidence.items():
+                if eid not in self._overlay._confidence:
+                    self._overlay.set_confidence(eid, conf)
 
     def _run_post_expansion(
         self,
@@ -287,6 +334,9 @@ class ReasoningMixin(_MemoryBase):
 
         if report.rules_applied > 0:
             self._record_rule_applications(active_rules)
+
+        if use_overlay and self._overlay:
+            self._collect_branch_overlays()
 
         target_graph = self._overlay if use_overlay and self._overlay else self._graph
         self._record_provenance(target_graph)
@@ -880,11 +930,10 @@ class ReasoningMixin(_MemoryBase):
             for eid in edge_ids:
                 edge = self._graph.get_edge(eid)
                 if edge is None:
-                    self._rule_analytics.record_rule_outcome(rule_name, "pruned")
-                else:
-                    self._rule_analytics.record_rule_outcome(rule_name, "useful")
-                    if edge.weight > 1.0:
-                        self._rule_analytics.record_rule_outcome(rule_name, "reinforced")
+                    continue
+                self._rule_analytics.record_rule_outcome(rule_name, "useful")
+                if edge.weight > 1.0:
+                    self._rule_analytics.record_rule_outcome(rule_name, "reinforced")
         self._rule_productions = {}
 
     @property

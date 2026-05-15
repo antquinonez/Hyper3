@@ -3,6 +3,10 @@
 Uses AST to find exact insertion points, avoiding the pitfalls of
 text-based editing (eating body lines, wrong indentation, etc.).
 
+After writing, re-parses the file with ``ast.parse`` to verify the result
+is valid Python.  If the parse fails, the original file is restored and
+the edit is reported as an error.
+
 Usage:
     # Add docstrings to specific methods
     .venv/bin/python ai/add_docstrings.py \\
@@ -23,6 +27,7 @@ The script works by:
 3. Using the first body statement's indentation to match the docstring indent.
 4. Inserting the docstring line immediately before the first body statement.
 5. Processing inserts in reverse line-number order so offsets stay valid.
+6. Re-parsing the modified file to catch syntax errors before committing.
 """
 
 from __future__ import annotations
@@ -30,7 +35,6 @@ from __future__ import annotations
 import argparse
 import ast
 import os
-import sys
 from dataclasses import dataclass
 
 SRC_DIR = os.path.join(os.path.dirname(__file__), "..", "src", "hyper3")
@@ -50,9 +54,12 @@ def _find_func_node(
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef) and node.name == cls_name:
             for item in node.body:
-                if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    if item.name == method_name and not ast.get_docstring(item):
-                        return item
+                if (
+                    isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and item.name == method_name
+                    and not ast.get_docstring(item)
+                ):
+                    return item
             break
     return None
 
@@ -84,6 +91,10 @@ def apply_docstrings(
 ) -> int:
     """Apply docstrings from a (file, class, method) -> docstring mapping.
 
+    After writing each file, re-parses it with ``ast.parse`` to verify
+    syntactic validity.  If the parse fails, the original content is
+    restored and the edit is reported as an error.
+
     Returns the number of docstrings inserted.
     """
     base = src_dir or SRC_DIR
@@ -114,7 +125,8 @@ def apply_docstrings(
             continue
 
         with open(filepath) as f:
-            lines = f.read().split("\n")
+            original_content = f.read()
+        lines = original_content.split("\n")
 
         edits.sort(key=lambda x: x[0], reverse=True)
 
@@ -124,11 +136,26 @@ def apply_docstrings(
             lines.insert(insert_before, doc_line)
             total += 1
 
-        if not dry_run:
-            with open(filepath, "w") as f:
-                f.write("\n".join(lines))
+        new_content = "\n".join(lines)
 
-        print(f"  Updated {filepath} ({len(edits)} docstrings)")
+        if not dry_run:
+            try:
+                ast.parse(new_content)
+            except SyntaxError as exc:
+                print(f"  ERROR {filepath}: insert broke syntax ({exc}) — reverting")
+                total -= len(edits)
+                new_content = original_content
+            with open(filepath, "w") as f:
+                f.write(new_content)
+        else:
+            try:
+                ast.parse(new_content)
+            except SyntaxError as exc:
+                print(f"  ERROR {filepath}: insert would break syntax ({exc})")
+                total -= len(edits)
+
+        status = "would update" if dry_run else "updated"
+        print(f"  {status.capitalize()} {filepath} ({len(edits)} docstrings)")
 
     return total
 
