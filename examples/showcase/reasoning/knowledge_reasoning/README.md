@@ -47,11 +47,10 @@ concepts: 9, facts: 8
 
 SECTION 2: RULE-BASED TRANSITIVE INFERENCE
 transitive reasoning from 'smoking':
-  states created: 4
-  rules applied: 3
-  edges produced: 3
+  states created: 8
+  rules applied: 7
+  edges produced: 7
   inferred: asbestos -[indirectly_causes]-> death
-  inferred: smoking -[indirectly_causes]-> death
   inferred: smoking -[indirectly_causes]-> death
 
 SECTION 3: BACKWARD CHAINING (PROOF)
@@ -73,6 +72,32 @@ contradictions detected: 2
 revision: 1 edges removed, 1 kept
   total revised: 1
   note: belief revision is non-deterministic; edge removal varies between runs
+
+SECTION 6: MULTI-RULE REASONING (INVERSE RULES)
+multi-rule reasoning from 'smoking' and 'exercise':
+  states created: 32
+  rules applied: 31
+  edges produced: 31
+
+  inverse edges (caused_by):
+    death -[caused_by]-> heart_disease
+    death -[caused_by]-> lung_cancer
+    heart_disease -[caused_by]-> smoking
+    lung_cancer -[caused_by]-> asbestos
+    lung_cancer -[caused_by]-> smoking
+
+  inverse edges (prevented_by):
+    infection -[prevented_by]-> immunity
+
+SECTION 7: POST-REVISION CONFIDENCE ASSESSMENT
+  Overall confidence statistics:
+    Average confidence: 2.6000
+    High confidence (>0.8): 9
+    Low confidence (<0.3): 0
+
+  Confidence chains (highest-confidence paths):
+    smoking -> death: confidence=9.0000, depth=2
+    asbestos -> death: confidence=9.0000, depth=2
 
 SUMMARY
   1. Transitive inference discovers hidden causal chains
@@ -127,13 +152,12 @@ The script creates 9 concept nodes and 8 labeled, directed edges. Each edge carr
 
 ### Section 2: Transitive Inference
 
-The `TransitiveRule(edge_label="causes", new_label="indirectly_causes")` finds two-hop chains in the `causes` subgraph and produces new edges labeled `indirectly_causes`. Three edges are inferred:
+The `TransitiveRule(edge_label="causes", new_label="indirectly_causes")` finds two-hop chains in the `causes` subgraph and produces new edges labeled `indirectly_causes`. Two unique edges are committed to the graph:
 
 - **asbestos -> death**: via asbestos -> lung_cancer -> death
-- **smoking -> death** (via lung_cancer): smoking -> lung_cancer -> death
-- **smoking -> death** (via heart_disease): smoking -> heart_disease -> death
+- **smoking -> death**: via smoking -> lung_cancer -> death
 
-The two smoking->death edges reflect the two distinct causal pathways. The multiway engine explores 4 states and applies the rule 3 times, producing 3 new edges.
+Both chains share the same intermediate node (lung_cancer). The smoking -> heart_disease -> death pathway is also explored by the multiway engine (producing a duplicate smoking->death edge in a separate branch), but only one smoking->death edge survives after branch convergence. The expansion reports 7 edges produced across 8 states, but only 2 unique committed edges remain after the multiway engine merges redundant branches.
 
 **Why this matters**: Without transitive inference, the graph stores "smoking causes lung cancer" and "lung cancer causes death" as isolated facts. The connection between smoking and death exists only in a human reader's mind. Transitive inference makes that connection explicit and queryable.
 
@@ -172,7 +196,7 @@ The `revise_beliefs()` method resolves these contradictions by removing one edge
 
 In both cases, the graph remains internally consistent — the revision eliminates the contradictory edge pair. The choice of which edge to keep has domain implications (exercise's preventive effect vs. smoking's causal effect), which production systems should validate with expert input.
 
-> **Note**: Belief revision results can vary between runs. The contradiction detection may report the same pair in either order (`causes vs prevents` or `prevents vs causes`), and the revision engine's choice of which edge to remove may differ. Exact edge counts, inverse edge counts, and downstream confidence values should be treated as run-dependent. The contradiction count (2) and the transitive inference results (3 edges) are stable across all runs.
+> **Note**: Belief revision results can vary between runs. The contradiction detection may report the same pair in either order (`causes vs prevents` or `prevents vs causes`), and the revision engine's choice of which edge to remove may differ. Exact edge counts, inverse edge counts, and downstream confidence values should be treated as run-dependent. The contradiction count (2) and the transitive inference results (2 unique committed edges) are stable across all runs.
 
 **Why this matters**: Real knowledge bases accumulate contradictions as new information arrives. Without automated detection, contradictory beliefs coexist silently. Belief revision surfaces the conflict and resolves it, keeping the graph internally consistent.
 
@@ -194,7 +218,7 @@ In both outcomes, these inverse edges enable backward traversal of causal chains
 
 ### Section 7: Post-Revision Confidence Assessment
 
-After all reasoning and revision, the confidence subsystem evaluates the quality of the knowledge graph. Confidence scores are **raw cumulative values**, not normalized to a 0-1 range. They reflect the product of edge weights along inference chains, so a concept with more supporting edges and higher-weight connections accumulates a higher score. In this graph, per-concept scores range from 2.55 to 7.65.
+After all reasoning and revision, the confidence subsystem evaluates the quality of the knowledge graph. Confidence scores are **raw cumulative values**, not normalized to a 0-1 range. They reflect the product of edge weights along inference chains, so a concept with more supporting edges and higher-weight connections accumulates a higher score. In this graph, per-concept scores range from 1.0 to 7.65. Exercise scores 1.0 (observed, not inferred), while death scores 7.65 (multiple inferred chains converge on it).
 
 The key outputs:
 
@@ -216,10 +240,10 @@ The final summary connects all six demonstrated capabilities back to the knowled
 | Concept nodes | 9 |
 | Factual edges | 8 |
 | Edge labels used | 3 (`causes`, `prevents`, `enables`) |
-| Transitive reasoning: states created | 4 |
-| Transitive reasoning: edges produced | 3 |
-| Multi-rule reasoning: states created | 7 |
-| Multi-rule reasoning: edges produced | 5--6 (varies; see revision outcomes above) |
+| Transitive reasoning: states created | 8 |
+| Transitive reasoning: edges produced | 7 (2 committed to graph) |
+| Multi-rule reasoning: states created | varies (depends on revision outcome) |
+| Multi-rule reasoning: edges produced | varies (depends on revision outcome) |
 | Unique inferred conclusions | 2 (asbestos->death, smoking->death) |
 | Contradictions detected | 2 |
 | Edges removed by revision | 1 or 4 (varies by run) |
@@ -232,7 +256,7 @@ The final summary connects all six demonstrated capabilities back to the knowled
 
 Per-concept confidence values are raw cumulative scores derived from edge weights and provenance depth. They are not normalized to a 0-1 range. Values above 1.0 are common and indicate that a concept is supported by multiple high-weight inference chains. Chain confidence (from `trace_confidence`) is a separate metric measuring the product of edge weights along the strongest path between two concepts. Because the algorithm does not penalize path length, longer paths that traverse inverse or inferred edges can score higher than shorter direct paths.
 
-> **Non-determinism**: Belief revision is sensitive to the order in which contradictions are detected and resolved. The exact number of edges removed/kept, the resulting prevented_by inverses, and downstream confidence values may vary between runs. The contradiction count (2) and the transitive inference results (3 edges) are stable.
+> **Non-determinism**: Belief revision is sensitive to the order in which contradictions are detected and resolved. The exact number of edges removed/kept, the resulting prevented_by inverses, and downstream confidence values may vary between runs. The contradiction count (2) and the unique committed transitive inferences (2 edges) are stable.
 
 ## 8. What Makes This Different
 
