@@ -490,8 +490,9 @@ def main() -> None:
     print(f"  Seeds:             {len(all_labels)} nodes")
     print(f"  States explored:   {exp.states_created}")
     print(f"  Rules applied:     {exp.rules_applied}")
-    print(f"  Edges inferred:    {exp.edges_produced}")
-    print(f"  Graph:             {mem.size[0]} nodes, {mem.size[1]} edges")
+    overlay_edges = result.overlay.get("edge_count", 0) if result.overlay else 0
+    print(f"  Edges inferred:    {exp.edges_produced} raw, {overlay_edges} unique (after dedup)")
+    print(f"  Graph:             {mem.size[0]} nodes, {mem.size[1]} edges ({236} base + {mem.size[1] - 236} inferred)")
     print()
 
     print("=" * 70)
@@ -653,7 +654,7 @@ def main() -> None:
     print("=" * 70)
     stats = mem.stats()
     print(f"  Nodes:            {stats.nodes}")
-    print(f"  Edges:            {stats.edges} ({exp.edges_produced} inferred)")
+    print(f"  Edges:            {stats.edges} ({mem.size[1] - 236} unique inferred from {exp.edges_produced} raw)")
     print(f"  Active rules:     {stats.active_rules}")
     print()
     print("  Key insight: transitive rule inference discovers non-obvious")
