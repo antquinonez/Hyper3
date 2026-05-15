@@ -1,5 +1,5 @@
 """
-A walk through hyper3 with a real scenario: diagnosing a car that won't start.
+A walk through Hyper3 with a real scenario: diagnosing a car that won't start.
 Each section shows what the system is doing and why it matters.
 
 This is the primary pedagogical demo. It covers the full Hyper3 lifecycle:
@@ -15,16 +15,16 @@ This is the primary pedagogical demo. It covers the full Hyper3 lifecycle:
   10. Meta-cognitive introspection: the system evaluates its own health
   11. Persistence: saving and restoring knowledge across sessions
 
-Run with: .venv/bin/python demos/demo_walkthrough.py
+Run with: .venv/bin/python demos/walkthrough/demo_walkthrough.py
 """
 
 from hyper3 import HypergraphMemory, TransitiveRule, InverseRule, Modality
 
 print("""
-╔══════════════════════════════════════════════════════════════════════╗
-║  HYPER3 WALKTHROUGH                                                 ║
-║  Scenario: A mechanic's diagnostic assistant                       ║
-╚══════════════════════════════════════════════════════════════════════╝
+========================================================================
+  HYPER3 WALKTHROUGH
+  Scenario: A mechanic's diagnostic assistant
+========================================================================
 """)
 
 # Create the memory with evolve_interval=0 (disabled) for deterministic behavior.
@@ -121,7 +121,7 @@ print(f"Patterns found: {result['total_patterns']}")
 print(f"Rules auto-generated: {result['new_rules_added']}")
 
 for dr in mem.discovery.get_discovered_rules():
-    print(f"  → [{dr.pattern_type}] {dr.pattern}")
+    print(f"  -> [{dr.pattern_type}] {dr.pattern}")
     if dr.rule:
         print(f"    Generated rule: {dr.rule.name}")
 print()
@@ -183,7 +183,7 @@ for edge in mem.engine.graph.edges:
             if n:
                 tgt_labels.append(n.label)
         rule = edge.metadata.custom.get("rule", "unknown")
-        print(f"  {src_labels} ──[{edge.label}]──▶ {tgt_labels}  (via {rule})")
+        print(f"  {src_labels} --[{edge.label}]--> {tgt_labels}  (via {rule})")
 print()
 
 # ─── STEP 4: Belief distributions for diagnosis ─────────────────────
@@ -218,14 +218,14 @@ ent = mem.belief.correlate(
     ["starter_motor", "ignition_coil"],
     {("battery", "starter_motor"): 0.95, ("battery", "ignition_coil"): 0.9},
 )
-print(f"  battery ⟷ starter_motor (correlation=0.95)")
-print(f"  battery ⟷ ignition_coil (correlation=0.90)")
+print(f"  battery <-> starter_motor (correlation=0.95)")
+print(f"  battery <-> ignition_coil (correlation=0.90)")
 print()
 
 # sample() collapses the superposition to a single outcome using the Born rule.
 # The context dict biases the sampling: here {"battery": 3.0} strongly boosts
 # the battery outcome, modeling new evidence ("headlights are dim").
-print("New evidence arrives: 'headlights are dim' → battery is weak")
+print("New evidence arrives: 'headlights are dim' -> battery is weak")
 answer = mem.sample(qs, context={"battery": 3.0})
 collapsed_node = mem.engine.graph.get_node(answer.node_id)
 collapsed_label = collapsed_node.label if collapsed_node else answer.node_id
@@ -254,7 +254,7 @@ qs2 = mem.belief.create(
 patterns = mem.belief.interactions(qs2)
 print("Interference analysis:")
 for p in patterns:
-    kind = "CONSTRUCTIVE ▲" if p.is_constructive else "DESTRUCTIVE ▼" if p.is_destructive else "neutral"
+    kind = "CONSTRUCTIVE ^" if p.is_constructive else "DESTRUCTIVE v" if p.is_destructive else "neutral"
     node = mem.engine.graph.get_node(p.node_id)
     label = node.label if node else p.node_id
     print(f"  {label:20s} [{kind}]  constructive={p.constructive:+.3f}  destructive={p.destructive:+.3f}  net={p.net_amplitude:+.3f}")
@@ -289,7 +289,7 @@ for question, expected in questions:
     print(f"    Status: {result.anomaly_status}  |  Level: {result.reasoning_level}  |  Score: {result.boundary_score:.3f}")
     if result.boundary_warnings:
         for w in result.boundary_warnings:
-            print(f"    ⚠ {w}")
+            print(f"    ! {w}")
     if result.alternative_formulations:
         print(f"    Alternatives: {result.alternative_formulations[:2]}")
     print()
@@ -448,7 +448,7 @@ print(f"Discovery: {dh.patterns} patterns, {dh.active_rules} active rules")
 if "recommendations" in introspection:
     print("Recommendations:")
     for rec in introspection["recommendations"]:
-        print(f"  → {rec}")
+        print(f"  -> {rec}")
 
 # check_metamorphosis() looks for triggers that indicate the system should
 # restructure itself -- e.g., too many pruned nodes, stale rules, etc.
@@ -458,7 +458,7 @@ if triggers:
     for t in triggers:
         print(f"  [{t.trigger_type}] {t.description}")
 else:
-    print("System is healthy — no restructuring needed")
+    print("System is healthy -- no restructuring needed")
 print()
 
 # ─── STEP 11: Persistence ────────────────────────────────────────────
@@ -491,15 +491,15 @@ print("━" * 72)
 print("SUMMARY: What just happened")
 print("━" * 72)
 print("""
- 1. KNOWLEDGE STORAGE    → Stored car components and causal relationships as a directed graph
- 2. RULE DISCOVERY       → The system found transitive patterns in edge labels automatically
- 3. MULTIWAY REASONING   → Explored ALL causal paths simultaneously via multiway expansion
- 4. BELIEF DISTRIBUTIONS → Held multiple failure hypotheses with Born-rule probability weights
- 5. CORRELATION          → Battery failure constrained related components via correlation links
- 6. INTERFERENCE         → Evidence combined (constructive) or cancelled (destructive) via amplitude sign
- 7. BOUNDARY DETECTION   → Classified questions by answerability (low_risk / boundary / anomalous)
- 8. RULE ANALYTICS       → Tracked the system's position in its own computational space
- 9. BACKWARD CHAINING    → Proved root causes from observed symptoms via backward proof search
-10. META-COGNITION       → Evaluated system health and recommended structural improvements
-11. PERSISTENCE          → Serialized and restored the full knowledge state across sessions
+ 1. KNOWLEDGE STORAGE    -> Stored car components and causal relationships as a directed graph
+ 2. RULE DISCOVERY       -> The system found transitive patterns in edge labels automatically
+ 3. MULTIWAY REASONING   -> Explored ALL causal paths simultaneously via multiway expansion
+ 4. BELIEF DISTRIBUTIONS -> Held multiple failure hypotheses with Born-rule probability weights
+ 5. CORRELATION          -> Battery failure constrained related components via correlation links
+ 6. INTERFERENCE         -> Evidence combined (constructive) or cancelled (destructive) via amplitude sign
+ 7. BOUNDARY DETECTION   -> Classified questions by answerability (low_risk / boundary / anomalous)
+ 8. RULE ANALYTICS       -> Tracked the system's position in its own computational space
+ 9. BACKWARD CHAINING    -> Proved root causes from observed symptoms via backward proof search
+10. META-COGNITION       -> Evaluated system health and recommended structural improvements
+11. PERSISTENCE          -> Serialized and restored the full knowledge state across sessions
 """)

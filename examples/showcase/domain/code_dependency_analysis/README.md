@@ -1,6 +1,6 @@
 # Code Dependency & Blast Radius Analysis
 
-> **Modeling a 129-node monorepo as a hypergraph to find blast radii, circular dependencies, coupling hotspots, abstraction views, and dependency drift**
+> **Modeling a 129-node monorepo as a hypergraph to find blast radii, circular dependencies, coupling hotspots, abstraction views, structural impact assessment, and dependency drift**
 
 ## 1. The Approach
 
@@ -31,10 +31,11 @@ Dependency graphs are that pipe map. Centrality tells you which junction boxes m
 | **Test-coverage gap** | A module with low test coverage and many dependents — changes propagate unverified |
 | **Subgraph collapse** | Replace a group of nodes with a single summary node for zoomed-out analysis |
 | **Version snapshot** | A point-in-time record of graph state, used to detect added/removed nodes and edges |
+| **Structural impact** | Per-operation assessment of cycles, component merges, density changes, and centrality shifts |
 
 ## 4. Quick Start
 
-Run the showcase to build the monorepo graph and execute all 11 analysis sections:
+Run the showcase to build the monorepo graph and execute all 13 analysis sections:
 
 ```bash
 .venv/bin/python examples/showcase/domain/code_dependency_analysis/code_dependency_analysis.py
@@ -78,6 +79,29 @@ SECTION 11: Dependency Change Tracking
     Edges added: 4
     Edges removed: 0
     Total changes: 5
+
+======================================================================
+SECTION 12: Structural Impact of New Dependencies
+======================================================================
+  Before changes: 129 nodes, 343 edges, 3 components
+
+  Adding svc.graphql node:
+    Severity: low
+    Components: 3 -> 4
+    Density: 0.020773 -> 0.020453
+
+  Adding dependency edges:
+    svc.graphql --depends_on--> core.engine: severity=high [bridged-components, centrality-shift(2)]
+    svc.graphql --depends_on--> core.pipeline: severity=low [centrality-shift(2)]
+    svc.graphql --depends_on--> svc.auth: severity=low [centrality-shift(2)]
+    svc.graphql --imports--> util.tracing: severity=low [centrality-shift(2)]
+
+  Impact history (most recent first):
+    link: severity=low, nodes=130->130, edges=346->347
+    link: severity=low, nodes=130->130, edges=345->346
+    link: severity=low, nodes=130->130, edges=344->345
+    link: severity=high, nodes=130->130, edges=343->344
+    add: severity=low, nodes=129->130, edges=343->343
 
 ======================================================================
 SUMMARY
@@ -194,7 +218,7 @@ graph TB
 
 ## 6. The Analysis Pipeline
 
-The showcase runs 11 analysis sections that build on each other.
+The showcase runs 13 analysis sections that build on each other.
 
 ### Section 1-2: Graph Construction
 
@@ -391,6 +415,47 @@ delta = mem.diff_from_version(baseline["version_id"])
 - After adding `svc.graphql`: version_id=1, 130 nodes, 347 edges
 - Diff: 1 node added, 0 removed, 4 edges added, 0 removed — 5 total changes
 
+### Section 12: Structural Impact Assessment
+
+For each new dependency edge, assess whether it creates cycles, bridges components, shifts centrality rankings, or changes graph density:
+
+```python
+impact_engine = mem.enable_structural_impact(hub_degree_threshold=0.3)
+
+impact_engine.before_snapshot()
+mem.link("svc.graphql", "core.engine", label="depends_on")
+result = impact_engine.assess_link(src_id, tgt_id, edge_id)
+```
+
+**Why this matters:** Section 11 counts what changed (1 node, 4 edges). Section 12 measures the *structural significance* of each change. Adding `svc.graphql` as an isolated node creates a new component (severity: low). But the first edge from `svc.graphql` to `core.engine` bridges that component into the main graph and shifts centrality for 2 nodes (severity: high). The subsequent three edges are all low severity — they add connections within the already-connected graph. This distinction matters during code review: the first dependency is the critical one because it integrates the new service into the core dependency graph. The structural impact engine surfaces this automatically, without requiring the reviewer to reason about component connectivity manually.
+
+**Result:**
+- Adding `svc.graphql` node: severity=low, creates a 4th component, density drops from 0.020773 to 0.020453
+- `svc.graphql -> core.engine`: severity=**high** — bridges the new component into the main graph, centrality shifts for 2 nodes
+- `svc.graphql -> core.pipeline`: severity=low — adds a connection within the connected graph, centrality shifts for 2 nodes
+- `svc.graphql -> svc.auth`: severity=low — same pattern
+- `svc.graphql -> util.tracing`: severity=low — same pattern
+- Impact history shows the sequence: the first link (high severity) is structurally distinct from the three subsequent links (low severity)
+
+### Section 13: Automatic Abstraction Discovery
+
+Builds a small dense subgraph with two fully-connected clusters (auth and storage modules) and uses `AutoAbstractionEngine` to automatically detect and collapse them:
+
+```python
+auto_engine = AutoAbstractionEngine(graph, promote_threshold=0.5, min_cluster_size=3)
+candidates = auto_engine.assess()
+result = auto_engine.execute(candidates)
+```
+
+The engine uses community detection (label propagation) plus internal density scoring to find promotion candidates. On the dense subgraph (11 nodes, 22 edges), it detects:
+
+- A 5-node auth cluster (score=0.850, all `auth.*` prefix)
+- A 6-node cluster (score=0.510, 5 `store.*` modules + the platform service)
+
+After executing promotions, both clusters are collapsed into summary nodes, reducing the graph to a simpler abstracted view.
+
+**Why this matters:** Section 10 demonstrates *manual* abstraction where the developer specifies which modules belong to each package. Section 13 demonstrates *automatic* abstraction where the engine discovers clusters from graph structure alone. On the full 129-node monorepo graph, automatic detection struggles because services heavily depend on shared core libraries, creating cross-module coupling that prevents clean community boundaries. This is typical of mature monorepos — manual abstraction works because developers know the package layout explicitly, while automatic detection thrives on graphs where internal density significantly exceeds inter-cluster coupling.
+
 ### Summary
 
 The final section aggregates all findings:
@@ -557,6 +622,29 @@ The matrix reveals both intended patterns (services depending on core framework 
 | Edges added | 4 |
 | Total changes | 5 |
 
+### Structural Impact (Section 12)
+
+| Metric | Value |
+|--------|-------|
+| Pre-change components | 3 |
+| Post-add components | 4 (isolated node) |
+| First link severity | high (bridged components) |
+| Subsequent link severity | low (3 edges, all within connected graph) |
+| Links with centrality shifts | 4 (2 nodes each) |
+| Impact history entries | 5 (1 add + 4 links) |
+
+### Automatic Abstraction (Section 13)
+
+| Metric | Value |
+|--------|-------|
+| Dense subgraph nodes | 11 |
+| Dense subgraph edges | 22 |
+| Promotion candidates | 2 |
+| Auth cluster score | 0.850 (5 members, all `auth.*`) |
+| Store cluster score | 0.510 (6 members, 5 `store.*` + 1 `svc.*`) |
+| Promotions executed | 2 |
+| Full monorepo candidates | 0 (cross-module coupling prevents clean boundaries) |
+
 ### Final State (Summary)
 
 | Metric | Value |
@@ -593,6 +681,8 @@ The matrix reveals both intended patterns (services depending on core framework 
 **Subgraph collapse provides zoom-level analysis.** `collapse_subgraph()` replaces a set of nodes with a single summary node, re-routing external edges through it. This answers questions like "how does the core subsystem as a whole connect to services?" without seeing the 30 internal nodes. `expand_summary()` reverses the collapse, restoring individual nodes when you need detail. The collapsed graph shows `pkg_core` at centrality 0.492 — confirming core is the architectural backbone in a single number that would otherwise require aggregating 30 individual centrality scores.
 
 **Version snapshots track dependency drift.** `capture_version()` records a point-in-time snapshot of the graph. `diff_from_version()` compares the current graph against a snapshot, returning structured counts of nodes and edges added or removed. This turns "what changed since last week?" from a manual comparison into a single graph operation that returns a diff of 5 changes when one service is added.
+
+**Structural impact measures the significance of each change.** `StructuralImpactEngine` captures graph state before and after each `add()` or `link()` call, then classifies the operation by severity. Adding a node that creates a new component is low severity. Adding the first edge that bridges that component into the main graph is high severity — it merges two previously-disconnected subgraphs and shifts centrality rankings. Subsequent edges within the connected graph are low severity. This automatic classification surfaces which dependency in a PR is structurally critical, without requiring manual reasoning about component connectivity.
 
 ## 10. Code Implementation
 
@@ -704,6 +794,19 @@ print(f"Edges added: {len(delta.edges_added)}")
 print(f"Total changes: {delta.total_changes}")
 ```
 
+**9. Structural impact assessment**
+
+```python
+impact_engine = mem.enable_structural_impact(hub_degree_threshold=0.3)
+
+impact_engine.before_snapshot()
+mem.link("svc.graphql", "core.engine", label="depends_on")
+result = impact_engine.assess_link(src_id, tgt_id, edge_id)
+print(f"Severity: {result.severity}")
+print(f"Bridged components: {result.component_change.bridged}")
+print(f"Cycle created: {result.cycle_change.cycle_created}")
+```
+
 ## 11. Real-World Gap
 
 The showcase constructs a synthetic 129-module graph. Real monorepos have thousands of modules with dependency relationships that change on every commit. The gaps between this showcase and production use are:
@@ -743,7 +846,14 @@ The showcase constructs a synthetic 129-module graph. Real monorepos have thousa
 | `mem.expand_summary(label)` | Expand a summary node back to individual nodes |
 | `mem.capture_version()` | Record a point-in-time graph snapshot |
 | `mem.diff_from_version(version_id)` | Compute diff between current graph and a snapshot |
+| `mem.enable_structural_impact(...)` | Enable per-operation structural impact assessment |
+| `impact_engine.before_snapshot()` | Capture graph state before an add/link |
+| `impact_engine.assess_link(src, tgt, edge)` | Assess impact after adding an edge |
+| `impact_engine.get_history(limit)` | Retrieve recent impact assessments |
 | `top_k(scores, k)` | Return top-k items from a score dict |
+| `AutoAbstractionEngine(graph, promote_threshold, min_cluster_size)` | Auto-detect clusters for abstraction |
+| `auto_engine.assess()` | Find promotion/demotion candidates |
+| `auto_engine.execute(candidates)` | Collapse candidates into summary nodes |
 
 ### Related Examples
 

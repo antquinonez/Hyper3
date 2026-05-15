@@ -675,12 +675,12 @@ Callable directly: `mem.reason(seeds, *, depth, ...)`.
 ## Demos
 
 ```bash
-.venv/bin/python demos/demo_walkthrough.py    # Illustrated walkthrough
-.venv/bin/python demos/demo_full.py           # Full architecture demo
-.venv/bin/python demos/demo_discovery.py      # Rule discovery demo
-.venv/bin/python demos/demo_integrated.py     # Integrated subsystem demo
-.venv/bin/python demos/demo_multiway.py       # Multiway expansion demo
-.venv/bin/python demos/demo.py                # Basic demo
+.venv/bin/python demos/walkthrough/demo_walkthrough.py    # Illustrated walkthrough
+.venv/bin/python demos/full/demo_full.py                  # Full architecture demo
+.venv/bin/python demos/discovery/demo_discovery.py        # Rule discovery demo
+.venv/bin/python demos/integrated/demo_integrated.py      # Integrated subsystem demo
+.venv/bin/python demos/multiway/demo_multiway.py          # Multiway expansion demo
+.venv/bin/python demos/basics/demo.py                     # Basic demo
 ```
 
 ## Examples

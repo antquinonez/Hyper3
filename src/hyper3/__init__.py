@@ -11,6 +11,12 @@ from hyper3.adaptive_slice import (
     SliceContext,
     SliceOutcomeRecord,
 )
+from hyper3.auto_abstraction import (
+    AbstractionAction,
+    AbstractionCandidate,
+    AbstractionResult,
+    AutoAbstractionEngine,
+)
 from hyper3.backward_chain import (
     BackwardChainEngine,
     BackwardChainResult,
@@ -61,6 +67,12 @@ from hyper3.capabilities import (
     detect_capability_level,
     require_capability,
 )
+from hyper3.causal_learner import (
+    CausalHypothesis,
+    CausalLearner,
+    CausalLearningResult,
+    CoActivationRecord,
+)
 from hyper3.collapse_trigger import CollapseDecision, CollapseTriggerEngine
 from hyper3.community import (
     Community,
@@ -69,12 +81,31 @@ from hyper3.community import (
     HierarchicalCommunityResult,
 )
 from hyper3.concept_set import ConceptSet
+from hyper3.consistency import (
+    ConsistencyVerifier,
+    InvariantConfig,
+    VerificationResult,
+    Violation,
+)
 from hyper3.constraints import (
     BoundaryNavigator,
     ConstraintCheck,
     NoSelfLoopConstraint,
     ProvenanceDepthConstraint,
     WeightInflationConstraint,
+)
+from hyper3.context_compression import (
+    CompressionCandidate,
+    CompressionReport,
+    CompressionResult,
+    ContextCompressionEngine,
+)
+from hyper3.efficiency import (
+    CacheEfficiency,
+    EfficiencyReport,
+    EfficiencyTracker,
+    OperationStats,
+    OperationType,
 )
 from hyper3.embedding import (
     EmbeddingEngine,
@@ -107,6 +138,11 @@ from hyper3.entanglement import (
 from hyper3.equivalence import EquivalenceEngine
 from hyper3.event_log import EventLog
 from hyper3.evolution import EvolutionMetrics, GraphMaintenanceEngine
+from hyper3.evolution_feedback import (
+    EvolutionSignals,
+    FeedbackAwareEvolution,
+    FeedbackEvolveResult,
+)
 from hyper3.exceptions import (
     BeliefStateNotFoundError,
     CollapseError,
@@ -184,6 +220,12 @@ from hyper3.kernel import (
 )
 from hyper3.layered_graph import LayeredGraph, LayerStack
 from hyper3.memory import HypergraphMemory
+from hyper3.modality_fusion import (
+    FusionResult,
+    ModalityFusionEngine,
+    ModalityGap,
+    ModalityProfile,
+)
 from hyper3.multi_perspective import (
     AnalysisPreset,
     ConsensusResult,
@@ -214,6 +256,10 @@ from hyper3.provenance import (
     Explanation,
     ProvenanceRecord,
     ProvenanceTracker,
+)
+from hyper3.recency import (
+    RecencyStats,
+    RecencyTracker,
 )
 from hyper3.results import (
     ActivationHit,
@@ -302,6 +348,7 @@ from hyper3.rules import (
 from hyper3.rules_causal_sequence import CausalSequenceRule
 from hyper3.rules_complexity import ComplexityComparisonRule
 from hyper3.rules_discovery import DiscoveredRule, RuleDiscoveryEngine
+from hyper3.rules_inductive import InductiveGeneralizationRule
 from hyper3.rules_simultaneity import SimultaneityRule
 from hyper3.search_engine import SearchEngine
 from hyper3.search_facets import FacetedAggregation
@@ -329,6 +376,13 @@ from hyper3.structural_anomaly import (
     ExplorationAssumption,
     ExplorationReport,
     StructuralAnomalyDetector,
+)
+from hyper3.structural_impact import (
+    CentralityShift,
+    ComponentChange,
+    CycleChange,
+    ImpactResult,
+    StructuralImpactEngine,
 )
 from hyper3.structural_match import (
     PatternEdge,
@@ -364,6 +418,12 @@ from hyper3.transcendental import (
     TransferablePattern,
 )
 from hyper3.traversal import ObserverSlice, SliceConfig, TraversalEngine
+from hyper3.traversal_selector import (
+    StrategyRecommendation,
+    StrategyReport,
+    TraversalStrategy,
+    TraversalStrategySelector,
+)
 from hyper3.types_api import (
     CentralityMethod,
     CommunityMethod,

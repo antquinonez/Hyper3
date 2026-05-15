@@ -9,6 +9,7 @@
 - How to rank infrastructure nodes by betweenness centrality to surface single points of failure
 - How TransitiveRule discovers hidden A→B→C chains and InverseRule flips direction for impact analysis
 - How to simulate outage scenarios and quantify affected teams, regions, and criticality buckets
+- How to use EfficiencyTracker to measure latency of reasoning, centrality, and retrieval operations
 - How to interpret blast-radius ratios and chain-length fragility for operational hardening decisions
 
 ## 1. What this example demonstrates
@@ -97,6 +98,16 @@ Simulates infra outages and reports:
 - total impacted services
 - criticality buckets
 - affected teams and regions
+
+### Section 10: Operation efficiency report
+
+Tracks latency of key operations using `EfficiencyTracker`:
+
+- Wraps `reason()`, `betweenness_centrality`, `query_nodes`, and `activate` with `tracker.track()`
+- Reports per-operation statistics: count, avg, P50, P95, max duration
+- Shows cache hit/miss ratios and degradation detection
+
+Typical output shows reasoning as the slowest operation (single invocation, ~300-400ms for 82-node graph), while centrality and search operations complete in under 100ms.
 
 ### Expected Output
 
@@ -202,6 +213,9 @@ How to read it:
 | `mem.stats()` | Get graph statistics |
 | `mem.size` | Tuple of (node_count, edge_count) |
 | `top_k(scores, k=N)` | Get top N items from a score dict |
+| `EfficiencyTracker()` | Track operation latency and cache efficiency |
+| `tracker.track(OperationType, metadata)` | Context manager to time an operation |
+| `tracker.get_report()` | Full efficiency report with percentiles |
 
 ## 9. Related Examples
 

@@ -5,6 +5,7 @@ from typing import Any
 from hyper3.abstraction import AbstractionMapping, AbstractionNavigator, AbstractionSummary, ExpandResult
 from hyper3.belief_revision import Contradiction, ContradictionResolver, RevisionResult
 from hyper3.community import CommunityDetector, HierarchicalCommunityResult
+from hyper3.context_compression import CompressionResult, ContextCompressionEngine
 from hyper3.graph_diff import GraphDelta, GraphDiffer, GraphHistoryResult
 from hyper3.memory_base import _MemoryBase
 from hyper3.structural_match import (
@@ -272,3 +273,21 @@ class StructuralMixin(_MemoryBase):
     def differ(self) -> GraphDiffer | None:
         """Lazily initialize and return the graph differ."""
         return self._graph_differ
+
+    @property
+    def _context_compression_engine(self) -> ContextCompressionEngine:
+        """Lazily initialize and return the context compression engine."""
+        if self._context_compression is None:
+            self._context_compression = ContextCompressionEngine(self._graph)
+        return self._context_compression
+
+    def compress_context(self, *, strategy: str = "auto") -> CompressionResult:
+        """Compress redundant graph structure using equivalence merging and cluster collapse.
+
+        Args:
+            strategy: ``"merge"``, ``"collapse"``, or ``"auto"`` (default).
+
+        Returns:
+            CompressionResult with before/after statistics and details.
+        """
+        return self._context_compression_engine.compress(strategy=strategy)

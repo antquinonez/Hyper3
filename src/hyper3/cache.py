@@ -8,12 +8,19 @@ from typing import Any
 class LazyCache:
     """LRU cache with TTL expiration and optional Markov-model prefetching."""
 
-    def __init__(self, *, max_size: int = 1024, ttl: float = 300.0) -> None:
+    def __init__(
+        self,
+        *,
+        max_size: int = 1024,
+        ttl: float = 300.0,
+        context_aware: bool = False,
+    ) -> None:
         """Initialize the cache.
 
         Args:
             max_size: Maximum number of entries before eviction.
             ttl: Time-to-live in seconds for cached entries.
+            context_aware: Enable context-aware eviction and TTL boosting.
         """
         self._max_size = max_size
         self._ttl = ttl
@@ -22,10 +29,21 @@ class LazyCache:
         self._transition_counts: dict[str, dict[str, int]] = {}
         self._prefetch_enabled: bool = False
         self._max_history: int = 1000
+        self._context_aware = context_aware
+        self._context_tags: dict[str, set[str]] = {}
+        self._active_context: set[str] = set()
 
     def enable_prefetch(self, enabled: bool = True) -> None:
         """Enable or disable Markov-model prefetching."""
         self._prefetch_enabled = enabled
+
+    def set_active_context(self, tags: set[str]) -> None:
+        """Set the active context tags used for context-aware eviction.
+
+        Args:
+            tags: Set of context tag strings representing current focus.
+        """
+        self._active_context = tags
 
     def record_access(self, key: str) -> None:
         """Record an access for Markov transition tracking.
@@ -95,8 +113,12 @@ class LazyCache:
             return None
         cached_at, value = self._cache[key]
         if time.time() - cached_at > self._ttl:
-            del self._cache[key]
+            self._remove(key)
             return None
+        if self._context_aware:
+            tags = self._context_tags.get(key, set())
+            if tags & self._active_context:
+                self._cache[key] = (time.time(), value)
         self._cache.move_to_end(key)
         return value
 
@@ -107,11 +129,61 @@ class LazyCache:
             key: The cache key.
             value: The value to store.
         """
+        self.set(key, value)
+
+    def set(self, key: str, value: Any, *, context_tags: set[str] | None = None) -> None:
+        """Store a value in the cache with optional context tags.
+
+        Args:
+            key: The cache key.
+            value: The value to store.
+            context_tags: Optional set of context tag strings for context-aware eviction.
+        """
         if key in self._cache:
             self._cache.move_to_end(key)
         self._cache[key] = (time.time(), value)
-        while len(self._cache) > self._max_size:
-            self._cache.popitem(last=False)
+        if self._context_aware and context_tags:
+            self._context_tags[key] = context_tags
+        if len(self._cache) > self._max_size:
+            if self._context_aware:
+                self._evict_for_capacity()
+            else:
+                while len(self._cache) > self._max_size:
+                    self._cache.popitem(last=False)
+
+    def _remove(self, key: str) -> None:
+        self._cache.pop(key, None)
+        self._context_tags.pop(key, None)
+
+    def _evict_for_capacity(self) -> None:
+        if len(self._cache) <= self._max_size:
+            return
+
+        if not self._active_context:
+            while len(self._cache) > self._max_size:
+                self._cache.popitem(last=False)
+            return
+
+        out_of_context: list[str] = []
+        in_context: list[str] = []
+        for key in self._cache:
+            tags = self._context_tags.get(key, set())
+            if tags and not (tags & self._active_context):
+                out_of_context.append(key)
+            else:
+                in_context.append(key)
+
+        out_of_context.sort(key=lambda k: self._cache[k][0])
+        for key in out_of_context:
+            if len(self._cache) <= self._max_size:
+                break
+            self._remove(key)
+
+        in_context.sort(key=lambda k: self._cache[k][0])
+        for key in in_context:
+            if len(self._cache) <= self._max_size:
+                break
+            self._remove(key)
 
     def invalidate(self, key: str) -> bool:
         """Remove a single entry from the cache.
@@ -123,13 +195,14 @@ class LazyCache:
             ``True`` if the entry was present and removed.
         """
         if key in self._cache:
-            del self._cache[key]
+            self._remove(key)
             return True
         return False
 
     def clear(self) -> None:
         """Remove all entries from the cache."""
         self._cache.clear()
+        self._context_tags.clear()
 
     def evict_expired(self) -> int:
         """Remove all entries whose TTL has elapsed.
@@ -140,7 +213,7 @@ class LazyCache:
         now = time.time()
         expired = [k for k, (t, _) in self._cache.items() if now - t > self._ttl]
         for k in expired:
-            del self._cache[k]
+            self._remove(k)
         return len(expired)
 
     @property
