@@ -432,7 +432,8 @@ class TestPolyadicLouvain:
         )
         det = CommunityDetector(g)
         result = det.detect_louvain(seed=42)
-        assert result.community_count >= 2
+        assert result.community_count == 2
+        assert result.modularity == pytest.approx(0.3, abs=1e-3)
         all_members: set[str] = set()
         for c in result.communities:
             all_members.update(c.member_ids)
@@ -445,8 +446,8 @@ class TestPolyadicLouvain:
         _make_nary_edge(g, ["C", "D"], ["X"], weight=0.01, label="weak_bridge", ids=ids)
         det = CommunityDetector(g)
         result = det.detect_louvain(seed=42)
-        assert result.community_count >= 2
-        assert result.modularity > 0.0
+        assert result.community_count == 2
+        assert result.modularity == pytest.approx(0.4998, abs=1e-3)
 
     def test_nary_louvain_edge_label_filter(self) -> None:
         g = Hypergraph()
@@ -455,7 +456,7 @@ class TestPolyadicLouvain:
         _make_nary_edge(g, ["C", "D"], ["X"], label="ignore", ids=ids)
         det = CommunityDetector(g)
         result = det.detect_louvain(seed=42, edge_label="keep")
-        assert result.community_count >= 2
+        assert result.community_count == 3
 
 
 class TestPolyadicModularity:
@@ -618,8 +619,8 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities()
-        assert result.community_count > 0
-        assert len(result.dendrogram) > 0
+        assert result.community_count == 2
+        assert len(result.dendrogram) == 2
         assert len(result.edge_labels) == 3
 
     def test_cut_height(self):
@@ -632,7 +633,7 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities(cut_height=0.5)
-        assert result.community_count > 0
+        assert result.community_count == 3
 
     def test_n_communities(self):
         g = Hypergraph()
@@ -643,7 +644,7 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities(n_communities=2)
-        assert result.community_count >= 2
+        assert result.community_count == 2
 
     def test_empty(self):
         g = Hypergraph()

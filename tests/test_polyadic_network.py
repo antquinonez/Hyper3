@@ -290,8 +290,7 @@ class TestPolyadicDegree:
         _add_polyadic_edges(g)
         n = g.get_node_by_label("dc-01")
         assert n is not None
-        deg = g.node_degree(n.id)
-        assert deg >= 3
+        assert g.node_degree(n.id) == 3
 
     def test_degree_centrality_with_polyadic_edges(self):
         g = _make_graph()
@@ -299,16 +298,14 @@ class TestPolyadicDegree:
         dc = g.degree_centrality()
         n = g.get_node_by_label("dc-01")
         assert n is not None
-        dc01_score = dc[n.id]
-        assert dc01_score > 0.0
+        assert dc[n.id] == pytest.approx(3.0 / 11)
 
     def test_degree_distribution_includes_n_ary_participants(self):
         g = _make_graph()
         _add_polyadic_edges(g)
         dist = g.degree_distribution()
-        assert len(dist) > 0
-        total = sum(dist.values())
-        assert total == g.node_count
+        assert dist == {2: 5, 3: 5, 4: 1, 6: 1}
+        assert sum(dist.values()) == g.node_count
 
 
 class TestPolyadicConnectedComponents:
@@ -334,7 +331,7 @@ class TestPolyadicConnectedComponents:
         g = _make_graph()
         _add_polyadic_edges(g)
         s_comps = g.s_connected_components(s=2)
-        assert len(s_comps) > 0
+        assert len(s_comps) == 14
 
 
 class TestPolyadicPaths:
@@ -384,18 +381,17 @@ class TestPolyadicBetweenness:
         _add_polyadic_edges(g)
         bc = g.betweenness_centrality()
         assert len(bc) == g.node_count
-        assert all(v >= 0.0 for v in bc.values())
+        app01 = g.get_node_by_label("app-01")
+        assert app01 is not None
+        assert bc[app01.id] == pytest.approx(0.0591, abs=1e-3)
 
     def test_betweenness_chokepoint_identified(self):
         mem = _make_mem()
         _add_polyadic_mem_edges(mem)
         bc = mem.analyze.centrality("betweenness")
         assert isinstance(bc, dict)
-        assert "app-01" in bc or "web-01" in bc
-
-        app01_bw = bc.get("app-01", 0.0)
-        web01_bw = bc.get("web-01", 0.0)
-        assert float(app01_bw if isinstance(app01_bw, (int, float)) else 0.0) > 0.0 or float(web01_bw if isinstance(web01_bw, (int, float)) else 0.0) > 0.0
+        assert "app-01" in bc
+        assert float(bc["app-01"]) > 0.0
 
 
 class TestPolyadicCycles:
@@ -422,13 +418,7 @@ class TestPolyadicCycles:
         g = _make_graph()
         _add_polyadic_edges(g)
         cycles = g.detect_cycles(max_cycles=50)
-        all_labels: set[str] = set()
-        for c in cycles:
-            for nid in c:
-                node = g.get_node(nid)
-                if node:
-                    all_labels.add(node.label)
-        assert isinstance(all_labels, set)
+        assert len(cycles) == 3
 
 
 class TestPolyadicPatternMatch:
@@ -479,7 +469,7 @@ class TestPolyadicTransitiveRule:
         mem.reason(seeds=seeds, max_depth=3)
 
         indirect = mem.analyze.edges(label="trusts_indirectly")
-        assert len(indirect) >= 1, f"Expected transitive trust edges, got {len(indirect)}"
+        assert len(indirect) == 3
 
     def test_transitive_rule_chain_through_n_ary(self):
         mem = _make_mem()
@@ -505,7 +495,7 @@ class TestPolyadicTransitiveRule:
         mem.reason(seeds={"A", "B", "C", "D"}, max_depth=3)
 
         from_c_to_d = [e for e in mem.edges() if e.label == "causes"]
-        assert len(from_c_to_d) >= 2, "Original causes edges should still exist"
+        assert len(from_c_to_d) == 4
 
 
 class TestPolyadicCommunities:
@@ -516,9 +506,8 @@ class TestPolyadicCommunities:
 
         result = mem.analyze.communities(seed=42)
         assert result.community_count >= 1
-        assert result.modularity != 0.0
         total_members = sum(c.size for c in result.communities)
-        assert total_members >= mem.size[0]
+        assert total_members == mem.size[0]
 
 
 class TestPolyadicAnomalyDetection:
@@ -529,7 +518,7 @@ class TestPolyadicAnomalyDetection:
 
         result = mem.analyze.anomalies("dc-01")
         assert result.anomaly_status in ("low_risk", "boundary", "anomalous")
-        assert 0.0 <= result.boundary_score <= 1.0
+        assert result.boundary_score == pytest.approx(0.297, abs=1e-2)
 
 
 class TestPolyadicDegreeDistribution:
@@ -539,7 +528,6 @@ class TestPolyadicDegreeDistribution:
         _add_polyadic_mem_edges(mem)
 
         dist = mem.degree_distribution()
-        assert len(dist) > 0
         total = sum(dist.values())
         assert total == mem.size[0]
 
@@ -633,14 +621,13 @@ class TestPolyadicEdgeSizes:
         _add_polyadic_edges(g)
 
         sizes = g.unique_edge_sizes()
-        assert 2 in sizes, "N-ary edges with 2 sources should produce size-2 edges"
+        assert sizes == [2, 3, 4]
 
     def test_max_edge_order_with_polyadic(self):
         g = _make_graph()
         _add_polyadic_edges(g)
 
-        order = g.max_edge_order()
-        assert order >= 3, "Largest edge has 2 sources + 1 target = 3 nodes"
+        assert g.max_edge_order() == 3
 
 
 class TestPolyadicSPersistence:
@@ -650,8 +637,9 @@ class TestPolyadicSPersistence:
         _add_polyadic_edges(g)
 
         result = g.s_persistence(max_s=3)
-        assert len(result.levels) >= 1
-        assert result.levels[0].num_components >= 1
+        assert len(result.levels) == 3
+        assert result.levels[0].num_components == 1
+        assert result.levels[1].num_components == 14
 
 
 class TestPolyadicIncidenceMatrix:
@@ -663,8 +651,7 @@ class TestPolyadicIncidenceMatrix:
         mat, row_ids, col_ids = g.incidence_matrix()
         import numpy as np
         arr = np.asarray(mat.todense()) if hasattr(mat, 'todense') else np.asarray(mat)
-        assert arr.shape[0] == g.node_count
-        assert arr.shape[1] == g.edge_count
+        assert arr.shape == (12, 15)
 
         admin_zone_edge = None
         for eid, edge in g._edges.items():
@@ -672,3 +659,5 @@ class TestPolyadicIncidenceMatrix:
                 admin_zone_edge = eid
                 break
         assert admin_zone_edge is not None
+        col_idx = col_ids.index(admin_zone_edge)
+        assert np.count_nonzero(arr[:, col_idx]) == 3
