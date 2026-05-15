@@ -23,11 +23,12 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import cast
 
-from hyper3 import HypergraphMemory, InverseRule, Modality, TransitiveRule, top_k
+from hyper3 import EfficiencyTracker, HypergraphMemory, InverseRule, Modality, OperationType, TransitiveRule, top_k
 
 
 def main() -> None:
     mem = HypergraphMemory(evolve_interval=0)
+    tracker = EfficiencyTracker()
 
     print("=" * 70)
     print("SECTION 1: Building a Microservices Architecture Graph")
@@ -477,11 +478,12 @@ def main() -> None:
 
     all_labels = {n.label for n in mem.engine.graph.nodes}
 
-    result = mem.reason(
-        seeds=all_labels,
-        max_depth=4,
-        max_total_states=300,
-    )
+    with tracker.track(OperationType.REASONING, metadata={"seeds": len(all_labels), "max_depth": 4}):
+        result = mem.reason(
+            seeds=all_labels,
+            max_depth=4,
+            max_total_states=300,
+        )
 
     exp = result.expansion
     assert exp is not None
@@ -521,7 +523,8 @@ def main() -> None:
     print("SECTION 7: Single Points of Failure -- Betweenness Centrality")
     print("=" * 70)
 
-    bc = cast(dict[str, float], mem.analyze.centrality("betweenness"))
+    with tracker.track(OperationType.TRAVERSAL, metadata={"algorithm": "betweenness_centrality"}):
+        bc = cast(dict[str, float], mem.analyze.centrality("betweenness"))
     top_spof = top_k(bc, k=15)
 
     print(f"  {'Rank':<5} {'Node':<35} {'Betweenness':<12}")
@@ -609,6 +612,41 @@ def main() -> None:
             ratio = len(total) / len(direct)
             print(f"    Blast radius is {ratio:.1f}x larger than direct dependencies")
         print()
+
+    print("=" * 70)
+    print("SECTION 10: Operation Efficiency Report")
+    print("=" * 70)
+
+    with tracker.track(OperationType.SEARCH, metadata={"operation": "query_nodes"}):
+        svc_labels = list(mem.query_nodes(data={"type": "microservice"}))
+
+    with tracker.track(OperationType.ACTIVATION, metadata={"operation": "spreading_activation"}):
+        mem.activate(svc_labels[0], iterations=3)
+
+    report = tracker.get_report()
+    print(f"  Total operations tracked: {report.total_operations}")
+    print(f"  Overall avg duration:     {report.overall_avg_duration_ms:.1f}ms")
+    print(f"  Slowest operation:        {report.slowest_operation or 'n/a'}")
+    print()
+    print(f"  {'Operation':<20} {'Count':>6} {'Avg(ms)':>8} {'P50(ms)':>8} {'P95(ms)':>8} {'Max(ms)':>8}")
+    print(f"  {'---------':<20} {'-----':>6} {'-------':>8} {'-------':>8} {'-------':>8} {'-------':>8}")
+    for op_name, stats in sorted(report.operation_stats.items()):
+        print(f"  {op_name:<20} {stats.count:>6} {stats.avg_duration_ms:>8.1f} {stats.p50_duration_ms:>8.1f} {stats.p95_duration_ms:>8.1f} {stats.max_duration_ms:>8.1f}")
+    print()
+
+    cache_eff = report.cache_efficiency
+    print(f"  Cache hits:       {cache_eff.hits}")
+    print(f"  Cache misses:     {cache_eff.misses}")
+    print(f"  Cache hit ratio:  {cache_eff.hit_ratio:.2f}")
+    print()
+
+    if report.degradation_detected:
+        print("  Degradation alerts:")
+        for alert in report.degradation_details:
+            print(f"    - {alert}")
+    else:
+        print("  No performance degradation detected.")
+    print()
 
     print("=" * 70)
     print("SUMMARY")

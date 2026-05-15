@@ -95,8 +95,8 @@ Showcase examples are organized by topic into six groups:
 |-----------|------|-------|
 | `threat_intelligence/` | `knowledge_basics.py` | Threat intel KB (140 nodes), multi-modal storage, pattern matching, centrality, attack paths |
 | `threat_intel_full_chain/` | `threat_intel_full_chain.py` | Full-chain CTI (73 nodes), rule reasoning, activation triage, belief sampling, self-evolution |
-| `microservices_reasoning/` | `reasoning_walkthrough.py` | Microservice dependencies (70 nodes), TransitiveRule, InverseRule, blast radius, betweenness centrality |
-| `code_dependency_analysis/` | `code_dependency_analysis.py` | Monorepo dependencies (129 nodes), blast radius, circular deps, test coverage gaps |
+| `microservices_reasoning/` | `reasoning_walkthrough.py` | Microservice dependencies (82 nodes), TransitiveRule, InverseRule, blast radius, betweenness centrality, operation efficiency tracking |
+| `code_dependency_analysis/` | `code_dependency_analysis.py` | Monorepo dependencies (129 nodes), blast radius, circular deps, test coverage gaps, structural impact, automatic abstraction |
 | `fraud_detection/` | `fraud_detection_intelligence.py` | Fraud ring (119 nodes), circular money flows, suspect ranking, hidden connections |
 | `financial_risk_network/` | `financial_risk_network.py` | Cross-asset risk (76 nodes), community detection, graph diffing, Hebbian learning |
 | `medical_diagnosis/` | `medical_diagnosis.py` | Clinical KB (96 nodes), backward chaining, belief revision, uncertainty propagation |
