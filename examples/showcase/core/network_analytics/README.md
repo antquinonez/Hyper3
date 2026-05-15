@@ -50,7 +50,7 @@ SECTION 1: Building Enterprise Network Topology
   Total edges:       356
 
 SUMMARY:
-  Network: 129 nodes, 375 edges
+  Network: 129 nodes, 367 edges
   Components: 8, Cycles: ~15-16, Violations: 18
   Most exposed: dc-01
   Highest risk: web-04 (risk=62.4)
@@ -327,7 +327,7 @@ reason_result = mem.reason(
 )
 ```
 
-**Results:** The reasoning expansion produced **19 inferred indirect trust edges**. These edges are labeled `trusts_indirectly` to distinguish them from direct trust.
+**Results:** The reasoning expansion produced **11 inferred indirect trust edges**. These edges are labeled `trusts_indirectly` to distinguish them from direct trust.
 
 Notable inferred chains:
 
@@ -340,7 +340,7 @@ Notable inferred chains:
 | staging-server -> db-replica | staging-server trusts app-01 trusts db-replica |
 | ci-runner-01 -> staging-server | ci-runner-01 trusts dev-server trusts staging-server |
 
-**6 restricted-zone hosts** are reachable via indirect trust: `db-primary`, `db-replica`, `dc-01`, `dc-02`, `ws-exec-01`, and `ws-exec-02`.
+**5 restricted-zone hosts** are reachable via indirect trust: `db-primary`, `db-replica`, `dc-01`, `dc-02`, and `ws-exec-02`.
 
 **Why this matters:** The direct trust analysis in Section 6 shows 18 violations — workstations and servers directly trusting restricted-zone hosts. The transitive inference reveals that the blast radius is wider: `admin-jump-01` indirectly trusts both domain controllers through a two-hop chain (`admin-jump-01` -> `admin-bastion` -> `dc-01` -> `dc-02`). A compromise of `admin-jump-01` gives indirect access not just to `admin-bastion` (direct trust) but to `dc-01` and `dc-02` through the inferred chain. Without transitive inference, these multi-hop escalation paths remain invisible.
 
@@ -370,7 +370,7 @@ The most significant finding is the **zone-mixing in the largest communities**. 
 
 **Why this matters:** Zone labels on paper do not guarantee zone isolation in practice. The community detection algorithm has no knowledge of zone assignments — it clusters purely by connection density. The largest community crosses all three security zones, meaning DMZ hosts, internal app servers, and restricted databases form a single densely-connected cluster. This is a stronger signal than the connected components check in Section 4 because it accounts for connection density and reveals *how* zones are coupled, not just *whether* they are connected.
 
-The transitive inference from Section 10 shifts the density landscape: the 19 `trusts_indirectly` edges create additional cross-zone connections that can cause the workstation-to-DC cluster and the app-to-database cluster to merge or split depending on iteration order. Without inference, the communities would have higher modularity (clearer separation) because fewer cross-zone edges would exist.
+The transitive inference from Section 10 shifts the density landscape: the 11 `trusts_indirectly` edges create additional cross-zone connections that can cause the workstation-to-DC cluster and the app-to-database cluster to merge or split depending on iteration order. Without inference, the communities would have higher modularity (clearer separation) because fewer cross-zone edges would exist.
 
 A modularity of ~0.34 indicates moderate community structure — meaningful groupings exist but significant cross-zone coupling prevents clean separation. In practice, modularity values in the 0.3-0.7 range reflect genuine internal structure; below 0.3 the network is essentially uniform.
 
@@ -449,7 +449,7 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 |--------|-------|
 | Total nodes | 129 |
 | Total edges (initial) | 356 |
-| Total edges (after inference) | 375 |
+| Total edges (after inference) | 367 |
 | Hosts | 45 |
 | Network segments | 22 |
 | Security controls | 16 |
@@ -468,8 +468,8 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 | Highest composite risk | web-04 (62.4) |
 | Most vulnerable DMZ host | web-04 (3 CVEs, risk=62.4) |
 | Longest lateral path | dev-server -> db-primary (4 hops) |
-| Inferred indirect trust edges | 19 |
-| Restricted hosts reachable via indirect trust | 6 |
+| Inferred indirect trust edges | 11 |
+| Restricted hosts reachable via indirect trust | 5 |
 | Communities detected | ~10-11 (non-deterministic) |
 | Modularity | ~0.33, range 0.31–0.37 (non-deterministic) |
 | Community coverage | ~0.86, range 0.84–0.90 (non-deterministic) |
@@ -482,11 +482,11 @@ The remaining 5 hosts are classified as `low_risk`. `db-primary` and `admin-bast
 
 **Composite risk scoring** combines five independent signals into one priority metric. A vulnerability scanner produces a list of CVEs per host. A centrality algorithm produces connection scores. A trust auditor produces authorization paths. These are typically separate tools producing separate reports. The composite score in this example weights them together: vulnerability count (attack surface), degree centrality (exposure breadth), betweenness centrality (bridge importance), asset criticality (business impact), and patch deficit (maintenance gap). A host like `web-04` — moderate centrality, but 3 CVEs and low patch level — surfaces above `dc-01` despite `dc-01` having 2.4x higher degree centrality.
 
-**Transitive trust inference** discovers escalation paths that are not explicitly documented. The `TransitiveRule` finds that `admin-jump-01` indirectly trusts both domain controllers through a two-hop chain, that `dev-server` indirectly trusts `app-01` through the CI/CD pipeline, and that `staging-server` indirectly reaches `db-primary` and `db-replica`. The 19 inferred edges represent trust relationships that exist structurally but were never explicitly configured. Traditional trust auditing examines direct relationships only — the transitive chains remain invisible without graph-based inference.
+**Transitive trust inference** discovers escalation paths that are not explicitly documented. The `TransitiveRule` finds that `admin-jump-01` indirectly trusts both domain controllers through a two-hop chain, that `dev-server` indirectly trusts `app-01` through the CI/CD pipeline, and that `staging-server` indirectly reaches `db-primary` and `db-replica`. The 11 inferred edges represent trust relationships that exist structurally but were never explicitly configured. Traditional trust auditing examines direct relationships only — the transitive chains remain invisible without graph-based inference.
 
 **Cross-zone violation detection** goes beyond simple firewall rule analysis. It traces trust and routing edges through the graph to find paths that violate zone boundaries. 18 violations were found, all trust relationships from internal workstations to restricted domain controllers — expected in Active Directory, but now quantified and visible in a single report.
 
-**Community detection** identifies natural network segments based on connection density rather than administrative labels. The results are non-deterministic even with a fixed seed — community count, modularity, and zone composition fluctuate across runs. Regardless of the specific partition, the consistent finding is that the largest community spans all three security zones (DMZ, internal, restricted), confirming that the network's actual topology contradicts its intended zone architecture. The transitive inference from Section 10 adds 19 `trusts_indirectly` edges before community detection, shifting the density landscape and causing the app/database and workstation/DC clusters to merge or split depending on iteration order.
+**Community detection** identifies natural network segments based on connection density rather than administrative labels. The results are non-deterministic even with a fixed seed — community count, modularity, and zone composition fluctuate across runs. Regardless of the specific partition, the consistent finding is that the largest community spans all three security zones (DMZ, internal, restricted), confirming that the network's actual topology contradicts its intended zone architecture. The transitive inference from Section 10 adds 11 `trusts_indirectly` edges before community detection, shifting the density landscape and causing the app/database and workstation/DC clusters to merge or split depending on iteration order.
 
 **Structural anomaly detection** flags hosts whose connectivity patterns deviate from the norm. `dc-01` was identified as anomalous (score 0.389) due to its cyclic dependency with `dc-02`. This surface uses graph structure (cycles, centrality outliers, label contradictions) rather than vulnerability data, providing a complementary risk signal to the composite scoring.
 

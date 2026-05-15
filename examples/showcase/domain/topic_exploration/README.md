@@ -34,9 +34,9 @@ The key insight is that ConceptSet pipelines let you compose graph operations as
 Current run output:
 
 - initial graph: 77 nodes, 116 edges
-- final graph after inference: 77 nodes, 149 edges
+- final graph after inference: 77 nodes, 126 edges
 - direct `causes` edges: 37
-- inferred `indirectly_causes` edges: 33
+- inferred `indirectly_causes` edges: 10
 - connected components: 1
 
 Domain counts:
@@ -123,16 +123,17 @@ A typical ConceptSet pipeline (Section 3 of the script) produces output like thi
 
 ```
   Seed: ['global_warming']
-  Direct consequences (13):
-    greenhouse_effect [radiative]
+  Direct consequences (18):
+    ice_albedo_feedback [feedback]
     sea_level_rise [oceanic]
-    ocean_acidification [oceanic]
+    permafrost_thaw [cryospheric]
     glacier_retreat [cryospheric]
     ...
-  Second-order consequences (22):
+  Second-order consequences (18):
+    arctic_amplification [regional]
     coastal_flooding
     freshwater_contamination
-    coral_bleaching
+    methane_emissions
     ...
 ```
 

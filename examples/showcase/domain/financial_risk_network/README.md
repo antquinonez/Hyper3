@@ -54,8 +54,8 @@ SECTION 2: Community Detection - Risk Clusters
 ======================================================================
   Communities found: 16
   Modularity: ~0.52
-  Coverage: ~74%
-  Largest community: ~18 nodes
+  Coverage: ~79%
+  Largest community: ~21 nodes
 
 ======================================================================
 SECTION 3: Graph Diffing - Tracking Risk Evolution
@@ -184,7 +184,7 @@ graph TD
     GS --"holds"--> VIX
     GS --"holds"--> CDX
     JPM --"holds"--> UST10
-    JPM --"holds"--> SP
+    JPM --"holds"--> CDX
     BLK --"holds"--> SP
     BLK --"holds"--> UST10
     CIT --"holds"--> VIX
@@ -244,7 +244,7 @@ result = mem.analyze.communities(method="weighted_label_propagation", seed=42)
 
 **Why this matters:** Risk reports group exposures by asset class (bonds, equities, FX). But real risk clusters cross asset-class boundaries. Community detection discovers that Deutsche Bank, HSBC, BNP Paribas, Bridgewater, their shared instruments, connected risk factors, and regulators form a single cluster — a cross-regional banking ecosystem whose risk profile emerges from the interaction of credit, market, and regulatory dimensions. Without community detection, this cluster is invisible in reports that list positions by instrument type.
 
-**Result:** 16 communities found with modularity ~0.52 and coverage ~74%. The two largest communities each contain around 18 nodes: a US-heavy cluster with 7 counterparties and their connected instruments, risk factors, and regulators, and an EU-heavy cluster with 4 counterparties spanning cross-border instruments and macro/credit factors. The two largest communities span multiple entity types, confirming that real risk clusters cross traditional silo boundaries — a US-centric banking cluster and a cross-border European cluster each contain counterparties, instruments, risk factors, and regulators. Smaller communities include Citadel with volatility/tail-risk exposure, Nomura/Mizuho with Japan-linked assets, and a Barclays UK gilt/EUR-GBP cluster.
+**Result:** 16 communities found with modularity ~0.52 and coverage ~79%. The largest community contains around 21 nodes and the second largest around 18 nodes: the largest is a US-heavy cluster with 8 counterparties and their connected instruments, risk factors, and regulators, and the second largest is an EU-heavy cluster with 4 counterparties spanning cross-border instruments and macro/credit factors. The two largest communities span multiple entity types, confirming that real risk clusters cross traditional silo boundaries — a US-centric banking cluster and a cross-border European cluster each contain counterparties, instruments, risk factors, and regulators. Smaller communities include Citadel with volatility/tail-risk exposure, Nomura/Mizuho with Japan-linked assets, and a Barclays UK gilt/EUR-GBP cluster.
 
 > **Note:** Community detection uses weighted label propagation, which is non-deterministic. Exact community counts and compositions vary between runs. The values below are representative of a typical run.
 
@@ -280,9 +280,9 @@ summary = mem.collapse_subgraph(us_banks, summary_label="us_banking_sector",
                                  summary_data={"type": "sector_summary", "region": "US"})
 ```
 
-**Why this matters:** A portfolio manager overseeing US banking exposure does not need to see 5 individual bank nodes. Collapsing them into `us_banking_sector` reduces visual and computational complexity while preserving the 12 external connections to instruments, risk factors, and regulators. Community detection on the abstracted graph finds 21 communities (versus 16 at full granularity) because the collapsed sector node changes the connectivity pattern. Expanding back restores the original community structure. This round-trip validates that abstraction is lossless for the external connections that matter.
+**Why this matters:** A portfolio manager overseeing US banking exposure does not need to see 5 individual bank nodes. Collapsing them into `us_banking_sector` reduces visual and computational complexity while preserving the 12 external connections to instruments, risk factors, and regulators. Community detection on the abstracted graph finds 22 communities (versus 16 at full granularity) because the collapsed sector node changes the connectivity pattern. Expanding back restores the original community structure. This round-trip validates that abstraction is lossless for the external connections that matter.
 
-**Result:** 5 US banks collapsed into 1 summary node. 0 internal edges collapsed (the banks share no direct edges with each other). 12 external connections preserved. Community detection on the abstracted graph produces 21 communities; after expansion, the structure in this run returns with 15 communities.
+**Result:** 5 US banks collapsed into 1 summary node. 0 internal edges collapsed (the banks share no direct edges with each other). 12 external connections preserved. Community detection on the abstracted graph produces 22 communities; after expansion, the structure in this run returns with 15 communities.
 
 ### Section 5: Hebbian Learning — Risk Correlation Strengthening
 
@@ -323,7 +323,7 @@ A second distribution over risk factors shows that interest rate risk dominates 
 
 Why not just pick the highest-probability outcome? In an investigation with multiple suspects, fixating on a single lead can cause tunnel vision. Born-rule sampling produces stochastic draws that reflect the full distribution — over many draws, higher-probability suspects are drawn more often, but lower-probability suspects still receive investigative attention. This is analogous to an investigator pursuing multiple leads in parallel, weighted by their likelihood.
 
-**Result:** Default risk distribution with 4 outcomes. Credit Suisse P(default)=0.625, Deutsche Bank 0.298, Goldman Sachs 0.055, JP Morgan 0.022. Over 10 stochastic draws, the dominant sampled name can vary because sampling is probabilistic; frequencies should converge with larger draw counts. Risk factor distribution assigns interest_rate_risk P(dominant)=0.590, credit_spread_risk 0.264, fx_risk 0.106, liquidity_risk 0.038.
+**Result:** Default risk distribution with 4 outcomes. Credit Suisse P(default)=0.625, Deutsche Bank 0.298, Goldman Sachs 0.055, JP Morgan 0.022. Over 10 stochastic draws, the dominant sampled name can vary because sampling is probabilistic; frequencies should converge with larger draw counts. Risk factor distribution assigns interest_rate_risk P(dominant)=0.590, credit_spread_risk 0.264, fx_risk 0.106, liquidity_risk 0.039.
 
 ### Section 7: Multi-Frame Risk Analysis
 
@@ -337,11 +337,11 @@ for frame_name, analysis in frames.items():
 optimal_name, optimal_analysis = mem.select_optimal_frame("credit_suisse")
 ```
 
-**Why this matters:** Different analytical lenses reveal different aspects of a counterparty's risk profile. A classical frame sees Credit Suisse as a node in a graph and attempts exhaustive traversal (complexity ~0.79) — comprehensive but susceptible to state explosion. A quantum frame treats the counterparty's multiple risk exposures as a superposition (complexity 1.000) — good at parallel hypothesis exploration but non-deterministic. A hypergraph frame exploits the multi-arity of the edges (Credit Suisse connects to CDS indices, has a prime broker relationship to Archegos, and is regulated by ESMA) to do dimension-aware traversal at lower cost (complexity 0.718). A probabilistic frame uses importance sampling weighted by edge importance (complexity 0.876) — uncertainty-aware but with incomplete coverage.
+**Why this matters:** Different analytical lenses reveal different aspects of a counterparty's risk profile. A classical frame sees Credit Suisse as a node in a graph and attempts exhaustive traversal (complexity ~0.80) — comprehensive but susceptible to state explosion. A quantum frame treats the counterparty's multiple risk exposures as a superposition (complexity 1.000) — good at parallel hypothesis exploration but non-deterministic. A hypergraph frame exploits the multi-arity of the edges (Credit Suisse connects to CDS indices, has a prime broker relationship to Archegos, and is regulated by ESMA) to do dimension-aware traversal at lower cost (complexity 0.718). A probabilistic frame uses importance sampling weighted by edge importance (complexity 0.876) — uncertainty-aware but with incomplete coverage.
 
 The system selects the hypergraph frame as optimal because Credit Suisse's risk profile is best understood through its multi-dimensional connectivity: the CDS index exposures, the prime broker contagion channel, and the regulatory jurisdiction all interact, and the hypergraph frame is designed to traverse these dimensions together. Without multi-frame analysis, an analyst would pick one approach and miss insights available through other lenses.
 
-**Result:** 4 frames evaluated. Classical complexity is ~0.79, quantum 1.000, hypergraph 0.718, probabilistic 0.876. The hypergraph frame is selected as optimal with the lowest complexity score.
+**Result:** 4 frames evaluated. Classical complexity is ~0.80, quantum 1.000, hypergraph 0.718, probabilistic 0.876. The hypergraph frame is selected as optimal with the lowest complexity score.
 
 ## 7. Understanding Output
 
@@ -350,7 +350,7 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 | Metric | Range | Meaning |
 |--------|-------|---------|
 | Modularity | 0.0-1.0 | How well communities are separated; ~0.52 indicates moderate-to-strong structure |
-| Coverage | 0%-100% | Fraction of nodes assigned to a community; ~74% means ~26% of nodes are unassigned |
+| Coverage | 0%-100% | Fraction of nodes assigned to a community; ~79% means ~21% of nodes are unassigned |
 | Internal edges | — | Edges within the community; higher values indicate denser internal connectivity |
 | External edges | — | Edges crossing community boundaries; higher values indicate inter-community exposure |
 
@@ -405,15 +405,15 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 | Regulators | 10 |
 | Communities detected | 16 |
 | Modularity | ~0.52 |
-| Coverage | ~74% |
-| Largest community | ~18 nodes |
+| Coverage | ~79% |
+| Largest community | ~21 nodes |
 | Second largest community | ~18 nodes (run-dependent) |
 | Graph diff — nodes added | 1 |
 | Graph diff — edges added | 5 |
 | Graph diff — total changes | 6 |
 | US banks collapsed | 5 |
 | External connections preserved | 12 |
-| Communities after abstraction | 21 |
+| Communities after abstraction | 22 |
 | Communities after expansion | 15 |
 | Hebbian — edges strengthened | 2 |
 | Hebbian — edges weakened | 21 |
@@ -427,8 +427,8 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 | Risk factor — interest_rate_risk | P(dominant) = 0.590 |
 | Risk factor — credit_spread_risk | P(dominant) = 0.264 |
 | Risk factor — fx_risk | P(dominant) = 0.106 |
-| Risk factor — liquidity_risk | P(dominant) = 0.038 |
-| Multi-frame — classical complexity | ~0.79 |
+| Risk factor — liquidity_risk | P(dominant) = 0.039 |
+| Multi-frame — classical complexity | ~0.80 |
 | Multi-frame — quantum complexity | 1.000 |
 | Multi-frame — hypergraph complexity | 0.718 |
 | Multi-frame — probabilistic complexity | 0.876 |
@@ -436,7 +436,7 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 
 ## 9. What Makes This Different
 
-**Community detection on a multi-entity risk graph** reveals clusters that cross traditional risk silos. The two largest communities each contain around 18 nodes and mix counterparties, instruments, risk factors, and regulators because community detection operates on actual connectivity, not predetermined asset-class buckets. A report that groups positions by instrument type would place German Bunds in "fixed income" and EUR/USD FX in "currencies" — but they share counterparty exposure channels that community detection captures.
+**Community detection on a multi-entity risk graph** reveals clusters that cross traditional risk silos. The largest community contains around 21 nodes and mixes counterparties, instruments, risk factors, and regulators because community detection operates on actual connectivity, not predetermined asset-class buckets. A report that groups positions by instrument type would place German Bunds in "fixed income" and EUR/USD FX in "currencies" — but they share counterparty exposure channels that community detection captures.
 
 **Graph diffing tracks structural evolution** rather than just price changes. Adding Archegos Capital introduces 6 changes to a 109-edge network. The diff identifies each change individually: which new positions were created, which prime broker relationship was exposed, which regulator gained a new entity. Without diffing, the only signal is that the network grew — the structural implications of the new exposure are invisible.
 
@@ -446,7 +446,7 @@ The system selects the hypergraph frame as optimal because Credit Suisse's risk 
 
 **Belief distributions represent default uncertainty probabilistically.** Rather than assigning a single default probability to each counterparty, the distribution encodes relative likelihoods as amplitudes. The Born rule converts amplitudes to calibrated probabilities: Credit Suisse at ~0.625 (highest risk, BBB rating, Archegos exposure), JP Morgan at ~0.022 (lowest risk, A+ rating, diversified). Stochastic sampling from the distribution produces outcomes consistent with these probabilities. Without this approach, a risk manager would rely on discrete rating categories with no mechanism to express that Credit Suisse is more than five times more likely to default than JP Morgan.
 
-**Multi-frame analysis selects the right lens for each counterparty.** Credit Suisse's risk profile is multi-dimensional (CDS exposure, prime broker relationship, regulatory jurisdiction). The hypergraph frame, which exploits multi-arity edges to do dimension-aware traversal, achieves the lowest complexity (0.718) — lower than classical exhaustive analysis (~0.79) or probabilistic sampling (0.876). Without multi-frame analysis, the analyst would use a single method and accept its limitations (state explosion for classical, non-determinism for quantum, incomplete coverage for probabilistic) regardless of whether those limitations are appropriate for the counterparty being analyzed.
+**Multi-frame analysis selects the right lens for each counterparty.** Credit Suisse's risk profile is multi-dimensional (CDS exposure, prime broker relationship, regulatory jurisdiction). The hypergraph frame, which exploits multi-arity edges to do dimension-aware traversal, achieves the lowest complexity (0.718) — lower than classical exhaustive analysis (~0.80) or probabilistic sampling (0.876). Without multi-frame analysis, the analyst would use a single method and accept its limitations (state explosion for classical, non-determinism for quantum, incomplete coverage for probabilistic) regardless of whether those limitations are appropriate for the counterparty being analyzed.
 
 ## 10. Code Implementation
 

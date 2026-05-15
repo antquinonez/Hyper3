@@ -62,18 +62,18 @@ SECTION 2: Alert Triage and Activation
 SECTION 7: Probabilistic Fraud Scoring
 ======================================================================
   Belief state over 5 suspects:
-    viktor_kingpin            probability~0.258
-    irina_accountant          probability~0.247
-    katya_recruiter           probability~0.190
+    viktor_kingpin            probability~0.271
+    irina_accountant          probability~0.255
+    katya_recruiter           probability~0.185
     ...
 
 ======================================================================
 SECTION 10: Investigation Summary
 ======================================================================
-  Graph: 119 nodes, 287 edges
-  Cycles detected: 17
+  Graph: 119 nodes, 248 edges
+  Cycles detected: 16  (run-dependent: 14-16)
    Funnel accounts: 8
-   Indirect transfers inferred: 50
+   Indirect transfers inferred: 11
    ```
 
 Note: Cycle counts, betweenness rankings, and Born-rule sampling draws are run-dependent. The values below are representative.
@@ -124,13 +124,15 @@ graph TD
     VK --"owns"--> ZH
     VK --"owns"--> GT
     VK --"owns"--> PV
+    VK --"owns"--> VB2["acct_viktor_business<br/>(business)"]
     LL --"owns"--> NS
     KR --"owns"--> AC
 
     ZH --"transferred_to"--> AC
     AC --"transferred_to"--> NS
     NS --"transferred_to"--> MI
-    MI --"transferred_to"--> GT
+    MI --"transferred_to"--> VB2
+    VB2 --"transferred_to"--> GT
     GT --"transferred_to"--> PV
     PV --"transferred_to"--> ZH
 
@@ -195,7 +197,7 @@ activated = mem.activate("alert_circular_001", energy=1.0, top_k=15)
 
 **Result:** `acct_zenith_holdings` activates at 1.000 (directly flagged), followed by `acct_global_trading` at 0.941. Two hops out, `viktor_kingpin` appears at 0.736 and `ip_vpn_moscow` at 0.500. The activation surface reveals the ring's core in a single query.
 
-Retrieval from `acct_zenith_holdings` surfaces connected entities including `acct_pacific_ventures`, `acct_meridian_invest`, `acct_global_trading`, `ent_global_trading_ltd`, `addr_downtown_4b`, `device_laptop_pavel`, `katya_recruiter`, and `lena_lieutenant`.
+Retrieval from `acct_zenith_holdings` surfaces connected entities including `acct_global_trading`, `acct_pacific_ventures`, `acct_alpha_consulting`, `acct_viktor_business`, `acct_meridian_invest`, `ent_zenith_holdings_llc`, `acct_dmitri_invest`, and `acct_nordic_services`.
 
 ### Section 3: Reasoning and Hidden Connection Discovery
 
@@ -217,7 +219,7 @@ reason_result = mem.reason(
 
 **Why this matters:** Money laundering hides connections through intermediaries. If A transfers to B, and B transfers to C, the relationship between A and C exists in the transaction log but is invisible without chain traversal. Transitive rules surface these multi-hop chains automatically.
 
-**Result:** 51 states created, 50 rules applied, max depth 2. The transitive rule discovers 50 indirect transfer chains, including `acct_nexus_corporate -> acct_zenith_holdings`, `acct_alpha_consulting -> acct_meridian_invest`, and `acct_victim_martinez -> acct_lena_personal`. These chains reveal money paths that span multiple intermediary accounts. No indirect associations were discovered, indicating the `associated_with` graph does not contain multi-hop chains with matching labels.
+**Result:** 51 states created, 50 rules applied, max depth 2. The transitive rule discovers 11 indirect transfer chains, including `acct_viktor_business -> acct_zenith_holdings`, `acct_viktor_business -> acct_alpha_consulting`, and `acct_meridian_invest -> acct_olga_savings`. These chains reveal money paths that span multiple intermediary accounts. No indirect associations were discovered, indicating the `associated_with` graph does not contain multi-hop chains with matching labels.
 
 ### Section 4: Pattern Detection
 
@@ -229,7 +231,7 @@ cycles = mem.detect_cycles(max_cycles=10)
 
 **Why this matters:** Circular flows are a hallmark of layering in money laundering. Money cycles through a chain of accounts and returns to (or near) its source, creating the appearance of legitimate business transactions. Without cycle detection, an analyst examining individual transfers sees only legitimate-looking movements.
 
-**Result:** Cycle discovery is run-dependent and now configured with a higher cap; recent runs surface roughly 17-22 circular money flows. A short 3-node loop appears around shell-account transfers, while longer loops span the broader shell-company path through `acct_zenith_holdings`, `acct_alpha_consulting`, `acct_nordic_services`, and mule-linked accounts. The specific cycles found depend on the order in which the cycle detection algorithm explores the graph. The count is stable within a narrow range across runs.
+**Result:** Cycle discovery is run-dependent; recent runs surface 14-16 circular money flows. A short 3-node loop connects shell-account transfers around `acct_viktor_business`, `acct_global_trading`, and `acct_zenith_holdings`. Longer loops span the broader shell-company path through `acct_zenith_holdings`, `acct_alpha_consulting`, `acct_nordic_services`, `acct_meridian_invest`, and mule-linked accounts. The specific cycles found depend on the order in which the cycle detection algorithm explores the graph. The count is stable within a narrow range across runs.
 
 ### Section 5: Funnel Account Identification
 
@@ -322,7 +324,7 @@ for concept in anomaly_targets:
 
 **Why this matters:** Accounts involved in circular money flows have a distinctive structural signature: they sit on cycles and receive edges with contradictory labels (both sending and receiving money through the same networks). Anomaly detection surfaces these structural red flags automatically. Without it, an analyst would need to trace each account's position in every detected cycle -- a manual process that becomes impractical as the number of cycles grows.
 
-**Result:** Two accounts are flagged as `anomalous`: `acct_zenith_holdings` (boundary score around 0.41) and `acct_global_trading` (around 0.38). Both show cyclic dependency structures and contradictory edge labels. The remaining targets are classified as `low_risk` with much lower boundary scores. Person nodes tend to have lower boundary scores because their edge patterns are structurally normal (ownership, address sharing, social links), while the anomalous accounts sit inside contradictory money-flow cycles.
+**Result:** Two accounts are flagged as `anomalous`: `acct_zenith_holdings` (boundary score around 0.40) and `acct_global_trading` (around 0.38). Both show cyclic dependency structures and contradictory edge labels. The remaining targets are classified as `low_risk` with much lower boundary scores. Person nodes tend to have lower boundary scores because their edge patterns are structurally normal (ownership, address sharing, social links), while the anomalous accounts sit inside contradictory money-flow cycles.
 
 ### Section 9: Evidence Chain Provenance
 
@@ -358,9 +360,9 @@ print(f"Graph: {stats.nodes} nodes, {stats.edges} edges")
 print(f"Connected components: {stats.components}")
 ```
 
-**Result:** 119 nodes, 287 edges (50 edges added by reasoning), 14 connected components, run-dependent cycle count (~17-22 observed), 8 funnel accounts, 50 indirect transfer chains inferred, 0 indirect associations inferred.
+**Result:** 119 nodes, 248 edges (11 edges added by reasoning), 14 connected components, run-dependent cycle count (14-16 observed), 8 funnel accounts, 11 indirect transfer chains inferred, 0 indirect associations inferred.
 
-The largest suspicious subgraph (91 nodes, 261 edges) captures the core fraud ring. Recommended next steps include filing SARs for structuring, freezing key accounts, subpoenaing shell company records, and coordinating cross-border requests.
+The largest suspicious subgraph (91 nodes, 222 edges) captures the core fraud ring. Recommended next steps include filing SARs for structuring, freezing key accounts, subpoenaing shell company records, and coordinating cross-border requests.
 
 ## 7. Understanding the Output
 
@@ -423,7 +425,7 @@ Note: Betweenness values are small because the graph is dense with many short al
 |--------|-------|
 | Graph nodes | 119 |
 | Graph edges (initial) | 237 |
-| Graph edges (after reasoning) | 287 |
+| Graph edges (after reasoning) | 248 |
 | Persons | 28 |
 | Accounts | 22 |
 | Transactions | 18 |
@@ -432,11 +434,11 @@ Note: Betweenness values are small because the graph is dense with many short al
 | IP/Device traces | 12 |
 | Alerts | 11 |
 | Connected components | 14 |
-| Circular money flows | run-dependent (~17-22 observed) |
+| Circular money flows | 14-16 (run-dependent) |
 | Funnel accounts | 8 |
 | Suspicious clusters (>= 3 flagged nodes) | 1 |
 | Largest suspicious cluster | 91 nodes, 32 flagged |
-| Indirect transfers inferred | 50 |
+| Indirect transfers inferred | 11 |
 | Indirect associations inferred | 0 |
 | Reasoning states created | 51 |
 | Reasoning rules applied | 50 |
@@ -444,20 +446,20 @@ Note: Betweenness values are small because the graph is dense with many short al
 | Top activation from alert_circular_001 | acct_zenith_holdings (1.000) |
 | Highest betweenness suspect | run-dependent (katya_recruiter or natasha_mule4 typically lead, ~0.003) |
 | Highest risk suspect | viktor_kingpin (0.95) |
-| Largest suspicious subgraph | 91 nodes, 261 edges |
+| Largest suspicious subgraph | 91 nodes, 222 edges |
 | Belief distribution suspects | 5 |
-| Highest belief probability | viktor_kingpin (~0.257) |
+| Highest belief probability | viktor_kingpin (~0.271) |
 | Anomalous accounts | 2 (acct_zenith_holdings, acct_global_trading) |
-| Highest anomaly boundary score | acct_zenith_holdings (~0.41) |
+| Highest anomaly boundary score | acct_zenith_holdings (~0.40) |
 | Provenance targets | 3 (all achievable in current run) |
 
 ## 9. What Makes This Different
 
 **Activation-based triage** replaces manual alert-to-entity correlation. Instead of examining each alert and separately looking up its connected accounts, persons, and devices, spreading activation surfaces the entire relevant subgraph from a single starting point.
 
-**Transitive reasoning** discovers multi-hop transfer chains that are invisible in raw transaction logs. The 50 indirect transfer chains inferred by the `TransitiveRule` represent money paths that span intermediary accounts. Without rule-based inference, an analyst would need to manually trace each chain by examining individual transactions.
+**Transitive reasoning** discovers multi-hop transfer chains that are invisible in raw transaction logs. The 11 indirect transfer chains inferred by the `TransitiveRule` represent money paths that span intermediary accounts. Without rule-based inference, an analyst would need to manually trace each chain by examining individual transactions.
 
-**Cycle detection** identifies circular money flows automatically. The 17 detected cycles include short loops and longer shell-company circuits that traverse multiple intermediary accounts before returning to origin. Finding these manually requires tracing each account's transaction graph and checking for returns to the source.
+**Cycle detection** identifies circular money flows automatically. The 14-16 detected cycles (run-dependent) include short loops and longer shell-company circuits that traverse multiple intermediary accounts before returning to origin. Finding these manually requires tracing each account's transaction graph and checking for returns to the source.
 
 **Betweenness-based ranking** reveals organizational structure. The ringleader (`viktor_kingpin`) has the highest risk score (0.95) but zero betweenness because they operate through intermediaries. A mule/recruiter bridge node often has the highest betweenness because it links leadership and operational transfer tiers. Degree centrality alone would miss this distinction.
 

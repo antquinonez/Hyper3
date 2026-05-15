@@ -36,8 +36,8 @@ SECTION 1: BUILD SUPPLY CHAIN KNOWLEDGE GRAPH
 nodes: 15, edges: 12
 
 SECTION 2: RUN REASONING TO CREATE INFERENCE CHAINS
-edges produced: 3
-states created: 4
+edges produced: 15
+states created: 16
   inferred: widget_beta -[indirect_dependency]-> supplier_hooli
   inferred: widget_alpha -[indirect_dependency]-> supplier_globex
   inferred: widget_alpha -[indirect_dependency]-> widget_gamma
@@ -117,7 +117,7 @@ Solid arrows: observed `depends_on`, `affects`, and `causes` edges (12 total). D
 | Observed edges | 12 |
 | Inferred edges (from reasoning) | 3 |
 | Total edges (after reasoning) | 15 |
-| Multiway states created | 4 |
+| Multiway states created | 16 |
 | Avg confidence | 1.4233 |
 | Min confidence | 1.0000 |
 | Max confidence | 4.2500 |

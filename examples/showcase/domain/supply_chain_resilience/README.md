@@ -50,9 +50,9 @@ Edge groups:
 
 After reasoning (current script):
 
-- about 342 total edges
-- `cascade_affected_by`: about 24
-- `indirectly_supplies`: about 50
+- 288 total edges
+- `cascade_affected_by`: 10
+- `indirectly_supplies`: 10
 
 ## 4. Walkthrough
 
@@ -109,13 +109,19 @@ Ranks highest-priority diversification candidates by combined score:
   Diversification priorities (top 5):
     1. sup_t3_russia_palladium
        country=Russia  material=palladium  reliability=0.65
-       lead_time=70d  risk_exposure=0.00  has_backup=NO
-    2. sup_t2_congo_cobalt
+       lead_time=70d  risk_exposure=0.80  has_backup=NO
+    2. sup_t3_drc_cobalt
+       country=DRC  material=cobalt_ore  reliability=0.68
+       lead_time=65d  risk_exposure=0.95  has_backup=NO
+    3. sup_t2_congo_cobalt
        country=DRC  material=cobalt  reliability=0.72
        lead_time=50d  risk_exposure=1.75  has_backup=NO
-    3. sup_t2_kazakhstan_uranium
+    4. sup_t2_kazakhstan_uranium
        country=Kazakhstan  material=uranium  reliability=0.78
        lead_time=55d  risk_exposure=0.80  has_backup=NO
+    5. sup_t1_china_rare_earth
+       country=China  material=rare_earth  reliability=0.85
+       lead_time=35d  risk_exposure=0.85  has_backup=NO
 ```
 
 ## 5. Mermaid (representative)
