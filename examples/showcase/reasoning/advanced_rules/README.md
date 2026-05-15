@@ -46,7 +46,7 @@ SUMMARY
   Causal links:       8 co-occurrence patterns
   Abstractions:       22 similar-service pairs
   Analogies:          ~5-10 structural (A:B::C:D)  [varies by run]
-  Final graph:        130 nodes, 284 edges
+  Final graph:        130 nodes, 245 edges
 ```
 
 ## 5. The Scenario
@@ -148,8 +148,10 @@ The most-reached transitive targets:
 | `svc-pricing` | 7 |
 | `svc-review` | 5 |
 | `svc-notification` | 3 |
-| `svc-payment` | 3 |
 | `svc-shipping` | 3 |
+| `svc-payment` | 3 |
+| `ext-twilio` | 3 |
+| `svc-push` | 3 |
 
 `svc-inventory` is the most transitively-depended-upon service — 9 chains reach it through intermediate services. This makes it a high-priority candidate for redundancy and monitoring investment, even though its direct dependency count is modest.
 
@@ -212,14 +214,14 @@ All rules are registered and `reason()` is called with 7 seed concepts (chosen t
 | States created | 51 |
 | Rules applied | 50 |
 | Max depth reached | 2 |
-| Overlay committed | 0 nodes, 50 edges |
+| Overlay committed | 0 nodes, 11 edges |
 
-The graph grows from 130 nodes / 234 edges to 130 nodes / 284 edges — a net gain of 50 inferred edges with no new nodes. The inferred edges break down as:
+The graph grows from 130 nodes / 234 edges to 130 nodes / 245 edges — a net gain of 11 inferred edges with no new nodes. The inferred edges break down as:
 
-- **50 `inferred_depends_on`** edges from transitive rule application
+- **11 `inferred_depends_on`** edges from transitive rule application
 - **5 `generalizes`** edges from generalization rule application
 
-55 total inferred edges are present in the final graph (the 5 from the earlier direct application plus 50 from reasoning).
+16 total inferred edges are present in the final graph.
 
 ## 8. Understanding Output
 
@@ -268,8 +270,8 @@ The 18 discovered patterns break into 3 transitive patterns (edge labels with en
 | Rules applied during reasoning | 50 |
 | Reasoning max depth | 2 |
 | Final nodes | 130 |
-| Final edges | 284 |
-| Inferred edges | 55 (50 `inferred_depends_on`, 5 `generalizes`) |
+| Final edges | 245 |
+| Inferred edges | 16 (11 `inferred_depends_on`, 5 `generalizes`) |
 
 ## 10. What Makes This Different
 
