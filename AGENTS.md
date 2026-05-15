@@ -144,7 +144,7 @@ When exploring the codebase to understand structure, locate APIs, or find releva
 ## Making Changes
 
 1. Follow the **Codebase Exploration Workflow** above to locate relevant modules before editing — the codebase is dense and conventions matter.
-2. Run the full test suite after changes. All 4107 tests must pass.
+2. Run the full test suite after changes. All 4129 tests must pass.
 3. New features should have tests in `tests/test_<module>.py`.
 4. New public classes should be exported from `src/hyper3/__init__.py`.
 5. Optional dependencies (like matplotlib) go in `[project.optional-dependencies]` in `pyproject.toml`, not in the main `dependencies` list.
