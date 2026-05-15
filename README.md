@@ -731,7 +731,7 @@ Regenerate all outputs with the `/update-docs` command.
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
 
-3734 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
+4107 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 
