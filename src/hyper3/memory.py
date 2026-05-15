@@ -1,3 +1,5 @@
+"""HypergraphMemory: unified facade integrating all knowledge graph subsystems."""
+
 from __future__ import annotations
 
 from typing import Any

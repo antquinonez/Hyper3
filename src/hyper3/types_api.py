@@ -1,3 +1,5 @@
+"""Public API type aliases."""
+
 from typing import Literal
 
 CentralityMethod = Literal[

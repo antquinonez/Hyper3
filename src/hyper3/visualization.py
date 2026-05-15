@@ -1,3 +1,4 @@
+"""Optional matplotlib plotting for hypergraph visualization."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -94,6 +95,18 @@ def plot_hypergraph(
 
 
 def _build_nx_digraph(graph: Hypergraph) -> Any:
+    """Convert a Hypergraph into a NetworkX DiGraph.
+
+    Each hypernode becomes a node with ``label`` and ``weight`` attributes.
+    Each hyperedge is expanded pairwise: every source-target pair becomes a
+    directed edge carrying ``label`` and ``weight`` attributes.
+
+    Args:
+        graph: The hypergraph to convert.
+
+    Returns:
+        A ``networkx.DiGraph`` representing the pairwise projection.
+    """
     import networkx as nx
 
     G = nx.DiGraph()
@@ -112,6 +125,19 @@ def _build_nx_digraph(graph: Hypergraph) -> Any:
 
 
 def _compute_graph_layout(G: Any, layout: str) -> Any:
+    """Compute node positions for a NetworkX graph using the named layout algorithm.
+
+    Falls back to spring layout for unrecognized names or when Kamada-Kawai
+    fails (e.g. disconnected graphs).
+
+    Args:
+        G: A NetworkX graph.
+        layout: Layout name (``"spring"``, ``"circular"``, ``"shell"``,
+            ``"kamada_kawai"``).
+
+    Returns:
+        A dict mapping node IDs to ``(x, y)`` position tuples.
+    """
     import networkx as nx
 
     if layout == "spring":
@@ -129,6 +155,18 @@ def _compute_graph_layout(G: Any, layout: str) -> Any:
 
 
 def _build_edge_labels(G, show_weights: bool) -> dict:
+    """Build an edge-label dict suitable for ``nx.draw_networkx_edge_labels``.
+
+    When *show_weights* is True and an edge weight differs from 1.0, the
+    weight is appended to the label text.
+
+    Args:
+        G: A NetworkX DiGraph with ``label`` and ``weight`` edge attributes.
+        show_weights: Whether to include numeric weights in the labels.
+
+    Returns:
+        A dict mapping ``(source, target)`` tuples to label strings.
+    """
     edge_labels = {}
     for u, v, data in G.edges(data=True):
         label = data.get("label", "")
@@ -190,6 +228,18 @@ def plot_state_clustering(
 
 
 def _extract_clustering_positions(coords: dict) -> dict[str, tuple[float, float]]:
+    """Extract 2-D plotting positions from state coordinate records.
+
+    Uses the first two elements of ``coord.position`` when available.
+    Falls back to ``(position[0], depth)`` for single-dimension positions.
+
+    Args:
+        coords: Dict mapping state IDs to coordinate objects with
+            ``position`` and ``depth`` attributes.
+
+    Returns:
+        Dict mapping state IDs to ``(x, y)`` float tuples.
+    """
     positions: dict[str, tuple[float, float]] = {}
     for sid, coord in coords.items():
         if coord.position:
@@ -201,6 +251,19 @@ def _extract_clustering_positions(coords: dict) -> dict[str, tuple[float, float]
 
 
 def _draw_clustering_scatter(ax, plt, positions: dict, state_clustering: StateClusteringEngine, show_clusters: bool) -> None:
+    """Draw state points as a scatter plot, optionally colored by cluster.
+
+    When cluster information is available and *show_clusters* is True, each
+    state is colored according to its cluster assignment using the Set2
+    colormap. Unassigned states are drawn in gray.
+
+    Args:
+        ax: Matplotlib axes to draw on.
+        plt: The ``matplotlib.pyplot`` module (used for colormap access).
+        positions: Dict mapping state IDs to ``(x, y)`` positions.
+        state_clustering: Engine providing cluster membership data.
+        show_clusters: Whether to color-code by cluster.
+    """
     cluster_map: dict[str, int] = {}
     clusters = state_clustering.clusters
     if show_clusters and clusters:
@@ -222,6 +285,17 @@ def _draw_clustering_scatter(ax, plt, positions: dict, state_clustering: StateCl
 
 
 def _draw_clustering_correlations(ax, positions: dict, state_clustering: StateClusteringEngine, show_correlations: bool) -> None:
+    """Draw dashed lines between correlated state pairs.
+
+    Line opacity scales with the correlation strength. States without a
+    plotted position are skipped.
+
+    Args:
+        ax: Matplotlib axes to draw on.
+        positions: Dict mapping state IDs to ``(x, y)`` positions.
+        state_clustering: Engine providing pairwise correlation data.
+        show_correlations: Whether to draw correlation lines.
+    """
     correlations = state_clustering.correlations
     if not show_correlations or not correlations:
         return

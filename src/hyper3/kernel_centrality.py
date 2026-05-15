@@ -1,3 +1,4 @@
+"""CentralityMixin: degree, betweenness, PageRank, Katz, closeness, eigenvector centrality."""
 from __future__ import annotations
 
 from collections import deque
@@ -9,6 +10,13 @@ from hyper3.kernel_base import _GraphBase
 
 
 class CentralityMixin(_GraphBase):
+    """Centrality and influence measures for hypergraph nodes.
+
+    Provides degree, betweenness, closeness, eigenvector, Katz, PageRank,
+    harmonic, information, load, percolation, current-flow, and
+    hypergraph-specific (h-eigenvector, z-eigenvector, node-edge, s-walk)
+    centrality algorithms.
+    """
 
     def closeness_centrality(self) -> dict[str, float]:
         """Compute closeness centrality for every node.

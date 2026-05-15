@@ -1,3 +1,4 @@
+"""Core data structures: Hypernode, Hyperedge, Metadata, Modality, AbstractionLayer."""
 from __future__ import annotations
 
 import uuid

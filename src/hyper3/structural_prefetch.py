@@ -1,3 +1,4 @@
+"""StructuralPrefetch: structure-aware prefetching for cache optimization."""
 from __future__ import annotations
 
 from dataclasses import dataclass

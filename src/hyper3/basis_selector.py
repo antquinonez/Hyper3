@@ -1,3 +1,4 @@
+"""BasisSelector: Thompson sampling for measurement basis selection."""
 from __future__ import annotations
 
 import random
@@ -14,6 +15,19 @@ from hyper3.results import _SimpleResultBase
 
 @dataclass
 class BasisContext(_SimpleResultBase):
+    """Feature vector describing the local graph context around a concept for basis selection.
+
+    Attributes:
+        concept_id: Node identifier this context describes.
+        degree_ratio: Ratio of the node's degree to total graph nodes, capped at 1.0.
+        label_diversity: Fraction of incident edges with distinct labels.
+        temporal_density: Fraction of neighbors carrying temporal metadata.
+        modality_diversity: Count of distinct modality tags among neighbors.
+        weight_concentration: Gini coefficient of incident edge weights (0 = uniform, 1 = concentrated).
+        connectivity: Fraction of neighbor pairs that are directly connected.
+        data_richness: Fraction of neighbors with non-empty data dicts.
+    """
+
     concept_id: str = ""
     degree_ratio: float = 0.0
     label_diversity: float = 0.0
@@ -38,6 +52,16 @@ class BasisContext(_SimpleResultBase):
 
 @dataclass
 class BasisOutcomeRecord(_SimpleResultBase):
+    """Record of a single basis selection outcome for Thompson sampling history.
+
+    Attributes:
+        basis_name: Name of the sampling basis that was selected.
+        context_vector: Feature vector of the concept context at selection time.
+        success: Whether the selected basis produced a useful result.
+        timestamp: Unix timestamp of the outcome event.
+        concept_id: Node identifier the basis was selected for.
+    """
+
     basis_name: str = ""
     context_vector: list[float] = field(default_factory=list)
     success: bool = False
@@ -46,6 +70,19 @@ class BasisOutcomeRecord(_SimpleResultBase):
 
 
 class BasisSelector:
+    """Selects the best sampling basis for a concept using Thompson sampling over historical outcomes.
+
+    Tracks which measurement bases perform well in which graph contexts, then uses
+    context-weighted Thompson sampling to balance exploration of untried bases with
+    exploitation of historically successful ones.
+
+    Args:
+        graph: The hypergraph used to extract structural context features.
+        max_history: Maximum number of outcome records retained.
+        adaptation_rate: Scaling factor applied to dimension weight adjustments
+            when creating adaptive profiles.
+    """
+
     def __init__(
         self,
         graph: Hypergraph,

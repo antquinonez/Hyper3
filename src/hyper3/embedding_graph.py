@@ -1,3 +1,4 @@
+"""Graph-structure-aware embedding providers (random walk, fingerprint, composite)."""
 from __future__ import annotations
 
 import hashlib
@@ -635,6 +636,13 @@ class SemanticEdgeBuilder:
     """
 
     def __init__(self, graph: Hypergraph, embedding: Any) -> None:
+        """Initialize with a source graph and an embedding engine for similarity lookups.
+
+        Args:
+            graph: The primary hypergraph whose nodes will be mirrored.
+            embedding: An ``EmbeddingEngine`` (or compatible object) that provides
+                ``find_similar`` for computing pairwise semantic similarity.
+        """
         self._graph = graph
         self._embedding = embedding
         self._layer: Hypergraph | None = None
@@ -643,9 +651,11 @@ class SemanticEdgeBuilder:
 
     @property
     def layer(self) -> Hypergraph | None:
+        """The semantic similarity layer, or ``None`` if ``build`` has not been called."""
         return self._layer
 
     def is_dirty(self) -> bool:
+        """Return ``True`` if the source graph has changed since the last ``build``."""
         if self._layer is None:
             return False
         return (
@@ -654,6 +664,18 @@ class SemanticEdgeBuilder:
         )
 
     def build(self, *, top_k: int = 10, threshold: float = 0.7) -> Hypergraph:
+        """Build a new semantic similarity layer over the source graph.
+
+        Creates a parallel hypergraph containing the same nodes and
+        ``"semantic_sim"`` edges weighted by cosine similarity.
+
+        Args:
+            top_k: Maximum number of similar neighbors per node.
+            threshold: Minimum similarity score to create an edge.
+
+        Returns:
+            The newly constructed semantic layer hypergraph.
+        """
         from hyper3.kernel_types import Hyperedge, Hypernode
 
         self._layer = Hypergraph()
@@ -674,4 +696,13 @@ class SemanticEdgeBuilder:
         return self._layer
 
     def rebuild(self, *, top_k: int = 10, threshold: float = 0.7) -> Hypergraph:
+        """Rebuild the semantic layer from scratch, discarding the previous one.
+
+        Args:
+            top_k: Maximum number of similar neighbors per node.
+            threshold: Minimum similarity score to create an edge.
+
+        Returns:
+            The rebuilt semantic layer hypergraph.
+        """
         return self.build(top_k=top_k, threshold=threshold)

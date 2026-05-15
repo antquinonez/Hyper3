@@ -1,3 +1,4 @@
+"""UncertaintyEngine: confidence propagation through inference chains."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -1,3 +1,4 @@
+"""CollapseTrigger: triggers graph collapse/abstraction events."""
 from __future__ import annotations
 
 import math

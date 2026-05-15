@@ -1,3 +1,4 @@
+"""GraphDiffer: versioned snapshots and delta computation."""
 from __future__ import annotations
 
 import time

@@ -1,3 +1,4 @@
+"""PathMixin: path finding, shortest path (Dijkstra/BFS), spanning edges, matching."""
 from __future__ import annotations
 
 from collections import deque
@@ -8,6 +9,13 @@ from hyper3.kernel_base import _GraphBase
 
 
 class PathMixin(_GraphBase):
+    """Path-finding, flow, matching, and tree algorithms for hypergraphs.
+
+    Provides shortest paths (Dijkstra/BFS), all-pairs distances,
+    eccentricity, diameter, radius, DAG operations, minimum spanning
+    trees, max-flow/min-cut, bipartite matching, Eulerian paths,
+    minimum cycle basis, and s-walk shortest paths.
+    """
 
     def find_paths(
         self,
@@ -516,12 +524,14 @@ class PathMixin(_GraphBase):
         rank: dict[str, int] = {nid: 0 for nid in self._nodes}
 
         def find(x: str) -> str:
+            """Union-find find with path compression."""
             while parent[x] != x:
                 parent[x] = parent[parent[x]]
                 x = parent[x]
             return x
 
         def union(a: str, b: str) -> bool:
+            """Union-find union by rank. Returns True if a merge occurred."""
             ra, rb = find(a), find(b)
             if ra == rb:
                 return False
@@ -812,6 +822,7 @@ class PathMixin(_GraphBase):
         dist: dict[str, float] = {}
 
         def bfs_hopcroft() -> bool:
+            """BFS layering for Hopcroft-Karp. Returns True if an augmenting path exists."""
             queue: deque[str] = deque()
             for u in left_set:
                 if match_left[u] is None:
@@ -833,6 +844,7 @@ class PathMixin(_GraphBase):
             return found
 
         def dfs_hopcroft(u: str) -> bool:
+            """DFS along layered graph for Hopcroft-Karp augmenting paths."""
             for v in adj[u]:
                 mu = match_right[v]
                 if mu is None or (dist.get(mu, float("inf")) == dist[u] + 1 and dfs_hopcroft(mu)):

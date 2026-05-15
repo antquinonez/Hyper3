@@ -1,3 +1,4 @@
+"""ColoringMixin: graph coloring algorithms."""
 from __future__ import annotations
 
 import networkx as nx
@@ -6,6 +7,11 @@ from hyper3.kernel_base import _GraphBase
 
 
 class ColoringMixin(_GraphBase):
+    """Graph coloring algorithms via pairwise clique projection.
+
+    Provides greedy coloring, chromatic number estimation, and equitable
+    coloring.  Vertices sharing a hyperedge receive different colors.
+    """
 
     def greedy_color(
         self,

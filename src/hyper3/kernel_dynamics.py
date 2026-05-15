@@ -1,3 +1,4 @@
+"""DynamicsMixin: motif detection, contagion, Kuramoto synchronization, master stability."""
 from __future__ import annotations
 
 import itertools
@@ -10,6 +11,7 @@ from hyper3.results import _SimpleResultBase
 
 
 def _canonical_directed_motif(edges: list[tuple[int, int]], order: int) -> str:
+    """Compute a canonical label for a directed motif by testing all vertex permutations."""
     from itertools import permutations
 
     if not edges:
@@ -28,6 +30,8 @@ def _canonical_directed_motif(edges: list[tuple[int, int]], order: int) -> str:
 
 @dataclass
 class MotifResult(_SimpleResultBase):
+    """Result of undirected motif detection with z-score significance."""
+
     observed: dict[str, int] = field(default_factory=dict)
     null_mean: dict[str, float] = field(default_factory=dict)
     null_std: dict[str, float] = field(default_factory=dict)
@@ -36,6 +40,8 @@ class MotifResult(_SimpleResultBase):
 
 @dataclass
 class DirectedMotifResult(_SimpleResultBase):
+    """Result of directed motif detection with z-score significance."""
+
     observed: dict[str, int] = field(default_factory=dict)
     null_mean: dict[str, float] = field(default_factory=dict)
     null_std: dict[str, float] = field(default_factory=dict)
@@ -44,12 +50,16 @@ class DirectedMotifResult(_SimpleResultBase):
 
 @dataclass
 class ContagionResult(_SimpleResultBase):
+    """Result of simplicial SIS contagion simulation."""
+
     infected_fraction: list[float] = field(default_factory=list)
     timesteps: int = 0
 
 
 @dataclass
 class KuramotoResult(_SimpleResultBase):
+    """Result of Kuramoto oscillator synchronization simulation."""
+
     theta_time: Any = None
     order_parameter: list[float] = field(default_factory=list)
     timesteps: int = 0
@@ -58,11 +68,15 @@ class KuramotoResult(_SimpleResultBase):
 
 @dataclass
 class MSFResult(_SimpleResultBase):
+    """Result of master stability function analysis."""
+
     alpha_values: list[float] = field(default_factory=list)
     lambda_max: list[float] = field(default_factory=list)
 
 
 class DynamicsMixin:
+    """Dynamical processes on hypergraphs: motif detection, contagion, synchronization, and stability."""
+
     _nodes: dict[str, Hypernode]
     _edges: dict[str, Hyperedge]
 

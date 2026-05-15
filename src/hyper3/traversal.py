@@ -1,3 +1,4 @@
+"""TraversalEngine: BFS, DFS, dimension-filtered, and adaptive traversals."""
 from __future__ import annotations
 
 import heapq

@@ -1,3 +1,4 @@
+"""EntanglementEngine: quantum-inspired concept entanglement operations."""
 from __future__ import annotations
 
 import time

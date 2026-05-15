@@ -1,3 +1,4 @@
+"""Link prediction algorithms for hypergraphs."""
 from __future__ import annotations
 
 import networkx as nx

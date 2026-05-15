@@ -1,3 +1,4 @@
+"""StructuralImpactEngine: blast-radius and change impact analysis."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -79,6 +80,7 @@ class StructuralImpactEngine:
         track_cycles: bool = True,
         track_components: bool = True,
     ) -> None:
+        """Initialize the structural impact engine."""
         self._graph = graph
         self._hub_threshold = hub_degree_threshold
         self._track_cycles = track_cycles
@@ -239,6 +241,7 @@ class StructuralImpactEngine:
         density_before: float,
         density_after: float,
     ) -> str:
+        """Classify the impact severity as ``"low"``, ``"medium"``, ``"high"``, or ``"critical"``."""
         severity = "low"
         if cycle_change.cycle_created:
             severity = "medium"
@@ -290,6 +293,7 @@ class StructuralImpactEngine:
         )
 
     def _record(self, result: ImpactResult) -> None:
+        """Append an impact result to the bounded history list."""
         self._history.append(result)
         if len(self._history) > self._max_history:
             self._history = self._history[-self._max_history:]

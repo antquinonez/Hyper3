@@ -1,3 +1,5 @@
+"""Serializer: JSON save/load for hypergraph state."""
+
 from __future__ import annotations
 
 import json

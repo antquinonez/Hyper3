@@ -1,3 +1,4 @@
+"""MonitoringMixin: system health introspection and metamorphosis triggers."""
 from __future__ import annotations
 
 from typing import Any

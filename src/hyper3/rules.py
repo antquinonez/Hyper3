@@ -1,3 +1,4 @@
+"""Rule ABC with concrete implementations for pattern-matching inference."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

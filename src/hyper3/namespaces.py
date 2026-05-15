@@ -1,3 +1,5 @@
+"""Namespace classes for domain-specific API groups on HypergraphMemory."""
+
 from __future__ import annotations
 
 from collections import Counter

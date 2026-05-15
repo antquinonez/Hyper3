@@ -1,3 +1,5 @@
+"""CoreMixin for HypergraphMemory: store, recall, relate, query, evolve."""
+
 from __future__ import annotations
 
 import time

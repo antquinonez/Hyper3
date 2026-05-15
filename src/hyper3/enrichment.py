@@ -1,3 +1,4 @@
+"""LLMEnricher: entity/relation extraction from text with pluggable providers."""
 from __future__ import annotations
 
 import json

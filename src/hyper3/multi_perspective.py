@@ -1,3 +1,4 @@
+"""MultiPerspectiveAnalyzer: multi-frame computational analysis."""
 from __future__ import annotations
 
 import random

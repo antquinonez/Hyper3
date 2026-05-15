@@ -1,3 +1,4 @@
+"""Result dataclasses for public API return types."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -602,6 +603,13 @@ class AnomalyReport(_SimpleResultBase):
 
 @dataclass
 class FacetBucket(_SimpleResultBase):
+    """A single value bucket within a faceted search result.
+
+    Attributes:
+        value: The bucket's data value (e.g. category name).
+        count: Number of matching documents in this bucket.
+        selected: Whether this bucket is currently active as a filter.
+    """
     value: str = ""
     count: int = 0
     selected: bool = False
@@ -609,6 +617,13 @@ class FacetBucket(_SimpleResultBase):
 
 @dataclass
 class FacetResult(_SimpleResultBase):
+    """Aggregated facet counts for a single indexed field.
+
+    Attributes:
+        field_name: The data field this facet summarizes.
+        buckets: Value buckets with their document counts.
+        total: Total number of documents contributing to this facet.
+    """
     field_name: str = ""
     buckets: list[FacetBucket] = field(default_factory=list)
     total: int = 0
@@ -616,6 +631,19 @@ class FacetResult(_SimpleResultBase):
 
 @dataclass
 class SearchResult(_SimpleResultBase):
+    """A single matched node from a search query.
+
+    Attributes:
+        node_id: Internal ID of the matched node.
+        label: Human-readable label of the matched concept.
+        score: Composite relevance score.
+        data: Node data payload at match time.
+        index_score: Score contributed by the field index.
+        activation_score: Score contributed by spreading activation.
+        similarity_score: Score contributed by semantic similarity.
+        boost_multiplier: Applied boost factor for this result.
+        strategy: Name of the scoring strategy that produced this result.
+    """
     node_id: str = ""
     label: str = ""
     score: float = 0.0
@@ -629,6 +657,14 @@ class SearchResult(_SimpleResultBase):
 
 @dataclass
 class SearchResultSet(_SimpleResultBase):
+    """Collection of search results with facets and timing metadata.
+
+    Attributes:
+        results: Ordered list of matched nodes.
+        total: Total number of matches (may exceed ``len(results)`` when paginated).
+        facets: Faceted aggregation results keyed by field name.
+        elapsed_ms: Wall-clock time for the search in milliseconds.
+    """
     results: list[SearchResult] = field(default_factory=list)
     total: int = 0
     facets: dict[str, FacetResult] = field(default_factory=dict)
@@ -637,6 +673,16 @@ class SearchResultSet(_SimpleResultBase):
 
 @dataclass
 class IndexStats(_SimpleResultBase):
+    """Statistics about the search index maintained by ``SearchIndex``.
+
+    Attributes:
+        field_count: Number of indexed fields.
+        value_count: Total number of distinct indexed values.
+        entry_count: Total number of index entries across all fields.
+        dirty: Whether the index has pending changes not yet reflected.
+        range_fields: Fields indexed for numeric range queries.
+        text_fields: Fields indexed for full-text matching.
+    """
     field_count: int = 0
     value_count: int = 0
     entry_count: int = 0
@@ -646,10 +692,30 @@ class IndexStats(_SimpleResultBase):
 
 
 def top_k(scores: dict[str, float], k: int = 10) -> list[tuple[str, float]]:
+    """Return the *k* highest-scoring entries from a score dictionary, sorted descending.
+
+    Args:
+        scores: Mapping of keys to numeric scores.
+        k: Maximum number of entries to return.
+
+    Returns:
+        List of ``(key, score)`` tuples ordered by score, highest first.
+    """
     return sorted(scores.items(), key=lambda x: -x[1])[:k]
 
 
 def to_dataframe(scores: dict[str, float]) -> Any:
+    """Convert a score dictionary to a pandas DataFrame with ``label`` and ``score`` columns.
+
+    Args:
+        scores: Mapping of concept labels to numeric scores.
+
+    Returns:
+        A ``pandas.DataFrame`` with columns ``label`` and ``score``.
+
+    Raises:
+        ImportError: If pandas is not installed.
+    """
     try:
         import pandas as pd
         return pd.DataFrame([{"label": k, "score": v} for k, v in scores.items()])

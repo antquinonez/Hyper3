@@ -1,3 +1,4 @@
+"""PatternMixin: subgraph pattern matching."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -10,6 +11,11 @@ if TYPE_CHECKING:
 
 
 class PatternMixin(_GraphBase):
+    """Pattern matching and subgraph extraction.
+
+    Provides label-based edge pattern matching and induced subgraph
+    extraction with deep-copied nodes and edges.
+    """
 
     def pattern_match(
         self,

@@ -1,3 +1,4 @@
+"""Random graph generators: Erdos-Renyi, Barabasi-Albert, configuration model, etc."""
 from __future__ import annotations
 
 import itertools
@@ -627,6 +628,20 @@ def configuration_model(
     n_steps: int = 1000,
     seed: int | None = None,
 ) -> Hypergraph:
+    """Generate a random hypergraph that preserves the degree sequence and edge-size distribution of ``g``.
+
+    Randomizes edge memberships through pairwise reshuffling within each edge-size
+    group while keeping node degrees and edge cardinalities fixed.
+
+    Args:
+        g: The source hypergraph whose structure is randomized.
+        n_steps: Number of pairwise reshuffle attempts per edge-size group.
+        seed: Random seed for reproducibility.
+
+    Returns:
+        A new ``Hypergraph`` with the same nodes and edge sizes but randomized
+        node memberships.
+    """
     rng = random.Random(seed)
     result = Hypergraph()
     for node in g._nodes.values():
@@ -677,6 +692,20 @@ def _pairwise_reshuffle(
     f2: set[str],
     rng: random.Random,
 ) -> tuple[set[str] | None, set[str] | None]:
+    """Randomly redistribute non-shared members between two sets while preserving sizes.
+
+    Shared members stay in both sets. Remaining members are randomly assigned
+    until one set reaches its target size, with the rest going to the other.
+
+    Args:
+        f1: First node set.
+        f2: Second node set.
+        rng: Random number generator.
+
+    Returns:
+        A tuple ``(new_f1, new_f2)`` of reshuffled sets, or ``(None, None)``
+        if either set would end up empty.
+    """
     size1 = len(f1)
     size2 = len(f2)
     intersection = f1 & f2

@@ -1,3 +1,4 @@
+"""Complexity-based reasoning rules."""
 from __future__ import annotations
 
 from hyper3.kernel import Hypergraph

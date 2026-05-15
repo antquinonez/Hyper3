@@ -1,9 +1,15 @@
+"""CycleMixin: cycle detection, enumeration, and girth computation."""
 from __future__ import annotations
 
 from hyper3.kernel_base import _GraphBase
 
 
 class CycleMixin(_GraphBase):
+    """Cycle detection and analysis for directed hypergraphs.
+
+    Provides cycle existence checks (DFS three-coloring), directed cycle
+    enumeration, chordless cycle detection, and girth computation.
+    """
 
     def girth(self) -> int:
         """Compute the girth (shortest cycle length) of the graph.
@@ -32,6 +38,7 @@ class CycleMixin(_GraphBase):
         color: dict[str, int] = {nid: WHITE for nid in self._nodes}
 
         def dfs(u: str) -> bool:
+            """Three-color DFS that returns True if a back-edge (cycle) is found."""
             color[u] = GRAY
             for edge in self.outgoing_edges(u):
                 for v in edge.target_ids:

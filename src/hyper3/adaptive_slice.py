@@ -1,3 +1,4 @@
+"""AdaptiveSlice: dynamically adjusts observer slice parameters."""
 from __future__ import annotations
 
 import math
@@ -16,6 +17,7 @@ WEIGHT_VALUES = [0.0, 0.1, 0.3, 0.5]
 
 
 def _l2_distance(a: list[float], b: list[float]) -> float:
+    """Compute the Euclidean (L2) distance between two equal-length float vectors."""
     return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b, strict=False)))
 
 

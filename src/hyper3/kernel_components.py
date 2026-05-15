@@ -1,3 +1,4 @@
+"""ComponentMixin: connected components, s-components, SCCs, biconnected, articulation, modularity."""
 from __future__ import annotations
 
 from typing import Any
@@ -7,6 +8,13 @@ from hyper3.results import SPersistenceLevel, SPersistenceResult
 
 
 class ComponentMixin(_GraphBase):
+    """Connected component and community detection algorithms.
+
+    Provides strongly connected components (Kosaraju), biconnected
+    components (Hopcroft-Tarjan), articulation points, s-connected
+    components, s-persistence filtration, and greedy modularity
+    communities.
+    """
 
     def strongly_connected_components(self) -> list[set[str]]:
         """Find strongly connected components using Kosaraju's algorithm.
@@ -243,12 +251,14 @@ class ComponentMixin(_GraphBase):
         parent: dict[str, str] = {nid: nid for nid in self._nodes}
 
         def find(x: str) -> str:
+            """Union-find find with path compression."""
             while parent[x] != x:
                 parent[x] = parent[parent[x]]
                 x = parent[x]
             return x
 
         def union(a: str, b: str) -> None:
+            """Union-find union (no rank)."""
             ra, rb = find(a), find(b)
             if ra != rb:
                 parent[ra] = rb
@@ -276,12 +286,14 @@ class ComponentMixin(_GraphBase):
         edge_parent = list(range(m))
 
         def find(x: int) -> int:
+            """Union-find find with path compression."""
             while edge_parent[x] != x:
                 edge_parent[x] = edge_parent[edge_parent[x]]
                 x = edge_parent[x]
             return x
 
         def union(a: int, b: int) -> None:
+            """Union-find union (no rank)."""
             ra, rb = find(a), find(b)
             if ra != rb:
                 edge_parent[ra] = rb
@@ -439,12 +451,14 @@ class ComponentMixin(_GraphBase):
         edge_parent = list(range(m))
 
         def find(x: int) -> int:
+            """Union-find find with path compression."""
             while edge_parent[x] != x:
                 edge_parent[x] = edge_parent[edge_parent[x]]
                 x = edge_parent[x]
             return x
 
         def union(a: int, b: int) -> None:
+            """Union-find union (no rank)."""
             ra, rb = find(a), find(b)
             if ra != rb:
                 edge_parent[ra] = rb

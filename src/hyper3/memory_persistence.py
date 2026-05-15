@@ -1,3 +1,5 @@
+"""PersistenceMixin: save/load, import/export JSON and edgelist formats."""
+
 from __future__ import annotations
 
 import contextlib
@@ -426,7 +428,7 @@ class PersistenceMixin(_MemoryBase):
         self._log.record("load_sqlite", path=path)
 
     def _rebuild_engines(self) -> None:
-
+        """Reconstruct all engine instances after loading a new graph from persistence."""
         self._traversal = TraversalEngine(self._graph)
         self._observer = ObserverSlice(self._graph)
         self._evolution = GraphMaintenanceEngine(
@@ -473,6 +475,11 @@ class PersistenceMixin(_MemoryBase):
 
 
 def _json_fallback(obj: Any) -> Any:
+    """JSON serialization fallback for non-standard Python types.
+
+    Converts sets/frozensets to sorted lists, tuples to lists, and everything
+    else to strings.
+    """
     if isinstance(obj, (set, frozenset)):
         return sorted(obj)
     if isinstance(obj, tuple):

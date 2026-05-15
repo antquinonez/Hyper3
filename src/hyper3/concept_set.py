@@ -1,3 +1,4 @@
+"""ConceptSet: managed concept collections with set operations."""
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator

@@ -1,3 +1,4 @@
+"""Domain-specific exception hierarchy for Hyper3."""
 class Hyper3Error(Exception):
     """Base exception for all Hyper3 errors."""
 

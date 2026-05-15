@@ -1,3 +1,4 @@
+"""EventLog: timestamped event recording with query/filter support."""
 from __future__ import annotations
 
 import time

@@ -1,3 +1,4 @@
+"""FrameCache: cached frame analysis results with invalidation."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -196,6 +197,7 @@ class FrameCache:
         return all_keys
 
     def __iter__(self):
+        """Iterate over all cached keys across the general and frame-specific caches."""
         return iter(self.keys())
 
     def to_dict(self) -> dict[str, Any]:

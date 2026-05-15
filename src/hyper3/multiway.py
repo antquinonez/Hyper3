@@ -11,8 +11,7 @@ from hyper3.kernel import Hypergraph
 from hyper3.overlay import HypergraphOverlay
 from hyper3.rules import Rule, RuleMatch
 
-"""MultiwayEngine: multiway expansion state graph and evolution."""
-"""MultiwayEngine: multiway expansion state graph and evolution."""
+
 @dataclass
 class MultiwayState:
     """A single node in the multiway expansion DAG representing one computational state."""

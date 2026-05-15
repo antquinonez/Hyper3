@@ -1,3 +1,4 @@
+"""ConstraintCheck ABC and BoundaryNavigator for boundary constraints."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

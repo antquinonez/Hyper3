@@ -1,3 +1,4 @@
+"""Shared state declarations and core CRUD mixin for Hypergraph."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -10,6 +11,13 @@ if TYPE_CHECKING:
 
 
 class _GraphBase:
+    """Shared state declarations and cross-mixin method stubs for the hypergraph kernel.
+
+    Declares the internal indexes, caches, and method signatures that all
+    kernel mixins depend on.  Subclasses (mixins) provide concrete
+    implementations.
+    """
+
     _nodes: dict[str, Hypernode]
     _edges: dict[str, Hyperedge]
     _node_to_edges: dict[str, set[str]]
@@ -71,6 +79,11 @@ class _GraphBase:
 
 
 class CoreMixin(_GraphBase):
+    """Core CRUD operations for hypergraph nodes and edges.
+
+    Manages node/edge storage, label and dimension indexes, batch-mode
+    cache deferral, and node merging.
+    """
 
     def __init__(self) -> None:
         """Initialize an empty hypergraph with fresh indexes."""
