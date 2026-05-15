@@ -58,6 +58,14 @@ class ReasoningMixin(_MemoryBase):
         self._multiway_engine.set_rule_analytics(self._rule_analytics)
         self._rule_productions: dict[str, list[str]] = {}
 
+    def _reset_multiway(self) -> None:
+        """Tear down the multiway engine so the next _ensure_multiway() creates a fresh one."""
+        self._multiway_engine = None
+        self._convergence_engine = None
+        self._state_clustering = None
+        self._rule_analytics = None
+        self._rule_productions = {}
+
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
         """Convert a set of concept labels to their corresponding node IDs."""
         seed_ids: set[str] = set()
@@ -313,6 +321,7 @@ class ReasoningMixin(_MemoryBase):
         if not active_rules:
             return ReasonResult(error="no rules defined", states_created=0)
 
+        self._reset_multiway()
         self._ensure_multiway()
 
         seed_ids = self._resolve_seeds(seed_concepts)
@@ -493,9 +502,13 @@ class ReasoningMixin(_MemoryBase):
             if node:
                 new_node_ids.add(node.id)
         new_edge_ids: set[str] = set()
+        previously_produced: set[str] = set()
+        for edge_list in self._rule_productions.values():
+            previously_produced.update(edge_list)
         for state in self._multiway_engine.multiway.states:
             for eid in state.produced_edge_ids:
-                new_edge_ids.add(eid)
+                if eid not in previously_produced:
+                    new_edge_ids.add(eid)
         report = self._multiway_engine.expand_incremental(
             new_node_ids,
             new_edge_ids,

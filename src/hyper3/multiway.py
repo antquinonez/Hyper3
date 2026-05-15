@@ -27,6 +27,7 @@ class MultiwayState:
     children_ids: list[str] = field(default_factory=list)
     timestamp: float = 0.0
     overlay: HypergraphOverlay | None = None
+    consumed: bool = False
 
     @property
     def is_root(self) -> bool:
@@ -69,13 +70,13 @@ class MultiwayGraph:
             The added state.
         """
         self._states[state.id] = state
-        if state.parent_id is not None and state.parent_id in self._states:
+        if state.parent_id is None:
+            self._root = state
+        elif state.parent_id in self._states:
             parent = self._states[state.parent_id]
             if state.id not in parent.children_ids:
                 parent.children_ids.append(state.id)
                 self._leaves_cache = None
-        else:
-            self._root = state
         if state.parent_id is not None:
             self._update_state_relations(state)
         return state
@@ -119,7 +120,7 @@ class MultiwayGraph:
     def get_leaves(self) -> list[MultiwayState]:
         """Return all leaf states (states with no children), using a lazy cache."""
         if self._leaves_cache is None:
-            self._leaves_cache = [s for s in self._states.values() if s.is_leaf]
+            self._leaves_cache = [s for s in self._states.values() if s.is_leaf and not s.consumed]
         return self._leaves_cache
 
     def get_simultaneous_states(self, state_id: str) -> list[MultiwayState]:
@@ -165,6 +166,13 @@ class MultiwayGraph:
     def get_state_relations(self) -> list[StateRelation]:
         """Return all recorded state relations between sibling states."""
         return list(self._state_relations)
+
+    def mark_consumed(self, state_id: str) -> None:
+        """Mark a state as consumed by a merge, excluding it from get_leaves()."""
+        state = self._states.get(state_id)
+        if state:
+            state.consumed = True
+            self._leaves_cache = None
 
     @property
     def state_count(self) -> int:
