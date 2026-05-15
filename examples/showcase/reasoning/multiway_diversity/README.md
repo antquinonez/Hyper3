@@ -98,11 +98,23 @@ graph TB
     TOX -->|causes| FK[fish_kill]
     OD -->|causes| FK
     PEST -->|causes| WD[water_discoloration]
+    AB -->|affects| WD
 
     HM -->|affects| ED[ecosystem_damage]
     PEST -->|affects| ED
     TP -->|affects| ED
     ED -->|affects| BL[biodiversity_loss]
+
+    subgraph "Response"
+        CONT[containment] -->|depends_on| LAB[lab_analysis]
+        LAB -->|depends_on| FS[field_sample]
+        SS[source_shutdown] -->|depends_on| WT[water_treatment]
+        WT -->|depends_on| SS2[sensor_station]
+    end
+
+    WD -->|indicates| CONT2[contamination]
+    CONT2 -->|indicates| FK
+    FK -->|indicates| HA[health_advisory]
 ```
 
 ### Edge Label Taxonomy
@@ -130,7 +142,10 @@ graph TD
     MW -->|"TransitiveRule<br/>causes"| B1["Branch: indirectly_causes<br/>172 leaves"]
     MW -->|"TransitiveRule<br/>depends_on"| B2["Branch: cascade_depends<br/>39 leaves"]
     MW -->|"TransitiveRule<br/>affects"| B3["Branch: indirectly_affects<br/>33 leaves"]
+    MW -->|"TransitiveRule<br/>indicates"| B6["Branch: correlates_with"]
     MW -->|"InverseRule<br/>causes"| B4["Branch: caused_by"]
+    MW -->|"InverseRule<br/>depends_on"| B7["Branch: depended_on_by"]
+    MW -->|"InverseRule<br/>affects"| B8["Branch: affected_by"]
     MW -->|"AbductiveRule<br/>causes"| B5["Branch: possible_cause"]
 
     B1 --> LEAF["271 Leaf States"]
@@ -138,6 +153,9 @@ graph TD
     B3 --> LEAF
     B4 --> LEAF
     B5 --> LEAF
+    B6 --> LEAF
+    B7 --> LEAF
+    B8 --> LEAF
 
     LEAF --> SCORE["Leaf Scoring"]
     LEAF --> CLUSTER["20 Simultaneity Groups"]
