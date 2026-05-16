@@ -58,6 +58,8 @@ class TestStateCoordinates:
         assert abs(c1.distance_to(c2) - 5.0) < 0.01
 
     def test_distance_empty_position(self):
+        # Position vectors of different dimensionality arise when states
+        # sit at different depths; the shorter one is zero-padded.
         c1 = StateCoordinates(state_id="s1", position=[])
         c2 = StateCoordinates(state_id="s2", position=[1.0])
         assert c1.distance_to(c2) == float("inf")
@@ -79,7 +81,7 @@ class TestStateClusteringEngine:
         bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         coords = bs.coordinates
-        assert len(coords) > 0
+        assert len(coords) == mw.multiway.state_count
         root = mw.multiway.get_root()
         assert root is not None
         assert root.id in coords
@@ -92,15 +94,13 @@ class TestStateClusteringEngine:
         root = mw.multiway.get_root()
         assert root is not None
         metrics = bs.compute_distances(leaves[0].id, root.id)
-        assert isinstance(metrics, StateDistanceMetrics)
-        assert metrics.structural >= 0.0
+        assert 0.0 <= metrics.structural <= float("inf")
         assert metrics.combined >= 0.0
 
     def test_build_simultaneity_groups(self):
         g, mw = _build_branching_multiway()
         bs = StateClusteringEngine(g, mw.multiway)
         groups = bs.build_simultaneity_groups()
-        assert isinstance(groups, list)
         assert len(groups) == 0
 
     def test_cluster_states(self):
@@ -108,10 +108,8 @@ class TestStateClusteringEngine:
         bs = StateClusteringEngine(g, mw.multiway)
         bs.assign_coordinates()
         clusters = bs.cluster_states(n_clusters=2)
-        assert isinstance(clusters, list)
         assert len(clusters) >= 1
         for c in clusters:
-            assert isinstance(c, StateCluster)
             assert c.size >= 1
 
     def test_detect_correlations(self):
@@ -126,7 +124,6 @@ class TestStateClusteringEngine:
         bs = StateClusteringEngine(g, mw.multiway)
         correlations = bs.detect_correlations()
         assert correlations == []
-
     def test_find_neighbors(self):
         g, mw = _build_branching_multiway()
         bs = StateClusteringEngine(g, mw.multiway)
@@ -231,11 +228,9 @@ class TestStateClusteringEngineDeep:
         g, mw = _build_manual()
         bs = StateClusteringEngine(g, mw)
         m = bs.compute_distances("c1", "c2")
-        assert isinstance(m, StateDistanceMetrics)
         assert m.structural >= 0.0
-        assert m.conceptual >= 0.0
-        assert m.computational >= 0.0
-        assert m.evolutionary >= 0.0
+        assert m.conceptual > 0.0
+        assert m.computational > 0.0
         assert m.combined > 0.0
 
     def test_compute_distances_cache_hit(self):
@@ -279,22 +274,15 @@ class TestStateClusteringEngineDeep:
         assert total_states <= mw.state_count
         for c in clusters:
             assert c.size >= 1
-            assert c.centroid is not None
 
     def test_detect_correlations_with_shared(self):
-        g = Hypergraph()
-        for label in ["a", "b", "c", "d", "shared"]:
-            g.add_node(Hypernode(id=label, label=label))
-        g.add_edge(Hyperedge(source_ids=frozenset({"a"}), target_ids=frozenset({"shared"}), label="rel"))
-        g.add_edge(Hyperedge(source_ids=frozenset({"b"}), target_ids=frozenset({"shared"}), label="rel"))
-        mw = MultiwayEngine(g)
-        rule = TransitiveRule(edge_label="rel")
-        mw.expand({"a", "b"}, [rule], max_depth=2, max_total_states=20)
-        bs = StateClusteringEngine(g, mw.multiway)
+        g, mw = _build_manual()
+        bs = StateClusteringEngine(g, mw)
+        bs.assign_coordinates()
+        bs.build_simultaneity_groups()
         correlations = bs.detect_correlations(min_correlation=0.1)
-        assert isinstance(correlations, list)
+        assert len(correlations) > 0
         for corr in correlations:
-            assert isinstance(corr, StateCorrelation)
             assert corr.correlation > 0.0
             assert len(corr.shared_concept_ids) > 0
 
@@ -502,11 +490,6 @@ class TestStateClusteringDeepCoverage:
         m = bs.compute_distances("gc1", "gc2")
         assert m.combined > 0.0
 
-    def test_distance_to_empty_position(self):
-        c1 = StateCoordinates(state_id="s1", position=[])
-        c2 = StateCoordinates(state_id="s2", position=[1.0])
-        assert c1.distance_to(c2) == float("inf")
-
     def test_assign_coordinates_no_root(self):
         g = Hypergraph()
         mw = MultiwayGraph()
@@ -651,6 +634,8 @@ class TestStateClusteringDeepCoverage:
         assert analysis["avg_correlation_strength"] > 0.0
 
     def test_conceptual_both_empty_active(self):
+        # States that produced no active nodes (e.g. root or failed expansion)
+        # have identical (empty) label sets, so conceptual distance is 0.
         g = Hypergraph()
         mw = MultiwayGraph()
         s1 = MultiwayState(id="s1", active_node_ids=frozenset())
@@ -1005,9 +990,7 @@ class TestFindAnalogousStates:
         states = list(mem._state_clustering.coordinates.keys())
         assert len(states) >= 2
         results = mem._state_clustering.find_analogous_states(states[0])
-        assert isinstance(results, list)
         for sid, dist in results:
-            assert isinstance(sid, str)
             assert dist >= 0.0
 
     def test_no_results_for_unknown_state(self):

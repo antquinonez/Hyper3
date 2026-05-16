@@ -138,6 +138,7 @@ class TestPolyadicFiedlerVector:
         nodes, vec = g.fiedler_vector()
         assert len(nodes) == 4
         assert len(vec) == 4
+        assert abs(sum(vec)) < 1e-6
 
 
 class TestPolyadicBisection:
@@ -210,8 +211,8 @@ class TestPolyadicDualRandomWalk:
         _add_nary(g, ["A", "B"], ["C"])
         mat, nodes, edges = g.dual_random_walk_adjacency()
         A = _dense(mat)
-        assert A.shape[0] == A.shape[1]
-        assert A.shape[0] > 0
+        assert A.shape == (1, 1)
+        assert A[0, 0] == 0.0
 
 
 class TestPolyadicEncapsulation:

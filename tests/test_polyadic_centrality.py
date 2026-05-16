@@ -128,6 +128,8 @@ class TestPolyadicEigenvector:
         _add_nary(g, ["A", "B"], ["C", "D"])
         ec = g.eigenvector_centrality_numpy()
         assert len(ec) == 4
+        for nid in ec:
+            assert ec[nid] == pytest.approx(0.5, abs=1e-4)
 
 
 class TestPolyadicPageRank:
@@ -144,8 +146,8 @@ class TestPolyadicPageRank:
         pr = g.pagerank()
         assert abs(sum(pr.values()) - 1.0) < 1e-6
         assert pr[ids["H"]] < pr[ids["D"]]
-        assert pr[ids["D"]] == pytest.approx(0.2087, abs=1e-2)
-        assert pr[ids["H"]] == pytest.approx(0.1918, abs=1e-2)
+        assert pr[ids["D"]] == pytest.approx(0.2087, abs=1e-3)
+        assert pr[ids["H"]] == pytest.approx(0.1918, abs=1e-3)
 
     def test_nary_pagerank_nonnegative(self) -> None:
         g = Hypergraph()
@@ -168,6 +170,8 @@ class TestPolyadicKatz:
         _add_nary(g, ["A", "B"], ["C"])
         kc = g.katz_centrality_solve(alpha=0.1)
         assert len(kc) == 3
+        for nid in kc:
+            assert kc[nid] == pytest.approx(1.0 / 3**0.5, abs=1e-4)
 
 
 class TestPolyadicHEigenvector:
@@ -278,3 +282,5 @@ class TestPolyadicDelegatedCentrality:
         ids = _add_nary(g, ["D"], ["E"], label="e2", ids=ids)
         vr = g.voterank()
         assert len(vr) == 3
+        assert vr[0] == ids["D"]
+        assert len(set(vr)) == 3

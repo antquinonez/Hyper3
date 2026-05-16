@@ -41,7 +41,7 @@ class TestOperationFeedback:
         fb.record_collapse_outcome("qs_1", n0.id, correct=True)
         fb.record_collapse_outcome("qs_1", n1.id, correct=True)
         fb.record_collapse_outcome("qs_1", n0.id, correct=False)
-        assert abs(fb.collapse_accuracy() - 2 / 3) < 0.01
+        assert fb.collapse_accuracy() == pytest.approx(2 / 3)
 
     def test_collapse_accuracy_no_data(self):
         graph = _make_graph()
@@ -56,7 +56,7 @@ class TestOperationFeedback:
         n2 = graph.get_node_by_label("n2")
         assert n0 and n1 and n2
         fb.record_retrieval_outcome("test_query", {n0.id, n1.id}, {n2.id})
-        assert abs(fb.retrieval_precision() - 2 / 3) < 0.01
+        assert fb.retrieval_precision() == pytest.approx(2 / 3)
         assert fb.signal_count == 3
 
     def test_retrieval_precision_no_data(self):
@@ -70,7 +70,7 @@ class TestOperationFeedback:
         fb.record_inference_outcome("edge_1", accepted=True)
         fb.record_inference_outcome("edge_2", accepted=True)
         fb.record_inference_outcome("edge_3", accepted=False)
-        assert abs(fb.inference_acceptance_rate() - 2 / 3) < 0.01
+        assert fb.inference_acceptance_rate() == pytest.approx(2 / 3)
 
     def test_inference_acceptance_rate_no_data(self):
         graph = _make_graph()
