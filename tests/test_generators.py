@@ -22,7 +22,7 @@ class TestRandomHypergraph:
     def test_basic_creation(self):
         g = random_hypergraph(10, {0: 0.5}, seed=42)
         assert g.node_count == 10
-        assert g.edge_count > 0
+        assert g.edge_count == 6
 
     def test_seed_reproducibility(self):
         g1 = random_hypergraph(8, {0: 0.3, 1: 0.1}, seed=42)
@@ -82,7 +82,7 @@ class TestRandomSBM:
     def test_two_groups(self):
         g = random_sbm(20, 2, [10, 10], p_in=0.8, p_out=0.1, seed=42)
         assert g.node_count == 20
-        assert g.edge_count > 0
+        assert g.edge_count == 86
 
     def test_seed_reproducibility(self):
         g1 = random_sbm(10, 2, [5, 5], p_in=0.5, p_out=0.1, seed=42)
@@ -126,7 +126,7 @@ class TestRingLattice:
     def test_basic(self):
         g = ring_lattice(6, 2, 3)
         assert g.node_count == 6
-        assert g.edge_count > 0
+        assert g.edge_count == 6
 
     def test_deterministic_structure(self):
         g = ring_lattice(6, 2, 3)
@@ -141,7 +141,7 @@ class TestBarabasiAlbert:
 
     def test_edge_count(self):
         g = barabasi_albert_graph(20, 3, seed=42)
-        assert g.edge_count > 0
+        assert g.edge_count == 102
 
     def test_seed_reproducibility(self):
         g1 = barabasi_albert_graph(15, 2, seed=42)
@@ -164,7 +164,7 @@ class TestWattsStrogatz:
 
     def test_edge_count(self):
         g = watts_strogatz_graph(20, 4, 0.3, seed=42)
-        assert g.edge_count > 0
+        assert g.edge_count == 40
 
     def test_seed_reproducibility(self):
         g1 = watts_strogatz_graph(15, 4, 0.5, seed=42)
@@ -177,7 +177,7 @@ class TestWattsStrogatz:
 
     def test_full_rewire(self):
         g = watts_strogatz_graph(10, 4, 1.0, seed=42)
-        assert g.edge_count > 0
+        assert g.edge_count == 20
 
 
 class TestRandomShuffle:
