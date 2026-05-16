@@ -175,10 +175,8 @@ class TransitiveRule(Rule):
         """Find transitive chains matching the configured edge label."""
         matches: list[RuleMatch] = []
         for nid_a in active_nodes:
-            for e1 in graph.incident_edges(nid_a):
+            for e1 in graph.outgoing_edges(nid_a):
                 if self._edge_label and e1.label != self._edge_label:
-                    continue
-                if nid_a not in e1.source_ids:
                     continue
                 for nid_b in e1.target_ids & active_nodes:
                     matches.extend(self._find_second_hop(graph, nid_a, nid_b, active_nodes, edge_set, e1.id))
@@ -187,10 +185,8 @@ class TransitiveRule(Rule):
     def _find_second_hop(self, graph: Hypergraph, nid_a: str, nid_b: str, active_nodes: frozenset[str], edge_set: set[tuple[str, str]], e1_id: str) -> list[RuleMatch]:
         """Find second-hop targets for a given intermediate node."""
         results: list[RuleMatch] = []
-        for e2 in graph.incident_edges(nid_b):
+        for e2 in graph.outgoing_edges(nid_b):
             if self._edge_label and e2.label != self._edge_label:
-                continue
-            if nid_b not in e2.source_ids:
                 continue
             for nid_c in e2.target_ids & active_nodes:
                 if nid_a == nid_c:
@@ -209,15 +205,21 @@ class TransitiveRule(Rule):
     def apply(self, graph: Hypergraph, match: RuleMatch) -> tuple[list[str], list[str]]:
         """Create an inferred edge from A to C.
 
+        A live existence check is performed immediately before adding the edge
+        so that sibling matches applied to the same shared graph in the same
+        expansion round cannot produce duplicate edges.
+
         Args:
             graph: The hypergraph to modify.
             match: A match with ``A`` and ``C`` bindings.
 
         Returns:
-            ``( [], [new_edge_id] )``.
+            ``( [], [new_edge_id] )`` or ``( [], [] )`` when the edge already exists.
         """
         a, c = match.bindings["A"], match.bindings["C"]
         label = self._new_label or "inferred"
+        if self._edge_exists(graph, a, c):
+            return [], []
         edge = Hyperedge(
             source_ids=frozenset({a}),
             target_ids=frozenset({c}),
@@ -332,10 +334,8 @@ class InverseRule(Rule):
         """
         matches: list[RuleMatch] = []
         for nid in active_nodes:
-            for edge in graph.incident_edges(nid):
+            for edge in graph.outgoing_edges(nid):
                 if edge.label != self._edge_label:
-                    continue
-                if nid not in edge.source_ids:
                     continue
                 for target in edge.target_ids & active_nodes:
                     if self._inverse_exists(graph, target, nid):
@@ -357,9 +357,11 @@ class InverseRule(Rule):
             match: A match with ``source`` and ``target`` bindings.
 
         Returns:
-            ``( [], [new_edge_id] )``.
+            ``( [], [new_edge_id] )`` or ``( [], [] )`` if the edge already exists.
         """
         source, target = match.bindings["source"], match.bindings["target"]
+        if self._inverse_exists(graph, target, source):
+            return [], []
         edge = Hyperedge(
             source_ids=frozenset({target}),
             target_ids=frozenset({source}),
@@ -1053,11 +1055,11 @@ class HubInferenceRule(Rule):
         edge_pairs: dict[tuple[str, str], int] = {}
         source_totals: dict[str, int] = {}
         for edge in graph.edges:
+            if not edge.label:
+                continue
             active_srcs = [s for s in edge.source_ids if s in active_nodes]
             for src in active_srcs:
                 source_totals[src] = source_totals.get(src, 0) + 1
-            if not edge.label:
-                continue
             for src in active_srcs:
                 for tgt in edge.target_ids:
                     if tgt not in active_nodes or tgt == src:

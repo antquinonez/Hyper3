@@ -36,7 +36,7 @@ pip install sentence-transformers
 
 ```
 Loading sentence-transformers model...
-Knowledge base: 28 nodes, 29 edges
+Knowledge base: 27 nodes, 46 edges
 
 ######################################################################
 # SCENARIO 1: Clinical decision support

@@ -60,8 +60,8 @@ SECTION 3: Intelligence - Multi-hop reasoning...
 
 SECTION 4: Transitive chain discovery via mem.reason()...
   (Applies TransitiveRule to discover hidden skill chains)
-  States created: 5
-  Rules applied: 4
+  States created: 14
+  Rules applied: 13
   Transitive rules confirmed existing chains
 
 SECTION 5: Finding jobs for skills ['python', 'sql']...
@@ -84,13 +84,13 @@ SECTION 8: Rating confidence: python -> java...
   Confidence score: 0.85 (high confidence substitution)
 
 SECTION 9: Triggering self-evolution...
-  Graph before evolution: 16 nodes, 11 edges
+  Graph before evolution: 16 nodes, 10 edges
   Running evolution (decay, prune, merge, reinforce)...
   Decayed: 0
   Pruned: 0
   Reinforced: 0
   Merged: 3
-  Graph after evolution: 13 nodes, 11 edges
+  Graph after evolution: 13 nodes, 10 edges
 ```
 
 > Note: Section 4's `discover_transitive_substitutions()` call applies the TransitiveRule, which may materialize transitive chains as direct edges. After reasoning, python→cplusplus has a direct `substitutes_for` edge (created by the rule), so Section 7 reports `Direct edge: True`. The confidence of 1.00 is the default edge weight for inferred edges, not the manually-assigned substitution confidence of 0.80.
@@ -198,7 +198,7 @@ The `find_jobs_for_skills()` method uses `mem.query_nodes(type="job")` to identi
 
 ### Step 5: Self-evolution
 
-After adding stale skills, the graph has 16 nodes and 11 edges. Evolution merges 3 duplicate node pairs, bringing the graph to 13 nodes and 11 edges. Decay, pruning, and reinforcement produce zero changes because the demo graph is small and freshly constructed.
+After adding stale skills, the graph has 16 nodes and 10 edges. Evolution merges 3 duplicate node pairs, bringing the graph to 13 nodes and 10 edges. Decay, pruning, and reinforcement produce zero changes because the demo graph is small and freshly constructed.
 
 **Why evolution matters**: In a live system with thousands of skills and jobs, stale skills (no recent postings, no substitution edges) should lose weight and eventually be pruned. Trending skills (high posting volume, many substitution edges) should be reinforced. The evolution engine automates this without manual curation.
 

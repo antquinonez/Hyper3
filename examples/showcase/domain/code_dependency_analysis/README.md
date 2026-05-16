@@ -109,7 +109,7 @@ SUMMARY
   Graph: 130 nodes, 347 edges
   Circular dependencies: 8 cycles
   Connected components: 3
-  Indirect dependencies found: 50
+  Indirect dependencies found: 11
   Outdated packages: 17
   Low-coverage at-risk modules: 18
 
@@ -119,7 +119,7 @@ SUMMARY
 
 ## 5. The Scenario
 
-The showcase models a monorepo with **129 nodes across 7 categories and 343 dependency edges** (393 after transitive inference).
+The showcase models a monorepo with **129 nodes across 7 categories and 343 dependency edges** (354 after transitive inference).
 
 | Category | Count | Examples | Purpose |
 |----------|-------|----------|---------|
@@ -214,7 +214,7 @@ graph TB
 | `extends` | ~15 | Module inherits or extends a base class |
 | `tests` | ~20 | Test module exercises the target |
 | `implements` | ~8 | Config module implements core config interface |
-| `indirectly_depends_on` | 50 | Inferred by TransitiveRule |
+| `indirectly_depends_on` | 11 | Inferred by TransitiveRule |
 
 ## 6. The Analysis Pipeline
 
@@ -298,7 +298,7 @@ result = mem.reason(
 
 **Why this matters:** Direct dependencies are visible in import statements. Indirect dependencies are not. If `svc.auth` depends on `core.auth_base`, and `core.auth_base` depends on `cfg.auth`, then `svc.auth` indirectly depends on `cfg.auth`. The transitive rule makes this explicit.
 
-**Result:** 50 indirect dependencies discovered across 51 states. The rule reached depth 2. Examples include `data.repo_user -> 3p.psycopg2`, `util.tracing -> core.validator`, and `svc.payments -> core.pipeline`.
+**Result:** 11 indirect dependencies discovered across 51 states. The rule reached depth 2. Examples include `svc.tenants -> core.config_base`, `svc.tenants -> core.event_bus`, and `svc.tenants -> core.registry`.
 
 ### Section 7: Outdated Third-Party Dependencies
 
@@ -338,10 +338,10 @@ for label, data in all_modules.items():
 
 **Result:** 18 modules qualify as at-risk. The highest-impact gaps include:
 - `core.encoder` — 40% coverage, 12 dependents
-- `core.graph` — 40% coverage, 34 dependents
+- `core.graph` — 40% coverage, 26 dependents
 - `core.crypto` — 40% coverage, 33 dependents
 - `core.engine` — 46% coverage, 49 dependents (everything depends on it)
-- `core.cache_base` — 46% coverage, 34 dependents
+- `core.cache_base` — 46% coverage, 32 dependents
 - `core.retry` — 52% coverage, 49 dependents
 
 ### Section 9: Subsystem Coupling Analysis
@@ -464,7 +464,7 @@ The final section aggregates all findings:
 Graph: 130 nodes, 347 edges
 Circular dependencies: 8 cycles
 Connected components: 3
-Indirect dependencies found: 50
+Indirect dependencies found: 11
 Outdated packages: 17
 Low-coverage at-risk modules: 18
 
@@ -563,8 +563,8 @@ The matrix reveals both intended patterns (services depending on core framework 
 
 | Metric | Value |
 |--------|-------|
-| Dependency edges (after inference) | 393 |
-| Indirect dependencies discovered | 50 |
+| Dependency edges (after inference) | 354 |
+| Indirect dependencies discovered | 11 |
 | Reasoning states created | 51 |
 | Reasoning rules applied | 50 |
 | Reasoning max depth | 2 |

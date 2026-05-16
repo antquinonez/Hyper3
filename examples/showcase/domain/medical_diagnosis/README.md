@@ -53,7 +53,7 @@ Initial edge counts:
 After reasoning + evidence updates, a typical run ends near:
 
 - 94 nodes
-- 220 edges
+- 151 edges
 
 ## 4. Walkthrough
 
@@ -74,12 +74,7 @@ For each candidate diagnosis, the script computes:
 - `coverage`: fraction of patient findings directly covered by `dx --causes--> finding`
 - `combined = 0.70 * coverage + 0.30 * prove`
 
-This improves ranking clarity when `prove()` is sparse for some candidates.
-
-Typical output pattern:
-
-- `pneumonia` ranks first because it covers all presented findings
-- some alternatives may still be marked `PROVEN` if they satisfy narrow premise structures
+Because the knowledge graph is densely connected, `prove()` returns 1.00 for most candidates. The combined score is therefore driven primarily by evidence coverage, making coverage the key differentiator in the ranked differential.
 
 ### Section 3: Contradiction handling
 
@@ -137,14 +132,14 @@ Typical ranked differential diagnosis output from Section 2:
 
 ```
   Ranked differential (coverage-weighted):
-    1. pneumonia                 combined=0.72  coverage=0.83  prove=0.43
-    2. pulmonary_embolism        combined=0.37  coverage=0.33  prove=0.40
-    3. pleural_effusion          combined=0.36  coverage=0.50  prove=0.10
-    4. bronchitis                combined=0.34  coverage=0.33  prove=0.36
-    5. copd_exacerbation         combined=0.30  coverage=0.33  prove=0.22
+    1. pneumonia                 combined=1.00  coverage=1.00  prove=1.00
+    2. bronchitis                combined=0.77  coverage=0.67  prove=1.00
+    3. pulmonary_embolism        combined=0.53  coverage=0.33  prove=1.00
+    4. copd_exacerbation         combined=0.53  coverage=0.33  prove=1.00
+    5. pleural_effusion          combined=0.35  coverage=0.50  prove=0.00
 ```
 
-Exact values vary by run due to probabilistic reasoning, but `pneumonia` consistently ranks first because it covers the majority of the presented findings (fever, cough, productive cough, dyspnea, pleuritic chest pain, tachycardia).
+Exact values may vary slightly between runs due to non-deterministic multiway expansion, but the ranking structure is stable: `pneumonia` consistently ranks first because it covers all six presented findings (fever, cough, productive cough, dyspnea, pleuritic chest pain, tachycardia). `bronchitis` ranks second due to covering 4 of 6 findings. `prove()` returns 1.00 for most candidates because the densely-connected clinical graph satisfies premise structures quickly.
 
 ## 5. Mermaid Topology (Representative Subgraph)
 
@@ -175,9 +170,9 @@ How to read it:
 ## 6. Key Metrics (Current Script)
 
 - Initial graph: 92 nodes, 139 edges
-- Post-reasoning/evidence graph: about 94 nodes, about 220 edges
+- Post-reasoning/evidence graph: 94 nodes, 151 edges
 - Differential candidates: 5
-- Contradictions resolved: typically 1
+- Contradictions resolved: 1
 - Born-rule diagnosis sampling: 15 draws (stochastic)
 
 ## 7. Understanding the Output

@@ -35,7 +35,7 @@ pip install sentence-transformers
 
 ```
 Loading model...
-KB: 25 nodes, 28 edges
+KB: 25 nodes, 37 edges
 
 ######################################################################
 # PHASE 1: Baseline RRF retrieval (no feedback)

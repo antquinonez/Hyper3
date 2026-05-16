@@ -1,6 +1,6 @@
 # Self-Healing Infrastructure Monitoring
 
-> Feedback-driven decay, prune, and reinforce on a 47-node production topology with metamorphosis validation and multiway causal merge
+> Feedback-driven decay, prune, and reinforce on a 46-node peak production topology (32 servers + 15 stale, 1 merge) with metamorphosis validation and multiway causal merge
 
 ## 1. The Approach
 
@@ -8,7 +8,7 @@ Production infrastructure graphs accumulate stale monitoring data, noisy depende
 
 Hyper3's self-evolution loop uses operation outcomes as feedback to drive structural cleanup. When a retrieval returns a stale node, the system records a negative outcome. When a collapse resolves to the correct server, the system records a positive outcome. Over time, `evolve_with_feedback()` uses this accumulated signal to reinforce frequently-accessed healthy nodes and suppress nodes that consistently produce poor outcomes.
 
-This showcase models a 47-node infrastructure (32 production servers across 12 service categories, plus 15 noisy/stale nodes), runs it through four rounds of operation and evolution, and shows how the feedback loop recovers graph health.
+This showcase models a 46-node peak infrastructure (32 production servers across 18 service categories, plus 15 noisy/stale nodes; 1 merge in Round 1 reduces to 31+15=46), runs it through four rounds of operation and evolution, and shows how the feedback loop recovers graph health.
 
 ## 2. Key Concepts
 
@@ -51,7 +51,7 @@ Note: Multiway expansion results, bias profile metrics, causal chains, and exact
 
 The showcase models a production infrastructure with three layers:
 
-- **32 production servers** across 12 service categories: web frontends (3), API gateways (2), auth services (2), user services (2), order services (2), payment services (2), inventory services (2), notification (1), search (1), analytics (1), plus infrastructure components (caches, databases, queues, CDN edges, load balancers, monitoring, logging)
+- **32 production servers** across 18 service categories: web frontends (3), API gateways (2), auth services (2), user services (2), order services (2), payment services (2), inventory services (2), notification (1), search (1), analytics (1), caches (2), databases (3), document store (1), message queues (2), CDN (2), load balancers (2), monitoring (1), logging (1)
 - **53 dependency edges** with labeled relationships (`routes_to`, `calls`, `reads_from`, `publishes_to`, `consumes_from`, `monitors`, `receives_logs_from`)
 - **13 failure mode edges** (`blocks`, `degrades`) modeling cascade patterns
 - **15 noisy/stale nodes** added during degradation (deprecated services, zombie processes, orphan endpoints, ghost replicas)
@@ -110,6 +110,7 @@ graph TB
     CDN1 --"routes_to"--> WF2
     CDN2 --"routes_to"--> WF3
     WF1 --"routes_to"--> LB1
+    WF2 --"routes_to"--> LB1
     WF3 --"routes_to"--> LB2
     LB1 --"routes_to"--> AG1
     LB2 --"routes_to"--> AG2
@@ -249,16 +250,16 @@ After running reasoning on two concept sets, the bias profile summarizes rule ef
 
 ```
 Reasoning style: focused
-Bias score: ~0.26
-Rule count: 6
-Average effectiveness: ~0.74
+Bias score: ~0.69
+Rule count: 2
+Average effectiveness: ~0.64
 Position trajectory: stable
-Dominant rules: inverse(blocks->blocked_by), transitive(routes_to) + inverse(blocks->blocked_by)
+Dominant rules: inverse(blocks->blocked_by)
 ```
 
 Bias profile metrics are run-dependent because they depend on which rules fire during reasoning, which in turn depends on the graph state after feedback-driven evolution.
 
-The "focused" reasoning style (bias score ~0.26 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) and the transitive rule for `routes_to` are typically dominant — they produce the most accepted inferences.
+The "focused" reasoning style (bias score ~0.69 out of 1.0) indicates that a small number of rules account for most inference activity. The inverse rule (`blocks` -> `blocked_by`) is dominant — it produces the most accepted inferences.
 
 Why bias tracking matters: in a system with many registered rules, some rules consistently produce useful inferences while others rarely fire or produce low-quality results. The bias profile identifies which rules earn their computational cost, allowing the system to prioritize effective rules during reasoning.
 
@@ -302,8 +303,10 @@ Allen interval relations reveal the temporal structure:
 - `db_pool_growth_begins` -> `api_latency_spike`: **overlaps** (pool growth overlaps with latency impact)
 - `api_latency_spike` -> `customer_timeouts`: **overlaps** (latency and timeouts co-occur)
 - `healthy_baseline` -> `stale_config_pushed`: **meets** (baseline ends exactly when degradation begins)
+- `feedback_recovery` -> `service_restored`: **overlaps** (recovery activity overlaps with service coming back)
+- `pager_alert_fired` -> `feedback_recovery`: **before** (alert fires before recovery begins)
 
-Auto-detected causal chains connect events across the timeline, typically connecting the stale config push to downstream events (pool growth, latency spikes, pager alerts). The exact chains vary by run. The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
+Auto-detected causal chains connect events across the timeline. All 5 chains originate from `healthy_baseline`, linking it through incident events (api_latency_spike, customer_timeouts, pager_alert_fired) to resolution (feedback_recovery, service_restored). The constraint network infers 28 Allen relations between all event pairs with no consistency violations.
 
 Why this matters: infrastructure incidents are temporal phenomena. The graph structure models *what* is connected, but temporal reasoning adds *when* things happen and *in what order*. Allen relations provide a precise vocabulary for event ordering that goes beyond simple timestamps, and causal chain detection automatically reconstructs the incident narrative from temporal data.
 
@@ -313,7 +316,7 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 |--------|-------|
 | Production servers | 32 |
 | Noisy/stale nodes added | 15 |
-| Total node scope | 47 |
+| Total node scope | 46 peak (47 created) |
 | Dependency edges | 53 |
 | Failure mode edges | 13 |
 | Initial graph | 32 nodes, 66 edges |
@@ -341,9 +344,9 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 | Cross-operation correlations | 13 nodes |
 | Top correlated (db-pg-primary) | 5 signals, 1.00 positive rate |
 | Bias reasoning style | focused |
-| Bias score | ~0.45 |
-| Rule count | 3 |
-| Average rule effectiveness | ~0.75 |
+| Bias score | ~0.69 |
+| Rule count | 2 |
+| Average rule effectiveness | ~0.64 |
 | Metamorphosis triggers | 1 |
 | Metamorphosis urgency | 0.60 |
 | Tuning plan actions | 2 |
@@ -367,7 +370,7 @@ Why this matters: infrastructure incidents are temporal phenomena. The graph str
 
 **Metamorphosis validation** captures a graph version snapshot before applying tuning changes and rolls back if fitness decreases. Without validation, a tuning plan that seems reasonable (low risk score of 0.18) could degrade fitness. The validation step converts parameter tuning from an irreversible change into a test-and-commit operation.
 
-**Computational bias profiling** tracks which inference rules produce accepted results. A system with 6 registered rules could spend computation on rules that rarely fire or produce low-quality inferences. The bias profile identifies dominant rules (inverse rule for `blocks`/`blocked_by`) and underused rules, allowing targeted rule management.
+**Computational bias profiling** tracks which inference rules produce accepted results. A system with 2 registered rules could spend computation on rules that rarely fire or produce low-quality inferences. The bias profile identifies dominant rules (inverse rule for `blocks`/`blocked_by`) and underused rules, allowing targeted rule management.
 
 ## 8. Code Implementation
 
@@ -437,7 +440,7 @@ print(f"dominant rules: {profile['dominant_rules']}")
 
 ## 9. Real-World Gap
 
-- **Data pipeline**: The showcase constructs a synthetic 47-node graph from hardcoded dictionaries. Production adoption requires ETL from live infrastructure sources (service mesh telemetry, CMDB entries, alert streams, dependency maps from tools like Datadog or ServiceNow).
+- **Data pipeline**: The showcase constructs a synthetic 46-node peak graph from hardcoded dictionaries. Production adoption requires ETL from live infrastructure sources (service mesh telemetry, CMDB entries, alert streams, dependency maps from tools like Datadog or ServiceNow).
 - **Scale**: The graph operates at 33–46 nodes. Performance of feedback-driven evolution at 10K+ nodes (typical of a large microservices deployment) is untested. The feedback history accumulation and cross-operation correlation calculations would need evaluation at scale.
 - **Feedback source**: Operation outcomes are recorded programmatically in the showcase. Production use requires mapping real signals (alert resolution status, deployment success/failure, query result click-through) to collapse, retrieval, and inference outcomes.
 - **Non-determinism**: Edge weights, equivalence scores, and fitness values are deterministic given the same operation sequence. However, the order of operations affects merge and suppress decisions — different call patterns produce different evolution outcomes.

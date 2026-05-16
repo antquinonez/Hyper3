@@ -37,9 +37,9 @@ SECTION 1: Building Research Knowledge Graph
   12 entities, 13 relationships
 
 SECTION 2: Reasoning with Provenance
-  States explored: 3
-  Rules applied: 2
-  Edges inferred: 2
+  States explored: 5
+  Rules applied: 4
+  Edges inferred: 4
   Provenance records: 2
 
 SECTION 3: Explaining Inferences
@@ -52,6 +52,12 @@ SECTION 3: Explaining Inferences
   drug_olaparib --[was_investigated_by]--> study_alpha
     Rule: inverse(investigated->was_investigated_by)
     Depth: 1
+
+SECTION 4: High-Level Explain API
+  No inferred relationship found
+
+  Why is dna_damage connected to ovarian_cancer?
+      dna_damage -> ovarian_cancer (given)
 
 SECTION 5: Cascading Retraction
   Graph before retraction: 15 edges
@@ -123,7 +129,7 @@ graph TB
 | **Drugs** | drug_olaparib, drug_cisplatin | 2 |
 | **Diseases** | breast_cancer, ovarian_cancer | 2 |
 | **Mechanisms** | dna_damage, apoptosis | 2 |
-| **Evidence edges** | investigated, found_association, confirms_efficacy | 6 |
+| **Evidence edges** | investigated, found_association, confirms_efficacy | 5 |
 | **Biological edges** | repairs, interacts_with, promotes, triggers, increases, causes | 6 |
 | **Association edges** | associated_with | 1 |
 
@@ -151,7 +157,7 @@ The `InverseRule` reverses `investigated` edges: since `study_alpha` investigate
 
 **Why provenance matters here:** Without provenance records, an inferred edge is indistinguishable from a given edge. If a user asks "why does `drug_olaparib` link to `study_alpha`?", there would be no way to answer. With provenance, the system can report: "because `study_alpha` investigated `drug_olaparib` (given), and the inverse rule was applied at depth 1."
 
-The reasoning engine explored 3 states, applied 2 rules, and produced 2 inferred edges — each with a provenance record.
+The reasoning engine explored 5 states, applied 4 rules, and produced 4 inferred edges across all multiway branches. Of these, 2 were committed to the graph (the `inferred` metadata flag appears on 2 edges, and 2 provenance records were created) — the remaining 2 were produced in non-surviving branches and were not persisted.
 
 ### Phase 3: Explaining Inferences
 
@@ -208,9 +214,9 @@ After retraction: 14 edges remain, and 1 provenance record persists (for the `br
 | Entities (nodes) | 12 |
 | Given relationships (edges) | 13 |
 | Inference rules registered | 3 |
-| States explored | 3 |
-| Rules applied | 2 |
-| Edges inferred | 2 |
+| States explored | 5 |
+| Rules applied | 4 |
+| Edges inferred | 4 |
 | Provenance records created | 2 |
 | Edges before retraction | 15 |
 | Edges retracted (cascading) | 1 |

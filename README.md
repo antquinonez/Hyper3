@@ -1,6 +1,21 @@
-# hyper3
+# Hyper3 🧬
 
 Self-evolving hypergraph knowledge graph with multiway expansion, belief distributions, and introspective self-improvement.
+
+## Project Status
+
+Pre-release. Public APIs -- class names, method signatures, and exported symbols -- may change between commits without deprecation warnings. Backward compatibility is not a goal at this stage; old names are removed rather than aliased. Treat any signature or name change as expected, not as a bug, unless it breaks the test suite.
+
+| Gate | Result |
+|------|--------|
+| Tests | 4434 across 92 test files |
+| Type checking (pyright) | 0 errors |
+| Linting (ruff) | 0 errors |
+| Coverage | 98% |
+| Modules | 112 source files |
+| Equivalence tests | 913 tests against HypergraphX, XGI, NetworkX (0 failures, 54 documented gaps) |
+
+Dependencies: numpy, scipy, networkx. No network calls, no database, no external services. Optional: `matplotlib` (visualization), `faiss-cpu` (fast similarity search).
 
 Hyper3 is a pure-Python library for knowledge representation and reasoning. It stores information as a hypergraph with native n-ary edges, applies inference rules to discover new relationships, reasons under uncertainty using Born-rule belief sampling and Bayesian updating, and introspects on its own reasoning to self-improve.
 
@@ -722,6 +737,14 @@ Both doc sets share the same `PUBLIC_MODULES` list (defined in `scripts/generate
 
 Regenerate all outputs with the `/update-docs` command.
 
+## Caveats
+
+**N-ary hyperedge support.** All kernel algorithms (centrality, paths, components, cycles, communities, anomaly detection, evolution, TransitiveRule) handle edges with multiple source and/or target nodes correctly. Validated by 38 dedicated polyadic tests and the `network_analytics_polyadic` example. One known partial: `pattern_match` bindings capture only the first source/target label for n-ary edges, not the full set.
+
+**Non-deterministic operations.** Community detection (label propagation), `detect_cycles(max_cycles=N)` (soft limit), Born-rule sampling, and belief state coherence (timing-dependent decay) produce results that vary across runs.
+
+**Scale.** Examples operate on 80--400 nodes. Performance beyond ~1K nodes has not been benchmarked systematically.
+
 ## Testing
 
 ```bash
@@ -730,8 +753,6 @@ Regenerate all outputs with the `/update-docs` command.
 .venv/bin/ruff check src/hyper3/ tests/                      # Lint
 .venv/bin/pyright src/hyper3/                                 # Type check
 ```
-
-3734 tests, 98% coverage across 99 modules. 0 pyright errors, 0 ruff errors.
 
 ## Benchmarks & Equivalence
 

@@ -43,8 +43,8 @@ Traditional substitution tables store pairwise relationships in flat lists or re
 Typical current run:
 
 - initial graph after setup: 12 nodes, 12 edges
-- after reasoning and extra demo nodes: 14 nodes, 16 edges
-- after evolution: 13 nodes, 16 edges
+- after reasoning and extra demo nodes: 14 nodes, 14 edges
+- after evolution: 13 nodes, 14 edges
 
 Context sampling now produces context-sensitive empirical probabilities (not flat 0.25 outputs).
 
@@ -89,9 +89,9 @@ Running Section 9 (context-dependent substitution) produces output like:
 ```text
 SECTION 9: Context-dependent substitution...
   The same ingredient produces different recommendations under different diets.
-  Vegan context -> margarine (empirical_prob=0.4231, trials=400)
-  Low-fat context -> applesauce (empirical_prob=0.4512, trials=400)
-  Baking context -> margarine (empirical_prob=0.5064, trials=400)
+  Vegan context -> margarine (empirical_prob=0.4225, trials=400)
+  Low-fat context -> applesauce (empirical_prob=0.3500, trials=400)
+  Baking context -> margarine (empirical_prob=0.5525, trials=400)
 ```
 
 The top substitute shifts based on the dietary context weights, even though the underlying graph is identical across all three calls. Exact probabilities vary between runs due to Born-rule sampling.

@@ -77,9 +77,9 @@ For each DB/queue, computes:
 
 Typical results (specific transitive dependents vary across runs):
 
-- `db-pg-orders`: 11 direct + 0-1 indirect = 11-12 total
+- `db-pg-orders`: 11 direct + 0 indirect = 11 total
 - `queue-kafka-events`: 13 direct + 0 indirect = 13 total
-- `cache-redis-auth`: 7 direct + 0-1 indirect = 7-8 total
+- `db-pg-payments`: 6 direct + 1 indirect = 7 total
 
 Note: which specific transitive dependents are discovered is non-deterministic. The 12 unique inferred edges are the same set each run, but which edges map to `indirectly_depends_on` vs `depended_on_by` can vary. Most infra nodes show 0 transitive dependents because the 12 unique edges are distributed across the graph and only a few target infrastructure nodes.
 
@@ -113,7 +113,7 @@ Tracks latency of key operations using `EfficiencyTracker`:
 - Reports per-operation statistics: count, avg, P50, P95, max duration
 - Shows cache hit/miss ratios and degradation detection
 
-Typical output shows reasoning as the slowest operation (single invocation, ~250-300ms for 82-node graph), while centrality and search operations complete in under 100ms.
+Typical output shows reasoning as the slowest operation (single invocation, ~550ms for 82-node graph), while centrality and search operations complete in under 10ms.
 
 ### Expected Output
 
@@ -130,10 +130,10 @@ Key blast radius lines from a typical run:
     Transitive dependents: 0 (discovered by inference)
     Total blast radius:   13
 
-  cache-redis-auth
-    Direct dependents:    7
+  db-pg-payments
+    Direct dependents:    6
     Transitive dependents: 1 (discovered by inference)
-    Total blast radius:   8
+    Total blast radius:   7
 ```
 
 ## 5. Mermaid (representative subgraph)

@@ -87,7 +87,7 @@ Offline results -- top hubs by incoming links:
 | Concept | Incoming Links | Outgoing Links | Seed Article |
 |---------|---------------|----------------|--------------|
 | Deep learning | 11 | 12 | Y |
-| Natural language processing | 6 | 8 | Y |
+| Natural language processing | 6 | 6 | Y |
 | Artificial neural network | 5 | 9 | Y |
 
 ### Spreading Activation

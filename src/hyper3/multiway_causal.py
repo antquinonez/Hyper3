@@ -298,6 +298,8 @@ class StateConvergenceEngine:
             self._invariants.append(invariant)
             self._consumed_states.add(state_a_id)
             self._consumed_states.add(state_b_id)
+            self._multiway.mark_consumed(state_a_id)
+            self._multiway.mark_consumed(state_b_id)
             consumed.add(state_a_id)
             consumed.add(state_b_id)
             merged.append(invariant)

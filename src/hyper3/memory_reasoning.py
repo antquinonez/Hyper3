@@ -58,6 +58,14 @@ class ReasoningMixin(_MemoryBase):
         self._multiway_engine.set_rule_analytics(self._rule_analytics)
         self._rule_productions: dict[str, list[str]] = {}
 
+    def _reset_multiway(self) -> None:
+        """Tear down the multiway engine so the next _ensure_multiway() creates a fresh one."""
+        self._multiway_engine = None
+        self._convergence_engine = None
+        self._state_clustering = None
+        self._rule_analytics = None
+        self._rule_productions = {}
+
     def _resolve_seeds(self, seed_concepts: set[str]) -> set[str]:
         """Convert a set of concept labels to their corresponding node IDs."""
         seed_ids: set[str] = set()
@@ -280,6 +288,7 @@ class ReasoningMixin(_MemoryBase):
         confidence_decay: float = 0.9,
         auto_commit: bool = True,
         exhaustive: bool = False,
+        max_matches_per_rule: int = 0,
     ) -> ReasonResult:
         """Expand the multiway DAG from seed concepts using inference rules.
 
@@ -299,6 +308,10 @@ class ReasoningMixin(_MemoryBase):
             exhaustive: If True, disable ``max_total_states`` bounding so that
                 every applicable rule is explored.  Useful for small graphs
                 where completeness matters more than performance.
+            max_matches_per_rule: When > 0, each rule contributes at most this
+                many matches per state expansion.  Use this when multiple rules
+                are registered but a single high-productivity rule would
+                otherwise consume the entire ``max_branches_per_state`` budget.
 
         Returns:
             ReasonResult with expansion, causal, clustering, rule analytics reports and
@@ -308,6 +321,7 @@ class ReasoningMixin(_MemoryBase):
         if not active_rules:
             return ReasonResult(error="no rules defined", states_created=0)
 
+        self._reset_multiway()
         self._ensure_multiway()
 
         seed_ids = self._resolve_seeds(seed_concepts)
@@ -322,14 +336,19 @@ class ReasoningMixin(_MemoryBase):
 
         assert self._multiway_engine is not None
         effective_max_states = max_total_states if not exhaustive else 10_000_000
+        # When a per-rule cap is active, scale max_branches_per_state so that
+        # every registered rule gets at least max_matches_per_rule slots per state.
+        effective_branches = max(10, len(active_rules) * max_matches_per_rule) if max_matches_per_rule > 0 else 10
         all_node_ids = {n.id for n in self._graph.nodes}
         report = self._multiway_engine.expand(
             all_node_ids,
             active_rules,
             max_depth=max_depth,
             max_total_states=effective_max_states,
+            max_branches_per_state=effective_branches,
             overlay=self._overlay if use_overlay else None,
             confidence_decay=confidence_decay,
+            max_matches_per_rule=max_matches_per_rule,
         )
 
         if report.rules_applied > 0:
@@ -483,9 +502,13 @@ class ReasoningMixin(_MemoryBase):
             if node:
                 new_node_ids.add(node.id)
         new_edge_ids: set[str] = set()
+        previously_produced: set[str] = set()
+        for edge_list in self._rule_productions.values():
+            previously_produced.update(edge_list)
         for state in self._multiway_engine.multiway.states:
             for eid in state.produced_edge_ids:
-                new_edge_ids.add(eid)
+                if eid not in previously_produced:
+                    new_edge_ids.add(eid)
         report = self._multiway_engine.expand_incremental(
             new_node_ids,
             new_edge_ids,

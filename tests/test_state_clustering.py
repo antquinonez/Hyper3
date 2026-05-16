@@ -673,10 +673,15 @@ class TestStateClusteringDeepCoverage:
         assert m.conceptual == 0.0
 
     def test_evolutionary_with_structural_none(self):
+        # c1 produced_edge_ids=[e1.id], gc2 produced_edge_ids=[e4.id].
+        # Structural distance = Jaccard over produced-edge sets = 1 - 0/2 = 1.0
+        # (completely disjoint edge sets).
+        # depth_diff = |1 - 2| = 1
+        # evolutionary = depth_diff * 0.5 + structural * 0.5 = 0.5 + 0.5 = 1.0
         g, mw = _build_manual()
         bs = StateClusteringEngine(g, mw)
         result = bs._evolutionary_distance("c1", "gc2", structural=None)
-        assert result == 2.0
+        assert result == 1.0
 
     def test_detect_correlations_no_shared_nodes(self):
         g = Hypergraph()

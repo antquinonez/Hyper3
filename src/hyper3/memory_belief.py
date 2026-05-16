@@ -289,17 +289,36 @@ class BeliefMixin(_MemoryBase):
                     )
 
     def lateral_insights(self, seed_concept: str) -> list[dict[str, Any]]:
-        """Generate lateral inference insights by comparing reasoning across nearby multiway states."""
+        """Generate lateral inference insights by comparing reasoning across nearby multiway states.
+
+        Finds leaf states where the concept's node was involved in a produced
+        edge (either as source or target).  This ensures that states which
+        *inferred* something about the concept are compared, not just states
+        whose seed set happened to include it.  Falls back to seed-membership
+        search when no produced-edge match is found.
+        """
         if not self._multiway_engine:
             return []
         node = self._find_node(seed_concept)
         if not node:
             return []
+        # Primary: find the leaf state where this node appears in a produced edge
         leaf_state = None
-        for state in self._multiway_engine.multiway.states:
-            if node.id in state.active_node_ids and state.is_leaf:
-                leaf_state = state
+        all_leaves = [s for s in self._multiway_engine.multiway.states if s.is_leaf]
+        for state in all_leaves:
+            for eid in state.produced_edge_ids:
+                edge = self._graph.get_edge(eid)
+                if edge and (node.id in edge.source_ids or node.id in edge.target_ids):
+                    leaf_state = state
+                    break
+            if leaf_state is not None:
                 break
+        # Fallback: seed-membership (original behaviour)
+        if leaf_state is None:
+            for state in all_leaves:
+                if node.id in state.active_node_ids:
+                    leaf_state = state
+                    break
         if leaf_state is None:
             return []
         results: list[dict[str, Any]] = []

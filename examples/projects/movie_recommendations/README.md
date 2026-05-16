@@ -54,11 +54,11 @@ The dataset is generated inline by `generate_movies(seed=42)` using Python's `ra
 | Genre | Count | Genre | Count |
 |-------|-------|-------|-------|
 | Drama | 37 | Mystery | 19 |
-| Thriller | 25 | Adventure | 15 |
-| Action | 20 | Horror | 10 |
-| Sci-Fi | 20 | Romance | 15 |
-| Fantasy | 12 | Comedy | 13 |
-| Animation | 6 | Documentary | 4 |
+| Thriller | 25 | Adventure | 18 |
+| Action | 20 | Horror | 9 |
+| Sci-Fi | 20 | Romance | 16 |
+| Fantasy | 12 | Comedy | 15 |
+| Animation | 5 | Documentary | 4 |
 
 **Top-5 rated movies**:
 

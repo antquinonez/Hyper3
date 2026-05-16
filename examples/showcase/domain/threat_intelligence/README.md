@@ -36,10 +36,10 @@ From current runtime:
 
 - Nodes: 140
 - Initial edges: 293
-- Final edges after reasoning: 309
-- Inferred edges produced in reasoning pass: 16
+- Final edges after reasoning: 304
+- Inferred edges produced in reasoning pass: 11 new unique (30 raw productions)
 - Connected components: 14
-- Communities detected: typically around 15 (label propagation)
+- Communities detected: 14 (label propagation)
 
 Entity counts:
 
@@ -92,7 +92,7 @@ Registers rules via namespace style (`mem.reason.add_rules(...)`) and runs reaso
 In current data shape:
 
 - `exploited_by` reverse edges enable vulnerability-centric analyst workflows (which actors exploit this CVE?)
-- `used_by` reverse edges enable malware-centric queries (which actors use this tool?)
+- `used_by` reverse edges produced 0 results for the current graph shape (no matching `uses` edges triggered the inverse rule)
 - `attributed_to_inverse` reverse edges support infrastructure-to-actor tracing
 
 ### Section 12: Communities
@@ -117,7 +117,7 @@ SECTION 7: Malware Variant Lineage
 
   Zeus malware family tree:
     Direct descendants: Dridex, Emotet, QakBot, TrickBot
-    Actors using Zeus descendants: APT38, BlackBasta, Carbanak, FIN6, FIN12, Lazarus, TA505
+    Actors using Zeus descendants: BlackBasta, Clop, FIN12, FIN6, Lazarus, TA505
 ```
 
 ## 5. Mermaid (representative)

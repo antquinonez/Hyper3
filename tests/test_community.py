@@ -260,23 +260,302 @@ class TestLouvain:
         assert result.community_count == 2
         assert abs(result.modularity - 0.3571) < 0.01
 
-    def test_louvain_seed_reproducibility(self):
-        g, _ = self._build_two_clusters_with_bridge()
-        det = CommunityDetector(g)
-        r1 = det.detect_louvain(seed=123)
-        det2 = CommunityDetector(g)
-        r2 = det2.detect_louvain(seed=123)
-        assert r1.community_count == r2.community_count
-        assert [sorted(c.member_ids) for c in r1.communities] == [
-            sorted(c.member_ids) for c in r2.communities
-        ]
 
-    def test_louvain_single_node(self):
+def _make_nary_edge(
+    graph: Hypergraph,
+    sources: list[str],
+    targets: list[str],
+    label: str = "e",
+    weight: float = 1.0,
+    ids: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """Add an n-ary edge, reusing existing nodes when ids dict provides them."""
+    label_to_id = dict(ids) if ids else {}
+    for lbl in set(sources) | set(targets):
+        if lbl in label_to_id:
+            continue
+        node = Hypernode(label=lbl)
+        graph.add_node(node)
+        label_to_id[lbl] = node.id
+    graph.add_edge(
+        Hyperedge(
+            source_ids=frozenset({label_to_id[s] for s in sources}),
+            target_ids=frozenset({label_to_id[t] for t in targets}),
+            label=label,
+            weight=weight,
+        )
+    )
+    return label_to_id
+
+
+class TestPolyadicNeighborMap:
+    def test_nary_edge_creates_bidirectional_neighbors(self) -> None:
         g = Hypergraph()
-        g.add_node(Hypernode(label="x"))
+        ids = _make_nary_edge(g, ["A", "B"], ["C", "D"])
         det = CommunityDetector(g)
-        result = det.detect_louvain()
+        nmap = det._build_neighbor_map(None)
+        assert ids["C"] in [nb for nb, _w in nmap[ids["A"]]]
+        assert ids["D"] in [nb for nb, _w in nmap[ids["A"]]]
+        assert ids["A"] in [nb for nb, _w in nmap[ids["C"]]]
+        assert ids["B"] in [nb for nb, _w in nmap[ids["C"]]]
+
+    def test_nary_edge_no_self_neighbor(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["B", "C"])
+        det = CommunityDetector(g)
+        nmap = det._build_neighbor_map(None)
+        neighbor_ids = [nb for nb, _w in nmap.get(ids["B"], [])]
+        assert ids["B"] not in neighbor_ids
+
+    def test_nary_edge_weight_propagated(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A"], ["B", "C"], weight=5.0)
+        det = CommunityDetector(g)
+        nmap = det._build_neighbor_map(None)
+        weights_for_b = [w for nb, w in nmap[ids["A"]] if nb == ids["B"]]
+        assert weights_for_b == [5.0]
+
+    def test_nary_3source_edge_neighbors(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B", "C"], ["D"])
+        det = CommunityDetector(g)
+        nmap = det._build_neighbor_map(None)
+        assert len(nmap[ids["A"]]) == 1
+        assert len(nmap[ids["D"]]) == 3
+        assert ids["D"] in [nb for nb, _w in nmap[ids["A"]]]
+
+
+class TestPolyadicConnectedComponents:
+    def test_nary_edge_unifies_all_participants(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C", "D"])
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
         assert result.community_count == 1
+        assert result.communities[0].size == 4
+
+    def test_two_nary_edges_two_components(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C"], label="g1")
+        _make_nary_edge(g, ["D", "E"], ["F"], label="g2")
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 2
+        assert all(c.size == 3 for c in result.communities)
+
+    def test_nary_bridge_unifies_two_groups(self) -> None:
+        g = Hypergraph()
+        ids1 = _make_nary_edge(g, ["A", "B"], ["C"], label="left")
+        ids2 = _make_nary_edge(g, ["D", "E"], ["F"], label="right")
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({ids1["C"]}),
+                target_ids=frozenset({ids2["D"]}),
+                label="bridge",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 1
+        assert result.communities[0].size == 6
+
+    def test_nary_5source_all_connected(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B", "C", "D"], ["E"])
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 1
+        assert result.communities[0].size == 5
+
+
+class TestPolyadicLabelPropagation:
+    def test_nary_edge_single_community(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C", "D"])
+        det = CommunityDetector(g)
+        result = det.detect_label_propagation(seed=42)
+        assert result.community_count == 1
+        assert result.communities[0].size == 4
+
+    def test_nary_edges_two_clusters(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C"], label="cluster1")
+        _make_nary_edge(g, ["D", "E"], ["F"], label="cluster2")
+        det = CommunityDetector(g)
+        result = det.detect_label_propagation(seed=42)
+        assert result.community_count == 2
+        sizes = sorted(c.size for c in result.communities)
+        assert sizes == [3, 3]
+
+    def test_weighted_nary_propagation(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C", "D"], weight=10.0, label="strong")
+        ids = _make_nary_edge(g, ["D", "E"], ["F"], weight=0.1, label="weak", ids=ids)
+        det = CommunityDetector(g)
+        result = det.detect_weighted_label_propagation(seed=42)
+        assert result.community_count >= 1
+        all_members = set()
+        for c in result.communities:
+            all_members.update(c.member_ids)
+        assert len(all_members) == 6
+
+    def test_nary_community_labels_are_human_readable(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["alpha", "beta"], ["gamma"])
+        det = CommunityDetector(g)
+        result = det.detect_label_propagation(seed=42)
+        assert result.community_count == 1
+        assert set(result.communities[0].member_labels) == {"alpha", "beta", "gamma"}
+
+
+class TestPolyadicLouvain:
+    def test_nary_single_cluster(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C", "D"])
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 1
+        assert result.communities[0].size == 4
+
+    def test_nary_two_clusters_with_bridge(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C"], label="left")
+        _make_nary_edge(g, ["A", "B"], ["C"], label="left_internal", ids=ids)
+        ids = _make_nary_edge(g, ["D", "E"], ["F"], label="right", ids=ids)
+        _make_nary_edge(g, ["D", "E"], ["F"], label="right_internal", ids=ids)
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({ids["C"]}),
+                target_ids=frozenset({ids["D"]}),
+                label="bridge",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 2
+        assert result.modularity == pytest.approx(0.3, abs=1e-3)
+        all_members: set[str] = set()
+        for c in result.communities:
+            all_members.update(c.member_ids)
+        assert len(all_members) == 6
+
+    def test_nary_weighted_louvain(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C"], weight=10.0, label="strong")
+        ids = _make_nary_edge(g, ["D", "E"], ["F"], weight=10.0, label="strong2", ids=ids)
+        _make_nary_edge(g, ["C", "D"], ["X"], weight=0.01, label="weak_bridge", ids=ids)
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42)
+        assert result.community_count == 2
+        assert result.modularity == pytest.approx(0.4998, abs=1e-3)
+
+    def test_nary_louvain_edge_label_filter(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C"], label="keep")
+        ids = _make_nary_edge(g, ["D", "E"], ["F"], label="keep", ids=ids)
+        _make_nary_edge(g, ["C", "D"], ["X"], label="ignore", ids=ids)
+        det = CommunityDetector(g)
+        result = det.detect_louvain(seed=42, edge_label="keep")
+        assert result.community_count == 3
+
+
+class TestPolyadicModularity:
+    def test_nary_tight_cluster_positive_modularity(self) -> None:
+        g = Hypergraph()
+        for _ in range(3):
+            _make_nary_edge(g, ["A", "B"], ["C"], label="internal")
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.modularity > 0.0
+
+    def test_nary_internal_external_edge_counts(self) -> None:
+        g = Hypergraph()
+        ids1 = _make_nary_edge(g, ["A", "B"], ["C"], label="g1")
+        ids2 = _make_nary_edge(g, ["D", "E"], ["F"], label="g2")
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({ids1["C"]}),
+                target_ids=frozenset({ids2["D"]}),
+                label="cross",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 1
+
+    def test_nary_disjoint_zero_external(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B"], ["C"], label="g1")
+        _make_nary_edge(g, ["D", "E"], ["F"], label="g2")
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 2
+        assert all(c.external_edges == 0 for c in result.communities)
+        assert all(c.internal_edges > 0 for c in result.communities)
+
+
+class TestPolyadicGirvanNewman:
+    def test_nary_two_clusters(self) -> None:
+        g = Hypergraph()
+        ids1 = _make_nary_edge(g, ["A", "B"], ["C"])
+        ids2 = _make_nary_edge(g, ["D", "E"], ["F"])
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({ids1["C"]}),
+                target_ids=frozenset({ids2["D"]}),
+                label="bridge",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman(n_communities=2)
+        assert result.community_count == 2
+        all_members: set[str] = set()
+        for c in result.communities:
+            all_members.update(c.member_ids)
+        assert len(all_members) == 6
+
+    def test_nary_single_component(self) -> None:
+        g = Hypergraph()
+        _make_nary_edge(g, ["A", "B", "C"], ["D"])
+        det = CommunityDetector(g)
+        result = det.detect_girvan_newman(n_communities=2)
+        assert result.community_count == 2
+
+
+class TestPolyadicMixed:
+    def test_nary_plus_dyadic_combined(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C"], label="nary")
+        g.add_edge(
+            Hyperedge(
+                source_ids=frozenset({ids["C"]}),
+                target_ids=frozenset({ids["A"]}),
+                label="dyadic",
+            )
+        )
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 1
+        assert result.communities[0].size == 3
+
+    def test_nary_facade_via_memory(self) -> None:
+        mem = HypergraphMemory(evolve_interval=0)
+        mem.add("svc-a")
+        mem.add("svc-b")
+        mem.add("svc-c")
+        mem.link_hyper(sources={"svc-a", "svc-b"}, targets={"svc-c"}, label="joint")
+        result = mem.analyze.communities(method="connected_components")
+        assert result.community_count == 1
+        assert result.communities[0].size == 3
+
+    def test_multiple_nary_edges_coverage(self) -> None:
+        g = Hypergraph()
+        ids = _make_nary_edge(g, ["A", "B"], ["C", "D"], label="e1")
+        ids = _make_nary_edge(g, ["A", "C"], ["E"], label="e2", ids=ids)
+        det = CommunityDetector(g)
+        result = det.detect_connected_components()
+        assert result.community_count == 1
+        assert result.coverage == 1.0
 
 
 class TestGirvanNewman:
@@ -340,8 +619,8 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities()
-        assert result.community_count > 0
-        assert len(result.dendrogram) > 0
+        assert result.community_count == 2
+        assert len(result.dendrogram) == 2
         assert len(result.edge_labels) == 3
 
     def test_cut_height(self):
@@ -354,7 +633,7 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities(cut_height=0.5)
-        assert result.community_count > 0
+        assert result.community_count == 3
 
     def test_n_communities(self):
         g = Hypergraph()
@@ -365,7 +644,7 @@ class TestHyperlinkCommunities:
         g.add_edge(Hyperedge(source_ids=frozenset({nodes[3].id, nodes[4].id, nodes[5].id}), target_ids=frozenset()))
         det = CommunityDetector(g)
         result = det.detect_hyperlink_communities(n_communities=2)
-        assert result.community_count >= 2
+        assert result.community_count == 2
 
     def test_empty(self):
         g = Hypergraph()

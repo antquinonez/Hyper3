@@ -27,6 +27,7 @@ class MultiwayState:
     children_ids: list[str] = field(default_factory=list)
     timestamp: float = 0.0
     overlay: HypergraphOverlay | None = None
+    consumed: bool = False
 
     @property
     def is_root(self) -> bool:
@@ -69,13 +70,13 @@ class MultiwayGraph:
             The added state.
         """
         self._states[state.id] = state
-        if state.parent_id is not None and state.parent_id in self._states:
+        if state.parent_id is None:
+            self._root = state
+        elif state.parent_id in self._states:
             parent = self._states[state.parent_id]
             if state.id not in parent.children_ids:
                 parent.children_ids.append(state.id)
                 self._leaves_cache = None
-        else:
-            self._root = state
         if state.parent_id is not None:
             self._update_state_relations(state)
         return state
@@ -119,7 +120,7 @@ class MultiwayGraph:
     def get_leaves(self) -> list[MultiwayState]:
         """Return all leaf states (states with no children), using a lazy cache."""
         if self._leaves_cache is None:
-            self._leaves_cache = [s for s in self._states.values() if s.is_leaf]
+            self._leaves_cache = [s for s in self._states.values() if s.is_leaf and not s.consumed]
         return self._leaves_cache
 
     def get_simultaneous_states(self, state_id: str) -> list[MultiwayState]:
@@ -146,8 +147,13 @@ class MultiwayGraph:
             current = self._states.get(current.parent_id) if current.parent_id else None
         return None
 
-    def jaccard_distance(self, state_a_id: str, state_b_id: str) -> float:
-        """Compute the Jaccard distance between two states via their common ancestor."""
+    def tree_distance(self, state_a_id: str, state_b_id: str) -> float:
+        """Compute the tree path distance between two states via their common ancestor.
+
+        Returns the sum of edge hops from each state up to their nearest common
+        ancestor.  This is a topological distance over the DAG, not a set-overlap
+        (Jaccard) metric.
+        """
         if state_a_id == state_b_id:
             return 0.0
         ancestor_id = self.find_common_ancestor(state_a_id, state_b_id)
@@ -160,6 +166,13 @@ class MultiwayGraph:
     def get_state_relations(self) -> list[StateRelation]:
         """Return all recorded state relations between sibling states."""
         return list(self._state_relations)
+
+    def mark_consumed(self, state_id: str) -> None:
+        """Mark a state as consumed by a merge, excluding it from get_leaves()."""
+        state = self._states.get(state_id)
+        if state:
+            state.consumed = True
+            self._leaves_cache = None
 
     @property
     def state_count(self) -> int:
@@ -184,7 +197,7 @@ class MultiwayGraph:
         """Create state relations between a new state and its siblings."""
         siblings = self.get_siblings(new_state.id)
         for sibling in siblings:
-            distance = self.jaccard_distance(new_state.id, sibling.id)
+            distance = self.tree_distance(new_state.id, sibling.id)
             self._state_relations.append(
                 StateRelation(
                     state_a_id=new_state.id,
@@ -253,6 +266,7 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
         use_per_branch: bool = True,
+        max_matches_per_rule: int = 0,
     ) -> ExpansionReport:
         """Expand the multiway graph breadth-first from seed nodes.
 
@@ -269,6 +283,10 @@ class MultiwayEngine:
                 its own overlay inheriting from the parent, providing branch
                 isolation.  When False, falls back to the legacy shared-graph
                 behavior.
+            max_matches_per_rule: When > 0, each rule may contribute at most
+                this many matches per state expansion.  Use this to prevent a
+                single high-productivity rule from consuming the entire
+                *max_branches_per_state* budget.  0 (default) disables the cap.
 
         Returns:
             An ExpansionReport summarizing the expansion.
@@ -300,6 +318,7 @@ class MultiwayEngine:
                     overlay=overlay,
                     confidence_decay=confidence_decay,
                     use_per_branch=use_per_branch,
+                    max_matches_per_rule=max_matches_per_rule,
                 )
                 next_frontier.extend(new_states)
                 report.states_created += len(new_states)
@@ -512,7 +531,7 @@ class MultiwayEngine:
                         "rule_used": sibling.rule_applied,
                         "novel_in_source": list(new_in_current),
                         "novel_in_lateral": list(new_in_sibling),
-                        "jaccard_distance": self._multiway.jaccard_distance(state_id, sibling.id),
+                        "tree_distance": self._multiway.tree_distance(state_id, sibling.id),
                     }
                 )
         return insights
@@ -567,19 +586,25 @@ class MultiwayEngine:
         overlay: Any | None = None,
         confidence_decay: float = 0.9,
         use_per_branch: bool = True,
+        max_matches_per_rule: int = 0,
     ) -> list[str]:
         """Apply all matching rules to a state and create child states.
 
         Args:
             state: The multiway state to expand.
             rules: Candidate rules.
-            max_branches: Maximum number of matches to apply.
+            max_branches: Maximum total matches to apply across all rules.
             report: Report to accumulate statistics into.
             overlay: Legacy shared overlay (used when use_per_branch is False).
             confidence_decay: Multiplicative confidence decay factor.
             use_per_branch: When True, each child state gets its own overlay
                 inheriting from the parent state's overlay, providing branch
                 isolation.
+            max_matches_per_rule: When > 0, cap how many matches each rule may
+                contribute to a single state expansion.  This prevents a single
+                high-productivity rule (e.g. TransitiveRule on a dense label)
+                from consuming the entire *max_branches* budget and starving
+                other rules.  0 (default) disables the per-rule cap.
 
         Returns:
             List of newly created child state IDs.
@@ -592,8 +617,10 @@ class MultiwayEngine:
         all_matches: list[tuple[Rule, RuleMatch]] = []
         for rule in sorted_rules:
             matches = rule.find_matches(parent_view, state.active_node_ids)  # type: ignore[arg-type]
-            for match in matches:
+            for rule_count, match in enumerate(matches, start=1):
                 all_matches.append((rule, match))
+                if max_matches_per_rule > 0 and rule_count >= max_matches_per_rule:
+                    break
                 if len(all_matches) >= max_branches:
                     break
             if len(all_matches) >= max_branches:
@@ -613,7 +640,13 @@ class MultiwayEngine:
                 )
             else:
                 shared = overlay if overlay is not None else self._graph
+                # Re-check for edge existence against the live shared graph
+                # before applying, because a sibling match earlier in this loop
+                # may have already added the same edge (stale edge_set snapshot).
                 new_nodes, new_edges = rule.apply(shared, match)
+                if not new_nodes and not new_edges:
+                    # Rule determined the edge already exists; skip state creation
+                    continue
                 new_active = state.active_node_ids | frozenset(new_nodes)
                 child = MultiwayState(
                     parent_id=state.id,

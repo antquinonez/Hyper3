@@ -70,7 +70,7 @@ SECTION 2: Multi-Perspective Analysis
 ======================================================================
 SUMMARY
 ======================================================================
-  Infrastructure: 80 nodes, 303 edges
+  Infrastructure: 80 nodes, 226 edges
   Inferred edges across all perspectives: 120
 ```
 
@@ -310,7 +310,7 @@ Frame scores, invariant counts, invariant confidence, per-frame unique node coun
 |--------|-------|
 | Graph nodes | 80 |
 | Graph edges (initial) | 183 |
-| Graph edges (after reasoning) | 303 |
+| Graph edges (after reasoning) | 226 |
 | Inferred edges per frame | 30 |
 | Total inferred edges (4 frames) | 120 |
 | Seed concepts | 3 (`api_gateway`, `auth_service`, `payment_service`) |

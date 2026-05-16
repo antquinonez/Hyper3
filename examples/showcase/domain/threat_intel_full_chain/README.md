@@ -39,21 +39,21 @@ Initial graph:
 
 After reasoning:
 
-- +30 newly created edges in this reasoning pass
-- 39 total inferred-labeled edges present (including pre-existing overlap categories)
+- 11 newly created edges in this reasoning pass
+- 20 total inferred-labeled edges present (including pre-existing overlap categories)
 
 After evolution:
 
 - 56 nodes
-- 152 edges
+- 133 edges
 - stale IOCs pruned: 3
 - merged nodes: 14
 
 Belief sampling (1000 draws) typically tracks configured priors:
 
-- APT28 ~55%
-- APT29 ~21%
-- Lazarus ~14%
+- APT28 ~54%
+- APT29 ~20%
+- Lazarus ~16%
 - Volt_Typhoon ~10%
 
 Context-weighted sampling can push APT28 near ~80%+.
@@ -100,18 +100,18 @@ Typical centrality output from Section 6:
 
 ```
   Top 5 most connected threat actors:
-    1. APT28                  centrality=0.2414  exploits=2  targets=2  uses=3
-    2. Volt_Typhoon           centrality=0.2069  exploits=2  targets=2  uses=2
-    3. Sandworm               centrality=0.1379  exploits=2  targets=2  uses=1
-    4. Lazarus                centrality=0.1379  exploits=2  targets=2  uses=1
-    5. APT29                  centrality=0.1379  exploits=2  targets=1  uses=2
+    1. APT28                  centrality=0.3455  exploits=4  targets=3  uses=5
+    2. Volt_Typhoon           centrality=0.3091  exploits=4  targets=3  uses=3
+    3. FIN6                   centrality=0.2182  exploits=2  targets=3  uses=4
+    4. APT41                  centrality=0.2000  exploits=2  targets=4  uses=3
+    5. APT33                  centrality=0.2000  exploits=3  targets=3  uses=4
 
   Top 5 most connected CVEs:
-    1. CVE-2023-44228         centrality=0.4138  CVSS=10.0  product=Apache_Log4j2
-    2. CVE-2024-3400          centrality=0.2069  CVSS=10.0  product=PAN-OS
-    3. CVE-2023-20198         centrality=0.1034  CVSS=10.0  product=Cisco_IOS_XE_WebUI
-    4. CVE-2023-34362         centrality=0.0690  CVSS=9.8   product=MOVEit_Transfer
-    5. CVE-2023-22515         centrality=0.0690  CVSS=10.0  product=Atlassian_Confluence
+    1. CVE-2023-44228         centrality=0.3636  CVSS=10.0  product=Apache_Log4j2
+    2. CVE-2024-3400          centrality=0.1455  CVSS=10.0  product=PAN-OS
+    3. CVE-2023-22515         centrality=0.0545  CVSS=10.0  product=Atlassian_Confluence
+    4. CVE-2023-20198         centrality=0.0364  CVSS=10.0  product=Cisco_IOS_XE_WebUI
+    5. CVE-2023-34362         centrality=0.0364  CVSS=9.8   product=MOVEit_Transfer
 ```
 
 ## 5. Mermaid (representative)

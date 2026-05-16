@@ -2,10 +2,10 @@
 
 Demonstrates Hyper3's core multiway reasoning feature by building a cloud
 infrastructure graph (81 nodes, 203 edges across 3 regions) and running
-multiway expansion from a health check failure seed. Different inference
-rules produce genuinely divergent branches (infrastructure failure, network
-partition, configuration error) which are then compared via state clustering
-analysis and lateral insights.
+multiway expansion from a health check failure seed. Ten different inference
+rules produce genuinely divergent branches (dependency cascades, causal chains,
+inverse telemetry, abductive hypotheses) which are then compared via state
+clustering analysis and lateral insights.
 
 This is the flagship showcase example for Hyper3's multi-hypothesis reasoning.
 
@@ -360,6 +360,13 @@ def main():
     print("SECTION 2: Multiway Expansion from Failed Health Check")
     print("=" * 70)
 
+    # Ten rules across four categories: transitive closure (dependency chains,
+    # causal chains, impact chains, routing paths, symptom correlation),
+    # inverse edges (reverse telemetry, reverse dependency, reverse causality,
+    # reverse impact), and abductive hypothesis generation.
+    #
+    # max_matches_per_rule=3 prevents any single high-productivity rule from
+    # consuming the entire expansion budget, ensuring all rule types contribute.
     rules = [
         TransitiveRule(edge_label="depends_on", new_label="cascade_depends"),
         TransitiveRule(edge_label="causes", new_label="indirectly_causes"),
@@ -385,7 +392,8 @@ def main():
     result = mem.reason(
         seeds=seed,
         depth=3,
-        max_states=50,
+        max_states=200,
+        max_matches_per_rule=3,
     )
 
     exp = result.expansion
@@ -397,6 +405,20 @@ def main():
     print(f"  Branches (leaves): {exp.branches}")
     print()
 
+    # Show rule type diversity
+    mw_graph = mem.multiway.multiway
+    assert mw_graph is not None
+    leaves = mw_graph.get_leaves()
+    rule_counts: dict[str, int] = {}
+    for s in mw_graph.states:
+        if s.rule_applied:
+            base = s.rule_applied.split("+")[0].strip()
+            rule_counts[base] = rule_counts.get(base, 0) + 1
+    print("  Rule type distribution across states:")
+    for r, c in sorted(rule_counts.items(), key=lambda x: -x[1]):
+        print(f"    {r}: {c}")
+    print()
+
     # =====================================================================
     # SECTION 2B: Per-Branch Overlay Isolation
     # =====================================================================
@@ -405,33 +427,17 @@ def main():
     print("SECTION 2B: Per-Branch Overlay Isolation")
     print("=" * 70)
 
-    # -- Per-branch overlay isolation: each multiway state gets its own
-    # -- overlay inheriting from its parent, so branches cannot
-    # -- contaminate each other during expansion. After expansion,
-    # -- _collect_branch_overlays() merges and deduplicates into a
-    # -- single shared overlay before commit.
-    #
-    # This means:
-    #   1. Each branch independently accumulates inference edges
-    #   2. The same logical edge produced by multiple branches appears
-    #      only once after deduplication (by source/target/label)
-    #   3. Branches that chain through their own accumulated edges
-    #      discover more transitive paths than legacy shared-graph mode
-
-    assert mem.multiway is not None
-    mw_graph = mem.multiway.multiway
+    # Per-branch overlay isolation: each multiway state gets its own overlay
+    # inheriting from its parent. Branches accumulate inferred edges
+    # independently, then _collect_branch_overlays() deduplicates by
+    # (source, target, label) before committing to the base graph.
     states_with_overlay = [s for s in mw_graph.states if s.overlay is not None]
     states_without_overlay = [s for s in mw_graph.states if s.overlay is None]
-    print(f"  Total multiway states:        {len(mw_graph.states)}")
+    print(f"  Total multiway states:          {len(mw_graph.states)}")
     print(f"  States with per-branch overlay: {len(states_with_overlay)}")
     print(f"  Root/merged states (no overlay): {len(states_without_overlay)}")
 
-    # -- Each state.overlay is a HypergraphOverlay containing only the
-    # -- edges produced along that branch path (inherited from parents).
-    # -- Inspecting overlay._overlay_edges shows what that branch
-    # -- accumulated independently.
     print("\n  Per-branch overlay contents (top 6 leaves by edge count):")
-    leaves = mw_graph.get_leaves()
     overlay_leaves = [(s, len(s.overlay._overlay_edges)) for s in leaves if s.overlay]
     overlay_leaves.sort(key=lambda x: x[1], reverse=True)
 
@@ -450,8 +456,6 @@ def main():
                 tgt_labels.append(n.label if n else tid[:8])
             print(f"      {' '.join(src_labels)} -[{edge.label}]-> {' '.join(tgt_labels)}")
 
-    # -- Demonstrate deduplication: count unique (source, target, label)
-    # -- triples across ALL branch overlays vs total overlay edge count
     total_overlay_edges = sum(
         len(s.overlay._overlay_edges) for s in mw_graph.states if s.overlay
     )
@@ -467,11 +471,14 @@ def main():
     if total_overlay_edges > len(unique_triples):
         print(f"  Deduplication removed {total_overlay_edges - len(unique_triples)} duplicate logical edges")
     else:
-        print(f"  No deduplication needed (each logical edge unique)")
+        print(f"  All logical edges are unique across branches")
 
-    # -- Per-branch vs legacy comparison: on a small transitive chain,
-    # -- per-branch mode discovers more paths because each branch
-    # -- independently chains through its accumulated overlay edges.
+    # Compare per-branch vs legacy mode on a small 4-node chain.
+    # In legacy mode all branches write to the same shared graph, so edge
+    # existence checks suppress re-discovery once an edge is written.
+    # In per-branch mode each branch has its own overlay, so it can chain
+    # through edges its parent discovered without those edges being visible
+    # to sibling branches.
     from hyper3.kernel import Hypergraph as _Graph
     from hyper3.kernel_types import Hyperedge as _Edge, Hypernode as _Node
     from hyper3.multiway import MultiwayEngine as _MW
@@ -514,7 +521,8 @@ def main():
     print(f"  Per-branch overlays:    {_r_branch.states_created} states, {_r_branch.rules_applied} rules")
     if _r_branch.rules_applied > _r_legacy.rules_applied:
         print(f"  Per-branch produced {_r_branch.rules_applied - _r_legacy.rules_applied} more rule applications")
-        print(f"  because each branch independently chains through its own accumulated edges")
+        print(f"  because each branch independently chains through its own accumulated edges,")
+        print(f"  discovering paths that sibling branches would suppress in shared-graph mode.")
     print()
 
     # =====================================================================
@@ -536,7 +544,6 @@ def main():
         if node:
             symptom_ids.add(node.id)
 
-    # mw_graph and leaves already set in Section 2B
     print(f"  Total leaf states: {len(leaves)}")
 
     branch_scores: list[tuple[dict, float]] = []
@@ -547,18 +554,28 @@ def main():
 
     branch_scores.sort(key=lambda x: x[1], reverse=True)
 
-    print("\n  Top branches by symptom explanation power:")
-    for i, (summary, score) in enumerate(branch_scores[:10]):
-        print(f"\n  Branch {i+1}: score={score:.3f}  depth={summary['depth']}  rule={summary['rule']}")
+    # Show diversity: deduplicate by rule type so we show different hypotheses
+    shown_rules: set[str] = set()
+    print("\n  Top branches by symptom explanation power (one per rule type):")
+    displayed = 0
+    for summary, score in branch_scores:
+        base_rule = summary["rule"].split("+")[0].strip()
+        if base_rule in shown_rules:
+            continue
+        shown_rules.add(base_rule)
+        print(f"\n  Branch {displayed+1}: score={score:.3f}  depth={summary['depth']}  rule={summary['rule']}")
         print(f"    Active: {', '.join(summary['active_nodes'])}")
         if summary["produced_edges"]:
             print("    Inferred edges:")
             for pe in summary["produced_edges"]:
                 print(f"      {pe}")
+        displayed += 1
+        if displayed >= 8:
+            break
     print()
 
     # =====================================================================
-    # SECTION 4: State Clustering -- Similarity and Convergence
+    # SECTION 4: State Clustering Analysis
     # =====================================================================
 
     print("=" * 70)
@@ -578,27 +595,37 @@ def main():
         groups = mem.state_clustering.simultaneity_groups
         print(f"\n  Simultaneity groups: {len(groups)}")
         for i, group in enumerate(groups[:5]):
-            group_labels: list[str] = []
-            for sid in list(group.state_ids)[:4]:
+            group_rule_set: set[str] = set()
+            for sid in group.state_ids:
                 st = mw_graph.get_state(sid) if mw_graph else None
-                if st:
-                    rule = st.rule_applied or "root"
-                    group_labels.append(f"[{rule} d={st.depth}]")
-            print(f"    Group {i+1}: {len(group.state_ids)} states  {', '.join(group_labels)}")
+                if st and st.rule_applied:
+                    group_rule_set.add(st.rule_applied.split("+")[0].strip())
+            rule_summary = ", ".join(sorted(group_rule_set)[:3])
+            print(f"    Group {i+1}: {len(group.state_ids)} states  rules=[{rule_summary}]")
 
+        # Pairwise distances between leaves from DIFFERENT rule types.
+        # Distances are Euclidean distances between angular-spread tree
+        # coordinates: they reflect branching topology, not semantic similarity.
         coords = mem.state_clustering.coordinates
         if coords and len(leaves) >= 2:
-            print("\n  Pairwise state_clustering distances (top leaves):")
-            top_leaves = leaves[:6] if len(leaves) >= 6 else leaves
-            for i, la in enumerate(top_leaves):
-                for lb in top_leaves[i+1:]:
-                    ca = coords.get(la.id)
-                    cb = coords.get(lb.id)
-                    if ca and cb:
-                        dist = ca.distance_to(cb)
-                        ra = la.rule_applied or "root"
-                        rb = lb.rule_applied or "root"
-                        print(f"    [{ra} d={la.depth}] <-> [{rb} d={lb.depth}]: {dist:.3f}")
+            # Find leaves from different rule categories for a more informative comparison
+            typed_leaves: dict[str, object] = {}
+            for lf in leaves:
+                base = (lf.rule_applied or "root").split("+")[0].strip()
+                if base not in typed_leaves:
+                    typed_leaves[base] = lf
+            sample_leaves = list(typed_leaves.values())[:4]
+            if len(sample_leaves) >= 2:
+                print("\n  Cross-rule pairwise distances (tree topology, one leaf per rule type):")
+                for i, la in enumerate(sample_leaves):
+                    for lb in sample_leaves[i+1:]:
+                        ca = coords.get(la.id)  # type: ignore[union-attr]
+                        cb = coords.get(lb.id)  # type: ignore[union-attr]
+                        if ca and cb:
+                            dist = ca.distance_to(cb)
+                            ra = (la.rule_applied or "root").split("+")[0].strip()[:28]  # type: ignore[union-attr]
+                            rb = (lb.rule_applied or "root").split("+")[0].strip()[:28]  # type: ignore[union-attr]
+                            print(f"    [{ra}] <-> [{rb}]: {dist:.3f}")
     print()
 
     # =====================================================================
@@ -615,6 +642,8 @@ def main():
     print(f"  Causal invariants found: {invariants}")
     print(f"  States reduced via merge: {reduction}")
 
+    # Cross-rule convergence: branches from different rule types that
+    # independently arrive at overlapping target nodes.
     convergent_pairs: list[tuple[str, str, int]] = []
     if mw_graph:
         states = mw_graph.states
@@ -647,7 +676,7 @@ def main():
                 seen.add(key)
                 print(f"    {ra} <-> {rb}: {overlap} shared target nodes")
     else:
-        print("  No strong convergence detected across different rule paths")
+        print("  No strong cross-rule convergence detected")
     print()
 
     # =====================================================================
@@ -658,38 +687,58 @@ def main():
     print("SECTION 6: Lateral Insights Across Branches")
     print("=" * 70)
 
-    insight_seeds = ["failed-health-check", "db-primary-down", "network-partition", "bad-deploy"]
-    total_insights = 0
-    for concept in insight_seeds:
-        insights = mem.lateral_insights(concept)
-        total_insights += len(insights)
-        if insights:
-            print(f"\n  API lateral insights for '{concept}':")
-            for ins in insights[:3]:
-                lat_id = ins.get("lateral_state", "")
-                lat_state = mw_graph.get_state(lat_id) if mw_graph else None
-                rule = lat_state.rule_applied if lat_state else "unknown"
-                distance = ins.get("jaccard_distance", 0.0)
-                novel_lateral = ins.get("novel_in_lateral", [])
-                novel_labels = []
-                for nid in novel_lateral:
-                    node = mem.engine.graph.get_node(nid)
-                    if node:
-                        novel_labels.append(node.label)
-                print(f"    Branch [{rule}], distance={distance:.2f}")
-                if novel_labels:
-                    print(f"      Novel nodes: {', '.join(novel_labels[:5])}")
-        else:
-            print(f"  No API lateral insights for '{concept}'")
+    # The lateral_insights API works on nodes that appear in produced edges.
+    # AbductiveRule creates hypothesis nodes (e.g., "hypothesis:cache-stampede")
+    # as possible causes for observed effects. These are the natural entry
+    # points for lateral insights: each hypothesis node appears in exactly one
+    # abductive leaf, and lateral_inference compares that leaf to its
+    # simultaneity-group peers from different rule types.
+    g_base = mem.engine.graph
+    hyp_labels = sorted({n.label for n in g_base.nodes if n.label.startswith("hypothesis:")})
 
+    total_insights = 0
+    if hyp_labels:
+        print(f"  Hypothesis nodes created by AbductiveRule: {len(hyp_labels)}")
+        print(f"  Samples: {', '.join(hyp_labels[:5])}")
+        print()
+        for hyp_label in hyp_labels[:4]:
+            insights = mem.lateral_insights(hyp_label)
+            total_insights += len(insights)
+            if insights:
+                print(f"  Lateral insights for '{hyp_label}': {len(insights)} peer comparisons")
+                # Show the first insight that has novel content on either side
+                for ins in insights[:3]:
+                    novel_source = ins.get("novel_in_source", [])
+                    novel_lateral = ins.get("novel_in_lateral", [])
+                    lat_id = ins.get("lateral_state", "")
+                    lat_state = mw_graph.get_state(lat_id) if mw_graph else None
+                    peer_rule = lat_state.rule_applied if lat_state else "unknown"
+                    if novel_source or novel_lateral:
+                        print(f"    Peer rule: {peer_rule}")
+                        if novel_source:
+                            print(f"      Novel in this branch: {', '.join(str(x) for x in novel_source[:3])}")
+                        if novel_lateral:
+                            print(f"      Novel in peer: {', '.join(str(x) for x in novel_lateral[:3])}")
+                        break
+            else:
+                print(f"  No lateral insights for '{hyp_label}'")
+    else:
+        print("  No hypothesis nodes found (AbductiveRule did not fire at this budget)")
+
+    # Manual lateral comparison: find groups with diverse rule types and
+    # compare the inference edges produced by each state.
     print("\n  Manual lateral comparison across simultaneity groups:")
     if mem.state_clustering and mw_graph:
-        for gi, group in enumerate(mem.state_clustering.simultaneity_groups[:4]):
+        for gi, group in enumerate(mem.state_clustering.simultaneity_groups[:5]):
             group_states = [mw_graph.get_state(sid) for sid in group.state_ids]
             group_states = [s for s in group_states if s is not None]
             if len(group_states) < 2:
                 continue
-            print(f"\n    Group {gi+1} ({len(group_states)} states):")
+            # Only show groups with genuinely different rule types
+            group_rules = {s.rule_applied for s in group_states if s.rule_applied}
+            if len(group_rules) < 2:
+                continue
+            print(f"\n    Group {gi+1} ({len(group_states)} states, {len(group_rules)} rule types):")
             edge_label_sets: list[tuple[str, set[str]]] = []
             node_label_sets: list[tuple[str, set[str]]] = []
             for s in group_states:
@@ -724,7 +773,7 @@ def main():
                     if novel_a or novel_b:
                         print(f"      [{rule_a[:30]}] vs [{rule_b[:30]}]:")
                         if novel_a:
-                            print(f"        Unique to first: {', '.join(list(novel_a)[:2])}")
+                            print(f"        Unique to first:  {', '.join(list(novel_a)[:2])}")
                         if novel_b:
                             print(f"        Unique to second: {', '.join(list(novel_b)[:2])}")
                         total_insights += 1
@@ -754,17 +803,11 @@ def main():
     if branch_scores:
         best = branch_scores[0]
         print(f"  Best explanation branch: rule={best[0]['rule']}, score={best[1]:.3f}")
+    print(f"  Distinct rule types fired: {len(rule_counts)}")
     print(f"  Convergent branch pairs found: {len(convergent_pairs)}")
     print(f"  Causal invariants merged: {ci.reduction if ci else 0}")
+    print(f"  Hypothesis nodes created: {len(hyp_labels)}")
     print(f"  Lateral insights discovered: {total_insights}")
-    print()
-    print("  Key finding: at max_states=50, only TransitiveRule(depends_on)")
-    print("  fires -- the graph has ~70 depends_on edges that fill the state")
-    print("  cap before other rules get a chance. Per-branch overlay isolation")
-    print("  causes each branch to independently discover dependency chains,")
-    print("  and deduplication collapses 90 overlay edges to 11 unique.")
-    print("  Increasing max_states to 200+ would allow diverse rule types to") 
-    print("  contribute, producing genuinely different hypothesis branches.")
     print()
 
 

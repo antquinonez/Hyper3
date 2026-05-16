@@ -213,8 +213,27 @@ class StateClusteringEngine:
         return metrics
 
     def _structural_distance(self, a_id: str, b_id: str) -> float:
-        """Return the state distance from the multiway graph."""
-        return self._multiway.jaccard_distance(a_id, b_id)
+        """Compute structural distance as Jaccard distance over produced-edge sets.
+
+        Two states that produced the same inferred edges are structurally
+        identical (distance 0).  Completely disjoint produced-edge sets give
+        distance 1.  Falls back to normalised tree-path distance when both
+        states produced no edges.
+        """
+        state_a = self._multiway.get_state(a_id)
+        state_b = self._multiway.get_state(b_id)
+        if not state_a or not state_b:
+            return float("inf")
+        edges_a = frozenset(state_a.produced_edge_ids)
+        edges_b = frozenset(state_b.produced_edge_ids)
+        if not edges_a and not edges_b:
+            # Fall back to normalised tree distance (bounded to [0, 1])
+            raw = self._multiway.tree_distance(a_id, b_id)
+            max_depth = max(state_a.depth, state_b.depth, 1)
+            return min(raw / (2.0 * max_depth), 1.0)
+        union = edges_a | edges_b
+        intersection = edges_a & edges_b
+        return 1.0 - len(intersection) / len(union)
 
     def _conceptual_distance(self, a_id: str, b_id: str) -> float:
         """Compute conceptual distance via embedding cosine or label Jaccard."""

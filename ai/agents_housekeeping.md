@@ -37,7 +37,7 @@ After making substantive changes (new features, bug fixes, API changes), perform
 Run this sequence after substantive changes. All gates must pass:
 
 ```bash
-# 1. Test suite (3734 tests, must all pass)
+# 1. Test suite (4434 tests, must all pass)
 .venv/bin/python -m pytest tests/ -q --tb=short
 
 # 2. Type checking (0 errors)
@@ -92,12 +92,12 @@ apply_docstrings({
 **When to use**: After adding new classes or methods, run this to bulk-add docstrings rather than editing each file individually. Classes that already have docstrings and `__init__` methods are intentionally skipped.
 
 Current project metrics (update after changes):
-- **Tests**: 3734
-- **Test files**: 68 (one per source module + integration)
+- **Tests**: 4434
+- **Test files**: 92
 - **Coverage**: 98%
 - **Pyright**: 0 errors
 - **Ruff**: 0 errors
-- **Examples**: 68 showcase + 5 project pipelines + 53 comparison = 126 total
+- **Examples**: 69 showcase + 5 project pipelines + 53 comparison = 127 total
 - **Equiv battery**: 871 pass / 17 diverge / 0 fail / 24 gap / 1 skip (24 suites, HGX + XGI + NX)
 - **Benchmarks**: 15 (10 original + 5 new: bayesian, backward_chain, community, belief_distributions, multi_frame)
 
