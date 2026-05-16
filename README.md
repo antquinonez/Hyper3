@@ -8,7 +8,7 @@ Pre-release. Public APIs -- class names, method signatures, and exported symbols
 
 | Gate | Result |
 |------|--------|
-| Tests | 4182 across 85 test files |
+| Tests | 4434 across 92 test files |
 | Type checking (pyright) | 0 errors |
 | Linting (ruff) | 0 errors |
 | Coverage | 98% |
