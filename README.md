@@ -12,8 +12,8 @@ Pre-release. Public APIs -- class names, method signatures, and exported symbols
 | Type checking (pyright) | 0 errors |
 | Linting (ruff) | 0 errors |
 | Coverage | 98% |
-| Modules | 112 source files |
-| Equivalence tests | 913 tests against HypergraphX, XGI, NetworkX (0 failures, 54 documented gaps) |
+| Modules | 111 source files |
+| Equivalence tests | 912 tests against HypergraphX, XGI, NetworkX (0 failures, 24 documented gaps) |
 
 Dependencies: numpy, scipy, networkx. No network calls, no database, no external services. Optional: `matplotlib` (visualization), `faiss-cpu` (fast similarity search).
 
@@ -33,6 +33,7 @@ src/hyper3/
     equivalence.py         EquivalenceEngine (data + structural similarity)
     cache.py               LazyCache (LRU with TTL, Markov prefetch)
     traversal.py           TraversalEngine, SliceConfig, ObserverSlice
+    traversal_selector.py  TraversalSelector (adaptive traversal strategy selection)
     evolution.py           GraphMaintenanceEngine, EvolutionMetrics
 
   Belief & Bayesian
@@ -45,9 +46,12 @@ src/hyper3/
     rules.py               Rule ABC + TransitiveRule, InverseRule, GeneralizationRule,
                             AbductiveRule, PropertyPropagationRule, StructuralProjectionRule,
                             HubInferenceRule, ContextualSubstitutionRule
-    rules_discovery.py     RuleDiscoveryEngine (automatic pattern detection)
-    rules_complexity.py    ComplexityComparisonRule (cross-frame complexity comparison)
+    rules_analogy.py       AnalogyRule (structural analogy inference)
     rules_causal_sequence.py CausalSequenceRule (temporal gap-weighted causal chains)
+    rules_complexity.py    ComplexityComparisonRule (cross-frame complexity comparison)
+    rules_decomposition.py DecompositionRule (edge decomposition inference)
+    rules_discovery.py     RuleDiscoveryEngine (automatic pattern detection)
+    rules_inductive.py     InductiveRule (inductive generalization)
     rules_simultaneity.py  SimultaneityRule (multiway co-occurrence detection)
 
   Multiway Subsystem
@@ -61,8 +65,11 @@ src/hyper3/
     hebbian.py             HebbianLearner (co-activation edge strengthening)
     uncertainty.py         UncertaintyEngine (confidence propagation through inference chains)
     structural_match.py    StructuralPatternEngine (subgraph pattern matching)
+    structural_impact.py   StructuralImpactAnalyzer (change impact assessment)
     belief_revision.py     ContradictionResolver (negation maps, resolution strategies)
     abstraction.py         AbstractionNavigator (collapse/expand subgraph hierarchies)
+    auto_abstraction.py    AutoAbstractionEngine (automatic hierarchy detection)
+    causal_learner.py      CausalLearner (causal structure learning from observations)
     community.py           CommunityDetector (label propagation, connected components)
     graph_diff.py          GraphDiffer (versioned snapshots, diff, rollback)
 
@@ -71,10 +78,16 @@ src/hyper3/
     multi_perspective.py   MultiPerspectiveAnalyzer (multi-frame analysis, Thompson sampling)
     system_monitor.py      SystemMonitor (introspection, metamorphosis triggers)
     feedback.py            OperationFeedback (cross-operation outcome tracking)
+    evolution_feedback.py  EvolutionFeedback (fitness-trend-driven evolution)
     invariant_detector.py  InvariantDetector (cross-frame property invariants)
     boundary_reasoning.py  BoundaryReasoningEngine (decidability zone classification)
     transcendental.py      TranscendentalInferenceEngine (cross-domain insight transfer)
     interference_reasoning.py InterferenceReasoningEngine (constructive/destructive belief interference)
+    consistency.py         ConsistencyChecker (cross-frame consistency validation)
+    efficiency.py          EfficiencyTracker (algorithm and operation efficiency metrics)
+    recency.py             RecencyScorer (time-decayed relevance scoring)
+    modality_fusion.py     ModalityFusionEngine (cross-modality evidence fusion)
+    context_compression.py ContextCompressor (context window optimization)
 
   Namespaces (fluent sub-APIs)
     namespaces.py          ReasonNamespace, BeliefNamespace, BayesNamespace,
@@ -195,6 +208,38 @@ for e in mem.graph.edges:
 # Output:   Paris --[inferred]--> Europe
 ```
 
+### N-ary Directed Hyperedges
+
+Edges can connect multiple source nodes to multiple target nodes in a single relationship, preserving collective semantics that pairwise edges cannot represent.
+
+```python
+mem.add("alice")
+mem.add("bob")
+mem.add("carol")
+mem.add("project_x")
+
+mem.link_hyper(
+    sources={"alice", "bob", "carol"},
+    targets={"project_x"},
+    label="joint_project",
+    weight=10.0,
+)
+mem.link("alice", "bob", label="collaborates")
+
+n_ary = mem.query_hyperedges(min_source_cardinality=2)
+print(f"True n-ary edges: {len(n_ary)}")
+# Output: True n-ary edges: 1
+
+neighbors = mem.hyperedge_neighbors("alice")
+for neighbor, shared in sorted(neighbors.items()):
+    print(f"  {neighbor}: {len(shared)} shared edge(s)")
+# Output:   bob: 1 shared edge(s)
+# Output:   carol: 1 shared edge(s)
+# Output:   project_x: 1 shared edge(s)
+```
+
+All algorithms (centrality, shortest path, communities, PageRank) operate on mixed pairwise and n-ary edges transparently. See [Core Concepts](docs/guide/03-core-concepts.md) for details.
+
 ### Belief Distributions
 
 Ambiguous concepts are represented as superpositions of outcomes with complex amplitudes. Sampling collapses to a single outcome via the Born rule (probability = |amplitude|^2). Correlations link outcomes across different distributions.
@@ -278,8 +323,8 @@ mem.link("caffeine", "energy", label="causes")
 results = mem.search.activate("coffee", top_k=5)
 for r in results:
     print(f"  {r.label}: {r.energy:.3f}")
-# Output:   caffeine: 0.857
 # Output:   morning: 0.857
+# Output:   caffeine: 0.857
 # Output:   energy: 0.484
 # Output:   sunrise: 0.484
 ```
@@ -720,6 +765,8 @@ See `examples/README.md` for the full index of 54 examples across six topical gr
 
 ## Documentation
 
+User guide: [`docs/guide/`](docs/guide/index.md) -- 12 chapters covering core concepts, n-ary hyperedges, retrieval, reasoning, belief, analytics, temporal reasoning, self-evolution, and troubleshooting.
+
 ```bash
 .venv/bin/pip install -e ".[docs]"                                    # Install Sphinx + theme
 .venv/bin/python scripts/generate_api_docs.py                         # AI-consumable Markdown (docs/api/)
@@ -762,7 +809,7 @@ Regenerate all outputs with the `/update-docs` command.
 .venv/bin/python benchmarks/equiv/run_equiv.py 03 06 12       # Specific suites
 ```
 
-15 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 24 equivalence test suites (913 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, clustering, DAG/tree algorithms, flow/matching, coloring, and basic metrics. 54 documented gaps serve as a prioritized feature backlog.
+15 performance benchmarks measuring retrieval quality, inference completeness, temporal accuracy, and scalability. 24 equivalence test suites (912 tests) proving numerical parity with HypergraphX, XGI, and NetworkX on construction, metrics, centrality, components, paths, matrices, spectral methods, community detection, transforms, directed hypergraphs, generative models, clustering, DAG/tree algorithms, flow/matching, coloring, and basic metrics. 24 documented gaps serve as a prioritized feature backlog.
 
 ## Performance
 
